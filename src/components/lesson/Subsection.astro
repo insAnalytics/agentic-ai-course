@@ -1,0 +1,55 @@
+---
+interface Props {
+  title: string;
+  /** Alternate "a"/"b" between consecutive subsections in a concept section for visual separation. */
+  variant?: "a" | "b";
+}
+
+const { title, variant = "a" } = Astro.props;
+
+// Deterministic slug so other pages can deep-link to this subsection
+// (`/module/lesson/page/#slug`) — every concept becomes individually
+// linkable without hand-maintained anchor names.
+const slug = title
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, "-")
+  .replace(/^-+|-+$/g, "");
+---
+
+<div id={slug} class={`subsection subsection-${variant}`}>
+  <h3>{title}</h3>
+  <slot />
+</div>
+
+<style>
+  .subsection {
+    /* no vertical margin — adjacent subsections must butt directly against each
+       other so their backgrounds touch with no white seam between them; margins
+       here would collapse to the larger side and leave a gap (as CheckpointZone
+       did before this fix). Padding alone provides the breathing room. */
+    padding: 1.5rem var(--lesson-padding-x, 3rem);
+    margin: 0 calc(-1 * var(--lesson-padding-x, 3rem));
+    /* keep a deep-linked subsection from landing flush against the viewport edge */
+    scroll-margin-top: 1.5rem;
+  }
+  .subsection-b {
+    background: var(--color-bg-alt);
+  }
+  .subsection :global(h3) {
+    margin-top: 0;
+  }
+  /* on the grey band, invert the heading to white so it still stands out */
+  .subsection-b :global(h3) {
+    background: var(--color-bg);
+  }
+  /* the default inline-code chip (light grey) barely shows up against this
+     band's own grey — invert it to white so it still pops */
+  .subsection-b :global(p code),
+  .subsection-b :global(li code) {
+    background: var(--color-bg);
+  }
+  .subsection :global(p:last-child),
+  .subsection :global(pre:last-child) {
+    margin-bottom: 0;
+  }
+</style>

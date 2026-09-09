@@ -1,0 +1,106 @@
+---
+title: "Sets"
+lesson: "02-data-structures"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="If you're coming from another language" variant="a">
+
+A Python `set` is the equivalent of Java's `HashSet` or C#'s `HashSet<T>` —
+an unordered collection with no duplicates. Literal syntax uses curly
+braces, like a dict, but with just values instead of key-value pairs:
+
+<LiveDemo client:load code={`seen_tools = {"calculator", "search", "calculator", "memory"}
+print(seen_tools)`} />
+
+The duplicate `"calculator"` collapses automatically; a set can never
+contain the same value twice. Note also there's no guaranteed order — don't
+rely on a set printing or iterating in the order you added items.
+
+</Subsection>
+
+<Subsection title="Why use a set: fast membership checks and deduplication" variant="b">
+
+Two things a set is genuinely good for:
+
+<LiveDemo client:load code={`available_tools = {"calculator", "search", "memory", "planner"}
+
+print("search" in available_tools)      # membership check
+print("weather" in available_tools)`} />
+
+This `in` check works on a list too
+([as you saw earlier](/00-python-fundamentals/01-python-setup/02-control-flow-and-syntax/)), but on
+a set it's effectively instant regardless of size, where a list has to
+check items one by one. If you're just checking "does this exist," a set is
+the right tool once the collection gets large.
+
+<LiveDemo client:load code={`requested = ["search", "calculator", "search", "memory", "calculator"]
+unique_requested = set(requested)
+print(unique_requested)`} />
+
+Converting a list to a `set()` is the standard way to deduplicate it.
+
+</Subsection>
+
+<Subsection title="Basic set operations" variant="a">
+
+<LiveDemo client:load code={`available = {"calculator", "search", "memory"}
+requested = {"search", "planner"}
+
+print(available & requested)     # intersection — in both
+print(available | requested)     # union — in either
+print(available - requested)     # difference — in available, not requested`} />
+
+A common use in agent code: `requested & available` tells you exactly which
+requested tools actually exist.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: 'What happens to duplicate values in a set literal like {"a", "b", "a"}?',
+      options: [
+        "An error is raised",
+        "Duplicates are silently collapsed — the set only keeps one of each value",
+        "They're kept, sets allow duplicates",
+        "Only the last duplicate is kept, others are dropped with a warning",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A set's defining property is no duplicates — adding an existing value has no effect.",
+    },
+    {
+      question: "Why prefer a set over a list for a large collection you only need to check membership in?",
+      options: [
+        "Sets use less memory in all cases",
+        "in on a set is effectively instant regardless of size, while a list checks items one by one",
+        "Lists don't support the in operator at all",
+        "There's no real difference",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Set membership checks don't scale with size the way a list's linear scan does — this matters once collections get large.",
+    },
+    {
+      question: "What does available & requested compute?",
+      options: ["Everything in either set", "Everything in both sets — the intersection", "Everything in available only", "A syntax error"],
+      correctIndex: 1,
+      explanation: "& is set intersection — only values present in both sets.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+{/* No applied sandbox exercise for this concept — intentional (per mockup):
+    sets are lower-value for this course's agent-building focus than
+    lists/dicts/tuples. The comprehensive exercise at the end of the lesson
+    can still draw on sets if relevant. */}

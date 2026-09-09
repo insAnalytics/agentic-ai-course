@@ -1,0 +1,359 @@
+---
+title: "Inheritance"
+lesson: "04-classes-and-objects"
+order: 5
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Basic syntax, compared to what you know" variant="a">
+
+Inheritance lets one class build on another — same core idea as Java's
+`extends`, C++'s `: public Base`, or JS's `extends`, with Python's own
+spelling:
+
+<LiveDemo client:load code={`class Tool:
+    def __init__(self, name: str):
+        self.name = name
+
+    def run(self, input_text: str) -> str:
+        return f"{self.name} has no behavior defined"
+
+class SearchTool(Tool):
+    pass
+
+search = SearchTool("search")
+print(search.name)
+print(search.run("weather"))`} />
+
+`SearchTool(Tool)` — the parent class goes in parentheses after the class
+name. `SearchTool` doesn't define anything of its own yet, so it inherits
+`__init__` and `run` from `Tool` entirely unchanged; `pass` is just a
+placeholder body since a class can't be empty. `Tool` is the **base class**
+(or **superclass**/**parent class**); `SearchTool` is the **subclass** (or
+**derived class**/**child class**).
+
+</Subsection>
+
+<Subsection title="super().__init__() — extending the parent constructor, not replacing it" variant="b">
+
+A subclass usually needs its own extra data on top of what the parent
+already sets up. Redefining `__init__` from scratch would mean duplicating
+everything the parent already does:
+
+```python
+class SearchTool(Tool):
+    def __init__(self, name: str, max_results: int):
+        self.name = name              # duplicating what Tool.__init__ already does
+        self.max_results = max_results
+```
+*(not run live — illustrating the problem, not a working example)*
+
+`super()` gives you a reference to the parent class, so you can call its
+`__init__` directly instead of repeating its logic:
+
+<LiveDemo client:load code={`class Tool:
+    def __init__(self, name: str):
+        self.name = name
+
+class SearchTool(Tool):
+    def __init__(self, name: str, max_results: int):
+        super().__init__(name)        # runs Tool's __init__ for the shared part
+        self.max_results = max_results
+
+search = SearchTool("search", max_results=5)
+print(search.name)
+print(search.max_results)`} />
+
+`super().__init__(name)` calls `Tool.__init__` on the current instance,
+handling `self.name = name` exactly as it did before. `SearchTool.__init__`
+then only has to deal with what's actually new — `max_results` — instead
+of re-implementing what the parent already handles.
+
+</Subsection>
+
+<Subsection title="Overriding methods — and extending vs. replacing" variant="a">
+
+A subclass can redefine a method it inherited, replacing the parent's
+version entirely for that subclass:
+
+<LiveDemo client:load code={`class Tool:
+    def __init__(self, name: str):
+        self.name = name
+
+    def run(self, input_text: str) -> str:
+        return f"{self.name} has no behavior defined"
+
+class SearchTool(Tool):
+    def __init__(self, name: str, max_results: int):
+        super().__init__(name)
+        self.max_results = max_results
+
+    def run(self, input_text: str) -> str:
+        return f"searching '{input_text}', top {self.max_results} results"
+
+class CalculatorTool(Tool):
+    def run(self, input_text: str) -> str:
+        return f"calculating: {input_text}"
+
+tools = [SearchTool("search", max_results=3), CalculatorTool("calculator")]
+
+for tool in tools:
+    print(tool.run("2 + 2"))`} />
+
+Each subclass's own `run` is what actually executes, even though the loop
+just calls `tool.run(...)` the same way for every item — Python looks up
+the method on the *specific* object's actual class first, not the
+variable's declared type (there isn't one, per Lesson 1's dynamic typing).
+`CalculatorTool` didn't override `__init__` at all, so it still uses
+`Tool`'s directly — overriding is per-method, not all-or-nothing for the
+whole class.
+
+Sometimes you want to *extend* a parent method rather than fully replace
+it — run the parent's version, then add more on top. `super()` works for
+any method, not just `__init__`:
+
+<LiveDemo client:load code={`class Tool:
+    def __init__(self, name: str):
+        self.name = name
+
+    def run(self, input_text: str) -> str:
+        return f"{self.name} has no behavior defined"
+
+class SearchTool(Tool):
+    def run(self, input_text: str) -> str:
+        base_result = super().run(input_text)   # parent's version first
+        return f"[SEARCH] {base_result}"
+
+search = SearchTool("search")
+print(search.run("weather"))`} />
+
+</Subsection>
+
+<Subsection title="isinstance() and the is-a relationship" variant="b">
+
+Inheritance means a `SearchTool` genuinely *is a* `Tool`, not just a class
+that happens to share some methods — `isinstance()` checks this
+relationship directly, and it recognizes the whole hierarchy, not just the
+exact class:
+
+<LiveDemo client:load code={`class Tool:
+    def __init__(self, name: str):
+        self.name = name
+
+class SearchTool(Tool):
+    def __init__(self, name: str, max_results: int):
+        super().__init__(name)
+        self.max_results = max_results
+
+search = SearchTool("search", max_results=3)
+
+print(isinstance(search, SearchTool))
+print(isinstance(search, Tool))         # True — a SearchTool is-a Tool
+print(type(search) == Tool)             # False — type() only matches exactly`} />
+
+This distinction matters in practice: code that expects "any `Tool`"
+should check with `isinstance(x, Tool)`, which correctly accepts
+`SearchTool`, `CalculatorTool`, or any other subclass — `type(x) == Tool`
+would incorrectly reject all of them, since none of them are *exactly*
+`Tool`. This is also exactly why the loop two sections back worked without
+checking each item's specific class first: every item in `tools` is-a
+`Tool`, so treating them uniformly and letting each one's own `run`
+execute is safe by design — this is called **polymorphism**, and it's the
+same mechanism
+[tool-calling frameworks](/00-python-fundamentals/03-functions/01-function-fundamentals/#docstrings)
+rely on to dispatch a call to whichever specific tool matches, without
+needing a different code path per tool type.
+
+</Subsection>
+
+<Subsection title="When inheritance is the right call — and when it isn't" variant="a">
+
+Inheritance fits when the relationship is genuinely "is-a": a
+`SearchTool` is-a `Tool`, a `SavingsAccount` is-an `Account`. It's the
+wrong tool when the relationship is really "has-a" or "uses-a" — forcing
+that into inheritance tends to produce a subclass that only wants one or
+two of its parent's methods and awkwardly ignores or breaks the rest.
+
+Recall
+[the closure-vs-class comparison from earlier](/00-python-fundamentals/03-functions/03-scope/#how-this-relates-to-object-oriented-code):
+a closure was a lightweight alternative to a class, for a single piece of
+remembered state and one operation. Inheritance sits at the opposite end
+of that same spectrum — reach for it specifically when you have a real
+hierarchy of related types that should share behavior and be substitutable
+for each other (like the `tools` list above), not merely because two
+classes happen to have a few similarly-named methods.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "In class SearchTool(Tool):, what does putting Tool in parentheses do?",
+      options: [
+        "Nothing, it's just documentation",
+        "Makes SearchTool inherit from Tool — Tool becomes its parent class",
+        "Calls Tool's constructor immediately",
+        "Makes Tool a class variable on SearchTool",
+      ],
+      correctIndex: 1,
+      explanation:
+        "This is Python's inheritance syntax — the parent class goes in parentheses after the subclass name, same role as Java's extends.",
+    },
+    {
+      question:
+        "Why use super().__init__(name) instead of rewriting self.name = name directly in the subclass's __init__?",
+      options: [
+        "self.name = name would raise an error in a subclass",
+        "It reuses the parent's existing setup logic instead of duplicating it — the subclass only needs to handle what's actually new",
+        "super() is required syntax for every subclass, regardless of need",
+        "It makes self.name a class variable instead of an instance attribute",
+      ],
+      correctIndex: 1,
+      explanation:
+        "super().__init__(...) calls the parent's constructor on the current instance, avoiding repeated logic between parent and child.",
+    },
+    {
+      question:
+        "Given CalculatorTool(Tool) defines its own run() but no __init__, what happens when you create CalculatorTool(\"calculator\")?",
+      options: [
+        "It fails, since __init__ must always be redefined",
+        "It uses Tool's __init__ unchanged — overriding is per-method, not all-or-nothing",
+        "It uses a blank __init__ that sets nothing",
+        "Python auto-generates a new __init__ based on run's parameters",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A subclass only overrides the specific methods it redefines — anything it doesn't redefine, like __init__ here, is inherited from the parent as-is.",
+    },
+    {
+      question: "In super().run(input_text) called from inside an overriding run() method, what's happening?",
+      options: [
+        "Infinite recursion, since run calls itself",
+        "The parent class's version of run executes, letting the subclass extend it rather than fully replace it",
+        "SyntaxError — super() only works inside __init__",
+        "It calls the subclass's own run a second time",
+      ],
+      correctIndex: 1,
+      explanation:
+        "super() works for any method, not just __init__ — it lets a subclass build on the parent's version instead of only being able to replace it outright.",
+    },
+    {
+      question:
+        "Given search = SearchTool(\"search\", 3) where SearchTool inherits from Tool, what does isinstance(search, Tool) return, and why?",
+      options: [
+        "False — search isn't literally a Tool instance",
+        "True — inheritance means a SearchTool genuinely is-a Tool, and isinstance() recognizes the whole hierarchy",
+        "True, but only if Tool.__init__ was called",
+        "It raises a TypeError since Tool is never instantiated directly",
+      ],
+      correctIndex: 1,
+      explanation:
+        "isinstance() checks the full inheritance chain, not just the exact class — this is what makes it the right choice over type(x) == Tool, which would incorrectly reject every subclass.",
+    },
+    {
+      question:
+        "A list contains a mix of SearchTool and CalculatorTool instances. Calling tool.run(...) in a loop, without checking each item's specific type first, still runs the correct version for each one. What's this mechanism called, and why does it work?",
+      options: [
+        "Coincidence — Python just picks a version at random",
+        "Polymorphism — Python looks up the method on each object's actual class at call time, not the loop variable's declared type",
+        "It only works because both classes happen to have identical method names",
+        "It requires manually checking isinstance() inside the loop first",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Because every item is-a Tool and each overrides run in its own way, calling tool.run(...) uniformly dispatches to the correct subclass's version automatically — no per-type branching needed.",
+    },
+    {
+      question: "When is inheritance the wrong tool, according to the is-a vs. has-a distinction?",
+      options: [
+        "Whenever two classes share any method name at all",
+        "When the relationship is really \"has-a\" or \"uses-a\" rather than a genuine \"is-a\" — forcing it into inheritance tends to produce an awkward subclass",
+        "Inheritance is always preferable to any alternative",
+        "Only when the parent class has more than one method",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Inheritance fits a real type hierarchy where subclasses should be substitutable for the parent — forcing a \"has-a\" relationship into it usually produces a subclass that ignores or breaks most of what it inherited.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={`Implement Tool with __init__, run, and __repr__ as described. Then implement SearchTool inheriting from Tool, calling super().__init__() to handle name, adding its own max_results, and overriding run() — but leaving __repr__ inherited, unchanged, from Tool.`}
+  starterCode={`class Tool:
+    """
+    Base class.
+    __init__(self, name: str): store name as an instance attribute.
+    run(self, input_text: str) -> str: return f"{self.name}: not implemented"
+    __repr__(self): return f"Tool({self.name!r})"
+    """
+    # TODO: implement Tool fully
+    pass
+
+
+class SearchTool(Tool):
+    """
+    __init__(self, name: str, max_results: int):
+      - call the parent's __init__ using super()
+      - store max_results as its own instance attribute
+
+    run(self, input_text: str) -> str:
+      - override to return: f"searching '{input_text}', top {self.max_results} results"
+
+    (no need to override __repr__ — it should inherit Tool's version unchanged)
+    """
+    # TODO: implement SearchTool fully
+    pass`}
+  hiddenTests={[
+    `base = Tool("generic")
+assert base.run("anything") == "generic: not implemented"
+assert repr(base) == "Tool('generic')"`,
+    `search = SearchTool("search", max_results=5)
+assert search.name == "search"
+assert search.max_results == 5
+assert search.run("weather") == "searching 'weather', top 5 results"
+assert repr(search) == "Tool('search')"`,
+    `base = Tool("generic")
+search = SearchTool("search", max_results=5)
+assert isinstance(search, Tool)
+assert isinstance(search, SearchTool)
+assert not isinstance(base, SearchTool)`,
+  ]}
+  hint={"SearchTool.__init__ should start with super().__init__(name) to reuse Tool's setup, then add self.max_results = max_results on its own line. Don't define __repr__ in SearchTool at all — leaving it undefined is exactly what makes it inherit Tool's version, which is what the last repr test checks for."}
+  correctAnswer={{
+    code: `class Tool:
+    def __init__(self, name: str):
+        self.name = name
+
+    def run(self, input_text: str) -> str:
+        return f"{self.name}: not implemented"
+
+    def __repr__(self):
+        return f"Tool({self.name!r})"
+
+
+class SearchTool(Tool):
+    def __init__(self, name: str, max_results: int):
+        super().__init__(name)
+        self.max_results = max_results
+
+    def run(self, input_text: str) -> str:
+        return f"searching '{input_text}', top {self.max_results} results"`,
+    explanation:
+      "This is the natural closing exercise for the lesson: super().__init__() reuses the parent's setup, run() is overridden to specialize behavior, and __repr__ is deliberately not overridden — proving that inheritance gives you the parent's dunder methods for free unless you explicitly choose to replace them, tying together class fundamentals, dunders, and inheritance from across this entire lesson.",
+  }}
+/>
+
+</CheckpointZone>

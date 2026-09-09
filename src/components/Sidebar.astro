@@ -1,0 +1,158 @@
+---
+import { getCollection } from "astro:content";
+
+const modules = (await getCollection("modules")).sort((a, b) => a.data.order - b.data.order);
+const lessons = await getCollection("lessons");
+const pages = await getCollection("pages");
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+const nav = modules.map((mod) => {
+  const moduleSlug = mod.id.replace(/\/_module$/, "");
+  const moduleLessons = lessons
+    .filter((lesson) => lesson.data.module === moduleSlug)
+    .sort((a, b) => a.data.order - b.data.order);
+
+  return {
+    slug: moduleSlug,
+    title: mod.data.title,
+    lessons: moduleLessons.map((lesson) => {
+      const lessonSlug = lesson.id.split("/")[1];
+      return {
+        slug: lessonSlug,
+        title: lesson.data.title,
+        pages: pages
+          .filter((p) => p.data.lesson === lessonSlug)
+          .sort((a, b) => a.data.order - b.data.order)
+          .map((p) => ({
+            href: `${base}/${moduleSlug}/${lessonSlug}/${p.id.split("/")[2]}/`,
+            title: p.data.title,
+          })),
+      };
+    }),
+  };
+});
+
+const currentPath = Astro.url.pathname.replace(/\/$/, "");
+---
+
+<aside class="sidebar">
+  <a href={base || "/"} class="sidebar-home">Course</a>
+  <nav>
+    {
+      nav.map(({ slug: moduleSlug, title, lessons: moduleLessons }) => (
+        <div class="sidebar-module">
+          <p class="sidebar-module-title">{title}</p>
+          {moduleLessons.map((lesson) => {
+            const lessonPrefix = `${base}/${moduleSlug}/${lesson.slug}`;
+            const lessonActive = currentPath.startsWith(lessonPrefix);
+            return (
+              <details class="sidebar-lesson" open={lessonActive}>
+                <summary class="sidebar-lesson-title">{lesson.title}</summary>
+                <ul>
+                  {lesson.pages.map((page) => {
+                    const active = currentPath === page.href.replace(/\/$/, "");
+                    return (
+                      <li>
+                        <a href={page.href} class={`sidebar-page ${active ? "sidebar-page-active" : ""}`}>
+                          {page.title}
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </details>
+            );
+          })}
+        </div>
+      ))
+    }
+  </nav>
+</aside>
+
+<style>
+  .sidebar {
+    width: 17rem;
+    flex-shrink: 0;
+    padding: 1.5rem 1rem;
+    background: var(--color-bg-subtle);
+    border-right: 1px solid var(--color-border);
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    overflow-y: auto;
+  }
+  .sidebar-home {
+    display: block;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--color-ink);
+    text-decoration: none;
+    margin-bottom: 1.75rem;
+  }
+  .sidebar-module {
+    margin-bottom: 1.25rem;
+  }
+  .sidebar-module-title {
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-ink-soft);
+    margin: 0 0 0.5rem 0.6rem;
+  }
+  .sidebar-lesson {
+    margin-bottom: 0.15rem;
+  }
+  .sidebar-lesson-title {
+    display: block;
+    padding: 0.4rem 0.6rem;
+    border-radius: 0.375rem;
+    color: var(--color-ink);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+  }
+  .sidebar-lesson-title::-webkit-details-marker {
+    display: none;
+  }
+  .sidebar-lesson-title::before {
+    content: "▸";
+    display: inline-block;
+    width: 0.9em;
+    color: var(--color-ink-soft);
+    transition: transform 0.15s ease;
+  }
+  .sidebar-lesson[open] > .sidebar-lesson-title::before {
+    transform: rotate(90deg);
+  }
+  .sidebar-lesson-title:hover {
+    background: var(--color-border);
+  }
+  .sidebar-lesson ul {
+    display: flex;
+    flex-direction: column;
+    gap: 0.05rem;
+    margin: 0.1rem 0 0.5rem 0.9rem;
+  }
+  .sidebar-page {
+    display: block;
+    padding: 0.35rem 0.6rem;
+    border-radius: 0.375rem;
+    color: var(--color-ink-soft);
+    text-decoration: none;
+    font-size: 0.825rem;
+    border-left: 2px solid transparent;
+  }
+  .sidebar-page:hover {
+    background: var(--color-border);
+    color: var(--color-ink);
+  }
+  .sidebar-page-active {
+    background: var(--color-accent-light);
+    color: var(--color-accent-dark);
+    border-left-color: var(--color-accent);
+    font-weight: 600;
+  }
+</style>

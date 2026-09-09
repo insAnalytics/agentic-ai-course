@@ -1,0 +1,58 @@
+---
+import { getCollection } from "astro:content";
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const modules = (await getCollection("modules")).sort((a, b) => a.data.order - b.data.order);
+const lessons = await getCollection("lessons");
+const pages = await getCollection("pages");
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+const lessonsByModule = modules.map((mod) => {
+  const moduleSlug = mod.id.replace(/\/_module$/, "");
+  return {
+    module: mod,
+    lessons: lessons
+      .filter((lesson) => lesson.data.module === moduleSlug)
+      .sort((a, b) => a.data.order - b.data.order)
+      .map((lesson) => {
+        const lessonSlug = lesson.id.split("/")[1];
+        const firstPage = pages
+          .filter((p) => p.data.lesson === lessonSlug)
+          .sort((a, b) => a.data.order - b.data.order)[0];
+        return {
+          title: lesson.data.title,
+          href: firstPage ? `${base}/${moduleSlug}/${lessonSlug}/${firstPage.id.split("/")[2]}/` : null,
+        };
+      })
+      .filter((lesson) => lesson.href),
+  };
+});
+---
+
+<BaseLayout title="Course">
+  <div class="max-w-3xl px-12 py-14">
+    <h1 class="mb-2 text-3xl font-extrabold tracking-tight text-[var(--color-ink)]">Welcome</h1>
+    <p class="mb-10 text-[var(--color-ink-soft)]">Pick a lesson from the sidebar, or jump in below.</p>
+    {
+      lessonsByModule.map(({ module: mod, lessons: modLessons }) => (
+        <section class="mb-8">
+          <h2 class="mb-1 text-lg font-bold text-[var(--color-ink)]">{mod.data.title}</h2>
+          <p class="mb-3 text-sm text-[var(--color-ink-soft)]">{mod.data.description}</p>
+          <ul class="flex flex-col gap-2">
+            {modLessons.map((lesson) => (
+              <li>
+                <a
+                  href={lesson.href}
+                  class="card block px-4 py-3 text-sm font-medium text-[var(--color-ink)] no-underline hover:border-[var(--color-accent)]"
+                >
+                  {lesson.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))
+    }
+  </div>
+</BaseLayout>

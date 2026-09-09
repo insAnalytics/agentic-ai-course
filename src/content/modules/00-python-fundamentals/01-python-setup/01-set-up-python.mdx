@@ -1,0 +1,184 @@
+---
+title: "Set up Python"
+lesson: "01-python-setup"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Installing Python" variant="a">
+
+Go to [python.org/downloads](https://python.org/downloads) and install the
+latest Python 3.x. On macOS/Linux, Python 3 may already be present but often
+outdated — install a current version rather than relying on the system one,
+since some tools (and most current libraries) expect recent language
+features.
+
+Verify from a terminal:
+```bash
+python3 --version
+# Python 3.12.4
+```
+On Windows, the command is usually `python` rather than `python3` — check
+with `python --version` if `python3` isn't found.
+
+</Subsection>
+
+<Subsection title="VS Code setup" variant="b">
+
+If you're not already set up: install the **Python extension** (Microsoft's
+official one) from the Extensions panel. Two things it gets you that matter
+immediately:
+
+- **Interpreter selection** — VS Code needs to know *which* Python it's
+  running (system install, or a venv — see below). `Ctrl/Cmd+Shift+P` →
+  "Python: Select Interpreter". Get this wrong and imports that work in your
+  terminal will show false errors in the editor.
+- **IntelliSense + inline debugging** — autocomplete against installed
+  packages, and breakpoints without dropping into `pdb`.
+
+</Subsection>
+
+<Subsection title="Virtual environments — and why they're not optional" variant="a">
+
+Coming from languages with project-scoped dependencies by default (Node's
+`node_modules`, Go modules), Python's default is the opposite: `pip install`
+without a venv installs *globally*, shared across every project on your
+machine. Two projects needing different versions of the same package will
+silently conflict.
+
+A virtual environment is an isolated, project-local copy of the Python
+interpreter + its own package set.
+
+```bash
+python3 -m venv .venv          # create it, once per project
+source .venv/bin/activate      # activate it (macOS/Linux)
+.venv\Scripts\activate         # activate it (Windows)
+```
+Your terminal prompt changes to show `(.venv)` once active — that's your
+signal that `pip install` now stays local to this project. `deactivate`
+exits it.
+
+</Subsection>
+
+<Subsection title="Package management" variant="b">
+
+Python's built-in tool for installing packages is `pip` (Package Installer
+for Python) — it downloads packages from PyPI (the Python Package Index)
+and installs them into your active environment.
+
+```bash
+pip install requests
+```
+installs into the active venv. To make dependencies reproducible for anyone
+else (or your future self):
+```bash
+pip freeze > requirements.txt
+```
+which produces a file like this:
+```
+requests==2.31.0
+python-dotenv==1.0.1
+pydantic==2.7.1
+```
+Just package names pinned to exact versions, one per line. Anyone can then
+reinstall the same set with:
+```bash
+pip install -r requirements.txt
+```
+No lockfile resolution, no build metadata — this is the baseline standard.
+More structured alternatives (`pyproject.toml`-based tools) exist and we may
+introduce one later for the downloadable projects, but `requirements.txt` is
+what you'll see in the majority of existing Python codebases.
+
+</Subsection>
+
+<Subsection title="Execution model, compared to what you already know" variant="a">
+
+If you're coming from Java, C++, or Go: there's no separate compile step
+producing a binary. Python is interpreted — `python3 script.py` reads and
+executes the file directly, top to bottom, line by line.
+
+<LiveDemo client:load code={`print("this runs immediately, no build step")`} />
+
+The line-by-line part has a sharp consequence: Python doesn't scan the whole
+file for problems before running anything. It executes until it hits an
+error, then stops — code *after* that point never runs, even if it also
+contains an obvious mistake.
+
+<LiveDemo client:load code={`print("step 1: starting")
+print(1 + "2")          # TypeError — crashes here
+print("step 2: this line has " + undefined_variable_xyz + " too, but you'll never see that error")`} />
+
+Notice the third `print` line has its own bug (an undefined variable), but
+Python never even reaches it. In a compiled language, a type mismatch like
+`1 + "2"` might be caught before the program runs at all; here, it's only
+found when execution actually reaches that line.
+
+This is part of why the try/except patterns later in this lesson matter more
+in Python than they might in a language where the compiler already ruled out
+entire error classes.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question:
+        "You run `pip install requests` and it works, but a teammate cloning your repo gets `ModuleNotFoundError: No module named 'requests'` when they run your script. Most likely cause?",
+      options: [
+        "They have a different OS",
+        "You installed it without an active venv, or forgot to share requirements.txt",
+        "requests is a Python 2 package",
+        "They need to reinstall Python",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Without a shared requirements.txt (or a venv commit convention), installed packages don't travel with the code — only the .py files do.",
+    },
+    {
+      question:
+        'Why does VS Code sometimes show a false "import not found" error even though `python3 script.py` runs fine in your terminal?',
+      options: [
+        "VS Code doesn't support Python well",
+        "The wrong interpreter is selected — VS Code is pointing at a different Python/venv than your terminal uses",
+        "The extension needs to be reinstalled",
+        "The file needs to be saved first",
+      ],
+      correctIndex: 1,
+      explanation:
+        "VS Code and your terminal can each resolve to a different Python install if the interpreter isn't explicitly selected to match the venv you're actually using.",
+    },
+    {
+      question: "What does `pip` actually do?",
+      options: [
+        "It's Python's built-in testing framework",
+        "It downloads and installs packages from PyPI into your environment",
+        "It compiles Python code",
+        "It's a virtual environment manager",
+      ],
+      correctIndex: 1,
+      explanation:
+        "pip (Package Installer for Python) is the standard tool for fetching packages from PyPI and installing them.",
+    },
+    {
+      question: "A script has a bug on line 2 and another unrelated bug on line 10. You run it. What happens?",
+      options: [
+        "Both errors are reported together",
+        "It crashes at line 2; line 10's bug is never reached or reported",
+        "It skips line 2 and runs line 10 first",
+        "Neither error shows since Python auto-corrects",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Python executes top to bottom and stops at the first unhandled error — later bugs in the file are simply never run, not fixed or ignored intentionally.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

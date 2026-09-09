@@ -1,0 +1,215 @@
+---
+title: "Control flow and syntax, compared to what you know"
+lesson: "01-python-setup"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Block structure: indentation, not braces" variant="a">
+
+Most languages mark a block with braces:
+
+```c
+if (isReady) {
+    printf("this is inside the block\n");
+    printf("so is this\n");
+}
+printf("this is not\n");
+```
+
+Python uses indentation instead — no `{ }`, and the colon (`:`) opens the
+block:
+
+<LiveDemo client:load code={`if True:
+    print("this is inside the block")
+    print("so is this")
+print("this is not")`} />
+
+Indentation isn't a style choice here — it's part of the syntax. Mixing
+levels inconsistently fails to parse:
+
+<LiveDemo client:load code={`if True:
+    print("this line is fine")
+      print("this line is over-indented")`} />
+
+There's also no explicit type declaration on variables — Python is
+dynamically typed, so `x = 5` and `x = "five"` are both just valid
+assignments, no `int x` or `var x: string` required. (We'll come back to
+when you'd *want* type hints later in the module.)
+
+</Subsection>
+
+<Subsection title="if / elif / else" variant="b">
+
+Same logical structure as most languages, different keyword for "else if":
+
+<LiveDemo client:load code={`def route_request(message):
+    if "calculate" in message:
+        return "calculator_tool"
+    elif "search" in message:
+        return "search_tool"
+    elif "remember" in message:
+        return "memory_tool"
+    else:
+        return "no_tool"
+
+print(route_request("calculate 2+2"))
+print(route_request("search for cats"))
+print(route_request("hello"))`} />
+
+</Subsection>
+
+<Subsection title="for loops — iterate over values, not a counter" variant="a">
+
+If you're coming from a C-style `for (int i = 0; i < n; i++)`, Python's `for`
+works differently: it iterates directly over an **iterable** — anything that
+can hand out its items one at a time (a list, a string, a range of numbers).
+There's no index variable unless you explicitly ask for one.
+
+<LiveDemo client:load code={`tools = ["calculator", "search", "memory"]
+
+for tool in tools:
+    print(f"available: {tool}")`} />
+
+`tool` is each *value* from the list in turn, not a position. The
+`f"..."` string is an **f-string**: prefixing a string with `f` lets you
+embed expressions directly inside `{ }`, evaluated and inserted at runtime —
+Python's equivalent of JS template literals or C#'s interpolated strings,
+and more concise than `"available: " + tool` or `.format()`.
+
+When you specifically need a counter instead of (or alongside) values,
+`range()` generates one — it's an iterable of numbers, not a special loop
+syntax:
+
+<LiveDemo client:load code={`for i in range(3):
+    print(i)`} />
+
+</Subsection>
+
+<Subsection title="while loops and no ++" variant="b">
+
+`while` works like you'd expect — condition checked, loop runs while true.
+One difference: Python has no `++`/`--` increment operators.
+
+<LiveDemo client:load code={`attempts = 0
+while attempts < 3:
+    print(f"attempt {attempts}")
+    attempts += 1     # not attempts++`} />
+
+`attempts++` isn't invalid-but-different — it's a straight `SyntaxError`,
+since `++` isn't an operator Python defines at all.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question:
+        "What happens if you mix inconsistent indentation levels in the same block, like the example above?",
+      options: [
+        "Python auto-corrects it",
+        "IndentationError — it fails to parse, before the program even runs",
+        "It's ignored at runtime",
+        "Only a linter warning, code still runs",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Indentation is part of Python's syntax, not a formatting convention — inconsistent indentation fails to parse.",
+    },
+    {
+      question: 'What is an "iterable" in the context of Python\'s `for` loop?',
+      options: [
+        "A variable that increments automatically",
+        "Anything that can produce its items one at a time — a list, a string, a range",
+        "Only lists specifically",
+        "A synonym for a loop counter",
+      ],
+      correctIndex: 1,
+      explanation:
+        "`for` in Python is built around iterables generally — lists, strings, `range()`, and more all work the same way with `for x in ...`.",
+    },
+    {
+      question: 'What does `f"available: {tool}"` do differently from `"available: " + tool`?',
+      options: [
+        "Nothing, they're identical",
+        "The `f` prefix lets `{tool}` be evaluated and inserted inline, without manual concatenation",
+        "f\"...\" is faster but does the same thing as regular strings with no special behavior",
+        'f"..." only works with numbers, not strings',
+      ],
+      correctIndex: 1,
+      explanation:
+        "An f-string embeds and evaluates expressions directly inside `{ }` at runtime — Python's equivalent of JS template literals or C# interpolated strings.",
+    },
+    {
+      question: "In `for tool in tools:`, what does `tool` represent on each iteration?",
+      options: [
+        "The index of the current item",
+        "The actual item's value from `tools`",
+        "A reference to the whole list",
+        "The length of `tools`",
+      ],
+      correctIndex: 1,
+      explanation: "Python's `for` iterates directly over values, not positions.",
+    },
+    {
+      question: "What does `range(3)` produce when looped over?",
+      options: ["1, 2, 3", "0, 1, 2", "0, 1, 2, 3", "3, 2, 1"],
+      correctIndex: 1,
+      explanation: "`range(n)` produces `0` up to (not including) `n`.",
+    },
+    {
+      question: "What happens if you write `attempts++` in Python?",
+      options: [
+        "It increments attempts by 1",
+        "SyntaxError — ++ isn't a defined operator",
+        "It's valid but does nothing",
+        "It doubles attempts",
+      ],
+      correctIndex: 1,
+      explanation: "Python has no increment/decrement operators. Use `attempts += 1` instead.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={'Write `first_available_tool(requested_tools, available_tools)`: loop through `requested_tools` in order, and return the first one that\'s also present in `available_tools`. If none match, return "none".'}
+  starterCode={`def first_available_tool(requested_tools, available_tools):
+    """
+    requested_tools: list of tool names, in priority order
+    available_tools: list of tool names that are actually available
+    Return the first name in requested_tools that also appears in
+    available_tools. Return "none" if there's no match.
+    """
+    # TODO: implement using a for loop and if
+    pass`}
+  hiddenTests={[
+    "assert first_available_tool(['search', 'calculator'], ['calculator', 'memory']) == 'calculator'",
+    "assert first_available_tool(['calculator', 'search'], ['calculator', 'memory']) == 'calculator'",
+    "assert first_available_tool(['search'], ['calculator', 'memory']) == 'none'",
+    "assert first_available_tool([], ['calculator']) == 'none'",
+  ]}
+  hint="You need to check membership (`in`) inside the loop, and return as soon as you find a match — don't wait until the loop ends."
+  correctAnswer={{
+    code: `def first_available_tool(requested_tools, available_tools):
+    for tool in requested_tools:
+        if tool in available_tools:
+            return tool
+    return "none"`,
+    explanation:
+      "Returning inside the loop the moment a match is found is what makes this \"first available\" rather than \"any available\" — an early return exits the function immediately, skipping the rest of the loop entirely.",
+  }}
+/>
+
+</CheckpointZone>

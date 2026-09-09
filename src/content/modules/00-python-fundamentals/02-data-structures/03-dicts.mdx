@@ -1,0 +1,185 @@
+---
+title: "Dicts"
+lesson: "02-data-structures"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="If you're coming from another language" variant="a">
+
+A Python `dict` is the equivalent of Java's `HashMap`, JS's plain object (or
+`Map`), or C#'s `Dictionary` — a collection of key-value pairs, looked up by
+key instead of position.
+
+<LiveDemo client:load code={`agent_config = {
+    "name": "research_agent",
+    "temperature": 0.7,
+    "max_tokens": 1000,
+}
+print(agent_config["name"])`} />
+
+</Subsection>
+
+<Subsection title="Key access, and the difference between [] and .get()" variant="b">
+
+Direct bracket access raises an error if the key doesn't exist:
+
+<LiveDemo client:load code={`agent_config = {
+    "name": "research_agent",
+    "temperature": 0.7,
+    "max_tokens": 1000,
+}
+print(agent_config["model"])`} />
+
+`.get()` returns `None` instead of crashing, and optionally lets you
+specify a fallback value:
+
+<LiveDemo client:load code={`agent_config = {
+    "name": "research_agent",
+    "temperature": 0.7,
+    "max_tokens": 1000,
+}
+print(agent_config.get("model"))              # None — key doesn't exist
+print(agent_config.get("model", "claude"))     # "claude" — explicit fallback
+print(agent_config.get("name", "unknown"))     # "research_agent" — key exists, fallback ignored`} />
+
+Use `.get()` whenever a missing key is a normal possibility rather than a
+bug; use `[]` when a missing key should be treated as an error worth
+crashing on (or catch it explicitly with `try`/`except KeyError`, from
+Lesson 0.1).
+
+</Subsection>
+
+<Subsection title="Modifying a dict, and iterating over it" variant="a">
+
+<LiveDemo client:load code={`agent_config = {
+    "name": "research_agent",
+    "temperature": 0.7,
+    "max_tokens": 1000,
+}
+agent_config["model"] = "claude-sonnet"   # add or overwrite a key
+del agent_config["max_tokens"]            # remove a key
+
+print(agent_config)`} />
+
+Three ways to loop over a dict, depending on what you need:
+
+<LiveDemo client:load code={`agent_config = {"name": "research_agent", "temperature": 0.7, "model": "claude-sonnet"}
+
+for key in agent_config:                    # keys only (default)
+    print(key)
+
+for key, value in agent_config.items():      # both, unpacked as a tuple pair
+    print(key, "->", value)
+
+for value in agent_config.values():          # values only
+    print(value)`} />
+
+`.items()` returns each pair as a `(key, value)` tuple, which is why
+`for key, value in ...` works: it's unpacking, exactly like Concept 2's
+tuple unpacking, just happening automatically once per loop iteration.
+
+</Subsection>
+
+<Subsection title="The tally pattern" variant="b">
+
+A very common use of dicts: counting occurrences of something, building the
+dict up as you go.
+
+<LiveDemo client:load code={`messages = ["search", "calculate", "search", "remember", "search"]
+
+tally = {}
+for msg in messages:
+    tally[msg] = tally.get(msg, 0) + 1
+
+print(tally)`} />
+
+`.get(msg, 0)` is what makes this work without pre-declaring every possible
+key: the first time `msg` appears, `.get()` returns `0` (the fallback)
+since the key isn't there yet, and `+ 1` makes it `1`. Every time after
+that, `.get()` returns the running count, and `+ 1` increments it.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question:
+        'What\'s the practical difference between config["model"] and config.get("model") when "model" isn\'t a key in config?',
+      options: [
+        "No difference, both raise an error",
+        "[] raises KeyError; .get() returns None (or an explicit fallback) instead",
+        ".get() raises an error, [] returns None",
+        "Both silently return an empty string",
+      ],
+      correctIndex: 1,
+      explanation:
+        "[] treats a missing key as an error; .get() treats it as a normal case with a safe default.",
+    },
+    {
+      question: "What does .items() return on each loop iteration?",
+      options: [
+        "Just the key",
+        "Just the value",
+        "A (key, value) tuple, which is why it can be unpacked as for key, value in ...",
+        "A new dict",
+      ],
+      correctIndex: 2,
+      explanation:
+        ".items() yields tuple pairs — the same unpacking mechanism from Concept 2 applies here automatically.",
+    },
+    {
+      question: "In tally[msg] = tally.get(msg, 0) + 1, why is the 0 fallback necessary?",
+      options: [
+        "It isn't — tally[msg] alone would work the same",
+        "Without it, the first occurrence of a new key would raise KeyError before it could be incremented",
+        "It sets every count to start at 0 permanently",
+        "It's only needed for string keys",
+      ],
+      correctIndex: 1,
+      explanation:
+        "On a key's first appearance it isn't in the dict yet — tally[msg] + 1 would raise KeyError, but .get(msg, 0) + 1 safely falls back to 0 first.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task="Build a dict from scratch, incrementing a count for each vote as you loop through the list. (The tally pattern, standalone.)"
+  starterCode={`def count_votes(votes):
+    """
+    votes: a list of strings, e.g. ["cat", "dog", "cat", "cat", "dog"]
+    Return a dict counting how many times each value appears.
+    E.g. ["cat", "dog", "cat"] -> {"cat": 2, "dog": 1}
+    """
+    # TODO: implement using the tally pattern
+    pass`}
+  hiddenTests={[
+    "assert count_votes(['cat', 'dog', 'cat', 'cat', 'dog']) == {'cat': 3, 'dog': 2}",
+    "assert count_votes([]) == {}",
+    "assert count_votes(['a']) == {'a': 1}",
+  ]}
+  hint="Start with an empty dict {}. For each vote, use .get(vote, 0) + 1 to safely increment its count, whether or not it's been seen before."
+  correctAnswer={{
+    code: `def count_votes(votes):
+    tally = {}
+    for vote in votes:
+        tally[vote] = tally.get(vote, 0) + 1
+    return tally`,
+    explanation:
+      "Each vote's count is safely incremented with .get(vote, 0) + 1, whether or not it's been seen before — the same tally pattern shown in this section.",
+  }}
+/>
+
+</CheckpointZone>

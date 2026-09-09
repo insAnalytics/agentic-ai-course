@@ -1,0 +1,414 @@
+---
+title: "Scope"
+lesson: "03-functions"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Local scope: variables inside a function stay inside it" variant="a">
+
+A variable created inside a function doesn't exist outside it:
+
+<LiveDemo client:load code={`def set_temperature():
+    temperature = 0.7
+    print(temperature)
+
+set_temperature()
+print(temperature)`} />
+
+`temperature` only exists while `set_temperature()` is running, in its own
+local scope. This is true even if a variable with the same name exists
+outside the function — they're unrelated:
+
+<LiveDemo client:load code={`temperature = 0.5
+
+def set_temperature():
+    temperature = 0.7   # creates a NEW local variable, doesn't touch the outer one
+    print("inside:", temperature)
+
+set_temperature()
+print("outside:", temperature)`} />
+
+</Subsection>
+
+<Subsection title="Reading an outer variable works — reassigning it doesn't, without global" variant="b">
+
+A function *can* read a variable from outside it, as long as it doesn't try
+to assign to it:
+
+<LiveDemo client:load code={`model_name = "claude-sonnet"
+
+def describe():
+    print(f"using {model_name}")   # reading — this works fine
+
+describe()`} />
+
+But trying to reassign it inside the function, without saying so
+explicitly, doesn't do what you'd expect:
+
+<LiveDemo client:load code={`call_count = 0
+
+def track_call():
+    call_count = call_count + 1   # this looks like it should increment the outer one
+    print(call_count)
+
+track_call()`} />
+
+The moment Python sees an assignment to `call_count` *anywhere* in the
+function, it treats `call_count` as local to that function for its entire
+body — including the read on the right-hand side, before the local one has
+been created. The `global` keyword tells Python explicitly which one you
+mean:
+
+<LiveDemo client:load code={`call_count = 0
+
+def track_call():
+    global call_count
+    call_count = call_count + 1
+    print(call_count)
+
+track_call()
+track_call()`} />
+
+</Subsection>
+
+<Subsection title="Why relying on global is usually a bad idea in agent code specifically" variant="a">
+
+`global` works, but it makes a function's behavior depend on state the
+function's signature doesn't reveal — you can't tell what `track_call()`
+actually depends on just by looking at how it's called. In agent code, this
+gets worse fast: if multiple parts of an agent loop mutate the same global
+variable (say, a shared conversation history or token count), it becomes
+very hard to reason about what state looks like at any given point,
+especially once things run concurrently. The far more common and safer
+pattern is to pass state in and return it out explicitly:
+
+<LiveDemo client:load code={`def track_call(call_count):
+    return call_count + 1
+
+call_count = 0
+call_count = track_call(call_count)
+call_count = track_call(call_count)
+print(call_count)`} />
+
+Same result, but `track_call`'s dependency on `call_count` is now visible
+in its signature, not hidden behind a `global` statement elsewhere.
+
+</Subsection>
+
+<Subsection title="The mutable default argument trap" variant="b">
+
+One specific scope-related gotcha worth knowing before it bites you: a
+default argument is evaluated *once*, when the function is defined — not
+once per call. This is harmless for immutable defaults like `0` or
+`"hello"`, but dangerous for mutable ones like a list:
+
+<LiveDemo client:load code={`def add_tool(tool, tools=[]):   # DANGER: the same list is reused across every call
+    tools.append(tool)
+    return tools
+
+print(add_tool("search"))
+print(add_tool("calculator"))`} />
+
+The second call's output likely surprises you: `tools=[]` isn't a fresh
+empty list each time, it's the *same* list object, created once when the
+function was defined, silently accumulating across every call that doesn't
+pass its own. The standard fix is to default to `None` and create the list
+inside the function body instead:
+
+<LiveDemo client:load code={`def add_tool(tool, tools=None):
+    if tools is None:
+        tools = []
+    tools.append(tool)
+    return tools
+
+print(add_tool("search"))
+print(add_tool("calculator"))`} />
+
+</Subsection>
+
+<Subsection title="A third scope: closures" variant="a">
+
+A function defined inside another function can "remember" variables from
+the outer function, even after the outer function has finished running:
+
+<LiveDemo client:load code={`def make_multiplier(factor):
+    def multiply(n):
+        return n * factor   # factor comes from the enclosing function, not global or local to multiply
+    return multiply
+
+double = make_multiplier(2)
+triple = make_multiplier(3)
+
+print(double(5))
+print(triple(5))`} />
+
+`multiply` is a **closure**: it "closes over" `factor` from
+`make_multiplier`'s scope. Each call to `make_multiplier` creates a
+separate `factor`, which is why `double` and `triple` don't interfere with
+each other, even though both came from the same function.
+
+This is exactly the shape of a **tool factory** — a function that returns a
+configured tool function without needing a class:
+
+<LiveDemo client:load code={`def make_search_tool(api_key):
+    def search(query):
+        return f"searching '{query}' using key ending in ...{api_key[-4:]}"
+    return search
+
+search_prod = make_search_tool("sk-prod-88291")
+print(search_prod("weather today"))`} />
+
+</Subsection>
+
+<Subsection title="nonlocal — the closure equivalent of global" variant="b">
+
+Same problem as before: reading an enclosing variable works, but
+reassigning it needs an explicit keyword — `nonlocal` instead of `global`,
+since this is the enclosing function's scope, not the module-level global
+scope. Two separate counters, run a different number of times, make it
+clear each one keeps its own independent state:
+
+<LiveDemo client:load code={`def make_counter():
+    count = 0
+    def increment():
+        nonlocal count
+        count += 1
+        return count
+    return increment
+
+counter_a = make_counter()
+counter_b = make_counter()
+
+for _ in range(3):
+    print("A:", counter_a())
+
+for _ in range(5):
+    print("B:", counter_b())`} />
+
+`counter_a` and `counter_b` each came from their own call to
+`make_counter()`, so each has its own separate `count` — running one three
+times and the other five times doesn't affect the other's total at all.
+Without `nonlocal`, `count += 1` would raise the same `UnboundLocalError`
+[you saw earlier with `global`](#reading-an-outer-variable-works-reassigning-it-doesn-t-without-global),
+for the same reason: Python would treat
+`count` as a new local variable the moment it sees an assignment to it.
+
+</Subsection>
+
+<Subsection title="How this relates to object-oriented code" variant="a">
+
+If you're used to reaching for a class whenever you need a "thing" that
+remembers state between method calls, a closure is doing the same job in
+miniature. Here's `make_counter` rewritten as a class, for comparison:
+
+<LiveDemo client:load code={`class Counter:
+    def __init__(self):
+        self.count = 0
+
+    def increment(self):
+        self.count += 1
+        return self.count
+
+counter = Counter()
+print(counter.increment())
+print(counter.increment())
+print(counter.increment())`} />
+
+Line up the two versions: `self.count` in the class plays the same role as
+`count` remembered by the closure — both are state that persists across
+calls, private to one instance. `increment(self)` plays the same role as
+the inner `increment()` function — both are the one operation you can
+perform on that state. A closure is essentially **a lightweight object with
+exactly one method and no name for its state** — useful when you need
+"some remembered state plus one operation" and a full class would be more
+ceremony than the problem needs. Once you need *multiple* related
+operations sharing that state, a class (covered next lesson) is the better
+fit.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "After a function that creates a local variable finishes running, can that variable be accessed outside the function?",
+      options: [
+        "Yes, it becomes a global variable automatically",
+        "No — it only exists within the function's local scope while it runs",
+        "Only if the function returns a value",
+        "Only if the variable name starts with an underscore",
+      ],
+      correctIndex: 1,
+      explanation: "Local variables are scoped to the function's execution and cease to exist once it returns.",
+    },
+    {
+      question: "Why does call_count = call_count + 1 inside a function raise UnboundLocalError, if call_count already exists outside the function?",
+      options: [
+        "It's a syntax error",
+        "Any assignment to a name inside a function makes Python treat it as local for the whole function body, including reads before the local value is set",
+        "+ can't be used on variables from outside a function",
+        "call_count needs to be a global constant",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Python decides a name is local to a function based on whether it's assigned anywhere in that function's body, which applies retroactively to every line, including reads before the assignment.",
+    },
+    {
+      question: "What does the global keyword do inside a function?",
+      options: [
+        "Creates a brand-new global variable automatically",
+        "Tells Python that an assignment to that name should modify the outer/global variable, not create a local one",
+        "Makes a local variable accessible everywhere after the function returns",
+        "Deletes the local version of the variable",
+      ],
+      correctIndex: 1,
+      explanation: "global redirects an assignment to the module-level variable instead of creating a shadowing local one.",
+    },
+    {
+      question: "Why is passing state in and returning it out generally preferred over global in agent code?",
+      options: [
+        "global is slower to execute",
+        "Passing state explicitly makes a function's dependencies visible in its signature, which matters especially once multiple parts of a system might mutate shared state",
+        "global doesn't work inside functions with parameters",
+        "There's no real difference, it's just a style preference",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Explicit parameters and return values make a function's behavior predictable from its signature alone — global state hides that dependency.",
+    },
+    {
+      question: "Given def add_tool(tool, tools=[]):, why does calling add_tool(\"x\") twice not give you two separate one-item lists?",
+      options: [
+        "Python has a bug",
+        "The default [] is created once, when the function is defined, and reused across every call that doesn't supply its own list",
+        "tools=[] means \"create a new list each call\" — this shouldn't happen and indicates a different bug",
+        ".append() resets the list after each call",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Default argument values are evaluated once at definition time, not fresh on every call — this is only a problem for mutable defaults like lists or dicts.",
+    },
+    {
+      question: "In the two-counter example, why don't counter_a and counter_b affect each other's totals?",
+      options: [
+        "They don't actually work independently — this is a bug",
+        "Each call to make_counter() creates its own separate count, which each returned closure remembers independently",
+        "counter_a and counter_b share the same count behind the scenes",
+        "Closures can only be created once per program",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Every call to make_counter() creates a fresh enclosing scope with its own count — the two closures never share that state.",
+    },
+    {
+      question: "What would happen in make_counter's increment function if nonlocal count were removed?",
+      options: [
+        "Nothing changes, it would work identically",
+        "UnboundLocalError — the same issue as reassigning a global without global, just one scope level up",
+        "count would become a global variable automatically",
+        "It would raise a SyntaxError at definition time",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Without nonlocal, count += 1 would make Python treat count as a new local variable in increment, causing [the same unbound-local error seen earlier with global](#reading-an-outer-variable-works-reassigning-it-doesn-t-without-global).",
+    },
+    {
+      question: "What does the state a closure remembers (like count in make_counter) most resemble in object-oriented terms?",
+      options: [
+        "A class name",
+        "An instance attribute (like self.count), with the inner function acting like a single method",
+        "A static/class-level variable shared across all instances",
+        "A local variable that's deleted after each call",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Each call to make_counter() creates its own count, just like each instantiated object gets its own attributes — a closure is essentially a minimal object with one method.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task="Handle the case where registry is None by creating a fresh list inside the function, then add name only if it isn't already present, and return the registry."
+  starterCode={`def register_tool(name, registry=None):
+    """
+    name: str — the tool name to add.
+    registry: a list of already-registered tool names, or None.
+
+    Add name to the registry (avoiding the mutable default argument
+    trap), and return the updated registry. Don't add a duplicate if
+    name is already present.
+    """
+    # TODO: implement, avoiding the mutable default argument trap
+    pass`}
+  hiddenTests={[
+    `result1 = register_tool("search")
+result2 = register_tool("calculator")
+assert result1 == ["search"]
+assert result2 == ["calculator"]   # NOT ["search", "calculator"] — proves no shared default list
+
+existing = ["search"]
+assert register_tool("search", existing) == ["search"]   # no duplicate
+assert register_tool("memory", existing) == ["search", "memory"]`,
+  ]}
+  hint="Default registry to None in the signature, then check if registry is None: registry = [] as the first line inside the function — this is the exact fix shown in the walkthrough for the mutable default argument trap."
+  correctAnswer={{
+    code: `def register_tool(name, registry=None):
+    if registry is None:
+        registry = []
+    if name not in registry:
+        registry.append(name)
+    return registry`,
+    explanation:
+      "The registry is None check is what prevents the mutable-default bug — a fresh list is created per call when no registry is passed in, rather than one list silently shared and accumulated across every call.",
+  }}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task="Define an inner function that takes a number and checks it against min_value/max_value from the enclosing scope, then return that inner function."
+  starterCode={`def make_validator(min_value: int, max_value: int):
+    """
+    Return a function that takes a single number and returns True if
+    it's within [min_value, max_value] inclusive, False otherwise.
+    """
+    # TODO: implement using a closure
+    pass`}
+  hiddenTests={[
+    `validate_score = make_validator(0, 100)
+assert validate_score(50) == True
+assert validate_score(150) == False
+assert validate_score(0) == True
+assert validate_score(100) == True
+
+strict = make_validator(10, 10)
+assert strict(10) == True
+assert strict(11) == False`,
+  ]}
+  hint="The inner function only needs one parameter (the number to check) — min_value and max_value are already available to it as closed-over variables from make_validator's scope, no need to pass them in again."
+  correctAnswer={{
+    code: `def make_validator(min_value: int, max_value: int):
+    def check(number: int) -> bool:
+        return min_value <= number <= max_value
+    return check`,
+    explanation:
+      "check closes over min_value and max_value from make_validator's scope — combining closures with [the type hints from earlier in this lesson](/00-python-fundamentals/03-functions/01-function-fundamentals/#type-hints). A validator factory like this is a common pattern for parameter-checking logic attached to tools in agent code.",
+  }}
+/>
+
+</CheckpointZone>

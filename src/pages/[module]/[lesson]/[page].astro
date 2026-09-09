@@ -1,0 +1,44 @@
+---
+import { getCollection, getEntry, render } from "astro:content";
+import LessonLayout from "../../../layouts/LessonLayout.astro";
+
+export async function getStaticPaths() {
+  const pages = await getCollection("pages");
+
+  return pages.map((page) => {
+    const [moduleSlug, lessonSlug, pageSlug] = page.id.split("/");
+    const siblings = pages
+      .filter((p) => p.data.lesson === lessonSlug)
+      .sort((a, b) => a.data.order - b.data.order);
+    const index = siblings.findIndex((p) => p.id === page.id);
+    const prevPage = siblings[index - 1];
+    const nextPage = siblings[index + 1];
+
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+    const toLink = (p: (typeof siblings)[number]) => {
+      const [m, l, s] = p.id.split("/");
+      return { href: `${base}/${m}/${l}/${s}/`, title: p.data.title };
+    };
+
+    return {
+      params: { module: moduleSlug, lesson: lessonSlug, page: pageSlug },
+      props: {
+        page,
+        prev: prevPage ? toLink(prevPage) : undefined,
+        next: nextPage ? toLink(nextPage) : undefined,
+      },
+    };
+  });
+}
+
+const { page, prev, next } = Astro.props;
+const [moduleSlug, lessonSlug] = page.id.split("/");
+const lesson = await getEntry("lessons", `${moduleSlug}/${lessonSlug}/_lesson`);
+if (!lesson) throw new Error(`No _lesson.yaml found for ${moduleSlug}/${lessonSlug}`);
+
+const { Content } = await render(page);
+---
+
+<LessonLayout page={page} lesson={lesson} prev={prev} next={next}>
+  <Content />
+</LessonLayout>

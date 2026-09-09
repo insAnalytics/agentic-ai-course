@@ -1,0 +1,158 @@
+---
+title: "Recap & Practice"
+lesson: "02-data-structures"
+order: 6
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question:
+        "You need a collection that holds exactly three fixed values that will never change or grow. Which structure fits best?",
+      options: ["A list", "A tuple", "A dict", "A set"],
+      correctIndex: 1,
+      explanation:
+        "A tuple communicates a fixed, unchanging collection — exactly what's needed for a value that will never grow or shrink.",
+    },
+    {
+      question: 'What does config.get("timeout", 30) do if "timeout" isn\'t a key in config?',
+      options: ["Raises KeyError", "Returns 30", "Returns None", 'Adds "timeout": 30 to config'],
+      correctIndex: 1,
+      explanation:
+        ".get(key, default) returns the fallback value instead of raising KeyError when the key is missing.",
+    },
+    {
+      question: "Given numbers = [10, 20, 30, 40], what does numbers[-2:] return?",
+      options: ["[30, 40]", "[10, 20]", "[40]", "[20, 30]"],
+      correctIndex: 0,
+      explanation: "Negative indices count from the end, so [-2:] slices the last two items — [30, 40].",
+    },
+    {
+      question: "What does return x, y actually return under the hood?",
+      options: [
+        "Two completely separate return values with no shared type",
+        "A single tuple containing both values",
+        "Only x — y is discarded",
+        "A list",
+      ],
+      correctIndex: 1,
+      explanation:
+        "return x, y packs the values into a single tuple — the same mechanism covered in [the tuple unpacking section](/00-python-fundamentals/02-data-structures/02-tuples/#unpacking).",
+    },
+    {
+      question: 'Why does {"a", "b", "a"} only contain two elements?',
+      options: [
+        "It's a syntax error, actually",
+        "Sets automatically discard duplicate values",
+        "Python only keeps the first two items in any set",
+        '"a" and "b" are being compared alphabetically and one is dropped',
+      ],
+      correctIndex: 1,
+      explanation: "A set's defining property is no duplicates — adding an existing value has no effect.",
+    },
+    {
+      question: "In [x * 2 for x in nums if x > 0], what role does if x > 0 play?",
+      options: [
+        "It picks between two possible expressions for each item",
+        "It filters out items where the condition is false before they're transformed",
+        "It has no effect on the result",
+        "It raises an error for negative numbers",
+      ],
+      correctIndex: 1,
+      explanation: "An if after the for clause filters which source items make it into the result at all.",
+    },
+    {
+      question:
+        "What's the difference between [x for x in items] and {x for x in items} if items contains duplicates?",
+      options: [
+        "No difference",
+        "The list keeps duplicates; the set collapses them to unique values",
+        "The set raises an error on duplicates",
+        "The list also removes duplicates automatically",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A list comprehension keeps every item including duplicates; a set comprehension automatically collapses duplicates, same as any other set.",
+    },
+    {
+      question:
+        "Why would tally[key] = tally.get(key, 0) + 1 fail if written as tally[key] = tally[key] + 1 instead, on a key's first appearance?",
+      options: [
+        "It wouldn't fail, they're identical",
+        "tally[key] raises KeyError on a key that isn't in the dict yet, before it can be incremented",
+        "+= 1 is required instead of + 1",
+        "Dicts don't support this pattern at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "On a key's first appearance it isn't in the dict yet — tally[key] + 1 would raise KeyError, but .get(key, 0) + 1 safely falls back to 0 first.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task="Build the three pieces separately — a filtered, sorted list comprehension for the enabled names; a set built by unioning each tool's tags together (regardless of enabled); and a filtered dict comprehension counting tags per enabled tool. Return all three as a tuple."
+  starterCode={`def summarize_tools(tool_configs):
+    """
+    tool_configs: a list of dicts, each shaped like:
+        {"name": "search", "tags": ["web", "info"], "enabled": True}
+
+    Return a tuple of exactly three things, in this order:
+      1. a sorted list of the names of every enabled tool
+      2. a set of every unique tag across ALL tools, enabled or not
+      3. a dict mapping each enabled tool's name to how many tags it has
+
+    E.g. for a single enabled tool {"name": "search", "tags": ["web", "info"], "enabled": True}:
+      -> (["search"], {"web", "info"}, {"search": 2})
+    """
+    # TODO: implement using comprehensions, sets, and a tuple return
+    pass`}
+  hiddenTests={[
+    `configs = [
+    {"name": "search", "tags": ["web", "info"], "enabled": True},
+    {"name": "calculator", "tags": ["math"], "enabled": False},
+    {"name": "memory", "tags": ["state", "info"], "enabled": True},
+]
+result = summarize_tools(configs)
+assert result == (
+    ["memory", "search"],
+    {"web", "info", "math", "state"},
+    {"search": 2, "memory": 2},
+)`,
+    "assert summarize_tools([]) == ([], set(), {})",
+  ]}
+  hint={"Build each piece on its own line before returning them together. For the tag set, start with all_tags = set() and union in each tool's tags with all_tags = all_tags | set(config[\"tags\"]) as you loop — this avoids needing a nested comprehension, which hasn't been covered."}
+  correctAnswer={{
+    code: `def summarize_tools(tool_configs):
+    enabled_names = sorted(
+        [config["name"] for config in tool_configs if config["enabled"]]
+    )
+
+    all_tags = set()
+    for config in tool_configs:
+        all_tags = all_tags | set(config["tags"])
+
+    tag_counts = {
+        config["name"]: len(config["tags"])
+        for config in tool_configs
+        if config["enabled"]
+    }
+
+    return enabled_names, all_tags, tag_counts`,
+    explanation:
+      "This composes every concept in the lesson: a filtered list comprehension + sorted() (Concepts 1 and 5), set union with the set() constructor (Concept 4), a filtered dict comprehension (Concepts 3 and 5), and a tuple return (Concept 2) — nothing here is new syntax, it's every piece from this lesson combined.",
+  }}
+/>
+
+</CheckpointZone>

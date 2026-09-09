@@ -1,0 +1,61 @@
+---
+title: "A tool is just a function"
+lesson: "01-what-is-an-agent"
+order: 1
+---
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+A "tool" in an agent system is nothing more than a plain function with a
+name, some arguments, and a return value. Here's the smallest possible one:
+
+<LiveDemo client:load code={`def calculator(expression: str) -> str:
+    return str(eval(expression))
+
+print(calculator("2 + 2"))`} />
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What makes a Python function usable as an agent tool?",
+      options: [
+        "It must be written in a special tool-only syntax",
+        "It's a callable with a name, arguments, and a return value the caller can read",
+        "It must call an external API",
+        "It must be async",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A tool is just a callable — name, arguments, return value. No special syntax, no requirement to hit a network, no requirement to be async. It's tempting to think 'tool' implies something exotic, but the whole point is that it's an ordinary function.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task="Write a function `add(a, b)` that returns the sum of `a` and `b`."
+  starterCode={`def add(a, b):
+    ...`}
+  hiddenTests={[
+    "assert add(2, 3) == 5",
+    "assert add(-1, 1) == 0",
+    "assert add(0, 0) == 0",
+  ]}
+  hint="Replace the `...` with a single `return` statement."
+  correctAnswer={{
+    code: `def add(a, b):
+    return a + b`,
+    explanation: "Addition is Python's built-in `+` operator — no loop or helper needed.",
+  }}
+/>
+
+</CheckpointZone>

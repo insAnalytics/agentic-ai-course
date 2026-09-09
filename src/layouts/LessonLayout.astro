@@ -1,0 +1,128 @@
+---
+import type { CollectionEntry } from "astro:content";
+import BaseLayout from "./BaseLayout.astro";
+import PageNav from "../components/PageNav.astro";
+
+interface Props {
+  page: CollectionEntry<"pages">;
+  lesson: CollectionEntry<"lessons">;
+  prev?: { href: string; title: string };
+  next?: { href: string; title: string };
+}
+
+const { page, lesson, prev, next } = Astro.props;
+// The intro page's own title is just a generic label ("Intro") — show the
+// lesson's real title in the hero instead, since that's the only page in
+// the lesson where the page title itself isn't the interesting thing.
+const heroTitle = page.data.order === 0 ? lesson.data.title : page.data.title;
+---
+
+<BaseLayout title={`${page.data.title} — ${lesson.data.title}`}>
+  <article class="lesson max-w-3xl px-12 pb-14">
+    <h1 class="lesson-hero">{heroTitle}</h1>
+    <slot />
+    <PageNav prev={prev} next={next} />
+  </article>
+</BaseLayout>
+
+<style is:global>
+  .lesson {
+    --lesson-padding-x: 3rem;
+  }
+  .lesson-hero {
+    /* the top of the hierarchy — a richer treatment than h2's flat navy bar,
+       so the two read as clearly different levels. Zero vertical margin for
+       the same reason as everywhere else full-bleed color is used: margin
+       collapses with whatever's adjacent and shows through as a white gap. */
+    display: block;
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+    color: white;
+    background: linear-gradient(120deg, var(--color-accent) 0%, var(--color-quiz) 100%);
+    padding: 2.5rem var(--lesson-padding-x, 3rem) 2.25rem;
+    margin: 0 calc(-1 * var(--lesson-padding-x, 3rem));
+  }
+  .lesson h2 {
+    /* zero vertical margin, same reasoning as Subsection/CheckpointZone: margin
+       sits outside the colored box and collapses with whatever's adjacent
+       (a ConceptSection's own margin, a CheckpointZone, another heading),
+       showing through as a white bar. Padding alone gives it presence. */
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: white;
+    background: var(--color-accent);
+    border-left: 6px solid var(--color-green);
+    padding: 1.25rem var(--lesson-padding-x, 3rem);
+    margin: 0 calc(-1 * var(--lesson-padding-x, 3rem));
+  }
+  .lesson h3 {
+    display: block;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--color-accent-dark);
+    background: var(--color-accent-light);
+    border-left: 4px solid var(--color-accent);
+    padding: 0.55rem 1rem;
+    border-radius: 0 0.375rem 0.375rem 0;
+    margin: 2.5rem 0 1rem;
+  }
+  .lesson p {
+    line-height: 1.7;
+    margin-bottom: 1rem;
+    color: var(--color-ink);
+  }
+  .lesson ul,
+  .lesson ol {
+    margin: 0 0 1rem 1.25rem;
+    line-height: 1.7;
+  }
+  .lesson li {
+    margin-bottom: 0.25rem;
+  }
+  .lesson a {
+    color: var(--color-link);
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-color: var(--color-link-underline);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+  }
+  .lesson a:hover {
+    text-decoration-color: currentColor;
+  }
+  .lesson p code,
+  .lesson li code {
+    background: var(--color-code-inline-bg);
+    color: var(--color-code-inline-text);
+    padding: 0.15rem 0.4rem;
+    border-radius: 0.3rem;
+    font-size: 0.85em;
+    font-weight: 500;
+  }
+  .lesson pre.astro-code {
+    padding: 0.9rem 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+  }
+  .lesson pre.astro-code code {
+    background: none;
+    padding: 0;
+  }
+  .lesson blockquote {
+    border-left: 2px solid var(--color-accent);
+    background: var(--color-bg-subtle);
+    padding: 0.6rem 1rem;
+    border-radius: 0 0.375rem 0.375rem 0;
+    margin: 1rem 0;
+    color: var(--color-ink-soft);
+  }
+  .lesson blockquote p {
+    margin-bottom: 0;
+    color: inherit;
+  }
+</style>

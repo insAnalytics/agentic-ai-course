@@ -1,0 +1,68 @@
+---
+interface Props {
+  prev?: { href: string; title: string };
+  next?: { href: string; title: string };
+}
+
+const { prev, next } = Astro.props;
+---
+
+{
+  (prev || next) && (
+    <nav class="page-nav">
+      {prev ? (
+        <a href={prev.href} class="page-nav-link page-nav-prev">
+          <span class="page-nav-label">Previous</span>
+          <span class="page-nav-title">{prev.title}</span>
+        </a>
+      ) : (
+        <span />
+      )}
+      {next && (
+        <a href={next.href} class="page-nav-link page-nav-next">
+          <span class="page-nav-label">Next</span>
+          <span class="page-nav-title">{next.title}</span>
+        </a>
+      )}
+    </nav>
+  )
+}
+
+<style>
+  .page-nav {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--color-border);
+  }
+  .page-nav-link {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    text-decoration: none;
+    max-width: 45%;
+  }
+  .page-nav-link:hover {
+    background: var(--color-bg-subtle);
+  }
+  .page-nav-next {
+    margin-left: auto;
+    text-align: right;
+  }
+  .page-nav-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-ink-soft);
+  }
+  .page-nav-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--color-accent-dark);
+  }
+</style>

@@ -1,0 +1,27 @@
+---
+---
+
+<div class="checkpoint-zone">
+  <slot />
+</div>
+
+<style>
+  /* Full-bleed colored band behind a quiz/exercise card — signals "the reading
+     ends here, you're being tested now", shared by QuizGroup and GradedExercise
+     regardless of their own header color (violet vs. navy).
+
+     No vertical margin, ever — margin creates a transparent gap that collapses
+     with whatever's adjacent (another zone, or a ConceptSection's own margin)
+     and shows through as a white bar, since margin sits *outside* this element's
+     background. Padding alone provides the breathing room, because padding is
+     *inside* the colored box. This mirrors the fix in Subsection.astro — same
+     underlying CSS mechanic, same fix. */
+  .checkpoint-zone {
+    background: var(--color-checkpoint-bg);
+    padding: 2rem var(--lesson-padding-x, 3rem);
+    margin: 0 calc(-1 * var(--lesson-padding-x, 3rem));
+  }
+  .checkpoint-zone :global(.card) {
+    margin: 0;
+  }
+</style>

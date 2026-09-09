@@ -1,0 +1,303 @@
+---
+title: "Error handling with try/except"
+lesson: "01-python-setup"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The basic shape — and how it compares" variant="a">
+
+Most languages you've likely used have some form of this same pattern —
+Java/C# call it `try`/`catch`, JS is nearly identical to Python's spelling:
+
+```java
+try {
+    result = 10 / 0;
+} catch (ArithmeticException e) {
+    result = -1;
+}
+```
+
+Python's version:
+
+<LiveDemo client:load code={`try:
+    result = 10 / 0
+except ZeroDivisionError:
+    result = -1
+
+print(result)`} />
+
+Same idea, different keyword (`except` instead of `catch`), and Python names
+the exception *type* directly after `except` rather than in parentheses.
+
+</Subsection>
+
+<Subsection title="Seeing the crash first" variant="b">
+
+Without a `try`, an error stops the program entirely — you've already seen
+this in Concept 1's execution-model example. Here's the same idea,
+specifically for division:
+
+<LiveDemo client:load code={`def divide(a, b):
+    return a / b
+
+print(divide(10, 0))`} />
+
+Wrapping the risky line in `try`/`except` lets you handle it instead of
+crashing:
+
+<LiveDemo client:load code={`def divide(a, b):
+    try:
+        return a / b
+    except ZeroDivisionError:
+        return "undefined"
+
+print(divide(10, 0))   # "undefined"
+print(divide(10, 2))   # 5.0`} />
+
+The `try` block runs normally. If the specific error named in `except`
+occurs anywhere inside it, execution jumps straight to that `except` block —
+everything else remaining in `try` is skipped.
+
+</Subsection>
+
+<Subsection title="Catching specific errors vs. catching everything" variant="a">
+
+You can name the exact error type you expect (recommended), or catch
+everything with a bare `except:`:
+
+<LiveDemo client:load code={`def divide(a, b):
+    try:
+        return a / b
+    except:                     # catches ANY error, not just division by zero
+        return "something went wrong"
+
+print(divide(10, "two"))`} />
+
+This runs — but it's hiding the actual problem: `divide(10, "two")` fails
+because you can't divide by a string (`TypeError`), not because of division
+by zero. A bare `except:` swallows that distinction, which makes bugs harder
+to find later. Naming the specific type keeps you honest about what you're
+actually expecting to go wrong:
+
+<LiveDemo client:load code={`def divide(a, b):
+    try:
+        return a / b
+    except ZeroDivisionError:
+        return "undefined"
+    except TypeError:
+        return "invalid input type"
+
+print(divide(10, 0))       # "undefined"
+print(divide(10, "two"))   # "invalid input type"`} />
+
+Multiple `except` clauses can follow one `try`, each catching a different
+error type.
+
+</Subsection>
+
+<Subsection title="Order matters with multiple except clauses" variant="b">
+
+Python checks `except` clauses top to bottom and uses the *first* one that
+matches — same as `elif`. This matters when exception types overlap:
+`ZeroDivisionError` is actually a subclass of `ArithmeticError`, so if you
+catch the broader type first, the more specific one never gets a chance to
+run.
+
+<LiveDemo client:load code={`def divide(a, b):
+    try:
+        return a / b
+    except ArithmeticError:      # broader — catches this first
+        return "arithmetic problem"
+    except ZeroDivisionError:    # never reached for a 0 division — already caught above
+        return "specifically zero division"
+
+print(divide(10, 0))`} />
+
+The second `except` isn't wrong, it's just unreachable for this case. The
+fix is ordering specific exceptions before general ones:
+
+<LiveDemo client:load code={`def divide(a, b):
+    try:
+        return a / b
+    except ZeroDivisionError:    # more specific — checked first
+        return "specifically zero division"
+    except ArithmeticError:
+        return "arithmetic problem"
+
+print(divide(10, 0))`} />
+
+</Subsection>
+
+<Subsection title="finally — runs no matter what" variant="a">
+
+A `finally` block runs whether the `try` succeeded, failed, or was caught —
+useful for cleanup that must happen regardless (closing a file, releasing a
+connection):
+
+<LiveDemo client:load code={`def divide(a, b):
+    try:
+        return a / b
+    except ZeroDivisionError:
+        return "undefined"
+    finally:
+        print("divide attempt finished")
+
+print(divide(10, 0))
+print(divide(10, 2))`} />
+
+Notice `"divide attempt finished"` prints before the return value in each
+case: `finally` runs after the `try`/`except` resolves, but before the
+function actually returns to the caller.
+
+</Subsection>
+
+<Subsection title="Reading a traceback" variant="b">
+
+You've seen a few tracebacks already in this lesson without a formal
+breakdown — here's what's actually in one:
+
+```
+Traceback (most recent call last):
+  File "script.py", line 4, in <module>
+    print(divide(10, 0))
+  File "script.py", line 2, in divide
+    return a / b
+ZeroDivisionError: division by zero
+```
+
+Read it as a call stack, top to bottom: line 4 called `divide`, which failed
+on line 2. The **last line is the one that matters most day-to-day** — it
+names the exception type and the specific message. When something breaks,
+start there, then use the lines above it to trace *where* the call came from
+if the error itself isn't enough context.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question:
+        "What's the main syntax difference between Python's `try`/`except` and Java/C#'s `try`/`catch`?",
+      options: [
+        "Python has no equivalent",
+        "except names the exception type directly, without parentheses around it",
+        "Python requires a finally block always",
+        "They work identically with no differences",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The structure is the same concept, just except ExceptionType: instead of catch (ExceptionType e).",
+    },
+    {
+      question: "Why is a bare except: (catching everything) generally worse than naming a specific exception type?",
+      options: [
+        "It's slower",
+        "It hides which error actually occurred, making real bugs harder to diagnose",
+        "It's a syntax error",
+        "There's no real downside",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A bare except: catches every error type indiscriminately — including ones you didn't anticipate — masking what actually went wrong.",
+    },
+    {
+      question: "In a Python traceback, which line tells you the actual error type and message?",
+      options: ["The first line", "The last line", "It's not included, you have to infer it", "The middle line always"],
+      correctIndex: 1,
+      explanation:
+        "Tracebacks read top-to-bottom as a call stack, but the exception type and message are always on the final line.",
+    },
+    {
+      question: "Can one try block have more than one except clause?",
+      options: [
+        "No, only one per try",
+        "Yes — each can catch a different exception type",
+        "Only if they're identical",
+        "Only in a while loop",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Python allows multiple except clauses after a single try, each matched to a different exception type, checked in order.",
+    },
+    {
+      question:
+        "If except ArithmeticError: is listed before except ZeroDivisionError:, and a ZeroDivisionError occurs, which block runs?",
+      options: [
+        "The ZeroDivisionError block, since it's more specific",
+        "The ArithmeticError block, since except clauses are checked in order and it matches first",
+        "Both run",
+        "Neither runs, it crashes",
+      ],
+      correctIndex: 1,
+      explanation:
+        "ZeroDivisionError is a subclass of ArithmeticError, so a broader except listed first will catch it before a more specific one below ever gets checked.",
+    },
+    {
+      question: "When does a finally block run?",
+      options: [
+        "Only if an exception was caught",
+        "Only if no exception occurred",
+        "Always — whether the try succeeded, failed, or was caught",
+        "Only if you explicitly call it",
+      ],
+      correctIndex: 2,
+      explanation:
+        "finally is guaranteed to run regardless of what happened in try/except, making it the right place for cleanup that must always happen.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={'If `message` isn\'t a string, checking `"calculate" in message` raises a `TypeError`. Wrap the function so that case returns `"invalid input"` instead of crashing, while valid strings still route normally through the existing if/elif chain. (Composes Concept 2\'s control flow with Concept 3\'s try/except.)'}
+  starterCode={`def route_request(message):
+    if "calculate" in message:
+        return "calculator_tool"
+    elif "search" in message:
+        return "search_tool"
+    elif "remember" in message:
+        return "memory_tool"
+    else:
+        return "no_tool"
+
+# TODO: handle the case where message isn't a string at all (e.g. a number or None)
+# It should return "invalid input" instead of crashing`}
+  hiddenTests={[
+    "assert route_request('calculate 2+2') == 'calculator_tool'",
+    "assert route_request('search for cats') == 'search_tool'",
+    "assert route_request('hello') == 'no_tool'",
+    "assert route_request(42) == 'invalid input'",
+    "assert route_request(None) == 'invalid input'",
+  ]}
+  hint="Wrap the whole if/elif chain in one `try`, and catch `TypeError` around it — you don't need a separate try per branch."
+  correctAnswer={{
+    code: `def route_request(message):
+    try:
+        if "calculate" in message:
+            return "calculator_tool"
+        elif "search" in message:
+            return "search_tool"
+        elif "remember" in message:
+            return "memory_tool"
+        else:
+            return "no_tool"
+    except TypeError:
+        return "invalid input"`,
+    explanation:
+      "Checking \"calculate\" in message on a non-string raises TypeError the moment that first comparison runs — wrapping the whole chain in one try catches it regardless of which branch would've failed.",
+  }}
+/>
+
+</CheckpointZone>
