@@ -1,0 +1,196 @@
+---
+title: "Recap & Practice"
+lesson: "07-concurrency-and-async"
+order: 7
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why is it wasteful for three independent API calls to run strictly one after another, each with its own separate wait?",
+      options: [
+        "It isn't wasteful — this is the only correct way to run them",
+        "The CPU sits idle during each wait, and there's no actual reason independent calls couldn't be waiting at the same time instead",
+        "Running them in a different order would change their results",
+        "Sequential calls always take longer than the sum of their waits",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Nothing about independent calls requires them to wait one after another — the CPU is free during each wait, so those waits could in principle overlap instead.",
+    },
+    {
+      question: "What actually happens when you call an async def function without await?",
+      options: [
+        "The function body runs normally",
+        "It returns a coroutine object without running the function's body at all",
+        "It raises a SyntaxError",
+        "It runs the function in a background thread automatically",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Calling an async def function only creates a coroutine object describing what would run — nothing inside it executes until something actually drives that coroutine forward.",
+    },
+    {
+      question: "Given three calls with waits of 2s, 1s, and 0.5s run through asyncio.gather(), what's the expected total time?",
+      options: ["3.5s, the sum of all three", "Roughly 2s, the single longest wait, since all three overlap", "0.5s, the shortest wait", "Unpredictable, varies randomly"],
+      correctIndex: 1,
+      explanation:
+        "Because all three waits happen concurrently rather than one after another, the total is bounded by whichever single wait takes longest, not the sum of all of them.",
+    },
+    {
+      question: "What happens if a coroutine's body calls the blocking time.sleep() instead of await asyncio.sleep()?",
+      options: [
+        "Nothing different — both behave identically inside async def",
+        "It blocks the entire event loop, preventing every other coroutine sharing that loop from making progress too",
+        "It raises a SyntaxError immediately",
+        "It only affects coroutines defined later in the file",
+      ],
+      correctIndex: 1,
+      explanation:
+        "time.sleep() has no awareness of asyncio — it blocks the actual thread the event loop runs on, stalling every coroutine sharing that loop, not just the one that called it.",
+    },
+    {
+      question: "What does asyncio.create_task(some_coroutine()) let you do that calling some_coroutine() alone doesn't?",
+      options: [
+        "Nothing different — they're equivalent",
+        "Start the coroutine running immediately in the background, and await its result later, potentially after doing other work in between",
+        "Run the coroutine synchronously, blocking until it finishes",
+        "Guarantee the coroutine runs on a separate CPU core",
+      ],
+      correctIndex: 1,
+      explanation:
+        "create_task() schedules the coroutine onto the event loop right away, returning a Task you can await whenever you're ready — calling the coroutine function alone just builds an unstarted coroutine object.",
+    },
+    {
+      question: "By default, if one coroutine passed to asyncio.gather() raises an exception, what happens?",
+      options: [
+        "The other coroutines' results are still returned normally",
+        "gather() itself raises that exception, and any other results — even successful ones — are discarded",
+        "The failed coroutine is automatically retried",
+        "The failure is silently replaced with None",
+      ],
+      correctIndex: 1,
+      explanation:
+        "By default gather() propagates the first exception it sees and discards every other result, even one that finished successfully — this is exactly what return_exceptions=True changes.",
+    },
+    {
+      question: "With return_exceptions=True, how do you tell a real result apart from a failure in gather()'s returned list?",
+      options: [
+        "Real results always appear before exceptions in the list",
+        "Check each item with isinstance(item, Exception)",
+        "Exceptions are automatically converted to None",
+        "There's no reliable way to distinguish them",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Real results and exception objects sit in the same list, in the order they were passed in — isinstance(item, Exception) is what actually tells the two apart.",
+    },
+    {
+      question: "Why doesn't wrapping a CPU-heavy loop (with no await inside it) in async def make it run any faster?",
+      options: [
+        "async def functions can't contain loops at all",
+        "Without an await point inside the loop, the coroutine never actually pauses to let anything else run — it behaves like one long blocking call",
+        "This actually does make it significantly faster",
+        "gather() refuses to accept CPU-bound coroutines",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Concurrency in asyncio only happens at await points — a loop with no await inside it never yields control, so it runs start to finish exactly like a blocking call would.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={`Implement run_tools: start log_run_start(log) in the background immediately using create_task, run every call_tool(...) for tool_specs concurrently via asyncio.gather with return_exceptions=True, await the logging task before returning, and split the gather results into (successes, failures).`}
+  starterCode={`import asyncio
+
+async def log_run_start(log: list) -> None:
+    await asyncio.sleep(0.1)
+    log.append("started")
+
+async def call_tool(tool_name: str, delay: float, should_fail: bool = False) -> str:
+    await asyncio.sleep(delay)
+    if should_fail:
+        raise ValueError(f"{tool_name} failed")
+    return f"{tool_name}: ok"
+
+async def run_tools(tool_specs: list, log: list) -> tuple:
+    """
+    tool_specs: a list of dicts, each shaped like:
+      {"tool_name": ..., "delay": ..., "should_fail": ...}  ("should_fail" optional, defaults False)
+    log: a list to record lifecycle events into
+
+    - Immediately start log_run_start(log) running in the background
+      using create_task — don't await it yet.
+    - Concurrently run call_tool(...) for every spec in tool_specs, using
+      asyncio.gather with return_exceptions=True.
+    - Await the logging task too, so it's guaranteed to have finished
+      before this function returns.
+    - Split the gather results into two lists: successes (real results)
+      and failures (str(e) for each exception), preserving relative
+      order within each list.
+    - Return (successes, failures).
+    """
+    # TODO: implement using create_task, gather, and return_exceptions=True
+    pass`}
+  hiddenTests={[
+    `import time
+
+async def run_test():
+    log = []
+    tool_specs = [
+        {"tool_name": "search", "delay": 0.3},
+        {"tool_name": "calculator", "delay": 0.1, "should_fail": True},
+        {"tool_name": "weather", "delay": 0.2},
+    ]
+    start = time.perf_counter()
+    successes, failures = await run_tools(tool_specs, log)
+    elapsed = time.perf_counter() - start
+    return successes, failures, log, elapsed
+
+successes, failures, log, elapsed = asyncio.run(run_test())
+
+assert successes == ["search: ok", "weather: ok"]
+assert failures == ["calculator failed"]
+assert log == ["started"]
+assert elapsed < 0.5`,
+  ]}
+  hint={`Start with log_task = asyncio.create_task(log_run_start(log)) before anything else. Build the tool coroutines with a [list comprehension](/00-python-fundamentals/02-data-structures/05-comprehensions/) — [call_tool(spec["tool_name"], spec["delay"], spec.get("should_fail", False)) for spec in tool_specs] — then await asyncio.gather(*that_list, return_exceptions=True). After the gather() call, await log_task to make sure the background task has actually finished. Then loop through the gather results, sorting each into successes or failures with isinstance(result, Exception), same as the per-concept exercise earlier in this lesson.`}
+  correctAnswer={{
+    code: `async def run_tools(tool_specs: list, log: list) -> tuple:
+    log_task = asyncio.create_task(log_run_start(log))
+
+    calls = [
+        call_tool(spec["tool_name"], spec["delay"], spec.get("should_fail", False))
+        for spec in tool_specs
+    ]
+    results = await asyncio.gather(*calls, return_exceptions=True)
+
+    await log_task
+
+    successes = []
+    failures = []
+    for result in results:
+        if isinstance(result, Exception):
+            failures.append(str(result))
+        else:
+            successes.append(result)
+
+    return successes, failures`,
+    explanation:
+      "Every mechanism from this lesson is doing real work here: create_task() starts the logging coroutine running immediately, in the background, while the tool calls are being built and gathered — confirmed by the timing assertion, since if anything were secretly sequential, elapsed would be far closer to 0.6s than 0.3s. gather() with return_exceptions=True means the failing calculator call doesn't prevent search and weather from completing or being reported, and isinstance(result, Exception) is what separates the two outcomes back out — the exact composition this lesson has been building toward, one piece at a time.",
+  }}
+/>
+
+</CheckpointZone>

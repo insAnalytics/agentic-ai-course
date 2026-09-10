@@ -1,0 +1,238 @@
+---
+title: "Custom exceptions and exception hierarchies"
+lesson: "06-files-and-json"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="What a generic exception loses" variant="a">
+
+Every exception you've raised so far has been a built-in type —
+`ValueError`, `TypeError`. That works, but it loses information the
+moment more than one thing in your own code can go wrong for different
+reasons:
+
+```python
+def load_tool_config(raw: dict):
+    if "name" not in raw:
+        raise ValueError("missing name")
+    if "timeout" in raw and raw["timeout"] <= 0:
+        raise ValueError("timeout must be positive")
+    return raw
+
+try:
+    load_tool_config({"timeout": -1})
+except ValueError:
+    # ...but which problem was it? a missing field, or a bad value?
+    # catching ValueError alone can't tell the two apart without
+    # inspecting the message string itself
+    print("something was wrong with the config")
+```
+*(not run live — illustrating the problem, not a working demo)*
+
+Both failures raise the exact same exception type — the only way to tell
+them apart from the `except` side is parsing the error message's text,
+which is fragile and not really what exception types are for.
+
+</Subsection>
+
+<Subsection title="Defining your own exception" variant="b">
+
+An exception is just a class — specifically, one that inherits from
+`Exception` (or one of its subclasses),
+[the exact inheritance mechanism from the OOP lesson](/00-python-fundamentals/04-classes-and-objects/05-inheritance/#basic-syntax-compared-to-what-you-know).
+Defining a new one can be as short as one line:
+
+<LiveDemo client:load code={`class ToolError(Exception):
+    pass
+
+def run_tool(name: str):
+    if name != "search":
+        raise ToolError(f"unknown tool: {name}")
+    return "3 results found"
+
+try:
+    run_tool("unknown_tool")
+except ToolError as e:
+    print(f"tool failed: {e}")`} />
+
+`class ToolError(Exception): pass` inherits everything `Exception`
+already does — including accepting a message and making it available via
+`str(e)` — so `ToolError("...")` behaves exactly like `ValueError("...")`
+did, just as its own distinct, specifically-named type. Now
+`except ToolError:` catches *only* tool-related failures, not any other
+`ValueError` that might be raised elsewhere in the same `try` block for a
+completely unrelated reason.
+
+</Subsection>
+
+<Subsection title="Adding your own data to an exception" variant="a">
+
+Since a custom exception is a normal class, it can have its own
+`__init__` and carry structured data beyond just a message string — the
+same
+[`super().__init__()` pattern from the OOP lesson](/00-python-fundamentals/04-classes-and-objects/05-inheritance/#super-init-extending-the-parent-constructor-not-replacing-it)
+applies here too:
+
+<LiveDemo client:load code={`class ToolError(Exception):
+    def __init__(self, tool_name: str, reason: str):
+        self.tool_name = tool_name
+        self.reason = reason
+        super().__init__(f"{tool_name} failed: {reason}")
+
+def run_tool(name: str):
+    if name != "search":
+        raise ToolError(name, "not a recognized tool")
+    return "3 results found"
+
+try:
+    run_tool("unknown_tool")
+except ToolError as e:
+    print(f"failed tool: {e.tool_name}")
+    print(f"reason: {e.reason}")
+    print(f"full message: {e}")`} />
+
+`super().__init__(f"...")` still sets up the message `str(e)` shows, but
+`self.tool_name` and `self.reason` are also directly available on the
+caught exception — code handling the error can react to `e.tool_name`
+programmatically, not just display a string.
+
+</Subsection>
+
+<Subsection title="Building a small hierarchy" variant="b">
+
+Real code usually has more than one kind of error worth distinguishing —
+and those errors are often naturally related, which is exactly what
+inheritance is for. A shared base class lets you catch broadly *or*
+narrowly, depending on what the calling code actually needs to do:
+
+<LiveDemo client:load code={`class AgentError(Exception):
+    pass
+
+class ToolError(AgentError):
+    pass
+
+class ConfigError(AgentError):
+    pass
+
+def run_tool(name: str):
+    if name != "search":
+        raise ToolError(f"unknown tool: {name}")
+    return "3 results found"
+
+def load_config(raw: dict):
+    if "model" not in raw:
+        raise ConfigError("missing required field: model")
+    return raw
+
+try:
+    run_tool("unknown_tool")
+except AgentError as e:
+    print(f"an agent error occurred: {e}")`} />
+
+`except AgentError:` catches the `ToolError` here, because a `ToolError`
+*is an* `AgentError` — the same `isinstance` relationship
+[covered for your own classes back in the OOP lesson's inheritance concept](/00-python-fundamentals/04-classes-and-objects/05-inheritance/#isinstance-and-the-is-a-relationship),
+which applies identically to exception classes, since exceptions are just
+classes like any other. This means calling code has a real choice, all
+without changing how the exceptions are raised:
+
+- catch `ToolError` specifically to handle tool failures one way
+- catch `ConfigError` specifically for config problems
+- catch `AgentError` broadly to handle "anything that went wrong in my
+  own agent code" in one place
+
+This is also exactly
+[the ordering trap from the Python setup lesson's `ArithmeticError`/`ZeroDivisionError` example](/00-python-fundamentals/01-python-setup/03-error-handling/#order-matters-with-multiple-except-clauses),
+now with your own classes: an `except AgentError:` listed *before*
+`except ToolError:` on the same `try` would catch every `ToolError`
+first, making the more specific clause below it unreachable — the fix is
+identical too, list the more specific exception type first.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does a custom exception class actually need, at minimum, to work as a raisable, catchable exception?",
+      options: [
+        "A fully custom __init__ — the default is never enough",
+        "Just inheriting from Exception (or a subclass of it) — even class ToolError(Exception): pass is a complete, working exception type",
+        "A raise statement built into the class itself",
+        "It must be defined inside a try block",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Exceptions are ordinary classes — inheriting from Exception alone gives a class everything needed to be raised and caught, with no method overrides required.",
+    },
+    {
+      question: "Why does catching two different failure types with the same generic except ValueError: make it hard to tell them apart?",
+      options: [
+        "It doesn't — ValueError always includes enough detail automatically",
+        "Both failures produce the exact same exception type, so distinguishing them requires parsing the error message text rather than checking the type",
+        "Python doesn't allow catching ValueError more than once",
+        "ValueError can only be raised once per program",
+      ],
+      correctIndex: 1,
+      explanation:
+        "This is the core motivation for custom exception types — giving different failure reasons genuinely different, catchable types instead of relying on message text.",
+    },
+    {
+      question: "In a custom exception's own __init__, why call super().__init__(message)?",
+      options: [
+        "It's required syntax with no functional effect",
+        "It sets up the exception's base behavior — including what str(e) shows — the same way super().__init__() sets up inherited behavior on any other class",
+        "It prevents the exception from being caught",
+        "It converts the exception into a warning instead",
+      ],
+      correctIndex: 1,
+      explanation:
+        "super().__init__(message) hands the message off to Exception's own constructor, which is what makes str(e) and the default traceback display actually show it — skip it and the custom fields still work, but the exception prints with no message at all.",
+    },
+    {
+      question: "Given class ToolError(AgentError): pass, what does except AgentError: do when a ToolError is raised?",
+      options: [
+        "It doesn't catch it — only the exact type matches",
+        "It catches it — a ToolError is-an AgentError through inheritance, the same isinstance relationship that applies to any subclass",
+        "It raises a second, unrelated exception",
+        "It only works if ToolError has no __init__ of its own",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Inheritance means ToolError is-an AgentError, exactly like any other subclass relationship — except matches by type compatibility, not exact type, so a broader except AgentError: still catches every subclass raised beneath it.",
+    },
+    {
+      question:
+        "If except AgentError: is listed before except ToolError: on the same try block, and a ToolError is raised, which block runs?",
+      options: [
+        "ToolError's block, since it's more specific",
+        "AgentError's block — except clauses are checked top to bottom, and the broader type matches first",
+        "Both blocks run",
+        "Neither — it crashes instead",
+      ],
+      correctIndex: 1,
+      explanation:
+        "This is the exact same ordering trap from the Python setup lesson's ArithmeticError/ZeroDivisionError example, now applied to a custom exception hierarchy — the fix is identical: list specific exceptions before general ones.",
+    },
+    {
+      question: "What's the benefit of giving related custom exceptions (like ToolError and ConfigError) a shared base class (AgentError)?",
+      options: [
+        "There's no real benefit, it's purely stylistic",
+        "Calling code can choose to catch narrowly (a specific error type) or broadly (the shared base, catching everything related) without changing how the exceptions are raised",
+        "It makes the exceptions raise faster",
+        "It's required — Python doesn't allow unrelated custom exception classes",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A shared base class doesn't change how or when an exception is raised — it just gives calling code the option to catch at whichever level of specificity actually matches what it needs to do: narrow for type-specific handling, broad for a single catch-all.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

@@ -1,0 +1,231 @@
+---
+title: "Recap & Practice"
+lesson: "06-files-and-json"
+order: 8
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why is for line in f: generally preferred over f.readlines() for processing a large file line by line?",
+      options: [
+        "for line in f: is only valid syntax for small files",
+        ".readlines() loads the entire file into memory at once; iterating the file object directly hands out one line at a time without ever holding the whole file in memory",
+        ".readlines() doesn't actually work on text files",
+        "There's no real difference between the two",
+      ],
+      correctIndex: 1,
+      explanation:
+        ".readlines() must hold every line in memory at once before you can use any of them; iterating the file object directly reads and discards one line at a time, so memory use stays constant regardless of file size.",
+    },
+    {
+      question: "What guarantee does with open(...) as f: provide that a plain open()/.close() pair doesn't?",
+      options: [
+        "It prevents any exception from occurring inside the block",
+        "The file is guaranteed to be closed when the block ends, whether it finishes normally or raises an exception",
+        "It automatically retries on failure",
+        "It reads the file faster",
+      ],
+      correctIndex: 1,
+      explanation:
+        'This is the same "cleanup that must happen regardless" guarantee finally provides, applied via dedicated syntax for the specific, very common case of resource cleanup.',
+    },
+    {
+      question: "What's the difference between json.load and json.loads?",
+      options: [
+        "No difference, they're aliases",
+        "json.load reads from an already-open file object; json.loads parses an in-memory string",
+        "json.loads is only for lists, not dicts",
+        "json.load is deprecated in favor of json.loads",
+      ],
+      correctIndex: 1,
+      explanation:
+        'The s suffix specifically means "string" — load/dump expect a file object, loads/dumps expect/produce a plain string.',
+    },
+    {
+      question: 'Why is row["temperature"] from a csv.DictReader generally more robust than row[2] from a plain csv.reader?',
+      options: [
+        "DictReader automatically converts strings to numbers",
+        "Looking up by column name doesn't break if a column gets reordered in the source file, unlike a fixed numeric position",
+        "There's no real difference between the two",
+        "csv.reader doesn't support numeric indexing at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A numeric index like row[2] silently points at whatever column happens to be third — if the source file's column order changes, row[2] now means something different without raising any error; a name lookup doesn't have that failure mode.",
+    },
+    {
+      question: "Given class ToolError(AgentError): pass, what does except AgentError: do when a ToolError is raised?",
+      options: [
+        "It doesn't catch it — only the exact type matches",
+        "It catches it — a ToolError is-an AgentError through inheritance",
+        "It raises a second, unrelated exception",
+        "It only works if ToolError has no __init__ of its own",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Inheritance means ToolError is-an AgentError, exactly like any other subclass relationship — except matches by type compatibility, not exact type, so a broader except AgentError: still catches every subclass raised beneath it.",
+    },
+    {
+      question: 'What does raise ConfigError("...") from e add, compared to just raise ConfigError("...") with no from?',
+      options: [
+        "Nothing functionally different — it's purely a style preference",
+        'It makes the relationship between the two exceptions explicit, producing a clearer "was the direct cause of" message and setting __cause__',
+        "It suppresses the original exception's traceback entirely",
+        "It converts ConfigError into a warning",
+      ],
+      correctIndex: 1,
+      explanation:
+        'from e tells Python (and the next reader of the traceback) that the new exception is a deliberate translation of that specific original — producing "was the direct cause of" instead of the generic "during handling of" message, and setting __cause__ so code can reach the original exception object too.',
+    },
+    {
+      question: 'What does logger.exception("tool call failed") do that logger.error("tool call failed") doesn\'t?',
+      options: [
+        "Nothing — they're identical",
+        "logger.exception() automatically attaches the traceback of the exception currently being handled",
+        "logger.exception() suppresses the exception instead of letting it propagate",
+        "logger.exception() can only be called outside of try/except",
+      ],
+      correctIndex: 1,
+      explanation:
+        "logger.exception() is shorthand for logging at ERROR level plus automatically including the traceback of whatever exception is currently being handled — logger.error() only logs the literal message you pass it, with no traceback attached.",
+    },
+    {
+      question:
+        "In logger.debug(\"calling %s with %s\", tool_name, arguments), when DEBUG is filtered out by the configured level, what happens to the substitution of tool_name and arguments into the message?",
+      options: [
+        "It still happens every time, exactly like an f-string would",
+        "It's skipped entirely — logging only performs the substitution if the message is actually going to be emitted",
+        "It happens once, then gets cached",
+        "%s placeholders always raise an error when filtered",
+      ],
+      correctIndex: 1,
+      explanation:
+        "logging defers %s-style substitution until it knows the message will actually be emitted — an f-string can't offer that, since Python builds it immediately regardless of whether logging ends up using it.",
+    },
+    {
+      question:
+        "In a function that catches FileNotFoundError, json.JSONDecodeError, and pydantic.ValidationError, then raises the same ConfigError in every case, what's the benefit of that shared exception type?",
+      options: [
+        "It's a mistake — each should raise something different",
+        "Calling code can handle \"config loading failed\" as one coherent case, while from e still preserves exactly which underlying failure occurred",
+        "ConfigError is required syntax for every except block",
+        "The three underlying exception types are actually identical",
+      ],
+      correctIndex: 1,
+      explanation:
+        "This is the exact payoff of a custom exception hierarchy: one coherent type for callers who just need to know loading failed, with the specific cause still reachable via e.__cause__ for callers who need more.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={`Implement load_agent_configs_from_csv: read the CSV with csv.DictReader, validate each row individually (skipping and logging failures rather than aborting the whole function), handle a missing file with chaining, and raise a final ConfigError if nothing valid was found.`}
+  starterCode={`import csv
+import logging
+from pydantic import BaseModel, ValidationError
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s", force=True)
+logger = logging.getLogger(__name__)
+
+
+class AgentError(Exception):
+    pass
+
+
+class ConfigError(AgentError):
+    pass
+
+
+class AgentConfig(BaseModel):
+    """Fields: name: str, model: str, temperature: float"""
+    name: str
+    model: str
+    temperature: float
+
+
+def load_agent_configs_from_csv(path: str) -> list:
+    """
+    Read a CSV file at \`path\` with columns: name, model, temperature.
+
+    For each row:
+      - try to build an AgentConfig from it directly (AgentConfig(**row))
+        — Pydantic will coerce the CSV string values on its own
+      - if a row fails validation (ValidationError), log it with
+        logger.exception() and skip that row — do NOT let one bad row
+        stop the others from being processed
+
+    If the file itself doesn't exist (FileNotFoundError), log it and
+    raise ConfigError(f"config file not found: {path}") from the
+    original exception.
+
+    After processing every row, if the resulting list of valid configs
+    is empty, raise ConfigError(f"no valid agent configs found in {path}")
+    (no chaining needed here — there's no single underlying exception to
+    point to).
+
+    Otherwise, return the list of valid AgentConfig instances.
+    """
+    # TODO: implement
+    pass`}
+  setupCode={`with open("agents.csv", "w", newline="") as f:
+    f.write("name,model,temperature\\nresearch_agent,claude-sonnet,0.7\\nsupport_agent,claude-haiku,0.3\\nbroken_agent,claude-sonnet,hot\\n")
+
+with open("all_broken.csv", "w", newline="") as f:
+    f.write("name,model,temperature\\nbroken_agent,claude-sonnet,hot\\n")`}
+  hiddenTests={[
+    `configs = load_agent_configs_from_csv("agents.csv")
+assert len(configs) == 2
+names = {c.name for c in configs}
+assert names == {"research_agent", "support_agent"}
+assert all(isinstance(c.temperature, float) for c in configs)`,
+    `try:
+    load_agent_configs_from_csv("missing.csv")
+    assert False, "should have raised"
+except ConfigError as e:
+    assert isinstance(e, AgentError)
+    assert isinstance(e.__cause__, FileNotFoundError)`,
+    `try:
+    load_agent_configs_from_csv("all_broken.csv")
+    assert False, "should have raised"
+except ConfigError as e:
+    assert "no valid agent configs found" in str(e)
+    assert e.__cause__ is None`,
+  ]}
+  hint={`Structure: one try around with open(path, "r") as f: / csv.DictReader(f), catching FileNotFoundError around the whole read. Inside the loop over rows, a separate, inner try/except ValidationError around AgentConfig(**row) — that's what lets one bad row get logged and skipped without stopping the loop, which is different from Concept 7's version, where any validation failure stopped the whole function. After the loop, a plain if not results: raise ConfigError(...) — with no from, since there's no single exception to chain from at that point.`}
+  correctAnswer={{
+    code: `def load_agent_configs_from_csv(path: str) -> list:
+    results = []
+    try:
+        with open(path, "r") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                try:
+                    results.append(AgentConfig(**row))
+                except ValidationError:
+                    logger.exception(f"skipping invalid row: {row}")
+    except FileNotFoundError as e:
+        logger.exception(f"config file not found: {path}")
+        raise ConfigError(f"config file not found: {path}") from e
+
+    if not results:
+        raise ConfigError(f"no valid agent configs found in {path}")
+
+    return results`,
+    explanation:
+      "This is a deliberately different composition than Concept 7's pipeline, not a repeat of it: validation failures here are recoverable, handled per-row with their own inner try/except so one bad row doesn't sink the whole batch — while a missing file is still fatal, chained with from e exactly as before. The final if not results: check shows that not every raise needs a from — chaining only makes sense when there's an actual underlying exception causing the new one, which isn't the case when the failure is \"nothing succeeded\" rather than \"this one specific thing broke.\" Every piece from this lesson — with, CSV, Pydantic validation and its automatic coercion, a custom exception hierarchy, selective chaining, and logging — is doing real, distinct work in one realistic function.",
+  }}
+/>
+
+</CheckpointZone>

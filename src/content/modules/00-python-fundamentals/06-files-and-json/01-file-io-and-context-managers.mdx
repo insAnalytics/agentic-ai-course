@@ -1,0 +1,275 @@
+---
+title: "File I/O and context managers"
+lesson: "06-files-and-json"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Opening a file, and the cleanup problem" variant="a">
+
+`open()` gives you a **file object** — a handle to the actual file on
+disk, not the file's contents directly:
+
+<LiveDemo client:load setupCode={`with open("notes.txt", "w") as f:
+    f.write("first line\\nsecond line\\n")`} code={`f = open("notes.txt", "r")
+contents = f.read()
+f.close()
+
+print(contents)`} />
+
+`"r"` is the **mode**:
+
+- `"r"` for reading (the default if omitted)
+- `"w"` for writing (creates the file if it doesn't exist, and
+  **overwrites** it completely if it does)
+- `"a"` for appending (writes get added to the end, the existing content
+  is left alone)
+
+`f.close()` releases the underlying operating system resource — skipping
+it isn't just untidy, it can leave a file locked or its contents not
+fully flushed to disk.
+
+The problem: `f.close()` only runs if execution actually reaches that
+line. If something raises an exception in between `open()` and `close()`,
+the file never gets closed — the same
+[line-by-line execution model from the Python setup lesson](/00-python-fundamentals/01-python-setup/01-set-up-python/#execution-model-compared-to-what-you-already-know)
+means Python just stops wherever the error happened:
+
+<LiveDemo client:load setupCode={`with open("notes.txt", "w") as f:
+    f.write("first line\\nsecond line\\n")`} code={`f = open("notes.txt", "r")
+contents = f.read()
+result = 1 / 0   # crashes here — f.close() below never runs
+f.close()`} />
+
+</Subsection>
+
+<Subsection title="with — guaranteed cleanup, even on exception" variant="b">
+
+You've already seen the fix for "cleanup that must happen no matter what"
+—
+[`finally`, from the error handling concept back in the Python setup lesson](/00-python-fundamentals/01-python-setup/03-error-handling/#finally-runs-no-matter-what).
+File handling has dedicated syntax for exactly this pattern, since it's
+common enough to deserve its own shorthand: `with`.
+
+<LiveDemo client:load setupCode={`with open("notes.txt", "w") as f:
+    f.write("first line\\nsecond line\\n")`} code={`with open("notes.txt", "r") as f:
+    contents = f.read()
+    result = 1 / 0   # still crashes — but f is already closed by the time this runs
+
+print(contents)`} />
+
+The `ZeroDivisionError` still happens and still propagates — `with`
+doesn't swallow exceptions — but the file is guaranteed to be closed
+before that traceback ever reaches you, whether the block finishes
+normally or crashes partway through. `f` is only valid inside the
+indented block; there's no `f.close()` to remember or forget. This is
+Python's version of Java's try-with-resources — a dedicated syntax for
+"acquire something, guarantee its cleanup," rather than relying on a
+programmer to remember a matching `finally`.
+
+`open()` returning something usable with `with` is what makes it a
+**context manager** — an object that defines what should happen on entry
+(here, nothing extra — the file's already open) and on exit (closing the
+file), regardless of how the block ends. You won't write your own context
+manager in this course, but recognizing the pattern matters: any object
+usable after `with ... as ...:` is promising the same guarantee `with
+open(...)` gives you.
+
+</Subsection>
+
+<Subsection title="Reading a file: four ways, and when each fits" variant="a">
+
+<LiveDemo client:load setupCode={`with open("notes.txt", "w") as f:
+    f.write("first line\\nsecond line\\n")`} code={`with open("notes.txt", "r") as f:
+    contents = f.read()   # everything, as one string
+print(repr(contents))`} />
+
+`.read()` loads the entire file into memory as a single string, newlines
+and all — fine for small files, wasteful for anything large.
+
+<LiveDemo client:load setupCode={`with open("notes.txt", "w") as f:
+    f.write("first line\\nsecond line\\n")`} code={`with open("notes.txt", "r") as f:
+    line = f.readline()
+    print(repr(line))
+    line = f.readline()
+    print(repr(line))`} />
+
+`.readline()` reads exactly one line at a time, remembering where it left
+off between calls — useful when you need fine control over reading one
+line, checking it, and deciding whether to read further.
+
+<LiveDemo client:load setupCode={`with open("notes.txt", "w") as f:
+    f.write("first line\\nsecond line\\n")`} code={`with open("notes.txt", "r") as f:
+    lines = f.readlines()
+print(lines)`} />
+
+`.readlines()` reads the whole file at once, same as `.read()`, but
+returns a list of lines instead of one string — still loads everything
+into memory up front.
+
+<LiveDemo client:load setupCode={`with open("notes.txt", "w") as f:
+    f.write("first line\\nsecond line\\n")`} code={`with open("notes.txt", "r") as f:
+    for line in f:
+        print(line.strip())   # .strip() removes the trailing newline`} />
+
+Directly iterating the file object with `for line in f:` is the most
+idiomatic option for processing a file line by line — a file object is
+itself an
+[iterable, in exactly the sense covered back in the control flow concept](/00-python-fundamentals/01-python-setup/02-control-flow-and-syntax/#for-loops-iterate-over-values-not-a-counter),
+handing out one line at a time without ever loading the whole file into
+memory at once. For a genuinely large file, this matters: `.read()`/
+`.readlines()` on a multi-gigabyte file can exhaust memory; the `for`
+version never holds more than one line at a time.
+
+Since a file object is an iterator, `next()` works on it directly too,
+pulling one line at a time by hand — the same mechanism the `for` loop
+uses internally, just invoked one step at a time yourself:
+
+<LiveDemo client:load setupCode={`with open("notes.txt", "w") as f:
+    f.write("first line\\nsecond line\\n")`} code={`with open("notes.txt", "r") as f:
+    print(next(f))
+    print(next(f))`} />
+
+</Subsection>
+
+<Subsection title="Writing to a file" variant="b">
+
+Writing uses `"w"` or `"a"` mode and `.write()`, which — unlike `print()`
+— doesn't add a newline automatically:
+
+<LiveDemo client:load code={`with open("output.txt", "w") as f:
+    f.write("first line\\n")
+    f.write("second line\\n")
+
+with open("output.txt", "r") as f:
+    print(f.read())`} />
+
+Opening the same file again with `"w"` overwrites it completely — worth
+being careful about, since there's no confirmation or undo:
+
+<LiveDemo client:load code={`with open("output.txt", "w") as f:
+    f.write("only this line now\\n")
+
+with open("output.txt", "r") as f:
+    print(f.read())`} />
+
+`"a"` mode instead adds to the end without touching what's already there:
+
+<LiveDemo
+  client:load
+  setupCode={`with open("output.txt", "w") as f:
+    f.write("only this line now\\n")`}
+  code={`with open("output.txt", "a") as f:
+    f.write("appended line\\n")
+
+with open("output.txt", "r") as f:
+    print(f.read())`}
+/>
+
+</Subsection>
+
+<Subsection title=".seek() and .tell() — moving around inside a file" variant="a">
+
+A file object tracks its current read/write position internally — every
+`.read()`, `.readline()`, or `next()` call advances it. `.tell()` reports
+the current position (in bytes); `.seek()` jumps to a specific position
+directly:
+
+<LiveDemo client:load setupCode={`with open("notes.txt", "w") as f:
+    f.write("first line\\nsecond line\\n")`} code={`with open("notes.txt", "r") as f:
+    print(f.tell())          # 0 — just opened, at the very start
+    first_line = f.readline()
+    print(f.tell())          # advanced past the first line
+
+    f.seek(0)                 # jump back to the beginning
+    print(f.readline())       # reads the first line again`} />
+
+`f.seek(0)` is the common case — rewinding to re-read a file from the
+start within the same `with` block, without closing and reopening it.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: 'What does open("file.txt", "w") do if file.txt already exists and already has content?',
+      options: [
+        "It raises an error, refusing to overwrite",
+        "It overwrites the file completely — the existing content is gone the moment the file is opened in this mode",
+        "It appends to the existing content",
+        "It merges the new and old content automatically",
+      ],
+      correctIndex: 1,
+      explanation:
+        '"w" mode truncates the file immediately on open — "a" is the mode that preserves existing content and adds to the end.',
+    },
+    {
+      question: "Why can a plain open()/.close() pair leave a file open even when you wrote the .close() line?",
+      options: [
+        ".close() never actually works",
+        "If an exception occurs between open() and .close(), execution stops at that point and never reaches the .close() line",
+        "Files close themselves automatically after a fixed timeout",
+        ".close() only works inside a function",
+      ],
+      correctIndex: 1,
+      explanation:
+        "This is the same line-by-line execution model covered in the Python setup lesson — an exception stops execution exactly where it occurs, so any cleanup code written after it simply never runs.",
+    },
+    {
+      question: "What guarantee does with open(...) as f: provide that a plain open()/.close() pair doesn't?",
+      options: [
+        "It prevents any exception from occurring inside the block",
+        "The file is guaranteed to be closed when the block ends, whether it finishes normally or raises an exception",
+        "It automatically retries on failure",
+        "It reads the file faster",
+      ],
+      correctIndex: 1,
+      explanation:
+        'This is the same "cleanup that must happen regardless" guarantee finally provides, applied via dedicated syntax for the specific, very common case of resource cleanup.',
+    },
+    {
+      question: "Why is for line in f: generally preferred over f.readlines() for processing a large file line by line?",
+      options: [
+        "for line in f: is only valid syntax for small files",
+        ".readlines() loads the entire file into memory at once; iterating the file object directly hands out one line at a time without ever holding the whole file in memory",
+        ".readlines() doesn't actually work on text files",
+        "There's no real difference between the two",
+      ],
+      correctIndex: 1,
+      explanation:
+        ".readlines() must hold every line in memory at once before you can use any of them; iterating the file object directly reads and discards one line at a time, so memory use stays constant regardless of file size.",
+    },
+    {
+      question: "What's the practical difference between .read() and .readlines()?",
+      options: [
+        ".read() only reads one line; .readlines() reads the whole file",
+        "Both load the entire file into memory, but .read() returns one string while .readlines() returns a list of individual lines",
+        ".readlines() is faster in every case",
+        ".read() doesn't include newline characters, .readlines() does",
+      ],
+      correctIndex: 1,
+      explanation:
+        ".read() and .readlines() both load the whole file into memory up front — they differ only in shape: one string with embedded newlines versus a list split at each line break.",
+    },
+    {
+      question: "After reading part of a file, what does f.seek(0) do?",
+      options: [
+        "Closes the file",
+        "Moves the file's read position back to the very beginning, so the next read starts over from there",
+        "Deletes everything read so far",
+        "Skips to the end of the file",
+      ],
+      correctIndex: 1,
+      explanation:
+        "seek() repositions the file's internal read/write cursor directly; seek(0) moves it back to byte 0, so the next read starts over from the beginning of the file.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

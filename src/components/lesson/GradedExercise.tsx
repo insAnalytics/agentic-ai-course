@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { loadPyodideOnce, runAgainstHiddenTests, type PyodideInterface } from "../../lib/pyodide";
+import { loadPyodideOnce, runAgainstHiddenTests, runCapturingOutput, type PyodideInterface } from "../../lib/pyodide";
 import CodeEditor from "./CodeEditor";
 import LinkedText from "./LinkedText";
 
@@ -13,6 +13,15 @@ interface GradedExerciseProps {
     code: string;
     explanation: string;
   };
+  /**
+   * Optional hidden code run silently on Pyodide's real filesystem before
+   * grading, every submit — never shown to the learner. For a hidden test
+   * that needs a real file to already exist (e.g. a CSV the learner's
+   * function reads by path), since real file I/O touches Pyodide's actual
+   * FS regardless of the in-memory namespace hiddenTests otherwise runs
+   * in. Same idea as LiveDemo's `setupCode`.
+   */
+  setupCode?: string;
 }
 
 type Reveal = "none" | "hint" | "answer";
@@ -23,6 +32,7 @@ export default function GradedExercise({
   hiddenTests,
   hint,
   correctAnswer,
+  setupCode,
 }: GradedExerciseProps) {
   const [code, setCode] = useState(starterCode);
   const [pyodide, setPyodide] = useState<PyodideInterface | null>(null);
@@ -48,6 +58,7 @@ export default function GradedExercise({
   const submit = async () => {
     if (!pyodide) return;
     setStatus("grading");
+    if (setupCode) await runCapturingOutput(pyodide, setupCode);
     const outcome = await runAgainstHiddenTests(pyodide, code, hiddenTests);
     setResults(outcome);
     setStatus("ready");

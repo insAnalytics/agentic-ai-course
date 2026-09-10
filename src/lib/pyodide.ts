@@ -69,19 +69,38 @@ function withPyodideQueue<T>(fn: () => Promise<T>): Promise<T> {
   return run;
 }
 
+/**
+ * `pyodide.runPythonAsync` already runs code inside its own live event loop
+ * (that's what makes top-level `await` work at all), so `asyncio.run(...)` —
+ * the standard real-Python entry point — raises "cannot be called from a
+ * running event loop" here even though it's completely normal code outside
+ * the browser. Rather than teach a different, browser-only entry point,
+ * lesson content keeps writing (and showing) real `asyncio.run(coro())`,
+ * and this rewrites it to `await (coro())` — equivalent for a single
+ * top-level call — right before execution. Purely an execution-environment
+ * shim: it never changes what's shown to the learner, only what actually
+ * runs. Only applies where `runPythonAsync` is used (LiveDemo); the hidden
+ * test harness execs code without top-level-await support, so this can't
+ * help there — a GradedExercise involving async code needs its own fix.
+ */
+function shimAsyncioRun(code: string): string {
+  return code.replaceAll("asyncio.run(", "await (");
+}
+
 /** Runs `code`, capturing everything written to stdout/stderr as one string. */
 export async function runCapturingOutput(
   pyodide: PyodideInterface,
   code: string,
 ): Promise<{ output: string; error: string | null }> {
   return withPyodideQueue(async () => {
+    const runnableCode = shimAsyncioRun(code);
     let output = "";
     pyodide.setStdout({ batched: (text) => (output += text + "\n") });
     pyodide.setStderr({ batched: (text) => (output += text + "\n") });
 
     try {
-      await pyodide.loadPackagesFromImports(code).catch(() => {});
-      const result = await pyodide.runPythonAsync(code);
+      await pyodide.loadPackagesFromImports(runnableCode).catch(() => {});
+      const result = await pyodide.runPythonAsync(runnableCode);
       if (result !== undefined && result !== null) output += String(result);
       return { output, error: null };
     } catch (err) {
@@ -90,13 +109,33 @@ export async function runCapturingOutput(
   });
 }
 
+// exec(compile(src, ..., "exec")) can't contain a top-level \`await\` at all
+// (SyntaxError) — unlike runPythonAsync, a plain "exec" compile has no
+// top-level-await support. Compiling with PyCF_ALLOW_TOP_LEVEL_AWAIT and
+// running the result through eval() instead of exec() is what CPython's own
+// async REPL uses to get around this: if the source contains a top-level
+// await, eval() returns a coroutine (driven here with our own \`await\`,
+// valid since the TEST_HARNESS script itself runs via runPythonAsync);
+// otherwise eval() just runs the code normally and returns None. Combined
+// with the same asyncio.run() -> await (...) shim runPythonAsync's own
+// caller applies, this lets both the learner's own code and a hidden test
+// use real \`asyncio.run(...)\` exactly as shown in lesson content.
 const TEST_HARNESS = `
-import json
+import json, ast
+
+def _shim(src):
+    return src.replace("asyncio.run(", "await (")
+
+async def _run(src, ns):
+    code = compile(_shim(src), "<exec>", "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+    coro = eval(code, ns)
+    if coro is not None:
+        await coro
 
 _ns = {}
 _error = None
 try:
-    exec(compile(__learner_code, "<learner>", "exec"), _ns)
+    await _run(__learner_code, _ns)
 except Exception as e:
     _error = f"{type(e).__name__}: {e}"
 
@@ -105,7 +144,7 @@ _results = []
 if _error is None:
     for _i, _src in enumerate(_tests):
         try:
-            exec(compile(_src, f"<test_{_i}>", "exec"), dict(_ns))
+            await _run(_src, dict(_ns))
             _results.append(True)
         except Exception:
             _results.append(False)

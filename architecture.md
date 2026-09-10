@@ -180,14 +180,48 @@ real syntax highlighting and Python-aware completions, not a plain
   section (a scratchpad the learner can tinker with, e.g. add another
   `print`). Never runs on page load — only on an explicit "Run" click.
   Deliberate crashes are shown as a teaching device when the learner runs
-  the starter code as-is.
+  the starter code as-is. Optional `setupCode` prop: hidden code run
+  silently (output discarded) immediately before the visible code, on every
+  Run click — for seeding a fixture the demo assumes already exists (e.g.
+  writing a file into Pyodide's virtual FS before a file-reading demo),
+  without cluttering the shown code with unrelated setup or depending on
+  some other demo having run first. First used in Lesson 0.6's file I/O
+  concept.
 - **`<GradedExercise />`** — editable starter code, submitted and run against
   hidden test snippets inside the same Pyodide instance. Only pass/fail
   counts are surfaced to the learner; test source is never sent to the
   client-visible DOM in a way a learner would casually read, but note this is
   still client-side execution — a determined learner can inspect the MDX
   source. Treat hidden tests as sequencing psychology, not real security.
-- The agent loop, tool-call parsing, and state management taught in these
+  Optional `setupCode` prop, same idea as `LiveDemo`'s: hidden code run
+  silently on Pyodide's real filesystem before grading, every submit — for
+  a hidden test whose function reads a real file by path (real file I/O
+  touches Pyodide's actual FS regardless of the in-memory namespace
+  `hiddenTests` otherwise runs in). First used in Lesson 0.6's CSV concept.
+- **`asyncio.run()` shim**: `pyodide.runPythonAsync` already executes inside
+  its own live event loop, so real `asyncio.run(...)` — the standard entry
+  point every learner would actually write — raises "cannot be called from a
+  running event loop" if run as-is (confirmed by testing against the pinned
+  Pyodide version). Both execution paths rewrite a top-level
+  `asyncio.run(coro())` to `await (coro())` immediately before running it —
+  equivalent for a single top-level call, and purely an execution shim:
+  lesson content keeps writing and showing real `asyncio.run(...)`, never a
+  browser-only substitute. Introduced in Lesson 0.7's `async`/`await`
+  concept.
+  - `LiveDemo` (`runCapturingOutput`): applies the text rewrite, then runs
+    the whole thing through `runPythonAsync`, which supports top-level
+    `await` natively.
+  - `GradedExercise` (`TEST_HARNESS`, both the learner's own code and each
+    hidden test): a plain `exec(compile(src, ..., "exec"))` can't contain a
+    top-level `await` at all (`SyntaxError`), so the harness instead
+    compiles with `ast.PyCF_ALLOW_TOP_LEVEL_AWAIT` and runs the result via
+    `eval()` — the same mechanism CPython's own async REPL uses. If the
+    (shimmed) source contains a top-level await, `eval()` returns a
+    coroutine, which the harness itself `await`s (valid there since
+    `TEST_HARNESS` runs via `runPythonAsync` too); otherwise `eval()` just
+    runs the code normally and returns `None`, so every pre-existing
+    synchronous hidden test elsewhere in the course is unaffected — verified
+    directly, including a deliberate-failure case, before shipping.
   exercises are hand-rolled Python (not a framework like LangChain) — this is
   deliberate: for teaching, seeing the raw loop matters more than hiding it
   behind a library, and it also sidesteps Pyodide's lack of support for

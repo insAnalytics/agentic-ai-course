@@ -1,0 +1,162 @@
+---
+title: "Why containers — the environment problem, compared to venv"
+lesson: "08-containerize-with-docker"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import TerminalGroup from "../../../../components/lesson/TerminalGroup";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="What a venv actually manages — and what it doesn't" variant="a">
+
+[A virtual environment, from the Python setup lesson](/00-python-fundamentals/01-python-setup/01-set-up-python/#virtual-environments-and-why-they-re-not-optional),
+isolates *Python packages* — one project's `pip install`s don't leak into
+another's. That's real, and it solves a real problem. But a venv sits
+entirely *inside* one Python installation, on one operating system — it
+has no ability to change or isolate anything below that: not the Python
+version itself, not OS-level system libraries, not the OS itself.
+
+Both machines below start with an identical `requirements.txt` and an
+identical venv setup script — click Run on each pane and watch the same
+three commands play out differently depending on what's already on that
+machine:
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "Your machine — Ubuntu 22.04, libpq already installed",
+      steps: [
+        { command: "python3 -m venv .venv" },
+        { command: "source .venv/bin/activate" },
+        { command: "pip install -r requirements.txt" },
+        { output: "Successfully installed psycopg2-2.9.9" },
+        { command: "python3 app.py" },
+        { output: "Connected to database. Server running on port 5000." },
+      ],
+    },
+    {
+      label: "A teammate's machine — Ubuntu 20.04, no libpq",
+      steps: [
+        { command: "python3 -m venv .venv" },
+        { command: "source .venv/bin/activate" },
+        { command: "pip install -r requirements.txt" },
+        { output: "Successfully installed psycopg2-2.9.9" },
+        { command: "python3 app.py" },
+        {
+          output:
+            "ImportError: libpq.so.5: cannot open shared object file: No such file or directory",
+        },
+      ],
+    },
+  ]}
+/>
+
+Same `requirements.txt`, same venv commands, same Python version — and it
+still fails, because the missing piece isn't a Python package at all,
+it's a system library the venv was never able to touch in the first
+place.
+
+</Subsection>
+
+<Subsection title="The actual gap" variant="b">
+
+This is the concrete version of a problem you've likely heard described
+vaguely as "works on my machine" — and it's worth being precise about
+*why* a venv, on its own, structurally cannot fix it: a venv's isolation
+boundary stops at the Python interpreter. Everything below that —
+the OS, its installed system libraries, even which Python *version* is
+available to create the venv from in the first place — is shared with,
+and entirely dependent on, whatever happens to already be on that
+specific machine.
+
+</Subsection>
+
+<Subsection title="The fix, previewed" variant="a">
+
+Now both machines run the exact same three commands instead — click Run
+on each:
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "Your machine",
+      steps: [
+        { command: "docker build -t my-app ." },
+        { output: "Successfully built 9w0x1y2z3a4b" },
+        { output: "Successfully tagged my-app:latest" },
+        { command: "docker run my-app" },
+        { output: "Connected to database. Server running on port 5000." },
+      ],
+    },
+    {
+      label: "A teammate's machine",
+      steps: [
+        { command: "docker build -t my-app ." },
+        { output: "Successfully built 9w0x1y2z3a4b" },
+        { output: "Successfully tagged my-app:latest" },
+        { command: "docker run my-app" },
+        { output: "Connected to database. Server running on port 5000." },
+      ],
+    },
+  ]}
+/>
+
+Both panes print identical output. The `ImportError` is gone — not
+because the teammate's machine was fixed, but because neither machine's
+own OS is what's actually running the code anymore. This lesson is about
+what's inside that `Dockerfile`, and what `docker build`/`docker run`
+are actually doing to make that true — starting with the next section's
+vocabulary, and built up piece by piece from there.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does a virtual environment's isolation boundary actually cover?",
+      options: [
+        "The entire operating system, including system libraries",
+        "Only Python packages within one Python installation — it has no ability to isolate or change the OS or system libraries beneath it",
+        "Only the specific Python version being used",
+        "Nothing — venvs don't actually isolate anything",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A venv's isolation stops at the Python interpreter — the OS, system libraries, and even which Python version is available to build the venv from are all shared with, and dependent on, the underlying machine.",
+    },
+    {
+      question:
+        "In the split-terminal demo, why does pip install -r requirements.txt succeed on both machines, while running the app only succeeds on one?",
+      options: [
+        "pip install silently fails on the second machine without showing an error",
+        "The failure is a missing system-level library, not a missing Python package — something pip/a venv was never able to install or manage in the first place",
+        "The two machines have different requirements.txt files",
+        "pip install behaves differently depending on the OS",
+      ],
+      correctIndex: 1,
+      explanation:
+        "libpq is a system library, not a Python package — pip has no way to install it, and a venv has no way to reach outside the Python interpreter to fix the gap.",
+    },
+    {
+      question:
+        "Why does running the same commands inside a container fix the \"works on my machine\" problem shown in the demo, when the venv-only approach couldn't?",
+      options: [
+        "Containers automatically detect and install any missing system libraries",
+        "The container brings its own consistent OS-level environment with it, so neither machine's own underlying OS or system libraries are what's actually running the code anymore",
+        "docker run is just a faster version of pip install",
+        "Containers don't actually run on the host machine at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A container packages the OS-level environment along with the code — the host machine's own libraries stop being relevant, because they're no longer what the code actually runs against.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

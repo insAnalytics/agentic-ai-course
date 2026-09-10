@@ -5,9 +5,18 @@ import CodeEditor from "./CodeEditor";
 interface LiveDemoProps {
   /** Starting code — editable, not graded. A scratchpad for the learner to experiment in. */
   code: string;
+  /**
+   * Optional hidden code run silently before `code` on every Run click —
+   * never shown to the learner and not editable. Used to seed a fixture
+   * (e.g. writing a file into Pyodide's virtual FS) that the visible demo
+   * code then reads, so a demo can assume "this file already exists"
+   * without cluttering the shown code with unrelated setup, and without
+   * depending on some other demo having run first.
+   */
+  setupCode?: string;
 }
 
-export default function LiveDemo({ code: initialCode }: LiveDemoProps) {
+export default function LiveDemo({ code: initialCode, setupCode }: LiveDemoProps) {
   const [code, setCode] = useState(initialCode);
   const [output, setOutput] = useState<string | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "running">("loading");
@@ -28,6 +37,7 @@ export default function LiveDemo({ code: initialCode }: LiveDemoProps) {
   const run = async () => {
     if (!pyodide) return;
     setStatus("running");
+    if (setupCode) await runCapturingOutput(pyodide, setupCode);
     const { output, error } = await runCapturingOutput(pyodide, code);
     setOutput(error ? output + error : output);
     setStatus("ready");
