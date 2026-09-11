@@ -1,0 +1,229 @@
+---
+title: "Routes, path/query parameters, and validation"
+lesson: "09-rest-api-endpoints"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Path parameters — part of the URI itself" variant="a">
+
+A `{"{...}"}` segment in a route's path becomes a function parameter,
+automatically extracted from the actual URI a request came in on:
+
+```python
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/agents/{agent_id}")
+def get_agent(agent_id: int):
+    return {"agent_id": agent_id, "name": "research_agent"}
+```
+
+A request to `/agents/42` calls `get_agent(agent_id=42)` — as an actual
+`int`, already converted, not the string `"42"`. This is
+[the same automatic-validation mechanism from the previous concept](/00-python-fundamentals/09-rest-api-endpoints/02-what-is-fastapi/#why-this-fits-agent-backends-specifically),
+now applied to a path segment: the type hint isn't just documentation
+here, it's a real parsing step.
+
+Requesting `/agents/not-a-number` — something that can't be parsed as an
+`int` — never reaches `get_agent` at all:
+
+```json
+{
+  "detail": [
+    {
+      "type": "int_parsing",
+      "loc": ["path", "agent_id"],
+      "msg": "Input should be a valid integer, unable to parse string as an integer",
+      "input": "not-a-number"
+    }
+  ]
+}
+```
+*(automatic response, HTTP status 422 — illustrating expected output)*
+
+FastAPI rejects it automatically, before your function body ever runs,
+with a structured error response — no manual `isinstance` check, no
+`try`/`except` needed for this case at all.
+
+</Subsection>
+
+<Subsection title="Query parameters — everything else in the function signature" variant="b">
+
+Any function parameter *not* named in the path becomes a **query
+parameter** instead — read from the URI's `?key=value` portion:
+
+```python
+@app.get("/agents")
+def list_agents(model: str = None, limit: int = 10):
+    return {"model_filter": model, "limit": limit}
+```
+
+`GET /agents?model=claude-sonnet&limit=5` calls
+`list_agents(model="claude-sonnet", limit=5)`. A default value (`= None`,
+`= 10`) makes the parameter optional — omitting it from the URI just
+uses the default, exactly like
+[a regular function's default argument](/00-python-fundamentals/03-functions/01-function-fundamentals/#default-arguments).
+
+</Subsection>
+
+<Subsection title="Query() and Path() — validation beyond just the type" variant="a">
+
+A type hint alone only checks *shape* (is this an `int`). `Query()` and
+`Path()` add real constraints — a minimum, a maximum, a length limit —
+directly in the function signature:
+
+```python
+from fastapi import FastAPI, Query, Path
+
+app = FastAPI()
+
+@app.get("/agents")
+def list_agents(limit: int = Query(default=10, gt=0, le=100)):
+    return {"limit": limit}
+
+@app.get("/agents/{agent_id}")
+def get_agent(agent_id: int = Path(gt=0)):
+    return {"agent_id": agent_id}
+```
+
+`Query(default=10, gt=0, le=100)` means: default to `10` if omitted,
+reject anything not strictly greater than `0`, reject anything above
+`100` — `GET /agents?limit=500` gets rejected automatically with the
+same structured `422` shape shown above, `limit` never even reaching
+`list_agents`. `Path(gt=0)` does the same for a path parameter — here,
+refusing an `agent_id` of `0` or negative, even though it's already a
+valid `int`.
+
+</Subsection>
+
+<Subsection title="Header() and Cookie() — the same mechanism, different source" variant="b">
+
+Extracting an HTTP header or cookie value works identically — a
+parameter typed with `Header()` or `Cookie()` instead of `Query()`/`Path()`:
+
+```python
+from fastapi import Header, Cookie
+
+@app.get("/whoami")
+def whoami(x_request_id: str = Header(default=None), session_id: str = Cookie(default=None)):
+    return {"request_id": x_request_id, "session_id": session_id}
+```
+
+FastAPI automatically converts a parameter name like `x_request_id` to
+the header name `X-Request-Id` — headers conventionally use hyphens,
+Python identifiers can't, so this conversion happens for you.
+
+</Subsection>
+
+<Subsection title="The route-ordering gotcha" variant="a">
+
+Routes are matched top to bottom, and the *first* matching route wins —
+worth being careful with, since a dynamic path segment matches almost
+anything:
+
+```python
+@app.get("/agents/{agent_id}")
+def get_agent(agent_id: str):
+    return {"agent_id": agent_id}
+
+@app.get("/agents/me")
+def get_current_agent():
+    return {"agent_id": "current-user's-agent"}
+```
+
+A request to `/agents/me` matches `/agents/{agent_id}` *first* — `me`
+is a perfectly valid string for `agent_id` — so `get_current_agent`
+never actually runs; `get_agent(agent_id="me")` handles it instead. The
+fix is ordering the more specific, static route *before* the dynamic
+one:
+
+```python
+@app.get("/agents/me")
+def get_current_agent():
+    return {"agent_id": "current-user's-agent"}
+
+@app.get("/agents/{agent_id}")
+def get_agent(agent_id: str):
+    return {"agent_id": agent_id}
+```
+
+This is
+[the same top-to-bottom, first-match-wins principle from except clause ordering](/00-python-fundamentals/01-python-setup/03-error-handling/#order-matters-with-multiple-except-clauses),
+applied to routes instead of exception types: list the more specific
+case first, or it never gets a chance to match.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "In @app.get(\"/agents/{agent_id}\") def get_agent(agent_id: int):, what does the int type hint actually do?",
+      options: [
+        "It's purely documentation with no runtime effect",
+        "It's a real parsing step — FastAPI converts the path segment to an actual int before the function runs, and rejects the request automatically if it can't",
+        "It only affects the automatic docs, not real requests",
+        "It has no effect unless combined with Path()",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The type hint drives real conversion and validation here — FastAPI parses the path segment into an int before get_agent ever runs, rejecting the request outright if that parsing fails.",
+    },
+    {
+      question: "How does FastAPI decide whether a function parameter is a path parameter or a query parameter?",
+      options: [
+        "Query parameters must always come first in the function signature",
+        "A parameter matching a {...} segment in the route path is a path parameter; anything else in the signature becomes a query parameter",
+        "They're identical — FastAPI doesn't distinguish between the two",
+        "Query parameters require a special decorator",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The route path itself is what determines this — any parameter named in a {...} segment is a path parameter, and everything else in the signature defaults to being read from the query string.",
+    },
+    {
+      question: "What does Query(default=10, gt=0, le=100) add beyond what a plain int type hint alone would check?",
+      options: [
+        "Nothing — it's purely stylistic",
+        "Real value constraints — a default, a minimum (gt), and a maximum (le) — rejecting values outside that range automatically, not just checking that it's an int",
+        "It makes the parameter required instead of optional",
+        "It converts the parameter into a path parameter",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A bare int hint only checks shape — Query() layers real range constraints on top, so an out-of-range value is rejected automatically before the route function ever runs.",
+    },
+    {
+      question: "How does a parameter named x_request_id, typed with Header(), map to an actual HTTP header name?",
+      options: [
+        "It doesn't — headers can't be extracted this way",
+        "FastAPI automatically converts it to X-Request-Id, since HTTP headers conventionally use hyphens that Python identifiers can't contain",
+        "The header name must be passed as a string argument manually every time",
+        "Header() only works with headers that are already lowercase",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Since a Python identifier can't contain a hyphen, FastAPI bridges the gap automatically — underscores in the parameter name become hyphens in the actual header name it looks for.",
+    },
+    {
+      question: "Given /agents/{agent_id} defined before /agents/me, why does a request to /agents/me never actually reach the /agents/me route's function?",
+      options: [
+        "/agents/me is invalid syntax",
+        "Routes match top to bottom, first match wins — /agents/{agent_id} matches first, since \"me\" is a valid value for a dynamic path segment",
+        "FastAPI requires routes to be registered in alphabetical order",
+        "This isn't actually a real issue — both routes would run",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A dynamic segment like {agent_id} matches almost any string, \"me\" included — since it's registered first, it intercepts the request before the more specific /agents/me route ever gets a chance.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
