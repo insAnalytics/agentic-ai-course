@@ -1,0 +1,142 @@
+---
+title: "Images vs. containers"
+lesson: "08-containerize-with-docker"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import TerminalGroup from "../../../../components/lesson/TerminalGroup";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The analogy: a class, and its instances" variant="a">
+
+An **image** is a fixed, built definition — a filesystem snapshot plus
+instructions for what to run — the same way
+[a class is a fixed definition of attributes and behavior](/00-python-fundamentals/04-classes-and-objects/01-class-fundamentals/#init-and-instance-attributes),
+not a specific object yet. A **container** is a running instance of that
+image — the same way `Agent("research_agent", "claude-sonnet")` produces
+one specific object *from* the `Agent` class. Exactly like a class, one
+image can produce many containers, each one an independent running
+instance, the same way `agent_a` and `agent_b` were separate instances of
+the same `Agent` class with their own separate state.
+
+```python
+class Agent:
+    def __init__(self, name: str):
+        self.name = name
+
+agent_a = Agent("research_agent")
+agent_b = Agent("support_agent")
+```
+*(the exact analogy, shown as Python — not part of this lesson's code,
+just the comparison point)*
+
+```bash
+docker build -t my-app .         # defines the "class" — the image
+docker run --name run_a my-app   # one "instance" — a container
+docker run --name run_b my-app   # a second, independent "instance"
+```
+*(the Docker equivalent of the same shape)*
+
+</Subsection>
+
+<Subsection title="Proving the isolation, live" variant="b">
+
+Three panes, all started from containers of the *same* image (a small
+app with a `counter.txt` file inside it, starting at `0`). Run pane A
+first — it increments its own copy of `counter.txt`. Then run panes B
+and C and compare:
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "Pane A — increments its own container's counter.txt",
+      steps: [
+        { command: "docker run -it --name container_a my-app bash" },
+        { command: "cat counter.txt" },
+        { output: "0" },
+        { command: "echo 1 > counter.txt" },
+        { command: "cat counter.txt" },
+        { output: "1" },
+      ],
+    },
+    {
+      label: "Pane B — a separate container, same image",
+      steps: [
+        { command: "docker run -it --name container_b my-app bash" },
+        { command: "cat counter.txt" },
+        { output: "0" },
+      ],
+    },
+    {
+      label: "Pane C — a brand-new container, started after Pane A's change",
+      steps: [
+        { command: "docker run -it --name container_c my-app bash" },
+        { command: "cat counter.txt" },
+        { output: "0" },
+      ],
+    },
+  ]}
+/>
+
+Pane A's change never touched pane B's container, or the image itself —
+pane B still shows the original starting value. Pane C, a brand-new
+container started *after* pane A's change, confirms the same thing from
+a different angle: it also starts fresh at `0`, proving the change lived
+only inside that one specific container instance, not the image it came
+from.
+
+This is the direct payoff of the analogy: modifying one `Agent`
+instance's `self.name` never touches another instance, or the `Agent`
+class itself — modifying one running container never touches another
+container, or the image it was built from.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What's the relationship between a Docker image and a Docker container, using the class/instance analogy?",
+      options: [
+        "They're the same thing, just different names",
+        "An image is the fixed definition, like a class; a container is one running instance of it, like an object created from that class",
+        "A container is the definition, an image is the running instance",
+        "One image can only ever produce one container",
+      ],
+      correctIndex: 1,
+      explanation:
+        "An image is the fixed, built definition — like a class — and a container is one running instance created from it, exactly like instantiating an object from that class.",
+    },
+    {
+      question: "In the isolation demo, why does pane B's container still show the original counter.txt value after pane A's container modified its own copy?",
+      options: [
+        "The demo has a bug — this shouldn't happen",
+        "Each container is an independent instance with its own isolated filesystem — changes inside one container don't affect another container or the underlying image",
+        "counter.txt is a special read-only file",
+        "Containers automatically sync their filesystems with each other",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Each container gets its own isolated filesystem the moment it starts — writing to a file inside one container never touches another container's filesystem, or the image both were built from.",
+    },
+    {
+      question:
+        "If you start a brand-new container from the same image after pane A already modified its own container's counter.txt, what value does the new container start with?",
+      options: [
+        "Whatever pane A's container currently has",
+        "The original value baked into the image — a new container is a fresh instance, unaffected by changes made inside any other container",
+        "An error, since the image has already been \"used\"",
+        "The average of every container's current value",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A new container always starts fresh from the image's own baked-in state, regardless of what any other running (or since-stopped) container has done to its own copy — the image itself is never modified by what happens inside a container.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

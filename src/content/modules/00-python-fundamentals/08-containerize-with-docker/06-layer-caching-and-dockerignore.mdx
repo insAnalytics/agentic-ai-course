@@ -1,0 +1,238 @@
+---
+title: "Layer caching and .dockerignore"
+lesson: "08-containerize-with-docker"
+order: 6
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import DockerBuildDemo from "../../../../components/lesson/DockerBuildDemo";
+import DockerGradedExercise from "../../../../components/lesson/DockerGradedExercise";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Each instruction is a cached layer" variant="a">
+
+Every instruction in a Dockerfile produces a **layer** —
+[visible directly in the build log from earlier in this lesson](/00-python-fundamentals/08-containerize-with-docker/03-writing-a-dockerfile/#the-core-instructions),
+one `Step N/6` per instruction. Docker caches each layer, and re-uses it
+on the next build *if that instruction, and everything before it, hasn't
+changed* — skipping the actual work entirely when the cache applies.
+
+</Subsection>
+
+<Subsection title="The naive order — show the pain" variant="b">
+
+`COPY . .` copies *every* file in the project, including application
+code that changes constantly. Docker's cache invalidation cascades
+forward — if `COPY . .` sees any file has changed, that layer's cache is
+invalidated, and so is *every layer after it*, including `RUN pip
+install`. Three builds, in order, tell the whole story — notice the
+`RUN` step's own timing in each:
+
+<DockerBuildDemo
+  client:load
+  dockerfile={`FROM python:3.12-slim
+WORKDIR /app
+COPY . .
+RUN pip install -r requirements.txt
+CMD ["python3", "app.py"]`}
+/>
+
+The first build actually installs everything — that's real work, and the
+`RUN` step is the slow one. Rebuild again with nothing changed at all:
+
+<DockerBuildDemo
+  client:load
+  cacheHit
+  buildLabel="Rebuild (nothing changed)"
+  dockerfile={`FROM python:3.12-slim
+WORKDIR /app
+COPY . .
+RUN pip install -r requirements.txt
+CMD ["python3", "app.py"]`}
+/>
+
+Every step, including the install, comes back from cache — fast,
+because nothing Docker checked actually changed. Now change
+`requirements.txt` itself (a real dependency change, not just an
+unrelated code edit) and rebuild once more:
+
+<DockerBuildDemo
+  client:load
+  buildLabel="Rebuild (after changing requirements.txt)"
+  dockerfile={`FROM python:3.12-slim
+WORKDIR /app
+COPY . .
+RUN pip install -r requirements.txt
+CMD ["python3", "app.py"]`}
+/>
+
+The slow install comes back the moment something the install step
+actually depends on changes. The naive ordering's real problem isn't
+that caching fails here — it's that `COPY . .` sitting *before* `RUN pip
+install` means *any* file changing, including ones with nothing to do
+with dependencies at all, has this same cache-busting effect on the
+install layer.
+
+</Subsection>
+
+<Subsection title="The fix: copy dependencies first, separately" variant="a">
+
+Copying just `requirements.txt` first, installing from it, and only
+*then* copying the rest of the project means the install layer's cache
+only breaks when `requirements.txt` itself actually changes:
+
+<DockerBuildDemo
+  client:load
+  dockerfile={`FROM python:3.12-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY . .
+CMD ["python3", "app.py"]`}
+/>
+
+Now rebuild after changing a line in `app.py` — unrelated to
+`requirements.txt` entirely:
+
+<DockerBuildDemo
+  client:load
+  cacheHit
+  buildLabel="Rebuild (app.py changed)"
+  dockerfile={`FROM python:3.12-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY . .
+CMD ["python3", "app.py"]`}
+/>
+
+The install step is skipped entirely — unlike the naive ordering, an
+unrelated code change no longer touches the install layer's cache at
+all, because `COPY . .` now sits *after* it instead of before.
+
+</Subsection>
+
+<Subsection title=".dockerignore — the other half of the caching problem" variant="b">
+
+`COPY . .` doesn't just risk invalidating the cache — it copies
+*everything* in your project directory into the build context, whether
+you actually want it in the image or not: `.git/` (your entire version
+history), `__pycache__/`, a local `.venv/`, and — worth connecting
+directly back to
+[the secrets warning from earlier in this lesson](/00-python-fundamentals/08-containerize-with-docker/01-why-containers/#a-trap-the-isolation-motivation-makes-worse-not-better-secrets-in-images)
+— potentially a `.env` file sitting right there in the project root.
+
+`.dockerignore` works exactly like `.gitignore` — a plain list of
+patterns to exclude, this time from what gets sent into the build
+context at all, before any `COPY` instruction even runs:
+
+```
+.git
+__pycache__/
+*.pyc
+.venv/
+.env
+```
+
+With this file present, `COPY . .` never even sees `.env` or `.git` —
+they're excluded before the build context is assembled, not filtered
+out afterward. This closes the specific gap from earlier: a
+`.dockerignore` entry for `.env` means there's no `COPY` instruction to
+accidentally sweep it in, in the first place, regardless of how the rest
+of the Dockerfile is written.
+
+It also has a real caching benefit of its own: `__pycache__/` and other
+frequently-changing, irrelevant files no longer count as "the project
+changed" from Docker's perspective, since they're never part of the
+build context to begin with — one less thing that can spuriously
+invalidate a layer's cache.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does Docker's layer cache let a rebuild skip?",
+      options: [
+        "Nothing — every docker build always redoes every instruction from scratch",
+        "Any instruction whose layer (and everything before it) hasn't changed since the last build",
+        "Only the very first instruction, FROM, can ever be cached",
+        "Caching only applies to CMD",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Docker reuses a cached layer whenever that instruction and everything before it are unchanged from the previous build — only what actually changed (and everything after it) needs to redo real work.",
+    },
+    {
+      question: "Why does changing one unrelated line in app.py trigger a full reinstall in the naive Dockerfile ordering?",
+      options: [
+        "It shouldn't, and doesn't — this is a misunderstanding",
+        "COPY . . (which comes before the install step) sees the changed file, invalidating its own cache, which cascades forward and invalidates the install layer too",
+        "pip install always reinstalls everything regardless of caching",
+        "Editing app.py automatically edits requirements.txt too",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Cache invalidation cascades forward from whichever layer changed — since COPY . . sits before RUN pip install in the naive ordering, any file change invalidates both layers together, install included.",
+    },
+    {
+      question: "What does a .dockerignore file do?",
+      options: [
+        "It prevents Docker from ever building an image",
+        "It excludes listed files and patterns from the build context entirely, before any COPY instruction runs, the same way .gitignore excludes files from version control",
+        "It only affects RUN instructions, not COPY",
+        "It's required for every Dockerfile to be valid",
+      ],
+      correctIndex: 1,
+      explanation:
+        ".dockerignore filters the build context itself before the build even starts — anything matching a pattern in it is never available to any COPY instruction, not just hidden after the fact.",
+    },
+    {
+      question: "How does a .dockerignore entry for .env help prevent the secrets-in-images problem from earlier in this lesson?",
+      options: [
+        "It doesn't — .dockerignore has nothing to do with secrets",
+        ".env is excluded from the build context before any COPY instruction even runs, so there's no way for it to accidentally end up copied into the image regardless of how the Dockerfile is written",
+        "It encrypts .env automatically",
+        "It only works if .env is also listed in the Dockerfile itself",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Because the exclusion happens before the build context is assembled, no COPY instruction — however written — can ever see or copy .env, closing the gap at its source rather than relying on careful Dockerfile authorship.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<DockerGradedExercise
+  client:load
+  task={`Starting from this naive Dockerfile (COPY . . before RUN pip install), with a .git/ directory, a __pycache__/ directory, and a .env file sitting in the project: reorder it so the install layer's cache survives an unrelated code change, and add a .dockerignore excluding .git, __pycache__/, *.pyc, and .env. This is built for real, twice, against an actual Docker daemon — an unrelated line gets appended to app.py between the two builds automatically.`}
+  starterDockerfile={`FROM python:3.12-slim
+WORKDIR /app
+COPY . .
+RUN pip install -r requirements.txt
+CMD ["python3", "app.py"]`}
+  starterDockerignore={``}
+  hint={`Move COPY requirements.txt . and RUN pip install -r requirements.txt to before the general COPY . . — that way only a requirements.txt change can invalidate the install layer, not just any file changing. For .dockerignore, one pattern per line: .git, __pycache__/, *.pyc, and .env — these need to be excluded from the build context itself, not deleted after the fact.`}
+  correctAnswer={{
+    dockerfile: `FROM python:3.12-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY . .
+CMD ["python3", "app.py"]`,
+    dockerignore: `.git
+__pycache__/
+*.pyc
+.env`,
+    explanation:
+      "Reordering so requirements.txt is copied and installed before the rest of the project means an unrelated app.py edit no longer invalidates the install layer's cache — confirmed by the second build actually showing a cache hit, not just claimed. The .dockerignore excludes .git, __pycache__/, *.pyc, and .env from the build context entirely, so no COPY instruction can ever sweep them into the image, regardless of how the rest of the Dockerfile is written — confirmed here by actually inspecting the built image for their absence, not just checking the Dockerfile's text.",
+  }}
+/>
+
+</CheckpointZone>

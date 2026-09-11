@@ -1,9 +1,5 @@
 # Module 0, Lesson 8 — Concept 2: Images vs. containers
 
-> **Note: this draft assumes an ideal, infra-unconstrained sandbox** — see
-> the note at the top of Concept 1. Interactive elements describe the
-> target experience, not something runnable in the current site today.
-
 ---
 
 ## The analogy: a class, and its instances
@@ -23,7 +19,7 @@ agent_b = Agent("support_agent")
 just the comparison point)*
 
 ```bash
-docker build -t my-app .      # defines the "class" — the image
+docker build -t my-app .         # defines the "class" — the image
 docker run --name run_a my-app   # one "instance" — a container
 docker run --name run_b my-app   # a second, independent "instance"
 ```
@@ -33,16 +29,16 @@ docker run --name run_b my-app   # a second, independent "instance"
 
 ## Proving the isolation, live
 
-**Ideal interactive demo:** two terminal panes, both started from
-containers of the *same* image (a small app with a `counter.txt` file
-inside it). In pane A, the learner runs a command that increments a
-number inside `counter.txt` and writes it back. In pane B, running a
-*separate* container from the same image, `cat counter.txt` still shows
-the original starting value — pane A's change never touched pane B's
-container, or the image itself. Restarting a brand-new container from
-the same image, in a third pane, confirms it starts fresh at the
-original value too — proving the change lived only inside that one
-specific container instance, not the image it came from.
+**Interactive terminal demo:** two panes, both started from containers
+of the *same* image (a small app with a `counter.txt` file inside it). In
+pane A, the learner runs a command that increments a number inside
+`counter.txt` and writes it back. In pane B, running a *separate*
+container from the same image, `cat counter.txt` still shows the
+original starting value — pane A's change never touched pane B's
+container, or the image itself. Starting a brand-new container from the
+same image, in a third pane, confirms it starts fresh at the original
+value too — proving the change lived only inside that one specific
+container instance, not the image it came from.
 
 This is the direct payoff of the analogy: modifying one `Agent`
 instance's `self.name` never touches another instance, or the `Agent`

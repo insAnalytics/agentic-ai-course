@@ -1,14 +1,8 @@
-# Module 0, Lesson 8 — Concept 4: Building and running a container
-
-> **Note: this draft assumes an ideal, infra-unconstrained sandbox** — see
-> the note at the top of Concept 1. Interactive elements describe the
-> target experience, not something runnable in the current site today.
+# Module 0, Lesson 8 — Concept 4: Building, running, and the container lifecycle
 
 ---
 
 ## From Dockerfile to running container
-
-Two commands take you from a Dockerfile to something actually running:
 
 ```bash
 docker build -t my-app .
@@ -16,105 +10,178 @@ docker run my-app
 ```
 
 `docker build -t my-app .` reads the `Dockerfile` in the current
-directory (`.`), and produces an image tagged `my-app` — a name you can
-refer back to later, rather than a long generated ID. `docker run
-my-app` then starts a container from that image — [an instance from that class](→ this lesson, images vs. containers concept, the analogy explanation), in the terms of the previous section.
+directory, producing an image tagged `my-app`. `docker run my-app`
+starts a container from that image — [an instance from that class](→ this lesson, images vs. containers concept, the analogy explanation), in the terms of the earlier concept.
 
 ---
 
 ## Reaching a container from outside: port mapping
 
-A web app running *inside* a container is, by default, only reachable
-from inside that container — nothing on your own machine can connect to
-it. `-p` maps a port on your machine to a port inside the container:
+A process running *inside* a container is, by default, only reachable
+from inside that container. `-p` maps a port on your machine to a port
+inside the container:
 
 ```bash
 docker run -p 8000:5000 my-app
 ```
 
 `8000:5000` reads as "your machine's port 8000 forwards to the
-container's port 5000" — the app itself, inside the container, might be
-listening on port 5000 (a Flask default), but from outside, you'd reach
-it at `localhost:8000`.
-
-**Ideal interactive demo:** running that command in the terminal pane,
-followed by a live embedded browser preview pointed at `localhost:8000`,
-actually showing the running app's response — directly connecting the
-abstract "port mapping" concept to something tangibly reachable.
+container's port 5000." From outside, you'd reach the app at
+`localhost:8000`, even though the app itself, inside the container,
+might be listening on 5000. Recall [`EXPOSE` alone doesn't do this](→ this lesson, writing a Dockerfile concept, the EXPOSE explanation) — `-p` is what actually publishes the port.
 
 ---
 
-## Passing configuration in: environment variables
+## Overriding configuration at run time
 
-Real apps usually need configuration that shouldn't be baked into the
-image itself — an API key, a mode flag. `-e` passes an environment
-variable into a running container:
+[`ENV` sets a default baked into the image](→ this lesson, writing a Dockerfile concept, the ENV vs ARG explanation); `-e` at `docker run` time overrides it for a specific container, without needing to rebuild the image:
 
 ```bash
-docker run -p 8000:5000 -e DEBUG_MODE=true my-app
+docker run -p 8000:5000 -e LOG_LEVEL=debug my-app
 ```
 
-The same thing can be set as a default *inside* the Dockerfile with
-`ENV`, overridable at `docker run` time:
+---
 
-```dockerfile
-ENV DEBUG_MODE=false
+## Running in the background: `-d`
+
+Every example so far ties up the terminal — the container runs in the
+foreground, printing its output directly, until you stop it or it exits.
+`-d` ("detached") starts it in the background instead, immediately
+returning control of the terminal and printing the new container's ID:
+
+```bash
+docker run -d -p 8000:5000 my-app
+```
+```
+a1b2c3d4e5f67890abcdef1234567890fedcba0987654321abcdef012345678
 ```
 
-**Ideal interactive demo:** the same app, run twice with different `-e`
-values, the live browser preview showing visibly different behavior
-(e.g., a debug banner appearing or not) — making the effect of the flag
-directly observable, not just asserted in prose.
+This is the normal way to run something you intend to keep running while
+you do other things — including, as covered next, actually inspecting
+and managing it.
+
+---
+
+## The lifecycle: seeing, reading, entering, and stopping a container
+
+**`docker ps`** lists currently running containers:
+
+```bash
+docker ps
+```
+```
+CONTAINER ID   IMAGE     COMMAND            PORTS                    NAMES
+a1b2c3d4e5f6   my-app    "python3 app.py"   0.0.0.0:8000->5000/tcp   happy_turing
+```
+
+**`docker logs`** shows a container's output — everything it's printed,
+even though it's running detached and nothing is streaming to your
+terminal directly:
+
+```bash
+docker logs a1b2c3d4e5f6
+```
+```
+Starting app on port 5000...
+Connected successfully
+```
+
+**`docker exec`** runs a command *inside* an already-running container —
+useful for inspecting or debugging something live, without stopping it:
+
+```bash
+docker exec a1b2c3d4e5f6 cat /app/requirements.txt
+```
+```
+flask==3.0.0
+```
+
+**`docker stop`** and **`docker rm`** end a container's life: `stop`
+sends a shutdown signal and waits for it to exit gracefully; `rm`
+actually removes the stopped container (its filesystem, its logs,
+everything) — a stopped container still exists until it's explicitly
+removed:
+
+```bash
+docker stop a1b2c3d4e5f6
+docker rm a1b2c3d4e5f6
+```
+
+You can refer to a container by its full ID, a shortened prefix (as
+shown above), or the auto-generated name `docker ps` displays (like
+`happy_turing`) — all three work interchangeably with every command in
+this section.
 
 ---
 
 ## Quiz cards
 
-> **Q1.** What does `docker build -t my-app .` actually do?
-> - A) It starts a container running immediately
-> - B) It builds an image from the Dockerfile in the current directory, tagging it `my-app` for later reference ✅
-> - C) It only validates the Dockerfile's syntax without building anything
-> - D) It requires a container to already be running
-
-> **Q2.** In `docker run -p 8000:5000 my-app`, what does `8000:5000`
+> **Q1.** In `docker run -p 8000:5000 my-app`, what does `8000:5000`
 > mean?
-> - A) The container will run for exactly 8000 to 5000 seconds
-> - B) Your machine's port 8000 forwards to port 5000 inside the container — reaching `localhost:8000` externally connects to whatever's listening on 5000 inside ✅
-> - C) The image must be exactly 8000MB, truncated to 5000MB
+> - A) The container will run for 8000 to 5000 seconds
+> - B) Your machine's port 8000 forwards to port 5000 inside the container ✅
+> - C) The image must be a specific size
 > - D) It sets two separate environment variables
 
-> **Q3.** Why is port mapping needed at all — why isn't a container's
-> internal port automatically reachable from outside?
-> - A) It actually is automatically reachable; `-p` is optional
-> - B) A container's network is isolated by default — nothing outside it can connect in unless a port is explicitly mapped ✅
-> - C) `-p` is only needed for HTTPS traffic
-> - D) Containers don't have their own network at all
+> **Q2.** What's the effect of `-e LOG_LEVEL=debug` at `docker run` time,
+> given the image already sets `ENV LOG_LEVEL=info`?
+> - A) It has no effect — `ENV` values in the image can never be overridden
+> - B) It overrides the image's default for this specific container, without needing to rebuild the image ✅
+> - C) It causes the container to fail to start
+> - D) It permanently changes the image's baked-in default
 
-> **Q4.** What's the difference between setting `ENV` in a Dockerfile
-> versus passing `-e` at `docker run` time?
-> - A) They're unrelated — `ENV` sets Python variables, `-e` sets OS variables
-> - B) `ENV` sets a default baked into the image itself; `-e` at run time can override that default for a specific container ✅
-> - C) `-e` only works if `ENV` isn't set in the Dockerfile at all
-> - D) `ENV` only takes effect after the container has already started
+> **Q3.** What does `-d` change about how a container runs?
+> - A) It makes the container run faster
+> - B) It runs the container in the background ("detached"), immediately returning control of the terminal instead of streaming output directly to it ✅
+> - C) It deletes the container immediately after it finishes
+> - D) It disables networking for the container
+
+> **Q4.** What does `docker logs` show for a container running detached?
+> - A) Nothing — detached containers don't produce any output
+> - B) Everything the container has printed, even though it isn't streaming to your terminal directly ✅
+> - C) Only error messages, never normal output
+> - D) The container's Dockerfile
+
+> **Q5.** What's `docker exec` used for?
+> - A) Building a new image from a running container
+> - B) Running a command inside an already-running container, useful for inspecting or debugging it live ✅
+> - C) Stopping a container immediately
+> - D) Listing every image on the machine
+
+> **Q6.** What's the difference between `docker stop` and `docker rm`?
+> - A) They're interchangeable
+> - B) `stop` gracefully shuts down a running container; `rm` actually removes a stopped container's filesystem and logs — a stopped container still exists until it's removed ✅
+> - C) `rm` stops a container; `stop` removes it
+> - D) `stop` only works on images, `rm` only works on containers
 
 ---
 
-## Applied sandbox exercise 2
+## Applied sandbox exercise 1
 
-*(ideal version — build, run with port mapping and an environment
-variable, verify via the live preview)*
+*(the full lifecycle — build, run detached with port mapping and an
+environment variable override, inspect, exec, then clean up)*
 
-*Task shown to learner:* Using the Dockerfile from the previous exercise,
-run the resulting image mapping the container's port 5000 to your
-machine's port 8000, and pass `DEBUG_MODE=true` as an environment
-variable. Confirm, via the live preview, that the app is reachable and
-shows debug mode enabled.
+*Task shown to learner:* Given a provided Flask app (`app.py`,
+`requirements.txt`) and its Dockerfile from the previous concept's
+material:
+1. Build the image, tagged `my-app`.
+2. Run it detached, mapping the container's port `5000` to your
+   machine's port `8000`, overriding `LOG_LEVEL` to `debug` via `-e`.
+3. Confirm it's running with `docker ps`.
+4. Check its startup output with `docker logs`.
+5. Use `docker exec` to print the contents of `/app/requirements.txt`
+   from inside the running container.
+6. Stop and remove the container.
 
-*Grading (ideal):* checked against the actual running container's
-response — a real HTTP request made to the mapped port, checking both
-that it responds and that the debug-mode-specific content is present.
+*Grading (against the real container runtime, not simulated output):*
+checks that an image named `my-app` exists after step 1; that a running
+container is mapped to host port 8000 after step 2; that its logs
+contain evidence `LOG_LEVEL=debug` actually took effect; that the
+`docker exec` command's output matches the real file contents inside the
+container; and that no container from this image is still running after
+the final step.
 
 ---
 
-*(End of Concept 4. This lesson continues with Concept 5 — layer caching
-— drafted separately.)*
+*(End of Concept 4. This lesson continues with Concept 5 — persisting
+data with volumes — drafted separately.)*
