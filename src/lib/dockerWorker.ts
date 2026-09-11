@@ -42,3 +42,60 @@ export async function gradeDockerExercise(dockerfile: string, dockerignore: stri
   }
   return data;
 }
+
+async function workerPost<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(`${WORKER_BASE_URL}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Site-Token": SITE_TOKEN },
+    body: JSON.stringify(body),
+  });
+  const data = (await response.json()) as T & { error?: string };
+  if (!response.ok) {
+    throw new Error(data.error ?? `Request to ${path} failed (${response.status})`);
+  }
+  return data;
+}
+
+export interface TerminalExecResult {
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+}
+
+export interface TerminalGradeResult {
+  passed: boolean;
+  checks: {
+    imageBuilt: boolean;
+    ranDetachedWithPortAndEnv: boolean;
+    confirmedRunning: boolean;
+    logsShowDebugMode: boolean;
+    execReadRequirements: boolean;
+    cleanedUp: boolean;
+    nothingRunningNow: boolean;
+  };
+}
+
+/**
+ * Starts a real, persistent sandbox for Lesson 0.8 Concept 4's interactive
+ * terminal exercise. The returned sandboxId is the session token — the
+ * worker itself is stateless, so this same id is passed to every
+ * subsequent exec/grade/end call to reconnect to the same sandbox.
+ */
+export async function startTerminalSession(): Promise<{ sandboxId: string }> {
+  return workerPost("/docker-terminal/start", {});
+}
+
+/** Runs one command inside the session's persistent sandbox. */
+export async function execTerminalCommand(sandboxId: string, command: string): Promise<TerminalExecResult> {
+  return workerPost("/docker-terminal/exec", { sandboxId, command });
+}
+
+/** Grades the session by replaying its command transcript against the exercise's checks. */
+export async function gradeTerminalSession(sandboxId: string): Promise<TerminalGradeResult> {
+  return workerPost("/docker-terminal/grade", { sandboxId });
+}
+
+/** Tears down the session's sandbox. Best-effort — safe to call even if the sandbox already timed out. */
+export async function endTerminalSession(sandboxId: string): Promise<void> {
+  await workerPost("/docker-terminal/end", { sandboxId });
+}

@@ -7,6 +7,7 @@ import Subsection from "../../../../components/lesson/Subsection.astro";
 import TerminalGroup from "../../../../components/lesson/TerminalGroup";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import DockerLiveTerminal from "../../../../components/lesson/DockerLiveTerminal";
 
 <Subsection title="From Dockerfile to running container" variant="a">
 
@@ -236,37 +237,18 @@ this section.
 
 <CheckpointZone>
 
-<TerminalGroup
-  client:load
-  panes={[
-    {
-      label: "Practice: the full lifecycle, build to cleanup",
-      steps: [
-        { command: "docker build -t my-app ." },
-        { output: "Successfully built 9w0x1y2z3a4b" },
-        { output: "Successfully tagged my-app:latest" },
-        { command: "docker run -d -p 8000:5000 -e LOG_LEVEL=debug my-app" },
-        { output: "a1b2c3d4e5f67890abcdef1234567890fedcba0987654321abcdef012345678" },
-        { command: "docker ps" },
-        {
-          output:
-            "CONTAINER ID   IMAGE     COMMAND            PORTS                    NAMES\na1b2c3d4e5f6   my-app    \"python3 app.py\"   0.0.0.0:8000->5000/tcp   happy_turing",
-        },
-        { command: "docker logs a1b2c3d4e5f6" },
-        { output: "Starting app on port 5000... (log level: debug)\nConnected successfully" },
-        { command: "docker exec a1b2c3d4e5f6 cat /app/requirements.txt" },
-        { output: "flask==3.0.0" },
-        { command: "docker stop a1b2c3d4e5f6" },
-        { command: "docker rm a1b2c3d4e5f6" },
-      ],
-    },
-  ]}
-/>
+This one's a real terminal, backed by an actual Docker daemon in a
+disposable sandbox — not a script. The Dockerfile from the last
+concept is already sitting there, waiting to be built.
 
-Run it end to end: build the image, start it detached with the port
-mapped and `LOG_LEVEL` overridden to `debug`, confirm it's running,
-check its startup output, peek inside it with `docker exec`, then stop
-and remove it — the same six moves you'd make on a real project, in
-order, in one pane.
+Run the full lifecycle yourself, one command at a time: build the
+image as `my-app`, start it detached with `8000:5000` mapped and
+`LOG_LEVEL=debug` set, confirm it's running with `docker ps`, check its
+startup output with `docker logs`, peek inside it with `docker exec`,
+then stop and remove it. When you're done, submit for grading — it
+checks the actual commands you ran and their real output, not just
+whether the container happens to still exist.
+
+<DockerLiveTerminal client:load />
 
 </CheckpointZone>
