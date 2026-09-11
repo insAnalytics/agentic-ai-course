@@ -194,6 +194,15 @@ async function startTerminalSession(env: Env): Promise<{ sandboxId: string }> {
   return { sandboxId: sbx.sandboxId };
 }
 
+// The sandbox's Docker socket is root-only, but the lesson teaches plain
+// `docker ...` commands — sudo is a Linux-permissions detail unrelated to
+// what's being taught, so it's added transparently rather than requiring
+// learners to know to type it. The transcript keeps the command as typed,
+// since grading matches against that.
+function withSudo(command: string): string {
+  return /^\s*sudo\s+/.test(command) ? command : command.replace(/^(\s*)(docker\b)/, "$1sudo $2");
+}
+
 async function execInTerminalSession(
   sandboxId: string,
   command: string,
@@ -202,7 +211,7 @@ async function execInTerminalSession(
   const sbx = await Sandbox.connect(sandboxId, { apiKey: env.E2B_API_KEY });
   await sbx.setTimeout(SESSION_TIMEOUT_MS);
 
-  const result = await run(sbx, `cd ${TERMINAL_PROJECT_DIR} && ${command}`, { timeoutMs: 60_000 });
+  const result = await run(sbx, `cd ${TERMINAL_PROJECT_DIR} && ${withSudo(command)}`, { timeoutMs: 60_000 });
 
   let existing = "";
   try {
