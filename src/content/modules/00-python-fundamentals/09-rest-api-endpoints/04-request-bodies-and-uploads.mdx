@@ -12,7 +12,15 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 A `GET` request's only data is its URI. `POST`/`PUT`/`PATCH` can also
 send a **request body** — a separate chunk of data, sent alongside the
-request instead of packed into the URI. `-v` on `curl` shows it happening:
+request instead of packed into the URI. The `curl` flags below each do
+one job:
+
+- `-X POST` — the HTTP method (`curl` defaults to `GET`)
+- `-H "Content-Type: application/json"` — a header, telling the server
+  the body that follows is JSON
+- `-d '...'` — the request body itself, attached as literal text
+- `-v` — verbose: prints the raw request and response, not just the
+  final result, which is what makes the headers/body split visible below
 
 <TerminalGroup
   client:load
