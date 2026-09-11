@@ -127,18 +127,27 @@ const heroTitle = page.data.order === 0 ? lesson.data.title : page.data.title;
   }
   .lesson table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     margin-bottom: 1rem;
     font-size: 0.9rem;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 0.625rem;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(20, 20, 43, 0.04);
   }
   .lesson th,
   .lesson td {
-    border: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
     padding: 0.5rem 0.9rem;
     text-align: left;
   }
+  .lesson tr:last-child td {
+    border-bottom: none;
+  }
   .lesson th {
-    background: var(--color-bg-subtle);
+    background: var(--color-bg-alt);
     color: var(--color-ink);
     font-weight: 700;
   }
