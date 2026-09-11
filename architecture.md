@@ -69,7 +69,7 @@ sidebar navigation, not one very long scroll.
   /components
     Sidebar.astro               # left nav — accordion per lesson, listing its pages
     PageNav.astro                # Prev/Next footer between sibling pages in a lesson
-    ProjectDownload.tsx         # link/zip for heavier local projects
+    ProjectDownload.astro       # link/zip for heavier local projects (one GitHub repo per project)
     /lesson                     # components implementing lesson-structure.md
       LearningOutcomes.astro
       WhyItMatters.astro
@@ -272,11 +272,18 @@ resolve them:
 - No native/compiled Python packages.
 - No genuine multi-agent, long-running, or stateful-across-sessions execution.
 
-**Planned fallback for heavier builds (not yet implemented):** downloadable
-project scaffolds (a repo/zip per project) that learners clone and run
-locally with their own machine and their own API key — via
-`projectDownload` in frontmatter and the `<ProjectDownload />` component.
+**Fallback for heavier builds:** downloadable project scaffolds that
+learners clone and run locally with their own machine (and, where
+relevant, their own API key) — via `projectDownload` in `_lesson.yaml`
+and the `<ProjectDownload />` component (`src/components/ProjectDownload.astro`).
 This keeps cost at $0 by pushing real compute to the learner's machine.
+**Implemented as: one separate public GitHub repo per project**, under
+the `insAnalytics` org, named `agentic-ai-course-<project-name>` — not
+a folder inside this repo, not a shared "projects" mono-repo. The
+component links to the repo itself plus GitHub's own auto-generated
+`/archive/refs/heads/main.zip` (no extra build/release step needed for
+that to work). First one: `agentic-ai-course-agent-registry` (Lesson
+0.8, Docker).
 
 **If/when real sandboxed execution becomes necessary** (e.g. a module truly
 needs live multi-step agent runs in-browser, not just local downloads): the

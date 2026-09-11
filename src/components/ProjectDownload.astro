@@ -1,0 +1,30 @@
+---
+interface Props {
+  title: string;
+  repo: string;
+}
+
+const { title, repo } = Astro.props;
+const zipUrl = `${repo.replace(/\/$/, "")}/archive/refs/heads/main.zip`;
+---
+
+<div class="card my-6 overflow-hidden">
+  <div class="bg-[var(--color-accent)] px-4 py-2">
+    <span class="text-xs font-semibold tracking-wide text-white uppercase">Comprehensive project · downloadable</span>
+  </div>
+  <div class="p-5">
+    <p class="mt-0 mb-3 font-medium text-[var(--color-ink)]">{title}</p>
+    <div class="[&_p:last-child]:mb-0">
+      <slot />
+    </div>
+    <div class="mt-4 flex flex-wrap items-center gap-3">
+      <a href={repo} class="rounded-md bg-[var(--color-accent)] px-4 py-1.5 text-sm font-medium text-white no-underline">
+        View on GitHub
+      </a>
+      <a href={zipUrl} class="rounded-md bg-[var(--color-bg-subtle)] px-4 py-1.5 text-sm font-medium text-[var(--color-ink)] no-underline">
+        Download ZIP
+      </a>
+      <code class="text-xs">git clone {repo}.git</code>
+    </div>
+  </div>
+</div>
