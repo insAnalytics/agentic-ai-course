@@ -10,11 +10,27 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 <Subsection title="A BaseModel parameter is the request body" variant="a">
 
+A `GET` request's only data is its URI — path and query parameters,
+covered so far. Creating or updating something (`POST`, `PUT`, `PATCH`)
+usually needs to carry more than a URI can reasonably hold, so those
+methods can also send a **request body**: a separate chunk of data,
+sent alongside the request but not part of the URI at all. In practice
+that body is almost always
+[the same JSON text format from the I/O lesson](/00-python-fundamentals/06-files-and-json/02-working-with-json/)
+— sent as a plain string, with a `Content-Type: application/json`
+header telling the server how to interpret those bytes (that's exactly
+what `-H "Content-Type: application/json" -d '...'` is doing in the
+`curl` command below). Something on the server side still has to parse
+that raw JSON text back into a real Python object before it's useful —
+the same parsing step you've already practiced, just arriving over
+HTTP now instead of read from a file.
+
 This is where
 [Lesson 5's Pydantic payoff](/00-python-fundamentals/05-dataclasses-and-pydantic/04-pydantic-fundamentals/)
 actually lands: a function parameter typed as a `BaseModel` tells
-FastAPI to read and validate the request's JSON body against that
-model, automatically, before the route function runs at all.
+FastAPI to do exactly that parsing step — read the request's JSON body
+and validate it against that model, automatically, before the route
+function runs at all.
 
 ```python
 from fastapi import FastAPI

@@ -139,8 +139,26 @@ already a valid `int`.
 
 <Subsection title="Header() and Cookie() — the same mechanism, different source" variant="b">
 
-Extracting an HTTP header or cookie value works identically — a
-parameter typed with `Header()` or `Cookie()` instead of `Query()`/`Path()`:
+**Headers** are metadata attached to a request or response, separate
+from the URI and the body — they describe something *about* the
+request rather than being part of the resource itself: what format the
+body is in, an auth token, a request ID for tracing a call through
+logs. `X-Request-Id: abc123` in the demo below is exactly that kind of
+header — information about this specific call, not data belonging to
+`/whoami` the resource.
+
+**Cookies** are a specific header (`Cookie` on requests, `Set-Cookie` on
+responses) with one particular job: letting the server recognize the
+*same client* across multiple separate requests. Recall from
+[REST's statelessness principle](/00-python-fundamentals/09-rest-api-endpoints/01-rest-api-fundamentals/#rest-s-guiding-principles)
+that the server itself remembers nothing between requests — a cookie is
+how a client carries its own continuity along, sending the same value
+back on every request so the server can look it up, most commonly for
+session identification.
+
+Extracting either one works identically to a query or path parameter — a
+parameter typed with `Header()` or `Cookie()` instead of
+`Query()`/`Path()`:
 
 ```python
 from fastapi import Header, Cookie
