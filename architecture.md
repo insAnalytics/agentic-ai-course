@@ -1,9 +1,12 @@
 # Course Website — Architecture Decisions
 
-> **Status:** Living document. This defines the *current* setup for a zero-cost,
-> personal-project course site with in-browser micro-sandboxes. It is expected
-> to change — specifically the sandbox section — once the course reaches
-> "meatier" agentic exercises that need real tool execution.
+> **Status:** Living document. This defines the *current* setup for a
+> personal-project course site: mostly-static/zero-cost, with real sandboxed
+> execution (E2B + a Cloudflare Worker, §4.2) now added alongside Pyodide
+> specifically where in-browser Python genuinely isn't enough (first needed
+> for Lesson 0.8, Docker). Expect this doc to keep changing as later modules
+> (agent frameworks, real tool execution) push further on what a lesson
+> needs to actually run.
 >
 > **For Claude Code:** treat this as the source of truth for how the site is
 > structured and built. When a course section requires something this doc
@@ -15,8 +18,14 @@
 
 ## 1. Goals & constraints
 
-- **Cost: effectively $0.** No paid hosting, no paid compute, no server-side
-  LLM calls billed to the site owner.
+- **Cost: effectively $0 by default, small and usage-bounded where not.**
+  No paid hosting, no server-side LLM calls billed to the site owner. The
+  one exception is real-Docker exercises (§4): each spins up a genuinely
+  billable E2B sandbox on the free/hobby tier, brokered through a
+  Cloudflare Worker — bounded by a shared-secret header plus CORS locked
+  to the site's own origin (soft deterrents against abuse, not real
+  security — see the comment in `worker/src/index.ts`), with a real
+  Cloudflare rate-limit rule still worth adding on top.
 - **Content authoring must be easy for a non-developer (or future collaborators)
   to manage.** Adding/editing a lesson should mean adding/editing content
   files (a lesson folder of `.mdx` pages), not touching app code.
@@ -24,8 +33,9 @@
   own machine, see changes live, before pushing.
 - **In-browser code execution for simple exercises**, wired per-lesson via
   config, not hardcoded per page.
-- **Explicitly out of scope for now:** real containerized/agentic sandboxes,
-  server-side LLM proxying, user accounts, payments.
+- **Explicitly out of scope for now:** server-side LLM proxying, user
+  accounts, payments. (Real containerized sandboxes *were* out of scope —
+  see §4, now implemented via E2B for exercises Pyodide genuinely can't do.)
 
 ---
 
@@ -36,9 +46,10 @@
 | Framework | **Astro** + **MDX** | Content-first static site generator. Ships zero JS by default; interactive bits (like the sandbox) are opt-in "islands," so most of the site stays fast and free to host. Better fit than Next.js for a content-heavy course site. |
 | Content model | **Astro Content Collections** | Lessons are files with typed frontmatter (title, module, order, sandbox config). Astro validates structure at build time, so a malformed lesson file fails the build loudly instead of breaking silently. |
 | In-browser execution | **Pyodide** (Python compiled to WASM) | Runs entirely client-side. Zero server cost, scales to any number of learners for free. Good enough for concept-level exercises (agent loop logic, tool-call parsing, state handling written in plain Python). |
+| Real-Docker execution (where Pyodide can't) | **E2B** ephemeral sandboxes (real Ubuntu + Docker CE, via a custom `course-docker-sandbox` template) + a **Cloudflare Worker** (`/worker`) as the broker holding the E2B API key server-side | For exercises that genuinely need real containers/subprocess/networking — Pyodide has no such capability at all. See §4 for the full architecture. |
 | Code editing | **CodeMirror 6** (`@uiw/react-codemirror` + `@codemirror/lang-python` + `@uiw/codemirror-theme-vscode`) | Real syntax highlighting (VS Code's own dark theme) and Python-aware completion for every editable code box — a plain `<textarea>` can only render flat, single-color text. Lighter than Monaco, a real editor rather than a highlight-only overlay trick. |
 | LLM calls (when a lesson needs one) | **Learner's own API key**, stored in browser `localStorage` only, sent directly from the browser to the provider's API | Keeps cost and liability at $0 regardless of traffic. Never touches any server we control. |
-| Hosting | **Cloudflare Pages** (or GitHub Pages) free tier | Static output from Astro deploys directly from a git push. No server to maintain. |
+| Hosting | **GitHub Pages** (site) + **Cloudflare Workers** free tier (the E2B broker) | Static output from Astro deploys directly from a git push (`insanalytics.github.io/agentic-ai-course/`). The Worker is the one piece of server-side infrastructure this project runs — see §4. |
 | Styling | **Tailwind CSS v4** (`@tailwindcss/vite`) | Clean-docs look (white background, Inter). Palette and component identity colors documented in §7. |
 
 ---
@@ -82,9 +93,14 @@ sidebar navigation, not one very long scroll.
       MultiFileEditor.tsx          # shared file-tab strip + CodeEditor, used by both multi-file components below
       MultiFileLiveDemo.tsx        # multi-file LiveDemo — real cross-file imports, editable or readOnly per file
       MultiFileGradedExercise.tsx  # multi-file GradedExercise — real imports, graded via a real Pyodide FS + sys.modules
+      Terminal.tsx / TerminalGroup.tsx  # scripted terminal playback (click Run, steps reveal progressively) — no real backend, for demos where full fidelity isn't needed
+      DockerBuildDemo.tsx          # read-only Dockerfile + Build button, generates a build log from the actual Dockerfile text (cacheHit prop controls timing)
+      DockerGradedExercise.tsx     # real-Docker graded exercise (Dockerfile + .dockerignore textareas) — see §4
+      DockerLiveTerminal.tsx       # real interactive terminal over a persistent E2B sandbox — see §4
       CheckpointZone.astro        # full-bleed colored band behind a quiz/exercise card
   /lib
     pyodide.ts                  # shared Pyodide loader + single-file and multi-file grading harnesses
+    dockerWorker.ts              # fetch wrapper for the Cloudflare Worker's /docker-exercise and /docker-terminal routes — see §4
   /layouts
     BaseLayout.astro            # shell: sidebar + main slot, fonts, global.css
     LessonLayout.astro          # page chrome (breadcrumb + hero + PageNav), wraps BaseLayout
@@ -92,6 +108,10 @@ sidebar navigation, not one very long scroll.
     global.css                  # Tailwind import + color/font tokens
   /pages
     [module]/[lesson]/[page].astro   # renders one page; getStaticPaths from the `pages` collection
+/worker                          # separate Cloudflare Worker project — the E2B broker, see §4
+  src/index.ts                   # all routes: /docker-exercise/grade, /docker-terminal/{start,exec,grade,end}
+  wrangler.jsonc
+  .dev.vars                      # gitignored — E2B_API_KEY + SITE_TOKEN for local `wrangler dev`
 ```
 
 **Content collections** (`src/content.config.ts`): `modules` (unchanged),
@@ -167,7 +187,26 @@ ordinary content.
 
 ---
 
-## 4. Sandbox architecture (current: in-browser only)
+## 4. Sandbox architecture — three tiers
+
+Three distinct execution tiers exist now, in increasing order of what they
+can actually do — pick the *lightest* tier that genuinely covers what a
+concept needs, not the heaviest available:
+
+1. **Pyodide** (§4.1) — in-browser, zero cost, zero setup, instant. Default
+   choice for anything that's really just Python logic (loops, data
+   structures, mock tool functions). No real subprocess/filesystem/network.
+2. **E2B + Cloudflare Worker** (§4.2) — a real, disposable Linux sandbox
+   with a real Docker daemon, one call away from the browser. For a single
+   in-browser exercise that genuinely needs something Pyodide can't do
+   (build a real image, run a real container) but is still small/bounded
+   enough to grade in one shot or one short interactive session.
+3. **Downloadable project** (§4.3) — a separate GitHub repo the learner
+   clones and runs on their own machine. For anything that needs more than
+   one real service running together (an app *and* a database, say),
+   or is meant as a lesson's capstone rather than a single exercise.
+
+### 4.1 Pyodide (in-browser)
 
 Per [lesson-structure.md](lesson-structure.md), a lesson uses Pyodide in two
 distinct roles, both built on the shared loader in `src/lib/pyodide.ts`.
@@ -267,29 +306,113 @@ resolve them:
   file state is correct (verified: grading a stale-looking tab still used
   the right code — it was a display bug, not a data bug).
 
-**Known ceiling of this approach** (why it will need revisiting):
+**Known ceiling of Pyodide** (why the tiers below exist):
 - No real subprocess/shell execution.
 - No native/compiled Python packages.
 - No genuine multi-agent, long-running, or stateful-across-sessions execution.
 
-**Fallback for heavier builds:** downloadable project scaffolds that
-learners clone and run locally with their own machine (and, where
-relevant, their own API key) — via `projectDownload` in `_lesson.yaml`
-and the `<ProjectDownload />` component (`src/components/ProjectDownload.astro`).
-This keeps cost at $0 by pushing real compute to the learner's machine.
-**Implemented as: one separate public GitHub repo per project**, under
-the `insAnalytics` org, named `agentic-ai-course-<project-name>` — not
-a folder inside this repo, not a shared "projects" mono-repo. The
-component links to the repo itself plus GitHub's own auto-generated
-`/archive/refs/heads/main.zip` (no extra build/release step needed for
-that to work). First one: `agentic-ai-course-agent-registry` (Lesson
-0.8, Docker).
+### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
-**If/when real sandboxed execution becomes necessary** (e.g. a module truly
-needs live multi-step agent runs in-browser, not just local downloads): the
-leading candidate is a managed ephemeral-sandbox provider (e.g. E2B) with a
-free/hobby tier, added as a new execution backend alongside — not replacing —
-Pyodide. **This section must be rewritten when that decision is made.**
+First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped
+being theoretical — a Docker lesson genuinely cannot be taught with no
+real Docker daemon anywhere. Two pieces:
+
+- **E2B** (`e2b` npm package) — a managed ephemeral-sandbox provider,
+  hobby/free tier. A custom template, `course-docker-sandbox` (Ubuntu
+  24.04 + Docker CE, confirmed via `docker run hello-world` at build time),
+  gives every sandbox a real, working Docker daemon from the moment it
+  starts — no per-session install/startup cost.
+- **A Cloudflare Worker** (`/worker`, deployed as `agentic-ai-course-sandbox`
+  at `agentic-ai-course-sandbox.agentic-ai-course.workers.dev`) — holds the
+  E2B API key server-side (never shipped to the browser) and exposes a
+  small REST API the static site calls directly. Confirmed, by direct
+  testing rather than trusting docs: E2B's SDK genuinely works inside the
+  Workers runtime (`@connectrpc/connect-web`'s fetch-based transport),
+  despite older E2B documentation claiming Workers-incompatibility.
+
+**Two usage shapes, both live in `worker/src/index.ts`:**
+
+- **One-shot graded exercise** (`/docker-exercise/grade`, backing
+  `<DockerGradedExercise />`) — spins up a fresh sandbox, writes the
+  learner's submitted Dockerfile/.dockerignore alongside fixture files
+  (including a fake `.env`/`.git` to check get excluded), builds twice
+  (to check layer caching survives an unrelated change), inspects the
+  built image, kills the sandbox, returns pass/fail + the real build log.
+  One request, no session state.
+- **Persistent interactive terminal** (`/docker-terminal/{start,exec,grade,end}`,
+  backing `<DockerLiveTerminal />`) — for exercises that are a *sequence*
+  of commands (build → run detached → inspect → clean up), not a single
+  submission. The worker itself stays stateless: `start` creates a
+  sandbox and returns its `sandboxId`; every later call
+  (`exec`/`grade`/`end`) reconnects via `Sandbox.connect(sandboxId)` — the
+  sandbox ID **is** the session token, no Durable Object or session store
+  needed. Every `exec`'d command is appended to a transcript file written
+  inside the sandbox's own filesystem (not held in worker memory), because
+  grading needs to see commands whose effects a *later* command
+  deliberately undoes (the exercise's own last step is `docker rm`, which
+  destroys the very container earlier checks needed running) — `grade`
+  replays that transcript rather than only checking current live state.
+  `DockerLiveTerminal` only starts the sandbox on an explicit "Start
+  sandbox" click (it's billable), not on page load/mount.
+
+**Two real bugs worth remembering if this pattern gets extended:**
+- `sbx.commands.run()` **throws** `CommandExitError` on any non-zero exit
+  code — it does not just return a result with `exitCode` set. Every call
+  site goes through a small `run()` wrapper in `worker/src/index.ts` that
+  catches `CommandExitError` and reconstructs a normal
+  `{stdout, stderr, exitCode}` result, otherwise a learner's *own* failing
+  command (a typo'd flag, a broken Dockerfile) surfaces as an opaque
+  `"exit status 1"` 500 instead of real, gradeable output.
+- The sandbox's Docker socket is root-only, but lesson content teaches
+  plain `docker ...` commands — `execInTerminalSession` transparently
+  prepends `sudo` to any `docker` command rather than requiring learners
+  to know a sandbox-specific permissions detail unrelated to what's being
+  taught.
+
+**Auth model** (`authorized()` in `worker/src/index.ts`): CORS locked to
+`https://insanalytics.github.io`, plus a shared-secret `X-Site-Token`
+header the client sends (`src/lib/dockerWorker.ts`). Explicitly **not**
+real security — the token necessarily ships in the site's public JS
+bundle, readable by anyone who opens devtools. Both together are a soft
+speed bump against casual/automated abuse (each call is billable), not a
+guarantee. A real Cloudflare rate-limit rule is the actual cost ceiling
+and is still worth adding on top.
+
+**Local dev gotcha:** `wrangler dev` on Windows can leave multiple stale
+`workerd.exe`/`node.exe` processes running across restarts, silently
+serving stale env bindings or hanging entirely on every request (even
+trivial ones) once enough pile up. If a locally-correct code change
+doesn't seem to take effect, or requests hang for no obvious reason,
+`taskkill //F //IM workerd.exe` + `taskkill //F //IM node.exe` then a
+single fresh `wrangler dev` is the fix — check `tasklist` before assuming
+the code itself is wrong.
+
+### 4.3 Downloadable project (local, learner's own machine)
+
+For anything needing more than E2B's single-exercise shape can
+reasonably provide (multiple real services running together, meant as a
+lesson capstone rather than one graded step) — via `projectDownload` in
+`_lesson.yaml` and the `<ProjectDownload />` component
+(`src/components/ProjectDownload.astro`). Keeps cost at $0 by pushing
+real compute to the learner's own machine entirely.
+
+**Implemented as: one separate public GitHub repo per project**, under
+the `insAnalytics` org, `main` as the default branch, named
+`agentic-ai-course-<project-name>` — not a folder inside this repo, not a
+shared "projects" mono-repo. The component links to the repo itself plus
+GitHub's own auto-generated `/archive/refs/heads/main.zip` (works with no
+extra build/release step). Locally, each project also gets cloned into
+`../Agentic_AI_Projects/<project-name>` (a sibling folder to this repo,
+outside version control here) rather than left in a scratch/temp
+directory. First one: `agentic-ai-course-agent-registry` (Lesson 0.8) —
+a Flask + Postgres app shipped with intentional bugs (naive Dockerfile
+layer ordering, a `docker-compose.yml` missing its volume, root user) for
+the README's walkthrough to fix. Verified end-to-end in a real E2B
+sandbox before publishing, including confirming the specific claim the
+walkthrough makes (a volume surviving container recreation) is actually
+true and not just plausible-sounding — `docker compose restart` alone
+does *not* prove this, since restart never destroys the container in the
+first place; `docker compose up -d --force-recreate` does.
 
 ---
 
@@ -299,17 +422,29 @@ Pyodide. **This section must be rewritten when that decision is made.**
 2. `npm install`
 3. `npm run dev` — local server with live reload, editing any `.mdx` file in
    `/src/content/modules/` updates the page instantly.
-4. Commit + push → Cloudflare Pages auto-deploys from the connected branch.
+4. Commit + push to `main` → a GitHub Actions workflow builds and deploys to
+   GitHub Pages automatically.
 
 No build step is required to *write* a lesson — only to preview/deploy it.
+
+For the Worker (`/worker`, only needed when touching real-Docker exercises):
+`cd worker && npm install`, then `npx wrangler dev --port 8787` for local
+testing (reads `worker/.dev.vars`, gitignored — needs `E2B_API_KEY` and
+`SITE_TOKEN`) and `npx wrangler deploy` to push to production. See §4.
 
 ---
 
 ## 6. Deployment
 
-- Static build (`astro build`) → deployed via Cloudflare Pages (or GitHub
-  Pages) on push to `main`. Free tier covers this at personal-project scale.
-- No environment secrets needed server-side (LLM keys are client-side only).
+- **Site:** static build (`astro build`) → **GitHub Pages**, via a GitHub
+  Actions workflow on push to `main`. Live at
+  `https://insanalytics.github.io/agentic-ai-course/`. Free tier covers this
+  at personal-project scale. No environment secrets needed for the site
+  itself (LLM keys are client-side only).
+- **Worker** (`agentic-ai-course-sandbox`, the E2B broker): deployed
+  separately via `npx wrangler deploy` from `/worker` — not part of the
+  site's own build/deploy pipeline. Its two secrets (`E2B_API_KEY`,
+  `SITE_TOKEN`) are set with `wrangler secret put`, never committed.
 
 ---
 
@@ -337,10 +472,13 @@ No build step is required to *write* a lesson — only to preview/deploy it.
       A persistent left sidebar (`src/components/Sidebar.astro`) lists all
       modules/lessons and highlights the active one; both `index.astro` and
       `LessonLayout.astro` render through `src/layouts/BaseLayout.astro`.
-- [ ] When exactly does a lesson "graduate" from Pyodide sandbox to downloadable
-      project? Need a rule of thumb once we hit the first ambiguous case.
-- [ ] Real sandbox provider evaluation (E2B/Daytona/etc.) — only if/when a
-      lesson genuinely can't be done as a local download.
+- [x] Real sandbox provider evaluation — **E2B**, chosen and implemented
+      (§4.2) once Lesson 0.8 (Docker) made Pyodide's ceiling concrete rather
+      than theoretical. Added alongside, not replacing, Pyodide.
+- [ ] The tier-choice rule of thumb in §4's opening (Pyodide → E2B →
+      downloadable, lightest tier that covers the need) is the guidance in
+      use so far, across exactly one lesson (0.8) that needed tiers 2 and 3.
+      Revisit once a second lesson forces a real judgment call between them.
 - [x] Navigation/sidebar structure across modules — resolved: each lesson is
       a folder of pages (intro/concepts/recap), and the sidebar shows each
       lesson as an accordion (`<details>`/`<summary>`, no JS) expanding to

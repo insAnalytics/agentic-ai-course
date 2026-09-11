@@ -1,43 +1,60 @@
-# Astro Starter Kit: Minimal
+# Agentic AI Course
+
+An Astro/MDX course site on building agentic AI systems, deployed to
+[insanalytics.github.io/agentic-ai-course](https://insanalytics.github.io/agentic-ai-course/).
+Course content lives as `.mdx` files (one file per intro/concept/recap
+page), rendered through a shared set of interactive lesson components
+(quizzes, editable/graded code sandboxes, and — for exercises that need
+real Docker rather than in-browser Python — a Cloudflare Worker backed by
+[E2B](https://e2b.dev)).
+
+See [architecture.md](architecture.md) for the full technical picture
+(stack, content model, the three-tier sandbox architecture) and
+[lesson-structure.md](lesson-structure.md) for the fixed shape every
+lesson follows.
+
+## Development
 
 ```sh
-npm create astro@latest -- --template minimal
+npm install
+npm run dev       # local server with live reload at localhost:4321
+npm run build     # production build to ./dist/
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+Editing any `.mdx` file under `src/content/modules/` updates the page
+instantly in dev — no build step needed to write a lesson, only to
+preview/deploy it. Pushing to `main` deploys automatically via GitHub
+Actions.
 
-## 🚀 Project Structure
+### The Worker (`/worker`)
 
-Inside of your Astro project, you'll see the following folders and files:
+Only needed when working on real-Docker exercises (Lesson 0.8 and
+later, where relevant). It brokers E2B sandbox calls so the API key
+never reaches the browser.
 
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
+```sh
+cd worker
+npm install
+npx wrangler dev --port 8787   # local testing — needs .dev.vars (gitignored, see below)
+npx wrangler deploy            # deploy to production
 ```
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+`worker/.dev.vars` (gitignored) needs:
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
+```
+E2B_API_KEY=...
+SITE_TOKEN=...
+```
 
-Any static assets, like images, can be placed in the `public/` directory.
+See [architecture.md §4.2](architecture.md#42-e2b--cloudflare-worker-real-docker-one-call-from-the-browser)
+for how it fits together, including a couple of real gotchas worth
+knowing before extending it (a command-exit-code bug in the E2B SDK, and
+a stale-process issue with `wrangler dev` on Windows).
 
-## 🧞 Commands
+## Downloadable projects
 
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+Some lessons' comprehensive exercises are downloadable projects rather
+than in-browser sandboxes — each lives in its own public GitHub repo
+under the `insAnalytics` org (`agentic-ai-course-<project-name>`), linked
+from the lesson via `_lesson.yaml`'s `projectDownload` field. See
+[architecture.md §4.3](architecture.md#43-downloadable-project-local-learners-own-machine).

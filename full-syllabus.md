@@ -25,29 +25,38 @@
    global, closures, `nonlocal`, the mutable default argument trap),
    `lambda`/`map`/`filter`, modules and imports (multi-file).
 
-4. **Object-Oriented Python** — In progress
-   Class fundamentals (Concept 1 locked); instance vs. class variables;
-   decorators via `@staticmethod`/`@classmethod` (first place decorator
-   syntax is taught in the course); dunder methods
-   (`__str__`/`__repr__`/`__eq__`); inheritance.
+4. **Object-Oriented Python** — Locked
+   Class fundamentals; instance vs. class variables; decorators via
+   `@staticmethod`/`@classmethod` (first place decorator syntax is taught
+   in the course); dunder methods (`__str__`/`__repr__`/`__eq__`);
+   inheritance.
 
-5. **Structured Data Validation with Pydantic** — Planned
+5. **Structured Data Validation with Pydantic** — Locked
    Classes vs. dicts (when to use which); `@dataclass`; the validation gap
    (a `@dataclass` still silently accepts bad data); Pydantic fundamentals
    (`BaseModel`, type hints becoming real runtime validation). Narrative
    arc: dict → class → dataclass → still broken → Pydantic.
 
-6. **Perform I/O, Error Handling and Validation** — Planned
+6. **Perform I/O, Error Handling and Validation** — Locked
    Files, JSON, environment variables/secrets, layered exception handling,
-   input validation patterns.
+   custom exceptions, re-raising/chaining, logging.
 
-7. **Write Asynchronous and Concurrent Python** — Planned
-   `async`/`await`, `httpx`, why agent code needs concurrency (parallel
-   tool calls, streaming responses).
+7. **Write Asynchronous and Concurrent Python** — Locked
+   `async`/`await`/coroutines, `asyncio.gather`, `time.sleep` vs.
+   `asyncio.sleep`, error handling in async code, and when async isn't the
+   right tool (CPU-bound work needs multiprocessing instead).
 
-8. **Containerize Applications with Docker** — Planned
-   Dockerfile basics, images vs. containers, why this matters for later
-   deployment.
+8. **Containerize Applications with Docker** — Locked
+   Why containers (environment consistency *and* a real access-restriction
+   boundary); images vs. containers; writing a Dockerfile (core
+   instructions plus the `COPY`/`ADD`, `CMD`/`ENTRYPOINT`, `ENV`/`ARG`
+   pairs, `USER`, `EXPOSE`); building/running and the full lifecycle
+   (`ps`/`logs`/`exec`/`stop`/`rm`) via a real interactive terminal backed
+   by a live E2B sandbox, not a script; persisting data with volumes;
+   layer caching and `.dockerignore`; a brief look ahead at
+   `docker-compose`. Comprehensive project is a downloadable Flask +
+   Postgres app (its own GitHub repo, `agentic-ai-course-agent-registry`)
+   rather than an in-browser exercise — see architecture.md §4.3.
 
 9. **Develop and Document REST API Endpoints** — Planned
    FastAPI routes, request/response models, dependency injection,

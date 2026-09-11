@@ -46,7 +46,12 @@ A lesson is built from a repeating unit, followed by a fixed closing sequence:
   output**. It's editable (a scratchpad for the learner to tinker in — e.g.
   add another `print`) but never graded — this is for demonstration, distinct
   from the graded sandbox exercises. It does not run on page load; the
-  learner triggers execution explicitly (a "Run" click).
+  learner triggers execution explicitly (a "Run" click). "Runs live" doesn't
+  have to mean Pyodide specifically — a scripted terminal demo (click Run,
+  steps reveal progressively, no real backend) is a valid substitute when
+  the point is showing what a command's output looks like rather than
+  needing the learner to actually edit and re-run it (e.g. terminal/Docker
+  commands, first used in Lesson 0.8).
 - Errors/crashes can be shown deliberately as part of teaching (e.g. show
   the crash before teaching the fix) — this is a valid walkthrough technique,
   not a mistake.
@@ -89,6 +94,15 @@ A lesson is built from a repeating unit, followed by a fixed closing sequence:
   hidden tests, hint, correct-answer explanation).
 - This is the natural difficulty ceiling of the lesson — composes every
   concept taught, not a harder/trickier problem than the material supports.
+- **When the lesson's concepts genuinely can't compose into a single
+  in-browser exercise** (e.g. they need more than one real service running
+  together — an app *and* a database), this slot becomes a **comprehensive
+  downloadable project** instead: a real, runnable project the learner
+  clones and works through locally, still combining everything the lesson
+  taught, just not gradeable in-browser. See
+  [architecture.md §4.3](architecture.md#43-downloadable-project-local-learners-own-machine).
+  This is the exception, not the default — reach for it only when the
+  in-browser format genuinely can't fit, not as a shortcut.
 
 ## 3. What's explicitly NOT part of this template
 
