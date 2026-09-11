@@ -249,6 +249,18 @@ then stop and remove it. When you're done, submit for grading — it
 checks the actual commands you ran and their real output, not just
 whether the container happens to still exist.
 
-<DockerLiveTerminal client:load />
+<DockerLiveTerminal
+  client:load
+  hint="Each move maps to one flag or subcommand from this concept: -d for detached, -p host:container for the port, -e KEY=value for the override, then docker ps / docker logs / docker exec to inspect it, and docker stop then docker rm to clean up — in that order, since rm needs a stopped container."
+  solution={[
+    "docker build -t my-app .",
+    "docker run -d -p 8000:5000 -e LOG_LEVEL=debug --name my-app my-app",
+    "docker ps",
+    "docker logs my-app",
+    "docker exec my-app cat requirements.txt",
+    "docker stop my-app",
+    "docker rm my-app",
+  ]}
+/>
 
 </CheckpointZone>
