@@ -1,8 +1,24 @@
-import { Sandbox } from "e2b";
+import { Sandbox, CommandExitError, type CommandResult } from "e2b";
 
 export interface Env {
   E2B_API_KEY: string;
   SITE_TOKEN: string;
+}
+
+// sbx.commands.run() throws CommandExitError — not a normal rejection, but
+// one that still carries stdout/stderr/exitCode — whenever the command's
+// exit code is non-zero. Every exercise here needs to inspect *failed*
+// commands as data (a bad Dockerfile, a typo'd flag), so this unwraps that
+// back into a plain result instead of an exception.
+async function run(sbx: Sandbox, cmd: string, opts?: { timeoutMs?: number }): Promise<CommandResult> {
+  try {
+    return await sbx.commands.run(cmd, { ...opts, background: false });
+  } catch (err) {
+    if (err instanceof CommandExitError) {
+      return { exitCode: err.exitCode, stdout: err.stdout, stderr: err.stderr, error: err.error };
+    }
+    throw err;
+  }
 }
 
 // Restricting CORS to the real site origin (rather than "*") and requiring
@@ -76,7 +92,7 @@ async function gradeDockerfileExercise(body: GradeRequest, env: Env): Promise<Gr
       { path: `${GRADE_PROJECT_DIR}/.dockerignore`, data: body.dockerignore },
     ]);
 
-    const firstBuild = await sbx.commands.run(`cd ${GRADE_PROJECT_DIR} && sudo docker build -t exercise-image .`, {
+    const firstBuild = await run(sbx, `cd ${GRADE_PROJECT_DIR} && sudo docker build -t exercise-image .`, {
       timeoutMs: 90_000,
     });
     if (firstBuild.exitCode !== 0) {
@@ -90,9 +106,9 @@ async function gradeDockerfileExercise(body: GradeRequest, env: Env): Promise<Gr
 
     // An edit with nothing to do with dependencies — the whole point being
     // graded is whether this specific kind of change still busts the cache.
-    await sbx.commands.run(`echo '# unrelated comment' >> ${GRADE_PROJECT_DIR}/app.py`);
+    await run(sbx, `echo '# unrelated comment' >> ${GRADE_PROJECT_DIR}/app.py`);
 
-    const secondBuild = await sbx.commands.run(`cd ${GRADE_PROJECT_DIR} && sudo docker build -t exercise-image .`, {
+    const secondBuild = await run(sbx, `cd ${GRADE_PROJECT_DIR} && sudo docker build -t exercise-image .`, {
       timeoutMs: 90_000,
     });
     const secondLog = secondBuild.stdout + secondBuild.stderr;
@@ -110,7 +126,8 @@ async function gradeDockerfileExercise(body: GradeRequest, env: Env): Promise<Gr
     // exact "Using cache" string.
     const cacheHitOnUnrelatedChange = !secondLog.includes("Collecting");
 
-    const secretCheck = await sbx.commands.run(
+    const secretCheck = await run(
+      sbx,
       `sudo docker run --rm exercise-image sh -c "test -e .env && echo HAS_ENV; test -e .git && echo HAS_GIT; true"`,
     );
     const secretsExcluded = !secretCheck.stdout.includes("HAS_ENV") && !secretCheck.stdout.includes("HAS_GIT");
@@ -185,7 +202,7 @@ async function execInTerminalSession(
   const sbx = await Sandbox.connect(sandboxId, { apiKey: env.E2B_API_KEY });
   await sbx.setTimeout(SESSION_TIMEOUT_MS);
 
-  const result = await sbx.commands.run(`cd ${TERMINAL_PROJECT_DIR} && ${command}`, { timeoutMs: 60_000 });
+  const result = await run(sbx, `cd ${TERMINAL_PROJECT_DIR} && ${command}`, { timeoutMs: 60_000 });
 
   let existing = "";
   try {
@@ -261,7 +278,7 @@ async function gradeTerminalSession(sandboxId: string, env: Env): Promise<Termin
   const cleanedUp =
     entries.some((e) => /docker stop/.test(e.command) && ok(e)) && entries.some((e) => /docker rm/.test(e.command) && ok(e));
 
-  const liveCheck = await sbx.commands.run("sudo docker ps --format '{{.Image}}'");
+  const liveCheck = await run(sbx, "sudo docker ps --format '{{.Image}}'");
   const nothingRunningNow = !liveCheck.stdout.includes("my-app");
 
   const checks = {
