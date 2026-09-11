@@ -63,6 +63,8 @@ call it. `uvicorn` is the standard ASGI server used to run a FastAPI app:
         { output: "INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)" },
         { output: "INFO:     Started reloader process" },
         { output: "INFO:     Application startup complete." },
+        { command: "curl http://127.0.0.1:8000/" },
+        { output: '{"message": "agent backend running"}' },
       ],
     },
   ]}
@@ -72,11 +74,9 @@ call it. `uvicorn` is the standard ASGI server used to run a FastAPI app:
 `FastAPI()` instance from above. `--reload` restarts the server
 automatically whenever a source file changes, useful during development
 so you don't have to manually stop and restart after every edit. Hitting
-`http://127.0.0.1:8000/` in a browser, or with `curl`, returns:
-
-```json
-{"message": "agent backend running"}
-```
+`http://127.0.0.1:8000/` in a browser works the same way `curl` does
+above — this is a real, network-reachable server now, not just a
+function you'd call directly.
 
 </Subsection>
 
