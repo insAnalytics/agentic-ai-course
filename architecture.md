@@ -98,6 +98,7 @@ sidebar navigation, not one very long scroll.
       DockerGradedExercise.tsx     # real-Docker graded exercise (Dockerfile + .dockerignore textareas) — see §4
       DockerLiveTerminal.tsx       # real interactive terminal over a persistent E2B sandbox — see §4
       FastAPIGradedExercise.tsx    # real FastAPI app, graded in-browser via Pyodide + httpx.ASGITransport — see §4.1
+      MultiFileFastAPIGradedExercise.tsx  # multi-file version — real cross-file imports, e.g. main.py importing an APIRouter from agents.py — see §4.1
       CheckpointZone.astro        # full-bleed colored band behind a quiz/exercise card
   /lib
     pyodide.ts                  # shared Pyodide loader + single-file and multi-file grading harnesses
@@ -350,6 +351,32 @@ confirmed by actually installing and running them together, not guessed.
 routes belongs at tier 1 (Pyodide), not tier 2 (E2B) — E2B is for
 Docker/subprocess/real-networking specifically, not merely "a real Python
 web framework."
+
+**Two more non-obvious gotchas found building Lesson 0.9's comprehensive
+sandbox** (a multi-file app using `lifespan` and `BackgroundTasks`), both
+in `src/lib/fastapiPyodide.ts`:
+- **`httpx.ASGITransport` never triggers FastAPI's `lifespan` startup/shutdown
+  at all** — confirmed directly: state set inside a `lifespan` function
+  (`app.state.registry = {}`, say) simply never gets set if you only ever
+  call the app through `ASGITransport`. Fixed at the harness level, not
+  per-exercise: both the single-file and multi-file grading harness wrap
+  grading-script execution in `async with app.router.lifespan_context(app):`
+  whenever `app` is available — a no-op for an app with no custom
+  `lifespan` (FastAPI always provides a default one), so it's safe
+  unconditionally.
+- **A plain (sync) function scheduled via `BackgroundTasks.add_task(...)`
+  hits the same threading wall as a sync route/dependency** — FastAPI
+  dispatches it through the same `run_in_threadpool` path. Confirmed
+  directly; the fix is the same one already established: declare it
+  `async def` too.
+- **Multi-file FastAPI exercises** (`<MultiFileFastAPIGradedExercise />`,
+  `gradeFastAPIMultiFileExercise` in `fastapiPyodide.ts`) reuse
+  `pyodide.ts`'s existing multi-file sandbox machinery
+  (`prepareMultiFileRun`/`teardownMultiFileRun`, exported for this) rather
+  than duplicating it — files go on a real per-instance directory on
+  `sys.path`, and the entry file (e.g. `main.py`) is `importlib.import_module`'d
+  as a genuine module so its own `from agents import ...` resolves for real;
+  `<entry module>.app` is what actually gets graded.
 
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
