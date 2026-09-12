@@ -191,11 +191,11 @@ export interface SandboxFile {
   readOnly?: boolean;
 }
 
-function moduleNameFor(fileName: string): string {
+export function moduleNameFor(fileName: string): string {
   return fileName.replace(/\.py$/, "");
 }
 
-async function prepareMultiFileRun(
+export async function prepareMultiFileRun(
   pyodide: PyodideInterface,
   instanceId: string,
   files: SandboxFile[],
@@ -223,7 +223,7 @@ if _dir not in sys.path:
   return dir;
 }
 
-function teardownMultiFileRun(pyodide: PyodideInterface, dir: string) {
+export function teardownMultiFileRun(pyodide: PyodideInterface, dir: string) {
   pyodide.runPython(`
 import sys
 try:
