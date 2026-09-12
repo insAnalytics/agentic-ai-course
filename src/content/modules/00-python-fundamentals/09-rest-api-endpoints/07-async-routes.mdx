@@ -1,0 +1,246 @@
+---
+title: "Async routes"
+lesson: "09-rest-api-endpoints"
+order: 7
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import TerminalGroup from "../../../../components/lesson/TerminalGroup";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="async def vs. plain def routes" variant="a">
+
+A route can be declared either way:
+
+```python
+@app.get("/sync-agent")
+def get_agent_sync():
+    return {"name": "research_agent"}
+
+@app.get("/async-agent")
+async def get_agent_async():
+    return {"name": "research_agent"}
+```
+
+Both work, and for a route like this — no actual waiting involved —
+there's no real difference. The distinction only matters once a route
+actually does I/O-bound waiting:
+[calling an LLM API, another service, or awaiting anything else](/00-python-fundamentals/07-concurrency-and-async/01-why-concurrency-matters/)
+inside the route function.
+
+</Subsection>
+
+<Subsection title="Where it actually matters" variant="b">
+
+```python
+import asyncio
+
+async def call_llm_api(prompt: str) -> str:
+    await asyncio.sleep(1)   # standing in for a real network call
+    return f"response to: {prompt}"
+
+@app.post("/generate")
+async def generate(prompt: str):
+    result = await call_llm_api(prompt)
+    return {"result": result}
+```
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "POST /generate",
+      steps: [
+        { command: 'curl -X POST "http://127.0.0.1:8000/generate?prompt=hello"' },
+        { output: '{"result": "response to: hello"}' },
+      ],
+    },
+  ]}
+/>
+
+`async def generate` can `await call_llm_api(...)` directly — exactly
+[the coroutine-calling-coroutine pattern from the async lesson](/00-python-fundamentals/07-concurrency-and-async/02-async-await-and-coroutines/#await-ing-from-inside-another-coroutine).
+While this one request is waiting on `call_llm_api`, FastAPI's event
+loop is free to handle *other* incoming requests concurrently — the
+entire reason this course built up `asyncio` in the first place, now
+paying off directly inside route handling.
+
+</Subsection>
+
+<Subsection title="The trap: a blocking call inside async def" variant="a">
+
+This is
+[the exact poisoning behavior from the async lesson](/00-python-fundamentals/07-concurrency-and-async/04-time-sleep-vs-asyncio-sleep/#time-sleep-inside-a-coroutine-blocks-everything),
+now in a context where it's easy to hit by accident — a route declared
+`async def` that calls a genuinely blocking function (a synchronous
+database driver, `time.sleep()`, a non-async HTTP library) blocks the
+*entire server*, not just that one request:
+
+```python
+import time
+
+@app.post("/generate-blocking")
+async def generate_blocking(prompt: str):
+    time.sleep(1)   # blocking — freezes every other request too
+    return {"result": f"response to: {prompt}"}
+```
+
+Two clients, hitting this server at the same moment — one calling the
+broken route, the other just checking `/health`, something with
+nothing to do with `/generate-blocking` at all:
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "Client A: POST /generate-blocking",
+      steps: [
+        { command: 'curl -w "\\ntook %{time_total}s\\n" -X POST "http://127.0.0.1:8000/generate-blocking?prompt=hello"' },
+        { output: '{"result": "response to: hello"}' },
+        { output: "took 1.01s" },
+      ],
+    },
+    {
+      label: "Client B: GET /health, sent at the same moment",
+      steps: [
+        { command: 'curl -w "\\ntook %{time_total}s\\n" http://127.0.0.1:8000/health' },
+        { output: '{"status": "ok"}' },
+        { output: "took 1.00s" },
+      ],
+    },
+  ]}
+/>
+
+`/health` does nothing and depends on nothing — it still took the full
+second, because
+[one blocking call poisons the entire event loop](/00-python-fundamentals/07-concurrency-and-async/04-time-sleep-vs-asyncio-sleep/#time-sleep-inside-a-coroutine-blocks-everything),
+the same way it poisoned an entire `gather()` in the async lesson. The
+rule from that lesson applies unchanged: never call a blocking function
+from inside `async def` code.
+
+</Subsection>
+
+<Subsection title="The fix, if a route genuinely needs blocking code" variant="b">
+
+If a route needs to call something blocking that has no async
+alternative, the fix is simply *not* declaring it `async def` — FastAPI
+automatically runs a plain `def` route in a separate thread pool,
+rather than directly on the event loop:
+
+```python
+@app.post("/generate-safe")
+def generate_safe(prompt: str):
+    time.sleep(1)   # blocking, but this route isn't async def —
+    return {"result": f"response to: {prompt}"}   # FastAPI runs it in a thread pool instead
+```
+
+Same two clients, same moment, only this route changed:
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "Client A: POST /generate-safe",
+      steps: [
+        { command: 'curl -w "\\ntook %{time_total}s\\n" -X POST "http://127.0.0.1:8000/generate-safe?prompt=hello"' },
+        { output: '{"result": "response to: hello"}' },
+        { output: "took 1.01s" },
+      ],
+    },
+    {
+      label: "Client B: GET /health, sent at the same moment",
+      steps: [
+        { command: 'curl -w "\\ntook %{time_total}s\\n" http://127.0.0.1:8000/health' },
+        { output: '{"status": "ok"}' },
+        { output: "took 0.01s" },
+      ],
+    },
+  ]}
+/>
+
+`/health` comes straight back this time — the blocking work still takes
+its full second, but off on its own thread, not on the shared event
+loop `/health` needed to run on. This route still isn't *concurrent*
+with itself the way `await`-ing a real async call would be, but it no
+longer blocks the *entire server* the way the broken `async def`
+version did.
+
+**The practical rule:** declare a route `async def` only when it
+actually `await`s something — an async database driver, an async HTTP
+client, another coroutine. If a route's logic is entirely synchronous
+(plain, blocking calls, no `await` anywhere in its body), leave it a
+plain `def` and let FastAPI's thread pool handle it safely, rather than
+declaring `async def` out of habit and accidentally introducing the
+poisoning trap.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "For a route with no actual waiting involved (just returning a value immediately), does it matter whether it's declared async def or plain def?",
+      options: [
+        "Yes, significantly — one is always faster",
+        "No meaningful difference — the distinction only matters once a route actually does I/O-bound waiting",
+        "async def is required for every route regardless of content",
+        "Plain def routes can't return JSON",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Without any actual waiting inside the route, async def and plain def behave the same way in practice — the choice only starts to matter once a route awaits something I/O-bound.",
+    },
+    {
+      question: "What does await call_llm_api(...) inside an async def route allow the server to do while that one request is waiting?",
+      options: [
+        "Nothing — the whole server pauses until it finishes",
+        "Handle other incoming requests concurrently, since the event loop is free during that wait",
+        "It automatically retries the call if it's slow",
+        "It cancels any other in-progress requests",
+      ],
+      correctIndex: 1,
+      explanation:
+        "await yields control back to the event loop for the duration of the wait, which is exactly what lets the server keep handling other requests instead of sitting idle.",
+    },
+    {
+      question: "Why does calling time.sleep(1) inside an async def route block every request to the server, not just that one?",
+      options: [
+        "It doesn't — this only affects the current request",
+        "A blocking call inside async code freezes the entire shared event loop, the same poisoning behavior covered in the async lesson — nothing else scheduled on that loop can make progress either",
+        "time.sleep() isn't allowed inside route functions at all",
+        "This only happens if await is also used in the same route",
+      ],
+      correctIndex: 1,
+      explanation:
+        "There's only one event loop shared by every request — a genuinely blocking call inside async code freezes that loop entirely, not just the coroutine that made the call.",
+    },
+    {
+      question: "Why does calling time.sleep(1) inside a plain def route (not async def) not have the same server-wide blocking effect?",
+      options: [
+        "It does have the exact same effect — there's no real difference",
+        "FastAPI automatically runs plain def routes in a separate thread pool rather than directly on the shared event loop",
+        "time.sleep() behaves differently depending on the route's HTTP method",
+        "Plain def routes can't call blocking functions at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A plain def route never touches the shared event loop at all — FastAPI dispatches it to a worker thread instead, so blocking there doesn't freeze anything else.",
+    },
+    {
+      question: "What's the practical rule for deciding whether a route should be async def or plain def?",
+      options: [
+        "Always use async def — it's strictly better in every case",
+        "Use async def only when the route actually awaits something; otherwise leave it a plain def and let FastAPI's thread pool handle any blocking work safely",
+        "Always use plain def — async def should be avoided entirely",
+        "The choice only affects the response's status code",
+      ],
+      correctIndex: 1,
+      explanation:
+        "async def is only the right choice when a route genuinely awaits something — declaring it out of habit on a route with blocking calls is exactly what introduces the poisoning trap.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
