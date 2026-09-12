@@ -1,0 +1,208 @@
+---
+title: "Why testing matters, pytest basics, and unit tests"
+lesson: "10-testing-rest-endpoints"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import TerminalGroup from "../../../../components/lesson/TerminalGroup";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The assert statements you've already been using" variant="a">
+
+Every hidden test case in this entire course, all the way back to
+Lesson 1, has been a plain `assert` statement checking a function's
+behavior against known inputs and expected outputs. That's not a
+simplification for teaching purposes — it's genuinely what a test *is*
+at its core. What's been missing is a framework around those
+assertions: a way to discover, run, and report on many of them at
+once, consistently, instead of manually running a script and
+eyeballing whether it crashed.
+
+**pytest** is that framework — the standard tool for writing and
+running tests in Python.
+
+</Subsection>
+
+<Subsection title="Test discovery and a first test" variant="b">
+
+pytest finds tests by convention, not configuration: a file named
+`test_*.py` (or `*_test.py`), containing functions named `test_*`, is
+automatically discovered and run — no registration step, no import
+list to maintain.
+
+```python
+# validators.py
+def is_valid_tool_name(name) -> bool:
+    return isinstance(name, str) and len(name) > 0
+```
+
+```python
+# test_validators.py
+from validators import is_valid_tool_name
+
+def test_valid_name_returns_true():
+    assert is_valid_tool_name("search") == True
+
+def test_empty_string_returns_false():
+    assert is_valid_tool_name("") == False
+
+def test_non_string_returns_false():
+    assert is_valid_tool_name(42) == False
+```
+
+Running `pytest` from the command line finds and runs every `test_*`
+function in every `test_*.py` file it can locate:
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "pytest",
+      steps: [
+        { command: "pytest" },
+        { output: "============================= test session starts ==============================" },
+        { output: "collected 3 items" },
+        { output: "" },
+        { output: "test_validators.py ...                                                     [100%]" },
+        { output: "" },
+        { output: "============================== 3 passed in 0.01s ==============================" },
+      ],
+    },
+  ]}
+/>
+
+Each `.` represents one passing test. This is exactly the same
+`is_valid_tool_name` function
+[from the OOP lesson's decorators concept](/00-python-fundamentals/04-classes-and-objects/03-decorators-static-classmethods/#choosing-between-the-three)
+— pytest isn't asking you to write tests differently than the
+`assert`-based checks you've already been reading all course; it's
+giving you a real tool to *run* them.
+
+</Subsection>
+
+<Subsection title="What a failing test actually shows you" variant="a">
+
+```python
+def test_broken_example():
+    assert is_valid_tool_name("search") == False   # deliberately wrong
+```
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "pytest, with a failing test",
+      steps: [
+        { command: "pytest" },
+        { output: "============================= test session starts ==============================" },
+        { output: "collected 4 items" },
+        { output: "" },
+        { output: "test_validators.py ...F                                                    [100%]" },
+        { output: "" },
+        { output: "=================================== FAILURES ===================================" },
+        { output: "______________________________ test_broken_example ______________________________" },
+        { output: "" },
+        { output: "    def test_broken_example():" },
+        { output: ">       assert is_valid_tool_name(\"search\") == False" },
+        { output: "E       assert True == False" },
+        { output: "E        +  where True = is_valid_tool_name('search')" },
+        { output: "" },
+        { output: "test_validators.py:11: AssertionError" },
+        { output: "========================= 1 failed, 3 passed in 0.02s =========================" },
+      ],
+    },
+  ]}
+/>
+
+pytest shows exactly which assertion failed, what the actual value was
+versus what was expected, and the specific line — considerably more
+information than a bare `AssertionError` with no context would give
+you on its own.
+
+</Subsection>
+
+<Subsection title="What makes this specifically a unit test" variant="b">
+
+`test_valid_name_returns_true` and its neighbors are **unit tests** —
+each one tests a single, small unit of code (here, one function) in
+complete isolation: no file I/O, no network call, no database, nothing
+external to the function itself. This matters because it's what makes
+unit tests fast (thousands can run in seconds) and deterministic (the
+same input always produces the same result, with nothing external able
+to make a run flaky). Not every test in this lesson will look like
+this — testing a full FastAPI endpoint, covered next, involves
+considerably more moving parts working together, which is a
+meaningfully different kind of test, not just a bigger unit test.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What convention does pytest use to discover which functions are tests?",
+      options: [
+        "Every function in every file is treated as a test",
+        "Functions named test_*, inside files named test_*.py (or *_test.py), are automatically discovered — no manual registration needed",
+        "Tests must be listed explicitly in a config file",
+        "Only functions decorated with @test are run",
+      ],
+      correctIndex: 1,
+      explanation:
+        "pytest relies entirely on naming convention for discovery — no config file or registration list is needed for a test to be found and run.",
+    },
+    {
+      question: "What's the relationship between a plain assert statement and a pytest test?",
+      options: [
+        "They're unrelated — pytest requires a completely different syntax",
+        "A pytest test function is built from the same assert statements already used throughout this course — pytest adds discovery, running, and reporting around them",
+        "pytest replaces assert with its own custom comparison functions",
+        "assert only works inside a try/except block",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A pytest test is just a function containing ordinary assert statements — the framework's job is discovering, running, and reporting on them, not replacing the assertion mechanism itself.",
+    },
+    {
+      question: "What does pytest's failure output show, beyond a bare AssertionError?",
+      options: [
+        "Nothing extra — the output is identical either way",
+        "The specific failing assertion, the actual value versus what was compared against, and the exact file and line",
+        "Only whether the test passed or failed, with no further detail",
+        "The entire test file's source code, every time",
+      ],
+      correctIndex: 1,
+      explanation:
+        "pytest rewrites assertions to show exactly what was compared and what the actual value turned out to be, plus the precise file and line — far more actionable than a bare AssertionError.",
+    },
+    {
+      question: "What makes a test specifically a unit test, rather than some other kind of test?",
+      options: [
+        "It must test more than one function at once",
+        "It tests a single, small unit of code in complete isolation — no file I/O, network calls, or other external dependencies",
+        "It must always be the first test written for a project",
+        "It requires a running server to execute",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The defining trait of a unit test is isolation — a single small unit of code tested with nothing external involved, not the number of functions or its position in a test suite.",
+    },
+    {
+      question: "Why does isolation (no external dependencies) matter for a unit test specifically?",
+      options: [
+        "It doesn't matter — isolation is just a stylistic preference",
+        "It's what makes unit tests fast and deterministic — the same input always produces the same result, with nothing external able to make a run flaky",
+        "Isolated tests can't check return values",
+        "Isolation is required for pytest to discover the test at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Isolation is what guarantees speed and determinism — nothing external (a network call, a file, a database) is present to slow a test down or make its result depend on something outside the code being tested.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
