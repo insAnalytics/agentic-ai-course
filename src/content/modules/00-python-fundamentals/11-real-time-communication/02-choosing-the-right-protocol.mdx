@@ -1,0 +1,119 @@
+---
+title: "Choosing the right protocol"
+lesson: "11-real-time-communication"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="A decision framework, not a preference ranking" variant="a">
+
+None of the four options
+[from the previous concept](/00-python-fundamentals/11-real-time-communication/01-the-protocol-landscape/)
+is universally "better" — each fits a specific shape of communication
+need. The questions worth asking, in order:
+
+1. **Is this service-to-service, not client-facing?** — one backend
+   calling another internally, not a browser or CLI client at the
+   other end → **gRPC**.
+2. **Does the other side need to send data back mid-interaction, not
+   just at the start of the request?** → **WebSockets**.
+3. **Is it purely one-way, server pushing updates to a client that has
+   nothing further to say once the connection starts?** → **SSE**.
+4. **Is genuine real-time not actually needed** — infrequent updates,
+   where a few seconds of staleness is completely fine? → **polling is
+   the correct choice**, not a fallback to feel bad about.
+
+That last point matters as much as the other three: reaching for
+WebSockets or gRPC because they're more sophisticated, for a situation
+polling would serve just as well, is over-engineering — the same
+judgment call
+[this course has applied elsewhere](/00-python-fundamentals/02-data-structures/05-comprehensions/#when-not-to-use-a-comprehension),
+choosing the tool that actually fits the problem's real shape, not the
+most impressive-sounding one available.
+
+</Subsection>
+
+<Subsection title="Applying it to real agent-system scenarios" variant="b">
+
+**Streaming an LLM's tokens to a chat interface.** The server is
+producing output progressively; the client has nothing to say back
+once it's sent its prompt. Purely one-way → **SSE**.
+
+**A live agent dashboard where a user can also cancel a running task
+mid-execution.** The server pushes status updates, but the client
+needs to send something back (`cancel`) at an unpredictable moment,
+not just at the start → **WebSockets**.
+
+**An agent backend calling an internal tool-execution service to run a
+calculation.** Neither end is a browser; this is one internal service
+calling another, and a strict, versioned schema matters for
+reliability between services that evolve independently → **gRPC**.
+
+**An admin panel showing whether last night's batch job succeeded,
+refreshed on page load.** Nothing here needs sub-second freshness — a
+plain `GET /status`, called once when the page loads (or even every 30
+seconds, if it must auto-refresh) → **polling**, and reaching for
+anything more sophisticated here would be solving a problem that
+doesn't exist.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What's the first question worth asking when choosing a communication protocol, according to this framework?",
+      options: [
+        "Which protocol is newest or most technically impressive",
+        "Whether the communication is service-to-service (internal) or client-facing -- this determines whether gRPC is even in consideration",
+        "How much data needs to be sent per message",
+        "Whether the team already has experience with a particular protocol",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The service-to-service question comes first because it's the one that rules gRPC in or out entirely -- it's aimed at internal communication, not a browser or CLI client.",
+    },
+    {
+      question: "A live dashboard needs to both receive server-pushed updates and let the client cancel a running task at any moment. Which protocol fits, and why?",
+      options: [
+        "SSE, since it handles server push",
+        "WebSockets -- the client needs to send something back mid-interaction, at an unpredictable time, which SSE structurally can't support",
+        "Polling, since it's simpler",
+        "gRPC, since this is the most sophisticated option",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The need to cancel mid-interaction is exactly what pushes this past SSE's one-way limit into WebSockets' genuine two-way communication.",
+    },
+    {
+      question: "Why does this framework treat polling as sometimes the correct choice, not just a fallback to avoid?",
+      options: [
+        "Polling is always technically superior to the alternatives",
+        "When genuine real-time freshness isn't actually needed, reaching for a more sophisticated protocol anyway is over-engineering -- the same judgment already applied elsewhere in this course, matching the tool to the problem's real shape",
+        "Polling is required by law for certain types of applications",
+        "The other three protocols can't be implemented in Python",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Choosing polling when staleness of a few seconds is fine isn't settling -- it's the same match-the-tool-to-the-problem judgment this course has applied to other unnecessary complexity before.",
+    },
+    {
+      question: "Why does an agent backend calling an internal tool-execution service fit gRPC better than SSE or WebSockets?",
+      options: [
+        "gRPC is always faster than the alternatives",
+        "Neither end is a browser or CLI client -- this is internal service-to-service communication, where gRPC's strict, versioned schema fits the need for reliability between independently-evolving services",
+        "SSE and WebSockets can't be used between two backend services at all",
+        "gRPC is the only option that supports binary data",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The deciding factor is who's on each end of the connection, not raw speed -- two internal services benefit from gRPC's strict schema in a way a public-facing connection doesn't need.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
