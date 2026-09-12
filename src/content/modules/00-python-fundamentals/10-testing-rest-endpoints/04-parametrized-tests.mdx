@@ -33,6 +33,26 @@ different input — exactly the kind of repetition
 [this course has pushed back on since comprehensions](/00-python-fundamentals/02-data-structures/05-comprehensions/#the-problem-comprehensions-solve),
 just showing up in test code instead of application code.
 
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "pytest -v",
+      steps: [
+        { command: "pytest -v" },
+        { output: "test_validators.py::test_valid_name_search PASSED" },
+        { output: "test_validators.py::test_valid_name_calculator PASSED" },
+        { output: "test_validators.py::test_invalid_name_empty PASSED" },
+        { output: "test_validators.py::test_invalid_name_number PASSED" },
+      ],
+    },
+  ]}
+/>
+
+Four entirely separate functions in the report, one per case — every
+one of them exercising the exact same single line of logic, just with
+different inputs typed out by hand each time.
+
 </Subsection>
 
 <Subsection title="@pytest.mark.parametrize — one test, many cases" variant="b">
@@ -93,6 +113,24 @@ def test_create_agent_validation(client, payload, expected_status):
     response = client.post("/agents", json=payload, headers={"X-Api-Key": "secret-key-123"})
     assert response.status_code == expected_status
 ```
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "pytest",
+      steps: [
+        { command: "pytest" },
+        { output: "============================= test session starts ==============================" },
+        { output: "collected 4 items" },
+        { output: "" },
+        { output: "test_main.py ....                                                          [100%]" },
+        { output: "" },
+        { output: "============================== 4 passed in 0.04s ==============================" },
+      ],
+    },
+  ]}
+/>
 
 Notice `client` (a fixture) and `payload`/`expected_status`
 (parametrized values) both appear as parameters on the same test
