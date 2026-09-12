@@ -4,6 +4,7 @@ lesson: "11-real-time-communication"
 order: 1
 ---
 import Subsection from "../../../../components/lesson/Subsection.astro";
+import TerminalGroup from "../../../../components/lesson/TerminalGroup";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
@@ -36,6 +37,42 @@ scales with how *impatient* clients are, not with how much actual work
 is happening. Polling isn't wrong, exactly — it's simple, and works
 everywhere plain HTTP works — but it's the fallback of last resort
 this lesson's actual protocols exist to improve on.
+
+Concretely, with a task that actually finishes at 5.4 seconds and a
+2-second polling interval:
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "python client.py",
+      steps: [
+        { command: "python client.py" },
+        { output: "[t=0.0s] GET /tasks/42/status -> {\"status\": \"running\"}", delayMs: 600 },
+        { output: "[t=2.0s] GET /tasks/42/status -> {\"status\": \"running\"}   (nothing new)", delayMs: 1400 },
+        { output: "[t=4.0s] GET /tasks/42/status -> {\"status\": \"running\"}   (nothing new)", delayMs: 1400 },
+        { output: "         ...task actually finishes on the server here (t=5.4s)...", delayMs: 1400 },
+        { output: "[t=6.0s] GET /tasks/42/status -> {\"status\": \"complete\"}", delayMs: 1400 },
+        { output: "task finished", delayMs: 600 },
+        { output: "", delayMs: 300 },
+        { output: "4 requests made -- 3 of them (75%) returned nothing new", delayMs: 500 },
+        { output: "the task was actually done at t=5.4s; the client didn't find out until t=6.0s", delayMs: 500 },
+      ],
+    },
+  ]}
+/>
+
+Three of the four requests exist purely because the client couldn't
+know any better — the task hadn't changed state since the last check,
+so each one is a request that did nothing but confirm "still not yet."
+The fourth actually mattered, but even it arrives 0.6 seconds later
+than the task's real completion, purely because that's how long it
+took for the next scheduled poll to roll around. Neither number moves
+in the client's favor by polling faster — a 200ms interval fixes the
+latency at the cost of roughly 10x the wasted requests; a 10-second
+interval fixes the waste at the cost of far worse latency. There's no
+interval that avoids both costs at once — the trade-off is inherent to
+polling itself, not a tuning problem.
 
 </Subsection>
 
