@@ -5,6 +5,7 @@ order: 6
 ---
 import Subsection from "../../../../components/lesson/Subsection.astro";
 import TerminalGroup from "../../../../components/lesson/TerminalGroup";
+import ApiDocsPreview from "../../../../components/lesson/ApiDocsPreview.astro";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
@@ -55,6 +56,62 @@ def list_agents(limit: int = Query(default=10, gt=0, le=100, description="max re
     """List existing agents, most recently created first."""
     return []
 ```
+
+This is what visiting `/docs` for that app actually looks like —
+interactive, with a (non-functional here) "Try it out" per route:
+
+<ApiDocsPreview
+  variant="swagger"
+  routes={[
+    {
+      method: "POST",
+      path: "/agents",
+      summary: "Create Agent",
+      description: "Register a new agent configuration.",
+      requestBody: [
+        { name: "name", type: "string", description: "the agent's unique identifier", required: true },
+        { name: "model", type: "string", description: "which LLM this agent runs on", required: true },
+        { name: "temperature", type: "number", description: "sampling temperature, 0 to 1 (default 0.7)" },
+      ],
+    },
+    {
+      method: "GET",
+      path: "/agents",
+      summary: "List Agents",
+      description: "List existing agents, most recently created first.",
+      parameters: [{ name: "limit", type: "integer", description: "max results to return (default 10, 1-100)" }],
+    },
+  ]}
+/>
+
+`/redoc` shows the same underlying schema, laid out as a cleaner
+reference page instead of an interactive one:
+
+<ApiDocsPreview
+  variant="redoc"
+  routes={[
+    {
+      method: "POST",
+      path: "/agents",
+      summary: "Create Agent",
+      description: "Register a new agent configuration.",
+      requestBody: [
+        { name: "name", type: "string", description: "the agent's unique identifier", required: true },
+        { name: "model", type: "string", description: "which LLM this agent runs on", required: true },
+        { name: "temperature", type: "number", description: "sampling temperature, 0 to 1 (default 0.7)" },
+      ],
+    },
+    {
+      method: "GET",
+      path: "/agents",
+      summary: "List Agents",
+      description: "List existing agents, most recently created first.",
+      parameters: [{ name: "limit", type: "integer", description: "max results to return (default 10, 1-100)" }],
+    },
+  ]}
+/>
+
+And underneath both of those is the same raw OpenAPI schema:
 
 <TerminalGroup
   client:load

@@ -1,0 +1,188 @@
+---
+interface DocsField {
+  name: string;
+  type: string;
+  description: string;
+  required?: boolean;
+}
+
+interface DocsRoute {
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  path: string;
+  summary: string;
+  description: string;
+  parameters?: DocsField[];
+  requestBody?: DocsField[];
+}
+
+interface Props {
+  variant: "swagger" | "redoc";
+  routes: DocsRoute[];
+}
+
+const { variant, routes } = Astro.props;
+
+const METHOD_COLOR: Record<DocsRoute["method"], string> = {
+  GET: "var(--color-green)",
+  POST: "var(--color-sandbox)",
+  PUT: "var(--color-accent)",
+  PATCH: "var(--color-quiz)",
+  DELETE: "#b91c1c",
+};
+---
+
+<!--
+  A static, illustrative look-alike of Swagger UI (/docs) and ReDoc
+  (/redoc) -- not a live server, just enough visual fidelity to show a
+  learner what each one actually looks like for a given set of routes,
+  without needing a real running FastAPI app anywhere. Route/field data is
+  authored directly in the lesson content, mirroring the example code shown
+  alongside it. Purely presentational, so this is a static .astro component
+  (no client JS shipped) rather than a React one.
+-->
+{
+  variant === "swagger" ? (
+    <div class="card my-6 overflow-hidden">
+      <div class="flex items-center justify-between bg-[var(--color-ink)] px-4 py-2">
+        <span class="text-xs font-semibold tracking-wide text-white uppercase">/docs · Swagger UI (illustrative)</span>
+      </div>
+      <div class="divide-y divide-[var(--color-border)] bg-[var(--color-bg)] p-3">
+        {routes.map((route) => (
+          <div class="py-3 first:pt-0 last:pb-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="rounded px-2 py-0.5 font-mono text-xs font-bold text-white" style={`background: ${METHOD_COLOR[route.method]}`}>
+                {route.method}
+              </span>
+              <span class="font-mono text-sm text-[var(--color-ink)]">{route.path}</span>
+              <span class="text-sm text-[var(--color-ink-soft)]">{route.summary}</span>
+              <button disabled class="ml-auto cursor-not-allowed rounded-md border border-[var(--color-border)] px-2 py-1 text-xs font-medium text-[var(--color-ink-soft)]">
+                Try it out
+              </button>
+            </div>
+            <p class="mt-1 mb-0 text-sm text-[var(--color-ink)]">{route.description}</p>
+            {route.parameters && (
+              <div class="mt-2">
+                <p class="mb-1 text-xs font-semibold tracking-wide text-[var(--color-ink-soft)] uppercase">Parameters</p>
+                <table class="docs-preview-table w-full text-xs">
+                  <thead>
+                    <tr><th class="text-left">Field</th><th class="text-left">Type</th><th class="text-left">Description</th></tr>
+                  </thead>
+                  <tbody>
+                    {route.parameters.map((f) => (
+                      <tr>
+                        <td><code>{f.name}</code>{f.required && <span class="ml-1 text-[10px] text-[var(--color-danger)]">required</span>}</td>
+                        <td>{f.type}</td>
+                        <td>{f.description}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {route.requestBody && (
+              <div class="mt-2">
+                <p class="mb-1 text-xs font-semibold tracking-wide text-[var(--color-ink-soft)] uppercase">Request body</p>
+                <table class="docs-preview-table w-full text-xs">
+                  <thead>
+                    <tr><th class="text-left">Field</th><th class="text-left">Type</th><th class="text-left">Description</th></tr>
+                  </thead>
+                  <tbody>
+                    {route.requestBody.map((f) => (
+                      <tr>
+                        <td><code>{f.name}</code>{f.required && <span class="ml-1 text-[10px] text-[var(--color-danger)]">required</span>}</td>
+                        <td>{f.type}</td>
+                        <td>{f.description}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  ) : (
+    <div class="card my-6 overflow-hidden">
+      <div class="flex items-center justify-between bg-[var(--color-ink)] px-4 py-2">
+        <span class="text-xs font-semibold tracking-wide text-white uppercase">/redoc · ReDoc (illustrative)</span>
+      </div>
+      <div class="bg-[var(--color-bg)] p-4">
+        {routes.map((route) => (
+          <div class="mb-5 last:mb-0">
+            <p class="mb-1 flex items-center gap-2">
+              <span class="font-mono text-sm font-bold" style={`color: ${METHOD_COLOR[route.method]}`}>{route.method}</span>
+              <span class="font-mono text-sm text-[var(--color-ink)]">{route.path}</span>
+            </p>
+            <p class="mt-0 mb-1 text-base font-semibold text-[var(--color-ink)]">{route.summary}</p>
+            <p class="mt-0 mb-0 text-sm text-[var(--color-ink-soft)]">{route.description}</p>
+            {route.parameters && (
+              <div class="mt-2">
+                <p class="mb-1 text-xs font-semibold tracking-wide text-[var(--color-ink-soft)] uppercase">Parameters</p>
+                <table class="docs-preview-table w-full text-xs">
+                  <thead>
+                    <tr><th class="text-left">Field</th><th class="text-left">Type</th><th class="text-left">Description</th></tr>
+                  </thead>
+                  <tbody>
+                    {route.parameters.map((f) => (
+                      <tr>
+                        <td><code>{f.name}</code>{f.required && <span class="ml-1 text-[10px] text-[var(--color-danger)]">required</span>}</td>
+                        <td>{f.type}</td>
+                        <td>{f.description}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {route.requestBody && (
+              <div class="mt-2">
+                <p class="mb-1 text-xs font-semibold tracking-wide text-[var(--color-ink-soft)] uppercase">Request body schema</p>
+                <table class="docs-preview-table w-full text-xs">
+                  <thead>
+                    <tr><th class="text-left">Field</th><th class="text-left">Type</th><th class="text-left">Description</th></tr>
+                  </thead>
+                  <tbody>
+                    {route.requestBody.map((f) => (
+                      <tr>
+                        <td><code>{f.name}</code>{f.required && <span class="ml-1 text-[10px] text-[var(--color-danger)]">required</span>}</td>
+                        <td>{f.type}</td>
+                        <td>{f.description}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+<style>
+  /* .lesson table (global.css) gives every table a full card treatment --
+     navy border, shadow, colored header bar -- which reads as a second
+     nested card here, inside a card this component already draws itself.
+     These inline schema tables just need simple row separation instead. */
+  .docs-preview-table {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .docs-preview-table th,
+  .docs-preview-table td {
+    border: none;
+    border-bottom: 1px solid var(--color-border);
+    padding: 0.25rem 0.5rem 0.25rem 0;
+  }
+  .docs-preview-table th {
+    background: transparent;
+    color: var(--color-ink-soft);
+    font-weight: 600;
+  }
+  .docs-preview-table tbody tr:nth-child(even) {
+    background: transparent;
+  }
+</style>
