@@ -1,0 +1,348 @@
+---
+title: "Recap & Practice"
+lesson: "10-testing-rest-endpoints"
+order: 10
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import TestSuiteGradedExercise from "../../../../components/lesson/TestSuiteGradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What's the relationship between a plain assert statement and a pytest test?",
+      options: [
+        "They're unrelated -- pytest requires different syntax entirely",
+        "A pytest test function is built from the same assert statements already used throughout this course -- pytest adds discovery, running, and reporting around them",
+        "pytest replaces assert with its own comparison functions",
+        "assert only works inside try/except",
+      ],
+      correctIndex: 1,
+      explanation:
+        "pytest doesn't introduce a new assertion syntax -- it discovers ordinary functions using ordinary assert statements and adds running and reporting around them.",
+    },
+    {
+      question: "Why is a test using TestClient against a full route considered an integration test rather than a unit test?",
+      options: [
+        "It isn't -- it's still a unit test",
+        "It exercises multiple pieces working together (routing, parameter conversion, the route function), rather than one isolated unit of code",
+        "Integration tests are defined purely by how long they take",
+        "TestClient can only be used for integration tests",
+      ],
+      correctIndex: 1,
+      explanation:
+        "What makes it an integration test is that multiple pieces are exercised together, not the specific tool used to write it.",
+    },
+    {
+      question: "How is a pytest fixture similar to FastAPI's Depends()?",
+      options: [
+        "They're unrelated",
+        "Both let you declare what you need as a parameter, with something else calling a function and handing you the result automatically",
+        "Depends() only works inside test files",
+        "Fixtures can only be used for authentication",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Both are the same underlying pattern -- declare a dependency by name as a parameter, and let the framework resolve and inject it, rather than constructing it yourself inline.",
+    },
+    {
+      question: "Why does resetting shared state inside a fixture matter for test isolation?",
+      options: [
+        "It doesn't -- tests always run in a fixed order",
+        "Without it, one test's changes could leak into another, making the outcome depend on execution order",
+        "Only integration tests need isolated state",
+        "Fixtures reset all global state automatically without being told to",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A fixture only resets what it's explicitly told to reset -- without that reset, state left behind by one test can silently affect the next.",
+    },
+    {
+      question: "What problem does @pytest.mark.parametrize solve?",
+      options: [
+        "It makes tests run faster",
+        "It replaces several near-identical test functions, differing only in input/expected output, with one test function run once per case",
+        "It's required for any test with more than one assertion",
+        "It only works with TestClient-based tests",
+      ],
+      correctIndex: 1,
+      explanation:
+        "parametrize collapses near-duplicate test functions into one, run once per case in the supplied list.",
+    },
+    {
+      question: "What's the actual discipline behind systematically testing error paths?",
+      options: [
+        "A rule that error tests must outnumber success tests 4 to 1",
+        "Enumerating every distinct way an endpoint can fail before writing any tests, then writing one test per failure mode",
+        "A special pytest decorator for marking error tests",
+        "Always testing errors before testing the success case, in file order",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The discipline is in the enumeration happening first, before any test is written -- not in any special syntax or ordering rule.",
+    },
+    {
+      question: "What are the three concrete problems with a test that makes a real external API call on every run?",
+      options: [
+        "It's always wrong, always crashes, always times out",
+        "It's slow, costs real money on every run, and isn't deterministic",
+        "There are no real problems with this approach",
+        "It only works with a hardcoded API key",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A real network call adds real latency, real cost at CI scale, and real non-determinism -- none of which say anything about whether the code itself is correct.",
+    },
+    {
+      question: "Why can a test for an async def route be written as a plain, non-async test function?",
+      options: [
+        "FastAPI routes are never actually async",
+        "TestClient handles running the event loop internally, returning an already-resolved response with no await needed in the test",
+        "This would actually fail to run",
+        "Only GET routes can be tested this way",
+      ],
+      correctIndex: 1,
+      explanation:
+        "TestClient runs the full async route to completion internally -- the test calling it never needs to be async itself.",
+    },
+    {
+      question: "What's special about a file named exactly conftest.py?",
+      options: [
+        "Nothing -- it's just a naming convention with no effect",
+        "Fixtures defined in it are automatically available to every test file in the same directory, with no import required",
+        "It must contain every test in the project",
+        "It replaces pytest.ini",
+      ],
+      correctIndex: 1,
+      explanation:
+        "pytest discovers conftest.py by filename alone and makes its fixtures available to every test file in that directory tree, with no import needed.",
+    },
+    {
+      question: "Why doesn't 100% coverage guarantee a codebase is well-tested?",
+      options: [
+        "100% coverage is impossible to actually achieve",
+        "Coverage only measures whether a line executed, not whether the test meaningfully checked its behavior",
+        "Coverage tools are generally unreliable",
+        "100% coverage means every possible input has been tested",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A test that runs a function and asserts nothing about it still counts that function's lines as covered -- coverage can't tell the difference.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<TestSuiteGradedExercise
+  client:load
+  task={`Given the agent registry app below (main.py and agents.py, already written and correct -- read-only), build a tests/ suite for it: conftest.py, with a client fixture that resets app.state.registry/app.state.next_id before each test; and test_agents.py, with test_create_agent_validation (parametrized: a valid payload -> 201, missing "name" -> 422, missing "model" -> 422, "name" as an int -> 422), test_create_agent_missing_auth (401), test_create_agent_invalid_auth (401), test_create_agent_duplicate_name (409, checking "already exists" is in the detail message), test_get_agent_not_found (404), test_get_agent_invalid_id (422, for a negative id), and test_get_agent_success (200, correct body).`}
+  entry="main.py"
+  clientFixtureModule="conftest.py"
+  clientFixtureName="client"
+  testModule="test_agents.py"
+  fixedFiles={[
+    {
+      name: "agents.py",
+      code: `from fastapi import APIRouter, Depends, Header, HTTPException, Path, Request, BackgroundTasks
+from pydantic import BaseModel
+
+API_KEY = "secret-key-123"
+
+class AgentConfig(BaseModel):
+    name: str
+    model: str
+
+class DuplicateAgentError(Exception):
+    def __init__(self, name: str):
+        self.name = name
+        super().__init__(f"an agent named '{name}' already exists")
+
+async def verify_api_key(x_api_key: str = Header(default=None)):
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="invalid or missing API key")
+
+async def log_registration(name: str):
+    print(f"registered new agent: {name}")
+
+router = APIRouter(prefix="/agents", tags=["agents"])
+
+@router.post("", response_model=AgentConfig, status_code=201, dependencies=[Depends(verify_api_key)])
+async def create_agent(config: AgentConfig, request: Request, background_tasks: BackgroundTasks):
+    registry = request.app.state.registry
+    if any(a["name"] == config.name for a in registry.values()):
+        raise DuplicateAgentError(config.name)
+    registry[request.app.state.next_id] = config.model_dump()
+    request.app.state.next_id += 1
+    background_tasks.add_task(log_registration, config.name)
+    return config
+
+@router.get("/{agent_id}", response_model=AgentConfig, dependencies=[Depends(verify_api_key)])
+async def get_agent(request: Request, agent_id: int = Path(gt=0)):
+    registry = request.app.state.registry
+    if agent_id not in registry:
+        raise HTTPException(status_code=404, detail=f"agent {agent_id} not found")
+    return registry[agent_id]`,
+    },
+    {
+      name: "main.py",
+      code: `from contextlib import asynccontextmanager
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from agents import router as agents_router, DuplicateAgentError
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.registry = {}
+    app.state.next_id = 1
+    yield
+
+app = FastAPI(lifespan=lifespan)
+
+@app.exception_handler(DuplicateAgentError)
+async def handle_duplicate(request: Request, exc: DuplicateAgentError):
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+app.include_router(agents_router)`,
+    },
+  ]}
+  starterFiles={[
+    {
+      name: "conftest.py",
+      code: `import pytest
+import httpx
+from main import app
+
+# TODO: reset app.state.registry to {} and app.state.next_id to 1, then
+# return an httpx.AsyncClient wired to app via httpx.ASGITransport.
+@pytest.fixture
+def client():
+    pass`,
+    },
+    {
+      name: "test_agents.py",
+      code: `import pytest
+
+HEADERS = {"X-Api-Key": "secret-key-123"}
+
+# TODO: @pytest.mark.parametrize("payload, expected_status", [...]) covering
+# all 4 required validation cases, then implement the test body.
+async def test_create_agent_validation(client, payload, expected_status):
+    pass
+
+# TODO: no X-Api-Key header at all -> 401
+async def test_create_agent_missing_auth(client):
+    pass
+
+# TODO: wrong X-Api-Key value -> 401
+async def test_create_agent_invalid_auth(client):
+    pass
+
+# TODO: post the same valid payload twice; the second response -> 409,
+# with "already exists" somewhere in its "detail" field.
+async def test_create_agent_duplicate_name(client):
+    pass
+
+# TODO: GET a nonexistent agent id -> 404
+async def test_get_agent_not_found(client):
+    pass
+
+# TODO: GET a negative agent id -> 422 (Path(gt=0) rejects it before the route runs)
+async def test_get_agent_invalid_id(client):
+    pass
+
+# TODO: create an agent, then GET it back -> 200, with the correct name in the body
+async def test_get_agent_success(client):
+    pass`,
+    },
+  ]}
+  requiredTests={[
+    {
+      name: "test_create_agent_validation",
+      cases: [
+        { matchArgs: [{ name: "research_agent", model: "claude-sonnet" }], label: "valid payload -> 201" },
+        { matchArgs: [{ model: "claude-sonnet" }], label: "missing name -> 422" },
+        { matchArgs: [{ name: "research_agent" }], label: "missing model -> 422" },
+        { matchArgs: [{ name: 123, model: "claude-sonnet" }], label: "name is an int, not a string -> 422" },
+      ],
+    },
+    { name: "test_create_agent_missing_auth", label: "missing auth -> 401" },
+    { name: "test_create_agent_invalid_auth", label: "invalid auth (wrong key) -> 401" },
+    { name: "test_create_agent_duplicate_name", label: "duplicate name -> 409, detail mentions it already exists" },
+    { name: "test_get_agent_not_found", label: "GET a nonexistent agent -> 404" },
+    { name: "test_get_agent_invalid_id", label: "GET a negative id -> 422" },
+    { name: "test_get_agent_success", label: "GET an existing agent -> 200 with the correct name" },
+  ]}
+  hint={`This is almost entirely a direct application of every concept in this lesson to the one app this course has been building since Lesson 9 -- nothing here needs new syntax beyond what's already been shown. The duplicate-name test needs two requests inside one test function, exactly as demonstrated earlier in this lesson. conftest.py's fixture: app.state.registry = {}; app.state.next_id = 1; then return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") -- no async def needed for the fixture itself, only for the test functions that await client.post(...)/client.get(...).`}
+  correctAnswer={{
+    files: [
+      {
+        name: "conftest.py",
+        code: `import pytest
+import httpx
+from main import app
+
+@pytest.fixture
+def client():
+    app.state.registry = {}
+    app.state.next_id = 1
+    transport = httpx.ASGITransport(app=app)
+    return httpx.AsyncClient(transport=transport, base_url="http://test")`,
+      },
+      {
+        name: "test_agents.py",
+        code: `import pytest
+
+HEADERS = {"X-Api-Key": "secret-key-123"}
+
+@pytest.mark.parametrize("payload, expected_status", [
+    ({"name": "research_agent", "model": "claude-sonnet"}, 201),
+    ({"model": "claude-sonnet"}, 422),
+    ({"name": "research_agent"}, 422),
+    ({"name": 123, "model": "claude-sonnet"}, 422),
+])
+async def test_create_agent_validation(client, payload, expected_status):
+    response = await client.post("/agents", json=payload, headers=HEADERS)
+    assert response.status_code == expected_status
+
+async def test_create_agent_missing_auth(client):
+    response = await client.post("/agents", json={"name": "research_agent", "model": "claude-sonnet"})
+    assert response.status_code == 401
+
+async def test_create_agent_invalid_auth(client):
+    response = await client.post("/agents", json={"name": "research_agent", "model": "claude-sonnet"}, headers={"X-Api-Key": "wrong"})
+    assert response.status_code == 401
+
+async def test_create_agent_duplicate_name(client):
+    payload = {"name": "research_agent", "model": "claude-sonnet"}
+    await client.post("/agents", json=payload, headers=HEADERS)
+    response = await client.post("/agents", json=payload, headers=HEADERS)
+    assert response.status_code == 409
+    assert "already exists" in response.json()["detail"]
+
+async def test_get_agent_not_found(client):
+    response = await client.get("/agents/999", headers=HEADERS)
+    assert response.status_code == 404
+
+async def test_get_agent_invalid_id(client):
+    response = await client.get("/agents/-1", headers=HEADERS)
+    assert response.status_code == 422
+
+async def test_get_agent_success(client):
+    await client.post("/agents", json={"name": "research_agent", "model": "claude-sonnet"}, headers=HEADERS)
+    response = await client.get("/agents/1", headers=HEADERS)
+    assert response.status_code == 200
+    assert response.json()["name"] == "research_agent"`,
+      },
+    ],
+    explanation:
+      "This is every concept from this lesson, applied to real, already-built code rather than a toy example: conftest.py shares the client fixture with guaranteed fresh state across every test; parametrize collapses four validation cases into one function; every distinct failure mode identified by the enumerate-first discipline gets its own explicit test. conftest.py's own fixture is a plain def -- constructing an httpx.AsyncClient doesn't need await -- but every test function is async def, awaiting client.post(...)/client.get(...) directly, the same accommodation this lesson's other graded exercises needed: this site's client is an httpx.AsyncClient, not a real thread-backed TestClient, so the test functions that actually use it have to be async.",
+  }}
+/>
+
+</CheckpointZone>

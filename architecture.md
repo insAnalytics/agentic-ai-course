@@ -101,6 +101,7 @@ sidebar navigation, not one very long scroll.
       MultiFileFastAPIGradedExercise.tsx  # multi-file version — real cross-file imports, e.g. main.py importing an APIRouter from agents.py — see §4.1
       PytestGradedExercise.tsx     # grades a learner-written @pytest.mark.parametrize test (not app code) — see §4.1
       MockPatchGradedExercise.tsx  # grades a learner-written unittest.mock.patch test against a real, fixed main.py — see §4.1
+      TestSuiteGradedExercise.tsx  # grades a learner-written multi-file pytest suite (conftest.py + tests) against a real, fixed app — see §4.1
       CheckpointZone.astro        # full-bleed colored band behind a quiz/exercise card
   /lib
     pyodide.ts                  # shared Pyodide loader + single-file and multi-file grading harnesses
@@ -458,6 +459,35 @@ in `src/lib/fastapiPyodide.ts`:
     version of this route (used only in the graded exercise, not the prose)
     needs an actual `BaseModel` request body (`class GenerateRequest(BaseModel): prompt: str`)
     for the mocked scenario to reach `call_llm_api` at all.
+- **Grading a learner-written multi-file pytest *suite*** (`conftest.py` +
+  a test file, Lesson 0.10's comprehensive sandbox,
+  `<TestSuiteGradedExercise />`, `gradeTestSuiteExercise` in
+  `fastapiPyodide.ts`) — combines the mock-patch exercise's real-files
+  approach with the parametrize exercise's case-matching, but generalized
+  to a *mix* of plain and parametrized required tests in one suite, graded
+  against a fixed, correct, real `main.py`/`agents.py` (reused verbatim
+  from Lesson 0.9's own comprehensive sandbox).
+  - **Another real, confirmed footgun**: a function decorated with
+    `@pytest.fixture` refuses to be called directly —
+    `pytest.fail("Fixture ... called directly. Fixtures are not meant to
+    be called directly...")` — even though `type(fixture_fn)` reports as
+    a plain `function`. Confirmed directly, not assumed. The *undecorated*
+    function is still reachable via `fixture_fn.__wrapped__` — confirmed
+    to work identically to calling the original function — so the harness
+    calls `getattr(raw_fixture, "__wrapped__", raw_fixture)` to get a
+    genuinely callable version, falling back to the raw function if it
+    isn't `@pytest.fixture`-decorated at all.
+  - The harness calls the (unwrapped) fixture **fresh before every single
+    graded test or parametrize case**, never once for the whole file —
+    matching a real function-scoped fixture's actual per-test semantics.
+    This matters concretely here: this exercise's own `client` fixture
+    resets `app.state.registry`/`next_id` on every call, so test isolation
+    only actually holds if the fixture genuinely reruns for every case,
+    not just once.
+  - Since real pytest also injects fixture values as keyword arguments
+    matched by name (not just the `@patch`-specific case from the mocking
+    exercise), a plain required test is still called as `fn(client=client)`
+    here, for the same reason.
 
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 

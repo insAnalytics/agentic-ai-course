@@ -510,3 +510,173 @@ export async function gradeMockPatchExercise(
     }
   });
 }
+
+// --- Grading a learner-written, multi-file pytest *suite* (conftest.py +
+// test_*.py) against a real, fixed app (Lesson 0.10's comprehensive
+// sandbox) ---
+//
+// Combines two things already proven separately: real files on `sys.path`
+// (so `from main import app` inside `conftest.py` resolves for real, same
+// as the mock-patch exercise) and parametrize-case matching (same as
+// `PYTEST_PARAMETRIZE_HARNESS`) — but now a required test can be either an
+// ordinary named function or a parametrized one, mixed in the same suite,
+// matching a realistic small test file rather than one isolated test
+// function.
+//
+// One more real fixture-machinery detail, confirmed directly (not
+// assumed): a function decorated with `@pytest.fixture` refuses to be
+// called directly — `pytest.fail("Fixture ... called directly. Fixtures
+// are not meant to be called directly...")`, even though it reports as a
+// plain `function` object. The *undecorated* function is still reachable
+// via `fixture.__wrapped__`, confirmed to work — that's what this harness
+// actually calls, once per graded test/case (a fresh call each time,
+// matching a function-scoped fixture's real per-test semantics — this
+// exercise's own `client` fixture resets `app.state.registry`/`next_id` on
+// every call, so isolation only actually holds if the fixture genuinely
+// runs fresh for every case, not once for the whole file).
+export interface RequiredSuiteItem {
+  /** Name of the required test function in the learner's test file. */
+  name: string;
+  /** Label for a plain (non-parametrized) required test. */
+  label?: string;
+  /** Present for a parametrized required test — one label per required case. */
+  cases?: RequiredParametrizeCase[];
+}
+
+const TEST_SUITE_HARNESS = `
+import importlib, inspect, json
+
+_error = None
+_app = None
+try:
+    _main = importlib.import_module(__main_module)
+    _app = getattr(_main, "app", None)
+    if _app is None:
+        _error = f"No FastAPI instance named 'app' was found in {__main_module}.py"
+except Exception as e:
+    _error = f"{type(e).__name__}: {e}"
+
+_conftest_mod = None
+_test_mod = None
+if _error is None:
+    try:
+        _conftest_mod = importlib.import_module(__conftest_module)
+    except Exception as e:
+        _error = f"{__conftest_module}.py -- {type(e).__name__}: {e}"
+
+if _error is None:
+    try:
+        _test_mod = importlib.import_module(__test_module)
+    except Exception as e:
+        _error = f"{__test_module}.py -- {type(e).__name__}: {e}"
+
+_client_fixture = None
+if _error is None:
+    _raw_fixture = getattr(_conftest_mod, __client_fixture_name, None)
+    if _raw_fixture is None or not callable(_raw_fixture):
+        _error = f"No fixture named {__client_fixture_name} was found in {__conftest_module}.py"
+    else:
+        _client_fixture = getattr(_raw_fixture, "__wrapped__", _raw_fixture)
+
+_checks = {}
+if _error is None:
+    _required = json.loads(__required_tests_json)
+    async with _app.router.lifespan_context(_app):
+        for _req in _required:
+            _fn = getattr(_test_mod, _req["name"], None)
+            _cases = _req.get("cases")
+
+            if _cases:
+                _fn_cases = {}
+                if _fn is not None:
+                    for _m in getattr(_fn, "pytestmark", []):
+                        if _m.name == "parametrize":
+                            _n_match = len(_cases[0]["matchArgs"]) if _cases else 0
+                            for _values in _m.args[1]:
+                                if not isinstance(_values, (tuple, list)):
+                                    _values = (_values,)
+                                _key = json.dumps(list(_values[:_n_match]), sort_keys=True, default=str)
+                                _fn_cases[_key] = _values
+                            break
+                for _case in _cases:
+                    _label = _case["label"]
+                    if _fn is None or not callable(_fn):
+                        _checks[_label] = False
+                        continue
+                    _key = json.dumps(_case["matchArgs"], sort_keys=True, default=str)
+                    _match = _fn_cases.get(_key)
+                    if _match is None:
+                        _checks[_label] = False
+                        continue
+                    _client = _client_fixture()
+                    try:
+                        _outcome = _fn(_client, *_match)
+                        if inspect.isawaitable(_outcome):
+                            await _outcome
+                        _checks[_label] = True
+                    except AssertionError:
+                        _checks[_label] = False
+                    except Exception:
+                        _checks[_label] = False
+                    try:
+                        await _client.aclose()
+                    except Exception:
+                        pass
+            else:
+                _label = _req["label"]
+                if _fn is None or not callable(_fn):
+                    _checks[_label] = False
+                    continue
+                _client = _client_fixture()
+                try:
+                    _outcome = _fn(client=_client)
+                    if inspect.isawaitable(_outcome):
+                        await _outcome
+                    _checks[_label] = True
+                except AssertionError:
+                    _checks[_label] = False
+                except Exception:
+                    _checks[_label] = False
+                try:
+                    await _client.aclose()
+                except Exception:
+                    pass
+
+_result = {"passed": all(_checks.values()) if _checks else False, "checks": _checks} if _error is None else None
+json.dumps({"error": _error, "result": _result})
+`;
+
+/**
+ * Grades a learner-written test suite (`conftest.py` + one or more test
+ * files, as `learnerFiles`) against a fixed, real app (`fixedFiles`, e.g.
+ * `main.py` + `agents.py`, never editable). `clientFixtureModule` /
+ * `clientFixtureName` locate the fixture the harness calls fresh before
+ * every graded test or parametrize case (e.g. `"conftest"` / `"client"`).
+ * Call `ensureFastAPIReady` first; this doesn't install anything itself.
+ */
+export async function gradeTestSuiteExercise(
+  pyodide: PyodideInterface,
+  fixedFiles: SandboxFile[],
+  learnerFiles: SandboxFile[],
+  entry: string,
+  clientFixtureModule: string,
+  clientFixtureName: string,
+  testModule: string,
+  requiredTests: RequiredSuiteItem[],
+  instanceId: string,
+): Promise<PytestGradeResult> {
+  return withPyodideQueue(async () => {
+    const dir = await prepareMultiFileRun(pyodide, instanceId, [...fixedFiles, ...learnerFiles]);
+    try {
+      pyodide.globals.set("__main_module", moduleNameFor(entry));
+      pyodide.globals.set("__conftest_module", moduleNameFor(clientFixtureModule));
+      pyodide.globals.set("__test_module", moduleNameFor(testModule));
+      pyodide.globals.set("__client_fixture_name", clientFixtureName);
+      pyodide.globals.set("__required_tests_json", JSON.stringify(requiredTests));
+      const resultJson = (await pyodide.runPythonAsync(TEST_SUITE_HARNESS)) as string;
+      return JSON.parse(resultJson) as PytestGradeResult;
+    } finally {
+      teardownMultiFileRun(pyodide, dir);
+    }
+  });
+}
