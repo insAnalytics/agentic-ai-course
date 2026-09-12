@@ -218,3 +218,175 @@ export async function gradeFastAPIMultiFileExercise(
     }
   });
 }
+
+// --- Grading a learner-written @pytest.mark.parametrize test (Lesson 0.10) ---
+//
+// Real pytest is a genuine Pyodide-native package (a proper wasm-targeted
+// wheel, not just a pure-Python micropip install) — confirmed directly. But
+// actually *running* it (`pytest.main([...])`) crashes Pyodide fatally
+// (`EPERM: operation not permitted, fsync`, flagged by Pyodide itself as
+// `pyodide_fatal_error: true`) — confirmed directly, not assumed. Since every
+// exercise on a page shares one global Pyodide instance, that risk is
+// unacceptable: one learner's submission could take down every other
+// exercise on the page. So this doesn't run pytest's own collection engine
+// at all — it reads the real `@pytest.mark.parametrize` decorator's attached
+// data directly off the function object (`fn.pytestmark`, confirmed to work
+// exactly as pytest itself would produce it) and calls the *real* decorated
+// function itself, once per required case, catching the real AssertionError.
+// The learner's test is genuinely real pytest code with real assertions,
+// actually executed — this just replaces pytest's own runner, not their code.
+//
+// A genuinely synchronous client (no `await` in the learner's test, matching
+// real TestClient's actual interface) was ruled out after three separate
+// attempts, not by assumption: a real OS thread (unavailable, same as
+// routes/dependencies), and a fresh `asyncio.new_event_loop()` pumped via
+// `run_until_complete` (Pyodide's own event loop implementation doesn't
+// support real blocking there either — it returns a `PyodideTask` object
+// instead of the actual result, since a single-threaded JS environment has
+// no primitive for "block and wait for a promise" without real multi-
+// threading). So the learner's test function must be `async def`, using
+// `await client.post(...)` — the same category of environment-driven
+// accommodation as `async def` routes, not a shortcut on the testing
+// methodology itself.
+let pytestReadyPromise: Promise<void> | null = null;
+
+/** Installs `pytest` into the shared Pyodide instance, once per page session. */
+export function ensurePytestReady(pyodide: PyodideInterface): Promise<void> {
+  if (pytestReadyPromise) return pytestReadyPromise;
+
+  pytestReadyPromise = withPyodideQueue(async () => {
+    await pyodide.loadPackage(["micropip"]);
+    await pyodide.runPythonAsync(`
+import micropip
+await micropip.install("pytest")
+`);
+  });
+
+  return pytestReadyPromise;
+}
+
+export interface PytestGradeResult {
+  error: string | null;
+  result: { passed: boolean; checks: Record<string, boolean> } | null;
+}
+
+/**
+ * A required case for `gradePytestParametrizeExercise`. `matchArgs` is
+ * deliberately only the *input* prefix of the parametrized tuple (e.g.
+ * `[payload, includeApiKey]`, never the expected value) — used solely to
+ * find which of the learner's own parametrize rows corresponds to this
+ * scenario. The actual expected value is never part of the match: once
+ * found, the *learner's own* full tuple (their own expected value included)
+ * is what actually gets executed, so a wrong expected value fails via a real
+ * assertion, not via a failed lookup — those are different, and only the
+ * former is the thing being graded.
+ */
+export interface RequiredParametrizeCase {
+  matchArgs: unknown[];
+  label: string;
+}
+
+// `setupCode` runs first (defining, at minimum, `app` and a `client` — an
+// httpx.AsyncClient wired via ASGITransport — for the learner's test to use,
+// exactly like the `client` fixture the lesson already taught), then
+// `learnerCode` (expected to define one `async def` test function named
+// `entryTestName`, decorated with `@pytest.mark.parametrize`). For each
+// `requiredCases` entry, the matching parametrize tuple (if any) is looked
+// up and the *real* decorated function is called with it, `await`ed, and
+// checked for a real `AssertionError` — never running a case the learner
+// didn't actually write, and never fabricating a pass for one they omitted.
+const PYTEST_PARAMETRIZE_HARNESS = `
+import ast, inspect, json
+
+def _shim(src):
+    return src.replace("asyncio.run(", "await (")
+
+async def _run(src, ns):
+    code = compile(_shim(src), "<exec>", "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+    coro = eval(code, ns)
+    if coro is not None:
+        await coro
+
+_ns = {}
+_error = None
+try:
+    await _run(__setup_code, _ns)
+except Exception as e:
+    _error = f"setup error: {type(e).__name__}: {e}"
+
+if _error is None:
+    try:
+        await _run(__learner_code, _ns)
+    except Exception as e:
+        _error = f"{type(e).__name__}: {e}"
+
+_required = json.loads(__required_cases_json)  # [{"matchArgs": [...], "label": "..."}, ...]
+_checks = {}
+if _error is None:
+    _fn = _ns.get(__entry_test_name)
+    if _fn is None or not callable(_fn):
+        _error = f"No test function named {__entry_test_name} was found."
+    else:
+        _mark = None
+        for _m in getattr(_fn, "pytestmark", []):
+            if _m.name == "parametrize":
+                _mark = _m
+                break
+        _cases = {}
+        if _mark is not None:
+            _n_match = len(_required[0]["matchArgs"]) if _required else 0
+            for _values in _mark.args[1]:
+                if not isinstance(_values, (tuple, list)):
+                    _values = (_values,)
+                _key = json.dumps(list(_values[:_n_match]), sort_keys=True, default=str)
+                _cases[_key] = _values
+
+        _client = _ns.get("client")
+        for _req in _required:
+            _label = _req["label"]
+            _key = json.dumps(_req["matchArgs"], sort_keys=True, default=str)
+            _match = _cases.get(_key)
+            if _match is None:
+                _checks[_label] = False
+                continue
+            try:
+                _result = _fn(_client, *_match)
+                if inspect.isawaitable(_result):
+                    await _result
+                _checks[_label] = True
+            except AssertionError:
+                _checks[_label] = False
+            except Exception:
+                _checks[_label] = False
+
+_result = {"passed": all(_checks.values()) if _checks else False, "checks": _checks} if _error is None else None
+json.dumps({"error": _error, "result": _result})
+`;
+
+/**
+ * Grades a learner-written `@pytest.mark.parametrize`-decorated `async def`
+ * test function named `entryTestName`, against `requiredCases`. Call
+ * `ensurePytestReady` (and `ensureFastAPIReady`, if `setupCode` builds a
+ * FastAPI app) first — this doesn't install anything itself.
+ */
+export async function gradePytestParametrizeExercise(
+  pyodide: PyodideInterface,
+  setupCode: string,
+  learnerCode: string,
+  entryTestName: string,
+  requiredCases: RequiredParametrizeCase[],
+): Promise<PytestGradeResult> {
+  return withPyodideQueue(async () => {
+    await pyodide.loadPackagesFromImports(setupCode).catch(() => {});
+    await pyodide.loadPackagesFromImports(learnerCode).catch(() => {});
+    pyodide.globals.set("__setup_code", setupCode);
+    pyodide.globals.set("__learner_code", learnerCode);
+    pyodide.globals.set("__entry_test_name", entryTestName);
+    pyodide.globals.set(
+      "__required_cases_json",
+      JSON.stringify(requiredCases.map((c) => ({ matchArgs: c.matchArgs, label: c.label }))),
+    );
+    const resultJson = (await pyodide.runPythonAsync(PYTEST_PARAMETRIZE_HARNESS)) as string;
+    return JSON.parse(resultJson) as PytestGradeResult;
+  });
+}

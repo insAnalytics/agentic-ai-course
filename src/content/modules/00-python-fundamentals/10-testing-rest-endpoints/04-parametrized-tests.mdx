@@ -1,0 +1,227 @@
+---
+title: "Parametrized tests"
+lesson: "10-testing-rest-endpoints"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import TerminalGroup from "../../../../components/lesson/TerminalGroup";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import PytestGradedExercise from "../../../../components/lesson/PytestGradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The problem: near-identical tests, differing only in data" variant="a">
+
+Testing several input/output cases for the same behavior tends to
+produce nearly-duplicated test functions:
+
+```python
+def test_valid_name_search():
+    assert is_valid_tool_name("search") == True
+
+def test_valid_name_calculator():
+    assert is_valid_tool_name("calculator") == True
+
+def test_invalid_name_empty():
+    assert is_valid_tool_name("") == False
+
+def test_invalid_name_number():
+    assert is_valid_tool_name(42) == False
+```
+
+Four functions, each just running the same single line against a
+different input — exactly the kind of repetition
+[this course has pushed back on since comprehensions](/00-python-fundamentals/02-data-structures/05-comprehensions/#the-problem-comprehensions-solve),
+just showing up in test code instead of application code.
+
+</Subsection>
+
+<Subsection title="@pytest.mark.parametrize — one test, many cases" variant="b">
+
+```python
+import pytest
+
+@pytest.mark.parametrize("name, expected", [
+    ("search", True),
+    ("calculator", True),
+    ("", False),
+    (42, False),
+])
+def test_is_valid_tool_name(name, expected):
+    assert is_valid_tool_name(name) == expected
+```
+
+`"name, expected"` names the parameters the test function will
+receive; the list of tuples supplies one set of values per test *case*
+— pytest runs `test_is_valid_tool_name` once per tuple, reporting each
+one as its own separate pass or fail:
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "pytest -v",
+      steps: [
+        { command: "pytest -v" },
+        { output: "test_validators.py::test_is_valid_tool_name[search-True] PASSED" },
+        { output: "test_validators.py::test_is_valid_tool_name[calculator-True] PASSED" },
+        { output: "test_validators.py::test_is_valid_tool_name[-False] PASSED" },
+        { output: "test_validators.py::test_is_valid_tool_name[42-False] PASSED" },
+      ],
+    },
+  ]}
+/>
+
+One test function, four actual test runs, each individually reported
+— adding a fifth case means adding one line to the list, not writing
+an entire new function.
+
+</Subsection>
+
+<Subsection title="Parametrizing a TestClient-based test" variant="a">
+
+The same mechanism applies directly to
+[an integration test using TestClient](/00-python-fundamentals/10-testing-rest-endpoints/02-testing-endpoints-with-testclient/):
+
+```python
+@pytest.mark.parametrize("payload, expected_status", [
+    ({"name": "research_agent", "model": "claude-sonnet"}, 201),
+    ({"name": "research_agent"}, 422),               # missing required "model"
+    ({"model": "claude-sonnet"}, 422),                # missing required "name"
+    ({"name": 123, "model": "claude-sonnet"}, 422),   # wrong type for "name"
+])
+def test_create_agent_validation(client, payload, expected_status):
+    response = client.post("/agents", json=payload, headers={"X-Api-Key": "secret-key-123"})
+    assert response.status_code == expected_status
+```
+
+Notice `client` (a fixture) and `payload`/`expected_status`
+(parametrized values) both appear as parameters on the same test
+function at once — pytest handles injecting both kinds without any
+conflict between them.
+
+**A note on this site's own exercise below:** everywhere else in this
+course, a real synchronous `TestClient` (shown above, and in Concepts
+1–3) is exactly what you'd actually write. The graded exercise on this
+page runs your test for real, in-browser, at zero cost — which
+specifically rules out a real background thread, the thing a
+synchronous `TestClient` needs internally. So *just for that exercise*,
+write `async def` and `await client.post(...)` instead — same
+`@pytest.mark.parametrize`, same fixture, same real assertions, actually
+executed and checked; only the two keywords differ, for the same reason
+this course's FastAPI routes needed them too.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What problem does @pytest.mark.parametrize solve?",
+      options: [
+        "It makes tests run faster",
+        "It replaces several near-identical test functions (differing only in input/expected output) with one test function run once per case",
+        "It's required for any test involving more than one assertion",
+        "It only works with TestClient-based tests",
+      ],
+      correctIndex: 1,
+      explanation:
+        "parametrize collapses near-duplicate test functions into one, run once per case in the supplied list — the exact same repetition problem comprehensions solve, applied to test code.",
+    },
+    {
+      question: 'In @pytest.mark.parametrize("name, expected", [...]), what do the tuples in the list represent?',
+      options: [
+        "Separate, unrelated test files to run",
+        "One set of values per test case — pytest runs the decorated test function once for each tuple, injecting its values as the named parameters",
+        "Fixture definitions",
+        "Expected error messages only",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Each tuple supplies one complete set of parameter values — pytest calls the decorated function once per tuple, matching values to the named parameters in order.",
+    },
+    {
+      question: "Can a parametrized test also use a regular fixture (like client) in the same function signature?",
+      options: [
+        "No — a test can use either fixtures or parametrize, never both",
+        "Yes — fixture parameters and parametrized parameters can appear together on the same test function without conflict",
+        "Only if the fixture is also parametrized",
+        "Only for unit tests, never integration tests",
+      ],
+      correctIndex: 1,
+      explanation:
+        "pytest resolves fixture parameters and parametrized parameters independently — a single test function can declare both kinds at once with no conflict.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<PytestGradedExercise
+  client:load
+  task={`Given the client fixture and the agent registry's POST /agents endpoint, write a single parametrized async test function named test_create_agent_cases covering: a valid payload (expect 201), a payload missing "name" (expect 422), a payload missing "model" (expect 422), a payload with "name" as an integer instead of a string (expect 422), and the same valid payload sent with no X-Api-Key header at all (expect 401). Use @pytest.mark.parametrize with three parameters: payload, include_api_key, and expected_status.`}
+  entryTestName="test_create_agent_cases"
+  starterCode={`import pytest
+
+# TODO: decorate this with @pytest.mark.parametrize("payload, include_api_key, expected_status", [...])
+# covering all 5 required cases, then implement the test body.
+async def test_create_agent_cases(client, payload, include_api_key, expected_status):
+    pass`}
+  setupCode={`import httpx
+from fastapi import Depends, FastAPI, Header, HTTPException
+from pydantic import BaseModel
+
+app = FastAPI()
+API_KEY = "secret-key-123"
+
+class AgentConfig(BaseModel):
+    name: str
+    model: str
+
+async def verify_api_key(x_api_key: str = Header(default=None)):
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="invalid or missing API key")
+
+@app.post("/agents", response_model=AgentConfig, status_code=201, dependencies=[Depends(verify_api_key)])
+async def create_agent(config: AgentConfig):
+    return config
+
+_transport = httpx.ASGITransport(app=app)
+client = httpx.AsyncClient(transport=_transport, base_url="http://test")`}
+  requiredCases={[
+    {
+      matchArgs: [{ name: "research_agent", model: "claude-sonnet" }, true],
+      label: "valid payload, with API key -> 201",
+    },
+    { matchArgs: [{ model: "claude-sonnet" }, true], label: "missing name -> 422" },
+    { matchArgs: [{ name: "research_agent" }, true], label: "missing model -> 422" },
+    { matchArgs: [{ name: 123, model: "claude-sonnet" }, true], label: "name is an int, not a string -> 422" },
+    {
+      matchArgs: [{ name: "research_agent", model: "claude-sonnet" }, false],
+      label: "valid payload, no API key -> 401",
+    },
+  ]}
+  hint={`Each parametrize tuple is (payload, include_api_key, expected_status). Inside the test, build headers conditionally: headers = {"X-Api-Key": "secret-key-123"} if include_api_key else {}. Then: response = await client.post("/agents", json=payload, headers=headers); assert response.status_code == expected_status. Remember this one test function needs async def, not plain def, since it runs against this site's own in-browser grading client.`}
+  correctAnswer={{
+    code: `import pytest
+
+@pytest.mark.parametrize("payload, include_api_key, expected_status", [
+    ({"name": "research_agent", "model": "claude-sonnet"}, True, 201),
+    ({"model": "claude-sonnet"}, True, 422),
+    ({"name": "research_agent"}, True, 422),
+    ({"name": 123, "model": "claude-sonnet"}, True, 422),
+    ({"name": "research_agent", "model": "claude-sonnet"}, False, 401),
+])
+async def test_create_agent_cases(client, payload, include_api_key, expected_status):
+    headers = {"X-Api-Key": "secret-key-123"} if include_api_key else {}
+    response = await client.post("/agents", json=payload, headers=headers)
+    assert response.status_code == expected_status`,
+    explanation:
+      "One parametrized function covers all five required cases -- the four validation scenarios share the same header (API key present), and the fifth varies include_api_key instead of the payload shape, which is exactly why it's a third parametrized value rather than folded into the payload itself. Each case is graded by actually running your test function against a real, correct reference app -- a wrong expected_status fails via a genuine AssertionError, not a lookup mismatch, so this checks the same thing a real pytest run would.",
+  }}
+/>
+
+</CheckpointZone>

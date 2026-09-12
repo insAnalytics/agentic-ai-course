@@ -99,6 +99,7 @@ sidebar navigation, not one very long scroll.
       DockerLiveTerminal.tsx       # real interactive terminal over a persistent E2B sandbox — see §4
       FastAPIGradedExercise.tsx    # real FastAPI app, graded in-browser via Pyodide + httpx.ASGITransport — see §4.1
       MultiFileFastAPIGradedExercise.tsx  # multi-file version — real cross-file imports, e.g. main.py importing an APIRouter from agents.py — see §4.1
+      PytestGradedExercise.tsx     # grades a learner-written @pytest.mark.parametrize test (not app code) — see §4.1
       CheckpointZone.astro        # full-bleed colored band behind a quiz/exercise card
   /lib
     pyodide.ts                  # shared Pyodide loader + single-file and multi-file grading harnesses
@@ -377,6 +378,48 @@ in `src/lib/fastapiPyodide.ts`:
   `sys.path`, and the entry file (e.g. `main.py`) is `importlib.import_module`'d
   as a genuine module so its own `from agents import ...` resolves for real;
   `<entry module>.app` is what actually gets graded.
+- **Grading a learner-*written test*, not learner-written app code** (Lesson
+  0.10's parametrize exercise, `<PytestGradedExercise />`,
+  `gradePytestParametrizeExercise` in `fastapiPyodide.ts`) needed its own
+  investigation: `pytest` is a genuine Pyodide-native package (a real wasm
+  wheel, not just pip-installable), confirmed directly — but actually
+  *running* it (`pytest.main([...])`) **crashes Pyodide fatally**
+  (`EPERM: operation not permitted, fsync`, flagged by Pyodide itself as
+  `pyodide_fatal_error: true`), confirmed directly. Since every exercise on
+  a page shares one global Pyodide instance, that's not an acceptable risk —
+  one learner's submission could take down every other exercise on the
+  page. The fix: don't run pytest's own collection/runner at all. Read the
+  real `@pytest.mark.parametrize` decorator's attached data directly off the
+  function object (`fn.pytestmark` — confirmed to work exactly as pytest
+  itself produces it) and call the *real* decorated function directly, once
+  per required case, catching the real `AssertionError` — the learner's test
+  is genuine pytest code with real assertions, actually executed; only
+  pytest's own runner is replaced, not their code.
+  - **A genuinely synchronous client** (no `await` in the learner's test,
+    matching real `TestClient`'s actual interface) was ruled out after
+    *three* separate attempts, each confirmed to fail for a different
+    reason, not assumed: a real OS thread (unavailable, same root cause as
+    routes/dependencies); and a fresh `asyncio.new_event_loop()` pumped via
+    `run_until_complete` (Pyodide's own event loop implementation doesn't
+    support real blocking there either — it returns a `PyodideTask` object
+    instead of the actual result, since a single-threaded JS environment has
+    no primitive for "block and wait for a promise" without real
+    multi-threading, i.e. `SharedArrayBuffer` + `Atomics.wait` + a
+    cross-origin-isolated, pthread-enabled Pyodide build — a much bigger
+    infrastructure change than fits here). So the learner's test function
+    must be `async def`, using `await client.post(...)` — the same category
+    of environment-driven accommodation as `async def` routes, explained to
+    the learner as exactly that rather than silently deviating from what
+    Concepts 1–3 taught.
+  - **Matching a required scenario against the learner's own parametrize
+    data** only compares the *input* prefix of each tuple (e.g.
+    `[payload, includeApiKey]`) — never the expected value. Once matched,
+    the *learner's own* full tuple (their own expected value included) is
+    what actually gets executed. This distinction matters: a wrong expected
+    value must fail via a real `AssertionError` when run, not via a failed
+    lookup that just looks like a missing case — those read as different
+    kinds of mistakes to a learner, and only real execution tells them apart
+    correctly.
 
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
