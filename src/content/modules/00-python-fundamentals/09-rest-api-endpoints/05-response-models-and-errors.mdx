@@ -73,6 +73,29 @@ def create_agent(config: AgentConfig):
     return config
 ```
 
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "201, not 200",
+      steps: [
+        {
+          command:
+            'curl -i -X POST http://127.0.0.1:8000/agents -H "Content-Type: application/json" -d \'{"name": "research_agent", "model": "claude-sonnet"}\'',
+        },
+        { output: "HTTP/1.1 201 Created" },
+        { output: "content-type: application/json" },
+        { output: "" },
+        { output: '{"name": "research_agent", "model": "claude-sonnet"}' },
+      ],
+    },
+  ]}
+/>
+
+`-i` on `curl` prints the response's status line along with its body —
+`201 Created`, not the default `200`, exactly as `status_code=201`
+declared.
+
 </Subsection>
 
 <Subsection title="HTTPException — the HTTP-flavored version of a custom exception" variant="a">
