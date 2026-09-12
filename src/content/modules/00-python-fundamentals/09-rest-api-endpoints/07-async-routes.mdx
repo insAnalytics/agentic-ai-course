@@ -96,7 +96,7 @@ nothing to do with `/generate-blocking` at all:
       label: "Client A: POST /generate-blocking",
       steps: [
         { command: 'curl -w "\\ntook %{time_total}s\\n" -X POST "http://127.0.0.1:8000/generate-blocking?prompt=hello"' },
-        { output: '{"result": "response to: hello"}' },
+        { output: '{"result": "response to: hello"}', delayMs: 1500 },
         { output: "took 1.01s" },
       ],
     },
@@ -104,7 +104,7 @@ nothing to do with `/generate-blocking` at all:
       label: "Client B: GET /health, sent at the same moment",
       steps: [
         { command: 'curl -w "\\ntook %{time_total}s\\n" http://127.0.0.1:8000/health' },
-        { output: '{"status": "ok"}' },
+        { output: '{"status": "ok"}', delayMs: 7000 },
         { output: "took 1.00s" },
       ],
     },
@@ -143,7 +143,7 @@ Same two clients, same moment, only this route changed:
       label: "Client A: POST /generate-safe",
       steps: [
         { command: 'curl -w "\\ntook %{time_total}s\\n" -X POST "http://127.0.0.1:8000/generate-safe?prompt=hello"' },
-        { output: '{"result": "response to: hello"}' },
+        { output: '{"result": "response to: hello"}', delayMs: 1500 },
         { output: "took 1.01s" },
       ],
     },
@@ -151,7 +151,7 @@ Same two clients, same moment, only this route changed:
       label: "Client B: GET /health, sent at the same moment",
       steps: [
         { command: 'curl -w "\\ntook %{time_total}s\\n" http://127.0.0.1:8000/health' },
-        { output: '{"status": "ok"}' },
+        { output: '{"status": "ok"}', delayMs: 200 },
         { output: "took 0.01s" },
       ],
     },
