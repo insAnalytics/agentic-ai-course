@@ -333,11 +333,15 @@ offer a synchronous, requests-like API — confirmed directly to fail in
 Pyodide (`RuntimeError: can't start new thread`), which is what first looked
 like a hard blocker until `ASGITransport` was tried as a thread-free
 alternative. **The one constraint this imposes on exercise code: route
-handlers must be `async def`, not plain `def`** — a sync handler is
-dispatched to a real worker thread by Starlette itself
-(`anyio.to_thread.run_sync`, so a slow sync route can't block the event
-loop), which fails the same way; an `async def` route is awaited directly,
-no thread involved. Package versions are pinned
+handlers *and* `Depends()` functions must be `async def`, not plain
+`def`** — both a sync route and a sync dependency are dispatched to a real
+worker thread by FastAPI/Starlette itself (`solve_dependencies` and route
+dispatch both go through `run_in_threadpool` → `anyio.to_thread.run_sync`,
+so a slow sync call can't block the event loop), which fails the same way;
+an `async def` version of either is awaited directly, no thread involved.
+Confirmed both cases directly (Lesson 0.9's auth exercise hit the
+dependency case specifically — a plain `def verify_api_key(...)` failed
+identically to a sync route). Package versions are pinned
 (`fastapi==0.110.0`/`starlette==0.36.3`/`anyio==4.3.0`/`httpx==0.27.0`/
 `httpcore==1.0.5`/`h11==0.14.0`) because this Pyodide build's bundled
 `pydantic-core` (2.18.1) is older than what current releases require —
