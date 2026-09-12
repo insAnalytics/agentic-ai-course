@@ -10,6 +10,7 @@ export interface PyodideInterface {
   setStdout: (opts: { batched: (text: string) => void }) => void;
   setStderr: (opts: { batched: (text: string) => void }) => void;
   loadPackagesFromImports: (code: string) => Promise<void>;
+  loadPackage: (names: string | string[]) => Promise<void>;
   globals: {
     set: (name: string, value: unknown) => void;
     get: (name: string) => unknown;
@@ -60,7 +61,7 @@ export function loadPyodideOnce(): Promise<PyodideInterface> {
 // another instance is mid-run) — this queue serializes every run so only one
 // is ever in flight at a time, regardless of which component started it.
 let pyodideQueue: Promise<unknown> = Promise.resolve();
-function withPyodideQueue<T>(fn: () => Promise<T>): Promise<T> {
+export function withPyodideQueue<T>(fn: () => Promise<T>): Promise<T> {
   const run = pyodideQueue.then(fn, fn);
   pyodideQueue = run.then(
     () => undefined,

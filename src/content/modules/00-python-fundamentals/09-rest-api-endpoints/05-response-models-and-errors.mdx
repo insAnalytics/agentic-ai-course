@@ -6,6 +6,7 @@ order: 5
 import Subsection from "../../../../components/lesson/Subsection.astro";
 import TerminalGroup from "../../../../components/lesson/TerminalGroup";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
+import FastAPIGradedExercise from "../../../../components/lesson/FastAPIGradedExercise";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 <Subsection title="response_model — controlling what actually goes out" variant="a">
@@ -286,6 +287,137 @@ its own `try`/`except` for this case at all.
         "A DuplicateAgentError is an AgentError by inheritance, the same is-a relationship covered for exception hierarchies earlier in the course — the handler registered for the base class catches the subclass too.",
     },
   ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<FastAPIGradedExercise
+  client:load
+  task={`Build a small in-memory agent registry with two endpoints. POST /agents takes an AgentConfig body (name: str, model: str) and returns a 201 with response_model=AgentConfig — if an agent with that name already exists, raise a custom DuplicateAgentError (registered with a global exception handler returning 409 and {"detail": "an agent named '<name>' already exists"}), rather than handling it with HTTPException directly in the route. GET /agents/{agent_id}, where agent_id: int = Path(gt=0), returns the matching agent with response_model=AgentConfig — if no agent with that id exists, raise HTTPException(status_code=404, detail=f"agent {agent_id} not found"). Both routes must be async def.`}
+  starterCode={`from fastapi import FastAPI, HTTPException, Path, Request
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+
+app = FastAPI()
+
+class AgentConfig(BaseModel):
+    name: str
+    model: str
+
+class DuplicateAgentError(Exception):
+    def __init__(self, name: str):
+        self.name = name
+        super().__init__(f"an agent named '{name}' already exists")
+
+# TODO: register a global exception handler for DuplicateAgentError
+# returning a 409 JSONResponse with {"detail": str(exc)}
+
+agents_db = {}
+next_id = 1
+
+# TODO: POST /agents -- AgentConfig body, response_model=AgentConfig,
+# status_code=201. Raise DuplicateAgentError if the name is already used.
+@app.post("/agents", response_model=AgentConfig, status_code=201)
+async def create_agent(config: AgentConfig):
+    pass
+
+# TODO: GET /agents/{agent_id} -- agent_id: int = Path(gt=0),
+# response_model=AgentConfig. Raise HTTPException(404, ...) if missing.
+@app.get("/agents/{agent_id}", response_model=AgentConfig)
+async def get_agent(agent_id: int = Path(gt=0)):
+    pass`}
+  checkLabels={{
+    createReturns201: "POST /agents returns 201 for a new agent",
+    createReturnsCorrectBody: "The created agent's response body matches the submitted config",
+    duplicateReturns409: "Posting a duplicate name returns 409",
+    duplicateDetailMentionsAlreadyExists: "The duplicate error message mentions the agent already exists",
+    missingAgentReturns404: "GET /agents/999 (nonexistent) returns 404",
+    negativeIdRejectedWith422: "GET /agents/-1 is rejected with 422 before the route runs",
+    validFetchReturns200WithName: "GET /agents/1 returns 200 with the correct name",
+  }}
+  gradingScript={`import httpx
+
+_checks = {}
+_transport = httpx.ASGITransport(app=app)
+async with httpx.AsyncClient(transport=_transport, base_url="http://test") as client:
+    try:
+        r1 = await client.post("/agents", json={"name": "research_agent", "model": "claude-sonnet"})
+        _checks["createReturns201"] = r1.status_code == 201
+        _checks["createReturnsCorrectBody"] = r1.status_code == 201 and r1.json() == {"name": "research_agent", "model": "claude-sonnet"}
+    except Exception:
+        _checks["createReturns201"] = False
+        _checks["createReturnsCorrectBody"] = False
+
+    try:
+        r2 = await client.post("/agents", json={"name": "research_agent", "model": "claude-haiku"})
+        _checks["duplicateReturns409"] = r2.status_code == 409
+        _checks["duplicateDetailMentionsAlreadyExists"] = r2.status_code == 409 and "already exists" in r2.json().get("detail", "")
+    except Exception:
+        _checks["duplicateReturns409"] = False
+        _checks["duplicateDetailMentionsAlreadyExists"] = False
+
+    try:
+        r3 = await client.get("/agents/999")
+        _checks["missingAgentReturns404"] = r3.status_code == 404
+    except Exception:
+        _checks["missingAgentReturns404"] = False
+
+    try:
+        r4 = await client.get("/agents/-1")
+        _checks["negativeIdRejectedWith422"] = r4.status_code == 422
+    except Exception:
+        _checks["negativeIdRejectedWith422"] = False
+
+    try:
+        r5 = await client.get("/agents/1")
+        _checks["validFetchReturns200WithName"] = r5.status_code == 200 and r5.json().get("name") == "research_agent"
+    except Exception:
+        _checks["validFetchReturns200WithName"] = False
+
+__result = {"passed": all(_checks.values()), "checks": _checks}`}
+  hint={`Store created agents in a plain dict keyed by an auto-incrementing id. Register the DuplicateAgentError handler with @app.exception_handler(DuplicateAgentError) before defining the routes that might raise it, and declare it async def too. Path(gt=0) on agent_id handles the negative-id case automatically -- no manual check needed for that part.`}
+  correctAnswer={{
+    code: `from fastapi import FastAPI, HTTPException, Path, Request
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+
+app = FastAPI()
+
+class AgentConfig(BaseModel):
+    name: str
+    model: str
+
+class DuplicateAgentError(Exception):
+    def __init__(self, name: str):
+        self.name = name
+        super().__init__(f"an agent named '{name}' already exists")
+
+@app.exception_handler(DuplicateAgentError)
+async def handle_duplicate(request: Request, exc: DuplicateAgentError):
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+agents_db = {}
+next_id = 1
+
+@app.post("/agents", response_model=AgentConfig, status_code=201)
+async def create_agent(config: AgentConfig):
+    global next_id
+    if any(a["name"] == config.name for a in agents_db.values()):
+        raise DuplicateAgentError(config.name)
+    agents_db[next_id] = config.model_dump()
+    next_id += 1
+    return config
+
+@app.get("/agents/{agent_id}", response_model=AgentConfig)
+async def get_agent(agent_id: int = Path(gt=0)):
+    if agent_id not in agents_db:
+        raise HTTPException(status_code=404, detail=f"agent {agent_id} not found")
+    return agents_db[agent_id]`,
+    explanation:
+      "This composes everything from this lesson so far: Path(gt=0) rejects an invalid id before get_agent even runs, response_model shapes both endpoints' output consistently, HTTPException handles the route-specific \"not found\" case, and the global DuplicateAgentError handler shows the alternative -- a reusable, app-wide way to turn a custom exception into a proper structured response, exactly the payoff [the custom exception hierarchy concept from the I/O lesson](/00-python-fundamentals/06-files-and-json/04-custom-exceptions/#building-a-small-hierarchy) was building toward. Both routes are declared async def -- required for this exercise to actually run and grade here in the browser, since a real FastAPI app under real threading limits (no real OS threads available) needs its route handlers awaited directly rather than dispatched to a worker thread.",
+  }}
 />
 
 </CheckpointZone>
