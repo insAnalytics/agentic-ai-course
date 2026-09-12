@@ -97,9 +97,11 @@ sidebar navigation, not one very long scroll.
       DockerBuildDemo.tsx          # read-only Dockerfile + Build button, generates a build log from the actual Dockerfile text (cacheHit prop controls timing)
       DockerGradedExercise.tsx     # real-Docker graded exercise (Dockerfile + .dockerignore textareas) — see §4
       DockerLiveTerminal.tsx       # real interactive terminal over a persistent E2B sandbox — see §4
+      FastAPIGradedExercise.tsx    # real FastAPI app, graded in-browser via Pyodide + httpx.ASGITransport — see §4.1
       CheckpointZone.astro        # full-bleed colored band behind a quiz/exercise card
   /lib
     pyodide.ts                  # shared Pyodide loader + single-file and multi-file grading harnesses
+    fastapiPyodide.ts             # installs a pinned FastAPI/Starlette/httpx stack into Pyodide, grades against a per-exercise Python script — see §4.1
     dockerWorker.ts              # fetch wrapper for the Cloudflare Worker's /docker-exercise and /docker-terminal routes — see §4
   /layouts
     BaseLayout.astro            # shell: sidebar + main slot, fonts, global.css
@@ -195,12 +197,17 @@ concept needs, not the heaviest available:
 
 1. **Pyodide** (§4.1) — in-browser, zero cost, zero setup, instant. Default
    choice for anything that's really just Python logic (loops, data
-   structures, mock tool functions). No real subprocess/filesystem/network.
+   structures, mock tool functions) — and, less obviously, for a real
+   FastAPI app too (`async def` routes, graded via `httpx`'s
+   `ASGITransport`, no real thread or E2B needed — see §4.1's FastAPI
+   note before assuming a web-framework exercise needs tier 2). Still no
+   real subprocess/Docker/real-networking.
 2. **E2B + Cloudflare Worker** (§4.2) — a real, disposable Linux sandbox
    with a real Docker daemon, one call away from the browser. For a single
    in-browser exercise that genuinely needs something Pyodide can't do
-   (build a real image, run a real container) but is still small/bounded
-   enough to grade in one shot or one short interactive session.
+   (build a real image, run a real container, bind a real port) but is
+   still small/bounded enough to grade in one shot or one short
+   interactive session.
 3. **Downloadable project** (§4.3) — a separate GitHub repo the learner
    clones and runs on their own machine. For anything that needs more than
    one real service running together (an app *and* a database, say),
@@ -308,8 +315,37 @@ resolve them:
 
 **Known ceiling of Pyodide** (why the tiers below exist):
 - No real subprocess/shell execution.
-- No native/compiled Python packages.
+- No native/compiled Python packages, and no real OS threads — the latter
+  turns out to be narrower than it sounds (see below): it rules out
+  anything that specifically *needs* a background thread, not everything
+  that merely does I/O or runs async code.
 - No genuine multi-agent, long-running, or stateful-across-sessions execution.
+
+**Real FastAPI apps, graded in-browser via Pyodide** (`src/lib/fastapiPyodide.ts`,
+`<FastAPIGradedExercise />`, first used in Lesson 0.9): grading a submitted
+FastAPI app for real — real routing, real Pydantic validation, real status
+codes — turned out to *not* need E2B, contrary to an initial assessment.
+`httpx.AsyncClient(transport=httpx.ASGITransport(app=app))` talks to the ASGI
+app directly, entirely on the event loop `runPythonAsync` already provides,
+with no real thread involved anywhere. Starlette's own `TestClient` (the
+"normal" way to test a FastAPI app) instead spins up a background thread to
+offer a synchronous, requests-like API — confirmed directly to fail in
+Pyodide (`RuntimeError: can't start new thread`), which is what first looked
+like a hard blocker until `ASGITransport` was tried as a thread-free
+alternative. **The one constraint this imposes on exercise code: route
+handlers must be `async def`, not plain `def`** — a sync handler is
+dispatched to a real worker thread by Starlette itself
+(`anyio.to_thread.run_sync`, so a slow sync route can't block the event
+loop), which fails the same way; an `async def` route is awaited directly,
+no thread involved. Package versions are pinned
+(`fastapi==0.110.0`/`starlette==0.36.3`/`anyio==4.3.0`/`httpx==0.27.0`/
+`httpcore==1.0.5`/`h11==0.14.0`) because this Pyodide build's bundled
+`pydantic-core` (2.18.1) is older than what current releases require —
+confirmed by actually installing and running them together, not guessed.
+**Revises the tier-choice framing above**: a real ASGI app with `async def`
+routes belongs at tier 1 (Pyodide), not tier 2 (E2B) — E2B is for
+Docker/subprocess/real-networking specifically, not merely "a real Python
+web framework."
 
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
