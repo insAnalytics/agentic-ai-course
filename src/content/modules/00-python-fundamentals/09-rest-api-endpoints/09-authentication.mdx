@@ -1,0 +1,260 @@
+---
+title: "Authentication"
+lesson: "09-rest-api-endpoints"
+order: 9
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import TerminalGroup from "../../../../components/lesson/TerminalGroup";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import FastAPIGradedExercise from "../../../../components/lesson/FastAPIGradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Restricting who's allowed to call an endpoint" variant="a">
+
+[Lesson 8's isolation motivation](/00-python-fundamentals/08-containerize-with-docker/01-why-containers/#a-second-different-reason-restricting-what-code-can-touch)
+restricted what running code can *access*. Authentication is the
+analogous concern at the API layer: restricting *who's allowed to call
+an endpoint in the first place* — a real concern the moment an API is
+reachable by anyone on the network, not just trusted local code.
+
+</Subsection>
+
+<Subsection title="API key auth with Depends()" variant="b">
+
+The simplest real pattern: a shared secret, checked on every request,
+implemented as
+[a Depends()-based dependency used purely for its side effect](/00-python-fundamentals/09-rest-api-endpoints/08-dependency-injection/#a-dependency-used-only-for-its-side-effect):
+
+```python
+from fastapi import Depends, Header, HTTPException
+
+API_KEY = "sk-agent-registry-prod-key"
+
+def verify_api_key(x_api_key: str = Header(default=None)):
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="invalid or missing API key")
+
+@app.get("/agents", dependencies=[Depends(verify_api_key)])
+def list_agents():
+    return {"agents": []}
+```
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "No key vs. the right key",
+      steps: [
+        { command: "curl -i http://127.0.0.1:8000/agents" },
+        { output: "HTTP/1.1 401 Unauthorized" },
+        { output: '{"detail": "invalid or missing API key"}' },
+        { command: 'curl -i http://127.0.0.1:8000/agents -H "X-Api-Key: sk-agent-registry-prod-key"' },
+        { output: "HTTP/1.1 200 OK" },
+        { output: '{"agents": []}' },
+      ],
+    },
+  ]}
+/>
+
+A request without a valid `X-Api-Key` header never reaches
+`list_agents` at all — `verify_api_key` raises before it, exactly the
+same `HTTPException`-based rejection
+[covered earlier in this lesson](/00-python-fundamentals/09-rest-api-endpoints/05-response-models-and-errors/#httpexception-the-http-flavored-version-of-a-custom-exception),
+just now gating access rather than reporting a "not found." Applying
+this to every route that needs protection just means adding the same
+`dependencies=[Depends(verify_api_key)]` to each one — or, as covered
+in a later concept, attaching it once to an entire `APIRouter` instead
+of repeating it per-route.
+
+This is real, but limited: one shared key means every legitimate caller
+has equal, undifferentiated access, and revoking access for one caller
+means changing the key for everyone.
+
+</Subsection>
+
+<Subsection title="A look at OAuth2 and JWT" variant="a">
+
+The more complete, standard pattern for anything beyond a single shared
+secret: a login endpoint that verifies real credentials and issues a
+**JWT** (JSON Web Token) — a signed, self-contained token a client then
+sends on every subsequent request instead of a raw password.
+
+```python
+from fastapi.security import OAuth2PasswordBearer
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    user = decode_and_verify_jwt(token)   # verifies the signature, extracts the user
+    if user is None:
+        raise HTTPException(status_code=401, detail="invalid or expired token")
+    return user
+
+@app.get("/agents")
+def list_agents(user: dict = Depends(get_current_user)):
+    return {"agents": [], "requested_by": user["username"]}
+```
+
+A JWT is three base64-encoded parts — `header.payload.signature` —
+where the payload holds claims like the username and an expiration
+time, and the signature (created with a server-side secret) proves the
+token hasn't been tampered with. Worth connecting directly back to
+[statelessness, one of REST's guiding principles from the start of this lesson](/00-python-fundamentals/09-rest-api-endpoints/01-rest-api-fundamentals/#rest-s-guiding-principles):
+the server doesn't need to remember who's logged in between requests at
+all — everything needed to verify a request travels *in* the token
+itself, on every request, which is exactly what a stateless API
+requires.
+
+This course doesn't implement the full token-issuing flow in depth —
+libraries like `python-jose` or `PyJWT` handle the actual encoding and
+signature verification — but the shape is worth recognizing:
+`Depends()` is still the mechanism doing the work, exactly as in the
+API key version; only what's being checked, and how much information
+it carries, has grown more sophisticated.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does authentication restrict, that isolation (from the Docker lesson) doesn't?",
+      options: [
+        "They're the same concern, just different names",
+        "Isolation restricts what running code can access; authentication restricts who's allowed to call an endpoint in the first place",
+        "Authentication only matters for local development, never a deployed API",
+        "Isolation is a subset of authentication",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Isolation and authentication answer different questions — what a process can touch once it's running, versus who's allowed to reach an endpoint at all — and a real system needs both, not one instead of the other.",
+    },
+    {
+      question: "In the API key example, what happens to a request missing a valid X-Api-Key header?",
+      options: [
+        "It reaches list_agents normally, with x_api_key set to None",
+        "verify_api_key raises an HTTPException before list_agents ever runs, since it's declared as a dependency on that route",
+        "It's silently logged but still processed normally",
+        "The server crashes with an unhandled error",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A dependency declared for its side effect runs before the route itself — a missing or wrong key means verify_api_key raises, and list_agents never executes at all.",
+    },
+    {
+      question: "What's a real limitation of a single shared API key, compared to per-user credentials?",
+      options: [
+        "There's no real limitation — it's equally capable",
+        "Every legitimate caller has equal, undifferentiated access, and revoking access for one caller means changing the key for everyone",
+        "API keys can't be sent as HTTP headers",
+        "API keys only work with GET requests",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A shared key can't distinguish between callers at all — there's no way to revoke just one caller's access without rotating the key for every legitimate caller at once.",
+    },
+    {
+      question: "What does a JWT's payload typically contain, and what proves it hasn't been tampered with?",
+      options: [
+        "The user's raw password, protected by HTTPS alone",
+        "Claims like the username and expiration time; a signature, created with a server-side secret, proves the token's integrity",
+        "Nothing — a JWT is just a random string with no internal structure",
+        "The entire database record for that user",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A JWT's payload carries claims about the user directly, in plain (base64-encoded, not encrypted) view — it's the separate signature, verifiable only with the server's own secret, that actually proves nothing's been altered.",
+    },
+    {
+      question: "How does JWT-based authentication connect back to REST's statelessness principle from earlier in this lesson?",
+      options: [
+        "It doesn't — JWTs require the server to remember every logged-in user",
+        "The server doesn't need to remember anything about who's logged in between requests — everything needed to verify the request travels in the token itself, every time",
+        "Statelessness means authentication isn't possible in a REST API",
+        "JWTs are only used in non-RESTful APIs",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A JWT is entirely self-contained — the server verifies it fresh on every request using just its own secret, never consulting any server-side memory of who's logged in, which is exactly what statelessness requires.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<FastAPIGradedExercise
+  client:load
+  task={`Implement a verify_api_key dependency checking an X-Api-Key header against a known value ("secret-key-123"), raising HTTPException(status_code=401, detail="invalid or missing API key") when it doesn't match. Apply it to a GET /agents route (returning {"agents": ["research_agent", "support_agent"]} on success) using dependencies=[Depends(verify_api_key)]. Both the dependency and the route must be async def.`}
+  starterCode={`from fastapi import FastAPI, Depends, Header, HTTPException
+
+app = FastAPI()
+
+API_KEY = "secret-key-123"
+
+# TODO: verify_api_key -- compare x_api_key against API_KEY, raise
+# HTTPException(401, "invalid or missing API key") if it doesn't match.
+async def verify_api_key(x_api_key: str = Header(default=None)):
+    pass
+
+# TODO: GET /agents, gated by dependencies=[Depends(verify_api_key)],
+# returning {"agents": ["research_agent", "support_agent"]}.
+@app.get("/agents")
+async def list_agents():
+    pass`}
+  checkLabels={{
+    noKeyReturns401: "GET /agents with no X-Api-Key header returns 401",
+    wrongKeyReturns401: "GET /agents with the wrong X-Api-Key returns 401",
+    validKeyReturns200: "GET /agents with the correct X-Api-Key returns 200",
+    validKeyReturnsCorrectBody: "The successful response body matches exactly",
+  }}
+  gradingScript={`import httpx
+
+_checks = {}
+_transport = httpx.ASGITransport(app=app)
+async with httpx.AsyncClient(transport=_transport, base_url="http://test") as client:
+    try:
+        r1 = await client.get("/agents")
+        _checks["noKeyReturns401"] = r1.status_code == 401
+    except Exception:
+        _checks["noKeyReturns401"] = False
+
+    try:
+        r2 = await client.get("/agents", headers={"X-Api-Key": "wrong"})
+        _checks["wrongKeyReturns401"] = r2.status_code == 401
+    except Exception:
+        _checks["wrongKeyReturns401"] = False
+
+    try:
+        r3 = await client.get("/agents", headers={"X-Api-Key": "secret-key-123"})
+        _checks["validKeyReturns200"] = r3.status_code == 200
+        _checks["validKeyReturnsCorrectBody"] = r3.status_code == 200 and r3.json() == {"agents": ["research_agent", "support_agent"]}
+    except Exception:
+        _checks["validKeyReturns200"] = False
+        _checks["validKeyReturnsCorrectBody"] = False
+
+__result = {"passed": all(_checks.values()), "checks": _checks}`}
+  hint={`verify_api_key(x_api_key: str = Header(default=None)) compares x_api_key against the known secret and raises if it doesn't match. Since this dependency is only used for its side effect (rejecting bad requests), attach it via dependencies=[Depends(verify_api_key)] on the route decorator, not as a named function parameter on the route itself. Both verify_api_key and list_agents need to be declared async def.`}
+  correctAnswer={{
+    code: `from fastapi import FastAPI, Depends, Header, HTTPException
+
+app = FastAPI()
+
+API_KEY = "secret-key-123"
+
+async def verify_api_key(x_api_key: str = Header(default=None)):
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="invalid or missing API key")
+
+@app.get("/agents", dependencies=[Depends(verify_api_key)])
+async def list_agents():
+    return {"agents": ["research_agent", "support_agent"]}`,
+    explanation:
+      "This is the minimal, complete shape of API key auth: one dependency function, reusable across any route that needs the same protection, rejecting unauthorized requests before the route's own logic ever runs -- the same Depends() mechanism from the previous concept, now applied to the security concern this lesson opened with. Both verify_api_key and list_agents are declared async def -- required here since FastAPI dispatches a plain (sync) dependency function to a real worker thread the same way it does a sync route, and that's exactly the capability this in-browser grading environment doesn't have.",
+  }}
+/>
+
+</CheckpointZone>
