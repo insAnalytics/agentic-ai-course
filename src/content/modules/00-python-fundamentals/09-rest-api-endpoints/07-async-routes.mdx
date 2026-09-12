@@ -36,7 +36,7 @@ inside the route function.
 import asyncio
 
 async def call_llm_api(prompt: str) -> str:
-    await asyncio.sleep(1)   # standing in for a real network call
+    await asyncio.sleep(7)   # standing in for a real network call
     return f"response to: {prompt}"
 
 @app.post("/generate")
@@ -52,7 +52,7 @@ async def generate(prompt: str):
       label: "POST /generate",
       steps: [
         { command: 'curl -X POST "http://127.0.0.1:8000/generate?prompt=hello"' },
-        { output: '{"result": "response to: hello"}' },
+        { output: '{"result": "response to: hello"}', delayMs: 7000 },
       ],
     },
   ]}
@@ -81,7 +81,7 @@ import time
 
 @app.post("/generate-blocking")
 async def generate_blocking(prompt: str):
-    time.sleep(1)   # blocking — freezes every other request too
+    time.sleep(7)   # blocking — freezes every other request too
     return {"result": f"response to: {prompt}"}
 ```
 
@@ -96,8 +96,8 @@ nothing to do with `/generate-blocking` at all:
       label: "Client A: POST /generate-blocking",
       steps: [
         { command: 'curl -w "\\ntook %{time_total}s\\n" -X POST "http://127.0.0.1:8000/generate-blocking?prompt=hello"' },
-        { output: '{"result": "response to: hello"}', delayMs: 1500 },
-        { output: "took 1.01s" },
+        { output: '{"result": "response to: hello"}', delayMs: 7000 },
+        { output: "took 7.01s" },
       ],
     },
     {
@@ -105,14 +105,14 @@ nothing to do with `/generate-blocking` at all:
       steps: [
         { command: 'curl -w "\\ntook %{time_total}s\\n" http://127.0.0.1:8000/health' },
         { output: '{"status": "ok"}', delayMs: 7000 },
-        { output: "took 1.00s" },
+        { output: "took 7.00s" },
       ],
     },
   ]}
 />
 
 `/health` does nothing and depends on nothing — it still took the full
-second, because
+seven seconds, because
 [one blocking call poisons the entire event loop](/00-python-fundamentals/07-concurrency-and-async/04-time-sleep-vs-asyncio-sleep/#time-sleep-inside-a-coroutine-blocks-everything),
 the same way it poisoned an entire `gather()` in the async lesson. The
 rule from that lesson applies unchanged: never call a blocking function
@@ -130,7 +130,7 @@ rather than directly on the event loop:
 ```python
 @app.post("/generate-safe")
 def generate_safe(prompt: str):
-    time.sleep(1)   # blocking, but this route isn't async def —
+    time.sleep(7)   # blocking, but this route isn't async def —
     return {"result": f"response to: {prompt}"}   # FastAPI runs it in a thread pool instead
 ```
 
@@ -143,15 +143,15 @@ Same two clients, same moment, only this route changed:
       label: "Client A: POST /generate-safe",
       steps: [
         { command: 'curl -w "\\ntook %{time_total}s\\n" -X POST "http://127.0.0.1:8000/generate-safe?prompt=hello"' },
-        { output: '{"result": "response to: hello"}', delayMs: 1500 },
-        { output: "took 1.01s" },
+        { output: '{"result": "response to: hello"}', delayMs: 7000 },
+        { output: "took 7.01s" },
       ],
     },
     {
       label: "Client B: GET /health, sent at the same moment",
       steps: [
         { command: 'curl -w "\\ntook %{time_total}s\\n" http://127.0.0.1:8000/health' },
-        { output: '{"status": "ok"}', delayMs: 200 },
+        { output: '{"status": "ok"}', delayMs: 300 },
         { output: "took 0.01s" },
       ],
     },
@@ -159,7 +159,7 @@ Same two clients, same moment, only this route changed:
 />
 
 `/health` comes straight back this time — the blocking work still takes
-its full second, but off on its own thread, not on the shared event
+its full seven seconds, but off on its own thread, not on the shared event
 loop `/health` needed to run on. This route still isn't *concurrent*
 with itself the way `await`-ing a real async call would be, but it no
 longer blocks the *entire server* the way the broken `async def`
