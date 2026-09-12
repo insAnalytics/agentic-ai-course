@@ -390,3 +390,123 @@ export async function gradePytestParametrizeExercise(
     return JSON.parse(resultJson) as PytestGradeResult;
   });
 }
+
+// --- Grading a learner-written `unittest.mock.patch` test, against a real,
+// fixed `main.py` (Lesson 0.10, Concept 6) ---
+//
+// `@patch("main.call_llm_api", ...)` resolves that string by actually
+// `importlib.import_module`-ing "main" — a real module, not a name inside an
+// exec() namespace — so this reuses the multi-file sandbox machinery (real
+// files on sys.path) rather than the single-namespace approach the earlier
+// FastAPI exercises use. `main.py` is fixed and never shown as editable (the
+// learner only writes `test_main.py`); since `main.py`'s own route logic is
+// correct by construction, a required test only passes if the learner's own
+// mock and assertions are actually correct against that real, fixed
+// behavior — same trust model as `PYTEST_PARAMETRIZE_HARNESS`: the learner's
+// real test *function* is executed for real, unlike the FastAPI exercises
+// (0.9's and the multi-file one), where the app is learner-written and a
+// grading script we wrote does the asserting.
+//
+// `unittest.mock` (including its `AsyncMock`/async-aware `patch` support,
+// Python 3.8+) is pure standard library — no micropip install needed, unlike
+// `pytest`. `ensureFastAPIReady` is still required first, since `main.py`
+// itself uses FastAPI/httpx.
+export interface RequiredMockTest {
+  /** Name of the required test function, e.g. "test_generate_success". */
+  name: string;
+  label: string;
+}
+
+// Each required test function is called with the shared `client` (an
+// httpx.AsyncClient against the real, fixed `main.app`) passed as a
+// *keyword* argument, deliberately never positional — confirmed directly
+// that `@patch`'s wrapper appends its own mock argument *after* whatever
+// positional args the caller supplies (`func(*args, mock)`, not
+// `func(mock, *args)`), which would silently swap `mock_call_llm_api` and
+// `client` if `client` were passed positionally, since both examples in the
+// lesson declare the mock parameter first. Real pytest sidesteps this by
+// injecting all of its own fixtures as keyword arguments, matched by
+// parameter name — calling with `client=_client` here reproduces that exact
+// behavior without depending on pytest's own runner. The whole sequence runs
+// inside `app.router.lifespan_context(app)`, same reasoning as the other
+// FastAPI harnesses.
+const MOCK_PATCH_TEST_HARNESS = `
+import importlib, inspect, json
+
+_error = None
+_app = None
+try:
+    _main = importlib.import_module(__main_module)
+    _app = getattr(_main, "app", None)
+    if _app is None:
+        _error = f"No FastAPI instance named 'app' was found in {__main_module}.py"
+except Exception as e:
+    _error = f"{type(e).__name__}: {e}"
+
+_test_mod = None
+if _error is None:
+    try:
+        _test_mod = importlib.import_module(__test_module)
+    except Exception as e:
+        _error = f"{type(e).__name__}: {e}"
+
+_checks = {}
+if _error is None:
+    import httpx
+    _required = json.loads(__required_tests_json)
+    async with _app.router.lifespan_context(_app):
+        _transport = httpx.ASGITransport(app=_app)
+        _client = httpx.AsyncClient(transport=_transport, base_url="http://test")
+        for _req in _required:
+            _name = _req["name"]
+            _label = _req["label"]
+            _fn = getattr(_test_mod, _name, None)
+            if _fn is None or not callable(_fn):
+                _checks[_label] = False
+                continue
+            try:
+                _outcome = _fn(client=_client)
+                if inspect.isawaitable(_outcome):
+                    await _outcome
+                _checks[_label] = True
+            except AssertionError:
+                _checks[_label] = False
+            except Exception:
+                _checks[_label] = False
+        await _client.aclose()
+
+_result = {"passed": all(_checks.values()) if _checks else False, "checks": _checks} if _error is None else None
+json.dumps({"error": _error, "result": _result})
+`;
+
+/**
+ * Grades `learnerCode` (a `test_main.py`, expected to define the functions
+ * named in `requiredTests`, each decorated with `@patch("main....", ...)`)
+ * against a fixed, real `mainCode` (written to a real `main.py` alongside
+ * it). Call `ensureFastAPIReady` first; this doesn't install anything
+ * itself.
+ */
+export async function gradeMockPatchExercise(
+  pyodide: PyodideInterface,
+  mainCode: string,
+  learnerCode: string,
+  requiredTests: RequiredMockTest[],
+  instanceId: string,
+): Promise<PytestGradeResult> {
+  return withPyodideQueue(async () => {
+    const files: SandboxFile[] = [
+      { name: "main.py", code: mainCode },
+      { name: "test_main.py", code: learnerCode },
+    ];
+    const dir = await prepareMultiFileRun(pyodide, instanceId, files);
+    try {
+      pyodide.globals.set("__main_module", moduleNameFor("main.py"));
+      pyodide.globals.set("__test_module", moduleNameFor("test_main.py"));
+      pyodide.globals.set("__required_tests_json", JSON.stringify(requiredTests));
+      const resultJson = (await pyodide.runPythonAsync(MOCK_PATCH_TEST_HARNESS)) as string;
+      return JSON.parse(resultJson) as PytestGradeResult;
+    } finally {
+      teardownMultiFileRun(pyodide, dir);
+    }
+  });
+}

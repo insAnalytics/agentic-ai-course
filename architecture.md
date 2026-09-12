@@ -100,6 +100,7 @@ sidebar navigation, not one very long scroll.
       FastAPIGradedExercise.tsx    # real FastAPI app, graded in-browser via Pyodide + httpx.ASGITransport — see §4.1
       MultiFileFastAPIGradedExercise.tsx  # multi-file version — real cross-file imports, e.g. main.py importing an APIRouter from agents.py — see §4.1
       PytestGradedExercise.tsx     # grades a learner-written @pytest.mark.parametrize test (not app code) — see §4.1
+      MockPatchGradedExercise.tsx  # grades a learner-written unittest.mock.patch test against a real, fixed main.py — see §4.1
       CheckpointZone.astro        # full-bleed colored band behind a quiz/exercise card
   /lib
     pyodide.ts                  # shared Pyodide loader + single-file and multi-file grading harnesses
@@ -420,6 +421,43 @@ in `src/lib/fastapiPyodide.ts`:
     lookup that just looks like a missing case — those read as different
     kinds of mistakes to a learner, and only real execution tells them apart
     correctly.
+- **Grading a learner-written `unittest.mock.patch` test against a real,
+  fixed app** (Lesson 0.10's mocking exercise, `<MockPatchGradedExercise />`,
+  `gradeMockPatchExercise` in `fastapiPyodide.ts`). `@patch("main.foo", ...)`
+  resolves that string via a real `importlib.import_module("main")`, so this
+  reuses the same real-files-on-`sys.path` multi-file machinery as the
+  multi-file FastAPI exercise, rather than the single-namespace `exec()`
+  approach the earlier single-file exercises use — the learner writes only
+  `test_main.py`; a fixed, correct `main.py` (never editable) is what their
+  test actually runs against, so a required test only passes if the
+  learner's own mock and assertions are genuinely correct. `unittest.mock`
+  (`AsyncMock`, async-aware `patch`, Python 3.8+) is pure standard library —
+  no micropip install needed here at all, unlike `pytest`.
+  - **A real, confirmed footgun**: `@patch` as a decorator appends its own
+    mock as an argument *after* whatever positional args the caller
+    supplies (`func(*args, mock)`), not before (`func(mock, *args)`) —
+    confirmed directly by decorating a plain function and printing what each
+    parameter actually received. Calling a `(mock_call_llm_api, client)`-
+    shaped test function positionally as `fn(client)` silently swaps them:
+    `client` inside the test body is actually the mock, and
+    `mock_call_llm_api` is actually the real client — no error, just
+    silently wrong values, since both are ordinary objects as far as Python
+    is concerned. Real pytest never hits this because it injects *all* of
+    its own fixtures as keyword arguments, matched by parameter name, not
+    positionally. The fix here is the same: call the learner's test function
+    as `_fn(client=_client)`, never positionally — confirmed directly that
+    this resolves `mock_call_llm_api`/`client` correctly regardless of which
+    parameter is declared first.
+  - A related, easy-to-miss trap while building this exercise's own fixed
+    `main.py`: a bare `async def generate(prompt: str)` (matching this
+    lesson's own conceptual prose example, which is illustrative and never
+    executed) is *not* a request-body field to FastAPI — an untyped-as-model
+    `str` parameter not matching a path segment is inferred as a **query**
+    parameter, so `client.post("/generate", json={"prompt": "hello"})`
+    actually 422s. Confirmed directly, not assumed. The real, executable
+    version of this route (used only in the graded exercise, not the prose)
+    needs an actual `BaseModel` request body (`class GenerateRequest(BaseModel): prompt: str`)
+    for the mocked scenario to reach `call_llm_api` at all.
 
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
