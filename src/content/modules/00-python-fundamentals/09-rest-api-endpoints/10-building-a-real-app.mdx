@@ -1,0 +1,309 @@
+---
+title: "Building a real app"
+lesson: "09-rest-api-endpoints"
+order: 10
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import TerminalGroup from "../../../../components/lesson/TerminalGroup";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="APIRouter — organizing routes across files" variant="a">
+
+Every example so far has lived in one file. A real app splits routes
+across files the same way
+[any Python project splits code across modules](/00-python-fundamentals/03-functions/05-modules-and-imports/)
+— `APIRouter` is FastAPI's version of that split:
+
+```python
+# agents.py
+from fastapi import APIRouter
+
+router = APIRouter(prefix="/agents", tags=["agents"])
+
+@router.get("/{agent_id}")
+def get_agent(agent_id: int):
+    return {"agent_id": agent_id}
+```
+
+```python
+# main.py
+from fastapi import FastAPI
+from agents import router as agents_router
+
+app = FastAPI()
+app.include_router(agents_router)
+```
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "The router's prefix, applied automatically",
+      steps: [
+        { command: "curl http://127.0.0.1:8000/agents/42" },
+        { output: '{"agent_id": 42}' },
+      ],
+    },
+  ]}
+/>
+
+`prefix="/agents"` means every route on this router is automatically
+prefixed — the route defined as `"/{agent_id}"` in `agents.py` actually
+serves `GET /agents/{agent_id}` once included in `main.py`. `main.py`
+just imports and includes routers, the same
+[`from module import name` pattern from the functions lesson](/00-python-fundamentals/03-functions/05-modules-and-imports/#creating-and-importing-your-own-module),
+keeping the app's entry point small as more routers get added for
+other resources.
+
+</Subsection>
+
+<Subsection title="CORS — allowing cross-origin requests" variant="b">
+
+A browser blocks a web page from one origin (`https://my-frontend.com`)
+from calling an API on a different origin (`https://api.my-app.com`) by
+default — a security restriction browsers enforce, called **CORS**
+(Cross-Origin Resource Sharing). An agent frontend calling this API from
+a different domain is exactly this situation, and needs the API to
+explicitly opt in:
+
+```python
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://my-frontend.com"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
+```
+
+`add_middleware` wraps every request/response passing through the app
+— here, adding the specific headers that tell a browser "requests from
+`https://my-frontend.com` are allowed." Without this, a browser-based
+frontend calling this API from a different origin would have its
+requests blocked by the browser itself, before your API even sees
+them. This one is genuinely a browser-only behavior — `curl` never
+enforces CORS at all, so there's no terminal demo that could show it
+accurately; it only ever shows up as a blocked request in a real
+browser's network tab.
+
+</Subsection>
+
+<Subsection title="Rate limiting" variant="a">
+
+Beyond *who* can call an endpoint
+([Concept 9's authentication](/00-python-fundamentals/09-rest-api-endpoints/09-authentication/)),
+a real API also needs to limit *how often* — especially relevant for an
+endpoint that calls an LLM, where each request carries a real cost.
+`slowapi` is a common library for this, not built into FastAPI itself:
+
+```python
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+
+@app.get("/generate")
+@limiter.limit("5/minute")
+def generate(request: Request):
+    return {"result": "..."}
+```
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "5 requests OK, the 6th rejected",
+      steps: [
+        { command: "for i in 1 2 3 4 5 6; do curl -s -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:8000/generate; done" },
+        { output: "200" },
+        { output: "200" },
+        { output: "200" },
+        { output: "200" },
+        { output: "200" },
+        { output: "429" },
+      ],
+    },
+  ]}
+/>
+
+`@limiter.limit("5/minute")` restricts each client (identified here by
+IP address, via `get_remote_address`) to 5 requests per minute to this
+route — a 6th request within that window gets rejected automatically
+with a `429 Too Many Requests` response, before `generate`'s own logic
+runs.
+
+</Subsection>
+
+<Subsection title="Startup and shutdown: the lifespan context manager" variant="b">
+
+Some setup should happen exactly once — when the app starts — rather
+than on every single request: opening a shared database connection
+pool, initializing a client for an external API. FastAPI's `lifespan`
+is
+[a context manager](/00-python-fundamentals/06-files-and-json/01-file-io-and-context-managers/#with-guaranteed-cleanup-even-on-exception),
+the same mechanism as `with open(...)`, just scoped to the entire
+application's lifetime instead of one file:
+
+```python
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("starting up: connecting to shared resources...")
+    app.state.llm_client = create_llm_client()
+    yield
+    print("shutting down: closing connections...")
+    app.state.llm_client.close()
+
+app = FastAPI(lifespan=lifespan)
+```
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "Startup, then Ctrl+C to stop",
+      steps: [
+        { command: "uvicorn main:app" },
+        { output: "starting up: connecting to shared resources..." },
+        { output: "INFO:     Application startup complete." },
+        { command: "^C" },
+        { output: "shutting down: closing connections..." },
+        { output: "INFO:     Application shutdown complete." },
+      ],
+    },
+  ]}
+/>
+
+Everything before `yield` runs once, at startup; everything after
+`yield` runs once, at shutdown —
+[the exact same before-yield/after-yield structure a context manager always has](/00-python-fundamentals/06-files-and-json/01-file-io-and-context-managers/),
+guaranteeing the shutdown code runs even if the app is stopped
+abnormally, the same guarantee `with` gives a single file.
+
+</Subsection>
+
+<Subsection title="Background tasks — work after the response is sent" variant="a">
+
+Some work shouldn't delay a response at all — logging an analytics
+event, sending a notification — but also doesn't need to block the
+client waiting for it to finish. `BackgroundTasks` schedules a function
+to run *after* the response has already been sent:
+
+```python
+from fastapi import BackgroundTasks
+
+def log_generation(prompt: str):
+    print(f"logging: generated a response for '{prompt}'")
+
+@app.post("/generate")
+def generate(prompt: str, background_tasks: BackgroundTasks):
+    result = f"response to: {prompt}"
+    background_tasks.add_task(log_generation, prompt)
+    return {"result": result}
+```
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "Client: gets the response immediately",
+      steps: [
+        { command: 'curl -X POST "http://127.0.0.1:8000/generate?prompt=hello"' },
+        { output: '{"result": "response to: hello"}' },
+      ],
+    },
+    {
+      label: "Server logs: the background task, after",
+      steps: [
+        { command: "(watching server logs)" },
+        { output: "logging: generated a response for 'hello'", delayMs: 1500 },
+      ],
+    },
+  ]}
+/>
+
+The client receives `{"result": "..."}` immediately — `log_generation`
+runs afterward, in the background, without the client waiting on it at
+all. This is a different tool than
+[Lesson 7's create_task()](/00-python-fundamentals/07-concurrency-and-async/04-time-sleep-vs-asyncio-sleep/#create-task-starting-something-now-awaiting-it-later):
+`create_task()` starts something concurrent *within* a running
+coroutine; `BackgroundTasks` specifically defers work until *after* a
+response has already gone out, which is the shape that fits logging or
+notification work tied to one specific request.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: 'What does prefix="/agents" on an APIRouter do?',
+      options: [
+        "It has no effect on the final route paths",
+        "It's automatically prepended to every route defined on that router — a route defined as /{agent_id} actually serves /agents/{agent_id} once included",
+        "It requires every route on the router to accept an agent_id parameter",
+        "It renames the router itself, not its routes",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Every path defined on the router gets this prefix stitched on automatically once the router is included — the routes themselves stay written relative to the router, not the full app.",
+    },
+    {
+      question: "What problem does CORS middleware solve?",
+      options: [
+        "It speeds up requests between the frontend and backend",
+        "By default, browsers block a web page on one origin from calling an API on a different origin — CORS middleware explicitly allows specified origins to make those cross-origin requests",
+        "It encrypts all traffic between client and server",
+        "It's required for any API to accept POST requests",
+      ],
+      correctIndex: 1,
+      explanation:
+        "CORS is a browser-enforced restriction, not a server one — the middleware's job is telling the browser which origins are allowed to bypass that default block.",
+    },
+    {
+      question: "Why might rate limiting matter more for an LLM-backed endpoint than a typical API endpoint?",
+      options: [
+        "It doesn't — rate limiting is equally important everywhere",
+        "Each request to an LLM-backed endpoint carries a real, ongoing cost, making unrestricted repeated calls from one client more costly to allow unchecked",
+        "LLM endpoints can't be rate limited at all",
+        "Rate limiting only applies to POST requests",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A typical endpoint's cost per call is usually negligible — an LLM-backed one has a real, per-call cost, which is exactly what makes unrestricted repeated calls from one client an actual liability worth limiting.",
+    },
+    {
+      question: "In FastAPI's lifespan context manager, when does the code after yield actually run?",
+      options: [
+        "Before every single request",
+        "Once, at application shutdown — the same before-yield/after-yield structure any context manager has, just scoped to the app's entire lifetime",
+        "It never runs unless an exception occurs",
+        "Immediately after the code before yield, with no relationship to shutdown",
+      ],
+      correctIndex: 1,
+      explanation:
+        "lifespan follows the exact same shape as any generator-based context manager — everything before yield is setup, everything after is guaranteed cleanup, just scoped to the whole app instead of one file.",
+    },
+    {
+      question: "What's the difference between BackgroundTasks and asyncio.create_task() from the async lesson?",
+      options: [
+        "They're identical in every way",
+        "create_task() starts something running concurrently within a coroutine; BackgroundTasks specifically defers work until after a response has already been sent to the client",
+        "BackgroundTasks can only be used with async def routes",
+        "create_task() is FastAPI-specific, BackgroundTasks is part of core Python",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The two solve different timing problems — create_task() overlaps work with other work happening now, while BackgroundTasks specifically waits until the response has already gone out before running anything.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
