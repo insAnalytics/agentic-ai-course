@@ -1,0 +1,192 @@
+---
+title: "Testing endpoints with TestClient"
+lesson: "10-testing-rest-endpoints"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import TerminalGroup from "../../../../components/lesson/TerminalGroup";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="TestClient — calling routes without a real server" variant="a">
+
+Every exercise in the previous lesson assumed something never actually
+explained: how do you test a FastAPI route without starting `uvicorn`
+and making real network requests to it? `TestClient` is the answer —
+it calls your app's routes directly, in-process, with no real server
+or network socket involved at all:
+
+```python
+# main.py
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/agents/{agent_id}")
+def get_agent(agent_id: int):
+    return {"agent_id": agent_id, "name": "research_agent"}
+```
+
+```python
+# test_main.py
+from fastapi.testclient import TestClient
+from main import app
+
+client = TestClient(app)
+
+def test_get_agent_returns_expected_data():
+    response = client.get("/agents/42")
+    assert response.status_code == 200
+    assert response.json() == {"agent_id": 42, "name": "research_agent"}
+```
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "pytest",
+      steps: [
+        { command: "pytest" },
+        { output: "============================= test session starts ==============================" },
+        { output: "collected 1 item" },
+        { output: "" },
+        { output: "test_main.py .                                                             [100%]" },
+        { output: "" },
+        { output: "============================== 1 passed in 0.03s ==============================" },
+      ],
+    },
+  ]}
+/>
+
+`client.get("/agents/42")` runs the *entire* request-handling path —
+routing, path-parameter parsing, the route function itself — and
+returns a real response object, with `.status_code` and `.json()`
+available exactly as if a real HTTP request had actually happened,
+without a server ever needing to be running on a port.
+
+</Subsection>
+
+<Subsection title="This is an integration test, not a unit test" variant="b">
+
+[Concept 1's is_valid_tool_name tests](/00-python-fundamentals/10-testing-rest-endpoints/01-pytest-basics-and-unit-tests/#what-makes-this-specifically-a-unit-test)
+exercised one isolated function. `test_get_agent_returns_expected_data`
+is doing something different in kind, not just in size: it exercises
+FastAPI's routing, path-parameter type conversion, and `get_agent`'s
+own logic, all working *together* — this is an **integration test**,
+checking that multiple pieces integrate correctly, rather than
+checking one piece in isolation.
+
+Neither kind is "better" — they answer different questions. A unit
+test answers "does this one function behave correctly, on its own?"
+An integration test answers "does the whole path — routing,
+validation, the function, serialization — actually work together, the
+way a real caller would experience it?" A healthy test suite generally
+has many unit tests (fast, precise, easy to pinpoint a failure) and a
+smaller number of integration tests (slower, but catching problems
+that only show up when pieces interact — a route accidentally left off
+a router, a dependency wired up incorrectly).
+
+</Subsection>
+
+<Subsection title="Testing error responses the same way" variant="a">
+
+`TestClient` handles error paths identically —
+[Lesson 9's HTTPException/validation-driven 422s](/00-python-fundamentals/09-rest-api-endpoints/05-response-models-and-errors/#httpexception-the-http-flavored-version-of-a-custom-exception)
+show up exactly as real HTTP responses:
+
+```python
+def test_get_agent_not_found_returns_404():
+    response = client.get("/agents/999")
+    assert response.status_code == 404
+```
+
+```python
+def test_get_agent_invalid_id_returns_422():
+    response = client.get("/agents/not-a-number")
+    assert response.status_code == 422
+```
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "pytest",
+      steps: [
+        { command: "pytest" },
+        { output: "============================= test session starts ==============================" },
+        { output: "collected 3 items" },
+        { output: "" },
+        { output: "test_main.py ...                                                           [100%]" },
+        { output: "" },
+        { output: "============================== 3 passed in 0.04s ==============================" },
+      ],
+    },
+  ]}
+/>
+
+Nothing new here beyond what's already been covered —
+`response.status_code` and `response.json()` work uniformly whether
+the underlying route succeeded or failed, which is exactly why
+systematically testing error paths (covered properly later in this
+lesson) doesn't require a different tool, just deliberately writing
+tests for the failure cases too, not only the success case.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does TestClient let you do that calling a route function directly, in plain Python, wouldn't?",
+      options: [
+        "Nothing different — they're equivalent",
+        "Exercise the entire request-handling path (routing, parameter parsing, dependencies) as a real request would, without needing an actual running server",
+        "TestClient requires a real network connection to work",
+        "It only works for GET requests",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Calling a route function directly skips everything FastAPI itself does — routing, parameter parsing and validation, dependency resolution. TestClient exercises all of that, in-process, with no real server needed.",
+    },
+    {
+      question: "Why is a test using TestClient against a full route considered an integration test rather than a unit test?",
+      options: [
+        "It isn't — it's still a unit test, just calling a route instead of a plain function",
+        "It exercises multiple pieces working together (routing, parameter conversion, the route function itself), rather than checking one isolated unit of code",
+        "Integration tests are defined by how long they take to run, nothing else",
+        "TestClient can only be used for integration tests, never anything else",
+      ],
+      correctIndex: 1,
+      explanation:
+        "What makes it an integration test is that multiple pieces — routing, parameter conversion, the route's own logic — are all exercised together, not the specific tool used to write it.",
+    },
+    {
+      question: "What question does a unit test answer that an integration test doesn't, and vice versa?",
+      options: [
+        "They answer the exact same question",
+        'A unit test asks "does this one function work correctly on its own?"; an integration test asks "does the whole path work together, the way a real caller would experience it?"',
+        "Unit tests can only check return values; integration tests can only check status codes",
+        "Integration tests are always more valuable, so unit tests are unnecessary",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The two kinds of test answer genuinely different questions — isolated correctness versus whether the pieces actually work together — which is why a healthy suite has both, not one instead of the other.",
+    },
+    {
+      question: "How does testing an error response (like a 404) with TestClient differ mechanically from testing a success response?",
+      options: [
+        "It requires a completely separate tool",
+        "It doesn't differ — response.status_code and response.json() work identically whether the route succeeded or failed",
+        "Error responses can't be tested with TestClient at all",
+        "Error responses require wrapping the test in try/except",
+      ],
+      correctIndex: 1,
+      explanation:
+        "TestClient returns a normal response object regardless of the status code — checking an error path is just asserting a different status_code, not a different mechanism.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
