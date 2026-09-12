@@ -1,0 +1,186 @@
+---
+title: "The protocol landscape for agentic systems"
+lesson: "11-real-time-communication"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The baseline: polling, and why it's wasteful" variant="a">
+
+Before any new protocol, the default approach everyone reaches for
+first: a client repeatedly asking "is it done yet?"
+
+```python
+import time
+import requests
+
+while True:
+    response = requests.get("http://localhost:8000/tasks/42/status")
+    status = response.json()["status"]
+    if status == "complete":
+        break
+    time.sleep(2)
+
+print("task finished")
+```
+
+For a long-running agent task — generating a response, running several
+tool calls — this has real costs: **wasted requests** (most polls
+return "still running," carrying no actual new information),
+**latency** (the client only learns "complete" up to 2 seconds after
+it actually finished — on average, half the polling interval, purely
+from waiting for the next scheduled check), and **server load** that
+scales with how *impatient* clients are, not with how much actual work
+is happening. Polling isn't wrong, exactly — it's simple, and works
+everywhere plain HTTP works — but it's the fallback of last resort
+this lesson's actual protocols exist to improve on.
+
+</Subsection>
+
+<Subsection title="Server-Sent Events (SSE) — one-way server push" variant="b">
+
+SSE lets a server push updates to a client over a single, long-lived
+HTTP connection, without the client needing to ask again — the server
+sends new data whenever it has some, and the client just listens:
+
+```
+event: status
+data: {"status": "running", "progress": 40}
+
+event: status
+data: {"status": "complete", "progress": 100}
+```
+
+The defining trait: **one direction only**, server to client. A
+perfect fit for exactly the case this course keeps returning to —
+streaming an LLM's tokens back to a client as they're generated, or
+pushing status updates for a long-running task — where the client has
+nothing further to say once the request starts.
+
+</Subsection>
+
+<Subsection title="WebSockets — genuine two-way communication" variant="a">
+
+A WebSocket is a different kind of connection entirely: after an
+initial handshake, both sides can send messages to each other, at any
+time, over the same persistent connection — not request/response at
+all anymore.
+
+```
+client → server: {"action": "start_task", "prompt": "..."}
+server → client: {"status": "running", "progress": 10}
+client → server: {"action": "cancel"}
+server → client: {"status": "cancelled"}
+```
+
+This fits situations SSE structurally can't: a chat interface where
+the user keeps sending new messages mid-conversation, or letting a
+client cancel a running task — anything genuinely bidirectional, not
+just a one-way feed.
+
+</Subsection>
+
+<Subsection title="gRPC — structured, service-to-service communication" variant="b">
+
+Unlike the previous two — both aimed at a browser or CLI client — gRPC
+is primarily for **service-to-service** communication: one backend
+calling another, internally, rather than a client-facing API. It's
+built on HTTP/2, uses a binary, schema-first data format called
+**Protocol Buffers** instead of JSON, and formally defines four
+communication shapes: a plain one-request-one-response call, plus
+server-streaming, client-streaming, and fully bidirectional streaming —
+directly echoing the same shapes SSE and WebSockets cover, just for
+the internal-service case rather than a public-facing one.
+
+The realistic fit here: an agent backend calling an internal tool
+service — reliably, with a strict, versioned schema — rather than that
+tool service being reachable directly from a browser.
+
+</Subsection>
+
+<Subsection title="The landscape, side by side" variant="a">
+
+| | Direction | Persistent connection | Typical fit |
+|---|---|---|---|
+| **Polling** | Client asks, repeatedly | No | Fallback only |
+| **SSE** | Server → client only | Yes | Streaming tokens, status updates |
+| **WebSockets** | Both directions | Yes | Chat, cancellable tasks, live collaboration |
+| **gRPC** | Either, service-defined | Depends on RPC type | Internal service-to-service calls |
+
+The rest of this lesson implements SSE, WebSockets, and gRPC each in
+turn, then covers testing all three and a broadcast pattern for
+managing many connected clients at once.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What are the concrete costs of polling for a long-running task's status?",
+      options: [
+        "None -- polling is just as efficient as any alternative",
+        "Wasted requests (most polls carry no new information), added latency (up to a full polling interval before the client learns something changed), and server load that scales with client impatience",
+        "Polling only has a latency cost, no load cost",
+        "Polling requires a persistent connection, unlike the alternatives",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Polling's cost is threefold: most requests carry no new information, the client learns about a change only after the next scheduled check (not immediately), and load scales with how often clients ask rather than how much work is actually happening.",
+    },
+    {
+      question: "What's the defining structural limit of SSE?",
+      options: [
+        "It requires a binary data format",
+        "It's one-directional -- server to client only; the client can't send anything back over that same connection",
+        "It only works over gRPC",
+        "It can't be used for streaming text at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "SSE is built for exactly one direction -- the server pushes, the client listens. Anything the client needs to send back requires a separate mechanism entirely.",
+    },
+    {
+      question: "What makes WebSockets structurally different from both polling and SSE?",
+      options: [
+        "Nothing -- they're functionally identical to SSE",
+        "Genuine two-way communication over one persistent connection -- either side can send a message at any time, not just server-to-client",
+        "WebSockets can only send binary data, never text",
+        "WebSockets require gRPC underneath",
+      ],
+      correctIndex: 1,
+      explanation:
+        "WebSockets abandon the request/response shape entirely -- once the handshake completes, either side can send a message at any time over the same connection.",
+    },
+    {
+      question: "What's the primary intended use case for gRPC, compared to SSE and WebSockets?",
+      options: [
+        "The exact same use case -- a client-facing browser API",
+        "Service-to-service communication -- one backend calling another internally, using a strict, versioned schema rather than a public-facing connection",
+        "gRPC can only be used for one-way communication",
+        "gRPC replaces the need for HTTP entirely",
+      ],
+      correctIndex: 1,
+      explanation:
+        "gRPC targets internal, service-to-service calls -- a strict, versioned schema between backends you control, not a protocol aimed at a browser or public client.",
+    },
+    {
+      question: "What data format does gRPC use instead of JSON?",
+      options: [
+        "It still uses JSON, just over a different connection type",
+        "Protocol Buffers -- a binary, schema-first format",
+        "XML",
+        "Plain text, with no defined schema at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Protocol Buffers replace JSON entirely in gRPC -- a binary format defined by a strict, versioned schema rather than loosely-typed text.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
