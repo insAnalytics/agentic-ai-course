@@ -170,6 +170,34 @@ def create_agent(config: AgentConfig):
     return config
 ```
 
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "First agent, then a duplicate",
+      steps: [
+        {
+          command:
+            'curl -i -X POST http://127.0.0.1:8000/agents -H "Content-Type: application/json" -d \'{"name": "research_agent", "model": "claude-sonnet"}\'',
+        },
+        { output: "HTTP/1.1 201 Created" },
+        { output: '{"name": "research_agent", "model": "claude-sonnet"}' },
+        {
+          command:
+            'curl -i -X POST http://127.0.0.1:8000/agents -H "Content-Type: application/json" -d \'{"name": "research_agent", "model": "claude-haiku"}\'',
+        },
+        { output: "HTTP/1.1 409 Conflict" },
+        { output: '{"detail": "an agent named \'research_agent\' already exists"}' },
+      ],
+    },
+  ]}
+/>
+
+The second call never touches `try`/`except` inside `create_agent` at
+all — `handle_agent_error` intercepts the raised `DuplicateAgentError`
+before it becomes an unhandled error, and turns it into that `409`
+automatically.
+
 `@app.exception_handler(AgentError)` registers `handle_agent_error` to
 run whenever *any* `AgentError` — including any subclass, like
 `DuplicateAgentError`,
