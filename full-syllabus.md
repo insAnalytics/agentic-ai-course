@@ -75,11 +75,14 @@
     right protocol), Concept 3 (implementing SSE with `StreamingResponse`,
     with a graded exercise), Concept 4 (WebSockets fundamentals —
     `@app.websocket`, the message loop, `receive_json`/`send_json`; demo
-    + quiz only, no sandbox exercise in this concept). Still to come per
-    the mockup's own forward references: the WebSocket lifecycle,
-    disconnects, and authenticating a connection (Concept 5), then (per
-    the lesson's own stated arc) testing all three protocols and a
-    broadcast pattern for many connected clients, plus the intro/comprehensive-quiz/
+    + quiz only, no sandbox exercise in this concept), Concept 5 (the
+    WebSocket lifecycle — `WebSocketDisconnect`, authenticating a
+    connection via a query-param token — with a graded exercise driving
+    the real ASGI websocket scope directly, no thread needed; see
+    architecture.md §4.1). Still to come per the mockup's own forward
+    references: gRPC fundamentals (Concept 6), then (per the lesson's
+    own stated arc) testing all three protocols and a broadcast pattern
+    for many connected clients, plus the intro/comprehensive-quiz/
     comprehensive-sandbox bookends. No `00-intro.mdx` or
     `NN-recap-practice.mdx` yet — added last, once all concepts exist
     (see architecture.md §3 and CLAUDE.md's authoring workflow note).

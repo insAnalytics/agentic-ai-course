@@ -488,6 +488,35 @@ in `src/lib/fastapiPyodide.ts`:
     matched by name (not just the `@patch`-specific case from the mocking
     exercise), a plain required test is still called as `fn(client=client)`
     here, for the same reason.
+- **Grading a real WebSocket route** (Lesson 0.11 Concept 5's
+  disconnect/auth exercise, still using `<FastAPIGradedExercise />` — no
+  new component needed) — `httpx.ASGITransport` (the mechanism every
+  other FastAPI exercise's `gradingScript` uses) is HTTP-only; it never
+  performs the WebSocket upgrade at all. The "normal" way to test a
+  WebSocket route, Starlette's `TestClient.websocket_connect()`, hits the
+  exact same thread wall as plain `TestClient` (§4.1's opening finding) —
+  confirmed directly, not assumed, before writing this exercise. The
+  fix: drive the ASGI app's `websocket` scope directly, by hand, the same
+  no-thread philosophy as `ASGITransport` itself — build the `scope` dict
+  (`"type": "websocket"`, plus `path`/`query_string`/`headers`/etc.), and
+  supply `receive`/`send` as plain `async def` closures backed by two
+  `asyncio.Queue`s (`to_app` fed by the grading script, `from_app` read
+  from it), then `asyncio.ensure_future(app(scope, receive, send))` and
+  drive the conversation by `put`-ing ASGI websocket events
+  (`websocket.connect`, `websocket.receive` with a `text` key,
+  `websocket.disconnect`) and awaiting whatever the app `put`s back
+  (`websocket.accept`, `websocket.send`, `websocket.close` with a `code`).
+  Confirmed end-to-end in a real Pyodide instance (pinned versions,
+  §4.1's opener) before shipping: a correct submission accepts a valid
+  token, echoes a message, and resolves cleanly on a simulated disconnect
+  event; three separate wrong submissions (no token check at all; token
+  check present but no `except WebSocketDisconnect` around the loop) fail
+  exactly the checks they should and no others — the disconnect case in
+  particular surfaces a real, unhandled `WebSocketDisconnect` propagating
+  out of the driving `asyncio.Task`, not a silent pass. No FastAPI/anyio
+  internals needed patching for this — the ASGI websocket protocol is
+  simple enough to drive directly, and doing so needs nothing beyond
+  `asyncio`, already available with no extra `micropip.install`.
 
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
