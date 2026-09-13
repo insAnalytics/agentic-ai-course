@@ -41,7 +41,7 @@ async def call_llm_api(prompt: str) -> str:
 
 @app.post("/generate")
 async def generate(prompt: str):
-    result = await call_llm_api(prompt)
+    result = await call_llm_api(prompt)   # frees the event loop for other requests while waiting
     return {"result": result}
 ```
 

@@ -45,11 +45,11 @@ def pagination_params(skip: int = Query(default=0, ge=0), limit: int = Query(def
     return {"skip": skip, "limit": limit}
 
 @app.get("/agents")
-def list_agents(pagination: dict = Depends(pagination_params)):
+def list_agents(pagination: dict = Depends(pagination_params)):   # FastAPI calls pagination_params(...) and injects its return value
     return pagination
 
 @app.get("/tools")
-def list_tools(pagination: dict = Depends(pagination_params)):
+def list_tools(pagination: dict = Depends(pagination_params)):   # same dependency function, reused as-is
     return pagination
 ```
 
@@ -129,7 +129,7 @@ def verify_request_id(x_request_id: str = Header(default=None)):
     if x_request_id is None:
         raise HTTPException(status_code=400, detail="X-Request-Id header is required")
 
-@app.get("/agents", dependencies=[Depends(verify_request_id)])
+@app.get("/agents", dependencies=[Depends(verify_request_id)])   # runs for its side effect only -- nothing injected
 def list_agents():
     return {"agents": []}
 ```

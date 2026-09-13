@@ -21,7 +21,7 @@ from fastapi import APIRouter
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
-@router.get("/{agent_id}")
+@router.get("/{agent_id}")   # actually serves GET /agents/{agent_id} once included, via prefix
 def get_agent(agent_id: int):
     return {"agent_id": agent_id}
 ```
@@ -153,10 +153,10 @@ from fastapi import FastAPI
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("starting up: connecting to shared resources...")
+    print("starting up: connecting to shared resources...")   # runs once, at startup
     app.state.llm_client = create_llm_client()
     yield
-    print("shutting down: closing connections...")
+    print("shutting down: closing connections...")   # runs once, at shutdown -- guaranteed, like any context manager
     app.state.llm_client.close()
 
 app = FastAPI(lifespan=lifespan)
@@ -203,7 +203,7 @@ def log_generation(prompt: str):
 @app.post("/generate")
 def generate(prompt: str, background_tasks: BackgroundTasks):
     result = f"response to: {prompt}"
-    background_tasks.add_task(log_generation, prompt)
+    background_tasks.add_task(log_generation, prompt)   # scheduled for after the response is sent, not run now
     return {"result": result}
 ```
 

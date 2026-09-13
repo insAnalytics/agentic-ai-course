@@ -71,7 +71,7 @@ class AgentConfig(BaseModel):
     temperature: float = 0.7
 
 @app.post("/agents")
-def create_agent(config: AgentConfig):
+def create_agent(config: AgentConfig):   # parsed + validated from the JSON body
     return {"created": config.name, "model": config.model}
 ```
 
@@ -100,6 +100,7 @@ all in the same function signature:
 ```python
 @app.put("/agents/{agent_id}")
 def update_agent(agent_id: int, config: AgentConfig, notify: bool = False):
+    # agent_id: path, config: body, notify: query -- inferred from type + path match, not order
     return {"agent_id": agent_id, "updated": config.name, "notify": notify}
 ```
 
@@ -140,8 +141,8 @@ from fastapi import FastAPI, File, UploadFile
 app = FastAPI()
 
 @app.post("/documents")
-async def upload_document(file: UploadFile = File(...)):
-    contents = await file.read()
+async def upload_document(file: UploadFile = File(...)):   # File() marks this as an upload, not a JSON field
+    contents = await file.read()   # reading the bytes is I/O -- needs await
     return {
         "filename": file.filename,
         "content_type": file.content_type,

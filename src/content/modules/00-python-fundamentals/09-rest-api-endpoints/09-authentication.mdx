@@ -32,7 +32,7 @@ API_KEY = "sk-agent-registry-prod-key"
 
 def verify_api_key(x_api_key: str = Header(default=None)):
     if x_api_key != API_KEY:
-        raise HTTPException(status_code=401, detail="invalid or missing API key")
+        raise HTTPException(status_code=401, detail="invalid or missing API key")   # rejects before list_agents ever runs
 
 @app.get("/agents", dependencies=[Depends(verify_api_key)])
 def list_agents():
@@ -91,7 +91,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     return user
 
 @app.get("/agents")
-def list_agents(user: dict = Depends(get_current_user)):
+def list_agents(user: dict = Depends(get_current_user)):   # everything needed to verify travels in the token itself
     return {"agents": [], "requested_by": user["username"]}
 ```
 

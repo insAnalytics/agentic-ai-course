@@ -32,9 +32,10 @@ class StoredAgent(BaseModel):
     model: str
     internal_notes: str
 
-@app.get("/agents/{agent_id}", response_model=AgentConfig)
+@app.get("/agents/{agent_id}", response_model=AgentConfig)   # only AgentConfig's fields reach the client
 def get_agent(agent_id: int):
     return StoredAgent(id=agent_id, name="research_agent", model="claude-sonnet", internal_notes="flagged for review")
+    # id and internal_notes are silently dropped -- response_model, not the return value, decides the shape
 ```
 
 <TerminalGroup
@@ -69,7 +70,7 @@ route decorator sets a different one — `201 Created` is the
 conventional choice for a successful `POST`:
 
 ```python
-@app.post("/agents", response_model=AgentConfig, status_code=201)
+@app.post("/agents", response_model=AgentConfig, status_code=201)   # 201, not the default 200
 def create_agent(config: AgentConfig):
     return config
 ```
@@ -115,7 +116,7 @@ agents_db = {42: {"name": "research_agent", "model": "claude-sonnet"}}
 @app.get("/agents/{agent_id}", response_model=AgentConfig)
 def get_agent(agent_id: int):
     if agent_id not in agents_db:
-        raise HTTPException(status_code=404, detail=f"agent {agent_id} not found")
+        raise HTTPException(status_code=404, detail=f"agent {agent_id} not found")   # short-circuits straight to a 404 response
     return agents_db[agent_id]
 ```
 
@@ -160,7 +161,7 @@ class DuplicateAgentError(AgentError):
         self.name = name
         super().__init__(f"an agent named '{name}' already exists")
 
-@app.exception_handler(AgentError)
+@app.exception_handler(AgentError)   # runs for AgentError AND any subclass, e.g. DuplicateAgentError
 def handle_agent_error(request: Request, exc: AgentError):
     return JSONResponse(status_code=409, content={"detail": str(exc)})
 
