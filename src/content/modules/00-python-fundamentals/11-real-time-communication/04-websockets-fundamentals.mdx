@@ -77,22 +77,12 @@ both `await`-able —
 waiting on the network exactly the way any other I/O this course has
 covered does.
 
-That `await` is actually doing more work here than it looks like — it's
-the specific thing that makes this a WebSocket route instead of an HTTP
-one. A normal route's function runs once, produces a response, and
-returns; once it returns, the connection is done, and there's no code
-left running that could wait for anything further. `await
-websocket.receive_text()` is different: it pauses `websocket_endpoint`
-*in place*, mid-function, without closing the connection — the
-coroutine just sits there, doing nothing, until the client actually
-sends something, then resumes from exactly that line the moment a
-message shows up. Loop that single pause-and-resume inside `while
-True:`, and the same running function keeps waiting, reacting, and
-waiting again, for as long as the connection stays open — the server
-sitting and listening on one open channel, rather than answering one
-request and walking away. Take the `await` out and there'd be nothing
-for the loop to actually wait *on*; it's precisely what turns "an open
-connection" into "a connection something is actively listening to."
+That `await` is what actually makes this a WebSocket route rather than
+an HTTP one: it pauses `websocket_endpoint` in place — connection still
+open — until the client sends something, then resumes right there. A
+normal route has no equivalent; it returns once and the connection
+ends with it. Looped, that pause-and-resume is the server listening on
+one open channel instead of answering once and leaving.
 
 </Subsection>
 
