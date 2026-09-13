@@ -517,6 +517,37 @@ in `src/lib/fastapiPyodide.ts`:
   internals needed patching for this — the ASGI websocket protocol is
   simple enough to drive directly, and doing so needs nothing beyond
   `asyncio`, already available with no extra `micropip.install`.
+- **gRPC's own real transport is unrunnable in Pyodide at all** (Lesson
+  0.11 Concept 7's server-streaming exercise, plain `<GradedExercise />`
+  — no FastAPI stack, no new harness code needed). Confirmed directly
+  before writing this exercise: `micropip.install("grpcio")` fails
+  outright — `ValueError: Can't find a pure Python 3 wheel for
+  'grpcio'` — because the real `grpc` package's transport is a compiled
+  C extension with no pure-Python build at all, unlike every other
+  native-looking dependency this course has hit so far (`pydantic-core`,
+  `h11`, etc., all of which do ship a wasm/pyodide wheel). `protobuf`
+  itself installs fine (a real wasm wheel exists), but that's beside the
+  point once `grpc.server`/`grpc.insecure_channel` themselves are
+  unavailable — there's no real socket, no real server, nothing to
+  connect a real stub to. The fix: skip real gRPC transport entirely and
+  grade the learner's `TaskServiceServicer`/`collect_statuses` directly,
+  through a few-line fake stub whose `StreamTaskStatus(request)` just
+  calls the learner's own servicer method in-process
+  (`self._servicer.StreamTaskStatus(request, None)`) — the same
+  no-real-transport philosophy as `ASGITransport` and the hand-driven
+  ASGI websocket scope above, just one level further out (no ASGI
+  protocol to speak at all here, since there's no ASGI-equivalent
+  interface for gRPC to drive). The exercise's `TaskRequest`/`TaskStatus`
+  "message" classes are plain Python classes with a matching
+  constructor/attributes, not real protobuf-generated ones — genuinely
+  irrelevant here, since nothing in this exercise depends on real
+  wire encoding, only on the servicer being a real generator and the
+  client function really iterating it. Confirmed directly, not assumed:
+  a correct submission passes; a submission that returns `None` instead
+  of being a generator fails with a real `TypeError` (not iterable); a
+  submission that yields only two of the three expected events fails via
+  a real, ordinary `assert` mismatch — no special-casing needed for
+  either failure mode.
 
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 

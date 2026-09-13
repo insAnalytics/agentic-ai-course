@@ -83,11 +83,17 @@
     schemas, `protoc`-generated `Servicer`/`Stub` classes, implementing
     a server and client; demo + quiz only, no sandbox exercise —
     gRPC's own server/client processes aren't a fit for in-browser
-    grading). Still to come per the mockup's own forward references:
-    gRPC streaming modes (Concept 7), then (per the lesson's own stated
-    arc) testing all three protocols and a broadcast pattern for many
-    connected clients, plus the intro/comprehensive-quiz/
-    comprehensive-sandbox bookends. No `00-intro.mdx` or
+    grading), Concept 7 (gRPC streaming modes — server-streaming,
+    client-streaming, bidirectional streaming — with a graded
+    server-streaming exercise; real `grpcio` can't even install in
+    Pyodide, no pure-Python wheel exists, so grading calls the
+    learner's servicer directly through a fake stub instead of real
+    transport — see architecture.md §4.1). Still to come per the
+    mockup's own forward references: testing streaming/WebSocket/gRPC
+    endpoints (Concept 8), then (per the lesson's own stated arc) a
+    broadcast pattern for many connected clients, plus the
+    intro/comprehensive-quiz/comprehensive-sandbox bookends. No
+    `00-intro.mdx` or
     `NN-recap-practice.mdx` yet — added last, once all concepts exist
     (see architecture.md §3 and CLAUDE.md's authoring workflow note).
 
