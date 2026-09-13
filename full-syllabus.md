@@ -73,10 +73,13 @@
     streaming once Module 1 exists. Drafted so far: Concept 1 (protocol
     landscape: polling/SSE/WebSockets/gRPC), Concept 2 (choosing the
     right protocol), Concept 3 (implementing SSE with `StreamingResponse`,
-    with a graded exercise). Still to come per the mockup's own forward
-    references: WebSockets fundamentals, then (per the lesson's own
-    stated arc) testing all three protocols and a broadcast pattern for
-    many connected clients, plus the intro/comprehensive-quiz/
+    with a graded exercise), Concept 4 (WebSockets fundamentals —
+    `@app.websocket`, the message loop, `receive_json`/`send_json`; demo
+    + quiz only, no sandbox exercise in this concept). Still to come per
+    the mockup's own forward references: the WebSocket lifecycle,
+    disconnects, and authenticating a connection (Concept 5), then (per
+    the lesson's own stated arc) testing all three protocols and a
+    broadcast pattern for many connected clients, plus the intro/comprehensive-quiz/
     comprehensive-sandbox bookends. No `00-intro.mdx` or
     `NN-recap-practice.mdx` yet — added last, once all concepts exist
     (see architecture.md §3 and CLAUDE.md's authoring workflow note).
