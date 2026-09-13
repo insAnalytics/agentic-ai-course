@@ -1,0 +1,52 @@
+---
+title: "Recap & Practice"
+lesson: "01-what-is-an-agent"
+order: 2
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question:
+        "A tool function returns nothing (its return value is None). What happens if the agent reads its result?",
+      options: [
+        "The agent raises an error and stops",
+        "The agent reads back `None` as the tool's result",
+        "The tool call is skipped entirely",
+        "Python raises a SyntaxError",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Nothing special happens — `None` is a perfectly valid return value, and the agent just reads it back like any other result. It's tempting to assume a missing return value is an error condition, but Python (and the agent loop) treats it as ordinary data.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task="Write a function `describe_tool(name, result)` that returns the string `f'{name} returned {result}'`."
+  starterCode={`def describe_tool(name, result):
+    ...`}
+  hiddenTests={[
+    "assert describe_tool('add', 5) == 'add returned 5'",
+    "assert describe_tool('calculator', '4') == 'calculator returned 4'",
+  ]}
+  hint="Use an f-string to combine `name` and `result` into the required format."
+  correctAnswer={{
+    code: `def describe_tool(name, result):
+    return f'{name} returned {result}'`,
+    explanation: "This combines [the earlier idea](/01-agent-foundations/01-what-is-an-agent/01-a-tool-is-just-a-function/) (a tool has a name and a return value) into a single formatted string, the same pattern an agent loop uses to log tool calls.",
+  }}
+/>
+
+</CheckpointZone>

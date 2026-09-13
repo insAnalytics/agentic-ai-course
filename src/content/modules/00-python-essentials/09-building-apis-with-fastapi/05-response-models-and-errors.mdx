@@ -1,0 +1,424 @@
+---
+title: "Response models, status codes, and exception handling"
+lesson: "09-building-apis-with-fastapi"
+order: 5
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import TerminalGroup from "../../../../components/lesson/TerminalGroup";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import FastAPIGradedExercise from "../../../../components/lesson/FastAPIGradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="response_model — controlling what actually goes out" variant="a">
+
+Just as a `BaseModel` parameter validates what comes *in*, a route's
+`response_model` controls and validates what goes *out* — and,
+notably, strips anything not declared on that model, even if the
+function actually returns more:
+
+```python
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+app = FastAPI()
+
+class AgentConfig(BaseModel):
+    name: str
+    model: str
+
+class StoredAgent(BaseModel):
+    id: int
+    name: str
+    model: str
+    internal_notes: str
+
+@app.get("/agents/{agent_id}", response_model=AgentConfig)   # only AgentConfig's fields reach the client
+def get_agent(agent_id: int):
+    return StoredAgent(id=agent_id, name="research_agent", model="claude-sonnet", internal_notes="flagged for review")
+    # id and internal_notes are silently dropped -- response_model, not the return value, decides the shape
+```
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "internal_notes never leaves the server",
+      steps: [
+        { command: "curl http://127.0.0.1:8000/agents/42" },
+        { output: '{"name": "research_agent", "model": "claude-sonnet"}' },
+      ],
+    },
+  ]}
+/>
+
+Even though `get_agent` actually returns a `StoredAgent` — including
+`id` and `internal_notes` — the response sent to the client only
+contains `AgentConfig`'s fields. `id` and `internal_notes` are silently
+dropped, not because the function didn't have them, but because
+`response_model` defines the actual public contract. This matters for
+exactly the reason it sounds like it would: keeping something like
+`internal_notes` out of the response entirely, by declaring the
+response shape explicitly, rather than trusting every route to
+remember not to leak it.
+
+</Subsection>
+
+<Subsection title="status_code — the response isn't always 200" variant="b">
+
+By default, a successful response is `200 OK`. `status_code` on the
+route decorator sets a different one — `201 Created` is the
+conventional choice for a successful `POST`:
+
+```python
+@app.post("/agents", response_model=AgentConfig, status_code=201)   # 201, not the default 200
+def create_agent(config: AgentConfig):
+    return config
+```
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "201, not 200",
+      steps: [
+        {
+          command:
+            'curl -i -X POST http://127.0.0.1:8000/agents -H "Content-Type: application/json" -d \'{"name": "research_agent", "model": "claude-sonnet"}\'',
+        },
+        { output: "HTTP/1.1 201 Created" },
+        { output: "content-type: application/json" },
+        { output: "" },
+        { output: '{"name": "research_agent", "model": "claude-sonnet"}' },
+      ],
+    },
+  ]}
+/>
+
+`-i` on `curl` prints the response's status line along with its body —
+`201 Created`, not the default `200`, exactly as `status_code=201`
+declared.
+
+</Subsection>
+
+<Subsection title="HTTPException — the HTTP-flavored version of a custom exception" variant="a">
+
+[Custom exceptions from the I/O lesson](/00-python-essentials/06-files-errors-and-validation/04-custom-exceptions/)
+communicated a specific failure by type. `HTTPException` is FastAPI's
+version of the same idea, specifically shaped for HTTP — it carries a
+status code and a detail message, and raising it anywhere inside a
+route short-circuits straight to an error response:
+
+```python
+from fastapi import HTTPException
+
+agents_db = {42: {"name": "research_agent", "model": "claude-sonnet"}}
+
+@app.get("/agents/{agent_id}", response_model=AgentConfig)
+def get_agent(agent_id: int):
+    if agent_id not in agents_db:
+        raise HTTPException(status_code=404, detail=f"agent {agent_id} not found")   # short-circuits straight to a 404 response
+    return agents_db[agent_id]
+```
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "A missing agent",
+      steps: [
+        { command: "curl -i http://127.0.0.1:8000/agents/999" },
+        { output: "HTTP/1.1 404 Not Found" },
+        { output: '{"detail": "agent 999 not found"}' },
+      ],
+    },
+  ]}
+/>
+
+`raise HTTPException(...)` works exactly like
+[any other raise you've written](/00-python-essentials/06-files-errors-and-validation/05-reraising-and-chaining/),
+it just happens to be an exception type FastAPI specifically knows how
+to turn into a proper HTTP error response.
+
+</Subsection>
+
+<Subsection title="Global exception handlers — closing the loop on custom exceptions" variant="b">
+
+`HTTPException` is fine per-route, but
+[a custom exception hierarchy, like AgentError/ConfigError from the I/O lesson](/00-python-essentials/06-files-errors-and-validation/04-custom-exceptions/#building-a-small-hierarchy),
+can be handled *globally*, once, rather than wrapped in a
+`try`/`except`/`HTTPException` in every single route that might raise
+it:
+
+```python
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+class AgentError(Exception):
+    pass
+
+class DuplicateAgentError(AgentError):
+    def __init__(self, name: str):
+        self.name = name
+        super().__init__(f"an agent named '{name}' already exists")
+
+@app.exception_handler(AgentError)   # runs for AgentError AND any subclass, e.g. DuplicateAgentError
+def handle_agent_error(request: Request, exc: AgentError):
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+@app.post("/agents", response_model=AgentConfig, status_code=201)
+def create_agent(config: AgentConfig):
+    if config.name in existing_names:
+        raise DuplicateAgentError(config.name)
+    return config
+```
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "First agent, then a duplicate",
+      steps: [
+        {
+          command:
+            'curl -i -X POST http://127.0.0.1:8000/agents -H "Content-Type: application/json" -d \'{"name": "research_agent", "model": "claude-sonnet"}\'',
+        },
+        { output: "HTTP/1.1 201 Created" },
+        { output: '{"name": "research_agent", "model": "claude-sonnet"}' },
+        {
+          command:
+            'curl -i -X POST http://127.0.0.1:8000/agents -H "Content-Type: application/json" -d \'{"name": "research_agent", "model": "claude-haiku"}\'',
+        },
+        { output: "HTTP/1.1 409 Conflict" },
+        { output: '{"detail": "an agent named \'research_agent\' already exists"}' },
+      ],
+    },
+  ]}
+/>
+
+The second call never touches `try`/`except` inside `create_agent` at
+all — `handle_agent_error` intercepts the raised `DuplicateAgentError`
+before it becomes an unhandled error, and turns it into that `409`
+automatically.
+
+`@app.exception_handler(AgentError)` registers `handle_agent_error` to
+run whenever *any* `AgentError` — including any subclass, like
+`DuplicateAgentError`,
+[the same isinstance-based catching from the OOP and I/O lessons](/00-python-essentials/06-files-errors-and-validation/04-custom-exceptions/#building-a-small-hierarchy)
+— is raised anywhere in the app, converting it into a proper `409
+Conflict` response, without `create_agent` (or any other route) needing
+its own `try`/`except` for this case at all.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does response_model=AgentConfig actually do to a route function's return value?",
+      options: [
+        "Nothing — it's purely for documentation purposes",
+        "It validates and filters the outgoing response against that model, stripping any fields not declared on it, even if the function returned more",
+        "It converts the response into plain text instead of JSON",
+        "It requires the function to return exactly an AgentConfig instance, nothing else",
+      ],
+      correctIndex: 1,
+      explanation:
+        "response_model shapes the actual outgoing response — fields not declared on it are dropped regardless of what the function itself returned, which is what makes it a real public contract rather than just documentation.",
+    },
+    {
+      question: "Why might a route intentionally return a fuller object (like StoredAgent, with internal_notes) than its declared response_model (AgentConfig)?",
+      options: [
+        "This is always a mistake and should be avoided",
+        "response_model defines the actual public contract — fields not on it are dropped automatically, which is a deliberate way to keep something like internal data out of the response",
+        "FastAPI requires the return value to always match response_model exactly",
+        "There's no reason — the two must always be identical types",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Returning a fuller internal object and letting response_model filter it is a deliberate pattern — it keeps sensitive or internal fields out of the response without needing every route to remember to strip them manually.",
+    },
+    {
+      question: "What does status_code=201 on @app.post(...) change?",
+      options: [
+        "It makes the request take longer to process",
+        "It sets the HTTP status code returned on success to 201 instead of the default 200 — the conventional choice for a successful creation",
+        "It only affects error responses, not successful ones",
+        "It's required for POST routes to work at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "status_code only changes what's returned on the success path — 201 is purely a convention signaling that a new resource was created, not a functional requirement.",
+    },
+    {
+      question: "How does raising HTTPException(status_code=404, detail=\"...\") inside a route behave?",
+      options: [
+        "It crashes the server with an unhandled error",
+        "It works like any other raise, short-circuiting to an error response — FastAPI specifically knows how to turn HTTPException into a proper HTTP response with that status code and detail",
+        "It's silently ignored unless wrapped in try/except",
+        "It only works for GET requests",
+      ],
+      correctIndex: 1,
+      explanation:
+        "HTTPException is just an exception FastAPI has special handling for — raising it behaves like any other raise, except FastAPI's own handling converts it into a structured HTTP error response instead of an unhandled crash.",
+    },
+    {
+      question: "What's the practical benefit of @app.exception_handler(AgentError) over wrapping every route that might raise it in its own try/except/HTTPException?",
+      options: [
+        "There's no real benefit — both approaches are equivalent",
+        "One handler, registered once, catches AgentError (and any subclass) anywhere in the app, rather than needing that same error-handling logic repeated in every route",
+        "Global handlers only work for built-in exceptions, not custom ones",
+        "@app.exception_handler replaces the need for response_model entirely",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A global handler centralizes the conversion from a custom exception to an HTTP response in one place, so every route that might raise that exception benefits without repeating the same try/except/HTTPException logic.",
+    },
+    {
+      question: "Does @app.exception_handler(AgentError) also catch a raised DuplicateAgentError, given DuplicateAgentError(AgentError)?",
+      options: [
+        "No — only the exact type AgentError is caught, never a subclass",
+        "Yes — the same isinstance-based inheritance matching from earlier in this course applies here too",
+        "Only if DuplicateAgentError is registered with its own separate handler",
+        "This raises an error, since a handler can only be registered for one exact type",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A DuplicateAgentError is an AgentError by inheritance, the same is-a relationship covered for exception hierarchies earlier in the course — the handler registered for the base class catches the subclass too.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<FastAPIGradedExercise
+  client:load
+  task={`Build a small in-memory agent registry with two endpoints. POST /agents takes an AgentConfig body (name: str, model: str) and returns a 201 with response_model=AgentConfig — if an agent with that name already exists, raise a custom DuplicateAgentError (registered with a global exception handler returning 409 and {"detail": "an agent named '<name>' already exists"}), rather than handling it with HTTPException directly in the route. GET /agents/{agent_id}, where agent_id: int = Path(gt=0), returns the matching agent with response_model=AgentConfig — if no agent with that id exists, raise HTTPException(status_code=404, detail=f"agent {agent_id} not found"). Both routes must be async def.`}
+  starterCode={`from fastapi import FastAPI, HTTPException, Path, Request
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+
+app = FastAPI()
+
+class AgentConfig(BaseModel):
+    name: str
+    model: str
+
+class DuplicateAgentError(Exception):
+    def __init__(self, name: str):
+        self.name = name
+        super().__init__(f"an agent named '{name}' already exists")
+
+# TODO: register a global exception handler for DuplicateAgentError
+# returning a 409 JSONResponse with {"detail": str(exc)}
+
+agents_db = {}
+next_id = 1
+
+# TODO: POST /agents -- AgentConfig body, response_model=AgentConfig,
+# status_code=201. Raise DuplicateAgentError if the name is already used.
+@app.post("/agents", response_model=AgentConfig, status_code=201)
+async def create_agent(config: AgentConfig):
+    pass
+
+# TODO: GET /agents/{agent_id} -- agent_id: int = Path(gt=0),
+# response_model=AgentConfig. Raise HTTPException(404, ...) if missing.
+@app.get("/agents/{agent_id}", response_model=AgentConfig)
+async def get_agent(agent_id: int = Path(gt=0)):
+    pass`}
+  checkLabels={{
+    createReturns201: "POST /agents returns 201 for a new agent",
+    createReturnsCorrectBody: "The created agent's response body matches the submitted config",
+    duplicateReturns409: "Posting a duplicate name returns 409",
+    duplicateDetailMentionsAlreadyExists: "The duplicate error message mentions the agent already exists",
+    missingAgentReturns404: "GET /agents/999 (nonexistent) returns 404",
+    negativeIdRejectedWith422: "GET /agents/-1 is rejected with 422 before the route runs",
+    validFetchReturns200WithName: "GET /agents/1 returns 200 with the correct name",
+  }}
+  gradingScript={`import httpx
+
+_checks = {}
+_transport = httpx.ASGITransport(app=app)
+async with httpx.AsyncClient(transport=_transport, base_url="http://test") as client:
+    try:
+        r1 = await client.post("/agents", json={"name": "research_agent", "model": "claude-sonnet"})
+        _checks["createReturns201"] = r1.status_code == 201
+        _checks["createReturnsCorrectBody"] = r1.status_code == 201 and r1.json() == {"name": "research_agent", "model": "claude-sonnet"}
+    except Exception:
+        _checks["createReturns201"] = False
+        _checks["createReturnsCorrectBody"] = False
+
+    try:
+        r2 = await client.post("/agents", json={"name": "research_agent", "model": "claude-haiku"})
+        _checks["duplicateReturns409"] = r2.status_code == 409
+        _checks["duplicateDetailMentionsAlreadyExists"] = r2.status_code == 409 and "already exists" in r2.json().get("detail", "")
+    except Exception:
+        _checks["duplicateReturns409"] = False
+        _checks["duplicateDetailMentionsAlreadyExists"] = False
+
+    try:
+        r3 = await client.get("/agents/999")
+        _checks["missingAgentReturns404"] = r3.status_code == 404
+    except Exception:
+        _checks["missingAgentReturns404"] = False
+
+    try:
+        r4 = await client.get("/agents/-1")
+        _checks["negativeIdRejectedWith422"] = r4.status_code == 422
+    except Exception:
+        _checks["negativeIdRejectedWith422"] = False
+
+    try:
+        r5 = await client.get("/agents/1")
+        _checks["validFetchReturns200WithName"] = r5.status_code == 200 and r5.json().get("name") == "research_agent"
+    except Exception:
+        _checks["validFetchReturns200WithName"] = False
+
+__result = {"passed": all(_checks.values()), "checks": _checks}`}
+  hint={`Store created agents in a plain dict keyed by an auto-incrementing id. Register the DuplicateAgentError handler with @app.exception_handler(DuplicateAgentError) before defining the routes that might raise it, and declare it async def too. Path(gt=0) on agent_id handles the negative-id case automatically -- no manual check needed for that part.`}
+  correctAnswer={{
+    code: `from fastapi import FastAPI, HTTPException, Path, Request
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+
+app = FastAPI()
+
+class AgentConfig(BaseModel):
+    name: str
+    model: str
+
+class DuplicateAgentError(Exception):
+    def __init__(self, name: str):
+        self.name = name
+        super().__init__(f"an agent named '{name}' already exists")
+
+@app.exception_handler(DuplicateAgentError)
+async def handle_duplicate(request: Request, exc: DuplicateAgentError):
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+agents_db = {}
+next_id = 1
+
+@app.post("/agents", response_model=AgentConfig, status_code=201)
+async def create_agent(config: AgentConfig):
+    global next_id
+    if any(a["name"] == config.name for a in agents_db.values()):
+        raise DuplicateAgentError(config.name)
+    agents_db[next_id] = config.model_dump()
+    next_id += 1
+    return config
+
+@app.get("/agents/{agent_id}", response_model=AgentConfig)
+async def get_agent(agent_id: int = Path(gt=0)):
+    if agent_id not in agents_db:
+        raise HTTPException(status_code=404, detail=f"agent {agent_id} not found")
+    return agents_db[agent_id]`,
+    explanation:
+      "This composes everything from this lesson so far: Path(gt=0) rejects an invalid id before get_agent even runs, response_model shapes both endpoints' output consistently, HTTPException handles the route-specific \"not found\" case, and the global DuplicateAgentError handler shows the alternative -- a reusable, app-wide way to turn a custom exception into a proper structured response, exactly the payoff [the custom exception hierarchy concept from the I/O lesson](/00-python-essentials/06-files-errors-and-validation/04-custom-exceptions/#building-a-small-hierarchy) was building toward. Both routes are declared async def -- required for this exercise to actually run and grade here in the browser, since a real FastAPI app under real threading limits (no real OS threads available) needs its route handlers awaited directly rather than dispatched to a worker thread.",
+  }}
+/>
+
+</CheckpointZone>

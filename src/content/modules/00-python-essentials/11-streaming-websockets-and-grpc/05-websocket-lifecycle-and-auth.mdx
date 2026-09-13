@@ -1,0 +1,291 @@
+---
+title: "The WebSocket lifecycle, disconnects, and authenticating a connection"
+lesson: "11-streaming-websockets-and-grpc"
+order: 5
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import TerminalGroup from "../../../../components/lesson/TerminalGroup";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import FastAPIGradedExercise from "../../../../components/lesson/FastAPIGradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Handling disconnects: WebSocketDisconnect" variant="a">
+
+A client can disconnect at any moment — closing a browser tab, losing
+network — and the next `await websocket.receive_text()` (or
+`receive_json()`) after that raises `WebSocketDisconnect`. Left
+unhandled, this produces the same kind of noisy, unhandled traceback
+[covered all the way back in the Python setup lesson](/00-python-essentials/01-python-basics/03-error-handling/#seeing-the-crash-first)
+— the fix is the same tool from that lesson, applied here:
+
+```python
+from fastapi import WebSocket, WebSocketDisconnect
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        while True:
+            message = await websocket.receive_text()
+            await websocket.send_text(f"echo: {message}")
+    except WebSocketDisconnect:   # raised the next time receive_text() runs after the client is gone
+        print("client disconnected")
+```
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "websocat ws://127.0.0.1:8000/ws",
+      steps: [
+        { command: "websocat ws://127.0.0.1:8000/ws" },
+        { output: "(connected)", delayMs: 400 },
+        { command: "hello", delayMs: 500 },
+        { output: "echo: hello", delayMs: 400 },
+        { output: "^C", delayMs: 800 },
+        { output: "(connection closed)", delayMs: 300 },
+        { output: "", delayMs: 200 },
+        { output: '(server log, printed the instant receive_text() raised: "client disconnected")', delayMs: 400 },
+      ],
+    },
+  ]}
+/>
+
+Wrapping the message loop in `try`/`except WebSocketDisconnect` catches
+a disconnect cleanly, giving you a specific place to run cleanup logic
+— [the same shape as `finally` guaranteeing cleanup regardless of how a block ends](/00-python-essentials/01-python-basics/03-error-handling/#finally-runs-no-matter-what),
+just handling one particular, expected kind of "ending" (the client
+leaving) rather than an arbitrary error.
+
+</Subsection>
+
+<Subsection title="Authenticating a WebSocket connection" variant="b">
+
+[Header-based auth from the FastAPI lesson](/00-python-essentials/09-building-apis-with-fastapi/09-authentication/#api-key-auth-with-depends)
+doesn't carry over cleanly here — a browser's WebSocket API can't
+easily set custom headers the way a normal HTTP request can. The
+common fix: pass a token as a **query parameter** in the connection
+URL instead, validated before (or immediately after) accepting the
+connection:
+
+```python
+from fastapi import WebSocket, WebSocketDisconnect, status
+
+VALID_TOKEN = "secret-key-123"
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket, token: str = None):
+    if token != VALID_TOKEN:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)   # rejected at the handshake, before accept()
+        return
+    await websocket.accept()
+    try:
+        while True:
+            message = await websocket.receive_text()
+            await websocket.send_text(f"echo: {message}")
+    except WebSocketDisconnect:
+        print("client disconnected")
+```
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "websocat -- wrong token vs. the right one",
+      steps: [
+        { command: 'websocat "ws://127.0.0.1:8000/ws?token=wrong"' },
+        { output: "(connection closed: code 1008, policy violation)", delayMs: 500 },
+        { command: 'websocat "ws://127.0.0.1:8000/ws?token=secret-key-123"', delayMs: 600 },
+        { output: "(connected)", delayMs: 400 },
+        { command: "hello", delayMs: 500 },
+        { output: "echo: hello", delayMs: 400 },
+      ],
+    },
+  ]}
+/>
+
+A client connects to `ws://localhost:8000/ws?token=secret-key-123` —
+`token` arrives as a query parameter
+[exactly like any other query parameter from the FastAPI lesson](/00-python-essentials/09-building-apis-with-fastapi/03-routes-and-parameters/#query-parameters-everything-else-in-the-function-signature),
+just on a WebSocket route instead of a regular one. An invalid token
+closes the connection immediately, with a specific WebSocket close
+code (`1008`, "policy violation" — WebSockets have their own
+status-code system, separate from HTTP's), *before* `accept()` ever
+runs — the connection is rejected at the handshake, not accepted and
+then abandoned.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What raises WebSocketDisconnect, and when?",
+      options: [
+        "It's raised manually by the developer whenever they want to end a connection",
+        "It's raised automatically the next time the server tries to receive a message after the client has actually disconnected",
+        "It's raised immediately when accept() is called",
+        "It only occurs if send_text() is called incorrectly",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The server doesn't know a client is gone until it next tries to read from the connection -- that's when receive_text()/receive_json() raises WebSocketDisconnect, not at the moment the client actually left.",
+    },
+    {
+      question: "Why wrap a WebSocket's message loop in try/except WebSocketDisconnect?",
+      options: [
+        "It's optional and has no real effect either way",
+        "Without it, a client disconnecting produces an unhandled exception and a noisy traceback; catching it gives a clean, specific place to run cleanup logic",
+        "It prevents the client from ever disconnecting",
+        "It's required syntax for every async def function",
+      ],
+      correctIndex: 1,
+      explanation:
+        "This is the same try/except mechanism from the Python setup lesson, applied to one particular, expected exception -- catching it turns a disconnect into a clean, handled event instead of a crash.",
+    },
+    {
+      question: "Why doesn't the header-based API key pattern from the FastAPI lesson carry over directly to WebSocket authentication?",
+      options: [
+        "WebSockets don't support authentication at all",
+        "A browser's WebSocket API can't easily set custom headers on the connection request the way a normal HTTP request can, so a token is typically passed as a query parameter instead",
+        "Headers are only supported over gRPC, never WebSockets",
+        "WebSocket connections are always considered pre-authenticated",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The limitation is on the client side, not FastAPI's -- a browser's WebSocket constructor has no option to attach custom headers, so the token has to travel somewhere else reachable from the connection URL itself: the query string.",
+    },
+    {
+      question: "In the token-validation example, why does an invalid token close the connection before accept() is called, rather than after?",
+      options: [
+        "There's no meaningful difference between the two orderings",
+        "Rejecting at the handshake means the connection is never actually accepted in the first place, rather than being accepted and then immediately abandoned",
+        "accept() must always be called first, regardless of validation",
+        "Closing before accept() is technically impossible",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Checking the token before accept() rejects the connection at the handshake itself -- the client sees a clean close with a specific code, rather than briefly being accepted and then dropped.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<FastAPIGradedExercise
+  client:load
+  task={`Implement @app.websocket("/ws") accepting a token: str = None query parameter. If token != "secret-key-123", close the connection with status.WS_1008_POLICY_VIOLATION before accepting it. Otherwise, accept the connection and run a loop echoing back f"echo: {message}" for each received text message, wrapped in try/except WebSocketDisconnect that prints "client disconnected".`}
+  starterCode={`from fastapi import FastAPI, WebSocket, WebSocketDisconnect, status
+
+app = FastAPI()
+
+VALID_TOKEN = "secret-key-123"
+
+# TODO: reject the connection (close with status.WS_1008_POLICY_VIOLATION,
+# then return) before accept() if token doesn't match VALID_TOKEN.
+# Otherwise accept() the connection and run a while True: echo loop,
+# wrapped in try/except WebSocketDisconnect printing "client disconnected".
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket, token: str = None):
+    pass`}
+  checkLabels={{
+    acceptedWithValidToken: "A connection with the correct token is accepted",
+    echoedMessage: 'A sent text message is echoed back as "echo: <message>"',
+    handledDisconnectCleanly: "The endpoint handles a client disconnect without raising",
+    rejectedBadToken: "A connection with the wrong token is closed with code 1008",
+    rejectedMissingToken: "A connection with no token at all is closed with code 1008",
+  }}
+  gradingScript={`import asyncio
+
+async def drive_websocket(app, query_string=b""):
+    scope = {
+        "type": "websocket",
+        "asgi": {"version": "3.0", "spec_version": "2.3"},
+        "path": "/ws",
+        "raw_path": b"/ws",
+        "root_path": "",
+        "scheme": "ws",
+        "query_string": query_string,
+        "headers": [],
+        "client": ("testclient", 123),
+        "server": ("testserver", 80),
+        "subprotocols": [],
+    }
+    to_app = asyncio.Queue()
+    from_app = asyncio.Queue()
+
+    async def receive():
+        return await to_app.get()
+
+    async def send(message):
+        await from_app.put(message)
+
+    to_app.put_nowait({"type": "websocket.connect"})
+    task = asyncio.ensure_future(app(scope, receive, send))
+    first = await asyncio.wait_for(from_app.get(), timeout=2)
+    return task, to_app, from_app, first
+
+_checks = {}
+try:
+    task1, to_app1, from_app1, first1 = await drive_websocket(app, query_string=b"token=secret-key-123")
+    _checks["acceptedWithValidToken"] = first1.get("type") == "websocket.accept"
+
+    to_app1.put_nowait({"type": "websocket.receive", "text": "hello"})
+    echoed = await asyncio.wait_for(from_app1.get(), timeout=2)
+    _checks["echoedMessage"] = echoed.get("text") == "echo: hello"
+
+    to_app1.put_nowait({"type": "websocket.disconnect", "code": 1000})
+    try:
+        await asyncio.wait_for(task1, timeout=2)
+        _checks["handledDisconnectCleanly"] = True
+    except Exception:
+        _checks["handledDisconnectCleanly"] = False
+
+    task2, to_app2, from_app2, first2 = await drive_websocket(app, query_string=b"token=wrong")
+    _checks["rejectedBadToken"] = first2.get("type") == "websocket.close" and first2.get("code") == 1008
+    try:
+        await asyncio.wait_for(task2, timeout=2)
+    except Exception:
+        pass
+
+    task3, to_app3, from_app3, first3 = await drive_websocket(app, query_string=b"")
+    _checks["rejectedMissingToken"] = first3.get("type") == "websocket.close" and first3.get("code") == 1008
+    try:
+        await asyncio.wait_for(task3, timeout=2)
+    except Exception:
+        pass
+except Exception:
+    for key in ["acceptedWithValidToken", "echoedMessage", "handledDisconnectCleanly", "rejectedBadToken", "rejectedMissingToken"]:
+        _checks.setdefault(key, False)
+
+__result = {"passed": all(_checks.values()), "checks": _checks}`}
+  hint={`The structure is exactly the two examples in this concept, combined: check token != "secret-key-123" and close(code=status.WS_1008_POLICY_VIOLATION) followed by return -- before accept() -- then accept(), then the same try/while True/except WebSocketDisconnect message loop as the plain echo example.`}
+  correctAnswer={{
+    code: `from fastapi import FastAPI, WebSocket, WebSocketDisconnect, status
+
+app = FastAPI()
+
+VALID_TOKEN = "secret-key-123"
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket, token: str = None):
+    if token != VALID_TOKEN:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)   # rejected at the handshake, before accept()
+        return
+    await websocket.accept()
+    try:
+        while True:
+            message = await websocket.receive_text()
+            await websocket.send_text(f"echo: {message}")
+    except WebSocketDisconnect:
+        print("client disconnected")`,
+    explanation:
+      "This is the complete, realistic shape of a protected WebSocket endpoint: rejected at the handshake for bad credentials, a normal message loop for valid connections, and a specific, clean handler for the moment the client eventually leaves -- every piece from this concept, composed. Grading drives the real ASGI app directly with its own queued receive/send callables (the same thread-free approach used throughout this course's FastAPI grading, since Starlette's own TestClient needs a real OS thread Pyodide doesn't have) -- a genuine websocket.connect/receive/disconnect event sequence, not a mock.",
+  }}
+/>
+
+</CheckpointZone>

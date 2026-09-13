@@ -1,0 +1,29 @@
+---
+title: "Intro"
+lesson: "06-files-errors-and-validation"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Read and write files safely with with, choosing the right method (.read(), .readline(), direct iteration, .seek()) for a given situation",
+    "Parse and write both JSON and CSV data, and handle the specific ways each format can fail to parse",
+    "Define your own exception hierarchy, and use raise/raise ... from to re-raise or translate a low-level failure into a clearer one without losing the original cause",
+    "Replace print()-based debugging with the logging module — levels, formatted output, file-based logs, and logger.exception() for errors specifically",
+    "Combine all of the above into one realistic pipeline: reading external data, validating it against a Pydantic model, and handling every way that can go wrong as one coherent, well-logged failure",
+  ]}
+/>
+
+<WhyItMatters>
+  An agent's entire relationship with the outside world runs through I/O —
+  reading a config, loading eval data, writing results, calling a tool that
+  might fail. None of that data arrives guaranteed to be well-formed, and
+  none of those operations are guaranteed to succeed. This lesson is about
+  building the habit of treating "the file might not exist," "the data
+  might be malformed," and "something needs to log this before it fails"
+  as the normal case to design for, not an edge case to bolt on afterward —
+  exactly the posture real agent code running against real, messy external
+  data actually needs.
+</WhyItMatters>

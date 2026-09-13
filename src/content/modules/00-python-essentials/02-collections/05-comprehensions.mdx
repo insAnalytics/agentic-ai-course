@@ -1,0 +1,241 @@
+---
+title: "Comprehensions"
+lesson: "02-collections"
+order: 5
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The problem comprehensions solve" variant="a">
+
+You've now written this shape of code several times in this module — build
+an empty collection, loop, and add to it:
+
+<LiveDemo client:load code={`tools = ["calculator", "search", "memory", "planner"]
+
+upper_tools = []
+for tool in tools:
+    upper_tools.append(tool.upper())
+
+print(upper_tools)`} />
+
+This pattern — transform every item in a collection into a new collection —
+is extremely common, common enough that Python has dedicated syntax for it.
+A **list comprehension** does the same thing in one line:
+
+<LiveDemo client:load code={`tools = ["calculator", "search", "memory", "planner"]
+
+upper_tools = [tool.upper() for tool in tools]
+print(upper_tools)`} />
+
+Read it as: "`tool.upper()`, for every `tool` in `tools`." The expression on
+the left is what goes *into* the new list; the `for` on the right is where
+each item comes from. This is genuinely different from anything in Java or
+C++ — the closest analog most people know is JavaScript's `.map()`, but
+comprehensions are built into the language's syntax rather than being a
+method call.
+
+</Subsection>
+
+<Subsection title="Adding a filter" variant="b">
+
+You can also filter which items get included, with an `if` at the end:
+
+<LiveDemo client:load code={`tools = ["calculator", "search", "memory", "planner"]
+
+long_tools = [tool.upper() for tool in tools if len(tool) > 6]
+print(long_tools)`} />
+
+Read it as: "`tool.upper()`, for every `tool` in `tools`, *if*
+`len(tool) > 6`." The loop-and-append equivalent makes clear what's being
+compressed:
+
+<LiveDemo client:load code={`tools = ["calculator", "search", "memory", "planner"]
+
+long_tools = []
+for tool in tools:
+    if len(tool) > 6:
+        long_tools.append(tool.upper())
+
+print(long_tools)`} />
+
+Same result, four lines compressed to one. This filtering `if` is different
+from a ternary-style if/else inside the expression, which is covered next.
+
+</Subsection>
+
+<Subsection title="Conditional expression inside a comprehension" variant="a">
+
+A different use of `if` can sit in the *expression* part instead, to choose
+between two values — this always needs `else` too, unlike the filter
+version above:
+
+<LiveDemo client:load code={`tools = ["calculator", "search", "memory", "planner"]
+
+labels = ["long" if len(tool) > 6 else "short" for tool in tools]
+print(labels)`} />
+
+Every item is kept here (this isn't filtering), just labeled differently.
+The position of `if` is the tell: `if` *before* `for` picks between two
+expressions per item; `if` *after* `for` filters which items are included
+at all.
+
+</Subsection>
+
+<Subsection title="Dict comprehensions" variant="b">
+
+Same idea, building a dict instead of a list — the syntax swaps `[]` for
+`{}` and needs a `key: value` pair:
+
+<LiveDemo client:load code={`tools = ["calculator", "search", "memory", "planner"]
+
+tool_lengths = {tool: len(tool) for tool in tools}
+print(tool_lengths)`} />
+
+This replaces the manual tally-building pattern from Concept 3 in cases
+where you're computing one value per item, rather than accumulating a
+running count. (The tally-counter pattern itself still needs the manual
+loop, since each iteration depends on the *previous* count — a
+comprehension builds each entry independently.)
+
+</Subsection>
+
+<Subsection title="Set comprehensions" variant="a">
+
+Same again, with `{}` but no `:` — just an expression, like a list
+comprehension but deduplicated automatically:
+
+<LiveDemo client:load code={`tools = ["calculator", "search", "memory", "planner"]
+
+tool_first_letters = {tool[0] for tool in tools}
+print(tool_first_letters)`} />
+
+</Subsection>
+
+<Subsection title="When not to use a comprehension" variant="b">
+
+Comprehensions are for *building a new collection from a transformation* —
+not for side effects like printing, and not when the logic is complex
+enough that cramming it into one line hurts readability more than it helps:
+
+```python
+# Fine — simple transformation
+squares = [n ** 2 for n in range(5)]
+
+# Bad practice — comprehension used for a side effect, not to build anything
+[print(tool) for tool in tools]     # works, but the resulting list is thrown away and unused
+
+# Better as a plain loop — nothing is being built into a new collection
+for tool in tools:
+    print(tool)
+```
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does [tool.upper() for tool in tools] produce?",
+      options: [
+        "None",
+        "A new list with .upper() applied to every item in tools",
+        "It modifies tools in place",
+        "A single uppercased string",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A list comprehension builds a brand-new list from the transformation; it doesn't mutate the original.",
+    },
+    {
+      question: "In [x for x in nums if x > 0], what does the if do?",
+      options: [
+        "Chooses between two expressions per item",
+        "Filters — only items where the condition is true are included in the result",
+        "Nothing, it's ignored",
+        "Raises an error if any item fails the condition",
+      ],
+      correctIndex: 1,
+      explanation: "An if after the for clause filters which source items make it into the result at all.",
+    },
+    {
+      question: 'In ["big" if x > 10 else "small" for x in nums], is any item excluded from the result?',
+      options: [
+        "Yes, items where x <= 10 are dropped",
+        'No — every item is kept, just labeled "big" or "small"',
+        "Only even numbers are kept",
+        "This is invalid syntax",
+      ],
+      correctIndex: 1,
+      explanation:
+        "if/else before the for is a conditional expression choosing a value per item, not a filter — every item still appears in the result.",
+    },
+    {
+      question: "What syntax distinguishes a dict comprehension from a set comprehension?",
+      options: [
+        "Dict comprehensions use [], set comprehensions use {}",
+        "Dict comprehensions have a key: value pair; set comprehensions have a single expression, both inside {}",
+        "There's no difference",
+        "Set comprehensions require an if clause",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Both use curly braces, but a dict comprehension needs the key: value pairing to know what to store against each key.",
+    },
+    {
+      question: "Why is [print(tool) for tool in tools] considered poor style, even though it runs?",
+      options: [
+        "It's a syntax error",
+        "It uses a comprehension for a side effect (printing) rather than to build a used collection — the resulting list is thrown away",
+        "print can't be used inside comprehensions",
+        "It only prints the first item",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Comprehensions are meant to build a new collection you actually use — a plain for loop is the right tool when the goal is a side effect like printing, not construction.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task="Use a list comprehension with a filter if to pull out just the names of enabled tools."
+  starterCode={`def available_tool_names(tool_configs):
+    """
+    tool_configs: a list of dicts, each with at least a "name" key and
+    an "enabled" key, e.g. [{"name": "search", "enabled": True}, ...]
+
+    Return a list of the "name" values, but only for entries where
+    "enabled" is True.
+    """
+    # TODO: implement using a single list comprehension
+    pass`}
+  hiddenTests={[
+    `configs = [
+    {"name": "search", "enabled": True},
+    {"name": "calculator", "enabled": False},
+    {"name": "memory", "enabled": True},
+]
+assert available_tool_names(configs) == ["search", "memory"]`,
+    "assert available_tool_names([]) == []",
+    "assert available_tool_names([{'name': 'x', 'enabled': False}]) == []",
+  ]}
+  hint={'The expression is config["name"], the source is for config in tool_configs, and the filter is if config["enabled"] — put them together in that order inside [ ].'}
+  correctAnswer={{
+    code: `def available_tool_names(tool_configs):
+    return [config["name"] for config in tool_configs if config["enabled"]]`,
+    explanation:
+      "This combines dict key access from Concept 3 with the list comprehension filter pattern from this concept — one line replacing what would otherwise be a 4-line loop-and-append.",
+  }}
+/>
+
+</CheckpointZone>

@@ -1,0 +1,31 @@
+---
+title: "Intro"
+lesson: "08-docker-for-python"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Explain why containers solve two separate problems a venv can't — environment consistency, and restricting what running code can actually access — and avoid baking secrets into an image",
+    "Write a Dockerfile using the core instructions plus the three look-alike pairs (COPY/ADD, CMD/ENTRYPOINT, ENV/ARG), along with USER and EXPOSE",
+    "Build and run a container, manage its full lifecycle (ps/logs/exec/stop/rm), and persist data across container restarts with volumes",
+    "Order Dockerfile instructions and write a .dockerignore to keep builds fast and images free of unnecessary or sensitive files",
+    "Read a docker-compose.yml describing more than one related container, and explain how services reach each other by name",
+  ]}
+/>
+
+<WhyItMatters>
+  Once an agent is more than a script on your own machine — something
+  deployed, something that runs someone else's generated code, something
+  with a database behind it — containers are how it actually gets shipped
+  and how its access to the outside world gets deliberately limited. The
+  isolation problem this lesson opened with isn't incidental to agentic
+  work: an agent executing tool calls or running LLM-generated code is
+  exactly the situation where restricting filesystem, network, and
+  credential access matters most, and everything from USER to volumes to
+  docker-compose in this lesson is building toward being able to define
+  that boundary deliberately, not accept whatever a process would
+  otherwise have access to by default.
+</WhyItMatters>

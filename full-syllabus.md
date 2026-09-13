@@ -8,47 +8,47 @@
 
 ---
 
-## Module 0 — Python for AI Applications
+## Module 0 — Python Essentials for Agents
 
 *The only module broken down to full lesson-and-concept detail so far.*
 
-1. **Set Up Python and Write Fundamental Programs** — Locked
+1. **Python Setup & Core Syntax** — Locked
    Environment setup (Python install, VS Code, venv, pip), Python's
    execution model vs. compiled languages, control flow and syntax
    compared to other languages, try/except/finally, reading tracebacks.
 
-2. **Process and Manipulate Data with Python Structures** — Locked
+2. **Working with Collections** — Locked
    Lists, tuples, dicts, sets, and comprehensions (list/dict/set) — given
    real depth as one of Python's strongest tools.
 
-3. **Build Reusable Functions and Modular Code** — Locked
+3. **Functions and Reusable Code** — Locked
    Function fundamentals with type hints and docstrings (load-bearing
    later for tool-calling schemas), `*args`/`**kwargs`, scope (local,
    global, closures, `nonlocal`, the mutable default argument trap),
    `lambda`/`map`/`filter`, modules and imports (multi-file).
 
-4. **Object-Oriented Python** — Locked
+4. **Object-Oriented Programming** — Locked
    Class fundamentals; instance vs. class variables; decorators via
    `@staticmethod`/`@classmethod` (first place decorator syntax is taught
    in the course); dunder methods (`__str__`/`__repr__`/`__eq__`);
    inheritance.
 
-5. **Structured Data Validation with Pydantic** — Locked
+5. **Typed Data Models** — Locked
    Classes vs. dicts (when to use which); `@dataclass`; the validation gap
    (a `@dataclass` still silently accepts bad data); Pydantic fundamentals
    (`BaseModel`, type hints becoming real runtime validation). Narrative
    arc: dict → class → dataclass → still broken → Pydantic.
 
-6. **Perform I/O, Error Handling and Validation** — Locked
+6. **Files, Errors, and Validation** — Locked
    Files, JSON, environment variables/secrets, layered exception handling,
    custom exceptions, re-raising/chaining, logging.
 
-7. **Write Asynchronous and Concurrent Python** — Locked
+7. **Asynchronous Python** — Locked
    `async`/`await`/coroutines, `asyncio.gather`, `time.sleep` vs.
    `asyncio.sleep`, error handling in async code, and when async isn't the
    right tool (CPU-bound work needs multiprocessing instead).
 
-8. **Containerize Applications with Docker** — Locked
+8. **Docker for Python Apps** — Locked
    Why containers (environment consistency *and* a real access-restriction
    boundary); images vs. containers; writing a Dockerfile (core
    instructions plus the `COPY`/`ADD`, `CMD`/`ENTRYPOINT`, `ENV`/`ARG`
@@ -60,15 +60,15 @@
    Postgres app (its own GitHub repo, `agentic-ai-course-agent-registry`)
    rather than an in-browser exercise — see architecture.md §4.3.
 
-9. **Develop and Document REST API Endpoints** — Locked
+9. **Building APIs with FastAPI** — Locked
    FastAPI routes, request/response models, dependency injection,
    auto-generated docs (Swagger). Builds directly on decorators from
    Lesson 4.
 
-10. **Write and Execute Tests for REST Endpoints** — Locked
+10. **Testing FastAPI Applications** — Locked
     pytest basics, testing FastAPI endpoints, fixtures.
 
-11. **Implement Real-Time Communication Across Protocols** — Locked
+11. **Streaming, WebSockets, and gRPC** — Locked
     WebSockets/SSE/gRPC mechanics, generic here — applied specifically
     to LLM streaming once Module 1 exists. Nine concepts (protocol
     landscape/choice, SSE, WebSockets fundamentals + lifecycle/auth,

@@ -1,0 +1,262 @@
+---
+title: "Classes vs. dicts"
+lesson: "05-typed-data-models"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The same data, two different shapes" variant="a">
+
+Every dict you've built so far — an agent config, a tool call, a response
+payload — could just as easily be represented as a class instance instead.
+Same data, two different containers:
+
+<LiveDemo client:load code={`agent_config = {
+    "name": "research_agent",
+    "model": "claude-sonnet",
+    "temperature": 0.7,
+}
+
+print(agent_config["name"])`} />
+
+<LiveDemo client:load code={`class AgentConfig:
+    def __init__(self, name: str, model: str, temperature: float = 0.7):
+        self.name = name
+        self.model = model
+        self.temperature = temperature
+
+agent_config = AgentConfig("research_agent", "claude-sonnet")
+print(agent_config.name)`} />
+
+Both work. Both hold the same three values. The question this section
+answers isn't "which one is correct" — it's which one fits a given
+situation better, and why.
+
+</Subsection>
+
+<Subsection title="Where a dict wins" variant="b">
+
+A dict is the right shape when the set of keys is genuinely dynamic —
+unknown ahead of time, varying between instances, or coming directly from
+somewhere you don't control the shape of (a parsed JSON API response, for
+instance). You've already used this constantly: `**kwargs` collects into a
+dict specifically because the caller's keyword arguments aren't knowable
+in advance.
+
+<LiveDemo client:load code={`def build_request(**kwargs):
+    return kwargs   # arbitrary keys, decided entirely by the caller
+
+print(build_request(query="weather", location="NYC"))
+print(build_request(expression="2+2"))`} />
+
+A dict also wins for genuinely dynamic access — looking up a value by a
+key you only have as a variable, not as a name you'd type into code:
+
+```python
+field_to_check = "temperature"
+print(agent_config.get(field_to_check))
+```
+```
+No such attribute lookup is this convenient on a class — you'd need
+getattr(agent_config, field_to_check) instead, which exists but is
+noticeably less idiomatic for this specific case.
+```
+*(not run live — illustrating the tradeoff, not a working demo)*
+
+</Subsection>
+
+<Subsection title="Where a class wins" variant="a">
+
+A class is the right shape once the fields are known and fixed —
+`AgentConfig` always has exactly `name`, `model`, and `temperature`, never
+some other set. That fixed shape buys you three concrete things a dict
+can't offer:
+
+**Typos become real errors instead of silent bugs.** A wrong dict key just
+returns `None` (or raises `KeyError`, if you're not using `.get()`) with no
+indication of what went wrong; a wrong attribute name is closer to a
+`TypeError` immediately, and — as covered next — a good editor will often
+flag it before you even run the code.
+
+<LiveDemo client:load code={`agent_config_dict = {"name": "research_agent", "model": "claude-sonnet"}
+print(agent_config_dict.get("tempurature"))   # typo — silently returns None
+
+class AgentConfig:
+    def __init__(self, name: str, model: str, temperature: float = 0.7):
+        self.name = name
+        self.model = model
+        self.temperature = temperature
+
+agent_config_obj = AgentConfig("research_agent", "claude-sonnet")
+print(agent_config_obj.tempurature)           # typo — actually fails`} />
+
+The dict version's typo produces `None` — plausible-looking output that's
+actually silently wrong, the kind of bug that surfaces three functions
+later with no clear trail back to its cause. The class version fails
+immediately, at the exact line the mistake was made.
+
+**Autocomplete and inline documentation work.** Because `AgentConfig` has
+[type-hinted parameters](/00-python-essentials/03-functions-and-reuse/01-function-fundamentals/#type-hints),
+an editor like VS Code knows `agent_config.` has exactly `name`, `model`,
+and `temperature` available, and can show that list as you type — a
+dict's keys are just strings, invisible to the editor until runtime.
+
+**Behavior lives with the data.** A class can bundle methods alongside its
+fields — a dict is data only, so any related logic has to live in a
+separate free-floating function that takes the dict as an argument:
+
+<LiveDemo client:load code={`class AgentConfig:
+    def __init__(self, name: str, model: str, temperature: float = 0.7):
+        self.name = name
+        self.model = model
+        self.temperature = temperature
+
+    def summary(self) -> str:
+        return f"{self.name} on {self.model} (temp={self.temperature})"
+
+agent_config = AgentConfig("research_agent", "claude-sonnet")
+print(agent_config.summary())`} />
+
+</Subsection>
+
+<Subsection title="The gap neither one closes yet" variant="b">
+
+Notice what `AgentConfig` does *not* do: it doesn't check that `name` is
+actually a string, or that `temperature` is actually a number. Nothing
+stops this:
+
+<LiveDemo client:load code={`class AgentConfig:
+    def __init__(self, name: str, model: str, temperature: float = 0.7):
+        self.name = name
+        self.model = model
+        self.temperature = temperature
+
+    def summary(self) -> str:
+        return f"{self.name} on {self.model} (temp={self.temperature})"
+
+broken_config = AgentConfig(name=123, model=None, temperature="hot")
+print(broken_config.summary())`} />
+
+This runs without complaint —
+[type hints aren't enforced at runtime](/00-python-essentials/03-functions-and-reuse/01-function-fundamentals/#type-hints),
+and a plain class's `__init__` is really just a set of assignments with no
+validation logic of its own. A dict has exactly the same gap; neither
+container, on its own, actually *checks* that the data it's holding is
+correct. Closing that gap — getting type hints to become real runtime
+validation — is where the rest of this lesson is headed.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question:
+        "Why is a dict the better fit for **kwargs-style data, like arbitrary keyword arguments collected in a function?",
+      options: [
+        "Dicts are always faster than classes",
+        "The set of keys isn't known in advance — a dict handles genuinely dynamic, caller-determined keys naturally, while a class needs its fields fixed ahead of time",
+        "Classes can't hold string values",
+        "There's no real difference between the two here",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A class's fields are fixed at definition time; a dict's keys can be anything, decided entirely at runtime — which is exactly what **kwargs needs.",
+    },
+    {
+      question:
+        "What actually happens when you look up a typo'd key with .get() on a dict, versus a typo'd attribute on a class instance?",
+      options: [
+        "Both raise the same error immediately",
+        ".get() on a missing key silently returns None; a missing attribute on a class instance raises AttributeError right away",
+        "Both silently return None",
+        "Both raise AttributeError",
+      ],
+      correctIndex: 1,
+      explanation:
+        "This is the core practical argument for a class with fixed fields — a typo becomes an immediate, loud failure instead of a silent wrong value discovered much later.",
+    },
+    {
+      question:
+        "Why does an editor's autocomplete work for agent_config. on a class instance, but not for agent_config_dict[ on a dict?",
+      options: [
+        "Editors don't actually support autocomplete for either",
+        "A class's fields are declared in code (with type hints) the editor can see; a dict's keys are just runtime string values with no static declaration",
+        "Dicts are a newer Python feature editors haven't caught up to",
+        "Autocomplete only works inside __init__",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Type-hinted class attributes are visible to tooling before the code even runs; dict keys only exist as data at runtime, invisible to static analysis.",
+    },
+    {
+      question: "Given AgentConfig(name=123, model=None, temperature=\"hot\"), why does this run without any error?",
+      options: [
+        "Python automatically converts the values to the correct types",
+        "Type hints aren't enforced at runtime — __init__ is just assignment statements, with no validation logic of its own",
+        "AgentConfig secretly validates types behind the scenes",
+        "This actually does raise an error",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Neither a plain class nor a dict validates the data it holds by default — type hints are documentation for humans and tooling, not a runtime check, which is the gap the rest of this lesson closes.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={`Implement __init__ storing tool_name, output, and success (defaulting to True) as instance attributes, then implement as_dict() to return them as a plain dict with the exact keys shown.`}
+  starterCode={`class ToolResult:
+    """
+    TODO: implement __init__ with type-hinted parameters:
+      tool_name: str, output: str, success: bool = True
+
+    TODO: implement a method as_dict(self) -> dict that returns the
+    same data as a plain dict, shaped exactly like:
+      {"tool_name": ..., "output": ..., "success": ...}
+
+    This exercise is deliberately about converting between the two
+    shapes covered in this section — a class instance that can also
+    produce the dict-shaped version of the same data on request.
+    """
+    # TODO: implement
+    pass`}
+  hiddenTests={[
+    `result = ToolResult("search", "3 results found")
+assert result.tool_name == "search"
+assert result.success == True
+assert result.as_dict() == {"tool_name": "search", "output": "3 results found", "success": True}`,
+    `result2 = ToolResult("calculator", "division by zero", success=False)
+assert result2.as_dict() == {"tool_name": "calculator", "output": "division by zero", "success": False}`,
+  ]}
+  hint={"as_dict() just needs to build and return a dict literal referencing self.tool_name, self.output, and self.success — the same three values __init__ already stored, just reshaped into the other container."}
+  correctAnswer={{
+    code: `class ToolResult:
+    def __init__(self, tool_name: str, output: str, success: bool = True):
+        self.tool_name = tool_name
+        self.output = output
+        self.success = success
+
+    def as_dict(self) -> dict:
+        return {
+            "tool_name": self.tool_name,
+            "output": self.output,
+            "success": self.success,
+        }`,
+    explanation:
+      "This makes the class-vs-dict relationship concrete: the same data can move between both shapes freely, and as_dict() is a genuinely common real pattern — a class holds the data with all the benefits from this section during normal use, but can still produce a plain dict on request for situations that specifically need one (e.g. JSON-serializing a response).",
+  }}
+/>
+
+</CheckpointZone>

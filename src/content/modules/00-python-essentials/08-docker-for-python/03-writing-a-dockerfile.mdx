@@ -1,0 +1,265 @@
+---
+title: "Writing a Dockerfile"
+lesson: "08-docker-for-python"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import DockerBuildDemo from "../../../../components/lesson/DockerBuildDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The core instructions" variant="a">
+
+A `Dockerfile` is a plain text file — a recipe describing how to build
+an image, read and executed top to bottom, similar in spirit to
+[Python's own top-to-bottom execution model](/00-python-essentials/01-python-basics/01-set-up-python/#execution-model-compared-to-what-you-already-know).
+A minimal one for a small Python script:
+
+- **`FROM python:3.12-slim`** — start from an existing base image
+  (here, a small, official image that already has Python 3.12 installed)
+  rather than building an OS up from nothing. Every Dockerfile starts
+  with `FROM`.
+- **`WORKDIR /app`** — set the working directory inside the image;
+  every instruction after this runs relative to `/app`.
+- **`COPY requirements.txt .`** — copy a file from your own machine
+  (the "build context") into the image.
+- **`RUN pip install -r requirements.txt`** — execute a command
+  *during the build*, baking its result into the image itself.
+- **`COPY . .`** — copy the rest of the project's files in.
+- **`CMD ["python3", "app.py"]`** — the command that runs when a
+  container is actually *started* from this image, not during the build.
+
+Click Build to see what actually happens when this Dockerfile runs — one
+`Step N/M` line per instruction above, in the same order:
+
+<DockerBuildDemo
+  client:load
+  dockerfile={`FROM python:3.12-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY . .
+CMD ["python3", "app.py"]`}
+/>
+
+</Subsection>
+
+<Subsection title="Three pairs worth knowing apart" variant="b">
+
+A few instructions come in look-alike pairs, where the difference
+matters and is easy to get wrong.
+
+**`COPY` vs. `ADD`.** `ADD` does everything `COPY` does, plus two extra
+behaviors: it auto-extracts a local `.tar`/`.tar.gz` archive into the
+destination, and it can fetch a URL directly. Those extras sound
+convenient, but they're also surprising if you didn't want them:
+
+```dockerfile
+ADD backup.tar.gz /app/
+```
+
+This doesn't copy `backup.tar.gz` as a file — it silently extracts its
+*contents* into `/app/`, which is rarely what someone reaching for `ADD`
+out of habit actually expects. The standard guidance: default to `COPY`
+for plain files, and reach for `ADD` only when you specifically want one
+of those two extra behaviors, deliberately.
+
+**`CMD` vs. `ENTRYPOINT`.** Both specify what runs when a container
+starts — the difference is what happens when `docker run` includes extra
+arguments. `CMD` is fully replaced by anything passed at `docker run`
+time; `ENTRYPOINT`'s arguments are appended to, not replaced by, whatever
+follows it:
+
+```dockerfile
+CMD ["python3", "app.py"]
+```
+```bash
+docker run my-app echo hello
+# runs: echo hello  — CMD was entirely replaced
+```
+
+```dockerfile
+ENTRYPOINT ["python3", "app.py"]
+```
+```bash
+docker run my-app --verbose
+# runs: python3 app.py --verbose  — ENTRYPOINT stayed fixed, --verbose was appended
+```
+
+Use `CMD` for a default that a user might reasonably want to override
+entirely; use `ENTRYPOINT` when the container should always run one
+specific program, with any extra arguments just tacked onto it.
+
+**`ENV` vs. `ARG`.** Both define a named value, but at different times
+and with different lifetimes. `ARG` only exists *during the build* —
+it's gone by the time a container actually runs. `ENV` persists into the
+running container, readable by the app itself:
+
+```dockerfile
+ARG PYTHON_VERSION=3.12
+FROM python:${PYTHON_VERSION}-slim
+
+ENV LOG_LEVEL=info
+```
+
+`PYTHON_VERSION` is only usable to parameterize the build itself (here,
+picking which base image to use) — trying to read it from inside the
+running app would find nothing, since `ARG` values never make it into
+the container's actual runtime environment. `LOG_LEVEL`, defined with
+`ENV`, is available to the running app via a normal environment variable
+lookup, exactly the way
+[`os.environ`-style reads work anywhere else](/00-python-essentials/08-docker-for-python/01-why-containers/#a-second-different-reason-restricting-what-code-can-touch).
+
+</Subsection>
+
+<Subsection title="USER — not running as root by default" variant="a">
+
+Without a `USER` instruction, a container runs as `root` by default —
+worth pausing on, given
+[the isolation motivation from earlier in this lesson](/00-python-essentials/08-docker-for-python/01-why-containers/#a-second-different-reason-restricting-what-code-can-touch):
+even inside a restricted container, running as `root` gives whatever's
+running full permissions *within* that container's boundary, which is
+more access than most apps actually need. Adding a non-root user is
+straightforward:
+
+```dockerfile
+FROM python:3.12-slim
+RUN useradd --create-home appuser
+USER appuser
+WORKDIR /home/appuser/app
+COPY --chown=appuser:appuser . .
+CMD ["python3", "app.py"]
+```
+
+`USER appuser` switches every instruction after it — and the container's
+actual runtime process — to that user instead of `root`. This is a small
+addition with a real payoff: it limits what a compromised or
+misbehaving process running inside the container could actually do,
+even within the container's own filesystem.
+
+</Subsection>
+
+<Subsection title="EXPOSE — documentation, not a port mapping" variant="b">
+
+`EXPOSE` is worth naming specifically because it's commonly
+misunderstood:
+
+```dockerfile
+EXPOSE 5000
+```
+
+This does **not** actually make port 5000 reachable from outside the
+container — it's purely documentation, a note to anyone reading the
+Dockerfile (or using tooling that reads it) about which port the app
+inside is expected to listen on. Actually publishing a port to the host
+machine is `-p`'s job, covered next in this lesson — `EXPOSE` alone, with
+no `-p` at run time, leaves the container just as unreachable from
+outside as if it weren't there at all.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does FROM python:3.12-slim do?",
+      options: [
+        "It installs Python 3.12 on your own machine",
+        "It starts the image build from an existing base image that already has Python 3.12 installed, rather than starting from nothing",
+        "It's optional — every Dockerfile works without a FROM line",
+        "It only affects how the container runs, not how it's built",
+      ],
+      correctIndex: 1,
+      explanation:
+        "FROM starts every image build from an existing base — here, one that already has Python 3.12 preinstalled — rather than building an operating system up from nothing.",
+    },
+    {
+      question: "What's the difference between RUN and CMD?",
+      options: [
+        "They're interchangeable",
+        "RUN executes a command during the build, baking its result into the image; CMD specifies the command that runs later, when a container starts",
+        "CMD runs during the build; RUN runs when the container starts",
+        "RUN can only be used once per Dockerfile, CMD can be used many times",
+      ],
+      correctIndex: 1,
+      explanation:
+        "RUN executes once, during the build, and its result becomes a permanent part of the image; CMD doesn't run at all until later, when a container is actually started from that image.",
+    },
+    {
+      question: "Why does ADD backup.tar.gz /app/ behave differently from COPY backup.tar.gz /app/?",
+      options: [
+        "They behave identically — ADD is just an older name for COPY",
+        "ADD automatically extracts a local .tar/.tar.gz archive's contents into the destination, rather than copying the archive file itself",
+        "COPY doesn't work with compressed files at all",
+        "ADD requires the file to already exist inside the container",
+      ],
+      correctIndex: 1,
+      explanation:
+        "ADD's extra behaviors (archive extraction, URL fetching) are easy to trigger by accident — COPY has none of that ambiguity, which is why it's the safer default for plain files.",
+    },
+    {
+      question: 'Given CMD ["python3", "app.py"], what happens if you run docker run my-app echo hello?',
+      options: [
+        "python3 app.py runs, then echo hello runs after it",
+        "CMD is entirely replaced — the container runs echo hello instead",
+        "It raises an error, since CMD can't be overridden",
+        "Both commands run at the same time, concurrently",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Any command passed to docker run after the image name replaces CMD entirely — the Dockerfile's own CMD is only a default, not something the extra arguments get appended to.",
+    },
+    {
+      question: 'Given ENTRYPOINT ["python3", "app.py"], what happens if you run docker run my-app --verbose?',
+      options: [
+        "--verbose replaces the entire entrypoint",
+        "--verbose is appended as an argument, running python3 app.py --verbose",
+        "It raises an error — ENTRYPOINT doesn't accept extra arguments",
+        "ENTRYPOINT is ignored whenever extra arguments are passed",
+      ],
+      correctIndex: 1,
+      explanation:
+        "ENTRYPOINT stays fixed as the program that always runs — anything passed at docker run time is appended as arguments to it, rather than replacing it the way CMD's default would be.",
+    },
+    {
+      question: "Why can't a running container read an ARG value from its own environment at runtime?",
+      options: [
+        "This is a bug — ARG values should be readable",
+        "ARG only exists during the build itself; it's gone by the time a container actually runs, unlike ENV",
+        "ARG values are encrypted and require a special command to read",
+        "ARG and ENV are actually identical in every way",
+      ],
+      correctIndex: 1,
+      explanation:
+        "ARG only exists for the duration of the build itself, to parameterize things like which base image to pull — it never gets carried into the container's actual runtime environment the way ENV does.",
+    },
+    {
+      question: "What does adding a USER instruction to a Dockerfile change, and why does it matter?",
+      options: [
+        "It has no real effect — containers are equally safe either way",
+        "Without it, a container runs as root by default; setting a non-root USER limits what the running process can actually do, even within the container's own boundary",
+        "USER only affects which user can build the image, not run it",
+        "USER is required for every Dockerfile to build successfully",
+      ],
+      correctIndex: 1,
+      explanation:
+        "root is the default inside a container unless a USER instruction says otherwise — switching to a non-root user limits what a compromised or misbehaving process could do, even while still confined to that container's own boundary.",
+    },
+    {
+      question: "What does EXPOSE 5000 actually do?",
+      options: [
+        "It makes port 5000 immediately reachable from outside the container",
+        "Nothing functional by itself — it's documentation noting which port the app expects to use; actually publishing the port still requires -p at run time",
+        "It's required for the container to run at all",
+        "It's identical in effect to -p 5000:5000",
+      ],
+      correctIndex: 1,
+      explanation:
+        "EXPOSE is purely informational — it doesn't open any port on its own. Actually making a container's port reachable from the host still requires -p at docker run time.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

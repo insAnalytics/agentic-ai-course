@@ -65,7 +65,7 @@ sidebar navigation, not one very long scroll.
 /src
   /content
     /modules
-      01-foundations/
+      01-agent-foundations/
         _module.yaml                    # module title, description, order
         01-what-is-an-agent/
           _lesson.yaml                  # lesson title, module, order, projectDownload

@@ -1,0 +1,189 @@
+---
+title: "What FastAPI is, and why it fits agent backends"
+lesson: "09-building-apis-with-fastapi"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import TerminalGroup from "../../../../components/lesson/TerminalGroup";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="What FastAPI actually is" variant="a">
+
+FastAPI is a Python web framework, but it's worth naming precisely what
+it's built on, since both pieces matter directly to this course: it's
+built on **Starlette** (an ASGI framework handling the actual HTTP
+mechanics) and **Pydantic** (for request/response validation —
+[the exact library from earlier in this course](/00-python-essentials/05-typed-data-models/00-intro/)).
+
+**ASGI** (Asynchronous Server Gateway Interface) is the modern successor
+to **WSGI** (what older frameworks like Flask were originally built on)
+— the key difference being ASGI is async-native from the ground up,
+which is exactly what makes `async def` routes, covered later in this
+lesson, possible at all. A WSGI-based framework can't natively support
+the concurrent-request-handling model
+[Lesson 7 built up from scratch](/00-python-essentials/07-async-python/00-intro/).
+
+</Subsection>
+
+<Subsection title="A minimal app" variant="b">
+
+```python
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/")
+def read_root():
+    return {"message": "agent backend running"}
+```
+
+`app = FastAPI()` creates the application instance. `@app.get("/")` is
+— worth saying plainly —
+[just a decorator](/00-python-essentials/04-object-oriented-programming/03-decorators-static-classmethods/#what-a-decorator-actually-is-a-function-wrapping-a-function),
+doing familiar work in a new context: it registers `read_root` to run
+whenever a `GET` request arrives at the path `/`. Returning a plain
+dict is enough — FastAPI serializes it to JSON automatically.
+
+</Subsection>
+
+<Subsection title="Running it: uvicorn" variant="a">
+
+FastAPI itself doesn't run a server — it defines *what* should happen
+for a given request; something else has to actually listen on a port and
+call it. `uvicorn` is the standard ASGI server used to run a FastAPI app:
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "Running the app",
+      steps: [
+        { command: "uvicorn main:app --reload" },
+        { output: "INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)" },
+        { output: "INFO:     Started reloader process" },
+        { output: "INFO:     Application startup complete." },
+        { command: "curl http://127.0.0.1:8000/" },
+        { output: '{"message": "agent backend running"}' },
+      ],
+    },
+  ]}
+/>
+
+`main:app` means "in `main.py`, find the object named `app`" — the
+`FastAPI()` instance from above. `--reload` restarts the server
+automatically whenever a source file changes, useful during development
+so you don't have to manually stop and restart after every edit. Hitting
+`http://127.0.0.1:8000/` in a browser works the same way `curl` does
+above — this is a real, network-reachable server now, not just a
+function you'd call directly.
+
+</Subsection>
+
+<Subsection title="Why this fits agent backends specifically" variant="b">
+
+This isn't an arbitrary framework choice for this course — three things
+about FastAPI line up directly with what this course has already built:
+
+- **Automatic validation is Pydantic**, the exact library from Lesson
+  5 — a request body typed as a `BaseModel` gets validated before your
+  route function ever runs, the identical mechanism that closed
+  [the validation gap back then](/00-python-essentials/05-typed-data-models/04-pydantic-fundamentals/),
+  just now validating an incoming HTTP request instead of a config file.
+- **Async routes are Lesson 7's `async def`/`await`**, directly — an
+  agent backend that calls an LLM API, or fans out to multiple tools per
+  request, is exactly the I/O-bound situation `asyncio` was built to
+  handle, and FastAPI's ASGI foundation means that's a first-class,
+  natively supported way to write a route, not a workaround.
+- **A route is genuinely just a decorator** applying to a function — the
+  exact mechanism from Lesson 4, now doing the work of wiring up an HTTP
+  endpoint instead of logging or counting calls.
+
+None of the rest of this lesson is teaching unfamiliar *mechanisms* —
+decorators, Pydantic models, `async`/`await` are all already yours. It's
+teaching how those mechanisms compose into something that serves an
+actual, network-reachable API.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What two things is FastAPI built on top of?",
+      options: [
+        "Flask and Django",
+        "Starlette (handling ASGI/HTTP mechanics) and Pydantic (for validation)",
+        "Node.js and Express",
+        "Only Pydantic — FastAPI implements HTTP handling from scratch",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Starlette handles the actual ASGI/HTTP mechanics; Pydantic handles request/response validation — FastAPI itself is the layer that composes the two into a framework for writing routes.",
+    },
+    {
+      question: "What's the key difference between ASGI and WSGI?",
+      options: [
+        "There's no real difference — they're interchangeable names",
+        "ASGI is async-native from the ground up, which is what allows async def routes to work natively; WSGI-based frameworks can't natively support that concurrent-request model",
+        "WSGI is newer and faster than ASGI",
+        "ASGI only works with Pydantic, WSGI doesn't support any validation library",
+      ],
+      correctIndex: 1,
+      explanation:
+        "WSGI predates async Python entirely — it has no concept of awaiting anything, which is exactly why an async-native successor like ASGI was needed to support concurrent request handling as a first-class feature.",
+    },
+    {
+      question: "What does @app.get(\"/\") actually do, mechanically?",
+      options: [
+        "It's special FastAPI-only syntax, unrelated to anything covered earlier in this course",
+        "It's a decorator — the same mechanism from the OOP lesson — registering the function below it to run whenever a GET request arrives at that path",
+        "It starts the server immediately",
+        "It only works if the function returns a string",
+      ],
+      correctIndex: 1,
+      explanation:
+        "There's nothing FastAPI-specific about decorator syntax itself — @app.get(\"/\") is an ordinary decorator, just one that registers a route instead of, say, logging a function call.",
+    },
+    {
+      question: "Why doesn't python3 main.py alone run a FastAPI app?",
+      options: [
+        "It's actually the correct way to run it",
+        "FastAPI only defines what should happen for a given request — something else, uvicorn, has to actually listen on a port and call it",
+        "FastAPI apps can't be run locally at all",
+        "main.py is always the wrong filename to use",
+      ],
+      correctIndex: 1,
+      explanation:
+        "FastAPI defines routing and request handling logic, not a running server — uvicorn is the ASGI server that actually binds a port and dispatches incoming requests into that logic.",
+    },
+    {
+      question: "What does --reload do when running uvicorn main:app --reload?",
+      options: [
+        "It reloads the client's browser automatically",
+        "It restarts the server automatically whenever a source file changes, useful during development",
+        "It reruns every test in the project",
+        "It's required for the server to start at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "--reload is a development convenience — the server watches source files and restarts itself on change, so you don't have to manually stop and restart after every edit.",
+    },
+    {
+      question: "Why does the \"automatic validation\" argument for FastAPI directly connect back to Lesson 5, rather than being a new concept?",
+      options: [
+        "It doesn't — FastAPI's validation is unrelated to Pydantic",
+        "FastAPI uses Pydantic BaseModels directly for request validation — the exact same mechanism that closed the validation gap in the Pydantic lesson, just applied to HTTP requests now",
+        "FastAPI reimplements its own separate validation system",
+        "Validation in FastAPI only works for GET requests",
+      ],
+      correctIndex: 1,
+      explanation:
+        "FastAPI doesn't reinvent validation — a route's request body is typed as a real Pydantic BaseModel, so the same validation behavior already taught in Lesson 5 applies automatically, just now to incoming HTTP data instead of a config file.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

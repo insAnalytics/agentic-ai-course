@@ -1,0 +1,234 @@
+---
+title: "Request bodies with Pydantic, and file uploads"
+lesson: "09-building-apis-with-fastapi"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import TerminalGroup from "../../../../components/lesson/TerminalGroup";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="A BaseModel parameter is the request body" variant="a">
+
+A `GET` request's only data is its URI. `POST`/`PUT`/`PATCH` can also
+send a **request body** — a separate chunk of data, sent alongside the
+request instead of packed into the URI. The `curl` flags below each do
+one job:
+
+- `-X POST` — the HTTP method (`curl` defaults to `GET`)
+- `-H "Content-Type: application/json"` — a header, telling the server
+  the body that follows is JSON
+- `-d '...'` — the request body itself, attached as literal text
+- `-v` — verbose: prints the raw request and response, not just the
+  final result, which is what makes the headers/body split visible below
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "The request body, made visible",
+      steps: [
+        {
+          command:
+            'curl -v -X POST http://127.0.0.1:8000/agents -H "Content-Type: application/json" -d \'{"name": "research_agent", "model": "claude-sonnet"}\'',
+        },
+        { output: "> POST /agents HTTP/1.1" },
+        { output: "> Content-Type: application/json" },
+        { output: "> Content-Length: 52" },
+        { output: ">" },
+        { output: '{"name": "research_agent", "model": "claude-sonnet"}' },
+        { output: "<" },
+        { output: "< HTTP/1.1 200 OK" },
+        { output: "< content-type: application/json" },
+        { output: "<" },
+        { output: '{"created": "research_agent", "model": "claude-sonnet"}' },
+      ],
+    },
+  ]}
+/>
+
+Everything after the blank line following the `>` headers is the
+body — plain JSON text, exactly
+[the same format from the I/O lesson](/00-python-essentials/06-files-errors-and-validation/02-working-with-json/),
+just sent over the network instead of read from a file. `Content-Type:
+application/json` is what tells the server to interpret it that way.
+
+This is where
+[Lesson 5's Pydantic payoff](/00-python-essentials/05-typed-data-models/04-pydantic-fundamentals/)
+actually lands: a function parameter typed as a `BaseModel` tells
+FastAPI to parse and validate that JSON body against the model,
+automatically, before the route function runs at all.
+
+```python
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+app = FastAPI()
+
+class AgentConfig(BaseModel):
+    name: str
+    model: str
+    temperature: float = 0.7
+
+@app.post("/agents")
+def create_agent(config: AgentConfig):   # parsed + validated from the JSON body
+    return {"created": config.name, "model": config.model}
+```
+
+The same request from the demo above calls
+`create_agent(config=AgentConfig(name="research_agent", model="claude-sonnet"))`
+— `config` arrives already validated, already a real `AgentConfig`
+instance with `temperature` defaulted to `0.7`, exactly as
+[`AgentConfig(**raw)` worked back in the Pydantic lesson](/00-python-essentials/05-typed-data-models/04-pydantic-fundamentals/#getting-the-data-back-out-model-dump),
+just triggered by an incoming HTTP request instead of a
+manually-constructed dict. A malformed body — a missing `name`, a
+`temperature` that can't be coerced to a float — produces the same
+structured `422` response
+[covered in the previous concept](/00-python-essentials/09-building-apis-with-fastapi/03-routes-and-parameters/#path-parameters-part-of-the-uri-itself),
+automatically, before `create_agent` ever runs.
+
+</Subsection>
+
+<Subsection title="Combining a body with path and query parameters" variant="b">
+
+FastAPI figures out where each parameter comes from by its type and
+whether it matches a path segment — a `BaseModel` parameter is
+understood as the body, a plain type matching `{"{...}"}` in the path is
+a path parameter, and anything else falls back to a query parameter,
+all in the same function signature:
+
+```python
+@app.put("/agents/{agent_id}")
+def update_agent(agent_id: int, config: AgentConfig, notify: bool = False):
+    # agent_id: path, config: body, notify: query -- inferred from type + path match, not order
+    return {"agent_id": agent_id, "updated": config.name, "notify": notify}
+```
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "Path, body, and query — all in one request",
+      steps: [
+        {
+          command:
+            'curl -X PUT "http://127.0.0.1:8000/agents/42?notify=true" -H "Content-Type: application/json" -d \'{"name": "research_agent", "model": "claude-sonnet"}\'',
+        },
+        { output: '{"agent_id": 42, "updated": "research_agent", "notify": true}' },
+      ],
+    },
+  ]}
+/>
+
+That single request populates all three parameters from their
+respective sources — `agent_id` from the URI path, `config` from the
+JSON body, `notify` from the query string — without needing to say so
+explicitly anywhere; FastAPI infers each parameter's source from its
+type and its name.
+
+</Subsection>
+
+<Subsection title="File uploads" variant="a">
+
+A file in a request is a different kind of data than JSON —
+`UploadFile` (paired with `File()`) is FastAPI's way of receiving one,
+relevant here specifically for a case like a document an agent needs to
+process:
+
+```python
+from fastapi import FastAPI, File, UploadFile
+
+app = FastAPI()
+
+@app.post("/documents")
+async def upload_document(file: UploadFile = File(...)):   # File() marks this as an upload, not a JSON field
+    contents = await file.read()   # reading the bytes is I/O -- needs await
+    return {
+        "filename": file.filename,
+        "content_type": file.content_type,
+        "size_bytes": len(contents),
+    }
+```
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "Uploading a file",
+      steps: [
+        { command: 'curl -X POST http://127.0.0.1:8000/documents -F "file=@notes.txt;type=text/plain"' },
+        { output: '{"filename": "notes.txt", "content_type": "text/plain", "size_bytes": 214}' },
+      ],
+    },
+  ]}
+/>
+
+`File(...)` (the `...` meaning "required, no default") marks `file` as
+an uploaded file rather than a JSON body field. `UploadFile` gives you
+`.filename`, `.content_type`, and — since reading a file's contents is
+I/O — an `async` `.read()` method,
+[exactly the await-a-coroutine pattern from the async lesson](/00-python-essentials/07-async-python/02-async-await-and-coroutines/).
+This is also why `upload_document` is declared `async def` here:
+reading an uploaded file's bytes is genuinely I/O-bound work, the same
+category
+[Lesson 7 built concurrency around](/00-python-essentials/07-async-python/01-why-concurrency-matters/).
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What happens when a function parameter is typed as a Pydantic BaseModel in a route function?",
+      options: [
+        "Nothing special — it's treated like any other parameter",
+        "FastAPI reads and validates the request's JSON body against that model automatically, before the route function runs",
+        "It must always be the only parameter in the function",
+        "It only works for GET requests",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A BaseModel-typed parameter tells FastAPI exactly what shape the JSON body should have — it validates and constructs a real instance of that model before the route function body ever runs.",
+    },
+    {
+      question: "Given POST /agents with a body missing a required name field, what happens?",
+      options: [
+        "create_agent runs normally with name set to None",
+        "FastAPI returns a structured 422 error automatically — create_agent never actually runs",
+        "The server crashes with an unhandled exception",
+        "FastAPI silently fills in an empty string for the missing field",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A missing required field fails Pydantic validation the same way it would outside a request — FastAPI turns that into a structured 422 response and never lets create_agent run at all.",
+    },
+    {
+      question: "In def update_agent(agent_id: int, config: AgentConfig, notify: bool = False): on the route /agents/{agent_id}, how does FastAPI know config is the request body and notify is a query parameter?",
+      options: [
+        "It doesn't — this would be ambiguous and raise an error",
+        "config's type is a BaseModel, which FastAPI treats as the body; notify doesn't match a path segment and isn't a BaseModel, so it's inferred as a query parameter",
+        "Parameter order in the function signature determines this exclusively",
+        "Every parameter after the first one is always treated as the body",
+      ],
+      correctIndex: 1,
+      explanation:
+        "FastAPI infers each parameter's source from its type and whether its name matches a path segment — a BaseModel type means body, a path-segment match means path parameter, and everything else defaults to query.",
+    },
+    {
+      question: "Why is upload_document declared async def, and why does it await file.read()?",
+      options: [
+        "async def is required for every FastAPI route, regardless of what it does",
+        "Reading an uploaded file's contents is I/O-bound work — the same category of operation the async lesson built await-based concurrency around",
+        "await is only needed for POST requests specifically",
+        "UploadFile doesn't work at all without async def",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Reading file bytes is I/O, not CPU work — exactly the kind of operation async/await exists for, which is why UploadFile.read() is itself a coroutine that needs awaiting.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

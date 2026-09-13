@@ -1,0 +1,218 @@
+---
+title: "lambda, map, and filter"
+lesson: "03-functions-and-reuse"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="lambda — a small, anonymous function" variant="a">
+
+A `lambda` is a function with no name, written as a single expression —
+useful when you need a quick function to pass somewhere else, and defining
+it with a full `def` would be overkill for something used once:
+
+<LiveDemo client:load code={`square = lambda x: x ** 2
+print(square(5))`} />
+
+`lambda x: x ** 2` is equivalent to:
+
+```python
+def square(x):
+    return x ** 2
+```
+
+A `lambda` can take multiple arguments, but its body is restricted to a
+single expression — no statements, no multiple lines, no `if`/`for` blocks
+(though a
+[conditional *expression*](/00-python-essentials/02-collections/05-comprehensions/#conditional-expression-inside-a-comprehension)
+is allowed since that's still one expression):
+
+<LiveDemo client:load code={`classify = lambda n: "even" if n % 2 == 0 else "odd"
+print(classify(4))
+print(classify(7))`} />
+
+</Subsection>
+
+<Subsection title="Closing the loop: sorted(..., key=...)" variant="b">
+
+Back in Lesson 2, sorting a list of tuples by something other than the
+tuple's natural order was deliberately left out because it needed a
+concept not yet covered. Now it can be shown properly: `sorted()` accepts a
+`key` argument — a function that's applied to each item to decide sort
+order, and a `lambda` is almost always what gets passed there:
+
+<LiveDemo client:load code={`points = [(1, 5), (8, 2), (4, 9)]
+
+by_x = sorted(points, key=lambda point: point[0])
+print(by_x)`} />
+
+`key=lambda point: point[0]` tells `sorted()` to compare points by their
+first element rather than comparing the tuples directly. Without `key`,
+`sorted()` would compare whole tuples element-by-element, which isn't what
+you want here.
+
+</Subsection>
+
+<Subsection title="map() — apply a function across an iterable" variant="a">
+
+`map(func, iterable)` applies `func` to every item, lazily — it returns a
+`map` object, not a list, so you typically wrap it in `list()` to see or
+use the results:
+
+<LiveDemo client:load code={`prices = [10, 25, 40]
+with_tax = list(map(lambda p: p * 1.08, prices))
+print(with_tax)`} />
+
+</Subsection>
+
+<Subsection title="filter() — keep only items where a function returns True" variant="b">
+
+Same idea, but for filtering instead of transforming:
+
+<LiveDemo client:load code={`scores = [45, 92, 78, 30, 88]
+passing = list(filter(lambda s: s >= 60, scores))
+print(passing)`} />
+
+</Subsection>
+
+<Subsection title="The comprehension equivalent — and which one Python code actually favors" variant="a">
+
+Both of the above can be written as
+[comprehensions](/00-python-essentials/02-collections/05-comprehensions/):
+
+```python
+with_tax = [p * 1.08 for p in prices]
+passing = [s for s in scores if s >= 60]
+```
+
+**In practice, idiomatic Python leans toward comprehensions over
+`map`/`filter` in most cases** — they're generally considered more
+readable, especially once a `lambda` gets even slightly more complex than a
+one-liner. `map`/`filter` still show up in real code in two situations
+worth knowing:
+- **Passing an existing named function directly**, with no `lambda`
+  needed: `map(str.upper, tools)` is arguably cleaner than
+  `[tool.upper() for tool in tools]` when the function already exists and
+  needs no wrapping.
+- **`key=` arguments specifically** (`sorted`, `max`, `min`) — this isn't a
+  `map`/`filter` situation at all, but it's the most common place a
+  `lambda` earns its keep, as shown above.
+
+<LiveDemo client:load code={`tools = ["calculator", "search", "memory"]
+print(list(map(str.upper, tools)))`} />
+
+`str.upper` is passed as a reference to the function itself (no
+parentheses, no call), which `map` then calls once per item.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What's the equivalent def form of lambda x: x ** 2?",
+      options: [
+        "def x(): return x ** 2",
+        "def square(x): return x ** 2",
+        "def square(x): x ** 2",
+        "There's no equivalent",
+      ],
+      correctIndex: 1,
+      explanation: "A lambda's expression is implicitly returned — the def equivalent needs an explicit return.",
+    },
+    {
+      question: "Why can't a lambda body contain a for loop or an if statement (not a conditional expression)?",
+      options: [
+        "It can, this is a common misconception",
+        "A lambda's body is restricted to a single expression — statements like loops and if blocks aren't expressions",
+        "lambda only works with numbers",
+        "for and if are reserved words that can't appear near lambda",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A lambda can only contain one expression — a conditional expression (a if cond else b) is fine since it's still one expression, but statements are not.",
+    },
+    {
+      question: "In sorted(points, key=lambda point: point[0]), what does key control?",
+      options: [
+        "Which items are included in the result",
+        "What value each item is compared by, when deciding sort order",
+        "Whether the sort is ascending or descending",
+        "The data type of the result",
+      ],
+      correctIndex: 1,
+      explanation: "key maps each item to the value used for comparison, without changing the items themselves in the result.",
+    },
+    {
+      question: "What does map(func, items) return directly, before wrapping it in list()?",
+      options: ["A list", "A map object — lazy, not yet a list", "A tuple", "None"],
+      correctIndex: 1,
+      explanation: "map() returns a lazy iterator; list() is what actually produces a concrete list from it.",
+    },
+    {
+      question: "Given the choice, which does idiomatic Python code more often favor: a comprehension, or map()/filter() with a lambda?",
+      options: [
+        "map()/filter(), always",
+        "A comprehension, in most cases — map/filter are more common when passing an existing named function with no wrapping needed",
+        "There's no real convention either way",
+        "Comprehensions are being phased out in favor of map/filter",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Comprehensions are generally considered more readable in Python; map/filter remain useful mainly for passing an existing function directly.",
+    },
+    {
+      question: "In map(str.upper, tools), why is there no () after str.upper?",
+      options: [
+        "It's a typo — this should raise an error",
+        "str.upper is being passed as a reference to the function itself, which map calls once per item",
+        "str.upper is a variable, not a function",
+        "map only works with lambdas, never named functions",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Passing str.upper without () hands map the function itself to call later, rather than calling it immediately and passing its result.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task="Use sorted() with a key lambda that looks up each tool's priority from the dict, defaulting to 99 for tools not found."
+  starterCode={`def sort_tools_by_priority(tools, priority):
+    """
+    tools: a list of tool name strings, e.g. ["search", "calculator", "memory"]
+    priority: a dict mapping tool name -> priority number (lower = higher priority)
+              e.g. {"search": 2, "calculator": 1, "memory": 3}
+
+    Return the tools sorted by their priority number, ascending.
+    Tools not present in priority should be treated as priority 99.
+    """
+    # TODO: implement using sorted() with a key
+    pass`}
+  hiddenTests={[
+    `priority = {"search": 2, "calculator": 1, "memory": 3}
+assert sort_tools_by_priority(["search", "calculator", "memory"], priority) == ["calculator", "search", "memory"]
+assert sort_tools_by_priority(["memory", "planner", "search"], priority) == ["search", "memory", "planner"]
+assert sort_tools_by_priority([], priority) == []`,
+  ]}
+  hint="The key function for each tool should be priority.get(tool, 99) — this combines [.get() with a default](/00-python-essentials/02-collections/03-dicts/#key-access-and-the-difference-between-and-get) with a lambda here."
+  correctAnswer={{
+    code: `def sort_tools_by_priority(tools, priority):
+    return sorted(tools, key=lambda tool: priority.get(tool, 99))`,
+    explanation:
+      "This combines sorted(..., key=...) from this section with [.get(key, default)](/00-python-essentials/02-collections/03-dicts/#key-access-and-the-difference-between-and-get) — a very common real pattern for ordering items by an external ranking that might not cover every case.",
+  }}
+/>
+
+</CheckpointZone>

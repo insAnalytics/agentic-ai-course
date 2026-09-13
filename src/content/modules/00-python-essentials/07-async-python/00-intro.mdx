@@ -1,0 +1,30 @@
+---
+title: "Intro"
+lesson: "07-async-python"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Explain why sequential code wastes time on I/O-bound work, and what \"concurrency\" actually means as a fix for that specific problem",
+    "Write async def coroutines, use await, and avoid the \"called without await\" gotcha — a coroutine object that never actually runs",
+    "Use asyncio.gather() to run multiple independent operations concurrently, and asyncio.create_task() when you need to start something before you're ready to wait for its result",
+    "Avoid the specific trap of a blocking call (like time.sleep()) silently freezing an entire event loop from inside a coroutine",
+    "Handle errors in async code — both a normal try/except around await, and gather()'s return_exceptions=True for collecting partial failures instead of losing every result to the first one",
+    "Recognize when async is the wrong tool entirely — CPU-bound work needs a different answer (multiprocessing), not async/await",
+  ]}
+/>
+
+<WhyItMatters>
+  An agent that calls three tools, or three different LLM providers, or
+  fans a single request out to several data sources, is doing exactly the
+  kind of independent, I/O-bound waiting this lesson is built around.
+  Writing that sequentially — waiting for each one to fully finish before
+  starting the next — is correct but slow, in a way that compounds badly
+  as an agent calls more tools per turn. Everything in this lesson, from
+  gather() to return_exceptions=True, is aimed at the same real target:
+  agent code that does several things at once, and handles it gracefully
+  when one of them doesn't come back cleanly.
+</WhyItMatters>

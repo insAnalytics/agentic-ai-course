@@ -1,0 +1,299 @@
+---
+title: "The validation gap"
+lesson: "05-typed-data-models"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Recap: the gap, briefly" variant="a">
+
+The previous section ended on this, and it's worth restating as the
+starting point here: a `@dataclass` reads type hints to know which fields
+exist — it never checks that what's actually passed in matches them.
+
+<LiveDemo client:load code={`from dataclasses import dataclass
+
+@dataclass
+class AgentConfig:
+    name: str
+    model: str
+    temperature: float = 0.7
+
+broken = AgentConfig(name=123, model=None, temperature="hot")
+print(broken)`} />
+
+This section makes the actual cost of that gap concrete, then shows the
+manual fix — before the next section replaces the manual fix with
+something better.
+
+</Subsection>
+
+<Subsection title="Why silent bad data is worse than it looks" variant="b">
+
+The real danger isn't that `broken` above prints strangely — it's that
+nothing stops `broken` from being passed around and used *elsewhere*,
+somewhere the bad data finally causes a crash that has nothing obviously
+to do with where it actually went wrong:
+
+<LiveDemo client:load code={`from dataclasses import dataclass
+
+@dataclass
+class AgentConfig:
+    name: str
+    model: str
+    temperature: float = 0.7
+
+def describe_temperature(config: AgentConfig) -> str:
+    return f"running at {config.temperature * 100:.0f}% intensity"
+
+config = AgentConfig("research_agent", "claude-sonnet", temperature="hot")
+# ... maybe dozens of lines, or several function calls, later ...
+print(describe_temperature(config))`} />
+
+This is the same shape of problem
+[covered all the way back in the Python setup lesson](/00-python-essentials/01-python-basics/01-set-up-python/#execution-model-compared-to-what-you-already-know):
+the crash happens where execution actually reaches the bad value, not
+where the mistake was actually made. There, it was two lines in the same
+file; here, it can easily be a config object created far away from — and
+long before — wherever it finally breaks something. The farther the gap
+between creation and crash, the harder the bug is to trace back.
+
+</Subsection>
+
+<Subsection title="The manual fix: validating in __post_init__" variant="a">
+
+`@dataclass` gives you a hook specifically for logic that should run right
+after the generated `__init__` finishes: a method named `__post_init__`,
+called automatically with no arguments beyond `self` once every field has
+already been assigned.
+
+<LiveDemo client:load code={`from dataclasses import dataclass
+
+@dataclass
+class AgentConfig:
+    name: str
+    model: str
+    temperature: float = 0.7
+
+    def __post_init__(self):
+        if not isinstance(self.name, str):
+            raise ValueError(f"name must be a str, got {type(self.name).__name__}")
+        if not isinstance(self.temperature, (int, float)):
+            raise ValueError(f"temperature must be a number, got {type(self.temperature).__name__}")
+
+config = AgentConfig("research_agent", "claude-sonnet", temperature="hot")`} />
+
+`raise` is new syntax here: it's how you trigger an exception yourself,
+rather than one occurring naturally from something like division by zero.
+`raise ValueError("message")` immediately stops execution at that line and
+produces a traceback, exactly like any other uncaught exception — the
+difference is you're deciding exactly when and why it happens, based on
+whatever condition you check. This is the direct inverse of
+[`try`/`except` from earlier in the course](/00-python-essentials/01-python-basics/03-error-handling/):
+`except` catches an exception someone else raised; `raise` is how you
+create one in the first place.
+
+This version fails immediately, at construction time, at the exact line
+where the actual mistake happened — instead of failing later, somewhere
+unrelated, the way the previous example did.
+
+</Subsection>
+
+<Subsection title="Why the manual version doesn't scale" variant="b">
+
+`__post_init__` genuinely works — but look at what it cost for a class
+with only two fields worth checking. Every field needs its own
+`isinstance` check, its own error message, written by hand:
+
+```python
+@dataclass
+class AgentConfig:
+    name: str
+    model: str
+    temperature: float = 0.7
+    max_tokens: int = 1000
+    enabled: bool = True
+
+    def __post_init__(self):
+        if not isinstance(self.name, str):
+            raise ValueError(f"name must be a str, got {type(self.name).__name__}")
+        if not isinstance(self.model, str):
+            raise ValueError(f"model must be a str, got {type(self.model).__name__}")
+        if not isinstance(self.temperature, (int, float)):
+            raise ValueError(f"temperature must be a number, got {type(self.temperature).__name__}")
+        if not isinstance(self.max_tokens, int):
+            raise ValueError(f"max_tokens must be an int, got {type(self.max_tokens).__name__}")
+        if not isinstance(self.enabled, bool):
+            raise ValueError(f"enabled must be a bool, got {type(self.enabled).__name__}")
+```
+*(not run live — illustrating how the check count scales with field
+count, not a new behavior)*
+
+Five fields, five nearly-identical checks — and this is still only
+checking *type*, not anything more specific (a `temperature` of `-5.0` is
+a `float`, so it passes every check above, despite being nonsensical for
+an actual sampling temperature). Every new field means writing another
+check by hand, and every check is exactly the kind of repetitive,
+easy-to-typo, easy-to-forget code this course has been steering away from
+since
+[comprehensions replaced manual loop-and-append](/00-python-essentials/02-collections/05-comprehensions/)
+and
+[`@dataclass` itself replaced manually-written `__init__`/`__repr__`/`__eq__`](/00-python-essentials/05-typed-data-models/02-dataclass/).
+
+The type hints (`name: str`, `temperature: float`) are already sitting
+right there in the class, fully describing what each field should be —
+`__post_init__` just isn't reading them; you're re-stating the same
+information a second time, by hand, as a separate check. That redundancy
+is exactly the opening the next section closes: Pydantic reads those same
+type hints directly and turns them into this validation automatically,
+with no `__post_init__` written by hand at all.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why is bad data silently accepted by a @dataclass often worse than an immediate crash?",
+      options: [
+        "It isn't worse — an immediate crash is always more disruptive",
+        "The eventual crash happens wherever the bad value is finally used, which can be far from and much later than where the mistake was actually made",
+        "Silent bad data never actually causes a crash",
+        "@dataclass always prints a warning, so it's not really silent",
+      ],
+      correctIndex: 1,
+      explanation:
+        "This is the same \"the crash happens where execution reaches the bad line, not where the mistake was made\" problem from the Python setup lesson — except the gap between the two spots can now be much larger.",
+    },
+    {
+      question: "What does __post_init__ do, and when does it run?",
+      options: [
+        "It replaces __init__ entirely",
+        "It runs automatically right after the generated __init__ finishes assigning every field",
+        "It runs before any fields are assigned",
+        "It must be called manually after creating the instance",
+      ],
+      correctIndex: 1,
+      explanation:
+        "@dataclass calls __post_init__ for you, once construction is otherwise complete — the standard hook for validation or other post-construction logic.",
+    },
+    {
+      question: "What does raise ValueError(\"message\") actually do?",
+      options: [
+        "It's a no-op unless wrapped in try/except",
+        "It immediately stops execution at that line and produces an uncaught exception, the same as any naturally-occurring error, unless something catches it",
+        "It only logs a warning and continues running",
+        "It's the same as return None",
+      ],
+      correctIndex: 1,
+      explanation:
+        "raise triggers an exception deliberately, based on whatever condition you check — the direct inverse of except, which catches an exception rather than creating one.",
+    },
+    {
+      question: "Why does manually checking every field's type in __post_init__ fail to scale well as a class grows?",
+      options: [
+        "__post_init__ can only check a maximum of three fields",
+        "Every new field needs its own separate, nearly-identical check written by hand — repetitive, easy to forget, and it only checks what you remembered to write",
+        "isinstance doesn't work inside __post_init__",
+        "@dataclass classes can't have more than five fields",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The check count scales directly with the field count, and each one has to be written and maintained separately — the same kind of repetition comprehensions and @dataclass itself were introduced to eliminate elsewhere in the course.",
+    },
+    {
+      question:
+        "What information is already sitting in a @dataclass's field declarations that __post_init__'s manual checks end up restating?",
+      options: [
+        "The default values only",
+        "The type hints — __post_init__ re-describes, by hand, exactly what each field's type annotation already says",
+        "Nothing, they're entirely unrelated",
+        "The field names only, not their types",
+      ],
+      correctIndex: 1,
+      explanation:
+        "name: str already declares the expected type — a manual isinstance(self.name, str) check is restating that same fact a second time, which is exactly the redundancy Pydantic removes.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={`Implement __post_init__ on ToolCall with three checks: tool_name must be a non-empty str, timeout must be a number (int or float) greater than 0, and arguments must be a dict — raising ValueError the moment any one of them fails.`}
+  starterCode={`from dataclasses import dataclass
+
+@dataclass
+class ToolCall:
+    """
+    Fields:
+      tool_name: str
+      timeout: float
+      arguments: dict
+
+    TODO: implement __post_init__ to validate, raising ValueError with
+    any message if a check fails:
+      - tool_name must be a non-empty str
+      - timeout must be a number (int or float) greater than 0
+      - arguments must be a dict
+    """
+    tool_name: str
+    timeout: float
+    arguments: dict
+    # TODO: implement __post_init__`}
+  hiddenTests={[
+    `call = ToolCall("search", 5.0, {"query": "weather"})
+assert call.tool_name == "search"`,
+    `try:
+    ToolCall("", 5.0, {})
+    assert False, "should have raised"
+except ValueError:
+    pass`,
+    `try:
+    ToolCall("search", -1.0, {})
+    assert False, "should have raised"
+except ValueError:
+    pass`,
+    `try:
+    ToolCall("search", 5.0, "not a dict")
+    assert False, "should have raised"
+except ValueError:
+    pass`,
+    `try:
+    ToolCall("search", "not a number", {})
+    assert False, "should have raised"
+except ValueError:
+    pass`,
+  ]}
+  hint={"Three separate if checks, each ending in its own raise ValueError(\"...\"): isinstance(self.tool_name, str) and len(self.tool_name) > 0 for the name, isinstance(self.timeout, (int, float)) and self.timeout > 0 for the timeout, and isinstance(self.arguments, dict) for the arguments."}
+  correctAnswer={{
+    code: `from dataclasses import dataclass
+
+@dataclass
+class ToolCall:
+    tool_name: str
+    timeout: float
+    arguments: dict
+
+    def __post_init__(self):
+        if not (isinstance(self.tool_name, str) and len(self.tool_name) > 0):
+            raise ValueError("tool_name must be a non-empty string")
+        if not (isinstance(self.timeout, (int, float)) and self.timeout > 0):
+            raise ValueError("timeout must be a positive number")
+        if not isinstance(self.arguments, dict):
+            raise ValueError("arguments must be a dict")`,
+    explanation:
+      "Notice how much code three fields already needed, and that this still only checks type and basic shape — nothing here would catch a timeout of 999999 or an arguments dict with the wrong keys inside it. That's the exact gap and the exact repetition the next section replaces with Pydantic reading the same type hints directly.",
+  }}
+/>
+
+</CheckpointZone>

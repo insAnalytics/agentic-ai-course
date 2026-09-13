@@ -1,0 +1,277 @@
+---
+title: "Pydantic fundamentals"
+lesson: "05-typed-data-models"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="What Pydantic actually adds" variant="a">
+
+Everything in this lesson has been building toward one specific gap:
+type hints describe what a field *should* be, but nothing enforces it —
+not a plain class, not `@dataclass`, only a hand-written `__post_init__`
+that has to restate every field's type as a separate manual check.
+**Pydantic** is a library that closes that gap directly: it reads the same
+type hints you're already writing and turns them into real, automatic
+validation, with no `__post_init__` needed at all.
+
+<LiveDemo client:load code={`from pydantic import BaseModel
+
+class AgentConfig(BaseModel):
+    name: str
+    model: str
+    temperature: float = 0.7
+
+config = AgentConfig(name="research_agent", model="claude-sonnet")
+print(config)`} />
+
+The syntax is deliberately close to `@dataclass` — type-hinted fields,
+optional defaults with `=` — but instead of a decorator on a plain class,
+you inherit from `BaseModel`. That inheritance is what wires in the
+validation behavior; everything else about declaring fields looks almost
+identical to what you already know.
+
+</Subsection>
+
+<Subsection title="Validation actually happens now" variant="b">
+
+Pass something that doesn't match a field's declared type, and Pydantic
+refuses to construct the object at all — no `__post_init__`, no manual
+`isinstance` checks, none of it written by hand:
+
+<LiveDemo client:load code={`from pydantic import BaseModel
+
+class AgentConfig(BaseModel):
+    name: str
+    model: str
+    temperature: float = 0.7
+
+broken = AgentConfig(name="research_agent", model="claude-sonnet", temperature="hot")`} />
+
+Compare this directly to
+[the manual `__post_init__` version from the previous section](/00-python-essentials/05-typed-data-models/03-the-validation-gap/#the-manual-fix-validating-in-post-init):
+same failure, same field, same moment of failure — construction time, at
+the actual mistake — but here it came from `temperature: float` alone.
+The type hint *is* the validation; there's nothing else to write.
+
+</Subsection>
+
+<Subsection title="One thing catching everything — not just the first thing" variant="a">
+
+Recall that the hand-rolled `__post_init__` version stopped at whichever
+`if` check happened to run first, reporting only one problem even if
+several fields were wrong. Pydantic checks every field and reports every
+failure at once, in a single error:
+
+<LiveDemo client:load code={`from pydantic import BaseModel
+
+class AgentConfig(BaseModel):
+    name: str
+    model: str
+    temperature: float = 0.7
+
+broken = AgentConfig(name=123, model=None, temperature="hot")`} />
+
+All three problems, in one error, on the first attempt — instead of
+fixing one field, re-running, hitting the next `if` check, and repeating.
+This matters in practice for exactly the situation
+[the previous section](/00-python-essentials/05-typed-data-models/03-the-validation-gap/#why-silent-bad-data-is-worse-than-it-looks)
+opened with: data coming from somewhere you don't fully control (an API
+response, a config file) is far more likely to have several things wrong
+with it at once, not just one.
+
+</Subsection>
+
+<Subsection title="Type coercion — Pydantic tries to be helpful, within reason" variant="b">
+
+One behavior worth knowing up front, since it can be surprising: Pydantic
+doesn't only *reject* mismatched types — for some conversions it
+considers safe and unambiguous, it will actually convert the value for
+you, rather than failing:
+
+<LiveDemo client:load code={`from pydantic import BaseModel
+
+class AgentConfig(BaseModel):
+    name: str
+    model: str
+    temperature: float = 0.7
+
+config = AgentConfig(name="research_agent", model="claude-sonnet", temperature="0.9")
+print(config.temperature)
+print(type(config.temperature))`} />
+
+`"0.9"` — a string — was accepted for a `float` field, and silently
+converted to the actual float `0.9`. This is deliberate: a numeric-looking
+string is a common, unambiguous case (think: a value that arrived as text
+from a form or query parameter), so Pydantic coerces it rather than
+rejecting it outright. It's not unlimited, though — `"hot"` still fails,
+as shown earlier, because there's no reasonable number hiding inside it.
+The practical takeaway: Pydantic validates *and* normalizes reasonable
+input — it isn't purely a strict type-equality check the way `isinstance`
+is.
+
+</Subsection>
+
+<Subsection title="Getting the data back out: .model_dump()" variant="a">
+
+Just like the hand-written `as_dict()` method from earlier exercises this
+lesson, a Pydantic model can convert itself back into a plain dict — this
+comes built in, no method needs to be written:
+
+<LiveDemo client:load code={`from pydantic import BaseModel
+
+class AgentConfig(BaseModel):
+    name: str
+    model: str
+    temperature: float = 0.7
+
+config = AgentConfig(name="research_agent", model="claude-sonnet")
+print(config.model_dump())`} />
+
+This closes the loop this lesson opened with — a Pydantic model gives you
+the class side's benefits (fixed, typed fields, autocomplete, methods) and
+the dict side's convenience (a plain dict on demand, exactly like the
+`@kwargs`-collected dicts from earlier in the course), plus the real
+validation neither one had on its own.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does inheriting from BaseModel actually add, compared to a plain class with the same type-hinted fields?",
+      options: [
+        "Nothing — BaseModel is purely cosmetic",
+        "Real runtime validation — Pydantic reads the type hints and enforces them automatically when the object is constructed",
+        "It removes the need for type hints entirely",
+        "It only affects how the object prints, nothing else",
+      ],
+      correctIndex: 1,
+      explanation:
+        "BaseModel is what wires the type hints into actual validation logic — this is the entire gap the rest of the lesson was building toward closing.",
+    },
+    {
+      question:
+        "Given AgentConfig(name=123, model=None, temperature=\"hot\") on a BaseModel, why does the resulting error mention all three fields at once, rather than stopping at the first one?",
+      options: [
+        "It doesn't — Pydantic only ever reports the first failure",
+        "Pydantic validates every field and collects every failure into one error, unlike a hand-rolled __post_init__ that stops at whichever if check runs first",
+        "Reporting all three requires a special configuration flag",
+        "This behavior only happens with more than three fields",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Aggregating every validation failure into one error is a concrete practical advantage over manual if/raise checks, especially for data that might have multiple things wrong with it at once.",
+    },
+    {
+      question:
+        "Why does AgentConfig(temperature=\"0.9\") succeed, with config.temperature ending up as the float 0.9, rather than raising a ValidationError the way temperature=\"hot\" does?",
+      options: [
+        "Pydantic ignores type hints for string inputs",
+        "Pydantic coerces some unambiguous, safe conversions — like a numeric-looking string into the declared numeric type — rather than only strictly rejecting mismatches",
+        "This is actually a bug and shouldn't happen",
+        "\"0.9\" and 0.9 are treated as identical by Python itself",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Pydantic validates and normalizes reasonable input — it isn't a pure isinstance-style strict-equality check, which is why a parseable numeric string is accepted and converted rather than rejected.",
+    },
+    {
+      question: "What does .model_dump() do on a Pydantic model instance?",
+      options: [
+        "It deletes the instance's data",
+        "It returns the model's fields as a plain dict, the built-in equivalent of the hand-written as_dict() methods from earlier in this lesson",
+        "It validates the model a second time",
+        "It only works if the model has no default values",
+      ],
+      correctIndex: 1,
+      explanation:
+        ".model_dump() is Pydantic's built-in dict-conversion method — no method needs to be written by hand the way as_dict() did for a plain class or @dataclass.",
+    },
+    {
+      question:
+        "Compared to the hand-rolled __post_init__ validation from the previous section, what has to be written by hand to get the same validation behavior in a Pydantic model?",
+      options: [
+        "The exact same __post_init__ code, just inside a BaseModel subclass",
+        "Nothing extra — the type-hinted field declarations alone are enough; there's no __post_init__ or manual check needed at all",
+        "A separate validate() method must be called manually after construction",
+        "Pydantic requires more code than the manual version, not less",
+      ],
+      correctIndex: 1,
+      explanation:
+        "This is the core payoff of the whole lesson — the same type hints you'd write anyway become the validation, with the manual isinstance/raise checks eliminated entirely.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={`Declare the same three fields as the previous section's ToolCall, but as a BaseModel subclass instead — no __post_init__, no manual checks. The type hints alone should produce the same validation behavior.`}
+  starterCode={`from pydantic import BaseModel
+
+class ToolCall(BaseModel):
+    """
+    TODO: declare three type-hinted fields (no __init__, no
+    __post_init__ — Pydantic generates validation from the type hints
+    alone):
+      tool_name: str
+      timeout: float
+      arguments: dict
+    """
+    # TODO: implement
+    pass`}
+  hiddenTests={[
+    `from pydantic import ValidationError
+
+call = ToolCall(tool_name="search", timeout=5.0, arguments={"query": "weather"})
+assert call.tool_name == "search"
+assert call.model_dump() == {"tool_name": "search", "timeout": 5.0, "arguments": {"query": "weather"}}`,
+    `from pydantic import ValidationError
+
+try:
+    ToolCall(tool_name=123, timeout=5.0, arguments={})
+    assert False, "should have raised"
+except ValidationError:
+    pass`,
+    `from pydantic import ValidationError
+
+try:
+    ToolCall(tool_name="search", timeout="not a number", arguments={})
+    assert False, "should have raised"
+except ValidationError:
+    pass`,
+    `from pydantic import ValidationError
+
+try:
+    ToolCall(tool_name="search", timeout=5.0, arguments="not a dict")
+    assert False, "should have raised"
+except ValidationError:
+    pass`,
+    `call2 = ToolCall(tool_name="search", timeout=5, arguments={})
+assert call2.timeout == 5.0`,
+  ]}
+  hint={"This is just three lines — tool_name: str, timeout: float, arguments: dict — inside a class that inherits from BaseModel instead of a plain class or @dataclass-decorated one. No __post_init__, no raise, no isinstance — the validation from the previous section's much longer version is now entirely automatic."}
+  correctAnswer={{
+    code: `from pydantic import BaseModel
+
+class ToolCall(BaseModel):
+    tool_name: str
+    timeout: float
+    arguments: dict`,
+    explanation:
+      "Three lines, replacing the previous section's full class plus a five-check __post_init__ — this is the entire point of the lesson made concrete: the exact same type hints you'd write on any class become real, automatic, aggregated validation the moment the class inherits from BaseModel, with the repetitive manual checking gone completely.",
+  }}
+/>
+
+</CheckpointZone>

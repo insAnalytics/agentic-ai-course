@@ -1,0 +1,293 @@
+---
+title: "Mocking external calls"
+lesson: "10-testing-fastapi-apps"
+order: 6
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import TerminalGroup from "../../../../components/lesson/TerminalGroup";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import MockPatchGradedExercise from "../../../../components/lesson/MockPatchGradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Why a real LLM API call has no place in a test" variant="a">
+
+An agent backend's route often calls something genuinely external — an
+LLM API, another service. Testing that route by letting it make a real
+call has three real problems: it's **slow** (a network round-trip on
+every single test run, for every test that touches this route), it
+**costs real money** (an actual LLM API call, every time the test
+suite runs — including in CI, potentially dozens of times a day), and
+it's **not deterministic** (a real LLM's response can vary, and the
+network itself can simply fail, unrelated to whether your code is
+actually correct).
+
+</Subsection>
+
+<Subsection title="unittest.mock — replacing the real call with a controlled fake" variant="b">
+
+`unittest.mock.patch` temporarily replaces a function (or object) with
+a fake one, for the duration of a test, then automatically restores
+the real one afterward:
+
+```python
+# main.py
+async def call_llm_api(prompt: str) -> str:
+    # a real network call, in production
+    ...
+
+@app.post("/generate")
+async def generate(prompt: str):
+    result = await call_llm_api(prompt)
+    return {"result": result}
+```
+
+```python
+# test_main.py
+from unittest.mock import patch, AsyncMock
+
+@patch("main.call_llm_api", new_callable=AsyncMock)
+def test_generate_returns_llm_result(mock_call_llm_api, client):
+    mock_call_llm_api.return_value = "mocked response"
+
+    response = client.post("/generate", json={"prompt": "hello"})
+
+    assert response.status_code == 200
+    assert response.json() == {"result": "mocked response"}
+    mock_call_llm_api.assert_called_once_with("hello")
+```
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "pytest",
+      steps: [
+        { command: "pytest" },
+        { output: "============================= test session starts ==============================" },
+        { output: "collected 1 item" },
+        { output: "" },
+        { output: "test_main.py .                                                             [100%]" },
+        { output: "" },
+        { output: "============================== 1 passed in 0.02s ==============================" },
+      ],
+    },
+  ]}
+/>
+
+Not a single real network request happened — `call_llm_api` never ran
+its real body at all, yet `generate` still executed for real,
+including the part that turns whatever `call_llm_api` produces into
+the actual response.
+
+`@patch("main.call_llm_api", new_callable=AsyncMock)` replaces
+`call_llm_api`, specifically as it's referenced *inside `main.py`*,
+with a mock for the duration of this test — `AsyncMock` specifically,
+since
+[the real function is async def, and the mock needs to be await-able the same way](/00-python-essentials/07-async-python/02-async-await-and-coroutines/).
+Setting `mock_call_llm_api.return_value` controls exactly what the
+mock produces when awaited, with no real network call happening at
+all. `mock_call_llm_api.assert_called_once_with("hello")` additionally
+confirms the route actually called it correctly — with the right
+argument, exactly once — which is a check a real network call
+couldn't give you nearly as precisely.
+
+</Subsection>
+
+<Subsection title="Mocking a failure, not just a success" variant="a">
+
+Mocking is just as useful for testing how a route handles the
+*external* call going wrong — something genuinely hard to trigger
+reliably against a real API on demand, but trivial against a mock:
+
+```python
+@patch("main.call_llm_api", new_callable=AsyncMock)
+def test_generate_handles_llm_failure(mock_call_llm_api, client):
+    mock_call_llm_api.side_effect = ConnectionError("LLM API unreachable")
+
+    response = client.post("/generate", json={"prompt": "hello"})
+
+    assert response.status_code == 503
+```
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "pytest",
+      steps: [
+        { command: "pytest" },
+        { output: "============================= test session starts ==============================" },
+        { output: "collected 1 item" },
+        { output: "" },
+        { output: "test_main.py .                                                             [100%]" },
+        { output: "" },
+        { output: "============================== 1 passed in 0.02s ==============================" },
+      ],
+    },
+  ]}
+/>
+
+Triggering this reliably against a *real* LLM API would mean actually
+taking the network down, or hoping for a flaky moment — against a
+mock, it's one line (`side_effect = ConnectionError(...)`), on demand,
+every single run.
+
+`side_effect` (rather than `return_value`) makes the mock *raise* that
+exception when called, standing in for a real network failure —
+assuming `generate` itself catches `ConnectionError` and translates it
+into a proper `503 Service Unavailable` response, exactly the kind of
+error-path behavior
+[Concept 5's discipline](/00-python-essentials/10-testing-fastapi-apps/05-testing-error-paths-systematically/)
+says deserves its own explicit test.
+
+</Subsection>
+
+<Subsection title="This is what keeps a test a unit test" variant="b">
+
+Recall
+[the unit-vs-integration distinction from earlier in this lesson](/00-python-essentials/10-testing-fastapi-apps/02-testing-endpoints-with-testclient/#this-is-an-integration-test-not-a-unit-test):
+mocking is the specific tool that keeps a test from silently becoming
+something else. Without mocking `call_llm_api`,
+`test_generate_returns_llm_result` would actually be an integration
+test against a real external service — slow, costly, and
+non-deterministic, exactly the three problems named at the top of this
+concept. Mocking cuts out the one genuinely external dependency,
+leaving a test that still exercises the *route's own logic* (does it
+call the LLM function correctly, does it shape the response correctly,
+does it handle a failure correctly) without depending on anything
+outside your own code actually running.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What are the three concrete problems with a test that makes a real LLM API call on every run?",
+      options: [
+        "It's always wrong, always crashes, and always times out",
+        "It's slow, costs real money on every run, and isn't deterministic -- a real response can vary or the network can simply fail",
+        "There are no real problems -- this is the correct way to test it",
+        "It only works if the API key is hardcoded into the test",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A real network call on every test run adds real latency, real cost (especially at CI scale), and real non-determinism -- none of which have anything to do with whether the route's own code is correct.",
+    },
+    {
+      question: 'What does @patch("main.call_llm_api", ...) actually do during the decorated test?',
+      options: [
+        "It permanently changes call_llm_api's behavior everywhere",
+        "It temporarily replaces call_llm_api, as referenced inside main.py, with a mock for the duration of the test, then restores the real function afterward",
+        "It deletes call_llm_api from the codebase",
+        "It only works on synchronous functions, never async def ones",
+      ],
+      correctIndex: 1,
+      explanation:
+        "patch() swaps in a mock only for the duration of the decorated test and automatically restores the original afterward -- with new_callable=AsyncMock, it works for async def functions too.",
+    },
+    {
+      question: "What's the difference between setting a mock's return_value versus its side_effect?",
+      options: [
+        "They're interchangeable",
+        "return_value makes the mock return that value when called; side_effect set to an exception makes the mock raise it instead, standing in for a failure",
+        "side_effect only works with synchronous mocks",
+        "return_value can only be used once per test",
+      ],
+      correctIndex: 1,
+      explanation:
+        "return_value controls a successful mocked result; side_effect set to an exception instance makes the mock raise that exception instead, which is how a failure path gets exercised without a real failure occurring.",
+    },
+    {
+      question: 'What does mock_call_llm_api.assert_called_once_with("hello") check, that just asserting the response\'s status code wouldn\'t?',
+      options: [
+        "Nothing extra -- it's redundant with checking the status code",
+        "That the route actually called the mocked function with the correct argument, exactly once -- confirming the route's own logic behaved correctly, not just that some response came back",
+        "That the real call_llm_api was called, bypassing the mock",
+        "That the response took less than one second",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A correct status code alone doesn't prove the route called the dependency correctly -- assert_called_once_with checks the actual call the route's own code made to the mock.",
+    },
+    {
+      question: "Why does mocking call_llm_api matter specifically for keeping test_generate_returns_llm_result a unit test?",
+      options: [
+        "It doesn't relate to that distinction at all",
+        "Without mocking, the test would depend on a real external service actually running correctly -- making it an integration test in practice, with all the slowness and non-determinism that implies",
+        "Unit tests are defined by using TestClient, regardless of mocking",
+        "Mocking always converts an integration test into multiple unit tests automatically",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Mocking the one external dependency is what keeps the test scoped to the route's own logic -- without it, the test's outcome would depend on something outside the codebase entirely, which is the defining trait of an integration test.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<MockPatchGradedExercise
+  client:load
+  task={`Given the route below (already written, in main.py -- read-only), write test_main.py with two test functions: test_generate_success, mocking call_llm_api to return "mocked response" and asserting a 200 with the correct body; and test_generate_llm_failure, mocking call_llm_api to raise a ConnectionError and asserting a 503. Both mocked calls actually run against the real route above, so a correct mock plus a correct assertion is what makes each test pass.`}
+  mainCode={`from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+
+app = FastAPI()
+
+class GenerateRequest(BaseModel):
+    prompt: str
+
+async def call_llm_api(prompt: str) -> str:
+    ...  # real implementation, not shown -- assume it makes a real network call
+
+@app.post("/generate")
+async def generate(request: GenerateRequest):
+    try:
+        result = await call_llm_api(request.prompt)
+    except ConnectionError:
+        raise HTTPException(status_code=503, detail="LLM service unavailable")
+    return {"result": result}`}
+  starterCode={`from unittest.mock import patch, AsyncMock
+
+# TODO: mock call_llm_api to return "mocked response", then call the
+# route and assert a 200 with the correct body.
+@patch("main.call_llm_api", new_callable=AsyncMock)
+async def test_generate_success(mock_call_llm_api, client):
+    pass
+
+# TODO: mock call_llm_api to raise a ConnectionError, then call the
+# route and assert a 503.
+@patch("main.call_llm_api", new_callable=AsyncMock)
+async def test_generate_llm_failure(mock_call_llm_api, client):
+    pass`}
+  requiredTests={[
+    { name: "test_generate_success", label: "test_generate_success -- mocked success returns 200 with the correct body" },
+    { name: "test_generate_llm_failure", label: "test_generate_llm_failure -- mocked ConnectionError returns 503" },
+  ]}
+  hint={`Both tests need @patch("main.call_llm_api", new_callable=AsyncMock), since call_llm_api is declared async def in main.py. Set mock_call_llm_api.return_value for the success case, mock_call_llm_api.side_effect = ConnectionError("...") for the failure case. Then: response = await client.post("/generate", json={"prompt": "hello"}); assert response.status_code == ...; this site's own client fixture is an httpx.AsyncClient, so the call needs await, and the test function itself needs async def -- same reason this lesson's other graded exercises needed it.`}
+  correctAnswer={{
+    code: `from unittest.mock import patch, AsyncMock
+
+@patch("main.call_llm_api", new_callable=AsyncMock)
+async def test_generate_success(mock_call_llm_api, client):
+    mock_call_llm_api.return_value = "mocked response"
+    response = await client.post("/generate", json={"prompt": "hello"})
+    assert response.status_code == 200
+    assert response.json() == {"result": "mocked response"}
+
+@patch("main.call_llm_api", new_callable=AsyncMock)
+async def test_generate_llm_failure(mock_call_llm_api, client):
+    mock_call_llm_api.side_effect = ConnectionError("unreachable")
+    response = await client.post("/generate", json={"prompt": "hello"})
+    assert response.status_code == 503`,
+    explanation:
+      "Both tests exercise generate's actual logic -- the try/except around call_llm_api in main.py, which this exercise never lets you edit -- without either one ever making a real network call, proving the route handles both outcomes correctly using nothing but a controlled, fake version of the one genuinely external dependency. Both tests are declared async def here, awaiting client.post(...) directly, for the same reason as this lesson's other graded exercises: this site's own client fixture is an httpx.AsyncClient, not a real thread-backed TestClient.",
+  }}
+/>
+
+</CheckpointZone>

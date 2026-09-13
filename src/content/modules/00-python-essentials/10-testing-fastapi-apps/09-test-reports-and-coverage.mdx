@@ -1,0 +1,172 @@
+---
+title: "Test reports and coverage"
+lesson: "10-testing-fastapi-apps"
+order: 9
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import TerminalGroup from "../../../../components/lesson/TerminalGroup";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Beyond reading terminal output" variant="a">
+
+Every test run so far has produced output meant for a human reading a
+terminal — dots, `PASSED`/`FAILED`, a summary line. That's fine when
+you're the one running `pytest` directly, but it doesn't scale to
+situations where *something else* needs to know the results: a CI
+system deciding whether to allow a deployment, a dashboard tracking
+trends over time, or — increasingly relevant given this course's later
+lesson on using an AI coding assistant critically — an assistant that
+just generated some code and needs to check, programmatically, whether
+its own tests actually passed.
+
+</Subsection>
+
+<Subsection title="Machine-readable output: JUnit XML" variant="b">
+
+```bash
+pytest --junitxml=report.xml
+```
+
+This produces a structured XML file (the format is called "JUnit XML"
+for historical reasons — it originated with a Java testing tool, but
+it's now the de facto standard nearly every testing framework and CI
+system reads and writes, regardless of language):
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "report.xml",
+      steps: [
+        { command: "pytest --junitxml=report.xml" },
+        { output: "" },
+        { output: '<testsuite name="pytest" tests="12" failures="1" errors="0" time="0.42">' },
+        { output: '  <testcase classname="test_agents" name="test_create_agent_success" time="0.01" />' },
+        { output: '  <testcase classname="test_agents" name="test_create_agent_duplicate_name" time="0.02">' },
+        { output: '    <failure message="assert 200 == 409">...</failure>' },
+        { output: "  </testcase>" },
+        { output: "</testsuite>" },
+      ],
+    },
+  ]}
+/>
+
+Rather than a tool having to parse pass/fail out of terminal text
+formatted for human eyes, it reads structured fields directly —
+`tests="12"`, `failures="1"`, each `<testcase>` with its own name and
+outcome. This is the same underlying idea as
+[the OpenAPI schema from the FastAPI lesson](/00-python-essentials/09-building-apis-with-fastapi/06-automatic-docs/#documentation-you-didn-t-write):
+a machine-readable version of the same information a human-facing view
+already shows, generated automatically rather than hand-formatted for
+one specific consumer.
+
+</Subsection>
+
+<Subsection title="Coverage: which lines actually ran" variant="a">
+
+`pytest-cov` answers a different question: not "did tests pass," but
+"how much of the actual code did running the tests even *execute*":
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "pytest --cov=myapp",
+      steps: [
+        { command: "pytest --cov=myapp" },
+        { output: "---------- coverage: platform linux, python 3.12.1 -----------" },
+        { output: "Name             Stmts   Miss  Cover   Missing" },
+        { output: "-----------------------------------------------" },
+        { output: "myapp/agents.py     28      3    89%   45-47" },
+        { output: "myapp/main.py       15      0   100%" },
+        { output: "-----------------------------------------------" },
+        { output: "TOTAL               43      3    93%" },
+      ],
+    },
+  ]}
+/>
+
+`agents.py` is 89% covered — 3 statements (lines 45–47) never ran
+during the entire test suite, meaning no test currently exercises
+whatever that code does. This is a genuinely useful signal for finding
+gaps: a 0%-covered function is a function nobody's testing at all,
+worth noticing before it breaks silently.
+
+</Subsection>
+
+<Subsection title="What coverage doesn't tell you" variant="b">
+
+Worth being precise about the limit here, directly connecting back to
+[the discipline from earlier in this lesson](/00-python-essentials/10-testing-fastapi-apps/05-testing-error-paths-systematically/):
+coverage measures whether a line *executed*, not whether it was
+*tested meaningfully*. A test that calls a function and asserts
+nothing about its result would still count that function's lines as
+"covered," despite verifying nothing at all. 100% coverage is a floor
+worth aiming for — every line at least reached once — not a ceiling
+proving the code is well-tested; it tells you what's definitely *not*
+tested (anything below 100%), never confirms that what *is* covered
+was actually tested well. The enumerate-failure-modes discipline from
+earlier in this lesson is what actually produces meaningful tests —
+coverage is just a tool for spotting where that discipline clearly
+wasn't applied at all.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why might a CI system or another tool need pytest --junitxml=report.xml instead of just reading pytest's normal terminal output?",
+      options: [
+        "JUnit XML runs tests faster",
+        "It produces structured, machine-readable output -- a tool can read specific fields directly, rather than having to parse text formatted for a human reading a terminal",
+        "Terminal output can't show whether a test passed or failed",
+        "JUnit XML is required for pytest to run at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The value of JUnit XML is structure -- tests, failures, and each testcase's outcome as real fields a program can read directly, rather than text meant for a human's eyes.",
+    },
+    {
+      question: "What does pytest --cov=myapp's report actually measure?",
+      options: [
+        "How fast the test suite ran",
+        "Which lines of the actual application code were executed at least once while running the test suite",
+        "How many assertions each test function contains",
+        "Whether the tests are well-written",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Coverage is purely about execution -- which lines actually ran during the test suite -- not about how many assertions exist or whether they check anything meaningful.",
+    },
+    {
+      question: "Why doesn't 100% coverage guarantee a codebase is well-tested?",
+      options: [
+        "100% coverage is impossible to actually achieve",
+        "Coverage only measures whether a line executed, not whether the test meaningfully checked its behavior -- a test that runs a function but asserts nothing still counts as covering it",
+        "Coverage tools are generally unreliable and produce incorrect numbers",
+        "100% coverage means every possible input has been tested",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Coverage can't distinguish a test that actually verifies behavior from one that runs code and asserts nothing -- both count identically as \"covered,\" which is exactly why 100% coverage is a floor, not proof of quality.",
+    },
+    {
+      question: "What's coverage actually useful for, given its limitations?",
+      options: [
+        "Nothing -- it should be ignored entirely",
+        "Spotting code that's definitely not tested at all (anything below 100%) -- a real, useful signal, even though high coverage alone doesn't prove the tests that exist are meaningful",
+        "Automatically writing missing tests",
+        "Replacing the need to write assertions in tests",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Coverage's real value is negative: it reliably flags what's definitely untested. It says nothing positive about quality on the parts that are covered -- that's still the enumerate-failure-modes discipline's job.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

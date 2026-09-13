@@ -1,0 +1,31 @@
+---
+title: "Intro"
+lesson: "09-building-apis-with-fastapi"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Explain REST's core building blocks (resources, URIs, the five HTTP methods, idempotency) and its guiding principles, and articulate why FastAPI's ASGI/Pydantic foundation fits an agent backend specifically",
+    "Define routes with path/query/header/cookie parameters and real validation constraints, and avoid the route-ordering gotcha",
+    "Validate request bodies (including file uploads) with Pydantic, and shape, status-code, and error-handle responses — per-route with HTTPException, or globally with @app.exception_handler",
+    "Read the automatically generated /docs and /redoc pages, and explain what they're actually built from",
+    "Write both async def and plain def routes correctly, know which fits which situation, and avoid blocking the entire server",
+    "Use Depends() for shared logic, implement API key auth, and describe how JWT-based auth fits REST's statelessness",
+    "Organize a multi-file app with APIRouter, and add CORS, rate limiting, startup/shutdown logic, and background tasks",
+  ]}
+/>
+
+<WhyItMatters>
+  This lesson is where nearly everything else in Module 0 converges into
+  one deployable thing: Pydantic validates what a client sends, decorators
+  wire up what happens when a request arrives, async/await lets one route
+  wait on an LLM call without blocking every other request, and custom
+  exceptions from the I/O lesson become real HTTP error responses. An
+  agent that serves tool endpoints, receives webhooks, or exposes results
+  to a frontend needs exactly this — and needs it done with real
+  attention to who's allowed to call it and how often, not just that it
+  technically works.
+</WhyItMatters>

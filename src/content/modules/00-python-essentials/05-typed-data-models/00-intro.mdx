@@ -1,0 +1,28 @@
+---
+title: "Intro"
+lesson: "05-typed-data-models"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Decide between a plain dict and a class for a given piece of data, and explain concretely what a class buys you that a dict doesn't",
+    "Use @dataclass to eliminate the boilerplate of a hand-written __init__/__repr__/__eq__ on a data-holding class",
+    "Explain why type hints alone — on a plain class or a @dataclass — don't enforce anything at runtime, and write manual validation with __post_init__ and raise to close that gap by hand",
+    "Define a Pydantic BaseModel and explain what it adds over @dataclass: the same type hints becoming real, aggregated, automatic validation, with built-in dict conversion via .model_dump()",
+  ]}
+/>
+
+<WhyItMatters>
+  Nearly everything that flows through an agent from the outside world — an
+  LLM's tool-call arguments, a config file, an API response — arrives as
+  loosely-structured data that might not actually match what your code
+  expects. This lesson's whole arc, from a plain dict through @dataclass to
+  Pydantic, is about closing that gap: by the time you reach tool-calling
+  and FastAPI later in this course, BaseModel classes are what actually
+  define a tool's expected arguments and validate them before your code
+  ever runs on them — this lesson is where that pattern is built from the
+  ground up, one layer at a time.
+</WhyItMatters>
