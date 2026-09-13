@@ -88,12 +88,23 @@
     server-streaming exercise; real `grpcio` can't even install in
     Pyodide, no pure-Python wheel exists, so grading calls the
     learner's servicer directly through a fake stub instead of real
-    transport — see architecture.md §4.1). Still to come per the
-    mockup's own forward references: testing streaming/WebSocket/gRPC
-    endpoints (Concept 8), then (per the lesson's own stated arc) a
-    broadcast pattern for many connected clients, plus the
-    intro/comprehensive-quiz/comprehensive-sandbox bookends. No
-    `00-intro.mdx` or
+    transport — see architecture.md §4.1), Concept 8 (testing SSE with
+    `TestClient.stream()`, WebSockets with `.websocket_connect()` +
+    `pytest.raises(WebSocketDisconnect)`, and gRPC with a real
+    server-on-an-ephemeral-port fixture; demo + quiz only, no sandbox
+    exercise). Verified all of Concept 8's testing claims directly
+    against a real pinned-version install (not just Pyodide) before
+    writing it — one real mockup bug found and fixed: its gRPC fixture
+    mixed `TaskService`-named identifiers with Concept 6's actual
+    `ToolService`/`ExecuteTool`/`ToolRequest` example; corrected to use
+    `ToolService` consistently, confirmed working end-to-end. Also
+    `pytest.raises` isn't actually taught anywhere in the testing
+    lesson despite the mockup citing it as prior coverage — explained
+    it inline in Concept 8 instead of linking to a concept that
+    doesn't cover it. Still to come per the mockup's own forward
+    references: a broadcast pattern for many connected clients
+    (Concept 9), plus the intro/comprehensive-quiz/comprehensive-sandbox
+    bookends. No `00-intro.mdx` or
     `NN-recap-practice.mdx` yet — added last, once all concepts exist
     (see architecture.md §3 and CLAUDE.md's authoring workflow note).
 
