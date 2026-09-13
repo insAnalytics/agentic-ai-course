@@ -1,0 +1,240 @@
+---
+title: "Implementing SSE with StreamingResponse"
+lesson: "11-real-time-communication"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import FastAPIGradedExercise from "../../../../components/lesson/FastAPIGradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="StreamingResponse — sending a response incrementally" variant="a">
+
+Every response so far has been built completely, then sent all at
+once. `StreamingResponse` instead takes a generator —
+[an async generator, specifically, using async def with yield](/00-python-fundamentals/07-concurrency-and-async/02-async-await-and-coroutines/)
+— and streams each yielded chunk to the client as soon as it's
+produced, rather than waiting for everything to be ready first:
+
+```python
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
+import asyncio
+
+app = FastAPI()
+
+async def generate_tokens():
+    tokens = ["The", " agent", " is", " responding", "."]
+    for token in tokens:
+        yield token
+        await asyncio.sleep(0.3)   # standing in for real generation time
+
+@app.get("/stream")
+async def stream_response():
+    return StreamingResponse(generate_tokens(), media_type="text/plain")
+```
+
+A client connected to `GET /stream` receives `"The"`, then `" agent"`,
+then `" is"`, and so on — each one arriving roughly 0.3 seconds after
+the last, rather than the client waiting 1.5 seconds for the entire
+response to be built before receiving anything at all.
+
+</Subsection>
+
+<Subsection title="The actual SSE wire format" variant="b">
+
+Plain streamed text works for a simple case, but SSE has a specific,
+lightweight format worth using for anything real — each event is
+`data: <content>`, followed by a blank line, with an optional
+`event: <name>` line before it to label what kind of event it is:
+
+```python
+import json
+
+async def generate_status_events():
+    steps = [
+        {"status": "started", "progress": 0},
+        {"status": "running", "progress": 40},
+        {"status": "running", "progress": 80},
+        {"status": "complete", "progress": 100},
+    ]
+    for step in steps:
+        yield f"event: status\ndata: {json.dumps(step)}\n\n"
+        await asyncio.sleep(1)
+
+@app.get("/tasks/{task_id}/stream")
+async def stream_task_status(task_id: int):
+    return StreamingResponse(generate_status_events(), media_type="text/event-stream")
+```
+
+`media_type="text/event-stream"` is what actually marks this as SSE —
+it tells the client (and any intermediate proxies) to treat the
+connection as a long-lived event stream rather than a normal response
+to buffer and close.
+`json.dumps(step)` [is exactly the JSON-serialization step from the I/O lesson](/00-python-fundamentals/06-files-and-json/02-working-with-json/#json-loads-json-dumps-the-string-versions),
+just producing one small JSON payload per event instead of one JSON
+document for the whole response.
+
+</Subsection>
+
+<Subsection title="What this replaces, concretely" variant="a">
+
+This is the direct fix for
+[the polling baseline from earlier in this lesson](/00-python-fundamentals/11-real-time-communication/01-the-protocol-landscape/#the-baseline-polling-and-why-it-s-wasteful):
+instead of a client repeatedly asking `GET /tasks/42/status` in a
+loop, it opens `GET /tasks/42/stream` once and receives each status
+change the moment the server actually has one — no wasted requests, no
+polling-interval latency, and the server only sends data when
+something genuinely changed.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does StreamingResponse do differently from a normal FastAPI response?",
+      options: [
+        "Nothing -- it's just a different name for the same thing",
+        "It sends each yielded chunk to the client as soon as it's produced, rather than building the entire response before sending anything",
+        "It only works for JSON responses",
+        "It requires a WebSocket connection underneath",
+      ],
+      correctIndex: 1,
+      explanation:
+        "StreamingResponse wraps a generator and forwards each chunk to the client the moment it's yielded, instead of waiting for the whole response body to be assembled first.",
+    },
+    {
+      question: 'What does media_type="text/event-stream" actually signal?',
+      options: [
+        "Nothing functional -- it's purely cosmetic",
+        "That this response should be treated as a long-lived SSE event stream, not a normal response to buffer and close",
+        "That the response body must be plain text, never JSON",
+        "It's required for StreamingResponse to work at all, regardless of format",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The media type is what tells the client (and any proxies in between) to treat the connection as an ongoing event stream rather than a normal, bufferable response.",
+    },
+    {
+      question: "In the SSE wire format, what does a blank line after each data: ... line signal?",
+      options: [
+        "Nothing -- it's optional formatting",
+        "The end of that individual event -- the client knows one complete event has been sent",
+        "That the connection should close",
+        "That an error occurred",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The blank line is the event delimiter in the SSE format -- it marks where one event ends, so the client knows it received a complete event before the next one starts.",
+    },
+    {
+      question: "How does streaming task status via SSE avoid the wasted requests and latency problems of polling, described earlier in this lesson?",
+      options: [
+        "It doesn't -- it has the exact same characteristics as polling",
+        "The client opens one connection and receives each status change the moment the server has one, rather than repeatedly asking and receiving mostly \"nothing changed\" responses",
+        "SSE requires the client to poll even more frequently than before",
+        "SSE only works for a single event, never a sequence of updates",
+      ],
+      correctIndex: 1,
+      explanation:
+        "One open connection replaces the repeated ask-and-check cycle entirely -- the server sends data only when something actually changed, which is exactly what polling couldn't do.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<FastAPIGradedExercise
+  client:load
+  task={`Implement GET /tasks/{task_id}/stream, returning a StreamingResponse with media_type="text/event-stream", yielding three SSE-formatted status events in sequence: {"status": "started", "progress": 0}, {"status": "running", "progress": 50}, {"status": "complete", "progress": 100} -- each formatted exactly as f"event: status\\ndata: {json.dumps(step)}\\n\\n", with a short asyncio.sleep between each.`}
+  starterCode={`import json
+import asyncio
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
+
+app = FastAPI()
+
+# TODO: an async generator yielding the three SSE-formatted status
+# events shown in this concept, each followed by a short asyncio.sleep.
+async def generate_task_events():
+    pass
+
+@app.get("/tasks/{task_id}/stream")
+async def stream_task_status(task_id: int):
+    return StreamingResponse(generate_task_events(), media_type="text/event-stream")`}
+  checkLabels={{
+    correctContentType: "The response's content-type is text/event-stream",
+    hasThreeEvents: "The streamed body contains exactly three SSE events",
+    firstEventCorrect: 'Event 1 is {"status": "started", "progress": 0}',
+    secondEventCorrect: 'Event 2 is {"status": "running", "progress": 50}',
+    thirdEventCorrect: 'Event 3 is {"status": "complete", "progress": 100}',
+  }}
+  gradingScript={`import json
+import httpx
+
+_checks = {}
+_transport = httpx.ASGITransport(app=app)
+async with httpx.AsyncClient(transport=_transport, base_url="http://test") as client:
+    try:
+        response = await client.get("/tasks/42/stream")
+        _checks["correctContentType"] = response.headers.get("content-type", "").startswith("text/event-stream")
+
+        blocks = [b for b in response.text.split("\\n\\n") if b.strip()]
+        _checks["hasThreeEvents"] = len(blocks) == 3
+
+        expected = [
+            {"status": "started", "progress": 0},
+            {"status": "running", "progress": 50},
+            {"status": "complete", "progress": 100},
+        ]
+        labels = ["firstEventCorrect", "secondEventCorrect", "thirdEventCorrect"]
+        for i, label in enumerate(labels):
+            if i >= len(blocks):
+                _checks[label] = False
+                continue
+            lines = blocks[i].strip().split("\\n")
+            has_event_line = any(line.strip() == "event: status" for line in lines)
+            data_line = next((line for line in lines if line.startswith("data:")), None)
+            try:
+                payload = json.loads(data_line[len("data:"):].strip()) if data_line else None
+            except Exception:
+                payload = None
+            _checks[label] = has_event_line and payload == expected[i]
+    except Exception:
+        for key in ["correctContentType", "hasThreeEvents", "firstEventCorrect", "secondEventCorrect", "thirdEventCorrect"]:
+            _checks.setdefault(key, False)
+
+__result = {"passed": all(_checks.values()), "checks": _checks}`}
+  hint={`This is nearly identical to generate_status_events shown in this concept -- an async def generator function yield-ing each formatted string, passed directly as StreamingResponse's first argument. Each yielded string must be exactly f"event: status\\ndata: {json.dumps(step)}\\n\\n" for one of the three step dicts, in order.`}
+  correctAnswer={{
+    code: `import json
+import asyncio
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
+
+app = FastAPI()
+
+async def generate_task_events():
+    steps = [
+        {"status": "started", "progress": 0},
+        {"status": "running", "progress": 50},
+        {"status": "complete", "progress": 100},
+    ]
+    for step in steps:
+        yield f"event: status\\ndata: {json.dumps(step)}\\n\\n"
+        await asyncio.sleep(0.1)
+
+@app.get("/tasks/{task_id}/stream")
+async def stream_task_status(task_id: int):
+    return StreamingResponse(generate_task_events(), media_type="text/event-stream")`,
+    explanation:
+      "This is the minimal, complete shape of a real SSE endpoint: an async generator producing correctly-formatted events, and StreamingResponse handing each one to the client as it's yielded -- the actual mechanism behind streaming an LLM's tokens or any other progressive server-side update. Grading reads the endpoint's entire streamed response body (a real request against a real StreamingResponse, not a mock) and checks that all three events actually arrived, in order, with the correct JSON payload on each data: line.",
+  }}
+/>
+
+</CheckpointZone>
