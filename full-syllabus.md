@@ -1,6 +1,8 @@
 # AgenticAI Course — Full Syllabus (Reference)
 
 > Status key: **Locked** = content fully drafted and written to file.
+> **Building** = some concepts drafted and written to file, lesson not
+> yet complete — see the note under that lesson for exactly how far.
 > **Planned** = lesson name and scope agreed, content not yet drafted.
 > **Rough outline** = module scope agreed, not yet broken into lessons.
 
@@ -58,17 +60,26 @@
    Postgres app (its own GitHub repo, `agentic-ai-course-agent-registry`)
    rather than an in-browser exercise — see architecture.md §4.3.
 
-9. **Develop and Document REST API Endpoints** — Planned
+9. **Develop and Document REST API Endpoints** — Locked
    FastAPI routes, request/response models, dependency injection,
    auto-generated docs (Swagger). Builds directly on decorators from
    Lesson 4.
 
-10. **Write and Execute Tests for REST Endpoints** — Planned
+10. **Write and Execute Tests for REST Endpoints** — Locked
     pytest basics, testing FastAPI endpoints, fixtures.
 
-11. **Implement Real-Time Communication Across Protocols** — Planned
+11. **Implement Real-Time Communication Across Protocols** — Building
     WebSockets/SSE mechanics, generic here — applied specifically to LLM
-    streaming once Module 1 exists.
+    streaming once Module 1 exists. Drafted so far: Concept 1 (protocol
+    landscape: polling/SSE/WebSockets/gRPC), Concept 2 (choosing the
+    right protocol), Concept 3 (implementing SSE with `StreamingResponse`,
+    with a graded exercise). Still to come per the mockup's own forward
+    references: WebSockets fundamentals, then (per the lesson's own
+    stated arc) testing all three protocols and a broadcast pattern for
+    many connected clients, plus the intro/comprehensive-quiz/
+    comprehensive-sandbox bookends. No `00-intro.mdx` or
+    `NN-recap-practice.mdx` yet — added last, once all concepts exist
+    (see architecture.md §3 and CLAUDE.md's authoring workflow note).
 
 12. **Enhance Code, Tests, and Documentation Using Coding Assistance** — Planned
     Using an AI coding assistant critically — prompting it well, reviewing
