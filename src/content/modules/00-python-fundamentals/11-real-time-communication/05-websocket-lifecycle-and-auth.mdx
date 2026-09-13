@@ -28,7 +28,7 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             message = await websocket.receive_text()
             await websocket.send_text(f"echo: {message}")
-    except WebSocketDisconnect:
+    except WebSocketDisconnect:   # raised the next time receive_text() runs after the client is gone
         print("client disconnected")
 ```
 
@@ -76,7 +76,7 @@ VALID_TOKEN = "secret-key-123"
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket, token: str = None):
     if token != VALID_TOKEN:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)   # rejected at the handshake, before accept()
         return
     await websocket.accept()
     try:
@@ -274,7 +274,7 @@ VALID_TOKEN = "secret-key-123"
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket, token: str = None):
     if token != VALID_TOKEN:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)   # rejected at the handshake, before accept()
         return
     await websocket.accept()
     try:

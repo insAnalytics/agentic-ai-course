@@ -21,9 +21,9 @@ app = FastAPI()
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    while True:
-        message = await websocket.receive_text()
+    await websocket.accept()   # completes the handshake -- connection is now open and persistent
+    while True:   # keeps handling messages for as long as the connection stays open
+        message = await websocket.receive_text()   # pauses here, in place, until a message arrives
         await websocket.send_text(f"echo: {message}")
 ```
 
@@ -98,7 +98,7 @@ automatically, working with dicts directly instead of strings:
 async def agent_websocket(websocket: WebSocket):
     await websocket.accept()
     while True:
-        message = await websocket.receive_json()
+        message = await websocket.receive_json()   # parsed into a dict automatically -- no json.loads() needed
         if message["action"] == "start_task":
             await websocket.send_json({"status": "started", "progress": 0})
         elif message["action"] == "cancel":

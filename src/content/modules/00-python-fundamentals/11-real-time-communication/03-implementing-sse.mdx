@@ -32,7 +32,7 @@ async def generate_tokens():
 
 @app.get("/stream")
 async def stream_response():
-    return StreamingResponse(generate_tokens(), media_type="text/plain")
+    return StreamingResponse(generate_tokens(), media_type="text/plain")   # sends each chunk as it's yielded
 ```
 
 <TerminalGroup
@@ -79,12 +79,12 @@ async def generate_status_events():
         {"status": "complete", "progress": 100},
     ]
     for step in steps:
-        yield f"event: status\ndata: {json.dumps(step)}\n\n"
+        yield f"event: status\ndata: {json.dumps(step)}\n\n"   # blank line at the end marks one complete event
         await asyncio.sleep(1)
 
 @app.get("/tasks/{task_id}/stream")
 async def stream_task_status(task_id: int):
-    return StreamingResponse(generate_status_events(), media_type="text/event-stream")
+    return StreamingResponse(generate_status_events(), media_type="text/event-stream")   # marks this as a long-lived SSE stream
 ```
 
 <TerminalGroup
