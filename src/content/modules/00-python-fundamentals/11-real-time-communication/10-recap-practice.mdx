@@ -1,0 +1,436 @@
+---
+title: "Recap & Practice"
+lesson: "11-real-time-communication"
+order: 10
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import MultiFileFastAPIGradedExercise from "../../../../components/lesson/MultiFileFastAPIGradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What are the concrete costs of polling for a long-running task's status?",
+      options: [
+        "None -- polling is just as efficient as any alternative",
+        "Wasted requests, added latency, and server load that scales with client impatience rather than actual work happening",
+        "Polling only has a latency cost, no load cost",
+        "Polling requires a persistent connection, unlike the alternatives",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Polling's cost is threefold: most requests carry no new information, the client learns about a change only after the next scheduled check, and load scales with how often clients ask rather than how much work is actually happening.",
+    },
+    {
+      question: "A live dashboard needs both server-pushed updates and the ability for a client to cancel a running task at any moment. Which protocol fits, and why?",
+      options: [
+        "SSE, since it handles server push",
+        "WebSockets -- the client needs to send something back mid-interaction, which SSE structurally can't support",
+        "Polling, since it's simpler",
+        "gRPC, since it's the most sophisticated option",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The need to cancel mid-interaction is exactly what pushes this past SSE's one-way limit into WebSockets' genuine two-way communication.",
+    },
+    {
+      question: 'What does media_type="text/event-stream" actually signal on a StreamingResponse?',
+      options: [
+        "Nothing functional -- purely cosmetic",
+        "That the response should be treated as a long-lived SSE event stream, not a normal response to buffer and close",
+        "That the response body must be plain text, never JSON",
+        "It's unrelated to SSE specifically",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The media type is what tells the client (and any proxies in between) to treat the connection as an ongoing event stream rather than a normal, bufferable response.",
+    },
+    {
+      question: "What does await websocket.accept() actually do?",
+      options: [
+        "It sends the first message to the client",
+        "It completes the protocol handshake, upgrading the initial HTTP request into a persistent WebSocket connection",
+        "It's optional -- connections work identically without it",
+        "It closes the connection immediately after opening it",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A WebSocket connection starts as a normal HTTP request and then upgrades to the WebSocket protocol -- accept() is what agrees to that upgrade.",
+    },
+    {
+      question: "Why doesn't header-based API key auth carry over directly to WebSocket authentication?",
+      options: [
+        "WebSockets don't support authentication at all",
+        "A browser's WebSocket API can't easily set custom headers on the connection request, so a token is typically passed as a query parameter instead",
+        "Headers only work over gRPC",
+        "WebSocket connections are always pre-authenticated",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The limitation is on the client side -- a browser's WebSocket constructor has no option to attach custom headers, so the token travels somewhere else reachable from the connection URL: the query string.",
+    },
+    {
+      question: "Why is protobuf's binary encoding typically more compact than the equivalent JSON message?",
+      options: [
+        "Protobuf compresses data with a general-purpose algorithm",
+        "Protobuf never transmits field names at all -- only compact numeric tags -- while JSON repeats every field's name as a string in every message",
+        "JSON always includes more fields than protobuf allows",
+        "There's no real size difference",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A protobuf message carries each field's number, not its name -- the human-readable name lives only in the .proto source, never on the wire.",
+    },
+    {
+      question: "Where does the generated class name ToolServiceServicer actually come from?",
+      options: [
+        "An arbitrary name the developer chooses independently",
+        "It's generated directly from the .proto file's service declaration, following protoc's fixed naming pattern of the service name plus Servicer",
+        "A built-in gRPC class unrelated to the .proto file",
+        "It only exists for services with more than one RPC method",
+      ],
+      correctIndex: 1,
+      explanation:
+        "protoc always generates <ServiceName>Servicer and <ServiceName>Stub from a .proto file's service declaration.",
+    },
+    {
+      question: "How does a server-streaming RPC's implementation differ from a unary RPC's, in Python?",
+      options: [
+        "No difference at all",
+        "It becomes a generator, yield-ing each response instead of return-ing a single one",
+        "It must use async def instead of def",
+        "It requires a separate thread per response",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The generated method signature looks the same, but its body becomes an ordinary Python generator -- yield in place of return produces a stream of responses instead of one.",
+    },
+    {
+      question: "Why can't TestClient be used to test a gRPC service?",
+      options: [
+        "TestClient can test any protocol without modification",
+        "gRPC isn't part of the FastAPI app at all -- testing it means running an actual gRPC server and connecting a real client to it",
+        "gRPC services can never be tested automatically",
+        "TestClient only works with async def routes",
+      ],
+      correctIndex: 1,
+      explanation:
+        "TestClient is specifically an in-process stand-in for FastAPI's own ASGI app -- a gRPC service runs on a completely separate server and protocol.",
+    },
+    {
+      question: "What problem does a connection manager solve that a single WebSocket route handling one connection at a time doesn't?",
+      options: [
+        "It makes individual messages send faster",
+        "It lets one event reach every currently-connected client, not just whichever connection happened to trigger it",
+        "It replaces the need for accept() entirely",
+        "It only matters for gRPC",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A single WebSocket route only ever knows about its own connection -- reaching every connected client for one shared event needs something tracking all of them together.",
+    },
+    {
+      question: "What two problems would result from never removing a disconnected client from a connection manager's active-connections list?",
+      options: [
+        "No real problem -- the list would simply stay accurate",
+        "The list would grow forever holding dead connections, and every future broadcast would try to send to those dead connections too, raising an exception",
+        "The server would refuse all new connections",
+        "Broadcasting would silently stop working entirely",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Unbounded memory growth is the first problem; the second is worse than it sounds -- since a plain broadcast loop has no per-connection error handling, one dead connection's raised exception aborts delivery to every other live client too.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<MultiFileFastAPIGradedExercise
+  client:load
+  task={`Extend the agent registry app once more: add a ConnectionManager and an authenticated WebSocket route (GET /agents/watch, via a token query parameter) that broadcasts an "agent_created" event to every connected watcher whenever create_agent successfully stores a new agent. Every route, dependency, and background task function must stay async def.`}
+  entry="main.py"
+  files={[
+    {
+      name: "agents.py",
+      code: `from fastapi import APIRouter, Depends, Header, HTTPException, Path, Request, BackgroundTasks, WebSocket, WebSocketDisconnect, status
+from pydantic import BaseModel
+
+API_KEY = "secret-key-123"
+
+class AgentConfig(BaseModel):
+    name: str
+    model: str
+
+class DuplicateAgentError(Exception):
+    def __init__(self, name: str):
+        self.name = name
+        super().__init__(f"an agent named '{name}' already exists")
+
+async def verify_api_key(x_api_key: str = Header(default=None)):
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="invalid or missing API key")
+
+async def log_registration(name: str):
+    print(f"registered new agent: {name}")
+
+# TODO: implement connect (accept + append), disconnect (remove), and
+# an async broadcast(message: dict) that send_json's to every active connection.
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections = []
+    # TODO: implement connect, disconnect, broadcast
+
+manager = ConnectionManager()
+
+router = APIRouter(prefix="/agents", tags=["agents"])
+
+# TODO:
+#   - if token != "secret-key-123", close with status.WS_1008_POLICY_VIOLATION and return
+#   - otherwise, connect via manager, then loop receiving text (ignoring
+#     the content) until WebSocketDisconnect, then call manager.disconnect
+@router.websocket("/watch")
+async def watch_agents(websocket: WebSocket, token: str = None):
+    pass
+
+@router.post("", response_model=AgentConfig, status_code=201, dependencies=[Depends(verify_api_key)])
+async def create_agent(config: AgentConfig, request: Request, background_tasks: BackgroundTasks):
+    registry = request.app.state.registry
+    if any(a["name"] == config.name for a in registry.values()):
+        raise DuplicateAgentError(config.name)
+    registry[request.app.state.next_id] = config.model_dump()
+    request.app.state.next_id += 1
+    background_tasks.add_task(log_registration, config.name)
+    # TODO: broadcast {"event": "agent_created", "name": config.name} to
+    # every connected watcher, after the agent is actually stored, before returning.
+    return config
+
+@router.get("/{agent_id}", response_model=AgentConfig, dependencies=[Depends(verify_api_key)])
+async def get_agent(request: Request, agent_id: int = Path(gt=0)):
+    registry = request.app.state.registry
+    if agent_id not in registry:
+        raise HTTPException(status_code=404, detail=f"agent {agent_id} not found")
+    return registry[agent_id]`,
+    },
+    {
+      name: "main.py",
+      code: `from contextlib import asynccontextmanager
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from agents import router as agents_router, DuplicateAgentError
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.registry = {}
+    app.state.next_id = 1
+    yield
+
+app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://my-frontend.com"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
+
+@app.exception_handler(DuplicateAgentError)
+async def handle_duplicate(request: Request, exc: DuplicateAgentError):
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+app.include_router(agents_router)`,
+    },
+  ]}
+  checkLabels={{
+    watcherAccepted: "A watcher connecting with the correct token is accepted",
+    createReturns201: "POST /agents still returns 201 for a new agent",
+    watcherReceivedBroadcast: 'A connected watcher receives {"event": "agent_created", "name": ...} when an agent is created',
+    rejectsBadToken: "A watcher connecting with the wrong token is closed with code 1008, before being accepted",
+  }}
+  gradingScript={`import asyncio, json, httpx
+
+async def drive_websocket(app, path, query_string=b""):
+    scope = {
+        "type": "websocket",
+        "asgi": {"version": "3.0", "spec_version": "2.3"},
+        "path": path,
+        "raw_path": path.encode(),
+        "root_path": "",
+        "scheme": "ws",
+        "query_string": query_string,
+        "headers": [],
+        "client": ("testclient", 123),
+        "server": ("testserver", 80),
+        "subprotocols": [],
+    }
+    to_app = asyncio.Queue()
+    from_app = asyncio.Queue()
+
+    async def receive():
+        return await to_app.get()
+
+    async def send(message):
+        await from_app.put(message)
+
+    to_app.put_nowait({"type": "websocket.connect"})
+    task = asyncio.ensure_future(app(scope, receive, send))
+    first = await asyncio.wait_for(from_app.get(), timeout=2)
+    return task, to_app, from_app, first
+
+_checks = {}
+task1 = to_app1 = from_app1 = None
+
+try:
+    task1, to_app1, from_app1, first1 = await drive_websocket(app, "/agents/watch", query_string=b"token=secret-key-123")
+    _checks["watcherAccepted"] = first1.get("type") == "websocket.accept"
+except Exception:
+    _checks["watcherAccepted"] = False
+
+try:
+    _transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=_transport, base_url="http://test") as client:
+        r1 = await client.post("/agents", json={"name": "research_agent", "model": "claude-sonnet"}, headers={"X-Api-Key": "secret-key-123"})
+        _checks["createReturns201"] = r1.status_code == 201
+
+        try:
+            event = await asyncio.wait_for(from_app1.get(), timeout=2)
+            payload = json.loads(event.get("text", "null")) if event.get("type") == "websocket.send" else None
+            _checks["watcherReceivedBroadcast"] = payload == {"event": "agent_created", "name": "research_agent"}
+        except Exception:
+            _checks["watcherReceivedBroadcast"] = False
+except Exception:
+    _checks["createReturns201"] = False
+    _checks["watcherReceivedBroadcast"] = False
+
+if task1 is not None:
+    try:
+        to_app1.put_nowait({"type": "websocket.disconnect", "code": 1000})
+        await asyncio.wait_for(task1, timeout=2)
+    except Exception:
+        pass
+
+try:
+    task2, to_app2, from_app2, first2 = await drive_websocket(app, "/agents/watch", query_string=b"token=wrong")
+    _checks["rejectsBadToken"] = first2.get("type") == "websocket.close" and first2.get("code") == 1008
+    try:
+        await asyncio.wait_for(task2, timeout=2)
+    except Exception:
+        pass
+except Exception:
+    _checks["rejectsBadToken"] = False
+
+__result = {"passed": all(_checks.values()), "checks": _checks}`}
+  hint={`ConnectionManager is nearly identical to the one in this lesson's broadcast-pattern concept: connect does await websocket.accept() then self.active_connections.append(websocket); disconnect does self.active_connections.remove(websocket); broadcast loops active_connections, await connection.send_json(message) on each. watch_agents checks the token and closes (before accept) exactly like the auth pattern from the websocket lifecycle concept, then otherwise connects via manager and runs the same try/while/except WebSocketDisconnect loop as every other WebSocket route this lesson has shown. In create_agent, add the broadcast call as the last thing before return config -- after the agent is actually stored, so a watcher never receives an event for something that failed to save.`}
+  correctFiles={[
+    {
+      name: "agents.py",
+      code: `from fastapi import APIRouter, Depends, Header, HTTPException, Path, Request, BackgroundTasks, WebSocket, WebSocketDisconnect, status
+from pydantic import BaseModel
+
+API_KEY = "secret-key-123"
+
+class AgentConfig(BaseModel):
+    name: str
+    model: str
+
+class DuplicateAgentError(Exception):
+    def __init__(self, name: str):
+        self.name = name
+        super().__init__(f"an agent named '{name}' already exists")
+
+async def verify_api_key(x_api_key: str = Header(default=None)):
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="invalid or missing API key")
+
+async def log_registration(name: str):
+    print(f"registered new agent: {name}")
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        for connection in self.active_connections:
+            await connection.send_json(message)
+
+manager = ConnectionManager()
+
+router = APIRouter(prefix="/agents", tags=["agents"])
+
+@router.websocket("/watch")
+async def watch_agents(websocket: WebSocket, token: str = None):
+    if token != "secret-key-123":
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+    await manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+@router.post("", response_model=AgentConfig, status_code=201, dependencies=[Depends(verify_api_key)])
+async def create_agent(config: AgentConfig, request: Request, background_tasks: BackgroundTasks):
+    registry = request.app.state.registry
+    if any(a["name"] == config.name for a in registry.values()):
+        raise DuplicateAgentError(config.name)
+    registry[request.app.state.next_id] = config.model_dump()
+    request.app.state.next_id += 1
+    background_tasks.add_task(log_registration, config.name)
+    await manager.broadcast({"event": "agent_created", "name": config.name})
+    return config
+
+@router.get("/{agent_id}", response_model=AgentConfig, dependencies=[Depends(verify_api_key)])
+async def get_agent(request: Request, agent_id: int = Path(gt=0)):
+    registry = request.app.state.registry
+    if agent_id not in registry:
+        raise HTTPException(status_code=404, detail=f"agent {agent_id} not found")
+    return registry[agent_id]`,
+    },
+    {
+      name: "main.py",
+      code: `from contextlib import asynccontextmanager
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from agents import router as agents_router, DuplicateAgentError
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.registry = {}
+    app.state.next_id = 1
+    yield
+
+app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://my-frontend.com"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
+
+@app.exception_handler(DuplicateAgentError)
+async def handle_duplicate(request: Request, exc: DuplicateAgentError):
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+app.include_router(agents_router)`,
+    },
+  ]}
+  explanation={`This is the full arc of the lesson landing on the one app this course has carried since Lesson 9: a REST endpoint's ordinary success path now also drives a real-time push, a WebSocket connection is authenticated the same way any protected WebSocket in this lesson has been, and grading exercises both together -- connecting a watcher, making a real REST request through it, and confirming the broadcast actually arrives, then separately confirming a bad token is still rejected at the handshake. Grading drives the WebSocket side directly against the real ASGI app (the same thread-free approach this lesson's WebSocket exercises have used throughout, since a real thread-backed TestClient needs a real OS thread Pyodide doesn't have) while the REST side goes through httpx.ASGITransport, both against the exact same running app instance -- so the broadcast you receive on the watcher connection is a genuine result of your own create_agent code running, not a mock.`}
+/>
+
+</CheckpointZone>

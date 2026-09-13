@@ -548,6 +548,36 @@ in `src/lib/fastapiPyodide.ts`:
   submission that yields only two of the three expected events fails via
   a real, ordinary `assert` mismatch — no special-casing needed for
   either failure mode.
+- **Grading REST and a WebSocket broadcast together, against the same
+  running app** (Lesson 0.11's comprehensive sandbox,
+  `<MultiFileFastAPIGradedExercise />` — no new component or harness
+  code needed, since its `gradingScript` is arbitrary Python with `app`
+  already bound). The exercise needs a REST `POST` (via
+  `httpx.ASGITransport`, exactly as every other REST exercise already
+  does) to trigger a server-side `manager.broadcast(...)` that pushes a
+  message out over an already-open WebSocket connection (via the
+  hand-driven ASGI `websocket` scope from §4.1's WebSocket-testing
+  entry) — two previously-separate no-real-transport techniques, now
+  used together against one shared `app` instance in one grading
+  script. Confirmed directly this composes cleanly: connect a watcher
+  first (its `receive`/`send` closures backed by `asyncio.Queue`s, same
+  as before), *then* issue the real REST call through a second,
+  independent `httpx.AsyncClient`, then read the broadcasted message
+  off the watcher's own `from_app` queue — all on the one Pyodide event
+  loop, no locking or explicit hand-off needed since it's cooperative
+  `asyncio` throughout. Each of the exercise's four checks
+  (watcher-accepted, REST-succeeded, watcher-received-the-broadcast,
+  bad-token-rejected) is wrapped in its own `try`/`except` rather than
+  one outer one, specifically so a submission that's only wrong in one
+  respect (e.g. forgot the `broadcast(...)` call entirely) still gets
+  credit for the parts it got right, instead of one failure cascading
+  into every later check reading as failed too. Verified directly: a
+  correct submission passes all four; a submission that never calls
+  `broadcast(...)` fails only that one check; a submission that accepts
+  the connection *before* checking the token fails only the
+  bad-token-rejected check (its first observed event is
+  `websocket.accept`, not the expected `websocket.close`) — confirming
+  the checks are actually independent, not coincidentally all-or-nothing.
 
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 

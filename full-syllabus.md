@@ -68,54 +68,26 @@
 10. **Write and Execute Tests for REST Endpoints** — Locked
     pytest basics, testing FastAPI endpoints, fixtures.
 
-11. **Implement Real-Time Communication Across Protocols** — Building
-    WebSockets/SSE mechanics, generic here — applied specifically to LLM
-    streaming once Module 1 exists. Drafted so far: Concept 1 (protocol
-    landscape: polling/SSE/WebSockets/gRPC), Concept 2 (choosing the
-    right protocol), Concept 3 (implementing SSE with `StreamingResponse`,
-    with a graded exercise), Concept 4 (WebSockets fundamentals —
-    `@app.websocket`, the message loop, `receive_json`/`send_json`; demo
-    + quiz only, no sandbox exercise in this concept), Concept 5 (the
-    WebSocket lifecycle — `WebSocketDisconnect`, authenticating a
-    connection via a query-param token — with a graded exercise driving
-    the real ASGI websocket scope directly, no thread needed; see
-    architecture.md §4.1), Concept 6 (gRPC fundamentals — `.proto`
-    schemas, `protoc`-generated `Servicer`/`Stub` classes, implementing
-    a server and client; demo + quiz only, no sandbox exercise —
-    gRPC's own server/client processes aren't a fit for in-browser
-    grading), Concept 7 (gRPC streaming modes — server-streaming,
-    client-streaming, bidirectional streaming — with a graded
-    server-streaming exercise; real `grpcio` can't even install in
-    Pyodide, no pure-Python wheel exists, so grading calls the
-    learner's servicer directly through a fake stub instead of real
-    transport — see architecture.md §4.1), Concept 8 (testing SSE with
-    `TestClient.stream()`, WebSockets with `.websocket_connect()` +
-    `pytest.raises(WebSocketDisconnect)`, and gRPC with a real
-    server-on-an-ephemeral-port fixture; demo + quiz only, no sandbox
-    exercise). Verified all of Concept 8's testing claims directly
-    against a real pinned-version install (not just Pyodide) before
-    writing it — one real mockup bug found and fixed: its gRPC fixture
-    mixed `TaskService`-named identifiers with Concept 6's actual
-    `ToolService`/`ExecuteTool`/`ToolRequest` example; corrected to use
-    `ToolService` consistently, confirmed working end-to-end. Also
-    `pytest.raises` isn't actually taught anywhere in the testing
-    lesson despite the mockup citing it as prior coverage — explained
-    it inline in Concept 8 instead of linking to a concept that
-    doesn't cover it. Concept 9 (managing multiple connections — a
-    `ConnectionManager` broadcast pattern; demo + quiz only, no sandbox
-    exercise) is this lesson's final concept section per the mockup's
-    own note. Verified its "why cleanup matters" claim against a real
-    running server too, and found it understates the real severity:
-    broadcasting to one leaked dead connection doesn't just fail for
-    that connection — since `broadcast()`'s loop has no per-connection
-    error handling, the raised `WebSocketDisconnect` aborts the entire
-    broadcast, so every other live client after it in the list never
-    gets the message either. Folded that into the lesson text. Every
-    concept section this lesson's mockups define now exists — still to
-    come: the intro/comprehensive-quiz/comprehensive-sandbox bookends.
-    No `00-intro.mdx` or
-    `NN-recap-practice.mdx` yet — added last, once all concepts exist
-    (see architecture.md §3 and CLAUDE.md's authoring workflow note).
+11. **Implement Real-Time Communication Across Protocols** — Locked
+    WebSockets/SSE/gRPC mechanics, generic here — applied specifically
+    to LLM streaming once Module 1 exists. Nine concepts (protocol
+    landscape/choice, SSE, WebSockets fundamentals + lifecycle/auth,
+    gRPC fundamentals + streaming modes, testing all three, a
+    broadcast pattern) plus intro/comprehensive-quiz/comprehensive-
+    sandbox. Graded exercises for SSE, WebSocket auth, gRPC
+    server-streaming, and the comprehensive sandbox (WebSocket
+    broadcast + REST, graded together against the same running app).
+    Three notable Pyodide/verification findings from building this
+    lesson, logged in architecture.md §4.1: real `grpcio` has no
+    pure-Python wheel at all (can't install in Pyodide — grading calls
+    a learner's servicer directly instead of using real gRPC
+    transport); Starlette's `TestClient.websocket_connect()`/plain
+    `TestClient` both need a real OS thread Pyodide doesn't have
+    (WebSocket grading drives the ASGI `websocket` scope by hand
+    instead); and two real mockup bugs were caught by testing against
+    real installs before writing content in (a gRPC fixture mixing up
+    two different services' naming, and a claim citing `pytest.raises`
+    as taught somewhere it actually isn't).
 
 12. **Enhance Code, Tests, and Documentation Using Coding Assistance** — Planned
     Using an AI coding assistant critically — prompting it well, reviewing
