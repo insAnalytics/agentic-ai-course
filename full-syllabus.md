@@ -79,10 +79,14 @@
     WebSocket lifecycle — `WebSocketDisconnect`, authenticating a
     connection via a query-param token — with a graded exercise driving
     the real ASGI websocket scope directly, no thread needed; see
-    architecture.md §4.1). Still to come per the mockup's own forward
-    references: gRPC fundamentals (Concept 6), then (per the lesson's
-    own stated arc) testing all three protocols and a broadcast pattern
-    for many connected clients, plus the intro/comprehensive-quiz/
+    architecture.md §4.1), Concept 6 (gRPC fundamentals — `.proto`
+    schemas, `protoc`-generated `Servicer`/`Stub` classes, implementing
+    a server and client; demo + quiz only, no sandbox exercise —
+    gRPC's own server/client processes aren't a fit for in-browser
+    grading). Still to come per the mockup's own forward references:
+    gRPC streaming modes (Concept 7), then (per the lesson's own stated
+    arc) testing all three protocols and a broadcast pattern for many
+    connected clients, plus the intro/comprehensive-quiz/
     comprehensive-sandbox bookends. No `00-intro.mdx` or
     `NN-recap-practice.mdx` yet — added last, once all concepts exist
     (see architecture.md §3 and CLAUDE.md's authoring workflow note).
