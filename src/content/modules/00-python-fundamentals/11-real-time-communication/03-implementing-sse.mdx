@@ -4,6 +4,7 @@ lesson: "11-real-time-communication"
 order: 3
 ---
 import Subsection from "../../../../components/lesson/Subsection.astro";
+import TerminalGroup from "../../../../components/lesson/TerminalGroup";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import FastAPIGradedExercise from "../../../../components/lesson/FastAPIGradedExercise";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
@@ -33,6 +34,25 @@ async def generate_tokens():
 async def stream_response():
     return StreamingResponse(generate_tokens(), media_type="text/plain")
 ```
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "curl http://127.0.0.1:8000/stream",
+      steps: [
+        { command: "curl http://127.0.0.1:8000/stream" },
+        { output: "The", delayMs: 400 },
+        { output: " agent", delayMs: 300 },
+        { output: " is", delayMs: 300 },
+        { output: " responding", delayMs: 300 },
+        { output: ".", delayMs: 300 },
+        { output: "", delayMs: 200 },
+        { output: "(each chunk printed the instant it arrived -- ~0.3s apart, not all at once)", delayMs: 300 },
+      ],
+    },
+  ]}
+/>
 
 A client connected to `GET /stream` receives `"The"`, then `" agent"`,
 then `" is"`, and so on — each one arriving roughly 0.3 seconds after
@@ -66,6 +86,25 @@ async def generate_status_events():
 async def stream_task_status(task_id: int):
     return StreamingResponse(generate_status_events(), media_type="text/event-stream")
 ```
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "curl -N http://127.0.0.1:8000/tasks/42/stream",
+      steps: [
+        { command: "curl -N http://127.0.0.1:8000/tasks/42/stream" },
+        { output: 'event: status\ndata: {"status": "started", "progress": 0}', delayMs: 500 },
+        { output: "", delayMs: 200 },
+        { output: 'event: status\ndata: {"status": "running", "progress": 40}', delayMs: 1000 },
+        { output: "", delayMs: 200 },
+        { output: 'event: status\ndata: {"status": "running", "progress": 80}', delayMs: 1000 },
+        { output: "", delayMs: 200 },
+        { output: 'event: status\ndata: {"status": "complete", "progress": 100}', delayMs: 1000 },
+      ],
+    },
+  ]}
+/>
 
 `media_type="text/event-stream"` is what actually marks this as SSE —
 it tells the client (and any intermediate proxies) to treat the

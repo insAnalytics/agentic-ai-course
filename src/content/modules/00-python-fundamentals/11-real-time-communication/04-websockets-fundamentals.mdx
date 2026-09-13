@@ -4,6 +4,7 @@ lesson: "11-real-time-communication"
 order: 4
 ---
 import Subsection from "../../../../components/lesson/Subsection.astro";
+import TerminalGroup from "../../../../components/lesson/TerminalGroup";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
@@ -25,6 +26,34 @@ async def websocket_endpoint(websocket: WebSocket):
         message = await websocket.receive_text()
         await websocket.send_text(f"echo: {message}")
 ```
+
+`curl` can't hold a WebSocket connection open the way it can an SSE
+stream — `websocat` (a small CLI WebSocket client) is used here
+instead, connecting once and then sending whatever's typed:
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "websocat ws://127.0.0.1:8000/ws",
+      steps: [
+        { command: "websocat ws://127.0.0.1:8000/ws" },
+        { output: "(connected)", delayMs: 400 },
+        { command: "hello", delayMs: 500 },
+        { output: "echo: hello", delayMs: 400 },
+        { command: "is anyone there?", delayMs: 700 },
+        { output: "echo: is anyone there?", delayMs: 400 },
+      ],
+    },
+  ]}
+/>
+
+Two things worth noticing: the connection only happened once — every
+line after it reuses the same open channel, no reconnecting per
+message — and each line typed gets its own echoed response back
+immediately, in the order it was sent, exactly the request/reply shape
+`while True:` inside `websocket_endpoint` is built to keep handling for
+as long as the connection stays open.
 
 `await websocket.accept()` completes the protocol handshake — a
 WebSocket connection starts as a normal HTTP request, then "upgrades"
@@ -68,6 +97,23 @@ async def agent_websocket(websocket: WebSocket):
         elif message["action"] == "cancel":
             await websocket.send_json({"status": "cancelled"})
 ```
+
+<TerminalGroup
+  client:load
+  panes={[
+    {
+      label: "websocat ws://127.0.0.1:8000/ws/agent",
+      steps: [
+        { command: "websocat ws://127.0.0.1:8000/ws/agent" },
+        { output: "(connected)", delayMs: 400 },
+        { command: '{"action": "start_task"}', delayMs: 500 },
+        { output: '{"status": "started", "progress": 0}', delayMs: 400 },
+        { command: '{"action": "cancel"}', delayMs: 700 },
+        { output: '{"status": "cancelled"}', delayMs: 400 },
+      ],
+    },
+  ]}
+/>
 
 A client sending `{"action": "start_task"}` (as JSON text over the
 connection) gets it automatically parsed into a Python dict by
