@@ -1,0 +1,171 @@
+---
+title: "Managing multiple connections: a broadcast pattern"
+lesson: "11-real-time-communication"
+order: 9
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The realistic case: more than one client watching" variant="a">
+
+Every WebSocket example so far has handled one connection at a time.
+The realistic case for an agent system is usually several clients
+watching the same thing at once — multiple people watching one
+agent's status, say — and a single event (the status changing)
+needing to reach *all* of them, not just whoever happens to be
+connected on the connection that triggered it.
+
+</Subsection>
+
+<Subsection title="A connection manager" variant="b">
+
+A small class tracking every active connection, with methods to add,
+remove, and push a message to all of them:
+
+```python
+from fastapi import WebSocket
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections = []   # every currently-connected WebSocket
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        for connection in self.active_connections:
+            await connection.send_json(message)
+
+manager = ConnectionManager()
+```
+
+`self.active_connections` is
+[an ordinary list](/00-python-fundamentals/02-data-structures/01-lists/),
+holding every `WebSocket` object currently connected — `.append()` on
+connect, `.remove()` on disconnect, and `broadcast()` looping over all
+of them to send the same message to each.
+
+</Subsection>
+
+<Subsection title="Wiring it into a route" variant="a">
+
+```python
+from fastapi import WebSocketDisconnect
+
+@app.websocket("/ws/watch")
+async def watch_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()   # keeps the connection open; incoming messages aren't otherwise used
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+```
+
+The route doesn't call `broadcast()` itself — its only job is
+registering and cleaning up connections. Something else triggers the
+actual broadcast:
+
+```python
+@app.post("/agents/{agent_id}/status")
+async def update_status(agent_id: int, status: dict):
+    await manager.broadcast({"agent_id": agent_id, **status})
+    return {"ok": True}
+```
+
+A normal `POST` route — nothing WebSocket-specific about it at all —
+calls `manager.broadcast(...)`, which pushes the update to every
+client currently connected to `/ws/watch`, regardless of which client
+(if any) happened to trigger the status change in the first place.
+
+</Subsection>
+
+<Subsection title="Why cleanup on disconnect matters" variant="b">
+
+Removing a connection from `active_connections` when it disconnects
+isn't optional bookkeeping — without it, `active_connections` simply
+grows forever, holding references to connections that are no longer
+actually open. Confirmed directly against a real running server, the
+second problem is worse than it sounds: broadcasting to a connection
+whose client already disconnected doesn't fail quietly — it raises a
+real `WebSocketDisconnect` the moment `send_json()` is attempted on
+it. And because `broadcast()`'s `for` loop has no `try`/`except`
+around each individual send, that one raised exception doesn't just
+fail for the dead connection — it aborts the *entire* loop
+immediately, meaning every other, genuinely live client later in
+`active_connections` never receives the message either, and the
+`POST` request that triggered the broadcast fails outright. A single
+connection nobody cleaned up is enough to silently break delivery to
+every other currently-connected client, not just itself.
+
+The `try`/`except WebSocketDisconnect` wrapping the route is what
+guarantees `manager.disconnect(websocket)` actually runs the moment a
+client leaves —
+[the same guaranteed-cleanup shape from earlier in this lesson](/00-python-fundamentals/11-real-time-communication/05-websocket-lifecycle-and-auth/#handling-disconnects-websocketdisconnect),
+just now cleaning up a shared, multi-client resource instead of ending
+one isolated connection's own loop.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What problem does a connection manager solve that a single WebSocket route handling one connection at a time doesn't?",
+      options: [
+        "It makes individual messages send faster",
+        "It lets one event (like a status change) reach every currently-connected client, not just whichever connection happened to trigger it",
+        "It replaces the need for accept() entirely",
+        "It only matters for gRPC, not WebSockets",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A single WebSocket route only ever knows about its own connection -- reaching every connected client for one shared event needs something tracking all of them together, which is exactly what a connection manager is for.",
+    },
+    {
+      question: "In the wiring shown, what triggers manager.broadcast(...) -- the WebSocket route itself, or something else?",
+      options: [
+        "The WebSocket route calls it directly, every time a client connects",
+        "Something else -- an ordinary POST route, with no WebSocket-specific code at all -- calls it whenever the underlying event actually happens",
+        "broadcast() is called automatically on a fixed timer",
+        "Only a GET request can trigger a broadcast",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The WebSocket route's only job is registering and cleaning up connections -- whatever actually changes the underlying state (here, a plain POST route) is what decides when a broadcast should happen.",
+    },
+    {
+      question: "What actually happens if a dead connection is never removed from active_connections and broadcast() is called?",
+      options: [
+        "Nothing -- send_json() silently does nothing for a dead connection",
+        "send_json() on the dead connection raises WebSocketDisconnect, and since the loop has no per-connection error handling, that exception aborts the entire broadcast -- every other, still-live client later in the list never gets the message either",
+        "Only the dead connection is skipped; every live connection still receives the message normally",
+        "The server crashes entirely and must be restarted",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Confirmed directly against a real server: the raised WebSocketDisconnect propagates straight out of broadcast()'s for loop, since nothing catches it per-connection -- one leaked dead connection is enough to silently break delivery to every other genuinely connected client too.",
+    },
+    {
+      question: "Why does manager.disconnect(websocket) sit inside the except WebSocketDisconnect: block, rather than being called some other way?",
+      options: [
+        "It doesn't need to be reliably called at all",
+        "It's what guarantees cleanup actually happens the moment a client leaves -- the same guaranteed-cleanup pattern used for a single connection, now applied to a shared resource tracking many connections",
+        "except blocks are required for any method call involving a list",
+        "disconnect() only works when called from inside a try block",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The except block is what's actually guaranteed to run the instant the connection ends -- putting cleanup anywhere else risks it never running at all if the client just vanishes.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

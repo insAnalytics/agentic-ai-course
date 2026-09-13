@@ -101,10 +101,19 @@
     `pytest.raises` isn't actually taught anywhere in the testing
     lesson despite the mockup citing it as prior coverage — explained
     it inline in Concept 8 instead of linking to a concept that
-    doesn't cover it. Still to come per the mockup's own forward
-    references: a broadcast pattern for many connected clients
-    (Concept 9), plus the intro/comprehensive-quiz/comprehensive-sandbox
-    bookends. No `00-intro.mdx` or
+    doesn't cover it. Concept 9 (managing multiple connections — a
+    `ConnectionManager` broadcast pattern; demo + quiz only, no sandbox
+    exercise) is this lesson's final concept section per the mockup's
+    own note. Verified its "why cleanup matters" claim against a real
+    running server too, and found it understates the real severity:
+    broadcasting to one leaked dead connection doesn't just fail for
+    that connection — since `broadcast()`'s loop has no per-connection
+    error handling, the raised `WebSocketDisconnect` aborts the entire
+    broadcast, so every other live client after it in the list never
+    gets the message either. Folded that into the lesson text. Every
+    concept section this lesson's mockups define now exists — still to
+    come: the intro/comprehensive-quiz/comprehensive-sandbox bookends.
+    No `00-intro.mdx` or
     `NN-recap-practice.mdx` yet — added last, once all concepts exist
     (see architecture.md §3 and CLAUDE.md's authoring workflow note).
 
