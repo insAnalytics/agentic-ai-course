@@ -56,6 +56,30 @@
   --color-sandbox-light: #fef3e2;
 }
 
+/* token-highlight cycle (TokenizerVisualizer) — six hues, fixed order,
+   validated with the dataviz skill's CVD-safety checker against
+   --color-bg-subtle (worst adjacent CVD ΔE 9.1, worst adjacent
+   normal-vision ΔE 19.6 — both clear the pass floor). Used only as a
+   background tint (via color-mix) and border, never as text color —
+   each token's own text is the real differentiator, so the contrast-vs-
+   surface WARN the checker raises for a thin accent is covered by that
+   "visible label" relief clause. Deliberately skips the existing violet
+   (quiz identity) and red (danger/error) hues so this cycle never reads
+   as borrowing either's meaning.
+   Kept in a plain :root block, NOT inside @theme above — these are
+   referenced only from a dynamically-computed inline style (TokenizerVisualizer.tsx),
+   never as a literal Tailwind utility class, so Tailwind's content scanner
+   can't see the reference and prunes an @theme-declared variable entirely
+   if it's ever placed there. */
+:root {
+  --color-token-1: #2a78d6;
+  --color-token-2: #eb6834;
+  --color-token-3: #1baf7a;
+  --color-token-4: #eda100;
+  --color-token-5: #e87ba4;
+  --color-token-6: #008300;
+}
+
 body {
   background-color: var(--color-bg);
   color: var(--color-ink);

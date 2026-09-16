@@ -111,12 +111,15 @@ covers structured outputs (getting reliable JSON back from a model) as a
 bridge into Module 2's tool-calling content.
 
 1. **Tokenization** — Building
-   Concept 1 drafted: the vocabulary problem (why text has to become
-   numbers at all, a fixed word-level vocabulary and its `KeyError`
-   failure mode, the lossy `<UNK>` fallback, why scale makes a fixed
-   vocabulary unworkable — motivating subword tokenization next).
-   Remaining concepts (subword tokenization/BPE, and whatever else this
-   lesson covers) not yet drafted. No bookends (intro/comprehensive
+   Concepts 1-2 drafted. Concept 1: the vocabulary problem (why text has
+   to become numbers at all, a fixed word-level vocabulary and its
+   `KeyError` failure mode, the lossy `<UNK>` fallback, why scale makes a
+   fixed vocabulary unworkable — motivating subword tokenization next).
+   Concept 2: subword tokenization / BPE (the merge algorithm, a toy
+   from-scratch implementation, and `TokenizerVisualizer.tsx` — a real
+   `gpt-tokenizer`-backed live tokenizer, not an illustrative fake, so a
+   learner can type their own words and see real splits). Remaining
+   concepts not yet drafted. No bookends (intro/comprehensive
    quiz/comprehensive sandbox) yet — added once every concept exists.
 
 ---

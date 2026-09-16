@@ -1,0 +1,149 @@
+---
+title: "Subword tokenization (BPE)"
+lesson: "01-tokenization"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import TokenizerVisualizer from "../../../../components/lesson/TokenizerVisualizer";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The fix: pieces small enough that nothing is ever truly unknown" variant="a">
+
+[The vocabulary problem from the previous concept](/01-llm-foundations/01-tokenization/01-the-vocabulary-problem/)
+boils down to this: a whole-word vocabulary can never be complete. The fix
+subword tokenization takes: instead of a vocabulary of whole words, build a
+vocabulary of *word pieces* — small enough that any possible word, even one
+never seen before, can always be built by combining pieces the vocabulary
+already has. Worst case, a totally novel string falls back to individual
+characters — but it's never simply unrepresentable the way it was with a
+word-level vocabulary and `<UNK>`.
+
+**Byte-Pair Encoding (BPE)** is the most common way this vocabulary of
+pieces actually gets built.
+
+</Subsection>
+
+<Subsection title="How BPE builds its vocabulary" variant="b">
+
+BPE starts from the smallest possible pieces — individual characters —
+and repeatedly merges whichever adjacent pair appears most often across
+a large body of training text, building up larger, frequency-justified
+chunks over many iterations:
+
+<LiveDemo client:load code={`# a toy corpus, split into characters, with a marker for word boundaries
+words = ["low_", "lower_", "lowest_", "low_", "low_"]
+
+def most_frequent_pair(words: list) -> tuple:
+    pair_counts = {}
+    for word in words:
+        chars = list(word)
+        for i in range(len(chars) - 1):
+            pair = (chars[i], chars[i + 1])
+            pair_counts[pair] = pair_counts.get(pair, 0) + 1
+    return max(pair_counts, key=pair_counts.get)
+
+print(most_frequent_pair(words))`} />
+
+`('l', 'o')` is the most frequent adjacent pair across this tiny
+corpus — real BPE would now merge every `l` + `o` into a single new
+piece, `lo`, and repeat the entire process again on the updated text,
+merging the next most frequent pair. After enough rounds on a large
+enough corpus, common sequences like `low` end up as a single token,
+while rarer combinations stay split into smaller, more frequent pieces.
+This is [the same "count occurrences with a dict, using `.get()` for a
+default"](/00-python-essentials/02-collections/03-dicts/#key-access-and-the-difference-between-and-get)
+pattern from Module 0, just applied to counting character pairs instead
+of counting words.
+
+</Subsection>
+
+<Subsection title="What this actually looks like on real words" variant="a">
+
+The practical result: common whole words tend to end up as a single
+token, since they're frequent enough to get fully merged, while rare or
+compound words split into recognizable, meaningful pieces:
+
+```
+"the"            → ["the"]
+"cat"            → ["cat"]
+"tokenization"   → ["token", "ization"]
+"FastAPI"        → ["Fast", "API"]
+```
+*(illustrative — actual splits depend on the specific tokenizer and its training data)*
+
+`"tokenization"` splitting into `"token"` and `"ization"` isn't
+arbitrary — both pieces are common enough on their own (appearing in
+many other words) to have earned their own token during training, even
+though the whole word `"tokenization"` wasn't frequent enough to merge
+into one. This is the direct payoff from the previous concept:
+`"tokenization"` never needed an `<UNK>` fallback at all — it was
+represented exactly, just as two pieces instead of one.
+
+Try it on a real tokenizer's actual vocabulary — type anything below and
+see it split into its real tokens, each one highlighted separately:
+
+<TokenizerVisualizer client:load />
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question:
+        "What's the core idea behind subword tokenization, compared to a whole-word vocabulary?",
+      options: [
+        "It uses a larger dictionary of whole words instead",
+        "It builds a vocabulary of word pieces small enough that any possible word can always be represented by combining pieces the vocabulary already has",
+        "It ignores rare words entirely instead of tokenizing them",
+        "It only works for English text",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Subword tokenization shrinks the unit from whole words down to pieces, so any word — even one never seen during training — can be built by combining pieces already in the vocabulary.",
+    },
+    {
+      question: "What does BPE actually do to build its vocabulary?",
+      options: [
+        "It randomly selects a fixed number of words to include",
+        "It starts from individual characters and repeatedly merges whichever adjacent pair appears most frequently across a large body of training text",
+        "It translates every word into a numeric hash",
+        "It removes all rare words from the training data before tokenizing",
+      ],
+      correctIndex: 1,
+      explanation:
+        "BPE is a repeated-merge process: start from characters, find the most frequent adjacent pair, merge it into a new piece, and repeat — larger pieces only form because they earned enough frequency.",
+    },
+    {
+      question:
+        'Why does a common word like "the" typically end up as a single token, while "tokenization" splits into two?',
+      options: [
+        "Word length alone determines whether something stays whole",
+        '"the" is frequent enough in training data to get fully merged into one token; "tokenization" as a whole word isn\'t frequent enough, but its pieces individually are common enough to have earned their own tokens',
+        '"tokenization" is an invalid word and must be split',
+        "Only nouns get split into multiple tokens",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Merging is purely frequency-driven — a whole word only becomes one token if it was common enough during training; otherwise it falls back to whichever of its pieces did earn their own tokens.",
+    },
+    {
+      question: "Why does BPE never need an <UNK> fallback the way a word-level vocabulary did?",
+      options: [
+        "BPE vocabularies are simply larger than word-level ones",
+        "Because the vocabulary's pieces go all the way down to individual characters, any possible string can always be represented by combining pieces, in the worst case falling back to single characters rather than becoming unrepresentable",
+        "<UNK> is still used in BPE, just less often",
+        "BPE only tokenizes words that already exist in a dictionary",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Because the smallest pieces are individual characters, there's always some way to build any string out of pieces already in the vocabulary — the worst case is falling back to single characters, never an unrepresentable word.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
