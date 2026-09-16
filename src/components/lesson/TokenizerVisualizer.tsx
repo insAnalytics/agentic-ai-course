@@ -1,9 +1,8 @@
 import { useMemo, useState } from "react";
-import { decode, encode } from "gpt-tokenizer";
+import { tokenizePieces } from "../../lib/tokenize";
+import TokenPieces from "./TokenPieces";
 
 const DEFAULT_TEXT = "The quick brown fox jumps over the lazy dog, including FastAPI and Pydantic.";
-
-const TOKEN_COLOR_COUNT = 6;
 
 interface TokenizerVisualizerProps {
   /** Starting text shown in the box — editable, re-tokenized live on every keystroke. */
@@ -13,12 +12,7 @@ interface TokenizerVisualizerProps {
 export default function TokenizerVisualizer({ initialText = DEFAULT_TEXT }: TokenizerVisualizerProps) {
   const [text, setText] = useState(initialText);
 
-  const pieces = useMemo(() => {
-    if (!text) return [];
-    return encode(text)
-      .map((id) => decode([id]))
-      .filter((piece) => piece.length > 0);
-  }, [text]);
+  const pieces = useMemo(() => tokenizePieces(text), [text]);
 
   return (
     <div className="card my-6 overflow-hidden">
@@ -38,26 +32,7 @@ export default function TokenizerVisualizer({ initialText = DEFAULT_TEXT }: Toke
       />
 
       <div className="flex flex-wrap items-start gap-y-1 bg-[var(--color-bg-subtle)] p-3 font-mono text-sm leading-relaxed">
-        {pieces.length === 0 ? (
-          <span className="text-[var(--color-ink-soft)]">(type something above)</span>
-        ) : (
-          pieces.map((piece, i) => {
-            const hue = `var(--color-token-${(i % TOKEN_COLOR_COUNT) + 1})`;
-            return (
-              <span
-                key={i}
-                style={{
-                  whiteSpace: "pre",
-                  background: `color-mix(in srgb, ${hue} 18%, var(--color-bg-subtle))`,
-                  borderBottom: `2px solid ${hue}`,
-                }}
-                className="rounded-t-sm px-0.5 text-[var(--color-ink)]"
-              >
-                {piece}
-              </span>
-            );
-          })
-        )}
+        <TokenPieces pieces={pieces} />
       </div>
 
       <div className="border-t border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-xs text-[var(--color-ink-soft)]">

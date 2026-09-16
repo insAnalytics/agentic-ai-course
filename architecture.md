@@ -49,7 +49,7 @@
 | Real-Docker execution (where Pyodide can't) | **E2B** ephemeral sandboxes (real Ubuntu + Docker CE, via a custom `course-docker-sandbox` template) + a **Cloudflare Worker** (`/worker`) as the broker holding the E2B API key server-side | For exercises that genuinely need real containers/subprocess/networking — Pyodide has no such capability at all. See §4 for the full architecture. |
 | Code editing | **CodeMirror 6** (`@uiw/react-codemirror` + `@codemirror/lang-python` + `@uiw/codemirror-theme-vscode`) | Real syntax highlighting (VS Code's own dark theme) and Python-aware completion for every editable code box — a plain `<textarea>` can only render flat, single-color text. Lighter than Monaco, a real editor rather than a highlight-only overlay trick. |
 | LLM calls (when a lesson needs one) | **Learner's own API key**, stored in browser `localStorage` only, sent directly from the browser to the provider's API | Keeps cost and liability at $0 regardless of traffic. Never touches any server we control. |
-| Real tokenization (Module 1) | **`gpt-tokenizer`** (pure JS/TS port of OpenAI's `tiktoken`, no WASM) | Client-side, real BPE splits against an actual production vocabulary (`o200k_base` by default) rather than a fabricated illustration — first needed for `TokenizerVisualizer.tsx` in Lesson 1.1. |
+| Real tokenization (Module 1) | **`gpt-tokenizer`** (pure JS/TS port of OpenAI's `tiktoken`, no WASM) | Client-side, real BPE splits against an actual production vocabulary (`o200k_base` by default) rather than a fabricated illustration — first needed for `TokenizerVisualizer.tsx` in Lesson 1.1. **Finding (Lesson 1.1, Concept 3):** the older `cl100k_base` (GPT-4) encoding badly under-tokenizes many non-English scripts (measured Hindi at 17 tokens vs. 5 for an equivalent English sentence), but `o200k_base` narrowed this dramatically for some languages — Hindi measured identical to English (5 vs. 5) on `o200k_base`. The disparity is still real and large for others (Thai 8, Burmese 9, Khmer 12, Amharic 19, all vs. 5) — verify current numbers directly with `encode()` before citing a specific language/count in lesson content rather than assuming an older tokenizer's well-known examples still hold. |
 | Hosting | **GitHub Pages** (site) + **Cloudflare Workers** free tier (the E2B broker) | Static output from Astro deploys directly from a git push (`insanalytics.github.io/agentic-ai-course/`). The Worker is the one piece of server-side infrastructure this project runs — see §4. |
 | Styling | **Tailwind CSS v4** (`@tailwindcss/vite`) | Clean-docs look (white background, Inter). Palette and component identity colors documented in §7. |
 
@@ -106,11 +106,14 @@ sidebar navigation, not one very long scroll.
       MockPatchGradedExercise.tsx  # grades a learner-written unittest.mock.patch test against a real, fixed main.py — see §4.1
       TestSuiteGradedExercise.tsx  # grades a learner-written multi-file pytest suite (conftest.py + tests) against a real, fixed app — see §4.1
       TokenizerVisualizer.tsx     # editable text box, tokenized live via gpt-tokenizer, each token highlighted via the --color-token-1..6 cycle (see global.css) — first used in Lesson 1.1
+      TokenLanguageComparison.tsx # multiple editable language/sentence rows, each tokenized live and shown side by side — same real tokenizer, for comparing token cost across languages — Lesson 1.1
+      TokenPieces.tsx              # shared colored-token-span renderer used by both components above, so the --color-token-1..6 coloring logic lives in one place
       CheckpointZone.astro        # full-bleed colored band behind a quiz/exercise card
   /lib
     pyodide.ts                  # shared Pyodide loader + single-file and multi-file grading harnesses
     fastapiPyodide.ts             # installs a pinned FastAPI/Starlette/httpx stack into Pyodide, grades against a per-exercise Python script — see §4.1
     dockerWorker.ts              # fetch wrapper for the Cloudflare Worker's /docker-exercise and /docker-terminal routes — see §4
+    tokenize.ts                  # tokenizePieces(text) — shared gpt-tokenizer wrapper (encode, then decode one id at a time) used by both Token* components above
   /layouts
     BaseLayout.astro            # shell: sidebar + main slot, fonts, global.css
     LessonLayout.astro          # page chrome (breadcrumb + hero + PageNav), wraps BaseLayout

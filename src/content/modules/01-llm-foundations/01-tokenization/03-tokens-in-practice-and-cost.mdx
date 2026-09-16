@@ -1,0 +1,146 @@
+---
+title: "Tokens in practice, and why language matters for cost"
+lesson: "01-tokenization"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import TokenLanguageComparison from "../../../../components/lesson/TokenLanguageComparison";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Token count is the actual currency an LLM operates in" variant="a">
+
+Every input sent to an LLM and every output it produces gets measured
+in tokens, not words or characters — [the pieces built by BPE, covered
+in the previous concept](/01-llm-foundations/01-tokenization/02-subword-tokenization-bpe/),
+not some other unit. This matters beyond just an internal implementation
+detail: token count is what actually determines how much of a context
+window (covered later in this lesson) a piece of text consumes, and
+it's the literal unit LLM providers charge for (covered in depth toward
+the end of this module). Every concept in this lesson has really been
+building toward one fact: tokens, not words, are the actual currency.
+
+A rough rule of thumb for English text: about 4 characters, or roughly
+0.75 words, per token — a useful approximation, not an exact rule, since
+the real count always depends on the specific tokenizer and the
+specific text.
+
+</Subsection>
+
+<Subsection title="The same sentence, tokenized differently depending on what it contains" variant="b">
+
+```
+"The cat sat on the mat."
+→ ["The", " cat", " sat", " on", " the", " mat", "."]     (7 tokens)
+
+"The agentic AI framework uses Pydantic for validation."
+→ ["The", " agent", "ic", " AI", " framework", " uses",
+   " P", "yd", "antic", " for", " validation", "."]        (12 tokens)
+```
+*(measured directly against this lesson's real tokenizer — the same one
+behind the box in the previous concept)*
+
+Both sentences have roughly the same number of *words*, but the second
+one costs noticeably more tokens — `"agentic"` and `"Pydantic"` are
+specific enough, technical enough, that they weren't frequent enough in
+typical training data to earn single tokens the way `"the"` or `"cat"`
+did, so they split into smaller, less familiar-looking pieces instead.
+
+</Subsection>
+
+<Subsection title="Why language itself changes the cost" variant="a">
+
+This same effect shows up at a much larger scale across languages, not
+just within English. Tokenizer vocabularies are built from training
+corpora that skew heavily toward English and a handful of other
+widely-represented languages — the merges that would combine a
+language's own common words into efficient, single tokens simply don't
+form for scripts that were far less common in that training data. Some
+languages have narrowed this gap substantially as tokenizers have
+improved — Hindi, for instance, now tokenizes about as efficiently as
+English does on the tokenizer this course uses — but the effect remains
+dramatic for many others:
+
+```
+English: "How are you today?"
+→ 5 tokens
+
+Khmer (equivalent meaning): "តើថ្ងៃនេះអ្នកសុខសប្បាយជាទេ?"
+→ 15 tokens
+```
+*(measured directly against this lesson's real tokenizer — try your own
+languages below)*
+
+The same *meaning*, expressed in a language whose scripts and common
+word-pieces weren't well-represented during tokenizer training, ends up
+costing noticeably more tokens — often falling back to smaller pieces,
+sometimes close to individual characters, where English would get a
+single clean token. This isn't a minor detail: it means, very
+concretely, that the same conversation costs more, and eats into a
+fixed context window faster, depending on what language it's conducted
+in — a cost dimension worth carrying forward explicitly when this
+module reaches pricing directly.
+
+Try it yourself — the two rows below start pre-filled with the example
+above, but both are editable, and you can add as many more languages as
+you want to compare:
+
+<TokenLanguageComparison client:load />
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What unit does an LLM's context window and its provider's pricing actually measure text in?",
+      options: ["Words", "Tokens — the pieces built by the tokenizer, not words or characters", "Characters", "Sentences"],
+      correctIndex: 1,
+      explanation:
+        "Both context window capacity and provider pricing are measured in tokens — the actual unit the tokenizer produces, not any human-facing unit like words or characters.",
+    },
+    {
+      question:
+        '  Why did "Pydantic" split into multiple tokens while a common word like "the" stayed as one, in the example shown?',
+      options: [
+        '"Pydantic" is longer than "the", and length alone determines splitting',
+        '"Pydantic" wasn\'t frequent enough as a whole word in training data to be merged into a single token, even though its individual pieces were common enough elsewhere to have their own tokens',
+        '"Pydantic" isn\'t a real English word, so it can\'t be tokenized at all',
+        "Capitalized words are always split, lowercase words never are",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Splitting is frequency-driven, not length-driven — a specific, technical term like \"Pydantic\" wasn't common enough as a whole word to earn a merge, so it falls back to smaller pieces that were common enough individually.",
+    },
+    {
+      question:
+        "Why does the same sentence, translated into a language poorly represented in a tokenizer's training data, typically require more tokens than the English version?",
+      options: [
+        "Other languages are inherently longer to express the same meaning",
+        "The merges that would combine that language's own common words into efficient single tokens don't exist, since the tokenizer's vocabulary was built mostly from English-heavy training data",
+        "Non-English text is always converted to English before tokenization",
+        "This effect only applies to languages using non-Latin scripts, never others",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The vocabulary itself is the bottleneck — a language underrepresented in training data never got its common words merged into efficient single tokens, regardless of what script it uses.",
+    },
+    {
+      question:
+        "What's a concrete practical consequence of some languages costing more tokens than English for equivalent meaning?",
+      options: [
+        "None — token count differences are purely academic",
+        "The same conversation costs more and consumes a fixed context window faster, depending on what language it's conducted in",
+        "Non-English languages simply can't be processed by LLMs at all",
+        "Token count differences only affect output, never input",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Since both price and context-window usage are measured in tokens, a language that tokenizes less efficiently costs more and fills up the available context faster for the exact same meaning.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

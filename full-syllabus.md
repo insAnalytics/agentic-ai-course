@@ -111,15 +111,22 @@ covers structured outputs (getting reliable JSON back from a model) as a
 bridge into Module 2's tool-calling content.
 
 1. **Tokenization** — Building
-   Concepts 1-2 drafted. Concept 1: the vocabulary problem (why text has
+   Concepts 1-3 drafted. Concept 1: the vocabulary problem (why text has
    to become numbers at all, a fixed word-level vocabulary and its
    `KeyError` failure mode, the lossy `<UNK>` fallback, why scale makes a
    fixed vocabulary unworkable — motivating subword tokenization next).
    Concept 2: subword tokenization / BPE (the merge algorithm, a toy
    from-scratch implementation, and `TokenizerVisualizer.tsx` — a real
    `gpt-tokenizer`-backed live tokenizer, not an illustrative fake, so a
-   learner can type their own words and see real splits). Remaining
-   concepts not yet drafted. No bookends (intro/comprehensive
+   learner can type their own words and see real splits). Concept 3:
+   tokens as the real unit of context-window and pricing cost, and why
+   language changes that cost (`TokenLanguageComparison.tsx` — real,
+   editable, side-by-side token counts across as many languages as the
+   learner adds). The mockup's original Hindi example was swapped for
+   Khmer after verifying against the real tokenizer — see architecture.md
+   §2's "Real tokenization" row finding. Remaining concepts (context
+   windows/KV cache, non-text inputs as tokens, and whatever else this
+   lesson covers) not yet drafted. No bookends (intro/comprehensive
    quiz/comprehensive sandbox) yet — added once every concept exists.
 
 ---
