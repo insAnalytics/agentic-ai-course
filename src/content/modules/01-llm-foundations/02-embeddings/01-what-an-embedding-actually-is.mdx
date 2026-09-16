@@ -1,0 +1,123 @@
+---
+title: "What an embedding actually is"
+lesson: "02-embeddings"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import EmbeddingSpace from "../../../../components/lesson/EmbeddingSpace";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="An ID alone carries no meaning" variant="a">
+
+[A token ID, from the previous lesson](/01-llm-foundations/01-tokenization/01-the-vocabulary-problem/),
+is just an arbitrary integer — a lookup key, nothing more. Knowing that
+`"cat"` is token `47` and `"dog"` is token `9182` tells you absolutely
+nothing about how those two words relate to each other. `47` and `9182`
+aren't "close" in any meaningful sense just because one happens to be a
+smaller number — the IDs were assigned based on whatever order the
+vocabulary happened to be built in, not based on meaning at all.
+
+An **embedding** fixes this: instead of one arbitrary number, represent
+something as a whole *vector* — a list of numbers — positioned in a
+multi-dimensional space, built specifically so that things which are
+similar in meaning end up *close together* in that space, and things
+that are unrelated end up far apart.
+
+</Subsection>
+
+<Subsection title="The geometric intuition, in two dimensions" variant="b">
+
+Real embeddings use far more dimensions than anyone can actually
+visualize — but the core idea holds even in a simplified 2D version,
+which is worth seeing directly before the real thing. The six words
+below start already placed — try adding a few more of your own:
+
+<EmbeddingSpace client:load />
+
+`"cat"` and `"dog"` land close together — real embedding vectors, not
+hand-placed — with `"kitten"` nearby in that same neighborhood; `"car"`,
+`"truck"`, and `"vehicle"` land close together in a completely
+different region of the space. Add a word of your own and watch which
+existing words it lands nearest to.
+
+This is the entire idea an embedding is built around: **distance in the
+space corresponds to similarity in meaning** — not spelling, not token
+ID, not any other surface-level property, just meaning.
+
+</Subsection>
+
+<Subsection title="Real embeddings: many more dimensions, same idea" variant="a">
+
+A real embedding typically has hundreds or even thousands of dimensions,
+not two — a vector like `[0.12, -0.87, 0.34, ..., 0.05]` with hundreds
+of entries, each one contributing some small part of what makes that
+vector's position in the space meaningful. Nobody looks at an individual
+dimension's number and reads off "this measures how animal-like
+something is" — the meaning lives in the vector's overall position
+relative to every other vector, not in any single coordinate read in
+isolation. The 2D version above is a genuine simplification for
+visualization's sake, not an approximation of how real embeddings look —
+but the underlying principle, distance meaning similarity, carries over
+completely unchanged.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: 'Why does a token ID alone, like 47 or 9182, fail to capture any meaningful relationship between two words?',
+      options: [
+        "Token IDs are always sequential and therefore meaningful",
+        "A token ID is just an arbitrary lookup key, assigned based on vocabulary-building order, not based on meaning — nothing about the numbers themselves reflects how related two words actually are",
+        "Token IDs only exist for rare words, not common ones",
+        "This isn't actually true — token IDs do reflect meaning directly",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A token ID's numeric value comes from whatever order the vocabulary happened to be built in — it carries no information about meaning, so two related words can easily have wildly different, unrelated-looking IDs.",
+    },
+    {
+      question: "What does an embedding represent something as, instead of a single ID?",
+      options: [
+        "A single, larger number",
+        "A vector — a list of numbers — positioned in a multi-dimensional space",
+        "A string describing the word's dictionary definition",
+        "A randomly generated tag with no structure",
+      ],
+      correctIndex: 1,
+      explanation:
+        "An embedding is a vector — many numbers together — whose position in a multi-dimensional space is what carries meaning, not any single value.",
+    },
+    {
+      question: 'What does "distance in embedding space" actually correspond to?',
+      options: [
+        "How many letters two words share",
+        "Similarity in meaning — things similar in meaning end up close together; unrelated things end up far apart",
+        "Alphabetical order",
+        "How frequently each word appears in the training data",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Embeddings are built specifically so that geometric closeness tracks semantic closeness — words about similar things end up near each other, regardless of spelling or frequency.",
+    },
+    {
+      question:
+        "Why do real embeddings use hundreds or thousands of dimensions instead of the two used for visualization in this concept?",
+      options: [
+        "They don't — real embeddings are also just two-dimensional",
+        "The 2D version is a simplification specifically for visualization; the underlying principle (distance means similarity) holds the same either way, just with far more dimensions than can actually be plotted or read individually",
+        "More dimensions make the vectors easier for a human to read directly",
+        "Each additional dimension represents one additional word in the vocabulary",
+      ],
+      correctIndex: 1,
+      explanation:
+        "2D is only for human visualization — real embeddings need far more dimensions to capture the full richness of meaning, and no single dimension is individually readable even so.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

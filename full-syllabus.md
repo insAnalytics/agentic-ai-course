@@ -157,6 +157,19 @@ bridge into Module 2's tool-calling content.
    project exception — see
    [lesson-structure.md §2](lesson-structure.md#2-section-by-section-rules).
 
+2. **Embeddings** — Building
+   Not in this module's original rough-outline description above (added
+   once its mockup arrived, same as Tokenization was) — token vectors
+   and semantic distance, building directly on Lesson 1's token-ID
+   concept. Concept 1 drafted: what an embedding actually is (a token ID
+   alone carries no meaning; an embedding represents something as a
+   vector positioned so that distance corresponds to semantic
+   similarity), via `EmbeddingSpace.tsx` — a real GloVe-embedding 2D
+   scatter (PCA-projected offline, see architecture.md §2's "Real word
+   embeddings" row), not hand-placed illustrative coordinates. A learner
+   can type any of ~250 curated words and see it placed for real.
+   Remaining concepts not yet drafted. No bookends yet.
+
 ---
 
 ## Module 2 — Build Intelligent Conversation Agents
