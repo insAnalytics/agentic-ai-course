@@ -1,0 +1,28 @@
+---
+title: "Intro"
+lesson: "01-tokenization"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Explain why text has to become numbers before a model can process it, and why a fixed, word-level vocabulary can't work at the scale an LLM actually operates at",
+    "Describe how BPE builds a subword vocabulary by repeatedly merging frequent character pairs, and why that means nothing is ever truly unrepresentable, even a word the tokenizer has never seen",
+    "Predict, roughly, when a word will stay a single token versus split into pieces, based on how common it (or its pieces) are",
+    "Explain why the same sentence can cost meaningfully more tokens in some languages than others, and why that's a direct consequence of how tokenizers are trained",
+    "Explain that images and documents become tokens too, counting against the same context window and cost as text",
+  ]}
+/>
+
+<WhyItMatters>
+  Every other lesson in this module refers back to "tokens" as the basic unit
+  everything else operates on — how a model generates text, what a context
+  window actually limits, what an API call actually costs. None of that lands
+  properly without first understanding what a token actually is and why it
+  exists in the shape it does — not a word, not a character, but a
+  frequency-justified compromise between the two, built specifically so that
+  no input, in any language or format, is ever something the model simply
+  can't represent.
+</WhyItMatters>

@@ -106,7 +106,7 @@ sidebar navigation, not one very long scroll.
       MockPatchGradedExercise.tsx  # grades a learner-written unittest.mock.patch test against a real, fixed main.py — see §4.1
       TestSuiteGradedExercise.tsx  # grades a learner-written multi-file pytest suite (conftest.py + tests) against a real, fixed app — see §4.1
       TokenizerVisualizer.tsx     # editable text box, tokenized live via gpt-tokenizer, each token highlighted via the --color-token-1..6 cycle (see global.css) — first used in Lesson 1.1
-      TokenLanguageComparison.tsx # multiple editable language/sentence rows, each tokenized live and shown side by side — same real tokenizer, for comparing token cost across languages — Lesson 1.1
+      TokenLanguageComparison.tsx # multiple editable label/sentence rows, each tokenized live and shown side by side — same real tokenizer; initialRows/title/labelPlaceholder/addButtonLabel all overridable so it doubles as the generic "compare several inputs" tool (cross-language in Concept 3, common/technical/foreign/nonsense in the Recap & Practice closing synthesis) — Lesson 1.1
       TokenPieces.tsx              # shared colored-token-span renderer used by both components above, so the --color-token-1..6 coloring logic lives in one place
       CheckpointZone.astro        # full-bleed colored band behind a quiz/exercise card
   /lib

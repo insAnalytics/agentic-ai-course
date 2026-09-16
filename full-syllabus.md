@@ -110,9 +110,10 @@ learner understands what they're actually calling, not before. Likely also
 covers structured outputs (getting reliable JSON back from a model) as a
 bridge into Module 2's tool-calling content.
 
-1. **Tokenization** — Building
-   All 4 concepts drafted. Concept 1: the vocabulary problem (why text
-   has to become numbers at all, a fixed word-level vocabulary and its
+1. **Tokenization** — Locked
+   All 4 concepts plus bookends drafted. Concept 1: the vocabulary
+   problem (why text has to become numbers at all, a fixed word-level
+   vocabulary and its
    `KeyError` failure mode, the lossy `<UNK>` fallback, why scale makes a
    fixed vocabulary unworkable — motivating subword tokenization next).
    Concept 2: subword tokenization / BPE (the merge algorithm, a toy
@@ -130,12 +131,31 @@ bridge into Module 2's tool-calling content.
    against the same context window and pricing. Purely conceptual, no
    live demo needed (nothing to run). Note: Concepts 1 and 3 both
    forward-reference a "context windows and KV cache" concept as if it
-   were later in this lesson, but Concept 4's mockup confirms this lesson
-   ends at 4 concepts — that callback must land in a later Module 1
-   lesson instead, not yet scoped; left as unlinked plain text in both
-   places, so nothing needs fixing once it's clear where it actually
-   goes. No bookends (intro/comprehensive quiz/comprehensive sandbox)
-   yet — added once the bookends mockup arrives.
+   were later in this lesson, but Concept 4's mockup confirmed this
+   lesson ends at 4 concepts — that callback must land in a later
+   Module 1 lesson instead, not yet scoped; left as unlinked plain text
+   in both places, so nothing needs fixing once it's clear where it
+   actually goes.
+
+   Bookends: outcomes/why-it-matters intro, a 7-question comprehensive
+   quiz (mixed order, spans all 4 concepts), and a closing synthesis
+   that's deliberately *not* a graded comprehensive sandbox — this
+   lesson has no learner-authored code anywhere in it (Concept 2's BPE
+   demo is a read-only live illustration, not an exercise), so there's
+   no natural "write code, pass hidden tests" task to build one around.
+   Instead: an ungraded predict-then-check activity reusing
+   `TokenLanguageComparison.tsx` (now generalized via `initialRows`/
+   `title`/`labelPlaceholder` props, still with its original defaults
+   for Concept 3's own usage) pre-loaded with plain English, jargon-
+   dense English, a blank row for the learner's own language, and
+   nonsense words — a compact, hands-on payoff for the whole lesson,
+   since watching nonsense syllables shatter into individual-character
+   tokens is the most direct possible confirmation that BPE's
+   character-level fallback is real, not just a claim in the reading.
+   This is now a second sanctioned deviation from the default
+   comprehensive-sandbox shape, alongside the existing downloadable-
+   project exception — see
+   [lesson-structure.md §2](lesson-structure.md#2-section-by-section-rules).
 
 ---
 

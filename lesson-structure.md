@@ -103,6 +103,18 @@ A lesson is built from a repeating unit, followed by a fixed closing sequence:
   [architecture.md §4.3](architecture.md#43-downloadable-project-local-learners-own-machine).
   This is the exception, not the default — reach for it only when the
   in-browser format genuinely can't fit, not as a shortcut.
+- **When the lesson is purely conceptual and has no natural "write code,
+  pass hidden tests" task** (e.g. Lesson 1.1, Tokenization — reading plus
+  trying real interactive tools, no learner-authored code anywhere in the
+  lesson), this slot becomes a **reflective, ungraded closing synthesis**
+  instead: a predict-then-check activity reusing the lesson's own
+  interactive components (not a new one), explicitly framed to the learner
+  as review rather than required completion — no starter code, no hidden
+  tests, no hint/correct-answer pair, since there's nothing being graded.
+  Also the exception, not the default — a lesson with any real
+  learner-authored code (even a small from-scratch exercise, like a toy
+  BPE implementation) still gets a real graded comprehensive sandbox
+  built around that code, same as any other lesson.
 
 ## 3. What's explicitly NOT part of this template
 

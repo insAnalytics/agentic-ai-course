@@ -8,9 +8,9 @@ interface Row {
   text: string;
 }
 
-const DEFAULT_ROWS: Row[] = [
-  { id: 1, label: "English", text: "How are you today?" },
-  { id: 2, label: "Khmer", text: "តើថ្ងៃនេះអ្នកសុខសប្បាយជាទេ?" },
+const DEFAULT_ROWS: Array<Omit<Row, "id">> = [
+  { label: "English", text: "How are you today?" },
+  { label: "Khmer", text: "តើថ្ងៃនេះអ្នកសុខសប្បាយជាទេ?" },
 ];
 
 function TokenRow({
@@ -18,11 +18,13 @@ function TokenRow({
   onChange,
   onRemove,
   removable,
+  labelPlaceholder,
 }: {
   row: Row;
   onChange: (next: Row) => void;
   onRemove: () => void;
   removable: boolean;
+  labelPlaceholder: string;
 }) {
   const pieces = useMemo(() => tokenizePieces(row.text), [row.text]);
 
@@ -32,7 +34,7 @@ function TokenRow({
         <input
           value={row.label}
           onChange={(e) => onChange({ ...row, label: e.target.value })}
-          placeholder="Language"
+          placeholder={labelPlaceholder}
           className="w-28 shrink-0 rounded border border-[var(--color-border)] bg-[var(--color-bg-subtle)] px-2 py-1 text-xs font-semibold text-[var(--color-ink)] outline-none"
         />
         <input
@@ -44,7 +46,7 @@ function TokenRow({
         {removable && (
           <button
             onClick={onRemove}
-            aria-label={`Remove ${row.label || "this language"}`}
+            aria-label={`Remove ${row.label || "this row"}`}
             className="shrink-0 rounded px-1.5 py-0.5 text-xs text-[var(--color-ink-soft)] hover:bg-[var(--color-bg-subtle)]"
           >
             ✕
@@ -61,8 +63,21 @@ function TokenRow({
   );
 }
 
-export default function TokenLanguageComparison() {
-  const [rows, setRows] = useState<Row[]>(DEFAULT_ROWS);
+interface TokenLanguageComparisonProps {
+  /** Starting rows — editable and removable, just like a row added via the button. Defaults to the English/Khmer pair used in this lesson's own example. */
+  initialRows?: Array<Omit<Row, "id">>;
+  title?: string;
+  labelPlaceholder?: string;
+  addButtonLabel?: string;
+}
+
+export default function TokenLanguageComparison({
+  initialRows = DEFAULT_ROWS,
+  title = "compare token counts across languages",
+  labelPlaceholder = "Language",
+  addButtonLabel = "+ Add a language",
+}: TokenLanguageComparisonProps) {
+  const [rows, setRows] = useState<Row[]>(() => initialRows.map((r, i) => ({ ...r, id: i + 1 })));
   const nextId = useMemo(() => Math.max(...rows.map((r) => r.id)) + 1, [rows]);
 
   const updateRow = (id: number, next: Row) => {
@@ -82,7 +97,7 @@ export default function TokenLanguageComparison() {
       <div className="flex items-center justify-between bg-[var(--color-green-light)] px-3 py-1.5">
         <span className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-[var(--color-green-dark)] uppercase">
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-green)]" />
-          Try it — compare token counts across languages
+          Try it — {title}
         </span>
       </div>
 
@@ -93,6 +108,7 @@ export default function TokenLanguageComparison() {
           onChange={(next) => updateRow(row.id, next)}
           onRemove={() => removeRow(row.id)}
           removable={rows.length > 1}
+          labelPlaceholder={labelPlaceholder}
         />
       ))}
 
@@ -101,7 +117,7 @@ export default function TokenLanguageComparison() {
           onClick={addRow}
           className="rounded-md bg-[var(--color-green)] px-2.5 py-1 text-xs font-semibold text-white"
         >
-          + Add a language
+          {addButtonLabel}
         </button>
       </div>
     </div>
