@@ -1,0 +1,157 @@
+---
+title: "The vocabulary problem"
+lesson: "01-tokenization"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Why text has to become numbers at all" variant="a">
+
+A neural network — the machinery underneath an LLM — is built entirely
+out of numbers: weights, activations, matrix multiplications. It has no
+built-in notion of a "word" at all, and no way to operate on raw text
+directly. Before a model can do anything with a sentence, that sentence
+has to be turned into numbers, somehow — this conversion step happens
+*before* any of the actual language modeling begins, not as part of it.
+
+The most obvious way to do that conversion: give every distinct word its
+own unique ID number, and look words up in that mapping whenever text
+needs to become numbers (or numbers need to become text again, on the
+way back out). That's a **vocabulary** — and it's worth seeing exactly
+where this simplest version breaks, since the fix it motivates is what
+every real tokenizer is actually built around.
+
+</Subsection>
+
+<Subsection title="The simplest approach, and where it breaks" variant="b">
+
+Before any real tokenizer, the most obvious approach: build a fixed
+list of every word, and give each one a number.
+
+<LiveDemo client:load code={`vocabulary = {"the": 1, "cat": 2, "sat": 3, "on": 4, "mat": 5}
+
+def word_to_id(word: str) -> int:
+    return vocabulary[word]
+
+print(word_to_id("cat"))`} />
+
+This works fine for words already in the dict — exactly [the dict lookups
+from Module 0's data structures lesson](/00-python-essentials/02-collections/03-dicts/).
+The problem shows up the moment a word *isn't* there:
+
+<LiveDemo client:load code={`vocabulary = {"the": 1, "cat": 2, "sat": 3, "on": 4, "mat": 5}
+
+def word_to_id(word: str) -> int:
+    return vocabulary[word]
+
+print(word_to_id("tokenization"))`} />
+
+A fixed, word-level vocabulary has no way to represent a word it wasn't
+built with — and this isn't a rare edge case. Proper nouns, technical
+terms (`FastAPI`, `Pydantic` — two words this exact course has used
+constantly), typos, new slang, and words borrowed or coined in any
+language are all effectively unbounded in number. No fixed list, no
+matter how large, can contain every word that will ever actually appear.
+
+</Subsection>
+
+<Subsection title="The traditional fix, and why it's not good enough" variant="a">
+
+Older NLP systems handled this with a catch-all: any word outside the
+vocabulary gets mapped to a single placeholder, often written `<UNK>`
+("unknown"):
+
+```python
+def word_to_id_with_fallback(word: str) -> int:
+    return vocabulary.get(word, vocabulary_unk_id)
+```
+
+This avoids the crash — [`.get()` with a default, exactly as covered in
+Module 0](/00-python-essentials/02-collections/03-dicts/#key-access-and-the-difference-between-and-get) —
+but it throws away real information. `"tokenization"` and a completely
+different rare word both collapse into the exact same `<UNK>` token —
+from the model's perspective, indistinguishable. Whatever that word
+actually meant is simply gone, replaced by "something I don't recognize
+was here."
+
+</Subsection>
+
+<Subsection title="Why this matters at the scale an LLM actually operates at" variant="b">
+
+This problem compounds badly once you account for what an LLM actually
+has to handle: not just English, but every language it's trained on;
+not just existing words, but new ones invented after training; not just
+correctly-spelled input, but typos, code, and technical jargon. A
+purely word-level vocabulary would need to be effectively infinite to
+avoid constant, lossy fallback to `<UNK>` — which is exactly the
+motivation for subword tokenization, covered next: a fixed-size
+vocabulary that can still represent *any* possible input, by breaking
+unfamiliar words into smaller, familiar pieces instead of giving up on
+them entirely.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question:
+        "Why does text need to be converted into numbers before a neural network can process it at all?",
+      options: [
+        "It's a stylistic convention, not a technical requirement",
+        "A neural network is built entirely out of numbers — weights, activations, matrix multiplications — with no built-in way to operate on raw text directly",
+        "Numbers are only needed for very long pieces of text",
+        "This conversion only matters for languages other than English",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A neural network has no built-in notion of a \"word\" at all — every operation it performs is numeric, so text has to be converted to numbers before any language modeling can begin.",
+    },
+    {
+      question:
+        'What happens when word_to_id("tokenization") is called against a vocabulary dict that doesn\'t contain that word?',
+      options: [
+        "It silently returns 0",
+        "It raises a KeyError — a fixed vocabulary has no way to represent a word it wasn't built with",
+        "It automatically adds the new word to the vocabulary",
+        "It returns the closest matching word instead",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Direct bracket access on a dict raises KeyError for a missing key — a fixed vocabulary has no fallback for a word it was never built with.",
+    },
+    {
+      question:
+        'Why is "just make the vocabulary bigger" not a real fix for the vocabulary problem?',
+      options: [
+        "A larger vocabulary always solves the problem completely",
+        "The number of possible words — across every language, proper nouns, technical jargon, typos, and new coinages — is effectively unbounded, so no fixed list, however large, can contain all of it",
+        "Dictionaries in Python can't hold more than a fixed number of keys",
+        "Vocabulary size has no relationship to this problem at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Proper nouns, technical jargon, typos, new slang, and words from every language the model might see are effectively unbounded — no fixed-size list can ever cover all of it.",
+    },
+    {
+      question:
+        "What real information is lost when an unfamiliar word is mapped to a shared <UNK> token?",
+      options: [
+        "None — <UNK> preserves the word's meaning in a compressed form",
+        "The word's actual identity — two completely different unfamiliar words become indistinguishable once both collapse into the same <UNK> token",
+        "Only the word's spelling is lost, not its meaning",
+        "<UNK> only affects punctuation, not real words",
+      ],
+      correctIndex: 1,
+      explanation:
+        'Every unfamiliar word maps to the exact same <UNK> id, so from the model\'s perspective two totally different rare words become identical — whatever each one actually meant is simply gone.',
+    },
+  ]}
+/>
+
+</CheckpointZone>

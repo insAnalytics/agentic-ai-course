@@ -97,7 +97,10 @@
 
 ## Module 1 — LLM Foundations
 
-*Rough outline — not yet broken into lessons.*
+*Being broken down lesson by lesson, starting with Lesson 1 below. The
+rest of the module (decoding parameters, model landscape/benchmark
+literacy, raw API mechanics, structured outputs) is still a rough
+outline — not yet broken into lessons.*
 
 Conceptual grounding before any framework touches the model: tokenization,
 decoding parameters (temperature, top-p, etc.), the model landscape and
@@ -106,6 +109,15 @@ lives — moved here from Module 0 so raw API mechanics come after the
 learner understands what they're actually calling, not before. Likely also
 covers structured outputs (getting reliable JSON back from a model) as a
 bridge into Module 2's tool-calling content.
+
+1. **Tokenization** — Building
+   Concept 1 drafted: the vocabulary problem (why text has to become
+   numbers at all, a fixed word-level vocabulary and its `KeyError`
+   failure mode, the lossy `<UNK>` fallback, why scale makes a fixed
+   vocabulary unworkable — motivating subword tokenization next).
+   Remaining concepts (subword tokenization/BPE, and whatever else this
+   lesson covers) not yet drafted. No bookends (intro/comprehensive
+   quiz/comprehensive sandbox) yet — added once every concept exists.
 
 ---
 

@@ -65,17 +65,19 @@ sidebar navigation, not one very long scroll.
 /src
   /content
     /modules
-      01-agent-foundations/
+      00-python-essentials/
         _module.yaml                    # module title, description, order
-        01-what-is-an-agent/
+        01-python-basics/
           _lesson.yaml                  # lesson title, module, order, projectDownload
           00-intro.mdx                  # LearningOutcomes + WhyItMatters (+ any asides)
-          01-a-tool-is-just-a-function.mdx   # one concept per file
-          02-recap-practice.mdx         # comprehensive quiz + comprehensive sandbox
-      02-tool-calling/
+          01-set-up-python.mdx          # one concept per file
+          ...
+          04-recap-practice.mdx         # comprehensive quiz + comprehensive sandbox
+      01-llm-foundations/
         _module.yaml
-        01-designing-a-tool/
+        01-tokenization/
           _lesson.yaml
+          01-the-vocabulary-problem.mdx
           ...
   /components
     Sidebar.astro               # left nav — accordion per lesson, listing its pages
