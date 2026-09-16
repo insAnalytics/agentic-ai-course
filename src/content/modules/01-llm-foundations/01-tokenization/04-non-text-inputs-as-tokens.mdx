@@ -1,0 +1,99 @@
+---
+title: "Non-text inputs also become tokens"
+lesson: "01-tokenization"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Images and documents aren't a special case to the model" variant="a">
+
+Everything covered so far in this lesson has been about text — but a
+modern LLM can also take an image, or a document, as input. It's worth
+being precise about what actually happens there: an image isn't
+processed by some entirely separate mechanism sitting alongside the
+text-handling machinery. It gets converted into tokens too, the same
+general idea as [BPE turning text into pieces](/01-llm-foundations/01-tokenization/02-subword-tokenization-bpe/#the-fix-pieces-small-enough-that-nothing-is-ever-truly-unknown) —
+some numeric, sequence-shaped representation the model can process
+using the exact same underlying architecture it uses for text.
+
+</Subsection>
+
+<Subsection title="Roughly how an image becomes tokens" variant="b">
+
+The mechanism differs from BPE's character-merging process — an image
+is typically divided into a grid of smaller patches, and each patch gets
+encoded into its own token-like unit — but the *result* is conceptually
+the same shape as text tokenization: a single image turns into a whole
+sequence of tokens, not one token representing "an image." A document
+(a PDF, say) often becomes some mix of extracted text tokens and
+image-style tokens for pages where layout or visual content actually
+matters, rather than being handled as one uniform thing.
+
+This lesson isn't the place for the mechanics of *how* to actually send
+an image or document to a model — that's covered properly once real API
+calls are introduced, later in this module. What matters here is just
+the conceptual fact underneath it.
+
+</Subsection>
+
+<Subsection title="The practical consequence: it counts, the same way text does" variant="a">
+
+Whatever tokens an image or document turns into count against the same
+context window and the same per-token pricing as any text token would
+— there's no separate, free allowance for non-text input. A single
+image can easily cost several hundred to over a thousand tokens
+depending on its resolution and the specific model — often far more
+than a learner's first intuition would expect, given that "one image"
+feels like it should be one small thing, not a few hundred tokens'
+worth of context space and cost.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "How does a modern LLM actually process an image given as input?",
+      options: [
+        "Through a completely separate system, unrelated to how it processes text",
+        "The image gets converted into tokens — some numeric, sequence-shaped representation — processed using the same underlying architecture as text",
+        "Images are stored as-is and never actually processed by the model itself",
+        "Only the image's filename is passed to the model, not its content",
+      ],
+      correctIndex: 1,
+      explanation:
+        "An image gets converted into a sequence of tokens, the same general shape as text tokens, and the model processes them with the same underlying architecture — there's no separate image-only pathway.",
+    },
+    {
+      question: "What do the tokens an image or document produces count against?",
+      options: [
+        "Nothing — non-text input is free and doesn't affect context or cost",
+        "The same context window and the same per-token pricing as any text token",
+        "A separate, larger context window reserved specifically for images",
+        "Only cost, never context window space",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Image and document tokens share the exact same context window and pricing as text tokens — there's no separate free allowance for non-text input.",
+    },
+    {
+      question:
+        'Why might a learner\'s first intuition about how "expensive" a single image is, in terms of tokens, be wrong?',
+      options: [
+        "Images are always cheaper than any amount of text",
+        'A single image can cost several hundred to over a thousand tokens, which is often far more than "one image" intuitively feels like it should cost',
+        "Images never actually consume any tokens at all",
+        "Token cost for images is identical regardless of resolution",
+      ],
+      correctIndex: 1,
+      explanation:
+        "\"One image\" feels like a single small thing, but it can actually decompose into several hundred to over a thousand tokens depending on resolution and model — a much bigger context/cost footprint than intuition suggests.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

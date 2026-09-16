@@ -111,8 +111,8 @@ covers structured outputs (getting reliable JSON back from a model) as a
 bridge into Module 2's tool-calling content.
 
 1. **Tokenization** — Building
-   Concepts 1-3 drafted. Concept 1: the vocabulary problem (why text has
-   to become numbers at all, a fixed word-level vocabulary and its
+   All 4 concepts drafted. Concept 1: the vocabulary problem (why text
+   has to become numbers at all, a fixed word-level vocabulary and its
    `KeyError` failure mode, the lossy `<UNK>` fallback, why scale makes a
    fixed vocabulary unworkable — motivating subword tokenization next).
    Concept 2: subword tokenization / BPE (the merge algorithm, a toy
@@ -124,10 +124,18 @@ bridge into Module 2's tool-calling content.
    editable, side-by-side token counts across as many languages as the
    learner adds). The mockup's original Hindi example was swapped for
    Khmer after verifying against the real tokenizer — see architecture.md
-   §2's "Real tokenization" row finding. Remaining concepts (context
-   windows/KV cache, non-text inputs as tokens, and whatever else this
-   lesson covers) not yet drafted. No bookends (intro/comprehensive
-   quiz/comprehensive sandbox) yet — added once every concept exists.
+   §2's "Real tokenization" row finding. Concept 4 (final concept of this
+   lesson, per its own mockup): non-text inputs — images/documents also
+   become tokens via the same conceptual mechanism as BPE, and count
+   against the same context window and pricing. Purely conceptual, no
+   live demo needed (nothing to run). Note: Concepts 1 and 3 both
+   forward-reference a "context windows and KV cache" concept as if it
+   were later in this lesson, but Concept 4's mockup confirms this lesson
+   ends at 4 concepts — that callback must land in a later Module 1
+   lesson instead, not yet scoped; left as unlinked plain text in both
+   places, so nothing needs fixing once it's clear where it actually
+   goes. No bookends (intro/comprehensive quiz/comprehensive sandbox)
+   yet — added once the bookends mockup arrives.
 
 ---
 
