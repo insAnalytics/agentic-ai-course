@@ -168,7 +168,15 @@ bridge into Module 2's tool-calling content.
    scatter (PCA-projected offline, see architecture.md §2's "Real word
    embeddings" row), not hand-placed illustrative coordinates. A learner
    can type any of ~250 curated words and see it placed for real.
-   Remaining concepts not yet drafted. No bookends yet.
+   Concept 2 drafted: token embeddings as the transformer's actual entry
+   point — a token ID's first real processing step is a lookup into a
+   learned embedding table (toy 2-row version verified live), those
+   numbers start random and are shaped by training like any other
+   weight (nothing hand-designed), and this whole layer is strictly
+   internal — never something an API caller requests directly, setting
+   up next concept's contrast with text embeddings (an API-facing kind
+   an API user *does* request). Remaining concepts not yet drafted. No
+   bookends yet.
 
 ---
 

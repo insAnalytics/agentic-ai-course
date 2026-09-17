@@ -1,0 +1,130 @@
+---
+title: "Token embeddings — the model's internal input layer"
+lesson: "02-embeddings"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="From token ID to vector: the model's actual entry point" variant="a">
+
+[A tokenizer turns text into token IDs](/01-llm-foundations/01-tokenization/00-intro/).
+Those IDs are still just arbitrary integers — exactly the problem
+[Concept 1 opened with](/01-llm-foundations/02-embeddings/01-what-an-embedding-actually-is/#an-id-alone-carries-no-meaning).
+Before any real processing happens, the very first thing a transformer
+does with an incoming token ID is look up its **token embedding** — the
+learned vector [from Concept 1](/01-llm-foundations/02-embeddings/01-what-an-embedding-actually-is/)
+that actually represents that token in meaning-space. This lookup is
+the literal entry point into the model — the first layer of the
+architecture, covered later in this lesson.
+
+<LiveDemo client:load code={`# a tiny toy embedding table — real ones have one row per vocabulary
+# entry (tens of thousands) and hundreds of numbers per row, not 2
+embedding_table = {
+    2: [0.90, 0.10],    # "cat"
+    47: [0.85, 0.15],   # "kitten" — close to cat
+    103: [-0.20, 0.90], # "car" — far from both
+}
+
+def token_id_to_embedding(token_id: int) -> list:
+    return embedding_table[token_id]
+
+print(token_id_to_embedding(2))
+print(token_id_to_embedding(47))
+print(token_id_to_embedding(103))`} />
+
+This is [the same lookup-table pattern from Lesson 1's vocabulary dict](/01-llm-foundations/01-tokenization/01-the-vocabulary-problem/),
+just with a vector as the value instead of a single ID — `"cat"` and
+`"kitten"`'s vectors sit close together, `"car"`'s sits far away,
+exactly [the distance-means-similarity structure from Concept 1](/01-llm-foundations/02-embeddings/01-what-an-embedding-actually-is/).
+
+</Subsection>
+
+<Subsection title="Where the actual numbers come from" variant="b">
+
+The toy table above has hand-picked numbers, for illustration — real
+token embeddings are never set by hand. They start out **random**, as
+one ordinary set of parameters among the model's many others, and get
+adjusted the same way every other weight in the network does: through
+training, via gradient descent, as the model learns to predict text
+well. Nobody designs `"cat"`'s vector directly — it ends up close to
+`"kitten"`'s vector purely as a side effect of the model learning that
+those two tokens tend to appear in similar contexts, across a vast
+amount of training text. The meaningful geometry — similar tokens
+landing near each other — *emerges* from training, rather than being
+built in from the start.
+
+</Subsection>
+
+<Subsection title="Entirely internal — not something an API user ever touches" variant="a">
+
+This matters as a scope boundary worth being explicit about: token
+embeddings are a purely internal part of the model's own architecture.
+An API user sending text to an LLM never computes, requests, or sees a
+token embedding directly — it's an implementation detail sitting
+between the tokenizer and the rest of the transformer, invisible from
+the outside. The next concept covers something that sounds similar but
+is genuinely different: a kind of embedding an API user *does* request
+directly, for a completely different purpose.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What's the first thing a transformer does with an incoming token ID?",
+      options: [
+        "It immediately generates the next token",
+        "It looks up that token's learned embedding vector — the model's actual entry point into the rest of the architecture",
+        "It converts the ID back into the original word",
+        "It discards the ID and starts over with raw text",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The token embedding lookup is the literal first step — every other layer in the transformer operates on that vector, not the raw ID.",
+    },
+    {
+      question: "Where do a token embedding's actual numbers come from?",
+      options: [
+        "They're hand-set by whoever designed the tokenizer",
+        "They start random and get adjusted through training, via gradient descent, the same way every other weight in the model does",
+        "They're copied directly from a dictionary definition",
+        "They're computed fresh, from scratch, every time the model runs",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Token embeddings are ordinary learned parameters — they begin as random numbers and are shaped by training like every other weight in the network.",
+    },
+    {
+      question: 'Why do semantically related tokens, like "cat" and "kitten", end up with similar embedding vectors?',
+      options: [
+        "Someone manually assigns similar vectors to related words",
+        "It emerges from training — the model learns that related tokens tend to appear in similar contexts, and that similarity ends up reflected in their learned vectors as a byproduct",
+        "Similar-sounding words are always given similar vectors by rule",
+        "It's determined by the two tokens' numeric IDs being close together",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Nobody designs the geometry directly — it's an emergent side effect of training on context: tokens that appear in similar contexts drift toward similar vectors.",
+    },
+    {
+      question: "Does an API user ever directly request or compute a token embedding when calling an LLM?",
+      options: [
+        "Yes, it's a required part of every API request",
+        "No — token embeddings are entirely internal to the model's own architecture, invisible from outside",
+        "Only when using a reasoning-capable model",
+        "Only for non-English text",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Token embeddings live strictly inside the model, between the tokenizer and the rest of the transformer — an API caller never sees or touches them directly.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
