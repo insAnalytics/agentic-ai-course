@@ -1,88 +1,17 @@
 import { useMemo, useState } from "react";
 import embeddingWords from "../../data/embedding-words.json";
+import { placeLabels } from "../../lib/labelPlacement";
 
 const WORDS = embeddingWords as Record<string, [number, number]>;
 const SCALE = 100;
 const VIEW = 140; // half-width/height of the viewBox, in scaled units
-
-const DEFAULT_WORDS = ["cat", "dog", "kitten", "car", "truck", "vehicle"];
-
-const ALL_WORDS = Object.keys(WORDS).sort();
-
 const FONT_SIZE = 11;
 const CHAR_WIDTH = FONT_SIZE * 0.62; // monospace glyph advance, roughly
 const LABEL_HEIGHT = FONT_SIZE * 1.2;
 
-interface Box {
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
-}
+const DEFAULT_WORDS = ["cat", "dog", "kitten", "car", "truck", "vehicle"];
 
-function overlaps(a: Box, b: Box): boolean {
-  return a.x1 < b.x2 && a.x2 > b.x1 && a.y1 < b.y2 && a.y2 > b.y1;
-}
-
-type Anchor = "start" | "middle" | "end";
-
-interface Placement {
-  dx: number;
-  dy: number;
-  anchor: Anchor;
-}
-
-// Real embedding coordinates cluster tightly (that's the whole point of the
-// demo) — two words can land close enough that a naive fixed "always above
-// the dot" label collides into unreadable overlapping text. Each word tries
-// a ring of candidate positions around its dot and takes the first one that
-// doesn't collide with an already-placed label's bounding box.
-const CANDIDATES: Placement[] = [
-  { dx: 0, dy: -9, anchor: "middle" }, // above
-  { dx: 0, dy: 18, anchor: "middle" }, // below
-  { dx: 8, dy: 3, anchor: "start" }, // right
-  { dx: -8, dy: 3, anchor: "end" }, // left
-  { dx: 8, dy: -9, anchor: "start" }, // above-right
-  { dx: -8, dy: -9, anchor: "end" }, // above-left
-  { dx: 8, dy: 18, anchor: "start" }, // below-right
-  { dx: -8, dy: 18, anchor: "end" }, // below-left
-];
-
-function labelBox(px: number, py: number, word: string, placement: Placement): Box {
-  const width = word.length * CHAR_WIDTH;
-  const { dx, dy, anchor } = placement;
-  const centerX = px + dx + (anchor === "start" ? width / 2 : anchor === "end" ? -width / 2 : 0);
-  const centerY = py + dy - LABEL_HEIGHT / 2;
-  return {
-    x1: centerX - width / 2,
-    y1: centerY - LABEL_HEIGHT / 2,
-    x2: centerX + width / 2,
-    y2: centerY + LABEL_HEIGHT / 2,
-  };
-}
-
-function placeLabels(words: string[]): Map<string, Placement> {
-  const placed = new Map<string, Placement>();
-  const boxes: Box[] = [];
-  for (const word of words) {
-    const [x, y] = WORDS[word];
-    const px = x * SCALE;
-    const py = y * SCALE;
-    let chosen = CANDIDATES[0];
-    let chosenBox = labelBox(px, py, word, chosen);
-    for (const candidate of CANDIDATES) {
-      const box = labelBox(px, py, word, candidate);
-      if (!boxes.some((b) => overlaps(box, b))) {
-        chosen = candidate;
-        chosenBox = box;
-        break;
-      }
-    }
-    placed.set(word, chosen);
-    boxes.push(chosenBox);
-  }
-  return placed;
-}
+const ALL_WORDS = Object.keys(WORDS).sort();
 
 export default function EmbeddingSpace() {
   const [added, setAdded] = useState<string[]>([]);
@@ -90,7 +19,13 @@ export default function EmbeddingSpace() {
   const [notFound, setNotFound] = useState<string | null>(null);
 
   const shown = useMemo(() => [...DEFAULT_WORDS, ...added], [added]);
-  const labelPlacements = useMemo(() => placeLabels(shown), [shown]);
+  const labelPlacements = useMemo(() => {
+    const points = shown.map((word) => {
+      const [x, y] = WORDS[word];
+      return { key: word, px: x * SCALE, py: y * SCALE, label: word };
+    });
+    return placeLabels(points, CHAR_WIDTH, LABEL_HEIGHT);
+  }, [shown]);
 
   const submit = () => {
     const word = input.trim().toLowerCase();

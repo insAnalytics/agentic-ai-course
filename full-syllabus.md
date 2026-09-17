@@ -175,8 +175,22 @@ bridge into Module 2's tool-calling content.
    weight (nothing hand-designed), and this whole layer is strictly
    internal — never something an API caller requests directly, setting
    up next concept's contrast with text embeddings (an API-facing kind
-   an API user *does* request). Remaining concepts not yet drafted. No
-   bookends yet.
+   an API user *does* request). Concept 3 drafted: text embeddings as a
+   genuinely distinct use case from token embeddings (one vector per
+   whole text, requested directly by an API user, for comparing meaning
+   across texts) — `SentenceEmbeddingSpace.tsx`, a curated bank of ~16
+   real sentences (several paraphrase pairs sharing almost no wording,
+   plus unrelated ones for contrast) embedded via a real
+   sentence-transformer model and PCA-projected offline, same rigor as
+   Concept 1's word demo. A sentence box can't reuse Concept 1's "fixed
+   vocabulary" trick (sentences are open-ended), so this asked the user
+   again — went with a precomputed curated bank the learner toggles
+   through, over a heavier live-in-browser model or a weaker
+   free word-averaging approximation; see architecture.md §2's "Real
+   sentence embeddings" row. Sets up a preview of RAG (comparing
+   embeddings to find relevant text) as explicit groundwork for a much
+   later module, and a forward reference to cosine similarity, covered
+   next. Remaining concepts not yet drafted. No bookends yet.
 
 ---
 
