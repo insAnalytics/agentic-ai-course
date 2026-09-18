@@ -1,7 +1,7 @@
 """
 Generates the real next-token probability distributions behind the
-next-token explorer demo in Lesson 1.4, Concept 1
-(src/data/next-token-distributions.json).
+next-token explorer demo in Lesson 1.4, Concept 1, and its Recap &
+Practice closing synthesis (src/data/next-token-distributions.json).
 
 Real logits from GPT-2 (124M, `gpt2` via `transformers`) -- a genuine
 causal/autoregressive language model, unlike the BERT-style encoder
@@ -42,6 +42,12 @@ PROMPTS = [
     "Once upon a time, there was a",
     "The weather today is",
     "She opened the door and saw a",
+    # appended for the Recap & Practice closing synthesis -- appended, not
+    # inserted, so the six indices above stay valid for Concept 1's own page
+    "The opposite of hot is very",
+    "The best programming language for beginners is",
+    "The winner of next year's Nobel Prize in Physics will be Dr.",
+    "The current CEO of Twitter is Jack",
 ]
 
 

@@ -11,9 +11,22 @@ interface PromptDistribution {
   candidates: Candidate[];
 }
 
-const PROMPTS = nextTokenDistributions as PromptDistribution[];
+const ALL_PROMPTS = nextTokenDistributions as PromptDistribution[];
 
-export default function NextTokenDistribution() {
+// the original six from Concept 1 -- pinned explicitly rather than "all of
+// them" so this page's behavior doesn't silently change if more prompts get
+// appended to the bank later (e.g. for a future page's own promptIndices)
+const DEFAULT_PROMPT_INDICES = [0, 1, 2, 3, 4, 5];
+
+interface NextTokenDistributionProps {
+  /** Indices into the full prompt bank to show. Defaults to Concept 1's original six. */
+  promptIndices?: number[];
+}
+
+export default function NextTokenDistribution({
+  promptIndices = DEFAULT_PROMPT_INDICES,
+}: NextTokenDistributionProps) {
+  const PROMPTS = promptIndices.map((i) => ALL_PROMPTS[i]);
   const [promptIndex, setPromptIndex] = useState(0);
   const current = PROMPTS[promptIndex];
   const maxProb = Math.max(...current.candidates.map((c) => c.probability));

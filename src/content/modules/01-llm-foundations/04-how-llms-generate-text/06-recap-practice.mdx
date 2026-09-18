@@ -1,0 +1,180 @@
+---
+title: "Recap & Practice"
+lesson: "04-how-llms-generate-text"
+order: 6
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import NextTokenDistribution from "../../../../components/lesson/NextTokenDistribution";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does the final transformer layer produce, before softmax is applied?",
+      options: [
+        "The single most likely next word, directly",
+        "A raw score (a logit) for every single token in the entire vocabulary",
+        "A list of only the five most likely next tokens",
+        "A complete sentence",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The final layer produces one raw logit per vocabulary entry — tens of thousands of numbers, not a single answer or a pre-trimmed shortlist.",
+    },
+    {
+      question: "How many tokens does a model generate in a single step of the autoregressive loop?",
+      options: [
+        "An entire sentence at once",
+        "Exactly one token",
+        "A fixed number of tokens, set in advance",
+        "It varies based on the length of the input",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Generation is strictly one token per step — a full response is built entirely by repeating that single-token step over and over.",
+    },
+    {
+      question: "Why does generating a longer response require proportionally more computation than a shorter one?",
+      options: [
+        "It doesn't — response length has no effect on computation",
+        "Every generated token requires its own full pass through the entire model, over the whole sequence so far",
+        "Only the first few tokens require real computation",
+        "Longer responses use a smaller, cheaper version of the model",
+      ],
+      correctIndex: 1,
+      explanation:
+        "There's no shortcut — each token costs one full forward pass through every layer, so total generation cost scales directly with tokens produced.",
+    },
+    {
+      question: "Does the logit-and-softmax process include any step that checks whether a candidate token is actually true?",
+      options: [
+        "Yes, a separate fact-checking step runs before softmax",
+        "No — the exact same mechanism runs regardless of whether the answer is well-established, obscure, or doesn't exist at all",
+        "Only for well-known facts",
+        "Only when explicitly requested by the user",
+      ],
+      correctIndex: 1,
+      explanation:
+        "There's no branch in the process — the identical computation runs whether the true answer is well-established, obscure, or entirely fictional.",
+    },
+    {
+      question: 'Why is "the model predicts" more mechanically accurate than "the model knows"?',
+      options: [
+        "It isn't — both phrases are equally accurate",
+        "Every token comes from the same statistical best-guess process, with no separate mechanism distinguishing recalled truth from confident-sounding fabrication",
+        '"Predicts" only applies to the first token generated',
+        '"Knows" is accurate for factual questions only',
+      ],
+      correctIndex: 1,
+      explanation:
+        "Every token, factual or fabricated alike, comes from the same statistical best-guess process — there's no separate \"knowing\" faculty the process ever switches into.",
+    },
+    {
+      question: "Is a hallucination best understood as a malfunction in the generation process?",
+      options: [
+        "Yes — it represents the mechanism breaking down",
+        "No — it's the exact same mechanism working as designed, landing on a plausible but false continuation",
+        "It only occurs due to a specific software bug",
+        "It's random noise, unrelated to how the model generates text",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Hallucination is the same mechanism succeeding at its actual objective (a plausible continuation) in a case where plausible and true have diverged — not a breakdown.",
+    },
+    {
+      question: "Why can a widely-known topic still produce a confidently wrong answer?",
+      options: [
+        "Well-known topics are actually immune to hallucination",
+        "A popular misconception can appear frequently enough in training text to score higher than the actual correct answer",
+        "The model deliberately prefers incorrect answers for famous topics",
+        "This can only happen for topics with almost no training data",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A widely-repeated wrong pattern competes in the exact same scoring as everything else — if it's common enough in training text, it can outscore the correct answer.",
+    },
+    {
+      question: "Why does a model's knowledge cutoff exist?",
+      options: [
+        "It's an arbitrary restriction added after training",
+        "The model's parameters are fixed once training finishes, learned only from data collected up to that point",
+        "Models are retrained after every conversation",
+        "The cutoff only applies to certain topics",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The cutoff is a direct consequence of training ending and parameters freezing — nothing after that point could have shaped those fixed weights.",
+    },
+    {
+      question: "Does a model reliably know its own exact knowledge cutoff date?",
+      options: [
+        "Yes, always, with complete precision",
+        "Not necessarily — its awareness of its own cutoff is itself just another learned pattern, not a built-in certainty",
+        "Models never have any awareness of their own cutoff",
+        "The cutoff is recalculated in real time during each conversation",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A model's sense of its own cutoff is just another fact it had to learn during training, like anything else — not a separate, guaranteed-accurate mechanism.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<Subsection title="Closing synthesis — reason it through, then check" variant="a">
+
+This isn't graded — it's a chance to apply this lesson's mechanics to
+scenarios not already covered, then verify with the same real tool from
+Concept 1.
+
+For each scenario below, reason through three questions before
+checking: **(a)** roughly what would the next-token distribution look
+like — one dominant candidate, or several closely competing? **(b)** is
+hallucination risk high or low here, and why? **(c)** is knowledge
+cutoff relevant to this specific prompt at all?
+
+1. `"The opposite of hot is very ___"` — completing with a temperature word.
+2. `"The best programming language for beginners is ___"` — completing with a language name.
+3. `"The winner of next year's Nobel Prize in Physics will be Dr. ___"` — completing with a surname.
+4. `"The current CEO of Twitter is Jack ___"` — completing with a surname.
+
+<NextTokenDistribution client:load promptIndices={[6, 7, 8, 9]} />
+
+*Reasoning to check against:* (1) should have one clearly dominant
+candidate (`"cold"`, at roughly a third of the total probability, well
+ahead of anything else) — a near-universal, unambiguous fact, low
+hallucination risk, cutoff irrelevant. (2) should show several closely
+competing candidates (`"Python"` narrowly ahead, `"C"`/`"Java"`/`"Ruby"`
+close behind) — genuine disagreement exists in training data itself,
+since this is actually a matter of opinion, not a hallucination risk so
+much as an inherently contested question.
+
+(3) is worth pausing on, because the real tool tells a more interesting
+story here than "confident but wrong" — the actual distribution is
+**flat**: no candidate surname reaches even 3%, and the top several are
+all within a hair of each other. This is still
+[exactly Concept 3's territory](/01-llm-foundations/04-how-llms-generate-text/03-the-model-predicts-it-doesnt-know/)
+— there's no real answer to draw on, so the mechanism is still just
+guessing — but here the guess comes out *honestly* uncertain rather than
+falsely confident, unlike the fabricated-city example or the Einstein
+misconception from Concept 4. The lesson to take from the contrast: false
+confidence specifically needs a misleading pattern strong enough in
+training data to dominate (a popular misconception, a memorized name tied
+to a role) — a genuinely open, arbitrary unknown doesn't always produce
+one. (4) is the cleanest possible demonstration of knowledge cutoff:
+`"Dorsey"` comes out at essentially `100%` confidence — because Jack
+Dorsey really was Twitter's CEO throughout GPT-2's training data. Whether
+that's still true by the time you're reading this is exactly the point:
+the model has no way to know if it isn't.
+
+The pattern to walk away with: the *shape* of the distribution — one
+dominant token, several competing ones, or a flat spread — is often a
+more honest signal of how settled an answer actually is than the fluency
+of the final generated sentence ever reveals on its own.
+
+</Subsection>

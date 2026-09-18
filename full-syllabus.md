@@ -326,7 +326,7 @@ All three Module 1 lessons built so far (1.1 Tokenization, 1.2
 Embeddings, 1.3 Attention and Transformer Architecture) are now fully
 Locked.
 
-4. **How LLMs Generate Text** — Building
+4. **How LLMs Generate Text** — Locked
    Matches this module's original rough-outline description (decoding
    parameters) — this is where Lesson 1.2's own forward reference
    ("the same normalized-probability idea covered directly in the next
@@ -397,8 +397,33 @@ Locked.
    a learned pattern, not guaranteed-accurate self-knowledge, and closes
    with the two real fixes (retrieval/RAG, tool use) as forward pointers
    to modules that don't exist yet, left unlinked. Purely conceptual,
-   no code, no new component. Lesson 1.4 (How LLMs Generate Text) now
-   has all 5 concepts drafted, awaiting its bookends mockup.
+   no code, no new component.
+
+   Bookends: outcomes/why-it-matters intro, a 9-question comprehensive
+   quiz (mixed order, spans all 5 concepts), and — like the previous
+   three lessons — an ungraded closing synthesis rather than a graded
+   comprehensive sandbox (no learner-authored code anywhere in this
+   lesson). A "reason it through, then check" exercise over 4 scenarios,
+   verified against `NextTokenDistribution.tsx` (now generalized with a
+   `promptIndices` prop, pinned-default-preserving Concept 1's own
+   six — same pattern as the `defaultChecked`/`initialRows` props on
+   earlier lessons' components). One scenario's real result flatly
+   contradicted the mockup's assumption (a genuinely unknowable
+   future-event prompt produces honest uncertainty, not false
+   confidence, after 8+ phrasings tested) — asked the user, then
+   rewrote that scenario's reasoning to report the real, more nuanced
+   finding rather than force or fake the assumed result; see
+   architecture.md §2's "Real next-token predictions" row. The
+   knowledge-cutoff scenario landed as the cleanest single result this
+   project has produced — GPT-2 predicts "Dorsey" at 99.5% confidence
+   for Twitter's CEO, accurate throughout its training window and
+   therefore a genuine, unstaged demonstration of exactly what a
+   cutoff means. Lesson 1.4 (How LLMs Generate Text) is now fully
+   Locked.
+
+All four Module 1 lessons built so far (1.1 Tokenization, 1.2
+Embeddings, 1.3 Attention and Transformer Architecture, 1.4 How LLMs
+Generate Text) are now fully Locked.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
