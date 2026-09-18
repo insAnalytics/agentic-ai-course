@@ -1,0 +1,98 @@
+---
+title: "Mixture-of-experts (MoE)"
+lesson: "03-attention-and-transformer-architecture"
+order: 5
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Every token, the same parameters — until it isn't" variant="a">
+
+[A standard transformer block's feedforward layer, from the previous concept](/01-llm-foundations/03-attention-and-transformer-architecture/04-stacking-layers-into-a-transformer/),
+uses the exact same parameters for every token that passes through it.
+**Mixture-of-experts (MoE)** changes this: instead of one feedforward
+network per layer, there are several smaller "expert" networks, and a
+small learned **router** that decides, per token, which subset of
+experts actually gets used — commonly just 2 out of 8, or a similarly
+small fraction, not all of them.
+
+<LiveDemo client:load code={`experts = ["expert_1", "expert_2", "expert_3", "expert_4"]
+router_scores = {"expert_1": 0.1, "expert_2": 0.7, "expert_3": 0.5, "expert_4": 0.2}
+
+def top_k_experts(scores: dict, k: int) -> list:
+    return sorted(scores, key=scores.get, reverse=True)[:k]
+
+print(top_k_experts(router_scores, k=2))`} />
+
+`sorted(..., key=scores.get, reverse=True)` picks out whichever experts
+the router scored highest for this specific token — only `expert_2` and
+`expert_3` actually process it; `expert_1` and `expert_4`'s parameters
+sit entirely unused for this particular token, even though they're
+still part of the model.
+
+</Subsection>
+
+<Subsection title={'Why this makes "how big is the model" the wrong question alone'} variant="b">
+
+The practical consequence: a model's **total** parameter count — summed
+across every expert, whether or not any given token actually uses it —
+can be far larger than the number of parameters actually doing work to
+produce any single token's output. Two models with wildly different
+total parameter counts can end up costing roughly the same to run
+per-token, if the larger one routes each token through only a small
+slice of its total experts. This decouples "how large is this model"
+from "how expensive is it to actually run," which used to be nearly the
+same question for a standard, non-MoE transformer — worth carrying
+forward explicitly toward this module's cost discussion, where it
+becomes directly relevant to understanding what you're actually paying
+for.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does a mixture-of-experts model's router actually decide?",
+      options: [
+        "Which token comes next in the output",
+        "Which subset of the model's expert networks actually processes a given token — commonly a small fraction of the total, not all of them",
+        "How many layers the model should have",
+        "The router only operates once, for the entire input, not per token",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The router makes a per-token decision, selecting a small subset of experts (commonly 2 of 8 or similar) to actually process that specific token.",
+    },
+    {
+      question: "In an MoE model, do every token's computations use the exact same set of parameters?",
+      options: [
+        "Yes, exactly like a standard transformer layer",
+        "No — different tokens can be routed to different subsets of experts, meaning different tokens use different parameters",
+        "Only the first token in a sequence uses any experts at all",
+        "MoE models don't actually have separate experts",
+      ],
+      correctIndex: 1,
+      explanation:
+        "This is exactly what distinguishes MoE from a standard feedforward layer — the router can send different tokens to different experts, so parameter usage varies per token.",
+    },
+    {
+      question: "Why can two models with very different total parameter counts end up costing roughly the same to run per token?",
+      options: [
+        "Parameter count never actually affects computational cost",
+        "If the larger model routes each token through only a small slice of its total experts, its actual per-token computation can be similar to a much smaller model's, despite having more total parameters",
+        "This is impossible — total parameter count always determines cost directly",
+        "Only non-MoE models have this property",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Total parameter count and per-token compute cost decouple under MoE — a much larger model can cost about the same to run if it only activates a small slice of its experts per token.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

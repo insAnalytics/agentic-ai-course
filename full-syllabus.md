@@ -291,9 +291,20 @@ fully Locked.
    and the lesson's own prose is explicit that per-layer content claims
    are unsettled research it deliberately avoids asserting — so the
    diagram only shows the same token labels flowing through, never
-   invented per-layer semantic content. Remaining concepts not yet
-   drafted (per its own mockup, Concept 5 covers mixture-of-experts
-   next). No bookends yet.
+   invented per-layer semantic content.
+
+   Concept 5 drafted (final concept of this lesson, per its own
+   mockup): mixture-of-experts (MoE) — a router picks a small subset of
+   "expert" feedforward networks per token (commonly 2 of 8), instead
+   of every token using the same parameters, verified live with a
+   `top_k_experts` toy router demo (numbers checked out exactly).
+   Decouples "how big is this model" from "how expensive is it to run
+   per token," flagged explicitly as groundwork for this module's later
+   cost discussion — the same "quantization cost and operational
+   concerns" forward reference first seen in Lesson 1.1, still not
+   built, left as unlinked plain text a third time now. Purely
+   conceptual otherwise, no new component. No bookends yet — Lesson 1.3
+   now has all 5 concepts drafted.
 
 The rest of Module 1 (decoding parameters, model landscape/benchmark
 literacy, raw API mechanics, structured outputs) remains a rough
