@@ -360,9 +360,21 @@ Locked.
    never actually reaches `"the"`/`"mat"` and prints `.` twice instead
    — fixed by keying the lookup on the full sequence; see
    architecture.md §2's "Real next-token predictions" row for the full
-   account. Purely conceptual otherwise, no new component. Remaining
-   concepts not yet drafted (per its own mockup, Concept 3 covers "the
-   model predicts, it doesn't know" next). No bookends yet.
+   account. Purely conceptual otherwise, no new component.
+
+   Concept 3 drafted: "the model predicts, it doesn't know," grounded
+   in the exact mechanics of Concepts 1-2 — the same uniform
+   logit-then-softmax process runs for every token regardless of
+   whether the true answer is a well-established fact or something
+   entirely fabricated, with no separate fact-checking step anywhere in
+   the loop. A live fact-vs-fabrication softmax demo (a fifth
+   hand-calculation error caught in this demo's cited numbers — the
+   real values make the lesson's own point even more strongly than the
+   claimed ones did; see architecture.md §2). Sets up hallucination as
+   a direct, expected consequence of this mechanism, not a malfunction
+   — covered next. Purely conceptual otherwise, no new component.
+   Remaining concepts not yet drafted (per its own mockup, Concept 4
+   covers hallucination as a direct consequence next). No bookends yet.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
