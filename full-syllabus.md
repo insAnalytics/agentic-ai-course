@@ -373,8 +373,21 @@ Locked.
    claimed ones did; see architecture.md §2). Sets up hallucination as
    a direct, expected consequence of this mechanism, not a malfunction
    — covered next. Purely conceptual otherwise, no new component.
-   Remaining concepts not yet drafted (per its own mockup, Concept 4
-   covers hallucination as a direct consequence next). No bookends yet.
+
+   Concept 4 drafted: hallucination as a direct, expected consequence
+   of the same mechanism — not a malfunction, but that mechanism
+   succeeding at its actual objective (a plausible continuation) where
+   plausible and true have diverged. Includes the important nuance that
+   hallucination isn't only an "obscure topic" problem — a popular
+   misconception (Einstein/relativity vs. his actual Nobel-winning work
+   on the photoelectric effect) can outscore the correct answer if
+   repeated often enough in training text, verified live (a sixth
+   hand-calculation error caught, same shape as the fifth — see
+   architecture.md §2). Explicitly scopes out measuring/reducing
+   hallucination (Evaluations and RAG modules' jobs, neither built yet
+   — left as unlinked plain text, no page type even exists yet for a
+   module-level link). Remaining concepts not yet drafted (per its own
+   mockup, Concept 5 covers knowledge cutoff next). No bookends yet.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
