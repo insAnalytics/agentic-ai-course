@@ -263,8 +263,20 @@ fully Locked.
    and logged as findings; see architecture.md §2's "Real attention
    weights" row for the full account. Went with hand-verifying a small
    curated bank rather than a broader, sometimes-unreliable "any
-   sentence" tool. Remaining concepts not yet drafted (per its own
-   mockup, Concept 3 covers positional encoding next). No bookends yet.
+   sentence" tool.
+
+   Concept 3 drafted: positional encoding — attention's Query/Key
+   comparison depends only on token content, not sequence position, so
+   "The dog bit the man" and "The man bit the dog" (same tokens,
+   different order, opposite meaning) would score identically without
+   it. A position-specific vector added onto each token's embedding
+   before attention runs, so the same word at two different positions
+   starts from two genuinely different vectors — verified live (this
+   mockup's own numbers checked out exactly, unlike Concepts 2 and 4 of
+   the previous two lessons). Purely conceptual otherwise, no new
+   component. Remaining concepts not yet drafted (per its own mockup,
+   Concept 4 covers stacking layers into a real transformer next). No
+   bookends yet.
 
 The rest of Module 1 (decoding parameters, model landscape/benchmark
 literacy, raw API mechanics, structured outputs) remains a rough
