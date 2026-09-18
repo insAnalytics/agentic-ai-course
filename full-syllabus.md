@@ -229,9 +229,28 @@ bridge into Module 2's tool-calling content.
    matching the mockup's high/low/high/low predictions exactly.
 
 Both Lesson 1.1 (Tokenization) and Lesson 1.2 (Embeddings) are now
-fully Locked. The rest of Module 1 (decoding parameters, model
-landscape/benchmark literacy, raw API mechanics, structured outputs)
-remains a rough outline — not yet broken into lessons.
+fully Locked.
+
+3. **Attention and Transformer Architecture** — Building
+   Not in this module's original rough-outline description above
+   either (added once its mockup arrived, same as Lessons 1 and 2 were)
+   — this is where the "architecture" and "attention" forward
+   references from Lessons 1.1 and 1.2 actually land, confirming those
+   earlier guesses (both left as unlinked plain text at the time,
+   correctly, since the target didn't exist yet). Concept 1 drafted:
+   why a token needs context, not just its own fixed embedding — a
+   token embedding lookup is context-blind by construction (`"bank"` in
+   `"river bank"` and `"bank"` in `"deposited money at the bank"` get
+   the literal identical vector, verified live), motivating attention
+   as the mechanism that lets a token's representation actually shift
+   based on its real neighbors in a specific sentence. Purely
+   conceptual, no new component. Remaining concepts not yet drafted
+   (Concept 2, per its own mockup, covers the attention mechanism
+   directly). No bookends yet.
+
+The rest of Module 1 (decoding parameters, model landscape/benchmark
+literacy, raw API mechanics, structured outputs) remains a rough
+outline — not yet broken into lessons.
 
 ---
 

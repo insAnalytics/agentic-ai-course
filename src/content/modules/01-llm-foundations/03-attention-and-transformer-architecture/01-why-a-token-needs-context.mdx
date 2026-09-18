@@ -1,0 +1,104 @@
+---
+title: "Why a token needs context, not just its own embedding"
+lesson: "03-attention-and-transformer-architecture"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The same token, the same embedding, every time" variant="a">
+
+[A token embedding, from the previous lesson](/01-llm-foundations/02-embeddings/02-token-embeddings-internal-input-layer/),
+is a lookup — the same token ID always maps to the exact same vector, no
+matter where that token appears:
+
+<LiveDemo client:load code={`embedding_table = {
+    "bank": [0.50, 0.20],   # one fixed vector, looked up by token, nothing else
+}
+
+sentence_a = "I sat by the river bank"
+sentence_b = "I deposited money at the bank"
+
+# both instances of "bank" are the same token, so the raw lookup
+# returns the exact same vector for both, regardless of context
+print(embedding_table["bank"])
+print(embedding_table["bank"])`} />
+
+But `"bank"` in `"river bank"` and `"bank"` in `"deposited money at the
+bank"` mean two almost completely unrelated things — a riverside, and a
+financial institution. The raw token embedding, looked up purely from
+the token ID with no knowledge of anything around it, has absolutely no
+way to tell those two meanings apart. Both instances get the identical
+vector, identical position in meaning-space, despite meaning genuinely
+different things.
+
+</Subsection>
+
+<Subsection title="What's actually needed: letting context shape a token's meaning" variant="b">
+
+This is a real limitation, not a minor imprecision — a huge amount of
+what makes language meaningful depends entirely on context: which other
+words surround a given word, in what order, in what relationship to it.
+A token embedding on its own is necessarily "context-blind" — it's a
+fixed lookup, computed once during training and never adjusted per
+sentence. What's needed is some mechanism that takes those fixed token
+embeddings as a *starting point*, and then lets each token's
+representation shift based on the actual other tokens sitting around it
+in that specific sentence — so `"bank"` near `"river"` ends up
+represented differently than `"bank"` near `"deposited money."`
+
+That mechanism is **attention** — covered directly next — and it's the
+actual reason a transformer needs more than just an embedding lookup
+table to work at all.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question:
+        'Given a fixed token embedding lookup table, what vector does "bank" in "river bank" get, compared to "bank" in "deposited money at the bank"?',
+      options: [
+        "Two different vectors, reflecting each sentence's meaning",
+        "The exact same vector both times — the raw lookup only depends on the token itself, not on anything around it",
+        'A vector that\'s an average of every possible meaning of "bank"',
+        'An error, since "bank" is ambiguous',
+      ],
+      correctIndex: 1,
+      explanation:
+        "A token embedding lookup depends only on the token ID — it has no way to see the surrounding words, so both instances of \"bank\" get the identical vector regardless of context.",
+    },
+    {
+      question: 'Why is a token embedding, on its own, considered "context-blind"?',
+      options: [
+        "It's never actually true — token embeddings already account for context",
+        "It's a fixed lookup computed once during training, with no mechanism to adjust based on the specific other words surrounding it in a given sentence",
+        "Context-blindness only affects rare words, never common ones",
+        "Token embeddings are recomputed for every new sentence",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The embedding table is fixed at training time — nothing about a specific sentence's surrounding words ever changes what a raw token embedding lookup returns.",
+    },
+    {
+      question:
+        "What's actually needed to let a token's representation reflect its specific context, rather than staying fixed regardless of surrounding words?",
+      options: [
+        "A larger embedding table with more entries",
+        "A mechanism that takes the fixed token embeddings as a starting point and lets each token's representation shift based on the other tokens actually present in that sentence",
+        "Simply increasing the number of dimensions in each token's embedding",
+        "Nothing — context doesn't actually affect meaning in practice",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The fix isn't a bigger or higher-dimensional lookup table — it's an entirely different mechanism that lets a token's representation shift based on its actual neighbors in a given sentence.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
