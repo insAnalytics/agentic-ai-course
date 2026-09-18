@@ -386,8 +386,19 @@ Locked.
    architecture.md §2). Explicitly scopes out measuring/reducing
    hallucination (Evaluations and RAG modules' jobs, neither built yet
    — left as unlinked plain text, no page type even exists yet for a
-   module-level link). Remaining concepts not yet drafted (per its own
-   mockup, Concept 5 covers knowledge cutoff next). No bookends yet.
+   module-level link).
+
+   Concept 5 drafted (final concept of this lesson, per its own
+   mockup): knowledge cutoff — parameters freeze once training ends, so
+   nothing after that point could have shaped them; asking about a
+   post-cutoff event is mechanically identical to the fabricated-city
+   case from Concept 3 (same generation process, nothing real to draw
+   on). Notes a model's own awareness of its cutoff date is itself just
+   a learned pattern, not guaranteed-accurate self-knowledge, and closes
+   with the two real fixes (retrieval/RAG, tool use) as forward pointers
+   to modules that don't exist yet, left unlinked. Purely conceptual,
+   no code, no new component. Lesson 1.4 (How LLMs Generate Text) now
+   has all 5 concepts drafted, awaiting its bookends mockup.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
