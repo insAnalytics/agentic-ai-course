@@ -348,9 +348,21 @@ Locked.
    softmax numbers were wrong again (claimed `mat: 0.618`, real value
    `0.631`, etc.) — the fourth mockup-cited number this project has
    caught by actually running the code; see architecture.md §2's "Real
-   next-token predictions" row. Remaining concepts not yet drafted (per
-   its own mockup, Concept 2 covers autoregressive generation next). No
-   bookends yet.
+   next-token predictions" row.
+
+   Concept 2 drafted: autoregressive generation — one token at a time,
+   each step a full fresh pass through the entire model over the whole
+   sequence so far (including everything generated in earlier steps),
+   never a cheaper incremental shortcut. Verifying the toy demo caught
+   a real logic bug this time, not just a wrong cited number: the
+   mockup's lookup sliced to a fixed last-3-tokens window, which never
+   matches its own 4- and 5-token dict keys, so run as written the loop
+   never actually reaches `"the"`/`"mat"` and prints `.` twice instead
+   — fixed by keying the lookup on the full sequence; see
+   architecture.md §2's "Real next-token predictions" row for the full
+   account. Purely conceptual otherwise, no new component. Remaining
+   concepts not yet drafted (per its own mockup, Concept 3 covers "the
+   model predicts, it doesn't know" next). No bookends yet.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken

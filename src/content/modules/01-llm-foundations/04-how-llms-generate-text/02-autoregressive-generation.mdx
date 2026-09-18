@@ -1,0 +1,119 @@
+---
+title: "Autoregressive generation, one token at a time"
+lesson: "04-how-llms-generate-text"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The model never generates more than one token at once" variant="a">
+
+[Concept 1 showed how a single next-token probability distribution gets produced](/01-llm-foundations/04-how-llms-generate-text/01-logits-and-the-probability-distribution/).
+A full response — a sentence, a paragraph — is never generated in one
+step. The model picks one token from that distribution (exactly *how*
+it picks — always the top one, or something more varied — is a later
+lesson's job), appends that single token onto the sequence, and then
+runs the *entire* process again from scratch: a full pass through every
+transformer layer, over the whole sequence, including the token it just
+generated — to produce the distribution for the *next* token.
+
+<LiveDemo client:load code={`def predict_next_token(sequence: list) -> str:
+    # a toy stand-in for a real model's full forward pass + softmax + selection --
+    # a real model recomputes this from scratch, over the whole sequence, every call
+    toy_rules = {
+        ("The", "cat", "sat"): "on",
+        ("The", "cat", "sat", "on"): "the",
+        ("The", "cat", "sat", "on", "the"): "mat",
+    }
+    return toy_rules.get(tuple(sequence), ".")
+
+sequence = ["The", "cat", "sat"]
+for _ in range(3):
+    next_token = predict_next_token(sequence)
+    sequence.append(next_token)
+    print(sequence)`} />
+
+Each call to `predict_next_token` receives the *updated* sequence,
+including everything generated in every previous call — `"on"` from the
+first call is already part of the sequence by the time the second call
+runs. This is the actual meaning of "autoregressive": the model
+predicts its next output by looking at *its own prior output*, fed back
+in as input, over and over, one token at a time.
+
+</Subsection>
+
+<Subsection title="Why this matters computationally" variant="b">
+
+Every single one of those calls is
+[the entire logit/softmax computation from Concept 1](/01-llm-foundations/04-how-llms-generate-text/01-logits-and-the-probability-distribution/),
+run over the whole sequence so far — not some cheaper, incremental
+shortcut. A ten-token response requires ten full passes through the
+model; a thousand-token response requires a thousand. Generation cost
+scales directly with how many tokens actually get produced — a fact
+that becomes directly relevant once this module reaches test-time
+compute and reasoning models: a model that "thinks" by generating more
+tokens before its final answer is spending real, additional passes
+through this exact loop, not some separate, cheaper reasoning process.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "How many tokens does a model generate in a single step of the autoregressive loop?",
+      options: [
+        "An entire sentence at once",
+        "Exactly one token — the model never produces more than one token per step",
+        "A fixed number of tokens, set in advance",
+        "It varies based on the length of the input",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Generation is strictly one token per step — everything about how a full response gets built comes from repeating that single-token step over and over.",
+    },
+    {
+      question: 'What does "autoregressive" actually mean in this context?',
+      options: [
+        "The model automatically corrects its own grammar mistakes",
+        "The model predicts its next output by looking at its own prior output, fed back in as input, repeatedly",
+        "The model regenerates its entire response from scratch if an error occurs",
+        "The model only works on regression tasks, not text generation",
+      ],
+      correctIndex: 1,
+      explanation:
+        '"Auto" (self) + "regressive" (feeding output back as input) — each new token is predicted by looking at everything generated so far, including its own previous outputs.',
+    },
+    {
+      question:
+        "In the live demo, why does predict_next_token receive a different sequence argument on each of the three loop iterations?",
+      options: [
+        "It doesn't — sequence stays identical across all three calls",
+        "Each generated token gets appended to sequence before the next call, so every call sees the full sequence including everything generated so far",
+        "The function randomly shuffles the sequence between calls",
+        "sequence resets to empty after each call",
+      ],
+      correctIndex: 1,
+      explanation:
+        "sequence.append(next_token) happens before the loop's next iteration, so each call to predict_next_token sees one more token than the call before it.",
+    },
+    {
+      question: "Why does generating a longer response require proportionally more computation than a shorter one?",
+      options: [
+        "It doesn't — response length has no effect on computation",
+        "Every generated token requires its own full pass through the entire model, over the whole sequence so far — more tokens generated means more full passes performed",
+        "Only the first few tokens require real computation; the rest are free",
+        "Longer responses use a smaller, cheaper version of the model",
+      ],
+      correctIndex: 1,
+      explanation:
+        "There's no shortcut — each token costs one full forward pass through every layer, so total generation cost scales directly with the number of tokens produced.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
