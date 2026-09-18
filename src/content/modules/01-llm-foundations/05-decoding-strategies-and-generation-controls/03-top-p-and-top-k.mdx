@@ -1,0 +1,176 @@
+---
+title: "Top-p and top-k — restricting the sampling pool itself"
+lesson: "05-decoding-strategies-and-generation-controls"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import DecodingPlayground from "../../../../components/lesson/DecodingPlayground";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="A genuinely different lever than temperature" variant="a">
+
+[Temperature reshapes probabilities](/01-llm-foundations/05-decoding-strategies-and-generation-controls/02-temperature/)
+— but even at very high temperature, every token still has *some*
+nonzero chance of being sampled, however tiny. Top-p and top-k work
+differently: they cut candidates *out of the pool entirely* before
+sampling ever happens, regardless of temperature — a genuinely separate
+control, not another way of tuning the same thing.
+
+</Subsection>
+
+<Subsection title="Top-k: keep a fixed number of candidates" variant="b">
+
+Top-k keeps only the `k` highest-probability tokens, discards
+everything else, and renormalizes what remains so the probabilities
+still sum to `1`:
+
+<LiveDemo client:load code={`distribution = {"mat": 0.618, "floor": 0.207, "chair": 0.153, "moon": 0.008, "xylophone": 0.002}
+
+def top_k_filter(probabilities: dict, k: int) -> dict:
+    top_tokens = sorted(probabilities, key=probabilities.get, reverse=True)[:k]
+    filtered = {token: probabilities[token] for token in top_tokens}
+    total = sum(filtered.values())
+    return {token: value / total for token, value in filtered.items()}
+
+print(top_k_filter(distribution, k=2))`} />
+
+`sorted(probabilities, key=probabilities.get, reverse=True)[:k]` —
+[list slicing, exactly as covered in Module 0](/00-python-essentials/02-collections/01-lists/)
+— keeps only the top 2 candidates; `"chair"`, `"moon"`, and `"xylophone"`
+are discarded entirely, not just down-weighted, and the surviving two
+get renormalized so they still sum to `1`.
+
+</Subsection>
+
+<Subsection title="Top-p (nucleus sampling): keep just enough to cover a probability mass" variant="a">
+
+Top-p works differently: instead of a fixed *count*, it keeps the
+smallest set of tokens whose cumulative probability reaches at least
+`p`:
+
+<LiveDemo client:load code={`distribution = {"mat": 0.618, "floor": 0.207, "chair": 0.153, "moon": 0.008, "xylophone": 0.002}
+
+def top_p_filter(probabilities: dict, p: float) -> dict:
+    sorted_tokens = sorted(probabilities, key=probabilities.get, reverse=True)
+    filtered = {}
+    cumulative = 0.0
+    for token in sorted_tokens:
+        filtered[token] = probabilities[token]
+        cumulative += probabilities[token]
+        if cumulative >= p:
+            break
+    total = sum(filtered.values())
+    return {token: value / total for token, value in filtered.items()}
+
+print(top_p_filter(distribution, p=0.9))`} />
+
+Notice this kept **three** tokens, not two — `"mat"` and `"floor"`
+together only reach `82.5%` cumulative probability, short of the `0.9`
+threshold, so `"chair"` gets included too, pushing the total to
+`97.8%`, at which point the loop stops.
+
+</Subsection>
+
+<Subsection title="Why top-p adapts and top-k doesn't" variant="b">
+
+This is the real practical difference, worth seeing directly: top-k
+always keeps exactly `k` tokens, no matter how confident or uncertain
+the underlying distribution actually is. Top-p adapts to that
+confidence automatically:
+
+<LiveDemo
+  client:load
+  setupCode={`def top_p_filter(probabilities: dict, p: float) -> dict:
+    sorted_tokens = sorted(probabilities, key=probabilities.get, reverse=True)
+    filtered = {}
+    cumulative = 0.0
+    for token in sorted_tokens:
+        filtered[token] = probabilities[token]
+        cumulative += probabilities[token]
+        if cumulative >= p:
+            break
+    total = sum(filtered.values())
+    return {token: value / total for token, value in filtered.items()}`}
+  code={`flat_distribution = {"a": 0.25, "b": 0.24, "c": 0.23, "d": 0.15, "e": 0.13}
+print(top_p_filter(flat_distribution, p=0.9))`}
+/>
+
+With the same `p=0.9` threshold, this genuinely uncertain, nearly-flat
+distribution needs *all five* tokens to even reach `90%` cumulative
+probability — nothing gets discarded at all. Compare that to the
+`"mat"`-dominated distribution above, where top-p needed only three
+tokens to hit the same threshold. Top-k, applied to both distributions
+with the same fixed `k=2`, would have discarded three real, genuinely
+competitive candidates from the flat distribution — exactly the case
+where top-p's adaptiveness matters: it naturally allows more variety
+when the model is genuinely uncertain, and less variety when it's
+genuinely confident, rather than forcing the same fixed pool size onto
+both situations.
+
+Two more controls, added to the same decoding playground from Concept
+1 — watch candidates actually drop out of the pool (shown struck
+through and dimmed) as each threshold tightens, on a real distribution:
+
+<DecodingPlayground client:load showTemperature showTopKTopP />
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What's the core difference between what temperature does and what top-p/top-k do?",
+      options: [
+        "They're two names for exactly the same mechanism",
+        "Temperature reshapes probabilities without removing any candidate; top-p/top-k remove candidates from the pool entirely before sampling",
+        "Top-p/top-k only apply to the first token generated",
+        "Temperature can only increase probabilities, never decrease them",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Temperature reshapes the whole distribution but leaves every candidate with some nonzero chance; top-p and top-k instead remove candidates from the pool entirely before sampling runs.",
+    },
+    {
+      question: "What does top_k_filter(distribution, k=2) do to tokens outside the top 2?",
+      options: [
+        "It reduces their probability slightly but keeps them in the pool",
+        "It discards them entirely — only the top k candidates remain, renormalized to sum to 1",
+        "It doubles their probability to compensate",
+        "It has no effect on tokens outside the top k",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Top-k is a hard cutoff — anything outside the top k is removed completely, and the survivors are renormalized to form a real probability distribution on their own.",
+    },
+    {
+      question: 'Why did top_p_filter(distribution, p=0.9) keep three tokens, not two, on the "mat"-dominated distribution?',
+      options: [
+        "This is a bug — top-p should always keep exactly two tokens",
+        '"mat" and "floor" together only reached 82.5% cumulative probability, short of the 0.9 threshold, so a third token was needed to cross it',
+        "Top-p always keeps at least three tokens regardless of the distribution",
+        "p=0.9 and p=2 produce identical results",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Top-p keeps adding tokens, in rank order, until the cumulative probability crosses the threshold — two tokens fell short here, so a third was needed.",
+    },
+    {
+      question: "Why does top-p keep all five tokens for the flat distribution but only three for the \"mat\"-dominated one, using the same p=0.9?",
+      options: [
+        "This is inconsistent behavior and indicates an error",
+        "Top-p adapts to the distribution's actual shape — a flat, uncertain distribution needs more tokens to reach the same cumulative threshold than a sharply peaked one does",
+        "The flat distribution's probabilities don't actually sum to 1",
+        "Top-p ignores probability values entirely and just counts tokens",
+      ],
+      correctIndex: 1,
+      explanation:
+        "This is exactly top-p's adaptiveness — how many tokens it takes to reach a fixed cumulative threshold depends entirely on how concentrated or spread out the real distribution is.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

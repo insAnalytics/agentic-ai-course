@@ -461,8 +461,27 @@ Generate Text) are now fully Locked.
    candidate's shown probability visibly jump the wrong direction —
    fixed by renormalizing consistently at every temperature. See
    architecture.md §2's "Real next-token predictions" row for the full
-   account. Remaining concepts not yet drafted (per its own mockup,
-   Concept 3 covers top-p and top-k next). No bookends yet.
+   account.
+
+   Concept 3 drafted: top-p and top-k, cutting candidates out of the
+   sampling pool entirely (rather than reshaping probabilities the way
+   temperature does) — top-k keeps a fixed count, top-p adaptively keeps
+   just enough to cross a cumulative-probability threshold. All four
+   LiveDemos verified exactly against real Python execution, the first
+   concept in this lesson with zero hand-calculation errors to fix.
+   Extended `DecodingPlayground.tsx` with top-k/top-p sliders, rendering
+   discarded candidates dimmed and struck through rather than removed.
+   Also self-caught and fixed a design-consistency bug: the shared
+   `DecodingPlayground.tsx` had no prop-based feature gating, so the
+   temperature and top-k/top-p sliders added in Concepts 2 and 3 were
+   silently leaking onto Concept 1's already-shipped page. Fixed with
+   `showTemperature`/`showTopKTopP` props (both default `false`, same
+   pattern as `SentenceEmbeddingSpace.tsx`/`NextTokenDistribution.tsx`
+   elsewhere in the project); re-verified via Playwright that each
+   concept's page now shows exactly the controls it should. See
+   architecture.md §2's "Real next-token predictions" row for the full
+   account. Remaining concepts not yet drafted (frequency penalty vs.
+   presence penalty next, per its own mockup). No bookends yet.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
