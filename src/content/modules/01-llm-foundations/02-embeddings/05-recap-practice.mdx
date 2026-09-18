@@ -1,0 +1,158 @@
+---
+title: "Recap & Practice"
+lesson: "02-embeddings"
+order: 5
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import SentenceEmbeddingSpace from "../../../../components/lesson/SentenceEmbeddingSpace";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why does a token ID alone fail to capture any meaningful relationship between two words?",
+      options: [
+        "Token IDs are always sequential and therefore meaningful",
+        "A token ID is just an arbitrary lookup key, assigned based on vocabulary-building order, not meaning",
+        "Token IDs only exist for rare words",
+        "This isn't actually true — token IDs do reflect meaning directly",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A token ID's numeric value comes from whatever order the vocabulary happened to be built in — it carries no information about how two words actually relate.",
+    },
+    {
+      question: 'What does "distance in embedding space" actually correspond to?',
+      options: [
+        "How many letters two words share",
+        "Similarity in meaning",
+        "Alphabetical order",
+        "How frequently each word appears in training data",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Embeddings are built specifically so geometric closeness tracks semantic closeness — that's the entire idea they're organized around.",
+    },
+    {
+      question: "Where do a token embedding's actual numbers come from?",
+      options: [
+        "They're hand-set by whoever designed the tokenizer",
+        "They start random and get adjusted through training, via gradient descent, like every other weight in the model",
+        "They're copied from a dictionary definition",
+        "They're computed fresh from scratch every time the model runs",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Token embeddings are ordinary learned parameters — random at initialization, shaped by training like every other weight in the network.",
+    },
+    {
+      question: "Does an API user ever directly request or compute a token embedding?",
+      options: [
+        "Yes, it's required on every API request",
+        "No — token embeddings are entirely internal to a model's architecture",
+        "Only when using a reasoning-capable model",
+        "Only for non-English text",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Token embeddings sit strictly inside the model, between the tokenizer and the rest of the transformer — never touched directly by an API caller.",
+    },
+    {
+      question: "What's the key difference between a token embedding and a text embedding?",
+      options: [
+        "They're the same thing",
+        "A token embedding is one vector per token, internal to a model; a text embedding is one vector for an entire piece of text, requested directly via an API call",
+        "Text embeddings only work for short text",
+        "Token embeddings are requested by users; text embeddings are internal",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Opposite in scope and in who touches them — token embeddings are per-token and purely internal; text embeddings are per-whole-text and explicitly API-requested.",
+    },
+    {
+      question: "Why can two sentences sharing almost no words end up with similar text embeddings?",
+      options: [
+        "They can't — shared wording is required",
+        "A text embedding captures overall meaning, not exact wording",
+        "The embedding model checks a thesaurus first",
+        "Sentence length alone determines similarity",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Text embeddings are built to represent meaning — two near-paraphrases with almost no shared vocabulary can still land close together.",
+    },
+    {
+      question: "What does cosine similarity actually measure?",
+      options: [
+        "The raw distance between two vectors' endpoints",
+        "The angle between them — near 1 for the same direction, near -1 for opposite, near 0 for unrelated",
+        "Which vector has more dimensions",
+        "The sum of both vectors' values",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Cosine similarity is an angle measurement, not a distance one — it ignores how long each vector is entirely.",
+    },
+    {
+      question: "Why does cosine similarity focus on angle rather than raw distance or vector length?",
+      options: [
+        "Angle is simply easier to compute",
+        "A vector's length isn't inherently meaningful — direction is what encodes similarity",
+        "Distance and angle always give identical results",
+        "Vector length is the only thing that matters",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Dividing out both vectors' magnitudes deliberately strips away length, which carries no semantic meaning, leaving only the direction that does.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<Subsection title="Closing synthesis — predict, then check" variant="a">
+
+This isn't graded — it's a chance to build real intuition for what
+cosine similarity actually rewards before the rest of this course leans
+on that intuition being there.
+
+Before checking with the pairwise-similarity tool below, predict
+roughly how similar (high, medium, or low) each of these sentence
+pairs' cosine similarity will be, and *why*:
+
+1. `"The cat sat on the mat."` vs. `"A feline was resting on the rug."`
+2. `"The cat sat on the mat."` vs. `"The stock market fell sharply today."`
+3. `"How do I reset my password?"` vs. `"I forgot my login credentials, help."`
+4. `"How do I reset my password?"` vs. `"The weather is nice today."`
+
+<SentenceEmbeddingSpace client:load showSimilarityTable={true} defaultChecked={[0, 1, 2, 16, 17, 18]} />
+
+*Reasoning to check your predictions against:* (1) should score high —
+different wording, nearly identical meaning, exactly
+[Concept 3's example](/01-llm-foundations/02-embeddings/03-text-embeddings-a-distinct-use-case/).
+(2) should score low — no real relationship in meaning at all,
+regardless of both being complete, grammatical sentences. (3) should
+score high, for the same reason as (1) — this is also the case that
+actually matters practically: a real search system needs to recognize
+that a support query and a rephrased version of it mean the same
+thing, even with zero shared vocabulary. (4) should score low, the same
+shape as (2).
+
+The pattern worth internalizing: cosine similarity tracks *meaning*,
+consistently, regardless of shared wording — pairs (1) and (3) prove
+that directly, and pairs (2) and (4) confirm it isn't just rewarding
+"any two full sentences" with a high score by default.
+
+**One more self-check, before moving on:** if you're asked to explain,
+in one sentence, why a token embedding and a text embedding aren't the
+same thing — can you? If not,
+[Concept 3's comparison table](/01-llm-foundations/02-embeddings/03-text-embeddings-a-distinct-use-case/#not-the-same-thing-as-a-token-embedding)
+is worth a second look before starting the next lesson, since the rest
+of this module and the eventual RAG module both lean on that distinction
+staying clear.
+
+</Subsection>

@@ -24,10 +24,15 @@ const DEFAULT_CHECKED = [0, 1, 2, 3, 8, 9];
 interface SentenceEmbeddingSpaceProps {
   /** Adds a live pairwise cosine-similarity table below the checklist — Concept 4's extension of this same component. */
   showSimilarityTable?: boolean;
+  /** Sentence indices pre-checked on load. Defaults to three real paraphrase pairs (enough to show the effect across more than one topic without overwhelming the plot). */
+  defaultChecked?: number[];
 }
 
-export default function SentenceEmbeddingSpace({ showSimilarityTable = false }: SentenceEmbeddingSpaceProps) {
-  const [checked, setChecked] = useState<Set<number>>(new Set(DEFAULT_CHECKED));
+export default function SentenceEmbeddingSpace({
+  showSimilarityTable = false,
+  defaultChecked = DEFAULT_CHECKED,
+}: SentenceEmbeddingSpaceProps) {
+  const [checked, setChecked] = useState<Set<number>>(new Set(defaultChecked));
 
   const shownIndices = useMemo(() => SENTENCES.map((_, i) => i).filter((i) => checked.has(i)), [checked]);
 

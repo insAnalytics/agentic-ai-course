@@ -157,7 +157,7 @@ bridge into Module 2's tool-calling content.
    project exception — see
    [lesson-structure.md §2](lesson-structure.md#2-section-by-section-rules).
 
-2. **Embeddings** — Building
+2. **Embeddings** — Locked
    Not in this module's original rough-outline description above (added
    once its mockup arrived, same as Tokenization was) — token vectors
    and semantic distance, building directly on Lesson 1's token-ID
@@ -210,8 +210,28 @@ bridge into Module 2's tool-calling content.
    page passes it, adding a live pairwise cosine-similarity table
    (color-intensity-coded by value) under the same plot and checklist,
    so a learner sees the exact number behind whatever clustering they
-   already see visually. Lesson 1.2 (Embeddings) now has all 4 concepts
-   drafted, awaiting its bookends mockup.
+   already see visually.
+
+   Bookends: outcomes/why-it-matters intro, an 8-question comprehensive
+   quiz (mixed order, spans all 4 concepts), and — like Lesson 1.1 — an
+   ungraded closing synthesis rather than a graded comprehensive
+   sandbox, for the same reason: no learner-authored code anywhere in
+   this lesson either. A predict-then-check exercise over 4 sentence
+   pairs, 3 of them brand new (a support-query paraphrase pair plus an
+   unrelated one), appended to `embedding-sentences.json` rather than
+   inserted, so Concepts 3/4's own hardcoded default-checked indices
+   stayed valid. `SentenceEmbeddingSpace.tsx` gained a `defaultChecked`
+   prop so this page could default-check exactly the 6 sentences the
+   4 predictions need, embedded directly (plot + live similarity table)
+   rather than only linking to Concept 4's copy of the same tool — same
+   pattern as Lesson 1.1's own closing synthesis. All four real
+   similarity numbers verified before shipping: 0.56/0.07/0.68/-0.06,
+   matching the mockup's high/low/high/low predictions exactly.
+
+Both Lesson 1.1 (Tokenization) and Lesson 1.2 (Embeddings) are now
+fully Locked. The rest of Module 1 (decoding parameters, model
+landscape/benchmark literacy, raw API mechanics, structured outputs)
+remains a rough outline — not yet broken into lessons.
 
 ---
 

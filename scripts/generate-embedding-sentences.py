@@ -1,8 +1,9 @@
 """
 Generates the sentence lookup table behind the sentence-level embedding
 demos in Lesson 1.2 -- Concept 3's plot (src/data/embedding-sentences.json's
-x/y) and Concept 4's pairwise cosine-similarity table (the same file's
-vector field).
+x/y), Concept 4's pairwise cosine-similarity table (the same file's
+vector field), and the lesson's own Recap & Practice closing synthesis
+(same component, different sentences pre-checked).
 
 Real sentence embeddings (all-MiniLM-L6-v2, a well-known, compact
 sentence-transformers model -- 384 dimensions, trained specifically to
@@ -60,6 +61,12 @@ SENTENCES = [
     "The new smartphone features a faster processor and better camera.",
     "He practiced the piano for two hours every evening.",
     "The company announced record profits for the quarter.",
+    # appended for the Lesson 1.2 bookends' closing synthesis -- appended,
+    # not inserted, so every earlier concept's hardcoded index references
+    # (Concept 3/4's DEFAULT_CHECKED, this lesson's own recap page) stay valid
+    "How do I reset my password?",
+    "I forgot my login credentials, help.",
+    "The weather is nice today.",
 ]
 
 assert len(SENTENCES) == len(set(SENTENCES)), "duplicate sentence in SENTENCES"
@@ -110,6 +117,8 @@ def main():
     print("pizza vs pizza paraphrase (should be high):", cos_sim(6, 7))
     print("AI model vs language model paraphrase (should be high):", cos_sim(8, 9))
     print("cat/mat vs AI model (should be low):", cos_sim(0, 8))
+    print("password reset vs login credentials paraphrase (should be high):", cos_sim(16, 17))
+    print("password reset vs nice weather (should be low):", cos_sim(16, 18))
 
 
 if __name__ == "__main__":
