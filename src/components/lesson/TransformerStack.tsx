@@ -6,6 +6,21 @@ const TOKENS = ["The", "cat", "sat", "down"];
 // of this lesson) -- a genuine, grounded number, not an arbitrary pick
 const LAYER_COUNT = 6;
 
+/**
+ * A token's real representation is hundreds of numbers that shift at
+ * every layer -- but the lesson prose is explicit that what any given
+ * layer actually does to that vector is unsettled research, so this
+ * deliberately doesn't claim to show real content (no fake "this layer
+ * captured grammar" labels). This swatch is only a visual stand-in for
+ * "the underlying vector is now different" -- a deterministic hash of
+ * (token, layer), not a projection of anything the model actually
+ * computed. Without *some* visible change per step, stepping through
+ * looked like nothing was happening at all.
+ */
+function representationHue(tokenIndex: number, layer: number): number {
+  return (tokenIndex * 47 + layer * 83) % 360;
+}
+
 export default function TransformerStack() {
   const [step, setStep] = useState(0); // 0 = raw input, not yet through any layer
 
@@ -47,13 +62,22 @@ export default function TransformerStack() {
                 {TOKENS.map((t, ti) => (
                   <span
                     key={ti}
-                    className="rounded px-1.5 py-0.5"
+                    className="flex flex-col items-center gap-1 rounded px-1.5 py-1"
                     style={{
                       background: done ? "var(--color-green-light)" : "var(--color-bg-alt)",
                       color: done ? "var(--color-green-dark)" : "var(--color-ink-soft)",
                     }}
                   >
-                    {t}
+                    <span>{t}</span>
+                    <span
+                      title="Stands in for the token's changing vector at this layer — not a real projection of specific content"
+                      className="h-1.5 w-6 rounded-full"
+                      style={{
+                        background: done
+                          ? `hsl(${representationHue(ti, layerNumber)}, 55%, 55%)`
+                          : "var(--color-border)",
+                      }}
+                    />
                   </span>
                 ))}
               </div>
@@ -74,6 +98,13 @@ export default function TransformerStack() {
         <div className="text-[0.65rem] tracking-wide text-[var(--color-ink-soft)] uppercase">
           Input tokens (raw embeddings + positional encoding)
         </div>
+      </div>
+
+      <div className="border-t border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-xs text-[var(--color-ink-soft)]">
+        The small bar under each token stands in for its actual vector — hundreds of real numbers that shift at
+        every block. The color changing each step is the point: a genuinely different vector, every layer, for the
+        same word. It isn't a real projection of grammar, meaning, or anything else specific — exactly what changes
+        at any one layer is still unsettled research, as the text above explains.
       </div>
 
       <div className="flex items-center justify-between border-t border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2">
