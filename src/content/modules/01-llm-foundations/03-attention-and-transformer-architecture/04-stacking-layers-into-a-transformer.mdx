@@ -1,0 +1,123 @@
+---
+title: "Stacking layers into a real transformer"
+lesson: "03-attention-and-transformer-architecture"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import TransformerStack from "../../../../components/lesson/TransformerStack";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Multi-head attention: several relevance computations at once" variant="a">
+
+[A single attention computation, from Concept 2](/01-llm-foundations/03-attention-and-transformer-architecture/02-the-attention-mechanism/),
+captures one particular pattern of relevance between tokens. A real
+transformer runs several of these in parallel — called **heads** — each
+with its own separately-learned Query/Key/Value computation, potentially
+picking up on different kinds of relationships in the same sentence: one
+head might end up sensitive to grammatical structure (which word is the
+subject of which verb), another to longer-range topical relationships,
+without anyone explicitly telling either head what to specialize in. The
+results from every head get combined into one final, richer
+representation per token. This is **multi-head attention** — the same
+core mechanism from Concept 2, just run several times side by side
+instead of once.
+
+</Subsection>
+
+<Subsection title="One transformer block, and stacking many of them" variant="b">
+
+Multi-head attention, followed by a smaller feedforward network applied
+to each token's representation individually, together make up one
+**transformer block** (or layer). A real LLM stacks many of these
+blocks — dozens, in a large model — one after another, where each
+block's output becomes the *next* block's input. Step through a small
+stack below and watch the same starting tokens pass up through each
+block in turn:
+
+<TransformerStack client:load />
+
+Each layer takes the previous layer's output and refines it further —
+attention re-weighting relevance based on the *already-contextualized*
+representations from the layer before, not the raw token embeddings
+anymore, by the time you're several layers deep. This repeated
+refinement, one layer building on the last, is what "a transformer"
+actually names — attention is one mechanism inside it, not the whole
+architecture by itself.
+
+</Subsection>
+
+<Subsection title="What different layers tend to capture — with real caution" variant="a">
+
+It's genuinely tempting to say something clean like "early layers
+capture grammar, later layers capture meaning" — there's a real, broad
+trend in that direction, observed across various interpretability
+studies, but it's worth being honest that exactly what any given layer
+represents is an active, unsettled area of research, not a fully solved
+or agreed-upon picture. The safer, defensible claim: representations do
+tend to become progressively more abstract and context-integrated as
+they pass through more layers, but pinning down precisely *what* each
+individual layer is "doing" in a crisp, human-interpretable way remains
+genuinely difficult and contested — a caveat worth carrying forward
+rather than treating this as more settled than it actually is.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does multi-head attention add, compared to running attention once?",
+      options: [
+        "It makes the model faster by skipping some tokens",
+        "It runs several separate attention computations in parallel, each potentially sensitive to a different kind of relationship, then combines their results",
+        "It removes the need for positional encoding",
+        "It only applies to the very first token in a sequence",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Multi-head attention runs the same core mechanism several times side by side, each with its own learned Query/Key/Value, so different heads can pick up on different kinds of relationships in parallel.",
+    },
+    {
+      question: "What makes up one transformer block?",
+      options: [
+        "A single attention computation, with nothing else",
+        "Multi-head attention, followed by a feedforward network applied to each token's representation individually",
+        "Only the feedforward network, with attention applied separately elsewhere",
+        "Positional encoding alone",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A transformer block pairs multi-head attention with a per-token feedforward network — both together, not either alone, form one stackable unit.",
+    },
+    {
+      question: "As a real LLM stacks many transformer blocks, what does each block actually operate on?",
+      options: [
+        "The original, raw token embeddings, every single time",
+        "The previous block's output — each layer refines an already-contextualized representation, not the raw starting embeddings",
+        "A completely independent copy of the input sequence",
+        "Only the final token in the sequence",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Each block takes the previous block's output as its input — by several layers deep, attention is re-weighting relevance over already-refined representations, not the original embeddings.",
+    },
+    {
+      question:
+        'Why does this concept avoid stating a specific, crisp claim like "layer 3 always captures grammar, layer 10 always captures meaning"?',
+      options: [
+        "Because layers don't actually process information differently at all",
+        "Because exactly what any given layer represents is an active, genuinely unsettled area of research — the broad trend toward increasing abstraction is real, but precise per-layer claims overstate how settled the picture actually is",
+        "Because transformers don't actually have multiple layers",
+        "Because this claim has been definitively proven false",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The broad trend toward more abstract, context-integrated representations in later layers is real and observed, but pinning an exact role to a specific layer number is still genuinely contested research, not settled fact.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

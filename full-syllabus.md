@@ -274,9 +274,26 @@ fully Locked.
    starts from two genuinely different vectors — verified live (this
    mockup's own numbers checked out exactly, unlike Concepts 2 and 4 of
    the previous two lessons). Purely conceptual otherwise, no new
-   component. Remaining concepts not yet drafted (per its own mockup,
-   Concept 4 covers stacking layers into a real transformer next). No
-   bookends yet.
+   component.
+
+   Concept 4 drafted: multi-head attention (several parallel Query/Key/
+   Value computations, each potentially sensitive to a different kind
+   of relationship, combined into one richer representation) and
+   transformer blocks stacking into a real model (attention +
+   feedforward = one block; each block refines the previous block's
+   output, not the raw embeddings). `TransformerStack.tsx` — a
+   step-through diagram of tokens flowing up through 6 stacked blocks
+   (6 chosen deliberately to match the real depth of `all-MiniLM-L6-v2`,
+   the small real model already grounding Concepts 1 and 3 of this
+   lesson). Unlike the previous two concepts' interactives, this one
+   needed no real-vs-curated-data decision: it's a structural diagram
+   of the architecture, not a numeric claim about real model internals,
+   and the lesson's own prose is explicit that per-layer content claims
+   are unsettled research it deliberately avoids asserting — so the
+   diagram only shows the same token labels flowing through, never
+   invented per-layer semantic content. Remaining concepts not yet
+   drafted (per its own mockup, Concept 5 covers mixture-of-experts
+   next). No bookends yet.
 
 The rest of Module 1 (decoding parameters, model landscape/benchmark
 literacy, raw API mechanics, structured outputs) remains a rough

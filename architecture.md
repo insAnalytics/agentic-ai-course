@@ -114,6 +114,7 @@ sidebar navigation, not one very long scroll.
       EmbeddingSpace.tsx           # 2D scatter of real GloVe-derived word positions (src/data/embedding-words.json) plus a type-a-word-to-add box — Lesson 1.2
       SentenceEmbeddingSpace.tsx   # 2D scatter of a real sentence-transformer's output (src/data/embedding-sentences.json) over a curated sentence bank, toggled via checkboxes rather than typed; optional showSimilarityTable prop adds a live pairwise cosine-similarity table below, optional defaultChecked overrides which sentences start checked — Lesson 1.2
       AttentionExplorer.tsx        # click any token in one of a small curated bank of sentences (src/data/attention-sentences.json), see every other token shaded by real attention weight from an actual small transformer — Lesson 1.3
+      TransformerStack.tsx         # step-through diagram of tokens flowing up through 6 stacked transformer blocks — purely structural/architectural, no per-layer content claims (the lesson prose itself is explicit that what any one layer "does" is unsettled research) — Lesson 1.3
       CheckpointZone.astro        # full-bleed colored band behind a quiz/exercise card
   /lib
     pyodide.ts                  # shared Pyodide loader + single-file and multi-file grading harnesses
