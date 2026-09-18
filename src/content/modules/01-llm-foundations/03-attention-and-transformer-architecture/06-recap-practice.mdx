@@ -1,0 +1,171 @@
+---
+title: "Recap & Practice"
+lesson: "03-attention-and-transformer-architecture"
+order: 6
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: 'Given a fixed token embedding lookup table, what vector does "bank" get in "river bank" versus "deposited money at the bank"?',
+      options: [
+        "Two different vectors, reflecting each sentence's meaning",
+        "The exact same vector both times — the raw lookup only depends on the token itself",
+        'A vector averaging every possible meaning of "bank"',
+        'An error, since "bank" is ambiguous',
+      ],
+      correctIndex: 1,
+      explanation:
+        "A token embedding lookup depends only on the token ID — it has no way to see surrounding words, so both instances get the identical vector regardless of context.",
+    },
+    {
+      question: "What's the difference between a token's Query and its Key?",
+      options: [
+        "They're the same thing",
+        "Query represents what a token is looking for in context; Key represents what a token has to offer others looking for context",
+        "Query is only used for the first token; Key is used for all others",
+        "Key determines the final output; Query has no real function",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Query and Key play opposite roles in the same comparison — every token has both, asking \"what do I need?\" and answering \"here's what I offer.\"",
+    },
+    {
+      question: "Once relevance scores are computed, what actually gets combined to produce a token's new representation?",
+      options: [
+        "The relevance scores themselves, added together directly",
+        "Every token's Value, weighted by the normalized relevance scores",
+        "Only the single highest-scoring token's embedding",
+        "The original token embeddings, entirely unchanged",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The relevance scores only become weights — the actual combination happens over every token's Value vector, weighted by those scores.",
+    },
+    {
+      question: 'Why does attention alone fail to distinguish "The dog bit the man" from "The man bit the dog"?',
+      options: [
+        "It doesn't fail — attention already accounts for word order",
+        "Attention's relevance scores depend only on token content, not on where a token sits in the sequence",
+        "These sentences actually use different tokens",
+        "Attention only works for sentences under five words",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Query/Key comparisons only look at token content — nothing about position enters that comparison, so two orderings of the same tokens score identically.",
+    },
+    {
+      question: "What does positional encoding actually do?",
+      options: [
+        "It removes duplicate tokens from a sequence",
+        "It gives each position its own distinct vector, added onto a token's embedding, so the same token at different positions gets different starting representations",
+        "It reorders tokens alphabetically",
+        "It replaces the token embedding entirely with a position number",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Positional encoding augments the token embedding with a position-specific vector — it doesn't replace or reorder anything.",
+    },
+    {
+      question: "What does multi-head attention add, compared to running attention once?",
+      options: [
+        "It makes the model faster by skipping tokens",
+        "It runs several separate attention computations in parallel, each potentially sensitive to a different relationship, then combines the results",
+        "It removes the need for positional encoding",
+        "It only applies to the first token in a sequence",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Multiple heads run the same core mechanism side by side, each with its own learned Query/Key/Value, so different heads can specialize in different kinds of relationships.",
+    },
+    {
+      question: "As a real LLM stacks many transformer blocks, what does each block actually operate on?",
+      options: [
+        "The original, raw token embeddings, every time",
+        "The previous block's output — each layer refines an already-contextualized representation",
+        "A completely independent copy of the input",
+        "Only the final token in the sequence",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Each block takes the previous block's output as its input — several layers deep, attention re-weights relevance over already-refined representations, not the original embeddings.",
+    },
+    {
+      question: "What does a mixture-of-experts model's router actually decide?",
+      options: [
+        "Which token comes next in the output",
+        "Which subset of the model's expert networks actually processes a given token",
+        "How many layers the model should have",
+        "The router only operates once for the entire input, not per token",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The router makes a per-token decision, selecting a small subset of experts to actually process that specific token.",
+    },
+    {
+      question: "Why can two models with very different total parameter counts end up costing roughly the same to run per token?",
+      options: [
+        "Parameter count never affects computational cost",
+        "If the larger model routes each token through only a small slice of its total experts, its actual per-token computation can resemble a much smaller model's",
+        "This is impossible",
+        "Only non-MoE models have this property",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Total parameter count and per-token compute cost decouple under MoE — a much larger model can cost about the same to run if it only activates a small slice of its experts per token.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<Subsection title="Closing synthesis — tracing one token through the full architecture" variant="a">
+
+This isn't graded — it's a chance to see every mechanism this lesson
+covered as one connected pipeline, rather than five separate ideas.
+
+Follow `"bank"` in `"I sat by the river bank"` through the full
+pipeline, one step at a time:
+
+1. **Token embedding lookup** — `"bank"` starts as a fixed vector,
+   [looked up purely from its token ID](/01-llm-foundations/03-attention-and-transformer-architecture/01-why-a-token-needs-context/),
+   identical to what `"bank"` would get in any other sentence at this
+   stage.
+2. **Positional encoding added** — that fixed vector gets combined with
+   a vector [specific to `"bank"`'s position in this exact sentence](/01-llm-foundations/03-attention-and-transformer-architecture/03-positional-encoding/),
+   making its starting representation already slightly different than
+   an identical word at a different position would get.
+3. **Layer 1: multi-head attention** —
+   [several attention computations run in parallel](/01-llm-foundations/03-attention-and-transformer-architecture/04-stacking-layers-into-a-transformer/),
+   each comparing `"bank"`'s Query against every other token's Key —
+   `"river"` scores highly relevant, pulling `"bank"`'s representation
+   toward a riverside meaning,
+   [exactly as computed directly in Concept 2's demo](/01-llm-foundations/03-attention-and-transformer-architecture/02-the-attention-mechanism/).
+4. **Layer 1: feedforward** — that attention output gets further
+   transformed by a feedforward network, completing one full transformer
+   block.
+5. **Layers 2 through N** — the same two-step process repeats, each
+   layer refining an already-contextualized representation rather than
+   starting over from the raw embedding — by the final layer, `"bank"`'s
+   representation reflects not just `"river"`'s direct influence, but
+   several rounds of progressively refined context.
+6. **(If this were an MoE model)** —
+   [a router would have selected only a subset of that layer's experts](/01-llm-foundations/03-attention-and-transformer-architecture/05-mixture-of-experts/)
+   to actually process `"bank"`'s representation, rather than using every
+   parameter in the layer.
+
+Revisit
+[Concept 2's attention-weight visualization](/01-llm-foundations/03-attention-and-transformer-architecture/02-the-attention-mechanism/#the-weighted-combination-made-concrete)
+and
+[Concept 4's layer-stacking diagram](/01-llm-foundations/03-attention-and-transformer-architecture/04-stacking-layers-into-a-transformer/#one-transformer-block-and-stacking-many-of-them)
+side by side with this walkthrough — the goal is for every step above
+to correspond to something you can actually point at in one of those
+two tools, not just a description to take on faith.
+
+</Subsection>

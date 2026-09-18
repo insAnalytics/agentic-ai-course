@@ -231,7 +231,7 @@ bridge into Module 2's tool-calling content.
 Both Lesson 1.1 (Tokenization) and Lesson 1.2 (Embeddings) are now
 fully Locked.
 
-3. **Attention and Transformer Architecture** — Building
+3. **Attention and Transformer Architecture** — Locked
    Not in this module's original rough-outline description above
    either (added once its mockup arrived, same as Lessons 1 and 2 were)
    — this is where the "architecture" and "attention" forward
@@ -303,8 +303,28 @@ fully Locked.
    cost discussion — the same "quantization cost and operational
    concerns" forward reference first seen in Lesson 1.1, still not
    built, left as unlinked plain text a third time now. Purely
-   conceptual otherwise, no new component. No bookends yet — Lesson 1.3
-   now has all 5 concepts drafted.
+   conceptual otherwise, no new component.
+
+   Bookends: outcomes/why-it-matters intro, a 9-question comprehensive
+   quiz (mixed order, spans all 5 concepts), and — like Lessons 1.1 and
+   1.2 — an ungraded closing synthesis rather than a graded
+   comprehensive sandbox, for the same reason (no learner-authored code
+   anywhere in this lesson). Different shape than the previous two
+   lessons' synthesis, though: rather than a predict-then-check
+   exercise with a fresh embedded tool, this one is a 6-step narrative
+   walkthrough tracing `"bank"` in `"I sat by the river bank"` through
+   the entire pipeline (token embedding → positional encoding → each
+   transformer block's attention + feedforward → what an MoE router
+   would additionally do), linking back into all 5 concepts including
+   two anchor-specific links into Concepts 2 and 4's own interactive
+   tools (`AttentionExplorer.tsx`, `TransformerStack.tsx`) rather than
+   re-embedding fresh copies — the mockup's own phrasing ("revisit...
+   side by side with this walkthrough") pointed at linking back to the
+   originals, not rebuilding them here. Lesson 1.3 is now fully Locked.
+
+All three Module 1 lessons built so far (1.1 Tokenization, 1.2
+Embeddings, 1.3 Attention and Transformer Architecture) are now fully
+Locked.
 
 The rest of Module 1 (decoding parameters, model landscape/benchmark
 literacy, raw API mechanics, structured outputs) remains a rough
