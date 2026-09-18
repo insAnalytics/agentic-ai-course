@@ -62,22 +62,23 @@ export default function TransformerStack() {
                 {TOKENS.map((t, ti) => (
                   <span
                     key={ti}
-                    className="flex flex-col items-center gap-1 rounded px-1.5 py-1"
-                    style={{
-                      background: done ? "var(--color-green-light)" : "var(--color-bg-alt)",
-                      color: done ? "var(--color-green-dark)" : "var(--color-ink-soft)",
-                    }}
+                    title="This box's color stands in for the token's changing vector at this layer — not a real projection of specific content"
+                    className="rounded border px-1.5 py-0.5"
+                    style={
+                      done
+                        ? {
+                            background: `hsl(${representationHue(ti, layerNumber)}, 55%, 80%)`,
+                            borderColor: `hsl(${representationHue(ti, layerNumber)}, 55%, 55%)`,
+                            color: "var(--color-ink)",
+                          }
+                        : {
+                            background: "var(--color-bg-alt)",
+                            borderColor: "var(--color-border)",
+                            color: "var(--color-ink-soft)",
+                          }
+                    }
                   >
-                    <span>{t}</span>
-                    <span
-                      title="Stands in for the token's changing vector at this layer — not a real projection of specific content"
-                      className="h-1.5 w-6 rounded-full"
-                      style={{
-                        background: done
-                          ? `hsl(${representationHue(ti, layerNumber)}, 55%, 55%)`
-                          : "var(--color-border)",
-                      }}
-                    />
+                    {t}
                   </span>
                 ))}
               </div>
@@ -101,10 +102,10 @@ export default function TransformerStack() {
       </div>
 
       <div className="border-t border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-xs text-[var(--color-ink-soft)]">
-        The small bar under each token stands in for its actual vector — hundreds of real numbers that shift at
-        every block. The color changing each step is the point: a genuinely different vector, every layer, for the
-        same word. It isn't a real projection of grammar, meaning, or anything else specific — exactly what changes
-        at any one layer is still unsettled research, as the text above explains.
+        Each token's color stands in for its actual vector — hundreds of real numbers that shift at every block.
+        The color changing each step is the point: a genuinely different vector, every layer, for the same word.
+        It isn't a real projection of grammar, meaning, or anything else specific — exactly what changes at any one
+        layer is still unsettled research, as the text above explains.
       </div>
 
       <div className="flex items-center justify-between border-t border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2">
