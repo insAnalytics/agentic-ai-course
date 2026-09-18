@@ -442,9 +442,27 @@ Generate Text) are now fully Locked.
    this project has caught, and a new shape: a seeded PRNG sequence
    isn't something anyone could have hand-derived correctly, unlike a
    softmax calculation). See architecture.md §2's "Real next-token
-   predictions" row for the full account. Remaining concepts not yet
-   drafted (per its own mockup, Concept 2 covers temperature next). No
-   bookends yet.
+   predictions" row for the full account.
+
+   Concept 2 drafted: temperature — dividing every logit by the
+   temperature value before softmax, sharpening the distribution below
+   1 and flattening it above 1, with temperature approaching 0 provably
+   equivalent to greedy decoding. Toy demo verified live — the first
+   genuinely accurate mockup-cited numbers this project has found (off
+   by 0.001 in one value, after seven straight misses). Extended
+   `DecodingPlayground.tsx` with a live temperature slider rather than
+   building a new tool, per the mockup's own "extending Concept 1's
+   decoding playground" framing. Testing the slider live caught two
+   real bugs neither related to a wrong number: a genuine SSR/client
+   hydration mismatch from an unrounded float in a CSS width (fixed in
+   both this component and `NextTokenDistribution.tsx`, which had the
+   same latent pattern), and a design bug where switching between
+   raw and renormalized percentages right at temperature=1 made the top
+   candidate's shown probability visibly jump the wrong direction —
+   fixed by renormalizing consistently at every temperature. See
+   architecture.md §2's "Real next-token predictions" row for the full
+   account. Remaining concepts not yet drafted (per its own mockup,
+   Concept 3 covers top-p and top-k next). No bookends yet.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken

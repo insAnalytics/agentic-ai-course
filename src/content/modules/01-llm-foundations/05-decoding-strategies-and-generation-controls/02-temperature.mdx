@@ -1,0 +1,135 @@
+---
+title: "Temperature — reshaping the distribution before sampling"
+lesson: "05-decoding-strategies-and-generation-controls"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import DecodingPlayground from "../../../../components/lesson/DecodingPlayground";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Finally: what temperature has actually been doing" variant="a">
+
+Every `AgentConfig`-style example across
+[Module 0](/00-python-essentials/05-typed-data-models/00-intro/)
+included a `temperature` field, completely unexplained until now. This
+is that explanation: temperature is a knob that reshapes the
+*distribution itself*, before sampling ever happens — it changes how
+sharp or flat the probabilities are, without changing which tokens are
+even in the running.
+
+</Subsection>
+
+<Subsection title="The mechanism: dividing logits before softmax" variant="b">
+
+Temperature works by dividing every logit by the temperature value
+*before* applying softmax —
+[the exact softmax function from Lesson 4](/01-llm-foundations/04-how-llms-generate-text/01-logits-and-the-probability-distribution/),
+with one small change inserted right before it runs:
+
+<LiveDemo client:load code={`import math
+
+def softmax_with_temperature(logits: dict, temperature: float) -> dict:
+    scaled_logits = {token: score / temperature for token, score in logits.items()}
+    exp_values = {token: math.exp(score) for token, score in scaled_logits.items()}
+    total = sum(exp_values.values())
+    return {token: value / total for token, value in exp_values.items()}
+
+logits = {"mat": 4.2, "floor": 3.1, "chair": 2.8, "moon": -1.5, "xylophone": -3.0}
+
+print(softmax_with_temperature(logits, temperature=0.5))
+print(softmax_with_temperature(logits, temperature=1.5))`} />
+
+Same logits, two completely different resulting distributions. At
+`temperature=0.5` (below 1), dividing sharpens the gaps between logits
+before they're exponentiated — `"mat"` climbs to roughly `85%`, up from
+its `temperature=1.0` baseline of roughly `62%`
+[established back in Lesson 4](/01-llm-foundations/04-how-llms-generate-text/01-logits-and-the-probability-distribution/).
+At `temperature=1.5` (above 1), dividing shrinks those gaps — `"mat"`
+drops to roughly `53%`, while `"floor"` and `"chair"` become genuinely
+competitive at roughly `25%` and `21%`.
+
+</Subsection>
+
+<Subsection title={'The two extremes, and why "temperature" is the right word for it'} variant="a">
+
+As temperature approaches `0`, this sharpening effect intensifies until
+the top logit's probability approaches `1` and everything else
+approaches `0` —
+[temperature `0` is, in the limit, equivalent to greedy decoding](/01-llm-foundations/05-decoding-strategies-and-generation-controls/01-greedy-decoding-vs-sampling/),
+always taking the top candidate, since nothing else has any meaningful
+chance left. As temperature climbs well above `1`, the distribution
+keeps flattening, approaching a nearly uniform spread across every
+candidate — genuinely unpredictable, often incoherent output, since
+even very implausible tokens start getting real consideration. The word
+"temperature" itself is a deliberate physics metaphor: low temperature
+is "cold" and settled, everything crystallizes around the most likely
+state; high temperature is "hot" and energetic, with far more randomness
+in play.
+
+Try it directly — the same decoding playground from Concept 1, now with
+a temperature slider. Move it and watch the same real distribution
+reshape live, in both modes:
+
+<DecodingPlayground client:load />
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does temperature actually do to a token distribution?",
+      options: [
+        "It removes low-probability tokens from consideration entirely",
+        "It reshapes the distribution's sharpness — dividing logits by the temperature value before softmax — without changing which tokens are candidates",
+        "It only affects the very first token generated, not later ones",
+        "It has no measurable effect on the output at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Temperature scales the logits before softmax runs — it reshapes how sharp or flat the resulting distribution is, without adding or removing any candidate tokens.",
+    },
+    {
+      question: 'Why does temperature=0.5 make "mat"\'s probability climb higher than its temperature=1.0 value?',
+      options: [
+        "Lower temperature always removes some tokens from the distribution entirely",
+        "Dividing logits by a value below 1 sharpens the gaps between them before exponentiating, concentrating more probability on the already-highest-scoring token",
+        "temperature=0.5 has no actual effect on the distribution",
+        "Lower temperature always produces exactly the same result as higher temperature",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Dividing by a number below 1 is the same as multiplying the gaps between logits — that widens the score gap before exponentiating, concentrating more probability on the leader.",
+    },
+    {
+      question: "What does temperature approaching 0 become equivalent to?",
+      options: [
+        "Pure random selection, ignoring probabilities entirely",
+        "Greedy decoding — the top candidate's probability approaches 1 and everything else approaches 0",
+        "A completely flat, uniform distribution",
+        "Removing the softmax step entirely",
+      ],
+      correctIndex: 1,
+      explanation:
+        "As temperature shrinks toward 0, the sharpening effect intensifies until the distribution collapses onto the single highest-scoring candidate — exactly what greedy decoding always does.",
+    },
+    {
+      question: "Why does very high temperature tend to produce less coherent output?",
+      options: [
+        "High temperature always causes the model to repeat itself",
+        "The distribution flattens toward nearly uniform, giving even very implausible tokens real consideration during sampling",
+        "High temperature disables sampling and forces greedy decoding",
+        "High temperature only affects punctuation, not word choice",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A flatter distribution means tokens that would normally be very unlikely get real, meaningful probability — sampling can then genuinely select something implausible.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

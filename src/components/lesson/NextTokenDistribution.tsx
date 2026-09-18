@@ -62,7 +62,11 @@ export default function NextTokenDistribution({
         </p>
         <div className="flex flex-col gap-1.5">
           {current.candidates.map((c, i) => {
-            const widthPct = (c.probability / maxProb) * 100;
+            // .toFixed avoids an SSR/client hydration mismatch -- Node's and
+            // the browser's V8 can format the exact same float to a
+            // slightly different number of digits, which React flags as a
+            // real mismatch even though the underlying value is identical
+            const widthPct = ((c.probability / maxProb) * 100).toFixed(2);
             return (
               <div key={i} className="flex items-center gap-2">
                 <span className="w-24 shrink-0 truncate text-right font-mono text-xs text-[var(--color-ink)]">
