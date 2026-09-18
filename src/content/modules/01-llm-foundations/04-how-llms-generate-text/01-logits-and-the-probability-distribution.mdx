@@ -1,0 +1,135 @@
+---
+title: "Logits and the probability distribution"
+lesson: "04-how-llms-generate-text"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import NextTokenDistribution from "../../../../components/lesson/NextTokenDistribution";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="What comes out of the final transformer layer" variant="a">
+
+After a sequence has passed through
+[every transformer block, stacked as covered in Lesson 3](/01-llm-foundations/03-attention-and-transformer-architecture/04-stacking-layers-into-a-transformer/),
+the model produces one final set of numbers: a raw score, called a
+**logit**, for *every single token in the entire vocabulary* — tens of
+thousands of numbers, one per possible next token, each representing
+how strongly the model favors that specific token as what comes next.
+
+These raw logits aren't probabilities yet. They can be any real number
+— positive, negative, large, small — and they don't sum to anything
+meaningful on their own. Turning them into something usable is
+**softmax**'s job.
+
+</Subsection>
+
+<Subsection title="Softmax: turning raw scores into a real probability distribution" variant="b">
+
+Softmax takes the raw logits and converts them into values that are all
+between 0 and 1, summing to exactly 1 — a genuine probability
+distribution over the entire vocabulary:
+
+<LiveDemo client:load code={`import math
+
+# toy logits for a few candidate next tokens, given "The cat sat on the ___"
+logits = {"mat": 4.2, "floor": 3.1, "chair": 2.8, "moon": -1.5, "xylophone": -3.0}
+
+def softmax(logits: dict) -> dict:
+    exp_values = {token: math.exp(score) for token, score in logits.items()}
+    total = sum(exp_values.values())
+    return {token: value / total for token, value in exp_values.items()}
+
+probabilities = softmax(logits)
+for token, prob in probabilities.items():
+    print(f"{token}: {prob:.3f}")`} />
+
+`math.exp(score)` —
+[the same `math` module used for `sqrt()` back in the cosine similarity concept](/01-llm-foundations/02-embeddings/04-cosine-similarity/) —
+exponentiates every logit, which guarantees every result is positive
+(even a negative logit like `moon`'s `-1.5` becomes a small positive
+number) and amplifies the *gap* between high and low scores. Dividing
+each exponentiated value by their total is what makes everything sum to
+exactly `1`. The result reads directly as "how likely is this token to
+come next": `"mat"` at roughly `63%`, all the way down to `"xylophone"`
+at a vanishingly small fraction of a percent (it correctly rounds to
+`0.000` in the demo's 3-decimal output) — reflecting the original
+logits' ordering, just rescaled into genuine probabilities.
+
+Below is the same idea running for real — pick a sentence and see the
+model's actual top candidate next-tokens, not a fixed toy example:
+
+<NextTokenDistribution client:load />
+
+</Subsection>
+
+<Subsection title="Every single token, this whole computation, again" variant="a">
+
+This entire logit-then-softmax computation happens once per generated
+token — not once per sentence, not once per response. Producing a whole
+paragraph means running this full process, end to end through every
+transformer layer, once for every single token in that paragraph. The
+full consequences of that — including why it makes generation itself
+take real, ongoing computation — is exactly what the next concept
+covers.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does the final transformer layer actually produce, before softmax is applied?",
+      options: [
+        "The single most likely next word, directly",
+        "A raw score (a logit) for every single token in the entire vocabulary",
+        "A list of only the five most likely next tokens",
+        "A complete sentence",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The final layer produces one raw logit per vocabulary entry — tens of thousands of numbers, not a single answer or a pre-trimmed shortlist.",
+    },
+    {
+      question: "Why can't raw logits be used directly as probabilities?",
+      options: [
+        "They can — logits and probabilities are the same thing",
+        "Logits can be any real number, including negative ones, and don't sum to anything meaningful — softmax is what converts them into values between 0 and 1 summing to exactly 1",
+        "Logits are always already between 0 and 1",
+        "Logits only exist for the first token generated, not subsequent ones",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Raw logits are unbounded real numbers with no meaningful sum — softmax is the specific transformation that turns them into a genuine probability distribution.",
+    },
+    {
+      question: "What does exponentiating each logit (math.exp(score)) accomplish in the softmax computation?",
+      options: [
+        "It has no real effect on the final result",
+        "It guarantees every value is positive, even for a negative logit, and amplifies the gap between high-scoring and low-scoring tokens",
+        "It converts each logit directly into a token",
+        "It removes low-scoring tokens from consideration entirely",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Exponentiation maps any real number to a positive one and stretches the relative differences between scores — both necessary before the values can be normalized into probabilities.",
+    },
+    {
+      question: "How often does the full logit-and-softmax computation actually happen during generation?",
+      options: [
+        "Once per entire response, regardless of length",
+        "Once for every single token generated — producing a full paragraph means running this whole process once per token in it",
+        "Only for the very first token; subsequent tokens are generated differently",
+        "Once per sentence, not per token",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Every generated token requires its own full pass through the model and its own logit-then-softmax computation — there's no shortcut that computes a whole response at once.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

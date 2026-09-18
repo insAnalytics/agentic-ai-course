@@ -326,9 +326,35 @@ All three Module 1 lessons built so far (1.1 Tokenization, 1.2
 Embeddings, 1.3 Attention and Transformer Architecture) are now fully
 Locked.
 
-The rest of Module 1 (decoding parameters, model landscape/benchmark
-literacy, raw API mechanics, structured outputs) remains a rough
-outline — not yet broken into lessons.
+4. **How LLMs Generate Text** — Building
+   Matches this module's original rough-outline description (decoding
+   parameters) — this is where Lesson 1.2's own forward reference
+   ("the same normalized-probability idea covered directly in the next
+   lesson," pointing at softmax) actually lands. Concept 1 drafted:
+   logits (one raw score per vocabulary entry, from the final
+   transformer layer) and softmax turning them into a real probability
+   distribution, verified live with a toy 5-token example.
+   `NextTokenDistribution.tsx` — a prompt picker + bar chart of a real
+   language model's actual next-token probabilities, not illustrative
+   numbers. This needed a genuine causal/autoregressive model (GPT-2,
+   via `transformers`), unlike the BERT-style encoder used for
+   embeddings/attention elsewhere in this module, since only a real
+   language-modeling head produces a real next-token distribution at
+   all — same curated-bank approach as the sentence-embedding and
+   attention-weight demos (a "type any sentence" box can't be
+   precomputed), but GPT-2's prediction quality didn't need the same
+   heavy filtering attention did, since next-token prediction is
+   literally what it's trained for. **Finding:** the mockup's own toy
+   softmax numbers were wrong again (claimed `mat: 0.618`, real value
+   `0.631`, etc.) — the fourth mockup-cited number this project has
+   caught by actually running the code; see architecture.md §2's "Real
+   next-token predictions" row. Remaining concepts not yet drafted (per
+   its own mockup, Concept 2 covers autoregressive generation next). No
+   bookends yet.
+
+The rest of Module 1 (model landscape/benchmark literacy, raw API
+mechanics, structured outputs) remains a rough outline — not yet broken
+into lessons.
 
 ---
 
