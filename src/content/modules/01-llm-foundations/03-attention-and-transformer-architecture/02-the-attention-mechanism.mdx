@@ -1,0 +1,152 @@
+---
+title: "The attention mechanism"
+lesson: "03-attention-and-transformer-architecture"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import AttentionExplorer from "../../../../components/lesson/AttentionExplorer";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The core idea: a weighted combination of every other token" variant="a">
+
+Attention answers [the problem from the previous concept](/01-llm-foundations/03-attention-and-transformer-architecture/01-why-a-token-needs-context/)
+directly: for each token, it computes a *new*, context-aware
+representation by combining information from *every* token in the
+sequence — including itself — weighted by how relevant each one is to
+understanding this particular token, in this particular sentence.
+
+For `"bank"` in `"I sat by the river bank"`, attention would assign a
+high weight to `"river"` — genuinely relevant to figuring out which
+`"bank"` this is — and low weights to less relevant words like `"I"` or
+`"sat"`. The resulting representation for `"bank"` ends up shifted
+toward "riverside," pulled there by `"river"`'s heavy influence in the
+weighted combination.
+
+</Subsection>
+
+<Subsection title="Query, Key, Value — the mechanism that produces those weights" variant="b">
+
+Attention computes those relevance weights using three derived
+representations for every token, each capturing a different role:
+
+- **Query** — "what is this token looking for?" A representation of
+  what kind of context this specific token needs to be understood
+  correctly.
+- **Key** — "what do I offer?" Every token, including the one doing the
+  "looking," has a Key describing what information it can provide to
+  others.
+- **Value** — "what do I actually contribute?" The real content that
+  gets passed along, once a token's relevance has been determined.
+
+The process: `"bank"`'s Query gets compared against *every* token's Key
+(including its own) — a comparison that produces a relevance score per
+token. Those scores get normalized into weights that sum to `1` (a
+small technical step called softmax, the same normalized-probability
+idea covered directly in the next lesson), and those weights are what
+actually gets used to combine every token's *Value* into `"bank"`'s
+new, context-shifted representation.
+
+</Subsection>
+
+<Subsection title="The weighted combination, made concrete" variant="a">
+
+<LiveDemo client:load code={`# toy attention weights for "bank" in "I sat by the river bank" --
+# in a real model these come from comparing Query against every Key
+attention_weights = {
+    "I": 0.02, "sat": 0.03, "by": 0.02,
+    "the": 0.03, "river": 0.80, "bank": 0.10,
+}
+
+# each token's own Value vector -- what it actually contributes
+values = {
+    "I": [0.1, 0.0], "sat": [0.0, 0.1], "by": [0.0, 0.0],
+    "the": [0.0, 0.0], "river": [0.9, 0.1], "bank": [0.5, 0.2],
+}
+
+def contextualized_representation(weights: dict, values: dict) -> list:
+    result = [0.0, 0.0]
+    for token, weight in weights.items():
+        for i in range(len(result)):
+            result[i] += weight * values[token][i]
+    return result
+
+print(contextualized_representation(attention_weights, values))`} />
+
+`"bank"`'s new representation, `[0.772, 0.103]`, lands close to
+`"river"`'s own Value vector (`[0.9, 0.1]`) — exactly what an `0.80`
+attention weight on `"river"` should produce, pulled down slightly by
+the small contributions from every other token. This is the actual
+mechanism behind
+[Concept 1's motivating problem](/01-llm-foundations/03-attention-and-transformer-architecture/01-why-a-token-needs-context/):
+the same starting token embedding for `"bank"` ends up in a
+meaningfully different place after attention, depending entirely on
+which other tokens are actually present and how relevant they are.
+
+Below is that same idea running on a real small transformer's actual
+attention weights — not toy numbers. Click any token in a sentence to
+see how strongly every other token influences it:
+
+<AttentionExplorer client:load />
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does attention actually compute, for each token in a sequence?",
+      options: [
+        "A completely new, randomly generated vector",
+        "A new, context-aware representation, built as a weighted combination of every token's information — including its own — weighted by relevance",
+        "A single number representing the token's importance",
+        "The token's original dictionary definition",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Attention produces a new representation per token by combining every token's Value, weighted by how relevant each one is — not a single score, and not a random vector.",
+    },
+    {
+      question: "What's the difference between a token's Query and its Key, at a conceptual level?",
+      options: [
+        "They're the same thing, just different names",
+        "Query represents what a token is looking for in its context; Key represents what a token has to offer other tokens looking for context",
+        "Query is used only for the first token in a sequence; Key is used for all others",
+        "Key determines a token's final output; Query has no real function",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Query and Key play opposite roles in the same comparison — Query asks \"what do I need?\" and Key answers \"here's what I offer\" — and every token has both.",
+    },
+    {
+      question:
+        "Once relevance scores between a token's Query and every other token's Key are computed, what actually gets combined to produce the new representation?",
+      options: [
+        "The relevance scores themselves, added together directly",
+        "Every token's Value, weighted by the normalized relevance scores",
+        "Only the single highest-scoring token's embedding, discarding the rest",
+        "The original token embeddings, entirely unchanged",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The relevance scores only become weights — the actual combination happens over every token's Value vector, weighted by those scores, not the scores or embeddings alone.",
+    },
+    {
+      question: 'In the live demo, why does "bank"\'s resulting representation end up close to "river"\'s Value vector specifically?',
+      options: [
+        "It's coincidental and unrelated to the attention weights used",
+        '"river" was assigned the highest attention weight (0.80), so it dominates the weighted combination that produces "bank"\'s new representation',
+        '"river" and "bank" always end up with identical representations regardless of weights',
+        "The weighted combination ignores \"river\" entirely and uses only \"bank\"'s own Value",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A weighted average is dominated by whichever term has the largest weight — river's 0.80 weight is what pulls the result toward river's own Value vector.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

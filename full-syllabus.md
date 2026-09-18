@@ -244,9 +244,27 @@ fully Locked.
    the literal identical vector, verified live), motivating attention
    as the mechanism that lets a token's representation actually shift
    based on its real neighbors in a specific sentence. Purely
-   conceptual, no new component. Remaining concepts not yet drafted
-   (Concept 2, per its own mockup, covers the attention mechanism
-   directly). No bookends yet.
+   conceptual, no new component.
+
+   Concept 2 drafted: the attention mechanism itself — a weighted
+   combination of every token's Value, weighted by Query/Key relevance,
+   producing a new context-shifted representation per token. A toy
+   6-token weighted-combination demo, verified live (also caught
+   another hand-calculation error in the mockup: it claimed
+   `[0.775, 0.115]`, the real computed result for those exact numbers is
+   `[0.772, 0.103]`). `AttentionExplorer.tsx`: click any token in one of
+   a small curated bank of sentences, see every other token shaded by
+   real attention weight from an actual small transformer
+   (`all-MiniLM-L6-v2`'s own encoder). Real attention turned out to be
+   genuinely inconsistent across candidate sentences (~25 tested, only
+   some showed a clean dominant pattern — a documented real limitation
+   of small models, not a mistake), and raw `[CLS]` attention alone
+   absorbed ~60% of the signal before excluding it — both asked about
+   and logged as findings; see architecture.md §2's "Real attention
+   weights" row for the full account. Went with hand-verifying a small
+   curated bank rather than a broader, sometimes-unreliable "any
+   sentence" tool. Remaining concepts not yet drafted (per its own
+   mockup, Concept 3 covers positional encoding next). No bookends yet.
 
 The rest of Module 1 (decoding parameters, model landscape/benchmark
 literacy, raw API mechanics, structured outputs) remains a rough
