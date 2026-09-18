@@ -1,0 +1,153 @@
+---
+title: "Greedy decoding vs. sampling — the baseline choice"
+lesson: "05-decoding-strategies-and-generation-controls"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import DecodingPlayground from "../../../../components/lesson/DecodingPlayground";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The question Lesson 4 deferred" variant="a">
+
+[Lesson 4 established the full generation loop](/01-llm-foundations/04-how-llms-generate-text/02-autoregressive-generation/)
+— logits, softmax, a probability distribution over the entire
+vocabulary, one step deliberately left open: exactly *how* does a
+single token actually get picked from that distribution? That's this
+lesson's job, starting with the two most basic answers.
+
+</Subsection>
+
+<Subsection title="Greedy decoding: always take the top candidate" variant="b">
+
+The simplest possible choice: always pick whichever token has the
+highest probability.
+
+<LiveDemo client:load code={`distribution = {"mat": 0.618, "floor": 0.207, "chair": 0.153, "moon": 0.008, "xylophone": 0.002}
+
+def greedy_choice(probabilities: dict) -> str:
+    return max(probabilities, key=probabilities.get)
+
+print(greedy_choice(distribution))
+print(greedy_choice(distribution))
+print(greedy_choice(distribution))`} />
+
+`max(probabilities, key=probabilities.get)` —
+[the exact same pattern used for finding the most frequent pair back in Lesson 1's BPE demo](/01-llm-foundations/01-tokenization/02-subword-tokenization-bpe/) —
+always returns `"mat"`, every single time, since it's always the single
+highest-scoring candidate. Greedy decoding is fully deterministic: the
+same distribution always produces the same choice. The real drawback
+shows up over a long generation, not a single token: always taking the
+"safest" option at every step tends to produce text that's noticeably
+repetitive, bland, and predictable, sometimes even getting stuck
+looping on the same phrase — never taking a genuinely
+less-likely-but-still-reasonable path, because greedy decoding
+structurally can't.
+
+</Subsection>
+
+<Subsection title="Sampling: actually drawing from the distribution" variant="a">
+
+The alternative: instead of always taking the top candidate, genuinely
+sample a token according to the probabilities themselves — a token with
+a `20%` probability should actually get chosen roughly `20%` of the
+time, not simply lose to whichever token happens to be highest:
+
+<LiveDemo client:load code={`import random
+
+def sample_choice(probabilities: dict) -> str:
+    tokens = list(probabilities.keys())
+    weights = list(probabilities.values())
+    return random.choices(tokens, weights=weights, k=1)[0]
+
+distribution = {"mat": 0.618, "floor": 0.207, "chair": 0.153, "moon": 0.008, "xylophone": 0.002}
+
+random.seed(42)   # fixes randomness for this demo's output -- real sampling wouldn't do this
+for _ in range(5):
+    print(sample_choice(distribution))`} />
+
+`random.choices(tokens, weights=weights, k=1)` is a new tool worth
+naming directly: it draws one item from `tokens`, where each item's
+chance of being picked is proportional to its corresponding entry in
+`weights` — precisely "draw according to these probabilities," rather
+than "always pick the biggest one." `"mat"` still comes up most often in
+this run, since it genuinely has the highest probability, and `"floor"`
+also shows up, reflecting its own real, nonzero share of the
+distribution — run this same seeded demo again and you'll get this exact
+same sequence every time, but drop the fixed seed (as real generation
+always does) and a different run could just as easily surface
+`"chair"`, or, far more rarely, `"moon"` or `"xylophone"`, each roughly
+as often as its actual probability. `random.seed(42)` is only present to
+make this specific demo's output reproducible for teaching purposes;
+real generation never fixes a seed this way, which is exactly why
+sampling produces genuinely different output across separate runs, even
+from an identical prompt.
+
+Try both strategies directly, on a real distribution — pick a prompt,
+switch between greedy and sampling, and for sampling, draw again and
+again to see the choice actually move around:
+
+<DecodingPlayground client:load />
+
+The rest of this lesson's controls build directly onto this same tool.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does greedy decoding always do?",
+      options: [
+        "Randomly select any token from the vocabulary",
+        "Always pick whichever token has the single highest probability in the distribution",
+        "Pick a token based on how recently it was last used",
+        "Combine the top three candidates into one output",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Greedy decoding is a pure argmax — it always takes whichever single candidate currently scores highest, with no randomness involved.",
+    },
+    {
+      question: "Why does greedy decoding tend to produce repetitive or predictable text over a long generation?",
+      options: [
+        "It doesn't — greedy decoding always produces the most varied output",
+        "Always taking the highest-probability option at every single step structurally never takes a genuinely less-likely-but-still-reasonable path, which compounds into noticeably repetitive or looping output",
+        "Greedy decoding only works for short responses",
+        "Repetition is caused by a separate, unrelated mechanism",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Always choosing the single safest option, repeated over many steps, compounds into text that never explores any of the many reasonable-but-not-top-ranked alternatives.",
+    },
+    {
+      question: "What does random.choices(tokens, weights=weights, k=1) actually do?",
+      options: [
+        "It always returns the token with the highest weight",
+        "It draws one token from tokens, where each token's chance of being selected is proportional to its corresponding weight — genuinely sampling according to the probabilities, not just taking the top one",
+        "It sorts the tokens by weight and returns the full sorted list",
+        "It ignores the weights entirely and picks uniformly at random",
+      ],
+      correctIndex: 1,
+      explanation:
+        "This is a genuine weighted random draw — each token's real chance of being picked is proportional to its weight, not just a sort-and-take-the-top operation.",
+    },
+    {
+      question: 'Why might sampling produce "floor" sometimes, even though "mat" has a much higher probability in the same distribution?',
+      options: [
+        "This shouldn't happen — sampling should always match greedy decoding's result",
+        'Sampling genuinely respects each token\'s actual probability — "floor" has a real, nonzero chance of being selected, just less often than "mat"',
+        "random.choices() ignores probability entirely and picks randomly",
+        '"floor" and "mat" actually have identical probabilities in this example',
+      ],
+      correctIndex: 1,
+      explanation:
+        'A weighted draw genuinely respects every candidate\'s real probability — "floor" at ~21% will come up roughly a fifth of the time, not never.',
+    },
+  ]}
+/>
+
+</CheckpointZone>

@@ -425,6 +425,27 @@ All four Module 1 lessons built so far (1.1 Tokenization, 1.2
 Embeddings, 1.3 Attention and Transformer Architecture, 1.4 How LLMs
 Generate Text) are now fully Locked.
 
+5. **Decoding Strategies and Generation Controls** — Building
+   Matches the "how llms generate text lesson" forward reference from
+   Lesson 1.4 Concept 2, which correctly anticipated this as its own
+   separate lesson rather than a concept within 1.4. Concept 1 drafted:
+   greedy decoding (deterministic argmax, tends toward repetitive
+   output over a long generation) vs. sampling (a genuine weighted draw
+   via `random.choices`, respecting every candidate's real nonzero
+   probability). `DecodingPlayground.tsx` reuses Lesson 1.4's own real
+   GPT-2 bank (the same pinned six prompts) with a live greedy/sampling
+   toggle — sampling performs a real client-side weighted draw over the
+   real top-8 probabilities, re-drawable on demand. **Finding:** the
+   mockup's seeded `random.choices` demo cited a 5-draw output that
+   doesn't match reality — verified identically on two CPython versions
+   and the actual shipped Pyodide demo (a seventh mockup-cited number
+   this project has caught, and a new shape: a seeded PRNG sequence
+   isn't something anyone could have hand-derived correctly, unlike a
+   softmax calculation). See architecture.md §2's "Real next-token
+   predictions" row for the full account. Remaining concepts not yet
+   drafted (per its own mockup, Concept 2 covers temperature next). No
+   bookends yet.
+
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
 into lessons.
