@@ -190,7 +190,28 @@ bridge into Module 2's tool-calling content.
    sentence embeddings" row. Sets up a preview of RAG (comparing
    embeddings to find relevant text) as explicit groundwork for a much
    later module, and a forward reference to cosine similarity, covered
-   next. Remaining concepts not yet drafted. No bookends yet.
+   next.
+
+   Concept 4 drafted (final concept of this lesson, per its own
+   mockup): cosine similarity — the actual computable operation behind
+   every "close together on a plot" claim so far (angle between two
+   vectors, not raw distance; `-1` to `1`). A from-scratch
+   `cosine_similarity` implementation, verified live (its call against
+   Concept 2's toy `cat`/`kitten`/`car` vectors uses `LiveDemo`'s
+   `setupCode` prop to hide the function definitions, already shown
+   separately as static reading, so only the actual check runs as the
+   visible/editable snippet). Caught a real error while verifying:
+   the mockup's hand-computed `cosine_similarity(cat, car) = 0.0173`
+   doesn't match reality — the real value for those exact coordinates
+   is `-0.1078`; fixed by citing the live-verified number instead (see
+   architecture.md §2's "Real sentence embeddings" row finding).
+   `SentenceEmbeddingSpace.tsx` (from Concept 3) gained an optional
+   `showSimilarityTable` prop rather than a new component — Concept 4's
+   page passes it, adding a live pairwise cosine-similarity table
+   (color-intensity-coded by value) under the same plot and checklist,
+   so a learner sees the exact number behind whatever clustering they
+   already see visually. Lesson 1.2 (Embeddings) now has all 4 concepts
+   drafted, awaiting its bookends mockup.
 
 ---
 

@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
 import embeddingSentences from "../../data/embedding-sentences.json";
 import { placeLabels } from "../../lib/labelPlacement";
+import { cosineSimilarity } from "../../lib/cosineSimilarity";
 
 interface SentencePoint {
   text: string;
   x: number;
   y: number;
+  vector: number[];
 }
 
 const SENTENCES = embeddingSentences as SentencePoint[];
@@ -19,7 +21,12 @@ const LABEL_HEIGHT = FONT_SIZE * 1.2;
 // across more than one topic without overwhelming the plot on first load
 const DEFAULT_CHECKED = [0, 1, 2, 3, 8, 9];
 
-export default function SentenceEmbeddingSpace() {
+interface SentenceEmbeddingSpaceProps {
+  /** Adds a live pairwise cosine-similarity table below the checklist — Concept 4's extension of this same component. */
+  showSimilarityTable?: boolean;
+}
+
+export default function SentenceEmbeddingSpace({ showSimilarityTable = false }: SentenceEmbeddingSpaceProps) {
   const [checked, setChecked] = useState<Set<number>>(new Set(DEFAULT_CHECKED));
 
   const shownIndices = useMemo(() => SENTENCES.map((_, i) => i).filter((i) => checked.has(i)), [checked]);
@@ -110,6 +117,57 @@ export default function SentenceEmbeddingSpace() {
           ))}
         </ul>
       </div>
+
+      {showSimilarityTable && (
+        <div className="overflow-x-auto border-t border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+          {shownIndices.length < 2 ? (
+            <p className="m-0 text-xs text-[var(--color-ink-soft)]">Check at least two sentences to compare them.</p>
+          ) : (
+            <table className="border-collapse font-mono text-xs">
+              <thead>
+                <tr>
+                  <th className="p-1.5" />
+                  {shownIndices.map((j) => (
+                    <th key={j} className="p-1.5 text-center font-semibold text-[var(--color-ink-soft)]">
+                      {j + 1}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {shownIndices.map((i) => (
+                  <tr key={i}>
+                    <th className="p-1.5 pr-2 text-right font-semibold text-[var(--color-ink-soft)]">{i + 1}</th>
+                    {shownIndices.map((j) => {
+                      if (i === j) {
+                        return (
+                          <td key={j} className="p-1.5 text-center text-[var(--color-ink-soft)]">
+                            —
+                          </td>
+                        );
+                      }
+                      const sim = cosineSimilarity(SENTENCES[i].vector, SENTENCES[j].vector);
+                      // sequential encoding: light -> dark blue as similarity rises from -1 to 1
+                      const strength = Math.round(((sim + 1) / 2) * 70 + 8);
+                      return (
+                        <td
+                          key={j}
+                          className="p-1.5 text-center text-[var(--color-ink)]"
+                          style={{
+                            background: `color-mix(in srgb, var(--color-token-1) ${strength}%, var(--color-bg))`,
+                          }}
+                        >
+                          {sim.toFixed(2)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,12 +1,20 @@
 """
-Generates the sentence -> [x, y] lookup table behind the sentence-level
-embedding-space demo in Lesson 1.2, Concept 3
-(src/data/embedding-sentences.json).
+Generates the sentence lookup table behind the sentence-level embedding
+demos in Lesson 1.2 -- Concept 3's plot (src/data/embedding-sentences.json's
+x/y) and Concept 4's pairwise cosine-similarity table (the same file's
+vector field).
 
 Real sentence embeddings (all-MiniLM-L6-v2, a well-known, compact
 sentence-transformers model -- 384 dimensions, trained specifically to
-capture whole-sentence meaning rather than per-word meaning), PCA-projected
-down to 2 dimensions and normalized to roughly [-1, 1] on each axis.
+capture whole-sentence meaning rather than per-word meaning). Each entry
+carries both: `x`/`y`, a PCA projection down to 2 dimensions (normalized
+to roughly [-1, 1]) for the plot, and `vector`, the full unit-normalized
+384-dim embedding (rounded to 5 decimals) so the browser can compute a
+real, exact pairwise cosine similarity for whichever sentences a learner
+selects -- the 2D projection alone can't be used for that; PCA preserves
+overall variance, not pairwise angle, so a cosine similarity computed
+from just the 2 projected dimensions would not match the real value in
+the full embedding space.
 
 Unlike the word-level demo (Concept 1's EmbeddingSpace.tsx, which can use
 a fixed vocabulary since a "type any common word" box only ever needs to
@@ -75,8 +83,13 @@ def main():
         coords_2d[:, dim] = col / span
 
     result = [
-        {"text": s, "x": round(float(x), 4), "y": round(float(y), 4)}
-        for s, (x, y) in zip(SENTENCES, coords_2d)
+        {
+            "text": s,
+            "x": round(float(x), 4),
+            "y": round(float(y), 4),
+            "vector": [round(float(v), 5) for v in vec],
+        }
+        for s, (x, y), vec in zip(SENTENCES, coords_2d, vectors)
     ]
 
     out_path = "src/data/embedding-sentences.json"
