@@ -1,0 +1,171 @@
+---
+title: "Recap & Practice"
+lesson: "06-context-windows-and-kv-cache"
+order: 6
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does a context window actually measure?",
+      options: [
+        "Only the length of the model's response",
+        "The maximum total number of tokens a model can process in a single request — prompt, history, and response combined",
+        "The number of separate conversations a model can hold at once",
+        "The physical memory size of the server running the model",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The window is a single shared token budget: everything the model reads and writes in one request counts against it together.",
+    },
+    {
+      question: "Why does attention's computational cost grow with the square of sequence length?",
+      options: [
+        "It doesn't — the cost scales linearly",
+        "Attention computes a relevance score between every pair of tokens, so the number of pairwise comparisons grows quadratically",
+        "Quadratic growth only applies to very short sequences",
+        "This is a software inefficiency unrelated to the architecture",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Every token is compared against every other token, so n tokens means n × n pairs — 10× the length is 100× the comparisons.",
+    },
+    {
+      question: "Given a context window with only 500 tokens of room left, and a max_tokens parameter set to 4000, how much output actually gets generated (assuming the provider clamps rather than rejects)?",
+      options: [
+        "The full 4000 tokens requested, regardless of anything else",
+        "At most 500 tokens — whatever's actually left in the shared window",
+        "The request fails immediately with no output",
+        "Exactly 4000 tokens, ignoring the context window entirely",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The available output is min(room left, requested ceiling) = min(500, 4000) = 500; max_tokens never grants room the window doesn't have.",
+    },
+    {
+      question: "Why don't a token's Key and Value vectors need to be recomputed at every generation step?",
+      options: [
+        "They do need to be recomputed every time",
+        "A token's Key and Value depend only on that token's own representation, not on which generation step is happening, so they never change once computed",
+        "Only the first token's Key and Value ever get computed",
+        "Key and Value vectors are recalculated randomly each step",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Nothing about a token's Key or Value changes as later tokens get generated, so computing them once is enough.",
+    },
+    {
+      question: "What benefit does KV cache provide across two separate requests, not just within one generation?",
+      options: [
+        "None — KV cache only applies within a single request",
+        "A shared prefix between a new request and a previous one can reuse that portion's cached computation entirely",
+        "It automatically merges two separate requests into one",
+        "It only applies to requests from the same user account",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A shared token-for-token prefix means its Key/Value computation is already done, even if the request is a new one.",
+    },
+    {
+      question: "Why does changing a single token early in a prompt invalidate the cache for everything after it, even identical text further along?",
+      options: [
+        "It doesn't — only the changed token loses its cache",
+        "By later layers, a token's representation reflects the attention-mixed influence of every prior token, so a change early on cascades forward",
+        "Caching only works for the very first token",
+        "This only happens if the change is at the very end",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Every later token's cached values were computed with the earlier tokens mixed in, so an early change makes all of them stale.",
+    },
+    {
+      question: "Why is placing stable instructions first and variable content last a genuine cost lever, not just a style preference?",
+      options: [
+        "It isn't — prompt structure has no measurable effect on cost",
+        "Providers commonly offer discounted pricing on cache-hit tokens, and this ordering maximizes how much of a prompt can hit that cache",
+        "Cost is determined entirely by output length",
+        "This only affects latency, never billing",
+      ],
+      correctIndex: 1,
+      explanation:
+        "More of the prompt landing in the cached prefix means more tokens billed at the discounted rate, and less recomputation time.",
+    },
+    {
+      question: "What is the lost-in-the-middle effect?",
+      options: [
+        "A technical limitation preventing long context windows from existing",
+        "A well-documented pattern where models recall and use information near the beginning or end of a long context more reliably than information in the middle",
+        "A bug specific to one particular provider",
+        "The tendency to ignore the first half of any context entirely",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The effect is a position-dependent drop in how reliably information is used, worst in the middle, and observed across several different models.",
+    },
+    {
+      question: "Is there one single, fully agreed-upon explanation for why the lost-in-the-middle effect occurs?",
+      options: [
+        "Yes, it's completely settled and understood",
+        "No — the pattern is well-documented, but the precise causal explanation remains a more open question",
+        "It has never been studied",
+        "It only occurs in very small models",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The measurements are solid; the why (attention/positional-encoding interactions, training-data structure) is still being worked out.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<Subsection title="Closing synthesis — structuring a real prompt" variant="a">
+
+This isn't graded — it's a chance to apply all five concepts to one
+realistic scenario.
+
+An agent needs to process a long internal policy document and answer
+repeated employee questions about it, across many separate API calls.
+Before checking the reasoning below, sketch how you'd structure this
+prompt: what goes first, what goes last, and where the document's most
+critical clauses should sit if you have any control over that.
+
+*Reasoning to check your structure against:*
+
+- **The policy document and system instructions are stable across every
+  call; the employee's specific question is what varies** —
+  [Concept 4's cache-hit logic](/01-llm-foundations/06-context-windows-and-kv-cache/04-prompt-structure-and-cache-hits/)
+  says the document and instructions belong *first*, the question
+  *last*. Reversing this would mean every single call, even ones asking
+  nearly identical questions, misses the cache almost entirely.
+- **If the document has a few genuinely critical clauses** (say, a
+  safety policy that must never be missed),
+  [Concept 5's lost-in-the-middle effect](/01-llm-foundations/06-context-windows-and-kv-cache/05-uneven-use-of-long-contexts/)
+  is the reason to place them near the very start or end of the document
+  itself, not buried in its middle section, if the document's own
+  structure allows any flexibility at all.
+- **Before setting a generous `max_tokens` for detailed answers**,
+  [Concept 2](/01-llm-foundations/06-context-windows-and-kv-cache/02-max-output-length-vs-context-window/)
+  is the reminder to actually check how much of the shared context
+  window the document itself is already consuming — a long enough
+  document could leave surprisingly little room for the answer, no
+  matter how large `max_tokens` is set.
+- **None of this changes the total computation happening within one
+  generation** —
+  [Concept 3's KV cache](/01-llm-foundations/06-context-windows-and-kv-cache/03-kv-cache/)
+  is already working underneath all of it, regardless of how the prompt
+  is structured; that's the layer of efficiency you get "for free,"
+  while the other four concepts are the layer you actually have to
+  design for deliberately.
+
+The pattern worth taking away: this lesson's five ideas aren't separate
+trivia — they compose into one coherent set of decisions any real prompt
+for a repeated, document-heavy use case actually has to make.
+
+</Subsection>

@@ -1,6 +1,6 @@
 ---
 title: "Why prompt structure affects cache-hit rate, and real cost"
-lesson: "06-context-windows"
+lesson: "06-context-windows-and-kv-cache"
 order: 4
 ---
 import Subsection from "../../../../components/lesson/Subsection.astro";
@@ -10,7 +10,7 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 <Subsection title="The cache benefit extends across separate requests, not just within one" variant="a">
 
-[KV cache, from the previous concept](/01-llm-foundations/06-context-windows/03-kv-cache/#what-actually-doesn-t-need-to-be-recomputed),
+[KV cache, from the previous concept](/01-llm-foundations/06-context-windows-and-kv-cache/03-kv-cache/#what-actually-doesn-t-need-to-be-recomputed),
 avoided recomputing prior tokens *within* one generation. There's a
 second, closely related benefit worth naming directly: if a brand-new
 request's prompt starts with the *exact same sequence of tokens* as a
@@ -69,7 +69,7 @@ This is precisely the mechanical reason a system prompt or fixed
 instructions belong at the *start* of a prompt, with the actual varying
 content (a specific user question, changing details) at the *end* —
 putting the varying content first throws away the reuse that
-[the KV cache](/01-llm-foundations/06-context-windows/03-kv-cache/)
+[the KV cache](/01-llm-foundations/06-context-windows-and-kv-cache/03-kv-cache/)
 makes possible. Providers commonly offer meaningfully discounted pricing
 on cache-hit tokens compared to freshly-computed ones, and reduced
 latency alongside it — so prompt structure isn't a cosmetic preference,

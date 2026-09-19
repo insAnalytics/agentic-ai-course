@@ -1,0 +1,28 @@
+---
+title: "Intro"
+lesson: "06-context-windows-and-kv-cache"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Explain why a context window has a hard limit, grounded in attention's quadratic computational cost",
+    "Explain why input and output tokens share one total budget, not two separate ones",
+    "Explain what a KV cache stores and why it eliminates redundant computation, both within one generation and across separate requests",
+    "Structure a prompt — stable content first, variable content last — to maximize cache-hit rate, and explain why this is a real cost and latency lever, not a style preference",
+    "Explain the lost-in-the-middle effect and why a large context window doesn't guarantee every token inside it gets used equally well",
+  ]}
+/>
+
+<WhyItMatters>
+  Every one of this lesson's five ideas turns directly into a practical
+  decision the moment you're actually designing a prompt for a real
+  system: how much room is really left for a response, whether a prompt's
+  structure is quietly costing more than it needs to, and whether a
+  critical instruction buried in a long document is actually going to get
+  used. None of this is optional detail — it's the difference between an
+  agent that behaves reliably at scale and one that quietly wastes budget
+  or drops information nobody realizes it dropped.
+</WhyItMatters>

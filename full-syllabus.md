@@ -520,8 +520,9 @@ Generate Text) are now fully Locked.
    page says so and points back to Concept 4 for those. No new
    verification findings in the bookends.
 
-6. **Context Windows** — Building
-   Title is a working name (the mockup names only Concept 1 — rename the
+6. **Context Windows and KV Cache** — Locked
+   Title confirmed by the bookends mockup (folder renamed from the working
+   name `06-context-windows` to `06-context-windows-and-kv-cache`). Concept 1 — rename the
    folder/`_lesson.yaml` if the drafter's real title differs). Concept 1
    drafted: what a context window is (one shared token budget covering
    prompt, history, and response), why the limit exists at all
@@ -569,8 +570,16 @@ Generate Text) are now fully Locked.
    say what actually holds (best accuracy at an edge, middle used less
    reliably). The "later prompt engineering scope in the Agentic AI basics
    module" callback is left as plain text (that module isn't built).
-   Remaining for this lesson: bookends (outcomes intro, comprehensive
-   quiz, closing synthesis — drafted separately). Not yet Locked.
+   Bookends: outcomes/why-it-matters intro (`00-intro.mdx`) and a
+   Recap & Practice page (`06-recap-practice.mdx`) with a 9-question
+   comprehensive quiz spanning all five concepts (Q3 gained the same
+   "assuming the provider clamps rather than rejects" qualifier as
+   Concept 2's version) plus an ungraded closing synthesis — structure
+   a prompt for a repeated, document-heavy policy-Q&A agent, then check
+   against reasoning that ties Concepts 2-5 together. Deliberately not a
+   graded sandbox (no learner-authored code in this lesson, same as
+   Lessons 1.1, 1.4, and 1.5). No new verification findings in the
+   bookends. Lesson 1.6 is now fully Locked.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
