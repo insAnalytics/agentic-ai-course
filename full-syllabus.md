@@ -620,9 +620,16 @@ Generate Text) are now fully Locked.
    real training-example card for each of Concepts 1-4
    (`TrainingExampleCard.tsx`, data from C4, databricks-dolly-15k,
    Anthropic HH-RLHF, and GSM8K via `scripts/generate-training-examples.py`
-   — see architecture.md §2's "Real training examples" row). Remaining
-   concepts not yet drafted (fine-tuning as a builder's option next, per
-   its own mockup). No bookends yet.
+   — see architecture.md §2's "Real training examples" row). Concept 5 drafted (the final concept section, per its own
+   mockup): fine-tuning as a builder's option — prompting vs. retrieval vs.
+   fine-tuning, and LoRA. The mockup's decision-flow interactive is
+   `AdaptationChooser.tsx`. LoRA demo verified exactly (`0.0286%`), and a
+   real measured GPT-2 LoRA ratio (`0.24%`, via `peft`) was added beside
+   the illustrative 70B figure — see architecture.md §2. The "Agentic AI
+   basics" and "RAG Systems" module callbacks stay plain text (modules not
+   built). Remaining for this lesson: bookends (outcomes intro,
+   comprehensive quiz, closing synthesis — drafted separately). Not yet
+   Locked.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
