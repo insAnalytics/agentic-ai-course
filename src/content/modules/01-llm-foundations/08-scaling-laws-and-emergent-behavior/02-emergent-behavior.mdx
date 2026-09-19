@@ -1,0 +1,133 @@
+---
+title: "Emergent behavior — a genuinely contested debate"
+lesson: "08-scaling-laws-and-emergent-behavior"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import EmergenceMetricChart from "../../../../components/lesson/EmergenceMetricChart";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The claim: some capabilities appear suddenly, not gradually" variant="a">
+
+[Concept 1 established that training loss improves smoothly and predictably with scale](/01-llm-foundations/08-scaling-laws-and-emergent-behavior/01-scaling-laws/).
+A separate, more contested question: do specific downstream
+*capabilities* — a model's ability to do multi-step arithmetic, or solve
+a particular kind of reasoning puzzle — also improve smoothly, or does
+something different happen? Some research (notably Wei et al., 2022,
+"Emergent Abilities of Large Language Models") has reported **emergent
+abilities**: a capability performing at essentially chance level below a
+certain scale, then jumping sharply once a model crosses some threshold,
+almost like a phase transition rather than a gradual climb.
+
+</Subsection>
+
+<Subsection title="The counterargument: an artifact of how capability gets measured" variant="b">
+
+A well-known, credible counterargument (Schaeffer et al., 2023, "Are
+Emergent Abilities of Large Language Models a Mirage?") holds that much
+of this apparent suddenness comes from *how the capability is scored*,
+not necessarily from a real, sudden jump in the underlying ability
+itself. Many benchmarks use **all-or-nothing** scoring — a multi-digit
+arithmetic answer either exactly matches the correct one, or it doesn't,
+with no partial credit for "very close." If the underlying capability is
+actually improving *gradually* — a model's confidence in the correct
+digits growing steadily with scale — a binary exact-match metric would
+show near-zero performance right up until that gradual improvement
+finally crosses the threshold needed for a *complete* exact match, at
+which point the score jumps sharply from near-`0` to high accuracy.
+Switch to a smoother, continuous metric on the exact same underlying
+model checkpoints — partial credit, or the actual probability assigned
+to each correct digit — and the same data can reveal a steady, gradual
+improvement the entire time, with no sudden jump in the underlying
+ability at all, only in how a binary metric happened to score it.
+
+The mechanism is easy to see with a deliberately simple, made-up model.
+Suppose a model's per-digit accuracy improves smoothly with scale. An
+exact match on a multi-digit answer needs *every* digit right, so its
+score is that per-digit accuracy multiplied by itself once per digit:
+
+<EmergenceMetricChart client:load />
+
+Same model, same underlying ability, two scoring rules — one looks like a
+gradual climb, the other like a sudden jump, and the longer the answer,
+the sharper the jump. (This chart is an illustration of the *mechanism*,
+not measured data; the real measurements behind the argument are in the
+Schaeffer et al. paper.)
+
+</Subsection>
+
+<Subsection title="Neither view stated as settled" variant="a">
+
+This is worth being direct about, in the same spirit as
+[Lesson 3's honest hedge on what individual layers represent](/01-llm-foundations/03-attention-and-transformer-architecture/04-stacking-layers-into-a-transformer/#what-different-layers-tend-to-capture-with-real-caution):
+"emergent abilities" is a genuinely contested claim in current research,
+not a settled fact in either direction. Some researchers maintain there
+are real, qualitative capability jumps that measurement artifacts don't
+fully explain away; others argue the measurement-artifact explanation
+accounts for most or all of the apparent suddenness observed so far.
+Both positions are held by serious researchers, and this course isn't
+the place to declare a winner — the honest position is naming the debate
+clearly and understanding *why* it's genuinely hard to settle, given how
+entangled a capability's true underlying trend can be with the specific
+metric chosen to measure it.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: 'What does the "emergent abilities" claim describe?',
+      options: [
+        "A capability that improves smoothly and predictably at every scale",
+        "A capability that performs at roughly chance level below some scale threshold, then jumps sharply above it, rather than improving gradually",
+        "A capability present in every model regardless of size",
+        "A capability that only large labs are capable of measuring",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The claim is about a sharp, threshold-like jump in a capability, in contrast to the smooth improvement of training loss.",
+    },
+    {
+      question: 'What\'s the core argument behind the "measurement artifact" counterexplanation for apparent emergence?',
+      options: [
+        "Emergent abilities are entirely fabricated and never actually observed in any data",
+        "An all-or-nothing scoring metric can show a sharp jump even when the underlying capability was improving smoothly the whole time, since only a complete, exact match counts as a score above zero",
+        "Larger models are always scored more leniently than smaller ones",
+        "This counterargument has been definitively disproven",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The jump can come from the scoring rule, not the ability: exact match stays near zero until the smooth underlying improvement is large enough for every digit to be right.",
+    },
+    {
+      question: "In the two-chart comparison, what changes between the chart showing a sharp jump and the chart showing a smooth climb?",
+      options: [
+        "The underlying models being evaluated are completely different",
+        "Only the scoring method applied to the exact same underlying ability — all-or-nothing versus continuous, partial-credit scoring",
+        "The training data used for each model",
+        "The scale (parameter count) of the models being compared",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Both panels use the identical underlying trend; only the scoring rule differs.",
+    },
+    {
+      question: "How does this concept ultimately treat the emergence debate?",
+      options: [
+        'It declares the "genuine emergence" view definitively correct',
+        "It presents both positions as genuinely held by serious researchers, without declaring either one settled",
+        'It declares the "measurement artifact" view definitively correct',
+        "It avoids describing either position at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The honest position is naming the debate and why it's hard to settle, not picking a winner.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

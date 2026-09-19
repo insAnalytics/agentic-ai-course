@@ -655,7 +655,18 @@ Generate Text) are now fully Locked.
    §2's "Real scaling laws" row. The next-concept (emergent behavior)
    reference is plain text until that page exists. Lesson 1.7 Concept 4's
    forward reference to this lesson's test-time compute is likewise still
-   plain text. No bookends yet.
+   plain text.
+
+   Concept 2 drafted: emergent behavior as a contested debate (the
+   sudden-jump claim, the measurement-artifact counterargument, neither
+   view stated as settled). The mockup's two-chart interactive is
+   `EmergenceMetricChart.tsx`, deliberately a **labeled illustration**
+   computed from a toy model (exact match = per-digit accuracy^k), not
+   measured data — a real Pythia-family experiment was tried first and
+   abandoned as too slow and unlikely to show a jump; see architecture.md
+   §2's "Real scaling laws" row for the decision. Concept 1's next-concept
+   reference now links here. Remaining concepts not yet drafted (in-context
+   learning next, per its own mockup). No bookends yet.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
