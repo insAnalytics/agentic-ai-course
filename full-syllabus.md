@@ -693,6 +693,22 @@ Generate Text) are now fully Locked.
    not a graded sandbox (no learner-authored code). No new verification
    findings in the bookends. Lesson 1.8 is now fully Locked.
 
+9. **Calling LLM APIs** — Building
+   Title is a working name (the mockup names only Concept 1; this is the
+   "raw API mechanics" lesson the Module 1 outline anticipated — rename
+   the folder/`_lesson.yaml` if the drafter's real title differs).
+   Concept 1 drafted: the request shape (endpoint + API-key header + JSON
+   body; where `messages`, `temperature`/`top_p`/`stop`, `max_tokens`, and
+   the key header each came from earlier in the course). Illustrative,
+   non-runnable code blocks, per the mockup's own note. **Finding:** the
+   mockup's request mixed Anthropic and OpenAI conventions and included
+   `temperature`/`top_p` for a model that no longer accepts them (400) —
+   fixed with a generic `example-model` request plus an accurate
+   Anthropic-shaped one; also softened Lesson 1.5's "every major LLM API"
+   overclaim. See architecture.md §2's "Real in-context learning demo"
+   row for the finding log. Concept 2 (the response shape) is next per its
+   own mockup. No bookends yet.
+
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
 into lessons.

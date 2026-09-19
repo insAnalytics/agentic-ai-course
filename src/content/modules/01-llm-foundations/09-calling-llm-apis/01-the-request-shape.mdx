@@ -1,0 +1,176 @@
+---
+title: "The request shape"
+lesson: "09-calling-llm-apis"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Everything this module has covered, arriving as one real payload" variant="a">
+
+*The requests below are illustrative and aren't executed live in this
+course's sandbox, since a real call needs a network connection and a real
+API key.*
+
+An LLM API request has three pieces: an endpoint URL, authentication —
+[an API key, sent as a header, exactly the pattern from Module 0's FastAPI lesson](/00-python-essentials/09-building-apis-with-fastapi/09-authentication/#api-key-auth-with-depends)
+— and a request body. That body is
+[nothing more exotic than ordinary JSON](/00-python-essentials/06-files-errors-and-validation/02-working-with-json/#json-is-just-text-and-it-maps-directly-onto-dicts-and-lists),
+but its specific fields are where almost everything this module has
+covered so far finally shows up as something real, not just explained
+conceptually.
+
+```json
+{
+  "model": "example-model",
+  "messages": [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "What is the capital of France?"}
+  ],
+  "temperature": 0.7,
+  "top_p": 0.9,
+  "max_tokens": 500,
+  "stop": ["\n\n"]
+}
+```
+
+*(illustrative request body — not executed live)*
+
+```python
+import httpx
+
+response = httpx.post(
+    "https://api.example.com/v1/messages",
+    headers={"x-api-key": "sk-your-api-key-here"},
+    json={
+        "model": "example-model",
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "What is the capital of France?"},
+        ],
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "max_tokens": 500,
+        "stop": ["\n\n"],
+    },
+)
+```
+
+*(illustrative — not executed live in this sandbox)*
+
+</Subsection>
+
+<Subsection title="Where every piece of this actually came from" variant="b">
+
+- **`messages`** — an array of `{role, content}` objects, using the
+  `system`/`user`/`assistant` roles
+  [Lesson 7 explained the origin of](/01-llm-foundations/07-the-training-pipeline/03-preference-training-and-message-roles/#where-message-roles-actually-come-from):
+  a learned convention from training, not a hardcoded parsing rule, now
+  appearing as the literal field a real request actually sends.
+- **`temperature`, `top_p`, `stop`** —
+  [decoding controls from Lesson 5](/01-llm-foundations/05-decoding-strategies-and-generation-controls/00-intro/),
+  now real JSON fields on a real request, not abstract parameters in a
+  toy Python function. **`max_tokens`** is
+  [Lesson 6's output ceiling](/01-llm-foundations/06-context-windows-and-kv-cache/02-max-output-length-vs-context-window/):
+  a cap on the response, drawn from the same shared token budget as the
+  input.
+- **`x-api-key`** —
+  [the same header-based API key auth pattern already covered](/00-python-essentials/09-building-apis-with-fastapi/09-authentication/#api-key-auth-with-depends),
+  sent by the *client* this time, rather than being verified server-side.
+
+Nothing about this request's actual shape is new — it's a JSON object
+with fields this course has already built real understanding of,
+individually, across the last eight lessons.
+
+</Subsection>
+
+<Subsection title="Real providers differ in the details" variant="a">
+
+The body above is deliberately generic — real APIs share this overall
+shape but disagree on details, so always check the provider's own
+reference before copying one. For instance, Anthropic's Messages API
+takes the system prompt as a top-level `system` field rather than a
+`system` message, calls the stop control `stop_sequences`, requires
+`max_tokens`, and expects an `anthropic-version` header alongside the
+`x-api-key` one. A real request to it looks like this:
+
+```python
+import httpx
+
+response = httpx.post(
+    "https://api.anthropic.com/v1/messages",
+    headers={
+        "x-api-key": "sk-your-api-key-here",
+        "anthropic-version": "2023-06-01",
+    },
+    json={
+        "model": "claude-haiku-4-5",
+        "max_tokens": 500,
+        "system": "You are a helpful assistant.",
+        "messages": [
+            {"role": "user", "content": "What is the capital of France?"},
+        ],
+        "temperature": 0.7,
+        "stop_sequences": ["\n\n"],
+    },
+)
+```
+
+*(illustrative — not executed live in this sandbox)*
+
+One more difference worth knowing, since Lesson 5 spent so long on these
+controls: not every model still exposes them. Some of the newest models
+have removed sampling parameters like `temperature` and `top_p` from the
+request entirely — sending them returns an error — and steer behavior
+through other settings instead. The decoding mechanics from Lesson 5 are
+unchanged; what varies is which of those dials a given API lets you
+touch.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What is an LLM API request body, structurally?",
+      options: [
+        "A specialized format unique to LLM APIs, unrelated to anything covered earlier",
+        "An ordinary JSON object, with specific fields defined by the API's schema",
+        "A binary, non-text format",
+        "A single string containing the entire prompt",
+      ],
+      correctIndex: 1,
+      explanation:
+        "It's plain JSON — the same format Module 0 covered — with fields the provider's schema defines.",
+    },
+    {
+      question: "What does the messages field's role value (system, user, assistant) actually represent, given what Lesson 7 covered?",
+      options: [
+        "A hardcoded, architecturally-enforced security level",
+        "A learned formatting convention from training, now appearing as a literal field in a real request",
+        "A field with no real meaning to the model itself",
+        "Something invented specifically for this one API, unrelated to how the model was trained",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Roles are a learned convention over ordinary tokens (Lesson 7), and the API simply exposes them as a field.",
+    },
+    {
+      question: "Where do temperature, top_p, and max_tokens in a real request body actually come from, conceptually?",
+      options: [
+        "They're unrelated to anything covered earlier in this module",
+        "They're the decoding and output-length controls from Lessons 5 and 6, now appearing as real fields sent in an actual API request",
+        "They only exist in this specific illustrative example, not real APIs",
+        "They control authentication, not generation behavior",
+      ],
+      correctIndex: 1,
+      explanation:
+        "temperature and top_p are Lesson 5's decoding controls; max_tokens is Lesson 6's output ceiling — all now real JSON fields.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
