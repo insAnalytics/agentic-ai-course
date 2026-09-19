@@ -777,8 +777,15 @@ Generate Text) are now fully Locked.
     need a `{name, schema}` wrapper); replaced with the accurate Claude
     shape and a provider-variation note, and added a `max_tokens`
     truncation caveat tying back to Lesson 1.9 — see architecture.md §2's
-    finding log. Remaining concepts not yet drafted (tool calling next, per
-    its own mockup). No bookends yet.
+    finding log. Concept 4 drafted: tool calling as structured output applied to
+    a specific use case (the model produces structured data naming a tool
+    and arguments; your code decides whether to execute it) — demo verified
+    exactly. Added two accuracy notes: real response shapes differ by
+    provider (Anthropic `tool_use`/`input` dict vs. OpenAI JSON-string
+    arguments), and the schema guarantee is opt-in (`strict: true`), so
+    validating arguments client-side stays worthwhile — see
+    architecture.md §2's finding log. Remaining concepts not yet drafted
+    (the full round trip next, per its own mockup). No bookends yet.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken

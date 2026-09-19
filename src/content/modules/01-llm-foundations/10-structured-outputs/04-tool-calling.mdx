@@ -1,0 +1,144 @@
+---
+title: "Tool calling — structured output applied to a specific use case"
+lesson: "10-structured-outputs"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The model doesn't call anything — it produces structured data" variant="a">
+
+**Tool calling** is worth understanding as exactly one specific
+application of
+[the same constrained-decoding mechanism from Concept 2](/01-llm-foundations/10-structured-outputs/02-constrained-decoding/),
+not some separate, new capability where the model somehow executes code.
+A model never literally "calls a function" — it produces structured
+output, guaranteed to match a schema (typically a tool name plus a set of
+arguments), using the exact same token-masking mechanism as any other
+structured output. Your own code is what actually reads that structured
+output and decides whether and how to execute anything real.
+
+</Subsection>
+
+<Subsection title="The full shape, concretely" variant="b">
+
+*The Pydantic parsing and the function call below genuinely run live; the
+model's tool-call response itself is illustrative, not fetched live.*
+
+<LiveDemo client:load code={`from pydantic import BaseModel
+
+class GetWeatherArguments(BaseModel):
+    location: str
+
+def get_weather(location: str) -> str:
+    # a real, callable Python function -- what your own code actually executes
+    return f"It's sunny in {location}."
+
+# an illustrative model response, requesting this specific tool call
+tool_call_response = {
+    "name": "get_weather",
+    "arguments": {"location": "Paris"},
+}
+
+# your code parses the structured arguments, then decides to actually run it
+args = GetWeatherArguments.model_validate(tool_call_response["arguments"])
+result = get_weather(args.location)
+print(result)`} />
+
+`GetWeatherArguments` —
+[an ordinary Pydantic model, exactly like `AgentConfig` from the previous concept](/01-llm-foundations/10-structured-outputs/03-from-a-pydantic-model-to-a-schema/)
+— defines what a valid `get_weather` call's arguments look like; that
+schema is what gets sent to the API, as part of the tool's definition
+alongside a name and a description, so the model's `"arguments"` output
+can be held to it. `get_weather` itself is a completely ordinary Python
+function, with no special relationship to the model at all — the model
+never touches it, never runs it, and has no way to execute anything on
+its own.
+
+Two details differ from real APIs. The response shape above is
+simplified: Anthropic's API returns a `tool_use` content block with an
+`id`, the tool's `name`, and its arguments under `input` (already a
+dictionary), while OpenAI-style APIs return the arguments as a JSON
+*string* that you parse yourself. And the schema guarantee is typically
+opt-in — Anthropic, for instance, offers `strict: true` on a tool
+definition to enforce it — so without that setting, arguments are
+usually well-formed but not guaranteed, which is exactly why validating
+them with `model_validate` before running anything, as the demo does,
+stays worthwhile.
+
+</Subsection>
+
+<Subsection title="Why this separation matters" variant="a">
+
+This is worth being explicit about as a real design point, not just a
+technical detail: the model's job is *deciding which tool to use and
+what arguments to pass*, expressed reliably as structured data thanks
+to constrained decoding. Actually *executing* that tool call is
+entirely your code's decision and responsibility — nothing forces your
+code to actually run whatever the model requested; a well-built system
+can validate, log, rate-limit, or outright refuse a requested tool call
+before ever executing anything real, exactly because the model's output
+is just data your code chooses what to do with, not a command that
+executes itself.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: 'Does a model literally execute code when it "calls a tool"?',
+      options: [
+        "Yes, the model directly runs the corresponding function itself",
+        "No — the model produces structured output describing which tool and what arguments; your own code is what actually decides to execute anything",
+        "Tool calling doesn't actually involve any code execution at all, ever",
+        "Only reasoning models are capable of actually executing tools directly",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The model emits structured data naming a tool and its arguments; executing anything is your code's job.",
+    },
+    {
+      question: "What mechanism guarantees a model's tool-call output actually matches the expected arguments schema?",
+      options: [
+        "Nothing guarantees this — it's purely a hope based on the prompt's wording",
+        "The exact same constrained-decoding mechanism covered earlier in this lesson, applied to the tool's specific arguments schema",
+        "A completely separate, unrelated mechanism specific to tool calling",
+        "The model is specially retrained for every individual tool",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Tool arguments are just structured output: the tool's schema constrains generation the same way any other schema does (where the provider's strict mode is on).",
+    },
+    {
+      question: "In the demo, what's the relationship between get_weather (the Python function) and the model itself?",
+      options: [
+        "The model directly calls get_weather when it decides to use the tool",
+        "None, directly — get_weather is an ordinary Python function your own code chooses to call, based on the model's structured output",
+        "get_weather runs inside the model's own generation process",
+        "The model rewrites get_weather's implementation dynamically",
+      ],
+      correctIndex: 1,
+      explanation:
+        "get_weather lives entirely in your code; the model only ever produced data that named it.",
+    },
+    {
+      question: 'Why does this separation between "the model requests a tool call" and "your code decides whether to execute it" matter as a real design point?',
+      options: [
+        "It doesn't matter — the two are functionally the same thing",
+        "It means your code retains full control to validate, log, rate-limit, or refuse a requested tool call before anything real actually happens",
+        "This separation only exists for tools that don't modify any data",
+        "Models are always trusted to execute their own requested tool calls automatically",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Because the request is just data, your code can inspect it and decide — that's where safety checks and limits live.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
