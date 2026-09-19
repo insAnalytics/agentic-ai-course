@@ -732,9 +732,16 @@ Generate Text) are now fully Locked.
    already token by token; the perceived-latency benefit) — demo verified
    exactly; the illustrative SSE payloads now use the real event shape
    (`type`/`index`/`delta.type`) rather than a stripped-down one. See
-   architecture.md §2's finding log. Remaining concepts not yet drafted
-   (reasoning output in responses next, per its own mockup). No bookends
-   yet.
+   architecture.md §2's finding log. Concept 6 drafted (the final concept
+   section, per its own mockup): reasoning output in responses (a separate
+   `thinking` content block, reasoning tokens counted and billed in
+   `output_tokens`, and provider variation in what's exposed). **Finding:**
+   the mockup's demo printed `...capital of Fran...` but `[:50]` yields
+   `...capital of France. Th...` — corrected by showing the real live
+   output; see architecture.md §2. Added an accurate note on how Claude
+   returns thinking blocks (summary or empty, billed either way). Remaining
+   for this lesson: bookends (outcomes intro, comprehensive quiz, closing
+   synthesis — drafted separately). Not yet Locked.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
