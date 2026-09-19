@@ -1,0 +1,62 @@
+{
+  "task": "reformat \"First Last, age\" as \"Last, F. (age)\" from three in-prompt examples",
+  "shots": [
+    {
+      "input": "John Smith, 34",
+      "output": "Smith, J. (34)"
+    },
+    {
+      "input": "Mary Jones, 28",
+      "output": "Jones, M. (28)"
+    },
+    {
+      "input": "Susan Clark, 51",
+      "output": "Clark, S. (51)"
+    }
+  ],
+  "test_problems": 40,
+  "seed": 0,
+  "family": "Pythia (EleutherAI), fp32, greedy decoding, no parameter updates",
+  "results": [
+    {
+      "model": "70M",
+      "hf_name": "EleutherAI/pythia-70m",
+      "exact_match": 0.0,
+      "example": {
+        "input": "Henry King, 20",
+        "completion": "Henry King, 20",
+        "expected": "King, H. (20)"
+      }
+    },
+    {
+      "model": "160M",
+      "hf_name": "EleutherAI/pythia-160m",
+      "exact_match": 0.175,
+      "example": {
+        "input": "Henry King, 20",
+        "completion": "King, S. (20)",
+        "expected": "King, H. (20)"
+      }
+    },
+    {
+      "model": "410M",
+      "hf_name": "EleutherAI/pythia-410m",
+      "exact_match": 1.0,
+      "example": {
+        "input": "Henry King, 20",
+        "completion": "King, H. (20)",
+        "expected": "King, H. (20)"
+      }
+    },
+    {
+      "model": "1B",
+      "hf_name": "EleutherAI/pythia-1b",
+      "exact_match": 1.0,
+      "example": {
+        "input": "Henry King, 20",
+        "completion": "King, H. (20)",
+        "expected": "King, H. (20)"
+      }
+    }
+  ]
+}

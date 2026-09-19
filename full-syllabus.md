@@ -665,8 +665,19 @@ Generate Text) are now fully Locked.
    measured data — a real Pythia-family experiment was tried first and
    abandoned as too slow and unlikely to show a jump; see architecture.md
    §2's "Real scaling laws" row for the decision. Concept 1's next-concept
-   reference now links here. Remaining concepts not yet drafted (in-context
-   learning next, per its own mockup). No bookends yet.
+   reference now links here.
+
+   Concept 3 drafted: in-context learning as a mechanism (a task learned
+   from prompt examples alone, frozen weights, and why it belongs in a
+   scaling lesson). Beyond the mockup's illustrative example, added a
+   *real* run of that same kind of task on four Pythia sizes
+   (`InContextLearningDemo.tsx`, via `scripts/generate-icl-demo.py`):
+   70M `0/40`, 160M `7/40`, 410M `40/40`, 1B `40/40` — with the exact-match
+   caveat from Concept 2 noted in the prose. See architecture.md §2's
+   "Real in-context learning demo" row. The "Agentic AI basics" callback
+   stays plain text (module not built). Remaining concepts not yet drafted
+   (test-time compute and reasoning models next, per its own mockup). No
+   bookends yet.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken

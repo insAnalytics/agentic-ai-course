@@ -1,0 +1,141 @@
+---
+title: "In-context learning as a mechanism"
+lesson: "08-scaling-laws-and-emergent-behavior"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import InContextLearningDemo from "../../../../components/lesson/InContextLearningDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Learning a new task with zero weight updates" variant="a">
+
+**In-context learning** describes something genuinely notable: a model
+picking up how to perform a task purely from a handful of examples
+given directly in the prompt, with absolutely no training involved —
+[none of the training stages from Lesson 7](/01-llm-foundations/07-the-training-pipeline/00-intro/)
+run here. The model's parameters stay completely frozen; nothing about
+the model itself changes at all. Everything happens within a single
+forward pass, using the examples in the prompt as context, the same way
+any other input tokens get used.
+
+```
+Prompt:
+"John Smith, 34" -> "Smith, J. (34)"
+"Mary Jones, 28" -> "Jones, M. (28)"
+"Robert Lee, 45" -> ?
+
+Model's completion: "Lee, R. (45)"
+```
+
+*(illustrative — a real model's completion could vary, but this
+mechanism is well-documented and consistent)*
+
+No instruction anywhere in this prompt actually described the
+transformation rule in words — the model inferred it purely from the
+pattern across three examples, and correctly applied that same pattern
+to a genuinely new input it had never seen. Nothing about the model was
+retrained or fine-tuned to handle this specific reformatting task; the
+pattern-following ability itself lives entirely in the frozen weights,
+and
+[attention, from Lesson 3](/01-llm-foundations/03-attention-and-transformer-architecture/02-the-attention-mechanism/#query-key-value-the-mechanism-that-produces-those-weights),
+is what actually lets the model relate the new input back to the pattern
+demonstrated by the earlier examples, within that single pass.
+
+</Subsection>
+
+<Subsection title="Why this belongs in a lesson about scaling" variant="b">
+
+This ability itself grows meaningfully with scale: larger models tend to
+be substantially better at picking up a new task from just a few
+in-context examples than smaller models are, given the exact same
+examples and the exact same new input to apply the pattern to. This is
+itself an interesting scaling-related observation — not just "bigger
+models have lower loss," but "bigger models are better at *this
+specific, non-training-based kind of adaptation*," a genuinely distinct
+capability from anything covered in
+[Concept 1's loss curves](/01-llm-foundations/08-scaling-laws-and-emergent-behavior/01-scaling-laws/).
+
+You can see it directly. Here is a real version of that same kind of
+task, run on four sizes of the open Pythia model family — the identical
+three-example prompt each time, never any weight update, then 40 new
+names to reformat:
+
+<InContextLearningDemo />
+
+The smallest model just copies the input back unchanged; the next one
+partly picks up the pattern but gets the initial wrong; by 410 million
+parameters the pattern is applied correctly every time. One caution
+carries over from the previous concept: exact match is an all-or-nothing
+score, so a sharp-looking step between two sizes can partly reflect *how*
+it's scored, not only a sudden change in the ability underneath.
+
+</Subsection>
+
+<Subsection title="What this concept does and doesn't cover" variant="a">
+
+This concept's job is establishing *what* in-context learning is and
+*that* it scales with model size — not teaching how to actually write
+effective few-shot examples for a real task. That's genuine prompting
+technique, covered properly in the later prompt engineering scope of the
+Agentic AI basics module — this lesson stops at the mechanism itself.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What happens to a model's parameters during in-context learning?",
+      options: [
+        "They get updated slightly, through a lightweight training pass",
+        "Nothing — the parameters stay completely frozen; everything happens within a single forward pass using the prompt's examples as context",
+        "They get completely retrained from scratch",
+        "Only the embedding layer's parameters change",
+      ],
+      correctIndex: 1,
+      explanation:
+        "In-context learning involves no training at all: the same frozen weights just process the examples as ordinary input.",
+    },
+    {
+      question: 'In the illustrative demo, how did the model know to transform "Robert Lee, 45" into "Lee, R. (45)"?',
+      options: [
+        "An explicit instruction in the prompt described the exact transformation rule in words",
+        "It inferred the pattern purely from the three prior examples, with no explicit rule stated anywhere",
+        "The model was specifically fine-tuned for this exact reformatting task beforehand",
+        "This transformation is hardcoded into every model's architecture",
+      ],
+      correctIndex: 1,
+      explanation:
+        "No rule was stated and no fine-tuning happened — the pattern was inferred from the examples in the prompt.",
+    },
+    {
+      question: "How does in-context learning's scaling behavior relate to Concept 1's training loss scaling?",
+      options: [
+        "They're identical — in-context learning ability is just another name for lower training loss",
+        "They're a distinct observation: larger models don't just have lower loss, they're also better at this specific non-training-based kind of adaptation, given the same examples",
+        "In-context learning ability actually decreases as models get larger",
+        "There's no relationship between model scale and in-context learning ability at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Loss curves describe training loss; better in-context learning at larger scale is a separate, capability-level observation.",
+    },
+    {
+      question: "What does this concept explicitly leave for a later module?",
+      options: [
+        "What in-context learning is",
+        "How to actually write effective few-shot examples for a real task — genuine prompting technique",
+        "Whether in-context learning ability scales with model size",
+        "Nothing — this concept covers prompting technique completely",
+      ],
+      correctIndex: 1,
+      explanation:
+        "This lesson covers the mechanism and its scaling; writing effective few-shot prompts is prompting technique, covered later.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
