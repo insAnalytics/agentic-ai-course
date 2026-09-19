@@ -549,8 +549,16 @@ Generate Text) are now fully Locked.
    `.get()`" (the demo uses an `in` membership check, only closely
    related to `.get()`), and explained why the demo's first line prints
    `4`, not `1` (the cache starts empty, so the prompt tokens get filled
-   in too). Remaining concepts not yet drafted (prompt structure vs.
-   cache-hit rate and cost next, per its own mockup). No bookends yet.
+   in too). Concept 4 drafted: why prompt structure affects
+   cache-hit rate and cost (a shared token-for-token prefix can be reused
+   across separate requests, so stable content belongs first). **Finding:**
+   the mockup's shared-prefix demo cited `9` shared tokens; the real
+   output is `10` (the prompts also share `"Question : What is"`), a
+   ninth mockup-cited-number error, verified in local Python and the
+   shipped Pyodide `LiveDemo` — see architecture.md §2's "Real next-token
+   predictions" row. Also reworded a garbled Concept 3 callback. Remaining
+   concepts not yet drafted (uneven use of long contexts next, per its own
+   mockup). No bookends yet.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken

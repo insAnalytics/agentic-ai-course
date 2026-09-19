@@ -1,0 +1,137 @@
+---
+title: "Why prompt structure affects cache-hit rate, and real cost"
+lesson: "06-context-windows"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The cache benefit extends across separate requests, not just within one" variant="a">
+
+[KV cache, from the previous concept](/01-llm-foundations/06-context-windows/03-kv-cache/#what-actually-doesn-t-need-to-be-recomputed),
+avoided recomputing prior tokens *within* one generation. There's a
+second, closely related benefit worth naming directly: if a brand-new
+request's prompt starts with the *exact same sequence of tokens* as a
+previous request, a provider can reuse that shared portion's cached
+computation entirely — even though it's technically a separate request.
+Only the part where the two prompts actually diverge needs fresh
+computation.
+
+</Subsection>
+
+<Subsection title="Why the shared portion has to match exactly, from the very start" variant="b">
+
+This benefit depends on the shared prefix matching token-for-token,
+from position one — not just having overlapping words somewhere. The
+underlying reason: by later transformer layers, a token's representation
+already reflects the attention-mixed influence of every token before
+it — so changing or inserting even a single token anywhere invalidates
+the cache for *everything from that position onward*, regardless of
+whether the tokens further along would otherwise have been identical.
+
+<LiveDemo client:load code={`def shared_prefix_length(sequence_a: list, sequence_b: list) -> int:
+    count = 0
+    shorter_length = min(len(sequence_a), len(sequence_b))
+    for i in range(shorter_length):
+        if sequence_a[i] != sequence_b[i]:
+            break
+        count += 1
+    return count
+
+# stable instructions first, variable question last
+stable_first = ["You", "are", "a", "helpful", "assistant", ".", "Question", ":", "What", "is", "2+2", "?"]
+stable_first_v2 = ["You", "are", "a", "helpful", "assistant", ".", "Question", ":", "What", "is", "the", "capital", "?"]
+
+# the exact same content, reordered: variable question first, stable instructions last
+variable_first = ["What", "is", "2+2", "?", "You", "are", "a", "helpful", "assistant", "."]
+variable_first_v2 = ["What", "is", "the", "capital", "?", "You", "are", "a", "helpful", "assistant", "."]
+
+print(shared_prefix_length(stable_first, stable_first_v2))
+print(shared_prefix_length(variable_first, variable_first_v2))`} />
+
+Same two questions, same stable instructions, just reordered — with
+stable content first, `10` tokens are shared and cacheable across both
+calls (the six instruction tokens, plus the `"Question : What is"` that
+happens to match before the two questions diverge); with variable
+content first, only `2` tokens are shared, even though the identical
+stable instructions still appear later in *both* sequences. Once a
+change happens early in the sequence, everything after it — even
+genuinely identical text — can no longer be part of a cached, reusable
+prefix.
+
+</Subsection>
+
+<Subsection title="Why this is a real cost and latency lever, not just a style choice" variant="a">
+
+This is precisely the mechanical reason a system prompt or fixed
+instructions belong at the *start* of a prompt, with the actual varying
+content (a specific user question, changing details) at the *end* —
+putting the varying content first throws away the reuse that
+[the KV cache](/01-llm-foundations/06-context-windows/03-kv-cache/)
+makes possible. Providers commonly offer meaningfully discounted pricing
+on cache-hit tokens compared to freshly-computed ones, and reduced
+latency alongside it — so prompt structure isn't a cosmetic preference,
+it's a genuine, measurable lever on both real cost and real response
+speed, directly falling out of exactly how KV cache actually works.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What benefit does KV cache provide across two separate requests, not just within one generation?",
+      options: [
+        "None — KV cache only ever applies within a single request",
+        "If a new request's prompt shares an identical prefix with a previous request, that shared portion's cached computation can be reused entirely",
+        "It automatically merges two separate requests into one",
+        "It only applies to requests made by the exact same user account",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A shared token-for-token prefix means its Key/Value computation is already done, even if the request is a new one.",
+    },
+    {
+      question: "Why does changing a single token early in a prompt invalidate the cache for everything after it, even identical text further along?",
+      options: [
+        "It doesn't — only the changed token itself loses its cache",
+        "By later layers, a token's representation already reflects the attention-mixed influence of every prior token, so a change early on cascades forward through everything computed after it",
+        "Caching only works for the very first token in any prompt",
+        "This only happens if the change is at the very end of the prompt",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Every later token's cached values were computed with the earlier tokens mixed in, so an early change makes all of them stale.",
+    },
+    {
+      question: "In the demo, why does putting stable instructions first produce a much longer shared prefix than putting the variable question first, even though both versions contain identical content?",
+      options: [
+        "It's coincidental and specific to this exact example only",
+        "The shared prefix can only extend up to the first point of divergence — placing stable content first means that divergence happens much later, keeping far more tokens cacheable",
+        "Word order has no actual effect on which tokens are cacheable",
+        "Only the very last token in a sequence is ever checked for caching",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The reusable prefix ends at the first mismatch, so pushing the varying content to the end pushes that mismatch as late as possible.",
+    },
+    {
+      question: "Why is prompt structure (stable content first, variable content last) a genuine cost lever, not just a stylistic preference?",
+      options: [
+        "It isn't — prompt structure has no measurable effect on cost",
+        "Providers commonly offer discounted pricing on cache-hit tokens, and better structuring directly increases how much of a prompt can actually hit that cache",
+        "Cost is determined entirely by output length, regardless of prompt structure",
+        "This only affects latency, never actual billing",
+      ],
+      correctIndex: 1,
+      explanation:
+        "More of the prompt landing in the cached prefix means more tokens billed at the discounted rate, and less recomputation time.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
