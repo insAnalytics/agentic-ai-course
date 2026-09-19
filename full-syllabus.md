@@ -784,8 +784,16 @@ Generate Text) are now fully Locked.
     provider (Anthropic `tool_use`/`input` dict vs. OpenAI JSON-string
     arguments), and the schema guarantee is opt-in (`strict: true`), so
     validating arguments client-side stays worthwhile — see
-    architecture.md §2's finding log. Remaining concepts not yet drafted
-    (the full round trip next, per its own mockup). No bookends yet.
+    architecture.md §2's finding log. Concept 5 drafted (the final concept section, per its own
+    mockup): the full tool-calling round trip (the result goes back as a
+    new message and a second API call produces the final answer — nothing
+    new mechanically, just statelessness, history resending, and structured
+    output composed). **Finding:** the mockup's example omitted the
+    `tool_use` `id` and the matching `tool_result` `tool_use_id` that
+    Claude's API requires; added both and explained the pairing — see
+    architecture.md §2's finding log. Demo verified live. Remaining for
+    this lesson: bookends (outcomes intro, comprehensive quiz, closing
+    synthesis — drafted separately). Not yet Locked.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken

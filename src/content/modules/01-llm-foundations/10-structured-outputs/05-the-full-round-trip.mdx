@@ -1,0 +1,147 @@
+---
+title: "The full round trip"
+lesson: "10-structured-outputs"
+order: 5
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="A tool call is only half the conversation" variant="a">
+
+[Concept 4 covered the model requesting a tool call, and your code executing it](/01-llm-foundations/10-structured-outputs/04-tool-calling/)
+— but the model still needs to actually *know* the result to answer the
+user's original question. The complete flow is a genuine round trip: the
+model requests a tool call, your code runs it, the result gets sent
+*back* to the model as a new message, and the model then produces its
+real final answer — using a brand new API call.
+
+</Subsection>
+
+<Subsection title="Building the growing conversation, step by step" variant="b">
+
+<LiveDemo client:load code={`messages = [
+    {"role": "user", "content": "What's the weather in Paris?"},
+]
+
+# API call 1 (illustrative): the model responds with a tool call instead of text
+assistant_tool_call_message = {
+    "role": "assistant",
+    "content": [
+        {"type": "tool_use", "id": "toolu_01WeatherParis", "name": "get_weather", "input": {"location": "Paris"}}
+    ],
+}
+messages.append(assistant_tool_call_message)
+
+def get_weather(location: str) -> str:
+    return f"It's sunny in {location}."
+
+tool_result = get_weather("Paris")   # your own code actually runs this
+
+# the tool's result becomes a new message, added back into the conversation
+tool_result_message = {
+    "role": "user",
+    "content": [
+        {"type": "tool_result", "tool_use_id": "toolu_01WeatherParis", "content": tool_result}
+    ],
+}
+messages.append(tool_result_message)
+
+print(f"messages sent on the second API call: {len(messages)}")
+for m in messages:
+    print(m)`} />
+
+*(the assistant's tool-call message is illustrative, not fetched live)*
+
+Notice the `id` on the tool-call block and the matching `tool_use_id`
+on the result: that's how the API knows which request a given result is
+answering — essential when a model asks for several tool calls at once.
+(OpenAI-style APIs express the same idea with a dedicated `tool` role
+message that carries a `tool_call_id`.)
+
+This is
+[exactly Lesson 9's "resend everything" pattern](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/03-multi-turn-conversations/),
+just with a tool call and its result now sitting inside the
+conversation history like any other turn. This full 3-message array —
+the original question, the assistant's tool-call request, and the tool's
+result — is what actually gets sent on the *second* API call. Only then,
+seeing the tool's actual result in context, can the model produce a
+genuine natural-language final answer: something like
+`"It's sunny in Paris today!"`, as message four.
+
+</Subsection>
+
+<Subsection title="Why this is nothing new, mechanically" variant="a">
+
+Nothing about this round trip introduces a new mechanism — it's
+[statelessness](/00-python-essentials/09-building-apis-with-fastapi/01-rest-api-fundamentals/#rest-s-guiding-principles),
+[multi-turn history resending](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/03-multi-turn-conversations/),
+and
+[structured output via constrained decoding](/01-llm-foundations/10-structured-outputs/02-constrained-decoding/),
+composed together into one realistic flow. A tool call isn't a special
+kind of API interaction requiring different infrastructure — it's a
+normal turn in a normal conversation, where the "assistant's message" for
+that turn happens to be structured data instead of prose, and the next
+"user message" happens to be a result your code generated instead of
+something an actual human typed.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why does the model need a second API call after a tool call, rather than just receiving the tool's result directly?",
+      options: [
+        "It doesn't — the model already knows the tool's result without being told",
+        "The tool's result has to be sent back as a new message in the conversation, and the model needs a new API call to actually process that updated conversation and produce its final answer",
+        "Tool calls never actually require any follow-up interaction at all",
+        "The original API call automatically waits for the tool to finish before responding",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The API is stateless and the model can't run your tool: the result must go back in a new request, after which the model can answer.",
+    },
+    {
+      question: 'How does the tool call and its result actually get "remembered" for the model to use in its final answer?',
+      options: [
+        "The API server stores it automatically between calls",
+        "It becomes part of the conversation's message history, resent in full on the next request — the exact same statelessness pattern from Lesson 9",
+        "It's stored in a separate database the model queries automatically",
+        "The model has no way to actually use the tool's result at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Nothing is stored server-side; the tool call and result are simply two more messages in the history you resend.",
+    },
+    {
+      question: 'Is a tool call\'s "user message" containing the tool\'s result literally typed by a human user?',
+      options: [
+        "Yes, always",
+        "No — it's a message your own code generates, containing the tool's actual output, formatted as a new turn in the conversation",
+        "Tool results can never be represented as messages at all",
+        "Only the original question can ever come from a real human",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Your code builds that message from the tool's output; it only occupies the user's slot in the message list.",
+    },
+    {
+      question: "What does this concept's full round trip actually demonstrate, mechanically?",
+      options: [
+        "A completely new API mechanism, unrelated to anything covered earlier",
+        "Several already-covered mechanisms — statelessness, multi-turn history resending, and constrained-decoding-guaranteed structured output — composed together into one realistic flow",
+        "That tool calls require a fundamentally different kind of server infrastructure",
+        "That tool calling only works within a single API call, never across two",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The round trip is ordinary pieces composed: a stateless API, resent history, and structured output.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
