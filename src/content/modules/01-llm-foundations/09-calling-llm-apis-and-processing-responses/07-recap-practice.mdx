@@ -1,0 +1,189 @@
+---
+title: "Recap & Practice"
+lesson: "09-calling-llm-apis-and-processing-responses"
+order: 7
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does the messages field's role value actually represent, given what Lesson 7 covered?",
+      options: [
+        "A hardcoded, architecturally-enforced security level",
+        "A learned formatting convention from training, now appearing as a literal field in a real request",
+        "A field with no real meaning to the model itself",
+        "Something invented specifically for one API",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Roles are a learned convention over ordinary tokens (Lesson 7), and the API simply exposes them as a field.",
+    },
+    {
+      question: "What does usage.output_tokens in a response actually tell you?",
+      options: [
+        "The total number of words in the response",
+        "The actual number of output tokens that call consumed",
+        "The maximum tokens the model can ever generate",
+        "Tokens remaining in the model's training data",
+      ],
+      correctIndex: 1,
+      explanation:
+        "It's a per-call count of tokens actually generated — the same unit used for context limits and pricing.",
+    },
+    {
+      question: 'What does a stop_reason of "max_tokens" indicate?',
+      options: [
+        "The response finished naturally",
+        "Generation was cut off because it hit the output token limit before finishing naturally",
+        "The request failed due to an invalid API key",
+        "The model refused to answer",
+      ],
+      correctIndex: 1,
+      explanation:
+        "\"max_tokens\" means the output ceiling was reached mid-generation, so the text may end abruptly.",
+    },
+    {
+      question: "Does an LLM API remember anything about a previous request when a new one arrives?",
+      options: [
+        "Yes, automatically",
+        "No — the API is completely stateless; nothing is remembered server-side",
+        "Only the most recent message",
+        "Conversations are remembered indefinitely per API key",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Each request stands alone; any memory of earlier turns exists only because the client sends it again.",
+    },
+    {
+      question: "How does multi-turn conversation handling connect to a principle from Module 0?",
+      options: [
+        "It doesn't connect to anything covered previously",
+        "It's a concrete instance of REST's statelessness principle",
+        "It relates to Docker's isolation principle",
+        "It relates to WebSocket persistence",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Statelessness means the server keeps no per-client memory between requests, so the client must supply the whole context each time.",
+    },
+    {
+      question: "Why can't an image's raw binary data be placed directly inside a JSON request body?",
+      options: [
+        "JSON has no length limits, so this isn't a problem",
+        "JSON is plain text with no way to embed raw binary data directly — base64 encoding represents it as safe, embeddable text",
+        "Images are always sent as separate files",
+        "JSON only supports numbers",
+      ],
+      correctIndex: 1,
+      explanation:
+        "JSON is text; arbitrary bytes aren't valid text, so they're encoded as ASCII characters first.",
+    },
+    {
+      question: "What does content become, structurally, once an image is included in a message?",
+      options: [
+        "It stays a plain string either way",
+        "An array of typed content blocks — text and image blocks together",
+        "The role field is removed entirely",
+        "A completely separate request",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Mixing text and an image in one message requires content to be a list of typed blocks instead of a single string.",
+    },
+    {
+      question: "What mechanism does LLM response streaming directly reuse from earlier in this course?",
+      options: [
+        "WebSockets",
+        "SSE (Server-Sent Events), from Module 0's real-time communication lesson",
+        "gRPC streaming",
+        "A completely new, unrelated mechanism",
+      ],
+      correctIndex: 1,
+      explanation:
+        "LLM streaming uses Server-Sent Events — the one-way, text-based streaming mechanism from Module 0.",
+    },
+    {
+      question: "Why does streaming actually work, mechanically?",
+      options: [
+        "It requires a fundamentally different generation process",
+        "The model already generates text one token at a time; streaming exposes that existing process to the client instead of withholding it",
+        "Streaming only works for short responses",
+        "Streaming makes the model generate faster overall",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Autoregressive generation is already token by token (Lesson 4); streaming just stops hiding that.",
+    },
+    {
+      question: 'How does a reasoning model\'s "thinking" content typically show up in a response?',
+      options: [
+        "Mixed directly into the final answer's text with no distinction",
+        "As a separate content block, distinct from the final answer",
+        "It never appears in the response at all",
+        "As a completely separate HTTP request",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Reasoning arrives as its own content block (type \"thinking\"), alongside the block containing the final answer text.",
+    },
+    {
+      question: "Do all providers expose a reasoning model's thinking content the same way?",
+      options: [
+        "Yes, always identically",
+        "No — this varies by provider, though the tokens are billed regardless of whether they're shown",
+        "No provider has ever exposed reasoning content",
+        "Reasoning content is never billed",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Visibility differs by provider, but billing doesn't depend on visibility: the reasoning tokens were generated either way.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<Subsection title="Closing synthesis — tracing a real multi-turn interaction" variant="a">
+
+This isn't graded — it's a chance to walk through one realistic
+conversation, applying every concept in this lesson.
+
+A user is three turns into a conversation with a reasoning-capable
+model, streaming the response. Before checking the reasoning below,
+work through: what does the turn-3 *request* actually contain? What
+would you check in the turn-3 *response* to know what happened? What's
+different here versus a simple, non-streamed, non-reasoning call?
+
+*Reasoning to check against:* the **request** contains the full
+accumulated history —
+[system message plus every prior user/assistant exchange](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/03-multi-turn-conversations/),
+not just the newest message — formatted as a `messages` array with the
+model name and generation parameters from Lesson 5 alongside it. Because
+it's a **streamed** request, the client processes the **response** as
+[a sequence of incremental chunks](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/05-streaming-a-response/),
+assembling the final text progressively rather than waiting for one
+complete payload. Because it's a **reasoning** model, the assembled
+response likely includes
+[a separate thinking block ahead of the final text](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/06-reasoning-output-in-responses/),
+and checking `usage.output_tokens` afterward would very plausibly show a
+number meaningfully higher than the visible final answer's length alone
+would suggest — the reasoning tokens are in there too, billed regardless
+of whether the thinking block was actually shown. Checking `stop_reason`
+afterward confirms whether generation actually finished naturally or got
+cut short by
+[the shared context-window budget](/01-llm-foundations/06-context-windows-and-kv-cache/02-max-output-length-vs-context-window/)
+— a budget growing a little more consumed with every one of these three
+turns, purely from resending the accumulated history each time.
+
+Every field in this one interaction traces back to a specific, earlier
+lesson — which is exactly the point this lesson was built to prove: a
+real API call isn't a new thing to learn, it's everything already
+learned, arriving together.
+
+</Subsection>

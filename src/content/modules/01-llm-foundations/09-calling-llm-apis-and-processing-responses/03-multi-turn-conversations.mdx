@@ -1,6 +1,6 @@
 ---
 title: "Multi-turn conversations, and why the client resends everything"
-lesson: "09-calling-llm-apis"
+lesson: "09-calling-llm-apis-and-processing-responses"
 order: 3
 ---
 import Subsection from "../../../../components/lesson/Subsection.astro";
@@ -55,7 +55,7 @@ resend its own growing conversation history on every turn.
 
 Since every message in the history counts as *input tokens* on every
 single request,
-[not free just because it was already sent before](/01-llm-foundations/09-calling-llm-apis/02-the-response-shape/#usage-tokens-finally-readable-after-the-fact),
+[not free just because it was already sent before](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/02-the-response-shape/#usage-tokens-finally-readable-after-the-fact),
 a long-running conversation's cost grows with every turn — not linearly
 with just the new content, but with the entire accumulated history,
 resent in full each time. This is also exactly why

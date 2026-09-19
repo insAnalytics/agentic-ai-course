@@ -693,10 +693,9 @@ Generate Text) are now fully Locked.
    not a graded sandbox (no learner-authored code). No new verification
    findings in the bookends. Lesson 1.8 is now fully Locked.
 
-9. **Calling LLM APIs** — Building
-   Title is a working name (the mockup names only Concept 1; this is the
-   "raw API mechanics" lesson the Module 1 outline anticipated — rename
-   the folder/`_lesson.yaml` if the drafter's real title differs).
+9. **Calling LLM APIs and Processing Responses** — Locked
+   Title confirmed by the bookends mockup (folder renamed from the working
+   name `09-calling-llm-apis` to `09-calling-llm-apis-and-processing-responses`).
    Concept 1 drafted: the request shape (endpoint + API-key header + JSON
    body; where `messages`, `temperature`/`top_p`/`stop`, `max_tokens`, and
    the key header each came from earlier in the course). Illustrative,
@@ -739,9 +738,19 @@ Generate Text) are now fully Locked.
    the mockup's demo printed `...capital of Fran...` but `[:50]` yields
    `...capital of France. Th...` — corrected by showing the real live
    output; see architecture.md §2. Added an accurate note on how Claude
-   returns thinking blocks (summary or empty, billed either way). Remaining
-   for this lesson: bookends (outcomes intro, comprehensive quiz, closing
-   synthesis — drafted separately). Not yet Locked.
+   returns thinking blocks (summary or empty, billed either way). 
+
+   Bookends: outcomes/why-it-matters intro (`00-intro.mdx`) and a
+   Recap & Practice page (`07-recap-practice.mdx`) with an 11-question
+   comprehensive quiz spanning all six concepts (Q1's "learned from
+   preference training" wording aligned with Lesson 1.7's corrected
+   "learned from training") plus an ungraded closing synthesis tracing a
+   streamed, reasoning-model, turn-3 request and response. The mockup's
+   closing synthesis linked "the shared context-window budget" to Module
+   0's FastAPI lesson, which is the wrong target; it now links to Lesson
+   1.6's max-output-length concept, where that budget is actually covered.
+   Deliberately not a graded sandbox (no learner-authored code). Lesson
+   1.9 is now fully Locked.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
