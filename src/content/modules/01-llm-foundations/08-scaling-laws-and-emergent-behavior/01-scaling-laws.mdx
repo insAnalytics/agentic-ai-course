@@ -1,0 +1,103 @@
+---
+title: "Scaling laws — the training-time picture"
+lesson: "08-scaling-laws-and-emergent-behavior"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import ScalingCurveChart from "../../../../components/lesson/ScalingCurveChart";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="A surprisingly predictable relationship" variant="a">
+
+A **scaling law**, in this context, describes an empirically observed
+relationship: as model size (parameters), training data, and total
+training compute increase together, training loss — the
+[same objective driving pretraining, from Lesson 7](/01-llm-foundations/07-the-training-pipeline/01-pretraining/#what-actually-produces-the-parameters-behind-every-logit)
+— tends to decrease in a smooth, remarkably predictable way. Not
+randomly, not chaotically: a fairly consistent, power-law-shaped
+pattern, observed across many different model families and training
+runs.
+
+</Subsection>
+
+<Subsection title='Why "predictable" is the notable part' variant="b">
+
+This predictability is genuinely useful, not just a tidy observation:
+given a certain planned increase in compute, data, or parameters, it's
+possible to reasonably estimate *in advance*, before spending the money
+on an expensive full training run, roughly how much loss should improve
+as a result. Labs actually use this — running smaller, cheaper training
+runs at various scales, plotting the resulting relationship, and
+extrapolating it to decide how large and how long to train a genuinely
+expensive full-scale model, rather than guessing.
+
+Here are the published curves themselves, from the paper that first laid
+this out (Kaplan et al., 2020, "Scaling Laws for Neural Language
+Models"), on log-log axes — where a power law shows up as a straight
+line, the visual signature of the smoothness this concept describes:
+
+<ScalingCurveChart client:load />
+
+</Subsection>
+
+<Subsection title="What this describes, precisely" variant="a">
+
+Worth being precise about scope here, since it matters directly for the
+next concept's debate: scaling laws, as covered here, primarily describe
+**training loss** — a raw measure of how well the model predicts the next
+token,
+[directly tied to pretraining's exact objective](/01-llm-foundations/07-the-training-pipeline/01-pretraining/#what-actually-produces-the-parameters-behind-every-logit)
+— not necessarily every specific downstream task's performance directly.
+Loss improvements do generally correlate with better performance on real
+tasks, but the smooth, predictable curve itself is about this one
+underlying training metric, not a guarantee that every capability
+improves in lockstep with it.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does a scaling law, in this context, actually describe?",
+      options: [
+        "A fixed legal requirement for how large a model can be",
+        "An empirically observed relationship where training loss decreases in a smooth, predictable way as model size, data, and compute increase together",
+        "A random, unpredictable relationship between model size and performance",
+        "A rule that only applies to models below a certain size",
+      ],
+      correctIndex: 1,
+      explanation:
+        "It's an observed pattern — loss falls along a smooth power-law curve as scale grows — not a rule imposed on anyone.",
+    },
+    {
+      question: "Why is the predictability of scaling laws practically useful, beyond being a tidy observation?",
+      options: [
+        "It isn't useful — scaling laws are purely academic",
+        "It lets labs estimate, in advance, roughly how much loss should improve from a planned increase in compute or data, informing decisions before an expensive full training run",
+        "It guarantees every model will perform identically regardless of scale",
+        "It only matters after a model has already been fully trained",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Small, cheap runs can be plotted and extrapolated to plan a far more expensive one.",
+    },
+    {
+      question: "What metric does the scaling-law relationship, as covered here, primarily describe?",
+      options: [
+        "A model's exact dollar cost to run",
+        "Training loss — the same underlying objective from pretraining's next-token prediction task",
+        "How many parameters a model has, with no relationship to performance",
+        "The number of languages a model can process",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The smooth curve is about loss — how well the model predicts the next token — not any one downstream task.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

@@ -1,0 +1,54 @@
+{
+  "source": {
+    "paper": "Scaling Laws for Neural Language Models",
+    "authors": "Kaplan, McCandlish, Henighan, Brown, Chess, Child, Gray, Radford, Wu, Amodei",
+    "year": 2020,
+    "arxiv": "2001.08361",
+    "setup": "Decoder-only Transformers trained on WebText2 (BPE, 50,257-token vocabulary); loss is test cross-entropy in nats per token, so values are tokenization- and dataset-specific",
+    "constants": "Equations 1.1-1.3 and Table 4: L = (X_c / X)^alpha"
+  },
+  "laws": [
+    {
+      "key": "compute",
+      "label": "Compute",
+      "variable": "training compute (PF-days, non-embedding)",
+      "alpha": 0.050,
+      "xc": 3.1e8,
+      "equation": "L(C_min) = (3.1×10⁸ / C_min)^0.050",
+      "testedMin": 1e-8,
+      "testedMax": 1,
+      "testedNote": "the paper reports the trend across about eight orders of magnitude of compute (roughly 10⁻⁸ to 1 PF-day in its Figure 13)",
+      "plotMin": 1e-8,
+      "plotMax": 1e4,
+      "unit": "PF-days"
+    },
+    {
+      "key": "parameters",
+      "label": "Parameters",
+      "variable": "non-embedding parameters",
+      "alpha": 0.076,
+      "xc": 8.8e13,
+      "equation": "L(N) = (8.8×10¹³ / N)^0.076",
+      "testedMin": 768,
+      "testedMax": 1.5e9,
+      "testedNote": "models from 768 to 1.5 billion non-embedding parameters, trained to convergence on a large dataset",
+      "plotMin": 1e3,
+      "plotMax": 1e11,
+      "unit": "parameters"
+    },
+    {
+      "key": "data",
+      "label": "Data",
+      "variable": "dataset size (tokens)",
+      "alpha": 0.095,
+      "xc": 5.4e13,
+      "equation": "L(D) = (5.4×10¹³ / D)^0.095",
+      "testedMin": 2.2e7,
+      "testedMax": 2.3e10,
+      "testedNote": "datasets from 22 million to 23 billion tokens, for large models trained with early stopping",
+      "plotMin": 1e7,
+      "plotMax": 1e12,
+      "unit": "tokens"
+    }
+  ]
+}

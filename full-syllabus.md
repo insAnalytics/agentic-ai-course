@@ -640,6 +640,23 @@ Generate Text) are now fully Locked.
    graded sandbox (no learner-authored code). No new verification
    findings in the bookends. Lesson 1.7 is now fully Locked.
 
+8. **Scaling Laws and Emergent Behavior** — Building
+   Title is a working name (taken from Lesson 1.7's own forward reference;
+   the mockup names only Concept 1 — rename the folder/`_lesson.yaml` if
+   the drafter's real title differs). Concept 1 drafted: scaling laws, the
+   training-time picture (smooth, predictable power-law decrease in
+   training loss with scale; why the predictability is useful; what it
+   does and doesn't describe). The mockup's log-log scaling curve is
+   `ScalingCurveChart.tsx`, plotting the *published fits* from Kaplan et
+   al. (2020) for compute, parameters, and data (constants read straight
+   from the paper and cross-checked against its own break-down estimate);
+   the paper's raw points are only figure images, so the chart says
+   "published fits" rather than implying raw data — see architecture.md
+   §2's "Real scaling laws" row. The next-concept (emergent behavior)
+   reference is plain text until that page exists. Lesson 1.7 Concept 4's
+   forward reference to this lesson's test-time compute is likewise still
+   plain text. No bookends yet.
+
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
 into lessons.
