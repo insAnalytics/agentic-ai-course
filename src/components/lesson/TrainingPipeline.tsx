@@ -12,7 +12,12 @@ const STAGES: Stage[] = [
     blurb:
       "Predict the next token, over and over, across a massive body of raw text. Produces the model's learned parameters — by far the most resource-intensive stage.",
   },
-  { name: "SFT", short: "Stage 2", blurb: null },
+  {
+    name: "SFT",
+    short: "Stage 2",
+    blurb:
+      "The same training process on a much smaller, curated set of instruction-response pairs — layered on top of the pretrained model. Teaches how to respond, not primarily new facts.",
+  },
   { name: "Preference training", short: "Stage 3", blurb: null },
   { name: "RL for reasoning", short: "Stage 4", blurb: null },
 ];

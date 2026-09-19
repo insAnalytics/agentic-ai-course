@@ -1,0 +1,138 @@
+---
+title: "SFT — teaching a model to actually follow instructions"
+lesson: "07-how-models-are-trained"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import TrainingPipeline from "../../../../components/lesson/TrainingPipeline";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The same training process, a much smaller, curated dataset" variant="a">
+
+[A base model, from the previous concept](/01-llm-foundations/07-how-models-are-trained/01-pretraining/#no-notion-of-instructions-yet-just-next-token-prediction),
+doesn't reliably recognize "answer this" as the right behavior for a
+question — it just continues text plausibly, which sometimes means
+continuing the *pattern* of a question rather than actually answering
+it. **Supervised Fine-Tuning (SFT)** fixes this using the exact same
+underlying training process as pretraining — still adjusting parameters
+so the model's predicted probabilities better match a desired target —
+just applied to a very different dataset: a much smaller, carefully
+curated set of instruction-response pairs, showing the model what an
+actual helpful response to an instruction should look like.
+
+[The same pipeline from Concept 1](/01-llm-foundations/07-how-models-are-trained/01-pretraining/#what-actually-produces-the-parameters-behind-every-logit),
+with SFT now highlighted as the second stage — a much shorter, narrower
+training pass compared to pretraining's massive scale, layered directly
+on top of the pretrained base model rather than starting over from
+scratch:
+
+<TrainingPipeline client:load active={1} revealed={2} />
+
+</Subsection>
+
+<Subsection title="The same prompt, before and after SFT" variant="b">
+
+```
+Prompt: "What is the capital of France?"
+
+Base model (pretraining only): "What is the capital of Germany?
+What is the capital of Italy?"
+
+After SFT: "The capital of France is Paris."
+```
+
+*(illustrative — a real comparison would depend on the specific models
+involved, but this general shift in behavior is well-documented)*
+
+Nothing about the model's underlying *knowledge* changed here — it
+already had the fact `"Paris"` embedded somewhere in its parameters,
+purely from pretraining on a vast amount of text mentioning it. What
+changed is *behavior*: SFT reshaped what the model has learned is the
+appropriate continuation for text that looks like a direct question,
+away from "continue the pattern" and toward "actually answer it."
+
+One honest caveat if you try this yourself on a current model: many
+recent "base" models are already pretrained on some instruction-like
+text, so they can handle a simple question like this one without SFT.
+For instance, the real `Qwen2.5-0.5B` base model, given this exact
+prompt and decoded greedily, continues with `" The capital of France is
+Paris."` and then stops — the same answer its instruction-tuned sibling
+gives. The clean before/after contrast above is most dramatic for
+classic base models like the GPT-2 output in the previous concept, and
+for more open-ended prompts; it's a real effect, just not always this
+stark on the simplest questions.
+
+</Subsection>
+
+<Subsection title="SFT teaches behavior, not primarily new facts" variant="a">
+
+This distinction is worth stating directly, since it's an easy point of
+confusion: SFT is not primarily how a model learns new facts or
+knowledge — that's overwhelmingly
+[pretraining's job](/01-llm-foundations/07-how-models-are-trained/01-pretraining/#what-actually-produces-the-parameters-behind-every-logit),
+given the sheer scale of text involved. SFT's actual job is teaching
+*how* to respond — format, tone, the basic shape of following an
+instruction rather than merely continuing text — using a dataset that's
+small and curated specifically for demonstrating that behavior, not for
+teaching content.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What kind of dataset does SFT actually train on, compared to pretraining?",
+      options: [
+        "An even larger, less curated body of raw internet text",
+        "A much smaller, carefully curated set of instruction-response pairs, showing what a good response to an instruction looks like",
+        "The exact same dataset used for pretraining, unchanged",
+        "A dataset containing no text at all, only numerical labels",
+      ],
+      correctIndex: 1,
+      explanation:
+        "SFT swaps pretraining's massive raw text for a small, curated set of instruction-response demonstrations.",
+    },
+    {
+      question: "Is SFT a fundamentally different training mechanism from pretraining, or the same one applied differently?",
+      options: [
+        "A completely different, unrelated mechanism",
+        "The same underlying training process — adjusting parameters via gradient descent to better match a target — just applied to a different, curated dataset",
+        "SFT doesn't involve any actual training, just manual rule-writing",
+        "SFT replaces the model's architecture entirely",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Same parameter-adjusting process, different data — and it starts from the pretrained parameters rather than from scratch.",
+    },
+    {
+      question: 'After SFT, why does the model now answer "What is the capital of France?" directly, rather than continuing with more questions?',
+      options: [
+        'SFT taught the model the fact "Paris" for the very first time',
+        'SFT reshaped what the model has learned is the appropriate continuation for question-like text, away from "continue the pattern" and toward "actually answer it"',
+        'The model\'s vocabulary was expanded to include the word "Paris"',
+        "This change has nothing to do with training at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The knowledge was already there from pretraining; SFT changed the behavior — what counts as the right continuation of a question.",
+    },
+    {
+      question: "Is SFT primarily how a model learns new factual knowledge?",
+      options: [
+        "Yes, entirely — pretraining contributes no factual knowledge at all",
+        "No — SFT's dataset is far too small and curated to be the primary source of a model's knowledge; that comes overwhelmingly from pretraining's massive scale",
+        "SFT and pretraining contribute knowledge in exactly equal amounts",
+        "Neither stage contributes any factual knowledge",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Facts come overwhelmingly from pretraining's scale; SFT's small curated set is for demonstrating how to respond.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

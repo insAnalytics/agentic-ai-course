@@ -591,8 +591,16 @@ Generate Text) are now fully Locked.
    placeholders until their concept exists). The mockup's base-model
    example was explicitly illustrative; added a *real* GPT-2 greedy
    output alongside it (it answers, then loops forever — see
-   architecture.md §2's "Real next-token predictions" row). The link to
-   Concept 2 (SFT) is plain text until that page exists. No bookends yet.
+   architecture.md §2's "Real next-token predictions" row). Concept 2 drafted:
+   SFT (same training process on a small, curated instruction-response
+   dataset; teaches behavior, not primarily facts). `TrainingPipeline.tsx`
+   now describes stage 2. **Finding:** a real current base/instruct pair
+   (`Qwen2.5-0.5B` vs. `-Instruct`) both answer the simple example
+   prompt identically, unlike the mockup's illustrative contrast, so the
+   page keeps the illustration but adds an honest caveat with the real
+   result — see architecture.md §2. Concept 1's link to Concept 2 now
+   resolves. Remaining concepts not yet drafted (preference training and
+   message roles next, per its own mockup). No bookends yet.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
