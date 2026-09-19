@@ -752,6 +752,18 @@ Generate Text) are now fully Locked.
    Deliberately not a graded sandbox (no learner-authored code). Lesson
    1.9 is now fully Locked.
 
+10. **Structured Outputs** — Building
+    Title is a working name (the mockup names only Concept 1; taken from
+    the Module 1 outline's "structured outputs" item — rename the
+    folder/`_lesson.yaml` if the drafter's real title differs). Concept 1
+    drafted: the naive approach (asking for JSON in the prompt) and its two
+    failure modes — extra text breaking `json.loads`, and valid JSON with
+    wrong types failing Pydantic validation. Both demos verified live in
+    the shipped Pyodide environment; the only difference from the mockup's
+    expected output is Pydantic's own trailing docs-link line, now
+    explained on the page. The link to Concept 2 (constrained decoding) is
+    plain text until that page exists. No bookends yet.
+
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
 into lessons.

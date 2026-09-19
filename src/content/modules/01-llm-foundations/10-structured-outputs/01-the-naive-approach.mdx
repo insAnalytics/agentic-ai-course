@@ -1,0 +1,130 @@
+---
+title: "The naive approach, and where it fails"
+lesson: "10-structured-outputs"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Just asking for JSON" variant="a">
+
+The most obvious way to get structured output from a model: include an
+instruction in the prompt asking for it.
+
+```
+Prompt: "Respond with a JSON object containing 'name' and 'age' fields,
+describing a person named Alice who is 25 years old."
+```
+
+This is just a request, phrased in natural language — and the model
+still generates its response through
+[the exact same next-token prediction process from Lesson 4](/01-llm-foundations/04-how-llms-generate-text/02-autoregressive-generation/#the-model-never-generates-more-than-one-token-at-once),
+with nothing structurally forcing the output to actually be valid JSON,
+let alone JSON matching a specific shape.
+
+</Subsection>
+
+<Subsection title="Failure mode 1: extra text breaks parsing entirely" variant="b">
+
+<LiveDemo client:load code={`import json
+
+naive_response = 'Sure, here is the JSON you requested: {"name": "Alice", "age": "twenty-five"}'
+
+try:
+    data = json.loads(naive_response)
+except json.JSONDecodeError as e:
+    print(f"failed to parse: {e}")`} />
+
+`json.loads()` expects the *entire* string to be valid JSON —
+[as covered back in Module 0's I/O lesson](/00-python-essentials/06-files-errors-and-validation/02-working-with-json/#json-loads-json-dumps-the-string-versions)
+— not JSON sitting somewhere inside other text. A perfectly natural,
+conversational response like "Sure, here is the JSON you requested:"
+preceding the actual JSON object is enough to break parsing completely.
+
+</Subsection>
+
+<Subsection title="Failure mode 2: valid JSON, wrong data" variant="a">
+
+<LiveDemo client:load code={`from pydantic import BaseModel, ValidationError
+
+class Person(BaseModel):
+    name: str
+    age: int
+
+type_mismatch_response = '{"name": "Alice", "age": "twenty-five"}'
+
+try:
+    person = Person.model_validate_json(type_mismatch_response)
+except ValidationError as e:
+    print(f"validation failed: {e}")`} />
+
+(The last line of that output is Pydantic's own link to its documentation
+for this error type.)
+
+This time the JSON itself parses just fine — but `"age"` came back as
+the string `"twenty-five"` rather than a number, exactly
+[the validation failure shape from Module 0's Pydantic lesson](/00-python-essentials/05-typed-data-models/04-pydantic-fundamentals/#validation-actually-happens-now)
+— nothing about a natural-language instruction like "respond in JSON
+with an age field" structurally guarantees the model actually produces a
+number there, rather than a word.
+
+</Subsection>
+
+<Subsection title="Why this is only ever a request, never a guarantee" variant="b">
+
+Both failures share the same underlying cause: asking nicely, in the
+prompt, doesn't change how generation actually works. The model is
+still producing tokens one at a time, guided by learned patterns from
+training, with nothing in the generation *mechanism itself* preventing
+malformed output. A genuine guarantee requires intervening in that
+mechanism directly — covered next.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why does naive_response's extra conversational text break json.loads() entirely, even though valid JSON is present somewhere inside it?",
+      options: [
+        "json.loads() automatically extracts JSON from surrounding text",
+        "json.loads() expects the entire string to be valid JSON — text before or after the JSON object causes parsing to fail completely",
+        "This is a bug specific to this one example",
+        "Extra text is silently ignored by json.loads()",
+      ],
+      correctIndex: 1,
+      explanation:
+        "json.loads parses the whole string as one JSON document; any surrounding text makes it invalid.",
+    },
+    {
+      question: "Why does Person.model_validate_json(type_mismatch_response) fail, even though the string is syntactically valid JSON?",
+      options: [
+        "It shouldn't fail — this represents a bug",
+        "The JSON parses fine, but \"age\" is a string rather than a number, which fails Pydantic's schema validation",
+        "model_validate_json only works with dicts, never JSON strings",
+        "Person's fields were defined incorrectly",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Valid JSON syntax isn't the same as valid data: \"twenty-five\" can't be an int, so Pydantic's type check fails.",
+    },
+    {
+      question: 'Why is asking a model to "respond in JSON" in the prompt only ever a request, not a guarantee?',
+      options: [
+        "It actually is a guarantee — models always comply exactly",
+        "The model still generates output through ordinary next-token prediction, with nothing in that generation mechanism itself preventing malformed or incorrectly-typed output",
+        "JSON output is technically impossible for any LLM to produce",
+        "This only fails for very long responses",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A prompt instruction only shapes probabilities; it doesn't constrain which tokens can be generated.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
