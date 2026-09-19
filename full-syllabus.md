@@ -717,9 +717,15 @@ Generate Text) are now fully Locked.
    includes the real `type` and `stop_sequence` fields; added a note that
    field names vary by provider (OpenAI-style `choices[0].message.content`,
    `prompt_tokens`/`completion_tokens`, `finish_reason`) and that
-   `stop_reason` has other values beyond the three named. Remaining
-   concepts not yet drafted (multi-turn conversations next, per its own
-   mockup). No bookends yet.
+   `stop_reason` has other values beyond the three named. Concept 3 drafted: multi-turn conversations (the API is
+   stateless, so the client resends the full history every request; REST
+   statelessness made concrete; the compounding input-token cost and its
+   link to the context window). **Finding:** the mockup's demo had an
+   off-by-one — it counted the history *after* the assistant's reply, so
+   it printed `3 / 5 / 7` messages sent; what a request actually sends is
+   `2 / 4 / 6`. Demo, prose, and quiz Q2 corrected and verified live — see
+   architecture.md §2's finding log. Remaining concepts not yet drafted
+   (sending non-text inputs next, per its own mockup). No bookends yet.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken

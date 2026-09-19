@@ -1,0 +1,127 @@
+---
+title: "Multi-turn conversations, and why the client resends everything"
+lesson: "09-calling-llm-apis"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The API itself has no memory between calls" variant="a">
+
+An LLM API call is completely stateless — nothing about a previous
+request is remembered anywhere on the server side. For a multi-turn
+conversation to work at all, the *client* has to resend the entire
+conversation history — every prior user message and every prior
+assistant response — with **every single new request**, not just
+whatever's newly being said.
+
+<LiveDemo client:load code={`conversation = [
+    {"role": "system", "content": "You are a helpful assistant."},
+]
+
+def send_turn(conversation: list, user_message: str, assistant_response: str) -> list:
+    conversation = conversation + [{"role": "user", "content": user_message}]
+    print(f"this request sends {len(conversation)} messages")
+    # ...the API call would happen here, returning assistant_response...
+    return conversation + [{"role": "assistant", "content": assistant_response}]
+
+conversation = send_turn(conversation, "What is the capital of France?", "The capital of France is Paris.")
+conversation = send_turn(conversation, "What about Germany?", "The capital of Germany is Berlin.")
+conversation = send_turn(conversation, "And Italy?", "The capital of Italy is Rome.")`} />
+
+By turn 3, the client's request actually sends all `6` messages — the
+original system message, plus both prior exchanges (a user message and
+an assistant reply each), plus the new user message — even though the
+user only typed two new words, `"And Italy?"`. Every earlier message
+travels along again, every single time.
+
+</Subsection>
+
+<Subsection title="This is REST's statelessness, showing up concretely" variant="b">
+
+This is a direct, satisfying instance of
+[statelessness, one of REST's guiding principles from Module 0's FastAPI lesson](/00-python-essentials/09-building-apis-with-fastapi/01-rest-api-fundamentals/#rest-s-guiding-principles):
+every request carries everything the server needs to process it, with
+the server never remembering anything about a client between one call
+and the next. That principle wasn't just an abstract REST design rule —
+it's the literal, practical reason a chat application has to manage and
+resend its own growing conversation history on every turn.
+
+</Subsection>
+
+<Subsection title="The real, compounding cost consequence" variant="a">
+
+Since every message in the history counts as *input tokens* on every
+single request,
+[not free just because it was already sent before](/01-llm-foundations/09-calling-llm-apis/02-the-response-shape/#usage-tokens-finally-readable-after-the-fact),
+a long-running conversation's cost grows with every turn — not linearly
+with just the new content, but with the entire accumulated history,
+resent in full each time. This is also exactly why
+[Lesson 6's shared context-window budget](/01-llm-foundations/06-context-windows-and-kv-cache/01-what-a-context-window-is/#what-happens-when-you-exceed-it)
+eventually becomes a real constraint in any sufficiently long
+conversation: the history itself keeps growing, consuming more and more
+of that fixed, shared budget on every single turn, until eventually
+something has to give — truncation, summarization, or hitting the limit
+outright.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Does an LLM API remember anything about a previous request when a new one arrives?",
+      options: [
+        "Yes, it automatically remembers the full conversation history",
+        "No — the API is completely stateless; nothing about a previous call is remembered server-side",
+        "Only the most recent message is remembered",
+        "It remembers conversations from the same API key indefinitely",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Each request stands alone; any memory of earlier turns exists only because the client sends it again.",
+    },
+    {
+      question: "In the live demo, why does turn 3 send 6 messages, when the user only typed one new short message?",
+      options: [
+        "This is a bug — only the new message should be sent",
+        "The client resends the entire accumulated conversation history — system message plus every prior exchange — along with the new message, every single time",
+        "The API automatically pads the request with unrelated content",
+        "Each message gets duplicated for redundancy",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Six messages = the system message, two prior user/assistant exchanges (four messages), and the new user message.",
+    },
+    {
+      question: "How does this concept connect directly to a principle already covered in Module 0?",
+      options: [
+        "It doesn't connect to anything covered previously",
+        "It's a concrete instance of REST's statelessness principle — every request carries everything the server needs, with nothing remembered between calls",
+        "It relates to Docker's isolation principle, not REST",
+        "It's related to WebSocket persistence, not REST statelessness",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Statelessness means the server keeps no per-client memory between requests, so the client must supply the whole context each time.",
+    },
+    {
+      question: "Why does a long-running conversation's cost grow with every turn, not just with the newest content?",
+      options: [
+        "It doesn't — cost only depends on the newest message each time",
+        "Every message in the accumulated history counts as input tokens on every single request, so the entire growing history gets billed again with each new turn",
+        "API providers charge a flat fee per conversation, regardless of length",
+        "Cost only depends on the assistant's responses, never the user's messages",
+      ],
+      correctIndex: 1,
+      explanation:
+        "History is resent as input every turn, so input tokens (and cost) grow with the whole conversation, not just the latest message.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
