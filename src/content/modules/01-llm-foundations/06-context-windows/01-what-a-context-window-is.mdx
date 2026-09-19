@@ -1,0 +1,104 @@
+---
+title: "What a context window actually is, and what happens past it"
+lesson: "06-context-windows"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The total token budget for one request" variant="a">
+
+A **context window** is the maximum number of tokens a model can
+process in a single request — everything counted together: the prompt,
+any conversation history, documents provided, and (as the next concept
+covers directly) the response itself. It isn't an arbitrary business
+limit — it comes directly from the architecture
+[covered in Lesson 3](/01-llm-foundations/03-attention-and-transformer-architecture/00-intro/).
+
+</Subsection>
+
+<Subsection title="Why there's a limit at all: attention's real computational cost" variant="b">
+
+[Attention, from Lesson 3](/01-llm-foundations/03-attention-and-transformer-architecture/02-the-attention-mechanism/#query-key-value-the-mechanism-that-produces-those-weights),
+computes a relevance score between *every pair* of tokens in the
+sequence — every token compares its Query against every other token's
+Key. That means the amount of computation required grows with the
+*square* of the sequence length, not linearly with it:
+
+<LiveDemo client:load code={`def attention_pair_count(sequence_length: int) -> int:
+    return sequence_length ** 2
+
+for length in [10, 100, 1000, 10000]:
+    print(f"{length} tokens -> {attention_pair_count(length):,} pairs to compute")`} />
+
+A 10× increase in sequence length produces a 100× increase in the
+number of pairwise comparisons attention actually has to compute — this
+quadratic growth is the real, mechanical reason a context window has a
+hard limit at all, not just a policy choice: processing an arbitrarily
+long sequence would require an arbitrarily, impractically large amount
+of computation.
+
+</Subsection>
+
+<Subsection title="What happens when you exceed it" variant="a">
+
+Exactly what happens past the limit depends on the specific system, but
+falls into a few common patterns: an outright error, rejecting the
+request entirely until it's shortened; silent truncation, where older
+content (often from the very beginning) simply gets dropped to make
+room; or a sliding window, keeping only the most recent portion of a
+long conversation and discarding what came before it. None of these are
+universal — the important, portable fact is simply that a context
+window is a hard ceiling, not a soft suggestion, and something concrete
+happens once content exceeds it, whether or not that behavior is
+visible or obvious from the outside.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does a context window actually measure?",
+      options: [
+        "Only the length of the model's response",
+        "The maximum total number of tokens a model can process in a single request — prompt, history, and response combined",
+        "The number of separate conversations a model can hold at once",
+        "The physical memory size of the server running the model",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The window is a single shared token budget: everything the model reads and writes in one request counts against it together.",
+    },
+    {
+      question: "Why does attention's computational cost grow with the square of sequence length, rather than growing linearly?",
+      options: [
+        "It doesn't — attention's cost scales linearly with sequence length",
+        "Attention computes a relevance score between every pair of tokens, so the number of pairwise comparisons grows quadratically as the sequence gets longer",
+        "Quadratic growth only applies to very short sequences",
+        "This is a software inefficiency that could be fixed with faster hardware alone",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Every token is compared against every other token, so n tokens means n × n pairs — 10× the length is 100× the comparisons.",
+    },
+    {
+      question: "What's the real, mechanical reason a context window has a hard limit at all?",
+      options: [
+        "It's purely an arbitrary business decision unrelated to how the model works",
+        "Attention's quadratic computational cost means processing an arbitrarily long sequence would require an arbitrarily, impractically large amount of computation",
+        "Context windows exist only to control how much a user is billed",
+        "There's no real technical reason — it could be removed entirely with no consequence",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The limit follows from attention's pairwise cost: unbounded length would mean unbounded computation.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

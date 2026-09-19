@@ -520,6 +520,21 @@ Generate Text) are now fully Locked.
    page says so and points back to Concept 4 for those. No new
    verification findings in the bookends.
 
+6. **Context Windows** — Building
+   Title is a working name (the mockup names only Concept 1 — rename the
+   folder/`_lesson.yaml` if the drafter's real title differs). Concept 1
+   drafted: what a context window is (one shared token budget covering
+   prompt, history, and response), why the limit exists at all
+   (attention's pairwise cost grows with the square of sequence length),
+   and what happens past it (error, truncation, sliding window — none
+   universal). Demo verified exactly against real Python and the shipped
+   Pyodide `LiveDemo`; no mockup errors. The "next concept" callback to
+   Concept 2 (max output length vs. context window) is left as plain
+   text until that page exists. The earlier Lesson 1.1 forward
+   references to a "context windows and KV cache" concept (still plain
+   text) may belong here — decide once this lesson's full scope is
+   known. No bookends yet.
+
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
 into lessons.
