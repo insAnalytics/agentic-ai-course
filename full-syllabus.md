@@ -580,9 +580,9 @@ Generate Text) are now fully Locked.
    Lessons 1.1, 1.4, and 1.5). No new verification findings in the
    bookends. Lesson 1.6 is now fully Locked.
 
-7. **How Models Are Trained** — Building
-   Title is a working name (the mockup names only Concept 1 — rename the
-   folder/`_lesson.yaml` if the drafter's real title differs). Concept 1
+7. **The Training Pipeline** — Locked
+   Title confirmed by the bookends mockup (folder renamed from the working
+   name `07-how-models-are-trained` to `07-the-training-pipeline`). Concept 1
    drafted: pretraining, the base stage (next-token prediction over
    massive raw text; a base model has no learned notion of following
    instructions or ending an answer). The mockup's pipeline-diagram
@@ -627,9 +627,18 @@ Generate Text) are now fully Locked.
    real measured GPT-2 LoRA ratio (`0.24%`, via `peft`) was added beside
    the illustrative 70B figure — see architecture.md §2. The "Agentic AI
    basics" and "RAG Systems" module callbacks stay plain text (modules not
-   built). Remaining for this lesson: bookends (outcomes intro,
-   comprehensive quiz, closing synthesis — drafted separately). Not yet
-   Locked.
+   built).
+
+   Bookends: outcomes/why-it-matters intro (`00-intro.mdx`) and a
+   Recap & Practice page (`06-recap-practice.mdx`) with a 10-question
+   comprehensive quiz spanning all five concepts (Q4's "learned from
+   preference training" wording aligned with Concept 3's corrected
+   "learned from training") plus an ungraded closing synthesis — decide
+   between prompting, retrieval, and fine-tuning for a support agent's
+   tone, changing pricing, and persistent-refusal needs, tying back to
+   SFT, the knowledge cutoff, and prompt injection. Deliberately not a
+   graded sandbox (no learner-authored code). No new verification
+   findings in the bookends. Lesson 1.7 is now fully Locked.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken

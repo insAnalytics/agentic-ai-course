@@ -1,0 +1,185 @@
+---
+title: "Recap & Practice"
+lesson: "07-the-training-pipeline"
+order: 6
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What is pretraining's actual training objective?",
+      options: [
+        "Learning to follow specific instructions correctly",
+        "Predicting the next token, given the text so far, across a massive body of text",
+        "Learning to hold a multi-turn conversation",
+        "Learning to recognize and refuse harmful requests",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Pretraining is next-token prediction and nothing more specific — instruction-following, conversation, and refusal are all taught in later stages.",
+    },
+    {
+      question: "Why might a base model, given a direct question, continue with more questions instead of answering it?",
+      options: [
+        "This represents a bug or malfunction",
+        "Continuing in the same style as a common training pattern can be a genuinely plausible next-token continuation, since the base model was never taught to recognize \"answer this\" as distinct behavior",
+        "Base models can't generate text about geography",
+        "This only happens with very small models",
+      ],
+      correctIndex: 1,
+      explanation:
+        "It's the training objective working as intended: the most plausible continuation of a question, in raw text statistics, isn't necessarily an answer.",
+    },
+    {
+      question: "Is SFT primarily how a model learns new factual knowledge?",
+      options: [
+        "Yes, entirely",
+        "No — SFT's curated dataset is far too small to be the primary knowledge source; that comes overwhelmingly from pretraining",
+        "SFT and pretraining contribute knowledge equally",
+        "Neither stage contributes any factual knowledge",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Facts come overwhelmingly from pretraining's scale; SFT's small curated set is for demonstrating how to respond.",
+    },
+    {
+      question: "Are message roles like system and user architecturally enforced, hardcoded categories?",
+      options: [
+        "Yes, a special separate channel built into the architecture",
+        "No — they're special tokens in a flat sequence; a model's \"respect\" for them is a learned behavioral pattern from training",
+        "Message roles don't actually exist in real models",
+        "Only the system role is architecturally special",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Role markers are ordinary tokens in one flat sequence; treating them as meaningful is a learned habit, not an architectural rule.",
+    },
+    {
+      question: "What is the actual mechanistic root cause of prompt injection?",
+      options: [
+        "A software bug present in some models but not others",
+        "Roles are a learned convention, not a hard security boundary — instructions and data are processed as the same kind of tokens, so a model can't always reliably distinguish them",
+        "User error, unrelated to how models are trained",
+        "It only affects models never given preference training",
+      ],
+      correctIndex: 1,
+      explanation:
+        "With no architectural boundary between instruction and data, only a learned habit separates them — and habits can be fooled.",
+    },
+    {
+      question: "What is sycophancy, and where does it come from?",
+      options: [
+        "A deliberate design goal",
+        "A tendency to favor agreeable responses over accurate ones, arising because human preference judgments tend to rate agreeable answers more favorably",
+        "A bug unrelated to training",
+        "Something only affecting models with no human feedback",
+      ],
+      correctIndex: 1,
+      explanation:
+        "It's a side effect of optimizing toward human preference ratings, which skew toward agreeable answers.",
+    },
+    {
+      question: "What reward signal does RL for reasoning typically use?",
+      options: [
+        "The same human preference judgments as preference training",
+        "Whether the final answer is actually correct, often checkable automatically for domains like math or code",
+        "Response generation speed",
+        "Word count",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Instead of a human or AI judge ranking responses, the reward is whether the final answer is verifiably correct.",
+    },
+    {
+      question: "Why do reasoning models tend to cost more and take longer?",
+      options: [
+        "Each token is somehow individually more expensive to compute",
+        "They generate substantially more tokens — the reasoning itself — before a final answer, and every token requires its own full generation step",
+        "They use an entirely different architecture",
+        "They always run on slower hardware",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Per token the cost is the same; the reasoning simply adds many more tokens, each one a full generation step.",
+    },
+    {
+      question: "When does retrieval (RAG) fit better than fine-tuning?",
+      options: [
+        "When the model needs a more consistent writing style",
+        "When the actual problem is missing or changing knowledge the model structurally can't have baked into its parameters",
+        "They always solve exactly the same problem",
+        "When cost is the only consideration",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Retrieval supplies knowledge at request time; fine-tuning shapes behavior, and is a poor way to keep facts current.",
+    },
+    {
+      question: "What does LoRA actually do?",
+      options: [
+        "Retrains every parameter in the model, just more efficiently",
+        "Trains only a small set of additional parameters, leaving the vast majority of the original model unchanged",
+        "Removes the need for any training data",
+        "Only works for very small models",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The trainable add-on is a tiny fraction of the model's size, which is what makes it feasible on modest hardware.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<Subsection title="Closing synthesis — one scenario, every concept" variant="a">
+
+This isn't graded — it's a chance to apply the whole pipeline and the
+builder's decision framework together.
+
+A company wants its support agent to: **(a)** always respond in a
+specific, formal tone; **(b)** know current product pricing, which
+changes monthly; **(c)** reliably decline to discuss competitor pricing,
+even when asked persistently or indirectly. Reason through which of
+[prompting, retrieval, or fine-tuning](/01-llm-foundations/07-the-training-pipeline/05-fine-tuning-as-a-builders-option/)
+fits each need, before checking below.
+
+*Reasoning to check against:*
+
+**(a)** is a consistent-behavior problem —
+[exactly what fine-tuning fits](/01-llm-foundations/07-the-training-pipeline/05-fine-tuning-as-a-builders-option/#three-real-options-and-when-each-one-fits),
+though careful prompting might get partway there for lower-stakes cases;
+this is fundamentally a *behavior* question, the same kind of problem
+[SFT and preference training were built to shape](/01-llm-foundations/07-the-training-pipeline/02-sft/),
+not a knowledge gap.
+
+**(b)** is unmistakably a retrieval problem — pricing that changes
+monthly is structurally similar to
+[the knowledge-cutoff problem from Lesson 4](/01-llm-foundations/04-how-llms-generate-text/05-knowledge-cutoff/#training-ends-and-the-parameters-stop-changing):
+baking current pricing into the model's weights via fine-tuning would
+mean retraining every single month, exactly the scenario retrieval
+exists to avoid.
+
+**(c)** is the most interesting case: it looks like a fine-tuning
+problem (consistent refusal behavior), but it's genuinely hard to make
+fully reliable — worth connecting back to
+[Concept 3's prompt injection point](/01-llm-foundations/07-the-training-pipeline/03-preference-training-and-message-roles/#the-root-cause-of-prompt-injection):
+since instructions and cleverly-phrased user text are processed through
+the same mechanism, no single layer of training alone (prompting,
+fine-tuning, or otherwise) provides an absolute guarantee against
+persistent, adversarial attempts to route around a stated refusal —
+genuine defense-in-depth here belongs to the Agentic AI basics module's
+scope, not something this lesson's tools alone can promise.
+
+The pattern worth taking away: correctly diagnosing *which kind* of
+problem you actually have — behavior, knowledge, or something no single
+layer fully solves — is what the entire training pipeline covered in
+this lesson equips you to do, before ever touching prompting, retrieval,
+or fine-tuning at all.
+
+</Subsection>
