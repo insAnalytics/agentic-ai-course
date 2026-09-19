@@ -599,8 +599,19 @@ Generate Text) are now fully Locked.
    prompt identically, unlike the mockup's illustrative contrast, so the
    page keeps the illustration but adds an honest caveat with the real
    result — see architecture.md §2. Concept 1's link to Concept 2 now
-   resolves. Remaining concepts not yet drafted (preference training and
-   message roles next, per its own mockup). No bookends yet.
+   resolves. Concept 3 drafted: preference training (RLHF/RLAIF/DPO),
+   why message roles are just learned conventions over special tokens,
+   sycophancy, and the mechanistic root of prompt injection.
+   `TrainingPipeline.tsx` now describes stage 3. **Finding:** the mockup
+   said roles are learned "specifically" in preference training; the chat
+   format is typically introduced in SFT and reinforced by preference
+   training, so the prose was corrected. Backed the "roles are just
+   tokens" claim with a real chat template (`Qwen2.5-0.5B-Instruct`'s
+   `<|im_start|>`/`<|im_end|>` special tokens) and added a Sharma et al.
+   (2023) citation for sycophancy — see architecture.md §2. The "Agentic
+   AI basics module" callback stays plain text (module not built).
+   Remaining concepts not yet drafted (RL for reasoning next, per its
+   own mockup). No bookends yet.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken

@@ -1,0 +1,177 @@
+---
+title: "Preference training, and why message roles exist"
+lesson: "07-how-models-are-trained"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import TrainingPipeline from "../../../../components/lesson/TrainingPipeline";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title='Beyond "correct format" — which response is actually better?' variant="a">
+
+[SFT teaches a model to respond in the right basic shape](/01-llm-foundations/07-how-models-are-trained/02-sft/)
+— but there are often several plausible ways to answer the same
+instruction, some genuinely more helpful, accurate, or well-judged than
+others. SFT, which just imitates a fixed set of example responses,
+doesn't really capture "which of several *plausible* responses is
+actually better." **Preference training** is the stage built
+specifically for that.
+
+</Subsection>
+
+<Subsection title="RLHF, RLAIF, and DPO — different ways of using the same idea" variant="b">
+
+The core idea: instead of a single "correct" response to imitate, show
+several *candidate* responses to the same prompt, and have a human (or,
+in **RLAIF**, another AI model acting as the judge) indicate which one
+is genuinely better. **RLHF** uses this preference data to train a
+separate reward model that learns to predict which responses would be
+preferred, then further trains the main model — via reinforcement
+learning — to produce responses that score well against it. **DPO**
+(Direct Preference Optimization) is a more modern, more direct way of
+using the same kind of preference data, without needing that separate
+reward-model step — a simplification of the same underlying idea, not a
+fundamentally different one.
+
+[The pipeline from Concepts 1–2](/01-llm-foundations/07-how-models-are-trained/01-pretraining/#what-actually-produces-the-parameters-behind-every-logit),
+now with preference training highlighted as the third stage:
+
+<TrainingPipeline client:load active={2} revealed={3} />
+
+</Subsection>
+
+<Subsection title="Where message roles actually come from" variant="a">
+
+Message roles are also learned during this post-training phase — worth
+being precise about, since it's easy to assume they're some hardcoded,
+architecturally-enforced category. They aren't. A conversation, as the
+model actually sees it, is just one flat sequence of tokens, with role
+markers embedded directly inside that sequence, like any other tokens:
+
+<LiveDemo client:load code={`formatted_conversation = (
+    "<|system|>\\nYou are a helpful assistant.\\n"
+    "<|user|>\\nWhat is the capital of France?\\n"
+    "<|assistant|>\\nThe capital of France is Paris.\\n"
+)
+print(formatted_conversation)`} />
+
+`<|system|>`, `<|user|>`, and `<|assistant|>` are just special tokens —
+processed by
+[the exact same attention mechanism as every other token in the sequence](/01-llm-foundations/03-attention-and-transformer-architecture/02-the-attention-mechanism/#query-key-value-the-mechanism-that-produces-those-weights),
+nothing architecturally separate about them at all. (The exact markers
+vary from model to model. The real `Qwen2.5-0.5B-Instruct` tokenizer,
+for example, renders this same conversation as
+`<|im_start|>system` … `<|im_end|>`, with `<|im_start|>` and
+`<|im_end|>` each a single special token in its vocabulary and the role
+names `system`, `user`, and `assistant` themselves just ordinary text
+right after the marker.) What a model *does* with content following a
+system marker — generally treating it as instructions to follow — is a
+**learned behavioral pattern**. The conversation format is typically
+introduced through SFT's formatted examples, and preference training
+then reinforces it, rating responses that appropriately followed the
+system instruction as better than ones that didn't, across countless
+examples. There's no special, unbypassable "trust channel" built into
+the architecture — only a strong, consistently reinforced learned habit.
+
+</Subsection>
+
+<Subsection title="Sycophancy: a real, documented side effect" variant="b">
+
+One genuine consequence of training on human preference judgments:
+people, on average, tend to rate agreeable, validating responses more
+favorably than responses that push back or say something they don't
+want to hear — even when the pushback is actually more accurate.
+Training on this kind of preference data can inadvertently teach a
+model to lean toward telling users what they want to hear, rather than
+what's correct — not a deliberate design goal, but a real, well-documented
+side effect of exactly how preference training data gets generated
+(see, for example, Sharma et al., 2023, "Towards Understanding
+Sycophancy in Language Models").
+
+</Subsection>
+
+<Subsection title="The root cause of prompt injection" variant="a">
+
+Directly following from the same fact about how roles work: since roles
+are a learned formatting convention rather than a hard, enforced
+security boundary, and instructions and data are ultimately processed
+as the exact same kind of tokens through the exact same mechanism, a
+model can't always reliably tell a genuinely trusted instruction apart
+from untrusted text that merely *resembles* one — this is the actual
+mechanistic root of prompt injection. Real defenses against it are
+covered properly in the later Agentic AI basics module — this lesson's
+job is only explaining why the vulnerability exists at all.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does preference training add, beyond what SFT already provides?",
+      options: [
+        "Nothing — it's a repeat of the exact same process as SFT",
+        "A way to distinguish which of several plausible responses is actually better, using comparisons rather than a single example to imitate",
+        "New factual knowledge the model didn't have before",
+        "The ability to process longer context windows",
+      ],
+      correctIndex: 1,
+      explanation:
+        "SFT imitates fixed examples; preference training learns from comparisons which plausible response is better.",
+    },
+    {
+      question: "What's the key difference between RLHF and DPO, as covered here?",
+      options: [
+        "They're completely unrelated training approaches",
+        "DPO uses the same kind of preference data as RLHF, but more directly, without needing a separate reward-model training step",
+        "DPO doesn't use any human or AI feedback at all",
+        "RLHF only works for very small models",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Both learn from preference comparisons; DPO skips the separate reward model that RLHF trains first.",
+    },
+    {
+      question: "Are message roles like system and user architecturally enforced, hardcoded categories?",
+      options: [
+        "Yes, they're a special, separate channel built into the architecture",
+        "No — they're just special tokens in a flat sequence, processed by the same attention mechanism as everything else; a model's \"respect\" for them is a learned behavioral pattern from training",
+        "Message roles don't actually exist in real models",
+        "Only the system role is architecturally special; the others aren't",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Role markers are ordinary tokens in one flat sequence; treating them as meaningful is a learned habit, not an architectural rule.",
+    },
+    {
+      question: "What is sycophancy, as described here, and where does it come from?",
+      options: [
+        "A deliberate design goal built into every model",
+        "A tendency to favor agreeable responses over accurate ones, arising because human preference judgments tend to rate agreeable answers more favorably, even when they're less correct",
+        "A bug unrelated to how the model was trained",
+        "Something that only affects models trained without any human feedback",
+      ],
+      correctIndex: 1,
+      explanation:
+        "It's a side effect of optimizing toward human preference ratings, which skew toward agreeable answers.",
+    },
+    {
+      question: "What is the actual mechanistic root cause of prompt injection, as explained here?",
+      options: [
+        "A specific software bug present in some models but not others",
+        "Roles are a learned convention, not a hard security boundary, and instructions and data are processed as the same kind of tokens — so a model can't always reliably tell trusted instructions apart from untrusted text resembling them",
+        "Prompt injection is caused entirely by user error, unrelated to how models are trained",
+        "It only affects models that have never undergone preference training",
+      ],
+      correctIndex: 1,
+      explanation:
+        "With no architectural boundary between instruction and data, only a learned habit separates them — and habits can be fooled.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

@@ -18,7 +18,12 @@ const STAGES: Stage[] = [
     blurb:
       "The same training process on a much smaller, curated set of instruction-response pairs — layered on top of the pretrained model. Teaches how to respond, not primarily new facts.",
   },
-  { name: "Preference training", short: "Stage 3", blurb: null },
+  {
+    name: "Preference training",
+    short: "Stage 3",
+    blurb:
+      "Humans (or an AI judge) pick the better of several candidate responses, and the model is trained toward what's preferred — RLHF, RLAIF, DPO.",
+  },
   { name: "RL for reasoning", short: "Stage 4", blurb: null },
 ];
 
