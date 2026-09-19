@@ -1,0 +1,128 @@
+---
+title: "KV cache — why it exists"
+lesson: "06-context-windows"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import KVCacheDiagram from "../../../../components/lesson/KVCacheDiagram";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The redundancy hiding inside the autoregressive loop" variant="a">
+
+[Lesson 4 established that generating each new token requires a full pass through the model, over the entire sequence so far](/01-llm-foundations/04-how-llms-generate-text/02-autoregressive-generation/#why-this-matters-computationally).
+Taken completely literally, that sounds wasteful: generating token 101
+would mean recomputing attention over all 100 prior tokens *plus* the
+new one, entirely from scratch — even though most of that work didn't
+actually need to change between one step and the next.
+
+</Subsection>
+
+<Subsection title="What actually doesn't need to be recomputed" variant="b">
+
+[Attention, from Lesson 3](/01-llm-foundations/03-attention-and-transformer-architecture/02-the-attention-mechanism/#query-key-value-the-mechanism-that-produces-those-weights),
+computes a Key and a Value for every token — and a given token's Key and
+Value only depend on that token's *own* representation, never on which
+generation step you happen to be at. Token 47's Key doesn't change just
+because you're now generating token 101 instead of token 48. (In a
+generating model, each token only ever looks at the tokens *before* it,
+so tokens added later can't change an earlier token's Key or Value.)
+That means Key and Value only ever need to be computed **once** per
+token, then reused for every subsequent step — this reuse is exactly
+what a **KV cache** (Key-Value cache) is: stored Key/Value vectors from
+every prior token, kept around so they never need recomputing, with only
+the *newest* token's Query (and its own Key/Value, added to the cache)
+actually requiring fresh computation at each step.
+
+<LiveDemo client:load code={`def compute_keys_with_cache(sequence: list, cache: dict) -> dict:
+    for token in sequence:
+        if token not in cache:
+            cache[token] = f"key_for_{token}"   # only ever computed once, per token
+    return cache
+
+sequence_so_far = ["The", "cat", "sat"]
+cache = {}
+
+for new_token in ["on", "the", "mat"]:
+    sequence_so_far.append(new_token)
+    cache = compute_keys_with_cache(sequence_so_far, cache)
+    print(f"cache size: {len(cache)}, just added: {new_token}")`} />
+
+`if token not in cache` — a check for whether a key is already stored,
+closely related to the missing-key handling from
+[`.get()` in Module 0](/00-python-essentials/02-collections/03-dicts/#key-access-and-the-difference-between-and-get)
+— is what makes this work: each step only ever computes the one
+genuinely new entry, since everything else is already sitting in `cache`
+from a previous step. (The first line prints `4` rather than `1` only
+because the cache starts empty, so that first pass also fills in the
+three prompt tokens.) This is a simplified stand-in for the real
+mechanism, but the shape is identical: the cache grows by exactly one
+entry per generated token, never recomputing what's already there.
+
+Step through the same sequence below — freshly computed entries are
+highlighted, entries pulled straight from the cache are dimmed and
+marked "reused," making visible just how little *new* computation
+actually happens per token once the cache is warm:
+
+<KVCacheDiagram client:load />
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why don't a token's Key and Value vectors need to be recomputed at every generation step?",
+      options: [
+        "They do need to be recomputed every time — there's no way around it",
+        "A token's Key and Value depend only on that token's own representation, not on which generation step is currently happening, so they never change once computed",
+        "Only the very first token's Key and Value ever get computed at all",
+        "Key and Value vectors are recalculated randomly each step",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Nothing about a token's Key or Value changes as later tokens get generated, so computing them once is enough.",
+    },
+    {
+      question: "What does a KV cache actually store?",
+      options: [
+        "The final generated text of previous responses",
+        "The already-computed Key and Value vectors for every prior token, so they can be reused instead of recomputed",
+        "A list of every possible next token, precomputed in advance",
+        "The user's entire conversation history as raw text",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The cache holds Key/Value vectors — intermediate attention results — not text, and not predictions.",
+    },
+    {
+      question: "At each new generation step, what actually needs to be computed fresh, given a KV cache already holding every prior token's Key and Value?",
+      options: [
+        "Every token's Key and Value, all over again",
+        "Only the newest token's Query (and its own Key/Value, which then gets added to the cache)",
+        "Nothing at all — the entire step is skipped",
+        "Only the very last layer of the model needs to run",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Everything about earlier tokens is already cached; only the newest token needs fresh work, and its Key/Value join the cache afterward.",
+    },
+    {
+      question: "In the live demo, why does the cache grow by exactly one entry per loop iteration, rather than being rebuilt from scratch each time?",
+      options: [
+        "It's actually rebuilt from scratch every iteration — the demo just doesn't show it",
+        "`if token not in cache` skips recomputing anything already stored, so only the genuinely new token from that iteration gets added",
+        "The cache has a fixed maximum size of one entry",
+        "Older entries get automatically deleted after each iteration",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The `not in cache` check skips every token already stored, so each iteration adds exactly one new entry.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
