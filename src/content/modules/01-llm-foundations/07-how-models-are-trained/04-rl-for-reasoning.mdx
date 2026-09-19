@@ -1,0 +1,124 @@
+---
+title: "RL for reasoning — the newest training stage"
+lesson: "07-how-models-are-trained"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import TrainingPipeline from "../../../../components/lesson/TrainingPipeline";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="A different kind of reward signal: correctness, not preference" variant="a">
+
+[Preference training](/01-llm-foundations/07-how-models-are-trained/03-preference-training-and-message-roles/#beyond-correct-format-which-response-is-actually-better)
+improves which *style* or *approach* of response humans (or an AI
+judge) prefer. It doesn't specifically train a model to reason through a
+problem step by step before answering. **RL for reasoning** is a newer
+training stage built for exactly that: training a model, via
+reinforcement learning, to generate extended intermediate reasoning
+before producing a final answer — with the reward signal here often
+being something more objective than human preference: whether the
+*final answer* is actually correct.
+
+[The pipeline from Concepts 1–3](/01-llm-foundations/07-how-models-are-trained/01-pretraining/#what-actually-produces-the-parameters-behind-every-logit),
+now completed with RL for reasoning as its fourth and most recent
+stage:
+
+<TrainingPipeline client:load active={3} revealed={4} />
+
+</Subsection>
+
+<Subsection title="Why correctness works as a reward signal here" variant="b">
+
+For domains with objectively checkable answers — math problems, code
+that either passes tests or doesn't, logic puzzles with one correct
+solution — you don't need a human to manually judge each response the
+way
+[preference training does](/01-llm-foundations/07-how-models-are-trained/03-preference-training-and-message-roles/#rlhf-rlaif-and-dpo-different-ways-of-using-the-same-idea).
+You can automatically check whether the final answer, after a chain of
+reasoning steps, is actually correct, and use that as a reward signal
+reinforcing whichever reasoning patterns tend to *lead to* correct
+answers. This is a genuinely more scalable, automatable training signal
+than human preference judgments, at least for the specific domains where
+"correct" is unambiguous and checkable.
+
+</Subsection>
+
+<Subsection title="Where this leads directly: reasoning models and test-time compute" variant="a">
+
+This training stage is precisely what produces what get called
+**reasoning models** — models that, when actually generating a
+response, produce a substantial amount of intermediate reasoning text
+before their final answer, because that's exactly the behavior this
+training stage rewarded. And
+[every one of those intermediate reasoning tokens is a real, full generation step](/01-llm-foundations/04-how-llms-generate-text/02-autoregressive-generation/#the-model-never-generates-more-than-one-token-at-once)
+— the same computational cost as any other token,
+[covered back in Lesson 4](/01-llm-foundations/04-how-llms-generate-text/02-autoregressive-generation/#why-this-matters-computationally).
+This directly explains why reasoning models cost more and take longer
+to respond: they're not doing something mysteriously different per
+token, they're simply generating *more* tokens — the reasoning itself —
+before reaching their answer. The practical tradeoffs of this, and when
+it's actually worth the extra cost, are covered directly in the next
+lesson under **test-time compute** — this concept's job is only
+establishing where that behavior actually comes from: a specific,
+deliberate training stage, not an emergent accident.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What reward signal does RL for reasoning typically use, that's different from preference training's signal?",
+      options: [
+        "The exact same human preference judgments used in preference training",
+        "Whether the final answer is actually correct, often checkable automatically for domains like math or code",
+        "How quickly the model generates its response",
+        "How many words the response contains",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Instead of a human or AI judge ranking responses, the reward is whether the final answer is verifiably correct.",
+    },
+    {
+      question: "Why does correctness work well as an automatic reward signal for domains like math or code, specifically?",
+      options: [
+        "It doesn't — every domain requires human judgment",
+        "These domains have objectively checkable answers, so correctness can be verified automatically without needing a human to judge each response",
+        "Math and code problems never have a single correct answer",
+        "Correctness-based rewards only work for very short responses",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A math answer can be compared to the known result and code can be run against tests — no human judge needed per response.",
+    },
+    {
+      question: "Why do reasoning models tend to cost more and take longer to respond, mechanically?",
+      options: [
+        "Each individual token they generate is somehow more computationally expensive than a normal token",
+        "They generate substantially more tokens — the intermediate reasoning itself — before reaching a final answer, and every token requires its own full, real generation step",
+        "Reasoning models use an entirely different, unrelated architecture",
+        "Reasoning models always run on slower hardware",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Per token the cost is the same; the reasoning simply adds many more tokens, each one a full generation step.",
+    },
+    {
+      question: 'What does this concept establish as the actual origin of "reasoning" behavior in a model?',
+      options: [
+        "It's an accidental, unexplained emergent property with no clear cause",
+        "A specific, deliberate training stage — RL for reasoning — that rewards generating extended reasoning leading to correct final answers",
+        "Reasoning behavior is present in every model regardless of training",
+        "It comes entirely from pretraining, with no additional stage needed",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The extended-reasoning behavior is what this stage explicitly rewards, so it comes from deliberate training rather than an accident.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

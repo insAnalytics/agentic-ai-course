@@ -610,8 +610,14 @@ Generate Text) are now fully Locked.
    `<|im_start|>`/`<|im_end|>` special tokens) and added a Sharma et al.
    (2023) citation for sycophancy — see architecture.md §2. The "Agentic
    AI basics module" callback stays plain text (module not built).
-   Remaining concepts not yet drafted (RL for reasoning next, per its
-   own mockup). No bookends yet.
+   Concept 4 drafted: RL for reasoning (correctness as a
+   verifiable reward signal; reasoning models as the product of a
+   deliberate training stage; why they cost more — more tokens, each a
+   full generation step). Prose-only, nothing to verify.
+   `TrainingPipeline.tsx` is now fully populated with all four stages.
+   The "next lesson ... test-time compute" callback stays plain text (that
+   lesson isn't built). Remaining concepts not yet drafted (fine-tuning
+   as a builder's option next, per its own mockup). No bookends yet.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken

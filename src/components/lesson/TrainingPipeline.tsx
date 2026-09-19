@@ -24,7 +24,12 @@ const STAGES: Stage[] = [
     blurb:
       "Humans (or an AI judge) pick the better of several candidate responses, and the model is trained toward what's preferred — RLHF, RLAIF, DPO.",
   },
-  { name: "RL for reasoning", short: "Stage 4", blurb: null },
+  {
+    name: "RL for reasoning",
+    short: "Stage 4",
+    blurb:
+      "Reinforcement learning that rewards extended step-by-step reasoning leading to a verifiably correct final answer — the newest stage, and the source of reasoning models.",
+  },
 ];
 
 interface TrainingPipelineProps {
