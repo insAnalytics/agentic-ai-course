@@ -522,8 +522,7 @@ Generate Text) are now fully Locked.
 
 6. **Context Windows and KV Cache** — Locked
    Title confirmed by the bookends mockup (folder renamed from the working
-   name `06-context-windows` to `06-context-windows-and-kv-cache`). Concept 1 — rename the
-   folder/`_lesson.yaml` if the drafter's real title differs). Concept 1
+   name `06-context-windows` to `06-context-windows-and-kv-cache`). Concept 1
    drafted: what a context window is (one shared token budget covering
    prompt, history, and response), why the limit exists at all
    (attention's pairwise cost grows with the square of sequence length),
