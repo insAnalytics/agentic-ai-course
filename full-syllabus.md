@@ -768,9 +768,17 @@ Generate Text) are now fully Locked.
     structurally unreachable, contrasted with Lesson 1.5's soft penalties.
     Demo verified (added `round(p, 3)` so the live output matches the
     mockup's rounded expected output); added a note that the guarantee
-    covers shape, not truth of values. Remaining concepts not yet drafted
-    (from a Pydantic model to an enforceable schema next, per its own
-    mockup). No bookends yet.
+    covers shape, not truth of values. Concept 3 drafted: from a Pydantic model to an enforceable
+    schema (`.model_json_schema()`, the same `BaseModel` doing double duty
+    for FastAPI validation and LLM output constraints, the full round trip).
+    Both demos verified exactly. **Finding:** the mockup's illustrative
+    request used a `response_format`/`json_schema` field that's valid for
+    neither Claude (`output_config.format`) nor OpenAI-style APIs (which
+    need a `{name, schema}` wrapper); replaced with the accurate Claude
+    shape and a provider-variation note, and added a `max_tokens`
+    truncation caveat tying back to Lesson 1.9 — see architecture.md §2's
+    finding log. Remaining concepts not yet drafted (tool calling next, per
+    its own mockup). No bookends yet.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken

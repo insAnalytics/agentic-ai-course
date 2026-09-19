@@ -1,0 +1,145 @@
+---
+title: "From a Pydantic model to an enforceable schema"
+lesson: "10-structured-outputs"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Where the schema constraining generation actually comes from" variant="a">
+
+[Concept 2 showed how constrained decoding masks invalid tokens](/01-llm-foundations/10-structured-outputs/02-constrained-decoding/)
+— but that mechanism needs to be told, concretely, what "valid"
+actually means for a given request. This is where
+[`AgentConfig` and every other `BaseModel` used as a teaching device throughout Module 0](/00-python-essentials/05-typed-data-models/04-pydantic-fundamentals/)
+finally gets its real, practical payoff: a Pydantic model converts
+directly into a **JSON Schema** — a standard, structured,
+language-agnostic description of a data shape — and that JSON Schema is
+exactly what gets sent to the API to define what "valid" means for that
+specific request.
+
+</Subsection>
+
+<Subsection title="Generating the schema directly from a model you already know" variant="b">
+
+<LiveDemo client:load code={`from pydantic import BaseModel
+
+class AgentConfig(BaseModel):
+    name: str
+    model: str
+    temperature: float = 0.7
+
+schema = AgentConfig.model_json_schema()
+print(schema)`} />
+
+`.model_json_schema()` is a built-in Pydantic method — no manual schema
+writing needed at all. Every field's type and requiredness comes
+directly from the exact same class definition
+[used for request validation back in the FastAPI lesson](/00-python-essentials/09-building-apis-with-fastapi/04-request-bodies-and-uploads/#a-basemodel-parameter-is-the-request-body)
+— the identical model doing double duty: validating a FastAPI request
+body on one side, and defining what an LLM's output is *guaranteed* to
+look like on the other.
+
+</Subsection>
+
+<Subsection title="The full round trip" variant="a">
+
+The schema generation and the final parsing below genuinely run live.
+The request itself is just a dictionary here — nothing is sent — and the
+response text is illustrative, standing in for what a real call would
+return.
+
+<LiveDemo client:load code={`from pydantic import BaseModel
+
+# 1. define the shape you want, exactly as you would for a FastAPI request body
+class AgentConfig(BaseModel):
+    name: str
+    model: str
+    temperature: float = 0.7
+
+# 2. generate the schema, and include it in the API request
+schema = AgentConfig.model_json_schema()
+request_body = {
+    "model": "claude-haiku-4-5",
+    "max_tokens": 500,
+    "messages": [{"role": "user", "content": "Create a research agent config using claude-sonnet"}],
+    "output_config": {"format": {"type": "json_schema", "schema": schema}},
+}
+
+# 3. the response is guaranteed to match that schema -- parse it directly
+guaranteed_response_text = '{"name": "research_agent", "model": "claude-sonnet", "temperature": 0.7}'
+config = AgentConfig.model_validate_json(guaranteed_response_text)
+print(config)`} />
+
+The request body's exact field for the schema depends on the provider —
+Anthropic's Messages API takes it under `output_config.format`, while
+OpenAI-style APIs use a `response_format` field with a slightly
+different wrapper — and many SDKs go one step further and accept the
+Pydantic class directly, doing this conversion for you. The idea is the
+same everywhere: the schema travels in the request.
+
+`AgentConfig.model_validate_json(...)` here is
+[the exact same parsing method covered in Concept 1's failure demo](/01-llm-foundations/10-structured-outputs/01-the-naive-approach/)
+— the crucial difference is that this time, because constrained decoding
+already guaranteed the response matches the schema at generation time,
+this parsing step essentially can't fail on a shape mismatch the way it
+did against a naively-prompted response. Pydantic validation here is a
+final confirmation and type-conversion step, not a defense against an
+unreliable model.
+
+One real-world exception is worth knowing: the guarantee applies to a
+response that *finishes*. If generation is cut off by the output limit
+(`stop_reason: "max_tokens"`, from
+[the previous lesson's response shape](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/02-the-response-shape/)),
+the JSON can end mid-object and fail to parse, so a careful client still
+checks `stop_reason` before trusting the result.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does .model_json_schema() on a Pydantic BaseModel actually produce?",
+      options: [
+        "A new instance of the model, populated with default values",
+        "A JSON Schema — a structured, language-agnostic description of the model's fields, types, and which are required",
+        "A random sample of valid data matching the model",
+        "The model's Python source code, as a string",
+      ],
+      correctIndex: 1,
+      explanation:
+        "It returns a JSON Schema dict describing the model's fields, their types, and which are required.",
+    },
+    {
+      question: "Why is it significant that the same AgentConfig class can be used both to validate a FastAPI request body and to define an LLM's guaranteed output shape?",
+      options: [
+        "It isn't significant — these are two unrelated uses of similar-looking code",
+        "It's the same class doing double duty, directly connecting a mechanism already learned (Pydantic validation) to a new context (constraining LLM output) without learning anything fundamentally new",
+        "FastAPI and LLM APIs require completely incompatible schema formats",
+        "AgentConfig needs to be rewritten entirely for each different use",
+      ],
+      correctIndex: 1,
+      explanation:
+        "One Pydantic class defines the shape; FastAPI uses it to validate input and the LLM API uses its schema to constrain output.",
+    },
+    {
+      question: "Why does parsing a constrained-decoding-guaranteed response with model_validate_json() behave differently in practice than parsing a naively-prompted response from Concept 1?",
+      options: [
+        "It's the exact same risk of failure in both cases",
+        "Because constrained decoding already guaranteed the response matches the schema at generation time, this parsing step essentially can't fail on a shape mismatch, unlike the naive case",
+        "model_validate_json() only works with constrained-decoding responses",
+        "Constrained decoding removes the need to parse the response at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The shape was enforced during generation, so parsing becomes confirmation and type conversion rather than a defense against bad output.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
