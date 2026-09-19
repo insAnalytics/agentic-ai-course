@@ -535,10 +535,22 @@ Generate Text) are now fully Locked.
    added one hedge sentence and a matching quiz-question qualifier,
    since some providers reject an over-budget request instead of
    clamping it as the demo does. Concept 1's "next concept" callback now
-   links to this page. The earlier Lesson 1.1 forward
-   references to a "context windows and KV cache" concept (still plain
-   text) may belong here — decide once this lesson's full scope is
-   known. No bookends yet.
+   links to this page.
+
+   Concept 3 drafted: KV cache — why a token's Key/Value never needs
+   recomputing, and what the cache stores. Demo verified exactly
+   (`4`/`5`/`6`) in local Python and the shipped Pyodide `LiveDemo`. The
+   mockup's interactive became `KVCacheDiagram.tsx` (step-through, fresh
+   vs. "reused" tokens, running with/without-cache computation totals —
+   structural, no data-accuracy claims; see architecture.md's component
+   tree). Small accuracy edits to the mockup's prose: added a
+   causal-masking parenthetical (a token's Key/Value are stable because
+   tokens only look backward), reworded "the exact same lookup pattern as
+   `.get()`" (the demo uses an `in` membership check, only closely
+   related to `.get()`), and explained why the demo's first line prints
+   `4`, not `1` (the cache starts empty, so the prompt tokens get filled
+   in too). Remaining concepts not yet drafted (prompt structure vs.
+   cache-hit rate and cost next, per its own mockup). No bookends yet.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
