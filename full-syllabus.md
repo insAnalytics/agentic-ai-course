@@ -556,9 +556,21 @@ Generate Text) are now fully Locked.
    output is `10` (the prompts also share `"Question : What is"`), a
    ninth mockup-cited-number error, verified in local Python and the
    shipped Pyodide `LiveDemo` — see architecture.md §2's "Real next-token
-   predictions" row. Also reworded a garbled Concept 3 callback. Remaining
-   concepts not yet drafted (uneven use of long contexts next, per its own
-   mockup). No bookends yet.
+   predictions" row. Also reworded a garbled Concept 3 callback. Concept 5 drafted (the final concept section, per its
+   own mockup): the lost-in-the-middle effect. The mockup's "accuracy by
+   position" interactive is `PositionAccuracyChart.tsx`, plotting the
+   *real* published data from Liu et al. (2023), Appendix G.2 Table 6
+   (four models, 20 documents), not an invented curve — extracted
+   programmatically from the paper and logged in architecture.md §2.
+   **Finding:** the mockup called the shape "consistently U-shaped"; the
+   real data is cleanly U-shaped only for GPT-3.5-Turbo (its middle
+   accuracy even falls below its no-documents baseline) and much
+   shallower or start-heavy for the others, so the prose was written to
+   say what actually holds (best accuracy at an edge, middle used less
+   reliably). The "later prompt engineering scope in the Agentic AI basics
+   module" callback is left as plain text (that module isn't built).
+   Remaining for this lesson: bookends (outcomes intro, comprehensive
+   quiz, closing synthesis — drafted separately). Not yet Locked.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
