@@ -487,8 +487,20 @@ Generate Text) are now fully Locked.
    once a token has appeared at all), with a live side-by-side demo.
    Demo output verified exactly against real Python and the shipped
    Pyodide `LiveDemo` (no error to fix; pure arithmetic, no interactive
-   component needed). Remaining concepts not yet drafted (logprobs next,
-   per its own mockup). No bookends yet.
+   component needed).
+
+   Concept 5 drafted: logprobs — why the log (products of many small
+   probabilities become stable sums), reading a logprob (near 0 = high
+   confidence), and the Lesson 4 confident-fact vs. fabricated-scenario
+   distributions re-read as logprobs. **Finding:** the mockup's cited
+   logprobs (`Paris -0.066`, `Aldric Thorne -0.931`, ...) were computed
+   from the *old, incorrect* Lesson 4 probabilities, despite claiming to
+   be "the exact distributions from Lesson 4"; the demo now runs the
+   real Lesson 4 logits through `softmax` first, giving `Paris -0.001`,
+   `Lyon -7.701`, `Aldric Thorne -0.819` — same point, sharper
+   contrast. See architecture.md §2. Remaining concepts not yet drafted
+   (stop sequences and nondeterminism at temperature 0 next, per its own
+   mockup). No bookends yet.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
