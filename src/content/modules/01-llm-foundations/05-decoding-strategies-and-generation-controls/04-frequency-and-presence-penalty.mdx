@@ -1,0 +1,136 @@
+---
+title: "Frequency penalty vs. presence penalty"
+lesson: "05-decoding-strategies-and-generation-controls"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Why another repetition control is needed at all" variant="a">
+
+[Sampling already reduces greedy decoding's repetition problem](/01-llm-foundations/05-decoding-strategies-and-generation-controls/01-greedy-decoding-vs-sampling/#sampling-actually-drawing-from-the-distribution)
+but it doesn't eliminate it — a token that's already appeared can still
+remain genuinely high-probability, and get sampled again, and again,
+producing text that loops or over-uses the same word. Frequency and
+presence penalties are two more controls, applied directly to logits
+*before* softmax runs, specifically to discourage a token the generation
+has already used.
+
+</Subsection>
+
+<Subsection title="Frequency penalty: the penalty grows with repeated use" variant="b">
+
+Frequency penalty subtracts an amount from a token's logit that scales
+directly with how many times that token has already appeared in the
+generation so far — the more it's been used, the larger the penalty
+gets:
+
+```python
+def frequency_penalty_adjustment(logit: float, times_used: int, penalty: float) -> float:
+    return logit - (penalty * times_used)
+```
+
+</Subsection>
+
+<Subsection title="Presence penalty: a flat penalty, triggered once" variant="a">
+
+Presence penalty subtracts a fixed amount the moment a token has
+appeared *at all* — regardless of whether it's appeared once or ten
+times, the penalty never grows beyond that one flat amount:
+
+```python
+def presence_penalty_adjustment(logit: float, times_used: int, penalty: float) -> float:
+    return logit - (penalty if times_used > 0 else 0)
+```
+
+</Subsection>
+
+<Subsection title="The distinction, made concrete" variant="b">
+
+<LiveDemo client:load code={`def frequency_penalty_adjustment(logit: float, times_used: int, penalty: float) -> float:
+    return logit - (penalty * times_used)
+
+def presence_penalty_adjustment(logit: float, times_used: int, penalty: float) -> float:
+    return logit - (penalty if times_used > 0 else 0)
+
+base_logit = 5.0
+penalty = 1.0
+
+for times_used in [0, 1, 2, 3]:
+    freq_adjusted = frequency_penalty_adjustment(base_logit, times_used, penalty)
+    presence_adjusted = presence_penalty_adjustment(base_logit, times_used, penalty)
+    print(f"used {times_used}x -> frequency: {freq_adjusted}, presence: {presence_adjusted}")`} />
+
+At `0` and `1` prior uses, both penalties behave identically. The real
+difference shows up from `2` uses onward: frequency penalty keeps
+subtracting more with every additional repetition (`3.0`, then `2.0`),
+while presence penalty stays fixed at `4.0` forever, once triggered —
+it only ever cares *whether* a token has appeared, never *how many*
+times.
+
+</Subsection>
+
+<Subsection title="When each one actually fits" variant="a">
+
+Frequency penalty is the better tool for discouraging genuine
+word-level loops or over-repetition — a word used five times gets
+noticeably more discouraged than a word used once, exactly matching the
+severity of the actual problem. Presence penalty is better suited to a
+different goal: nudging generation toward introducing new topics or
+vocabulary at least once, without continuing to punish a word every
+single additional time it's legitimately needed — a technical term that
+genuinely needs repeating (like `"Pydantic"` across a technical
+explanation) gets penalized once under presence penalty and never
+further, whereas frequency penalty would keep making it more and more
+expensive to use again, even when repeating it is actually the right
+call.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "How does frequency penalty's effect on a token's logit change as that token gets used more times?",
+      options: [
+        "It stays exactly the same no matter how many times the token is used",
+        "It grows larger with each additional use — the penalty scales directly with repetition count",
+        "It only applies the first time a token is used, then disappears",
+        "It decreases the more a token is used",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Frequency penalty subtracts penalty × times_used, so every additional use makes the next use more heavily discouraged.",
+    },
+    {
+      question: "How does presence penalty behave differently from frequency penalty, once a token has appeared more than once?",
+      options: [
+        "They behave identically in every case",
+        "Presence penalty stays fixed at the same flat amount regardless of additional uses, while frequency penalty keeps growing",
+        "Presence penalty grows even faster than frequency penalty",
+        "Presence penalty resets to zero after the second use",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Presence penalty only asks whether a token has appeared at all — one flat subtraction, never more — while frequency penalty keeps scaling with the count.",
+    },
+    {
+      question: "Why might presence penalty be the better choice for a response that legitimately needs to repeat a specific technical term many times?",
+      options: [
+        "Presence penalty prevents the term from being used at all after the first time",
+        "It only applies one flat penalty the first time the term appears, without continuing to make every additional legitimate repetition increasingly expensive the way frequency penalty would",
+        "Presence penalty and frequency penalty behave identically in this case",
+        "Technical terms are automatically exempt from both penalty types",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A flat, one-time penalty doesn't keep punishing a term that genuinely needs repeating, whereas frequency penalty's growing cost would.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

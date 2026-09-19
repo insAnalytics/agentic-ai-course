@@ -480,8 +480,15 @@ Generate Text) are now fully Locked.
    elsewhere in the project); re-verified via Playwright that each
    concept's page now shows exactly the controls it should. See
    architecture.md §2's "Real next-token predictions" row for the full
-   account. Remaining concepts not yet drafted (frequency penalty vs.
-   presence penalty next, per its own mockup). No bookends yet.
+   account.
+
+   Concept 4 drafted: frequency penalty (logit minus `penalty × times_used`,
+   growing with repetition) vs. presence penalty (one flat subtraction
+   once a token has appeared at all), with a live side-by-side demo.
+   Demo output verified exactly against real Python and the shipped
+   Pyodide `LiveDemo` (no error to fix; pure arithmetic, no interactive
+   component needed). Remaining concepts not yet drafted (logprobs next,
+   per its own mockup). No bookends yet.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
