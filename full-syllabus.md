@@ -640,10 +640,9 @@ Generate Text) are now fully Locked.
    graded sandbox (no learner-authored code). No new verification
    findings in the bookends. Lesson 1.7 is now fully Locked.
 
-8. **Scaling Laws and Emergent Behavior** — Building
-   Title is a working name (taken from Lesson 1.7's own forward reference;
-   the mockup names only Concept 1 — rename the folder/`_lesson.yaml` if
-   the drafter's real title differs). Concept 1 drafted: scaling laws, the
+8. **Scaling Laws and Emergent Behavior** — Locked
+   Title confirmed by the bookends mockup (it matched the working name, so
+   no rename was needed). Concept 1 drafted: scaling laws, the
    training-time picture (smooth, predictable power-law decrease in
    training loss with scale; why the predictability is useful; what it
    does and doesn't describe). The mockup's log-log scaling curve is
@@ -684,9 +683,15 @@ Generate Text) are now fully Locked.
    tie: `0.00225` is stored just below the boundary) — see
    architecture.md §2. Lesson 7 Concept 4's forward reference to this
    concept now links here. The "quantization, cost and operational
-   concerns" lesson callback stays plain text (not built). Remaining for
-   this lesson: bookends (outcomes intro, comprehensive quiz, closing
-   synthesis — drafted separately). Not yet Locked.
+   concerns" lesson callback stays plain text (not built).
+
+   Bookends: outcomes/why-it-matters intro (`00-intro.mdx`) and a
+   Recap & Practice page (`05-recap-practice.mdx`) with an 8-question
+   comprehensive quiz spanning all four concepts plus an ungraded closing
+   synthesis — classify four scenarios as training-time vs. inference-time
+   scaling and decide when a reasoning model is worth its cost. Deliberately
+   not a graded sandbox (no learner-authored code). No new verification
+   findings in the bookends. Lesson 1.8 is now fully Locked.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken

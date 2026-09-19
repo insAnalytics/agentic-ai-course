@@ -1,0 +1,153 @@
+---
+title: "Recap & Practice"
+lesson: "08-scaling-laws-and-emergent-behavior"
+order: 5
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does a scaling law, in this context, actually describe?",
+      options: [
+        "A fixed legal requirement for model size",
+        "An empirically observed relationship where training loss decreases smoothly and predictably as model size, data, and compute increase together",
+        "A random relationship between model size and performance",
+        "A rule only applying to models below a certain size",
+      ],
+      correctIndex: 1,
+      explanation:
+        "It's an observed pattern — loss falls along a smooth power-law curve as scale grows — not a rule imposed on anyone.",
+    },
+    {
+      question: 'What\'s the core argument behind the "measurement artifact" counterexplanation for apparent emergent abilities?',
+      options: [
+        "Emergent abilities are entirely fabricated and never observed",
+        "An all-or-nothing scoring metric can show a sharp jump even when the underlying capability was improving smoothly, since only a complete exact match counts as a nonzero score",
+        "Larger models are always scored more leniently",
+        "This counterargument has been definitively disproven",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The jump can come from the scoring rule, not the ability: exact match stays near zero until the smooth underlying improvement is large enough for every digit to be right.",
+    },
+    {
+      question: "How does this lesson ultimately treat the emergence debate?",
+      options: [
+        'It declares "genuine emergence" definitively correct',
+        "It presents both positions as genuinely held by serious researchers, without declaring either settled",
+        'It declares "measurement artifact" definitively correct',
+        "It avoids describing either position",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The honest position is naming the debate and why it's hard to settle, not picking a winner.",
+    },
+    {
+      question: "What happens to a model's parameters during in-context learning?",
+      options: [
+        "They get updated slightly through a lightweight training pass",
+        "Nothing — the parameters stay completely frozen; everything happens within a single forward pass",
+        "They get completely retrained",
+        "Only the embedding layer changes",
+      ],
+      correctIndex: 1,
+      explanation:
+        "In-context learning involves no training at all: the same frozen weights just process the examples as ordinary input.",
+    },
+    {
+      question: "How does in-context learning's scaling behavior relate to training loss scaling from Concept 1?",
+      options: [
+        "They're identical — the same thing under different names",
+        "They're distinct: larger models aren't just lower-loss, they're also better at this specific non-training-based adaptation, given the same examples",
+        "In-context learning ability decreases as models get larger",
+        "There's no relationship between the two at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Loss curves describe training loss; better in-context learning at larger scale is a separate, capability-level observation.",
+    },
+    {
+      question: 'What does "test-time compute" refer to?',
+      options: [
+        "Total compute spent training a model before it's used",
+        "Additional compute spent at the moment of actually answering a question — more reasoning tokens before a final answer",
+        "The compute required to fine-tune a model",
+        "The compute needed to evaluate benchmark scores",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Training-time scaling is spent before use; test-time compute is spent per question, in the form of extra reasoning tokens.",
+    },
+    {
+      question: "Where does a reasoning model's tendency to generate extended reasoning actually come from?",
+      options: [
+        "An unexplained emergent property",
+        "RL for reasoning — a specific training stage rewarding extended reasoning that leads to correct final answers",
+        "Pretraining alone",
+        "A property of the tokenizer",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The extended-reasoning behavior is what RL for reasoning explicitly rewards (Lesson 7), so it's a deliberate product of training.",
+    },
+    {
+      question: "Why might routing every request through a reasoning model, regardless of difficulty, be a poor design choice?",
+      options: [
+        "Reasoning models are strictly worse at every task",
+        "Simple tasks rarely benefit meaningfully from extra reasoning tokens, so the added cost and latency there is often wasted",
+        "Reasoning models can't handle simple tasks",
+        "This is actually always the best choice",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Extra reasoning helps multi-step problems most; on simple tasks you pay the added cost and latency for little gain.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<Subsection title="Closing synthesis — training-time or inference-time, and is it worth it?" variant="a">
+
+This isn't graded — it's a chance to apply the two axes of scaling and
+the reasoning-model routing decision to new cases.
+
+For each scenario, decide: is the described improvement a
+**training-time** or **inference-time** scaling effect, and — for the
+two request scenarios — would a reasoning model likely be worth its
+extra cost?
+
+1. A lab trains a new version of a model with 3× more parameters and 3×
+   more training data than the previous version, and observes lower
+   loss.
+2. A model is asked to solve a multi-step logic puzzle, and generates
+   several paragraphs of intermediate reasoning before its final answer.
+3. **Request A:** "What's the capital of Japan?"
+4. **Request B:** "Plan a 5-step migration strategy for moving this
+   codebase from Flask to FastAPI, accounting for these three
+   constraints: [...]"
+
+*Reasoning to check against:* (1) is training-time scaling —
+[exactly Concept 1's picture](/01-llm-foundations/08-scaling-laws-and-emergent-behavior/01-scaling-laws/),
+a bigger model trained once. (2) is inference-time scaling —
+[test-time compute, from Concept 4](/01-llm-foundations/08-scaling-laws-and-emergent-behavior/04-test-time-compute/),
+the same model spending more compute on this specific, harder request.
+(3) is a simple factual lookup — a reasoning model's extra thinking
+tokens would very likely add cost and latency with no real quality
+improvement; a standard model is the better fit. (4) is a genuinely
+multi-step planning task with real constraints to reason through —
+[exactly the case Concept 4 identified as where test-time compute earns its cost](/01-llm-foundations/08-scaling-laws-and-emergent-behavior/04-test-time-compute/#the-practical-tradeoffs-as-a-real-design-decision).
+
+The pattern worth taking away: "make the model better" isn't one lever —
+it's at least two genuinely different ones, trained-in capability versus
+compute spent per request, and knowing which one you're actually
+reaching for is what makes a routing decision a real engineering
+judgment rather than a guess.
+
+</Subsection>
