@@ -1,0 +1,134 @@
+---
+title: "Stop sequences, and nondeterminism even at temperature 0"
+lesson: "05-decoding-strategies-and-generation-controls"
+order: 6
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Stop sequences: controlling when generation ends, not which token comes next" variant="a">
+
+Every control covered so far in this lesson shapes *which* token gets
+picked. A **stop sequence** is different in kind: an explicit string
+that, the moment it appears in the generated output, halts generation
+immediately — regardless of what the model would otherwise have
+continued producing.
+
+<LiveDemo client:load code={`def generate_until_stop(tokens_to_generate: list, stop_sequence: str) -> str:
+    generated = ""
+    for token in tokens_to_generate:
+        generated += token
+        if stop_sequence in generated:
+            break
+    return generated
+
+tokens = ["Here", " is", " the", " answer", ":", " 42", "\\n\\n", "Let", " me", " explain", " further", "..."]
+result = generate_until_stop(tokens, stop_sequence="\\n\\n")
+print(result)`} />
+
+The moment `"\n\n"` shows up in the accumulated text, the loop breaks —
+`"Let me explain further..."` never gets included in the result, even
+though it was sitting right there in `tokens`, ready to be appended.
+(The blank space after `42` in the output is the `"\n\n"` itself — this
+toy version keeps the stop sequence in its result, whereas real APIs
+typically cut generation off and leave the stop sequence out.) This is
+a genuinely practical control: cutting a response off precisely at a
+known structural marker, rather than relying on the model to decide on
+its own when to stop.
+
+</Subsection>
+
+<Subsection title="A common wrong assumption: temperature 0 means identical output, always" variant="b">
+
+[Temperature approaching 0 was covered as equivalent, in the limit, to greedy decoding](/01-llm-foundations/05-decoding-strategies-and-generation-controls/02-temperature/#the-two-extremes-and-why-temperature-is-the-right-word-for-it)
+— always taking the single highest-probability token. It's tempting to
+conclude from this that temperature `0` guarantees byte-for-byte
+identical output for the exact same input, every single time. In
+practice, this often isn't quite true.
+
+The reason comes down to real infrastructure, not the decoding math
+itself: the result of floating-point arithmetic can depend on the
+*order* operations happen in —
+
+<LiveDemo client:load code={`a = (0.1 + 0.2) + 0.3
+b = 0.1 + (0.2 + 0.3)
+print(a == b)`} />
+
+— and providers commonly **batch** multiple different users' requests
+together on the same hardware for efficiency. Exactly which other
+requests happen to be batched alongside yours, at any given moment,
+subtly changes the order floating-point operations actually execute
+in — the same underlying phenomenon the toy example above illustrates,
+just happening inside a model's real computation instead of a simple
+arithmetic expression. When two candidate tokens' logits are extremely
+close, this tiny numerical variation can occasionally flip which one
+comes out narrowly ahead — even at temperature `0`, even for the exact
+same prompt.
+
+This is worth being direct about, since it's a genuinely common,
+reasonable-sounding assumption that turns out to be wrong in practice:
+temperature `0` makes output *far* more consistent and predictable than
+higher temperatures, but it doesn't provide an absolute, mathematical
+guarantee of byte-for-byte identical output across every call.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does a stop sequence actually control?",
+      options: [
+        "Which specific token gets chosen at each generation step",
+        "When generation halts entirely — the moment the specified string appears in the output, generation stops immediately, regardless of what would have come next",
+        "The overall length of every response, regardless of content",
+        "How confident the model is in its output",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Unlike temperature, top-p, top-k and the penalties, a stop sequence doesn't influence which token is picked — it only decides when generation ends.",
+    },
+    {
+      question: 'In the stop-sequence demo, why doesn\'t "Let me explain further..." appear in the final result, even though it was present in tokens_to_generate?',
+      options: [
+        "It's a bug in the function",
+        "The loop breaks the moment the stop sequence appears in the accumulated text, before ever reaching the remaining tokens in the list",
+        '"Let me explain further..." isn\'t a valid string',
+        "Stop sequences only work on the very first token, not later ones",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The break fires as soon as \"\\n\\n\" is in the accumulated text, so the remaining tokens are never appended.",
+    },
+    {
+      question: "Why can temperature 0 fail to produce byte-for-byte identical output across identical requests, in practice?",
+      options: [
+        "It always produces identical output — this never actually happens",
+        "Real infrastructure details, like batching multiple requests together on shared hardware, can subtly change the order floating-point operations execute in, which can occasionally flip which of two very close candidates comes out narrowly ahead",
+        "Temperature 0 disables the model's logit computation entirely",
+        "This only happens with sampling-based decoding, never greedy",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The decoding math is deterministic; the arithmetic underneath it isn't perfectly order-independent, and batching changes the order.",
+    },
+    {
+      question: "What does (0.1 + 0.2) + 0.3 != 0.1 + (0.2 + 0.3) illustrate, in the context of this concept?",
+      options: [
+        "That Python's arithmetic is fundamentally broken",
+        "The same underlying floating-point phenomenon — operation order subtly affecting the exact result — that also applies inside a real model's computation, contributing to nondeterminism even at temperature 0",
+        "That temperature settings directly control floating-point precision",
+        "That stop sequences and floating-point arithmetic are the same mechanism",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Regrouping the same additions changes the last digits of the result (0.6000000000000001 vs. 0.6) — the same order-sensitivity that batching exposes inside a real model.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

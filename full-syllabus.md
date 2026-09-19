@@ -498,9 +498,18 @@ Generate Text) are now fully Locked.
    be "the exact distributions from Lesson 4"; the demo now runs the
    real Lesson 4 logits through `softmax` first, giving `Paris -0.001`,
    `Lyon -7.701`, `Aldric Thorne -0.819` — same point, sharper
-   contrast. See architecture.md §2. Remaining concepts not yet drafted
-   (stop sequences and nondeterminism at temperature 0 next, per its own
-   mockup). No bookends yet.
+   contrast. See architecture.md §2. Concept 6 drafted (the final
+   concept section, per its own mockup): stop sequences (controlling
+   *when* generation ends rather than *which* token is picked) and why
+   temperature 0 still isn't a byte-for-byte determinism guarantee
+   (floating-point order-sensitivity plus request batching). Both demos
+   verified in local Python and the shipped Pyodide `LiveDemo`; added one
+   clarifying sentence that the toy function keeps the stop sequence in
+   its result while real APIs typically omit it, and reworded the
+   mockup's slightly-off "isn't perfectly consistent regardless of the
+   order" to "can depend on the order". No architecture change.
+   Remaining for this lesson: bookends (outcomes intro, comprehensive
+   quiz, closing synthesis — drafted separately). Not yet Locked.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
