@@ -616,8 +616,13 @@ Generate Text) are now fully Locked.
    full generation step). Prose-only, nothing to verify.
    `TrainingPipeline.tsx` is now fully populated with all four stages.
    The "next lesson ... test-time compute" callback stays plain text (that
-   lesson isn't built). Remaining concepts not yet drafted (fine-tuning
-   as a builder's option next, per its own mockup). No bookends yet.
+   lesson isn't built). Also added (not in the mockups, at the user's suggestion): a
+   real training-example card for each of Concepts 1-4
+   (`TrainingExampleCard.tsx`, data from C4, databricks-dolly-15k,
+   Anthropic HH-RLHF, and GSM8K via `scripts/generate-training-examples.py`
+   — see architecture.md §2's "Real training examples" row). Remaining
+   concepts not yet drafted (fine-tuning as a builder's option next, per
+   its own mockup). No bookends yet.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
