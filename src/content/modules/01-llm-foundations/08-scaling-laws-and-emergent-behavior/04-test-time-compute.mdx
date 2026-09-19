@@ -1,0 +1,140 @@
+---
+title: "Test-time compute and reasoning models"
+lesson: "08-scaling-laws-and-emergent-behavior"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="A different axis of scaling: at inference time, not training time" variant="a">
+
+Every concept in this lesson so far has been about **training-time**
+scaling — a bigger model, more data, more compute, all spent before the
+model is ever actually used. **Test-time compute** is a genuinely
+different axis: improving performance not by training a bigger model at
+all, but by letting a model spend *more compute at the moment of
+actually answering a specific question* — generating more tokens of
+reasoning before producing its final answer.
+
+</Subsection>
+
+<Subsection title="Where this behavior actually comes from" variant="b">
+
+This is the direct practical consequence of
+[RL for reasoning, from Lesson 7](/01-llm-foundations/07-the-training-pipeline/04-rl-for-reasoning/)
+— the training stage that specifically rewards generating extended
+intermediate reasoning leading to correct final answers. A reasoning
+model, faced with a genuinely difficult problem, will generate
+substantially more reasoning tokens before answering — and
+[every one of those tokens is a real, full generation step](/01-llm-foundations/04-how-llms-generate-text/02-autoregressive-generation/#the-model-never-generates-more-than-one-token-at-once),
+the same cost as any other token.
+
+</Subsection>
+
+<Subsection title="The real cost, made concrete" variant="a">
+
+<LiveDemo client:load code={`def estimate_cost(num_tokens: int, cost_per_1k_tokens: float) -> float:
+    return (num_tokens / 1000) * cost_per_1k_tokens
+
+standard_response_tokens = 150            # a direct answer, no extended reasoning
+reasoning_response_tokens = 150 + 2000    # the same final answer, plus ~2000 reasoning tokens
+
+cost_per_1k = 0.015   # illustrative price per 1,000 tokens
+
+print(f"standard: \${estimate_cost(standard_response_tokens, cost_per_1k):.4f}")
+print(f"reasoning: \${estimate_cost(reasoning_response_tokens, cost_per_1k):.4f}")`} />
+
+*(illustrative figures — real pricing and reasoning-token counts vary
+by model and provider)*
+
+The same final answer, roughly **14× more expensive**, purely because of
+the added reasoning tokens — and those tokens are typically billed the
+same as any other output token, exactly as covered forward in this
+module's cost lesson. This is real, measurable cost, not a hypothetical
+concern.
+
+</Subsection>
+
+<Subsection title="The practical tradeoffs, as a real design decision" variant="b">
+
+- **Slower** — more tokens generated means more generation time,
+  [directly following from Lesson 4's per-token cost](/01-llm-foundations/04-how-llms-generate-text/02-autoregressive-generation/#why-this-matters-computationally).
+- **Costs more** — thinking tokens are billed,
+  [as shown above](/01-llm-foundations/08-scaling-laws-and-emergent-behavior/04-test-time-compute/#the-real-cost-made-concrete).
+- **Helps most on genuinely multi-step problems** — math, code, planning
+  tasks where working through intermediate steps actually improves the
+  correctness of the final answer.
+- **Often unnecessary for simple tasks** — a straightforward factual
+  lookup or a basic format transformation rarely benefits meaningfully
+  from extra reasoning tokens; the added cost and latency there is often
+  simply wasted.
+
+This is a genuine, practical design decision when building an agent, not
+an academic curiosity: routing every request through a reasoning model
+regardless of difficulty spends real money and time for often negligible
+benefit, while routing genuinely hard, multi-step tasks through a
+standard model can mean settling for a worse answer than a bit more
+compute would have bought. Matching the tool to the task's actual
+difficulty is the real skill this concept is building toward.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: 'What does "test-time compute" refer to, as distinct from the training-time scaling covered earlier in this lesson?',
+      options: [
+        "The total compute spent training a model before it's ever used",
+        "Additional compute spent at the moment of actually answering a specific question — generating more reasoning tokens before a final answer",
+        "The compute required to fine-tune a model",
+        "The compute needed to evaluate a model's benchmark scores",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Training-time scaling is spent before use; test-time compute is spent per question, in the form of extra reasoning tokens.",
+    },
+    {
+      question: "Where does a reasoning model's tendency to generate extended reasoning before answering actually come from?",
+      options: [
+        "It's an unexplained, accidental emergent property",
+        "RL for reasoning — a specific training stage that rewards generating extended reasoning leading to correct final answers",
+        "It comes entirely from pretraining alone",
+        "It's a property of the tokenizer, not the training process",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The extended-reasoning behavior is what RL for reasoning explicitly rewards (Lesson 7), so it's a deliberate product of training.",
+    },
+    {
+      question: "In the cost demo, why does the reasoning response cost roughly 14× more than the standard response, despite reaching the same final answer?",
+      options: [
+        "Reasoning models charge a higher price per token for identical content",
+        "The reasoning response includes roughly 2,000 additional reasoning tokens, each billed the same as any other output token",
+        "The demo contains an error — both should cost exactly the same",
+        "Standard responses are always free, only reasoning responses cost money",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The per-token price is identical; the reasoning response simply has about 14× as many tokens (2,150 vs. 150).",
+    },
+    {
+      question: "Why might routing every single request through a reasoning model, regardless of task difficulty, be a poor design choice?",
+      options: [
+        "Reasoning models are strictly worse at every task",
+        "Simple tasks rarely benefit meaningfully from extra reasoning tokens, so the added cost and latency in those cases is often wasted",
+        "Reasoning models cannot handle simple tasks at all",
+        "This is actually always the best choice, regardless of task",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Extra reasoning helps multi-step problems most; on simple tasks you pay the added cost and latency for little gain.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

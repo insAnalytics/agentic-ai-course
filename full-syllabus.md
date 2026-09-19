@@ -675,9 +675,18 @@ Generate Text) are now fully Locked.
    70M `0/40`, 160M `7/40`, 410M `40/40`, 1B `40/40` — with the exact-match
    caveat from Concept 2 noted in the prose. See architecture.md §2's
    "Real in-context learning demo" row. The "Agentic AI basics" callback
-   stays plain text (module not built). Remaining concepts not yet drafted
-   (test-time compute and reasoning models next, per its own mockup). No
-   bookends yet.
+   stays plain text (module not built). Concept 4 drafted (the final concept
+   section, per its own mockup): test-time compute and reasoning models
+   (a second scaling axis at inference time; where it comes from; the
+   real cost and latency tradeoffs). Prose plus one cost demo, no
+   interactive. **Finding:** the mockup's cost demo printed `$0.0023` for
+   the standard response; the real output is `$0.0022` (a float-rounding
+   tie: `0.00225` is stored just below the boundary) — see
+   architecture.md §2. Lesson 7 Concept 4's forward reference to this
+   concept now links here. The "quantization, cost and operational
+   concerns" lesson callback stays plain text (not built). Remaining for
+   this lesson: bookends (outcomes intro, comprehensive quiz, closing
+   synthesis — drafted separately). Not yet Locked.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
