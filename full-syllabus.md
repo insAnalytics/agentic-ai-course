@@ -706,8 +706,20 @@ Generate Text) are now fully Locked.
    fixed with a generic `example-model` request plus an accurate
    Anthropic-shaped one; also softened Lesson 1.5's "every major LLM API"
    overclaim. See architecture.md §2's "Real in-context learning demo"
-   row for the finding log. Concept 2 (the response shape) is next per its
-   own mockup. No bookends yet.
+   row for the finding log.
+
+   Concept 2 drafted: the response shape (content, `usage` token counts,
+   and `stop_reason` — why generation stopped, including detecting a
+   `max_tokens` truncation programmatically). Both parsing demos are
+   ordinary Python and were verified live against the mockup's expected
+   output (exact match, no errors). Small accuracy edits: the example
+   response now uses `claude-haiku-4-5` (matching Concept 1's request) and
+   includes the real `type` and `stop_sequence` fields; added a note that
+   field names vary by provider (OpenAI-style `choices[0].message.content`,
+   `prompt_tokens`/`completion_tokens`, `finish_reason`) and that
+   `stop_reason` has other values beyond the three named. Remaining
+   concepts not yet drafted (multi-turn conversations next, per its own
+   mockup). No bookends yet.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken

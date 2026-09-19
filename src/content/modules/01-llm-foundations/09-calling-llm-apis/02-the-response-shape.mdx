@@ -1,0 +1,149 @@
+---
+title: "The response shape"
+lesson: "09-calling-llm-apis"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="More than just the generated text comes back" variant="a">
+
+*Same caveat as the previous concept: the response JSON below is
+illustrative of a real API's actual shape, not fetched from a live call.
+The Python demos that parse it, however, are ordinary dict access and
+genuinely run live.*
+
+A response includes the generated content, but also real metadata about
+*how* that generation happened — two fields in particular are the
+direct payoff for concepts this module built up over several lessons
+without ever showing them as something you'd actually read from a real
+response.
+
+```json
+{
+  "id": "msg_01XyZ",
+  "type": "message",
+  "model": "claude-haiku-4-5",
+  "role": "assistant",
+  "content": [
+    {"type": "text", "text": "The capital of France is Paris."}
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "usage": {
+    "input_tokens": 24,
+    "output_tokens": 9
+  }
+}
+```
+
+*(illustrative response shape — not fetched from a live call)*
+
+<LiveDemo client:load code={`response_data = {
+    "content": [{"type": "text", "text": "The capital of France is Paris."}],
+    "stop_reason": "end_turn",
+    "usage": {"input_tokens": 24, "output_tokens": 9},
+}
+
+print(response_data["content"][0]["text"])
+print(f"used {response_data['usage']['input_tokens']} input tokens, {response_data['usage']['output_tokens']} output tokens")
+print(f"stopped because: {response_data['stop_reason']}")`} />
+
+*(the underlying `response_data` dict is illustrative, but this parsing
+code is ordinary Python)*
+
+Field names differ a little between providers — for instance,
+OpenAI-style responses put the text under `choices[0].message.content`
+and report `usage.prompt_tokens` / `usage.completion_tokens` — but the
+same three things are always there: the generated content, a token
+count, and a reason generation stopped.
+
+</Subsection>
+
+<Subsection title="usage — tokens, finally readable after the fact" variant="b">
+
+`usage.input_tokens` and `usage.output_tokens` are the direct, concrete
+payoff for
+[everything Lessons 1 and 6 established about tokens being the actual unit an LLM operates in](/01-llm-foundations/01-tokenization/03-tokens-in-practice-and-cost/)
+— not just a conceptual fact anymore, but a real number returned after
+every single call, telling you exactly how much of
+[your shared input/output budget, from Lesson 6](/01-llm-foundations/06-context-windows-and-kv-cache/02-max-output-length-vs-context-window/),
+that specific call actually consumed.
+
+</Subsection>
+
+<Subsection title="stop_reason — why generation actually stopped" variant="a">
+
+This field (`stop_reason`, or `finish_reason`, depending on the
+provider) directly reflects
+[Lesson 5's decoding controls](/01-llm-foundations/05-decoding-strategies-and-generation-controls/06-stop-sequences-and-nondeterminism/)
+and
+[Lesson 6's shared token budget](/01-llm-foundations/06-context-windows-and-kv-cache/02-max-output-length-vs-context-window/):
+did generation end naturally, hit an explicit stop sequence, or get cut
+off by hitting `max_tokens`? (There are other values too — a model
+deciding to call a tool, or declining a request, each get their own.)
+
+<LiveDemo client:load code={`truncated_response = {
+    "content": [{"type": "text", "text": "The three main causes of the French Revolution were economic"}],
+    "stop_reason": "max_tokens",
+    "usage": {"input_tokens": 18, "output_tokens": 500},
+}
+
+if truncated_response["stop_reason"] == "max_tokens":
+    print("warning: response was cut off before finishing — consider raising max_tokens")`} />
+
+`stop_reason: "max_tokens"` here is exactly
+[the scenario Lesson 6 demonstrated numerically](/01-llm-foundations/06-context-windows-and-kv-cache/02-max-output-length-vs-context-window/)
+— the response genuinely ran out of room mid-sentence, and this field is
+how you'd actually detect that happened programmatically, rather than
+just guessing from an incomplete-looking response.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does usage.output_tokens in a response actually tell you?",
+      options: [
+        "The total number of words in the response",
+        "The actual number of output tokens that specific call consumed — a real, concrete number reflecting the same token-based accounting covered throughout this module",
+        "The maximum number of tokens the model is capable of generating, ever",
+        "The number of tokens remaining in the model's total training data",
+      ],
+      correctIndex: 1,
+      explanation:
+        "It's a per-call count of tokens actually generated — the same unit used for context limits and pricing — not words and not a capability limit.",
+    },
+    {
+      question: 'What does a stop_reason of "max_tokens" indicate about a response?',
+      options: [
+        "The response finished naturally, exactly as intended",
+        "Generation was cut off because it hit the requested output token limit before naturally finishing — the same shared-budget exhaustion covered in Lesson 6",
+        "The request failed due to an invalid API key",
+        "The model refused to answer the question",
+      ],
+      correctIndex: 1,
+      explanation:
+        "\"max_tokens\" means the output ceiling was reached mid-generation, so the text may end abruptly.",
+    },
+    {
+      question: 'Why is checking stop_reason programmatically more reliable than just visually inspecting whether a response "looks complete"?',
+      options: [
+        "It isn't — visual inspection is always sufficient",
+        "stop_reason gives an explicit, structured signal for why generation stopped, rather than requiring a guess based on how the text happens to read",
+        "stop_reason is only available for very short responses",
+        "Visual inspection and stop_reason always agree, so checking programmatically adds nothing",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A truncated response can read as complete, and code can't eyeball text — the structured field is the dependable signal.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
