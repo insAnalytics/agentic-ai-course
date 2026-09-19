@@ -1,0 +1,131 @@
+---
+title: "Constrained decoding — the actual enforcement mechanism"
+lesson: "10-structured-outputs"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Masking invalid tokens before softmax ever runs" variant="a">
+
+**Constrained decoding** is the real fix for
+[Concept 1's problem](/01-llm-foundations/10-structured-outputs/01-the-naive-approach/)
+— and it works by intervening directly in
+[the exact logit/softmax mechanism from Lesson 4](/01-llm-foundations/04-how-llms-generate-text/01-logits-and-the-probability-distribution/#softmax-turning-raw-scores-into-a-real-probability-distribution),
+not by asking nicely in the prompt. At every single generation step,
+before softmax runs, any token that would violate the required schema —
+producing invalid JSON syntax, or a value of the wrong type for the
+current field — gets its logit set to effectively negative infinity.
+
+<LiveDemo client:load code={`import math
+
+def softmax(logits: dict) -> dict:
+    exp_values = {token: math.exp(score) for token, score in logits.items()}
+    total = sum(exp_values.values())
+    return {token: value / total for token, value in exp_values.items()}
+
+# candidate next tokens while filling in a schema-required number field
+logits = {"25": 4.1, "twenty": 3.8, "five": 2.9, ",": 1.2}
+
+# only digit-shaped tokens are valid here; "twenty" and "five" would
+# violate the required type, so their logits get masked out entirely
+valid_tokens = {"25", ","}
+masked_logits = {
+    token: (score if token in valid_tokens else float("-inf"))
+    for token, score in logits.items()
+}
+
+probabilities = softmax(masked_logits)
+print({token: round(p, 3) for token, p in probabilities.items()})`} />
+
+`float("-inf")` fed into `math.exp()` produces exactly `0` — not a small
+number, exactly zero. `"twenty"` and `"five"` end up with genuinely `0.0`
+probability after softmax, meaning there is *no possible way* any
+decoding strategy from Lesson 5 — greedy, sampling, temperature, top-p —
+could ever select them. They're not merely unlikely; they're
+structurally unreachable.
+
+</Subsection>
+
+<Subsection title="A hard guarantee, not a soft nudge" variant="b">
+
+This is worth contrasting directly against
+[frequency and presence penalties, from Lesson 5](/01-llm-foundations/05-decoding-strategies-and-generation-controls/04-frequency-and-presence-penalty/):
+those *reduce* a token's logit, making it less likely — but never
+impossible; a heavily-penalized token can still, in principle, get
+sampled. Constrained decoding's masking is categorically different:
+setting a logit to negative infinity doesn't discourage a token, it
+makes selecting it mathematically impossible, since its probability
+after softmax is exactly zero, not merely small. This categorical
+difference is exactly what turns "the model was asked to produce valid
+JSON" into "the model's output is *guaranteed* to be valid JSON" — the
+schema is enforced at the level of which tokens can even be considered,
+not left to the model's own judgment about following an instruction.
+
+One boundary worth keeping in mind: the guarantee is about the output's
+*shape* — valid syntax, the right fields, the right types. It says
+nothing about whether the values inside are *true*; a model constrained
+to produce `{"name": str, "age": int}` can still confidently produce a
+wrong age, for exactly the reasons Lesson 4 covered.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does constrained decoding actually do to an invalid token's logit, before softmax runs?",
+      options: [
+        "It slightly reduces the logit, making the token less likely",
+        "It sets the logit to effectively negative infinity, making the token's probability after softmax exactly zero",
+        "It removes the token from the vocabulary permanently",
+        "It has no effect on logits at all, only on the final output text",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The mask sets invalid tokens' logits to negative infinity, so softmax assigns them exactly zero probability.",
+    },
+    {
+      question: 'Why does math.exp(float("-inf")) producing exactly 0 matter for constrained decoding?',
+      options: [
+        "It doesn't matter — any very negative number would work identically",
+        "It guarantees the masked token's final probability is exactly zero, not just small — making it mathematically impossible for any decoding strategy to select it",
+        "It causes the entire softmax computation to fail",
+        "It only affects tokens with positive logits",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A merely very negative logit still leaves a tiny nonzero probability; negative infinity makes it exactly zero.",
+    },
+    {
+      question: "What's the key difference between constrained decoding's masking and a frequency or presence penalty from Lesson 5?",
+      options: [
+        "They're functionally identical mechanisms",
+        "A penalty reduces a token's probability without eliminating it entirely; masking sets probability to exactly zero, making selection genuinely impossible",
+        "Penalties are stronger than masking in every case",
+        "Masking only applies to the first token generated, penalties apply to all tokens",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A penalty is a soft nudge; a mask is a hard exclusion.",
+    },
+    {
+      question: "Why does constrained decoding turn structured output into a genuine guarantee, rather than just a stronger request?",
+      options: [
+        "It doesn't — it's still just a more persuasively-worded instruction",
+        "It intervenes directly in which tokens can even be considered during generation, rather than relying on the model choosing to follow an instruction",
+        "It only works for very short outputs",
+        "It requires the model to be retrained specifically for this purpose",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The schema is enforced by the decoding process itself, so the model can't produce a violating token even if it \"wanted\" to.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

@@ -761,8 +761,16 @@ Generate Text) are now fully Locked.
     wrong types failing Pydantic validation. Both demos verified live in
     the shipped Pyodide environment; the only difference from the mockup's
     expected output is Pydantic's own trailing docs-link line, now
-    explained on the page. The link to Concept 2 (constrained decoding) is
-    plain text until that page exists. No bookends yet.
+    explained on the page. Concept 1's link to Concept 2 now resolves.
+
+    Concept 2 drafted: constrained decoding — masking invalid tokens'
+    logits to negative infinity before softmax so schema violations are
+    structurally unreachable, contrasted with Lesson 1.5's soft penalties.
+    Demo verified (added `round(p, 3)` so the live output matches the
+    mockup's rounded expected output); added a note that the guarantee
+    covers shape, not truth of values. Remaining concepts not yet drafted
+    (from a Pydantic model to an enforceable schema next, per its own
+    mockup). No bookends yet.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
