@@ -49,7 +49,16 @@ falls into a few common patterns: an outright error, rejecting the
 request entirely until it's shortened; silent truncation, where older
 content (often from the very beginning) simply gets dropped to make
 room; or a sliding window, keeping only the most recent portion of a
-long conversation and discarding what came before it. None of these are
+long conversation and discarding what came before it. A fourth pattern
+is **context compression**: rather than dropping older content
+outright, the system has the model *summarize* it, then replaces the
+original turns with that shorter summary so the essentials stay in the
+window. AI coding assistants such as Claude Code do exactly this — as a
+long session approaches its context limit, the earlier conversation is
+condensed into a summary and the work continues from that. It
+preserves the gist far better than blind truncation, but it is lossy:
+exact wording, small details, and anything the summary didn't think to
+keep are gone from the model's view afterward. None of these are
 universal — the important, portable fact is simply that a context
 window is a hard ceiling, not a soft suggestion, and something concrete
 happens once content exceeds it, whether or not that behavior is
