@@ -1,0 +1,161 @@
+---
+title: "Pretraining — the base stage"
+lesson: "07-how-models-are-trained"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import TrainingPipeline from "../../../../components/lesson/TrainingPipeline";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="What actually produces the parameters behind every logit" variant="a">
+
+Every mechanism covered across
+[Lessons 3–5](/01-llm-foundations/03-attention-and-transformer-architecture/00-intro/)
+— attention weights, token embeddings, the logits that softmax turns
+into a distribution — depends on the model's parameters having
+*specific, learned values*, not random ones. **Pretraining** is the
+stage that actually produces those values: training on a truly massive
+amount of raw text — web pages, books, code, and more — with one single,
+simple objective, repeated an enormous number of times: given some text,
+predict what comes next.
+
+Here's the pipeline this lesson will fill in stage by stage, with
+pretraining as the first and by far the most resource-intensive stage:
+
+<TrainingPipeline client:load active={0} revealed={1} />
+
+</Subsection>
+
+<Subsection title='No notion of "instructions" yet — just next-token prediction' variant="b">
+
+This is worth being precise about: pretraining doesn't involve any
+curated notion of "being helpful," "following instructions," or
+"answering a question" at all. It's exactly
+[the autoregressive next-token prediction loop from Lesson 4](/01-llm-foundations/04-how-llms-generate-text/02-autoregressive-generation/#the-model-never-generates-more-than-one-token-at-once),
+applied across an enormous, largely unstructured body of text — the
+model is only ever learning "what token plausibly comes next, given this
+context," never anything more specific than that.
+
+A model that's *only* gone through pretraining — often called a **base
+model** — doesn't behave like a helpful assistant. Ask it a direct
+question, and it might not actually answer at all:
+
+```
+Prompt: "What is the capital of France?"
+
+Base model continuation: "What is the capital of Germany? What is
+the capital of Italy? What is the capital of Spain?"
+```
+
+*(illustrative — a real base model's specific output would vary, but
+this general pattern is well-documented)*
+
+This isn't a malfunction — it's the training objective working exactly
+as intended. Text resembling a list of quiz questions is a genuinely
+common pattern across a huge amount of training text, so continuing with
+*more questions in the same style* is a statistically plausible
+continuation — arguably more plausible, in raw next-token-prediction
+terms, than switching into "answer mode," a distinct behavior the base
+model was never actually taught to recognize as the "correct" response
+to a question.
+
+For a real example rather than an illustrative one, GPT-2 — the same
+small base model behind this module's next-token demos — given that
+exact prompt and decoded greedily (the first 40 tokens) produces:
+
+```
+Prompt: "What is the capital of France?"
+
+GPT-2 continuation: "
+
+The capital of France is Paris.
+
+The capital of France is Paris.
+
+The capital of France is Paris.
+
+The capital of France is Paris.
+
+The capital"
+```
+
+It happens to land on the right fact here, but notice what it *doesn't*
+do: it never stops. It has no learned sense of a finished answer, so it
+just keeps continuing the pattern — the same
+[greedy-decoding repetition loop](/01-llm-foundations/05-decoding-strategies-and-generation-controls/01-greedy-decoding-vs-sampling/#greedy-decoding-always-take-the-top-candidate)
+from Lesson 5. Sampled instead of greedy, the same model's continuations
+of that prompt drift off into unrelated text entirely. Either way, the
+"answer, then stop" behavior of an assistant isn't something pretraining
+ever taught it.
+
+</Subsection>
+
+<Subsection title="Setting up the rest of this lesson" variant="a">
+
+This is exactly the gap the next stage exists to close: pretraining
+builds a model with genuinely broad, general language ability — the
+parameters underlying every mechanism this module has covered — but
+with no learned notion of what a *conversation*, an *instruction*, or a
+*question expecting an answer* should actually look like as behavior.
+SFT, covered next, is the stage that teaches exactly that.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What is pretraining's actual training objective?",
+      options: [
+        "Learning to follow specific instructions correctly",
+        "Predicting the next token, given the text so far — applied across a massive, largely unstructured body of text",
+        "Learning to hold a multi-turn conversation",
+        "Learning to recognize and refuse harmful requests",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Pretraining is next-token prediction and nothing more specific — instruction-following, conversation, and refusal are all taught in later stages.",
+    },
+    {
+      question: "What does pretraining actually produce, in terms of the mechanisms covered earlier in this module?",
+      options: [
+        "The transformer architecture's overall structure, but not its actual parameter values",
+        "The learned values of the model's parameters — the embeddings and attention weights that everything else in the architecture depends on",
+        "A curated dataset of question-answer pairs",
+        "The tokenizer's vocabulary",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The architecture is a design; pretraining is what fills it with specific learned parameter values.",
+    },
+    {
+      question: "Why might a base model, given a direct question, continue with more questions instead of answering it?",
+      options: [
+        "This represents a bug or malfunction in the model",
+        "Continuing in the same style as a common training pattern (like a list of quiz questions) can be a genuinely plausible next-token continuation, since the base model was never taught to recognize \"answer this\" as a distinct behavior",
+        "Base models are incapable of generating any text about geography",
+        "This only happens with very small models",
+      ],
+      correctIndex: 1,
+      explanation:
+        "It's the training objective working as intended: the most plausible continuation of a question, in raw text statistics, isn't necessarily an answer.",
+    },
+    {
+      question: "What gap does the next stage of training, SFT, exist to close?",
+      options: [
+        "Pretraining already produces a model that behaves like a helpful assistant, so no further stage is needed",
+        "Pretraining builds broad language ability but no learned notion of what following an instruction or answering a question should actually look like as behavior",
+        "SFT exists only to make a model faster, not to change its behavior",
+        "SFT replaces pretraining entirely rather than building on it",
+      ],
+      correctIndex: 1,
+      explanation:
+        "SFT builds on pretraining's broad ability by teaching the behavior of following instructions, which pretraining never targeted.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

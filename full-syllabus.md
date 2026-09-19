@@ -580,6 +580,20 @@ Generate Text) are now fully Locked.
    Lessons 1.1, 1.4, and 1.5). No new verification findings in the
    bookends. Lesson 1.6 is now fully Locked.
 
+7. **How Models Are Trained** — Building
+   Title is a working name (the mockup names only Concept 1 — rename the
+   folder/`_lesson.yaml` if the drafter's real title differs). Concept 1
+   drafted: pretraining, the base stage (next-token prediction over
+   massive raw text; a base model has no learned notion of following
+   instructions or ending an answer). The mockup's pipeline-diagram
+   interactive is `TrainingPipeline.tsx`, built to be reused across the
+   lesson (`active`/`revealed` props; later stages are dimmed
+   placeholders until their concept exists). The mockup's base-model
+   example was explicitly illustrative; added a *real* GPT-2 greedy
+   output alongside it (it answers, then loops forever — see
+   architecture.md §2's "Real next-token predictions" row). The link to
+   Concept 2 (SFT) is plain text until that page exists. No bookends yet.
+
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
 into lessons.
