@@ -425,7 +425,7 @@ All four Module 1 lessons built so far (1.1 Tokenization, 1.2
 Embeddings, 1.3 Attention and Transformer Architecture, 1.4 How LLMs
 Generate Text) are now fully Locked.
 
-5. **Decoding Strategies and Generation Controls** — Building
+5. **Decoding Strategies and Generation Controls** — Locked
    Matches the "how llms generate text lesson" forward reference from
    Lesson 1.4 Concept 2, which correctly anticipated this as its own
    separate lesson rather than a concept within 1.4. Concept 1 drafted:
@@ -508,8 +508,17 @@ Generate Text) are now fully Locked.
    its result while real APIs typically omit it, and reworded the
    mockup's slightly-off "isn't perfectly consistent regardless of the
    order" to "can depend on the order". No architecture change.
-   Remaining for this lesson: bookends (outcomes intro, comprehensive
-   quiz, closing synthesis — drafted separately). Not yet Locked.
+   Bookends: outcomes/why-it-matters intro
+   (`00-intro.mdx`), and a Recap & Practice page (`07-recap-practice.mdx`)
+   with a 10-question comprehensive quiz spanning all six concepts plus
+   an ungraded closing synthesis — pick temperature/top-p/top-k/penalty
+   settings for three use cases (support bot, brainstorming tool, code
+   assistant), checked against `DecodingPlayground.tsx` with all three
+   sliders enabled. Deliberately not a graded sandbox: like Lessons 1.1
+   and 1.4, there's no learner-authored code in this lesson. The
+   playground doesn't model the frequency/presence penalties, so the
+   page says so and points back to Concept 4 for those. No new
+   verification findings in the bookends.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken

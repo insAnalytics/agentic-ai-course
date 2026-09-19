@@ -1,0 +1,185 @@
+---
+title: "Recap & Practice"
+lesson: "05-decoding-strategies-and-generation-controls"
+order: 7
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import DecodingPlayground from "../../../../components/lesson/DecodingPlayground";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does greedy decoding always do?",
+      options: [
+        "Randomly select any token from the vocabulary",
+        "Always pick whichever token has the single highest probability",
+        "Pick a token based on how recently it was last used",
+        "Combine the top three candidates into one output",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Greedy decoding is a pure argmax at every step — no randomness, and no other factor involved.",
+    },
+    {
+      question: "What does temperature actually do to a token distribution?",
+      options: [
+        "It removes low-probability tokens from consideration entirely",
+        "It reshapes the distribution's sharpness by dividing logits by the temperature value before softmax",
+        "It only affects the very first token generated",
+        "It has no measurable effect on the output",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Dividing logits by the temperature before softmax sharpens (T < 1) or flattens (T > 1) the distribution without removing any candidate.",
+    },
+    {
+      question: "What's the core difference between what temperature does and what top-p/top-k do?",
+      options: [
+        "They're two names for the same mechanism",
+        "Temperature reshapes probabilities without removing any candidate; top-p/top-k remove candidates from the pool entirely before sampling",
+        "Top-p/top-k only apply to the first token generated",
+        "Temperature can only increase probabilities",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Temperature reshapes the whole distribution but leaves every candidate with some nonzero chance; top-p and top-k cut candidates out of the pool entirely.",
+    },
+    {
+      question: "Why does top-p keep more tokens for a flat, uncertain distribution than for a sharply peaked one, using the same threshold?",
+      options: [
+        "This is inconsistent behavior and indicates an error",
+        "Top-p adapts to the distribution's actual shape — an uncertain distribution needs more tokens to reach the same cumulative probability threshold",
+        "The flat distribution's probabilities don't sum to 1",
+        "Top-p ignores probability values and just counts tokens",
+      ],
+      correctIndex: 1,
+      explanation:
+        "How many tokens it takes to reach a fixed cumulative threshold depends entirely on how concentrated or spread out the distribution is.",
+    },
+    {
+      question: "How does presence penalty behave differently from frequency penalty once a token has appeared more than once?",
+      options: [
+        "They behave identically in every case",
+        "Presence penalty stays fixed at the same flat amount, while frequency penalty keeps growing with each additional use",
+        "Presence penalty grows even faster than frequency penalty",
+        "Presence penalty resets to zero after the second use",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Presence penalty only asks whether a token has appeared at all; frequency penalty scales with how many times it has.",
+    },
+    {
+      question: "Why might presence penalty be the better choice for a response that legitimately needs to repeat a specific technical term many times?",
+      options: [
+        "Presence penalty prevents the term from being used at all after the first time",
+        "It applies one flat penalty and never continues making every additional legitimate repetition more expensive, unlike frequency penalty",
+        "They behave identically in this case",
+        "Technical terms are automatically exempt from both",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A flat, one-time penalty doesn't keep punishing a term that genuinely needs repeating, whereas frequency penalty's growing cost would.",
+    },
+    {
+      question: "What is a logprob, mathematically?",
+      options: [
+        "The raw probability itself, unmodified",
+        "The natural logarithm of a token's probability",
+        "A count of how many tokens were considered",
+        "The number of times a token appeared in training data",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A logprob is math.log(probability) — always zero or negative, since probabilities never exceed 1.",
+    },
+    {
+      question: "What does a logprob close to 0 indicate?",
+      options: [
+        "Low confidence",
+        "High confidence — a probability near 1",
+        "No relationship to confidence at all",
+        "An invalid token",
+      ],
+      correctIndex: 1,
+      explanation:
+        "log(1) = 0, so a logprob near 0 means a probability near 1; the more negative it gets, the lower the confidence.",
+    },
+    {
+      question: "What does a stop sequence actually control?",
+      options: [
+        "Which specific token gets chosen at each step",
+        "When generation halts entirely, the moment the specified string appears in the output",
+        "The overall length of every response",
+        "How confident the model is in its output",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A stop sequence doesn't influence which token is picked — only when generation ends.",
+    },
+    {
+      question: "Why can temperature 0 fail to produce byte-for-byte identical output across identical requests, in practice?",
+      options: [
+        "It always produces identical output — this never happens",
+        "Batching multiple requests together on shared hardware can subtly change floating-point operation order, occasionally flipping which of two very close candidates comes out ahead",
+        "Temperature 0 disables logit computation entirely",
+        "This only happens with sampling, never greedy decoding",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The decoding math is deterministic, but the floating-point arithmetic underneath it is order-sensitive, and batching changes the order.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<Subsection title="Closing synthesis — choose settings for a real use case" variant="a">
+
+This isn't graded — it's a chance to apply the whole lesson to a
+practical decision, extending
+[the decoding playground built across Concepts 1-3](/01-llm-foundations/05-decoding-strategies-and-generation-controls/01-greedy-decoding-vs-sampling/#sampling-actually-drawing-from-the-distribution)
+into an exercise in choosing settings.
+
+For each scenario, decide roughly what you'd set — temperature (low,
+medium, high), whether top-p/top-k would help, and whether a
+repetition penalty matters — before checking your reasoning against the
+playground on a similar prompt:
+
+1. **A customer support bot answering account-specific factual
+   questions.**
+2. **A brainstorming tool generating varied marketing taglines.**
+3. **A code-generation assistant.**
+
+<DecodingPlayground client:load showTemperature showTopKTopP />
+
+The playground has sliders for temperature, top-k, and top-p; the
+repetition penalties aren't modeled there, so reason about those
+directly from Concept 4.
+
+*Reasoning to check your choices against:* (1) wants low temperature,
+close to greedy — consistency and precision matter far more than
+variety here, and
+[nondeterminism at temperature 0](/01-llm-foundations/05-decoding-strategies-and-generation-controls/06-stop-sequences-and-nondeterminism/#a-common-wrong-assumption-temperature-0-means-identical-output-always)
+is a real caveat worth knowing about even in this exact use case. (2)
+wants meaningfully higher temperature, and top-p is genuinely useful
+here — allowing real variety in word choice is the entire point, and a
+presence penalty helps avoid the same few taglines dominating
+repeatedly. (3) is the most interesting case: mostly low temperature,
+since exact syntax matters enormously and a wrong token can break
+working code — but not *zero*, and a mild frequency penalty can help
+avoid a model getting stuck in an actual repetition loop (like
+re-emitting the same broken line), a real failure mode
+[Concept 1 named directly](/01-llm-foundations/05-decoding-strategies-and-generation-controls/01-greedy-decoding-vs-sampling/#greedy-decoding-always-take-the-top-candidate).
+
+The pattern worth taking away: every one of these settings is a genuine
+trade-off, not a "better" or "worse" direction in the abstract —
+choosing well means matching the control to what the specific use case
+actually needs, exactly the same reasoning this lesson has built toward
+one mechanism at a time.
+
+</Subsection>

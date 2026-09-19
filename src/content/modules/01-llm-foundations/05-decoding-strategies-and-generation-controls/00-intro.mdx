@@ -1,0 +1,29 @@
+---
+title: "Intro"
+lesson: "05-decoding-strategies-and-generation-controls"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Explain the difference between greedy decoding and sampling, and why greedy decoding alone tends toward repetitive output",
+    "Explain what temperature actually does to a distribution — the direct payoff for a field used unexplained since Module 0",
+    "Explain top-p and top-k as a genuinely separate lever from temperature, and why top-p adapts to a distribution's shape while top-k doesn't",
+    "Contrast frequency penalty and presence penalty directly, and know when each actually fits",
+    "Read a logprob to judge how confident a model actually was, beyond what the fluent generated text alone would reveal",
+    "Explain what a stop sequence controls, and why temperature 0 doesn't guarantee identical output in practice",
+  ]}
+/>
+
+<WhyItMatters>
+  Every one of these controls is a real, commonly-exposed parameter on
+  every major LLM API — and until now, this course has used several of
+  them (`temperature`, most visibly) purely as unexplained fields on a
+  Pydantic model. This lesson closes that gap completely: not just naming
+  what each control does, but grounding every one of them in the same
+  logit/softmax mechanics from Lesson 4, so choosing settings for a real
+  use case becomes a matter of reasoning from mechanism, not guessing from
+  a vague sense of "higher temperature means more creative."
+</WhyItMatters>
