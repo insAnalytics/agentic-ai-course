@@ -1,0 +1,109 @@
+---
+title: "Max output length vs. context window"
+lesson: "06-context-windows"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="A common, reasonable-sounding assumption that's wrong" variant="a">
+
+It's easy to assume a model's context window and its maximum output
+length are two separate budgets — as if a "128k context window" model
+gives you 128k tokens for input, *plus* some additional allowance for
+whatever it generates back. That's not how it works.
+[The context window from the previous concept](/01-llm-foundations/06-context-windows/01-what-a-context-window-is/#the-total-token-budget-for-one-request)
+is a single, shared total — input tokens and output tokens draw from the
+exact same pool, not two independent ones.
+
+</Subsection>
+
+<Subsection title="What this means concretely" variant="b">
+
+If a model has a 128,000-token context window, and your prompt plus
+conversation history already uses 127,500 tokens, there are only 500
+tokens of room left — for the *entire* response, no matter how long the
+model would otherwise have generated. A `max_tokens`-style parameter,
+which most APIs let you set, only specifies a *ceiling* on the output —
+it never grants extra room beyond whatever's actually left in the
+shared window:
+
+<LiveDemo client:load code={`def actual_available_output(context_window: int, input_tokens: int, requested_max_output: int) -> int:
+    remaining_budget = context_window - input_tokens
+    return min(remaining_budget, requested_max_output)
+
+print(actual_available_output(context_window=128_000, input_tokens=127_500, requested_max_output=4000))
+print(actual_available_output(context_window=128_000, input_tokens=50_000, requested_max_output=4000))`} />
+
+Same requested `max_tokens` value, `4000`, in both calls — but the
+actual available output is whichever is *smaller*: the requested ceiling,
+or whatever's genuinely left in the shared context window. With only
+500 tokens of room remaining, requesting 4000 doesn't help at all; the
+response still gets cut off at 500, regardless of what was asked for.
+(Providers differ on the edge case: some clamp the output like this
+demo does, while others reject a request outright if input plus the
+requested `max_tokens` can't fit — the same "exactly what happens past
+the limit varies" caveat from the previous concept.)
+
+</Subsection>
+
+<Subsection title="Why this matters practically" variant="a">
+
+This is the direct, practical reason a long conversation history or a
+large document included in a prompt can silently squeeze out the room
+available for the actual response — not because of some separate output
+limit being hit, but because input and output were always drawing from
+the same total budget the entire time. Managing a long-running
+conversation or a document-heavy prompt means actively tracking how much
+of that shared budget is already spent, not just assuming the "max
+output" setting is a guarantee of how much room remains.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Do input tokens and output tokens draw from separate budgets, or the same one?",
+      options: [
+        "Separate budgets — input and output each get their own full allowance",
+        "The same shared budget — the context window is a single total covering both input and output together",
+        "Only output tokens count against any limit at all",
+        "Only input tokens count against any limit at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The context window is one pool: every input token spent leaves one fewer token available for the response.",
+    },
+    {
+      question: "Given a 128,000-token context window with 127,500 tokens already used by the input, and a max_tokens parameter set to 4000, how much output actually gets generated (assuming the provider clamps rather than rejects)?",
+      options: [
+        "The full 4000 tokens requested, regardless of anything else",
+        "At most 500 tokens — whatever's actually left in the shared window, since that's smaller than the requested ceiling",
+        "The request fails immediately with no output at all",
+        "Exactly 128,000 tokens, ignoring the input entirely",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The available output is min(room left, requested ceiling) = min(500, 4000) = 500.",
+    },
+    {
+      question: "What does a max_tokens-style parameter actually specify?",
+      options: [
+        "A guaranteed additional allowance beyond the context window",
+        "A ceiling on the output — capped by whichever is smaller, the requested value or whatever room genuinely remains in the shared window",
+        "The total context window size for the entire request",
+        "The number of tokens the input is allowed to use",
+      ],
+      correctIndex: 1,
+      explanation:
+        "It only ever lowers the limit; it can never grant room the shared window doesn't have.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

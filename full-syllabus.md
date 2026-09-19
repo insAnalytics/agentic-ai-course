@@ -528,9 +528,14 @@ Generate Text) are now fully Locked.
    (attention's pairwise cost grows with the square of sequence length),
    and what happens past it (error, truncation, sliding window — none
    universal). Demo verified exactly against real Python and the shipped
-   Pyodide `LiveDemo`; no mockup errors. The "next concept" callback to
-   Concept 2 (max output length vs. context window) is left as plain
-   text until that page exists. The earlier Lesson 1.1 forward
+   Pyodide `LiveDemo`; no mockup errors. Concept 2 drafted: max output length vs. context
+   window (input and output share one token budget; `max_tokens` is
+   only a ceiling, capped by whatever room remains). Demo verified
+   (`500`/`4000`) in local Python and the shipped Pyodide `LiveDemo`;
+   added one hedge sentence and a matching quiz-question qualifier,
+   since some providers reject an over-budget request instead of
+   clamping it as the demo does. Concept 1's "next concept" callback now
+   links to this page. The earlier Lesson 1.1 forward
    references to a "context windows and KV cache" concept (still plain
    text) may belong here — decide once this lesson's full scope is
    known. No bookends yet.
