@@ -1,0 +1,150 @@
+---
+title: "Streaming a response"
+lesson: "09-calling-llm-apis"
+order: 5
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The same SSE mechanism, now with a real LLM call" variant="a">
+
+Every example so far in this lesson has waited for the *entire*
+response to finish generating before receiving anything at all. A
+**streamed** response instead delivers small pieces of the generated
+text incrementally, as they're produced —
+[exactly the SSE mechanism from Module 0's real-time communication lesson](/00-python-essentials/11-streaming-websockets-and-grpc/03-implementing-sse/#streamingresponse-sending-a-response-incrementally),
+just now connected to a real LLM call instead of a toy status-update
+example.
+
+</Subsection>
+
+<Subsection title="What arrives, incrementally" variant="b">
+
+A streamed response sends a sequence of small chunks, each containing a
+piece of the generated text — often just one or a handful of tokens —
+formatted using
+[the same SSE event structure already covered](/00-python-essentials/11-streaming-websockets-and-grpc/03-implementing-sse/#the-actual-sse-wire-format):
+
+```
+event: content_block_delta
+data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "The"}}
+
+event: content_block_delta
+data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": " capital"}}
+
+event: content_block_delta
+data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": " of France is Paris."}}
+```
+
+*(illustrative — not fetched from a live call)*
+
+A real stream wraps these text chunks in a few other events too — one at
+the start announcing the message, and one at the end carrying the
+`stop_reason` and final token counts from
+[the previous concept's response shape](/01-llm-foundations/09-calling-llm-apis/02-the-response-shape/)
+— so the same metadata still arrives, just at the end instead of in a
+single reply.
+
+Processing this on the client side means accumulating each piece as it
+arrives, rather than waiting for one complete response:
+
+<LiveDemo client:load code={`simulated_chunks = [
+    {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "The"}},
+    {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": " capital"}},
+    {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": " of"}},
+    {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": " France"}},
+    {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": " is"}},
+    {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": " Paris"}},
+    {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "."}},
+]
+
+assembled_text = ""
+for chunk in simulated_chunks:
+    piece = chunk["delta"]["text"]
+    assembled_text += piece
+    print(piece, end="")
+
+print()
+print(f"full assembled text: {assembled_text}")`} />
+
+Each `piece` gets appended to `assembled_text` and printed the moment it
+arrives — in a real streamed connection, each `print` here would happen
+as its own chunk genuinely arrives over time, rather than all at once,
+which is exactly the point: the user sees the response building up
+progressively.
+
+</Subsection>
+
+<Subsection title="Why this matters: exposing generation's real, incremental nature" variant="a">
+
+This isn't an artificial trick — it's directly exposing
+[the actual autoregressive generation process from Lesson 4](/01-llm-foundations/04-how-llms-generate-text/02-autoregressive-generation/#the-model-never-generates-more-than-one-token-at-once):
+the model genuinely produces its response one token at a time already.
+Streaming simply lets the client *see* that natural, incremental process
+as it happens, rather than being made to wait for the entire sequence to
+finish before receiving anything — a real, meaningful improvement to
+perceived responsiveness for a user-facing chat interface, especially
+for a long response that would otherwise mean staring at a blank loading
+state for a noticeable amount of time.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does streaming a response actually change, compared to a normal, non-streamed request?",
+      options: [
+        "It changes the final generated content itself",
+        "It delivers pieces of the generated text incrementally, as they're produced, rather than only after the entire response has finished",
+        "It reduces the total number of tokens generated",
+        "It disables the usage field in the response",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The content is the same; streaming only changes when it arrives — piece by piece instead of all at once.",
+    },
+    {
+      question: "What mechanism, already covered in this course, does LLM response streaming directly reuse?",
+      options: [
+        "WebSockets, from Module 0's real-time communication lesson",
+        "SSE (Server-Sent Events), from Module 0's real-time communication lesson",
+        "gRPC streaming, from Module 0",
+        "A completely new mechanism, unrelated to anything covered before",
+      ],
+      correctIndex: 1,
+      explanation:
+        "LLM streaming uses Server-Sent Events — the one-way, text-based streaming mechanism from Module 0.",
+    },
+    {
+      question: "Why does streaming actually work at all — what's the underlying fact about generation that makes it possible?",
+      options: [
+        "Streaming requires a fundamentally different generation process than normal, non-streamed requests",
+        "The model already generates text one token at a time; streaming simply exposes that existing, incremental process to the client instead of withholding it until the end",
+        "Streaming only works for very short responses",
+        "Streaming generates the response faster overall than a non-streamed request",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Autoregressive generation is already token by token (Lesson 4); streaming just stops hiding that.",
+    },
+    {
+      question: "Why is streaming particularly valuable for a user-facing chat interface generating a long response?",
+      options: [
+        "It has no real user-facing benefit, only a technical one",
+        "It meaningfully improves perceived responsiveness — the user sees the response building up progressively, rather than facing a blank loading state until the entire response finishes",
+        "It reduces the actual token cost of the response",
+        "It only matters for responses under 10 tokens long",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The total generation time is about the same, but the user starts reading immediately instead of waiting for the whole response.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

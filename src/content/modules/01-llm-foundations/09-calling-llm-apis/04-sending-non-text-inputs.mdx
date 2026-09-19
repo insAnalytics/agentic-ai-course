@@ -1,0 +1,123 @@
+---
+title: "Sending non-text inputs"
+lesson: "09-calling-llm-apis"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The mechanics behind Lesson 1's conceptual point" variant="a">
+
+*Same caveat as this lesson's earlier concepts: the request shape below
+is illustrative, not fetched from a live call. The base64-encoding demo,
+however, is ordinary Python and genuinely runs.*
+
+[Lesson 1 established that images and documents become tokens too](/01-llm-foundations/01-tokenization/04-non-text-inputs-as-tokens/),
+counting against the same context window and cost as text — but
+deferred exactly *how* you'd actually include one in a request. That's
+this concept's job.
+
+</Subsection>
+
+<Subsection title="content becomes an array of typed blocks, not a plain string" variant="b">
+
+Every message so far has had a simple string `content`. Once an image
+is involved, `content` becomes an array of distinct, typed blocks
+instead — text and image content sitting side by side in the same
+message:
+
+```json
+{
+  "role": "user",
+  "content": [
+    {"type": "text", "text": "What's in this image?"},
+    {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": "iVBORw0KGgoAAAANSUhEUgAA..."}}
+  ]
+}
+```
+
+*(illustrative request shape — not fetched from a live call)*
+
+</Subsection>
+
+<Subsection title="Why the image data is base64-encoded text, not raw bytes" variant="a">
+
+A JSON request body is plain text — it has no way to embed raw binary
+data (an image file's actual bytes) directly. **Base64 encoding**
+solves this: it represents binary data as a string of plain ASCII
+characters, safe to embed inside JSON text like any other string value.
+
+<LiveDemo client:load code={`import base64
+
+fake_image_bytes = b"this represents raw image file bytes"
+encoded = base64.b64encode(fake_image_bytes)
+print(encoded)
+print(encoded.decode("utf-8"))`} />
+
+`base64.b64encode()` transforms raw bytes into a base64-encoded `bytes`
+object; `.decode("utf-8")` converts that into an ordinary Python string
+— the actual form that gets placed into the `"data"` field of an image
+content block. A real image file, read as bytes and base64-encoded the
+same way, is exactly what fills that field in the illustrative request
+above — the same operation, just on a much larger, real image file
+rather than this toy example's short placeholder text.
+
+Two practical details follow from this. First, base64 text always starts
+the same way for the same kind of file: every PNG image begins with the
+same fixed header bytes, which is why the `"data"` string above starts
+with `iVBORw0KGgo` — that's simply the base64 form of a PNG's opening
+bytes. Second, encoding isn't free: every 3 bytes of image become 4
+characters of text, so the encoded image is about a third larger than
+the file itself. (Some APIs also let you pass an image by URL instead of
+embedding its data, when the image is already hosted somewhere the
+provider can reach.)
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What changes about a message's content field once an image is included, compared to a plain text-only message?",
+      options: [
+        "Nothing — content stays a plain string either way",
+        "content becomes an array of typed content blocks — text and image blocks sitting side by side — rather than a single plain string",
+        "The role field is removed entirely",
+        "The message is sent as a completely separate request from the text",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Mixing text and an image in one message requires content to be a list of typed blocks instead of a single string.",
+    },
+    {
+      question: "Why can't an image's raw binary data be placed directly inside a JSON request body?",
+      options: [
+        "JSON has no length limits, so this isn't actually a problem",
+        "A JSON request body is plain text, with no way to embed raw binary data directly — base64 encoding represents that binary data as safe, embeddable ASCII text instead",
+        "Images are always sent as separate files, never through the API at all",
+        "JSON only supports numbers, never any other data type",
+      ],
+      correctIndex: 1,
+      explanation:
+        "JSON is text; arbitrary bytes aren't valid text, so they're encoded as ASCII characters first.",
+    },
+    {
+      question: "What does base64.b64encode() actually do?",
+      options: [
+        "It compresses the image to reduce its file size",
+        "It transforms raw binary data into a text-safe, ASCII-encoded representation that can be embedded inside a JSON string",
+        "It converts an image into a different image format",
+        "It removes the need to send any image data at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Base64 is an encoding, not compression — it makes the data text-safe, and actually makes it about a third larger.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

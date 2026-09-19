@@ -724,8 +724,17 @@ Generate Text) are now fully Locked.
    off-by-one — it counted the history *after* the assistant's reply, so
    it printed `3 / 5 / 7` messages sent; what a request actually sends is
    `2 / 4 / 6`. Demo, prose, and quiz Q2 corrected and verified live — see
+   architecture.md §2's finding log. Concept 4 drafted: sending non-text inputs (`content` as an array
+   of typed blocks; why images are base64-encoded text inside JSON) —
+   demo verified exactly; added the verified PNG-prefix and 4/3-size-inflation
+   details. Concept 5 drafted: streaming a response (the same SSE mechanism
+   from Module 0 applied to a real LLM call; why it works — generation is
+   already token by token; the perceived-latency benefit) — demo verified
+   exactly; the illustrative SSE payloads now use the real event shape
+   (`type`/`index`/`delta.type`) rather than a stripped-down one. See
    architecture.md §2's finding log. Remaining concepts not yet drafted
-   (sending non-text inputs next, per its own mockup). No bookends yet.
+   (reasoning output in responses next, per its own mockup). No bookends
+   yet.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken
