@@ -752,10 +752,10 @@ Generate Text) are now fully Locked.
    Deliberately not a graded sandbox (no learner-authored code). Lesson
    1.9 is now fully Locked.
 
-10. **Structured Outputs** — Building
-    Title is a working name (the mockup names only Concept 1; taken from
-    the Module 1 outline's "structured outputs" item — rename the
-    folder/`_lesson.yaml` if the drafter's real title differs). Concept 1
+10. **Structured Output and Tool Calling** — Locked
+    Title confirmed by the bookends mockup (folder renamed from the working
+    name `10-structured-outputs` to `10-structured-output-and-tool-calling`).
+    Concept 1
     drafted: the naive approach (asking for JSON in the prompt) and its two
     failure modes — extra text breaking `json.loads`, and valid JSON with
     wrong types failing Pydantic validation. Both demos verified live in
@@ -791,9 +791,16 @@ Generate Text) are now fully Locked.
     output composed). **Finding:** the mockup's example omitted the
     `tool_use` `id` and the matching `tool_result` `tool_use_id` that
     Claude's API requires; added both and explained the pairing — see
-    architecture.md §2's finding log. Demo verified live. Remaining for
-    this lesson: bookends (outcomes intro, comprehensive quiz, closing
-    synthesis — drafted separately). Not yet Locked.
+    architecture.md §2's finding log. Demo verified live.
+
+    Bookends: outcomes/why-it-matters intro (`00-intro.mdx`) and a
+    Recap & Practice page (`06-recap-practice.mdx`) with a 9-question
+    comprehensive quiz spanning all five concepts plus an ungraded
+    closing synthesis (design a `search_flights` tool end to end), whose
+    four callbacks deep-link to Subsection anchors verified against the
+    built HTML. Deliberately not a graded sandbox (no learner-authored
+    code). No new verification findings in the bookends. Lesson 1.10 is
+    now fully Locked.
 
 The rest of Module 1 (model landscape/benchmark literacy, raw API
 mechanics, structured outputs) remains a rough outline — not yet broken

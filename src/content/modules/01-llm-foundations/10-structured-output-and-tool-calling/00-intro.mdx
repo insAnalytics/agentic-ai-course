@@ -1,0 +1,29 @@
+---
+title: "Intro"
+lesson: "10-structured-output-and-tool-calling"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Explain why asking a model to \"respond in JSON\" is only ever a request, and identify the concrete ways it can fail",
+    "Explain constrained decoding as a real enforcement mechanism — masking invalid tokens before softmax — and why that's categorically different from a soft penalty",
+    "Convert a Pydantic model into a JSON Schema and use it to define an LLM's guaranteed output shape",
+    "Explain tool calling as structured output applied to a specific use case, with a clean separation between the model's request and your code's decision to execute it",
+    "Trace the full round trip of a tool call — request, execution, result, final answer — as ordinary multi-turn conversation mechanics",
+  ]}
+/>
+
+<WhyItMatters>
+  This lesson is where `AgentConfig`, `ToolCall`, and every other Pydantic
+  model used as a teaching device throughout Module 0 finally does the
+  job it was always heading toward: defining what an LLM is actually
+  allowed to produce, with a real, mechanical guarantee behind it — not
+  hoping the model follows instructions well. Everything an agent
+  actually *does* — deciding to search, calculate, or call an external
+  service — runs through exactly this mechanism, so understanding it
+  precisely here is what makes the rest of this course's agentic content
+  land as engineering rather than as something closer to magic.
+</WhyItMatters>

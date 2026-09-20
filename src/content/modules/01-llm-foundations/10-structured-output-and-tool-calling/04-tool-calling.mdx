@@ -1,6 +1,6 @@
 ---
 title: "Tool calling — structured output applied to a specific use case"
-lesson: "10-structured-outputs"
+lesson: "10-structured-output-and-tool-calling"
 order: 4
 ---
 import Subsection from "../../../../components/lesson/Subsection.astro";
@@ -12,7 +12,7 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 **Tool calling** is worth understanding as exactly one specific
 application of
-[the same constrained-decoding mechanism from Concept 2](/01-llm-foundations/10-structured-outputs/02-constrained-decoding/),
+[the same constrained-decoding mechanism from Concept 2](/01-llm-foundations/10-structured-output-and-tool-calling/02-constrained-decoding/),
 not some separate, new capability where the model somehow executes code.
 A model never literally "calls a function" — it produces structured
 output, guaranteed to match a schema (typically a tool name plus a set of
@@ -48,7 +48,7 @@ result = get_weather(args.location)
 print(result)`} />
 
 `GetWeatherArguments` —
-[an ordinary Pydantic model, exactly like `AgentConfig` from the previous concept](/01-llm-foundations/10-structured-outputs/03-from-a-pydantic-model-to-a-schema/)
+[an ordinary Pydantic model, exactly like `AgentConfig` from the previous concept](/01-llm-foundations/10-structured-output-and-tool-calling/03-from-a-pydantic-model-to-a-schema/)
 — defines what a valid `get_weather` call's arguments look like; that
 schema is what gets sent to the API, as part of the tool's definition
 alongside a name and a description, so the model's `"arguments"` output

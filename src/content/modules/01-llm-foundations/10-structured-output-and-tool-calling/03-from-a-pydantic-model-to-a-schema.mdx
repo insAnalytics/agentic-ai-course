@@ -1,6 +1,6 @@
 ---
 title: "From a Pydantic model to an enforceable schema"
-lesson: "10-structured-outputs"
+lesson: "10-structured-output-and-tool-calling"
 order: 3
 ---
 import Subsection from "../../../../components/lesson/Subsection.astro";
@@ -10,7 +10,7 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 <Subsection title="Where the schema constraining generation actually comes from" variant="a">
 
-[Concept 2 showed how constrained decoding masks invalid tokens](/01-llm-foundations/10-structured-outputs/02-constrained-decoding/)
+[Concept 2 showed how constrained decoding masks invalid tokens](/01-llm-foundations/10-structured-output-and-tool-calling/02-constrained-decoding/)
 — but that mechanism needs to be told, concretely, what "valid"
 actually means for a given request. This is where
 [`AgentConfig` and every other `BaseModel` used as a teaching device throughout Module 0](/00-python-essentials/05-typed-data-models/04-pydantic-fundamentals/)
@@ -81,7 +81,7 @@ Pydantic class directly, doing this conversion for you. The idea is the
 same everywhere: the schema travels in the request.
 
 `AgentConfig.model_validate_json(...)` here is
-[the exact same parsing method covered in Concept 1's failure demo](/01-llm-foundations/10-structured-outputs/01-the-naive-approach/)
+[the exact same parsing method covered in Concept 1's failure demo](/01-llm-foundations/10-structured-output-and-tool-calling/01-the-naive-approach/)
 — the crucial difference is that this time, because constrained decoding
 already guaranteed the response matches the schema at generation time,
 this parsing step essentially can't fail on a shape mismatch the way it
