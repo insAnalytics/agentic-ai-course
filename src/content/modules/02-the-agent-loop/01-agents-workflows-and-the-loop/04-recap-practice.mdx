@@ -1,0 +1,141 @@
+---
+title: "Recap & Practice"
+lesson: "01-agents-workflows-and-the-loop"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What is an agent, structurally, in terms of what Module 1 already covered?",
+      options: [
+        "A completely new mechanism, unrelated to the tool-call round trip",
+        "The exact same tool-call round trip from Module 1, wrapped in a loop where the model itself decides whether another cycle is needed",
+        "A single API call that never involves any tools",
+        "A specific commercial product or framework",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Nothing new is added mechanically — it's the round trip repeated, with the model's own output deciding whether to go around again.",
+    },
+    {
+      question: "What determines how many cycles an agent's loop actually runs?",
+      options: [
+        "A fixed number, set in advance regardless of the task",
+        "The model's own decisions at each step — the loop continues exactly as long as the model keeps requesting further tool calls",
+        "The number of tools available, regardless of whether they're used",
+        "The length of the original user message",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The loop ends when the model produces a final answer instead of another tool call, so its length depends on the task.",
+    },
+    {
+      question: "What's the precise structural question that distinguishes a chatbot, a workflow, and an agent?",
+      options: [
+        "How many LLM calls each one makes",
+        "Who or what controls the sequence of steps — a human, fixed code, or the model itself, dynamically",
+        "How intelligent the underlying model is",
+        "Whether the system uses tools at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Call count, capability, and tool use can all vary within any of the three. Only who decides what happens next separates them.",
+    },
+    {
+      question: "Could a system making a two-step, always-summarize-then-translate sequence of LLM calls be structurally an agent?",
+      options: [
+        "Yes, since it makes more than one LLM call",
+        "No — if the sequence is fixed in the code regardless of either call's output, it's structurally a workflow, not an agent",
+        "Yes, any system calling an LLM more than once is automatically an agent",
+        "This can never be determined either way",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Making several LLM calls doesn't make something an agent. Here the code fixed the order, so it's a workflow.",
+    },
+    {
+      question: "Why does this lesson describe sophistication and structure as independent axes?",
+      options: [
+        "They're the same thing, described differently",
+        "A workflow can be highly sophisticated while remaining structurally a workflow; an agent can be structurally simple while still being a genuine agent",
+        "Only agents can be sophisticated",
+        "Sophistication only applies to chatbots",
+      ],
+      correctIndex: 1,
+      explanation:
+        "How elaborate the work is and who controls the sequence are separate questions, so knowing one doesn't tell you the other.",
+    },
+    {
+      question: "What does an agent's dynamic control flow trade away, compared to a fixed workflow?",
+      options: [
+        "Nothing — an agent is strictly better in every respect",
+        "Predictability — cost, latency, and behavior all become harder to know in advance, and harder to test and debug as a result",
+        "The ability to use tools at all",
+        "The ability to produce a final answer",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Agents can use tools and give final answers just fine. What they give up is knowing in advance how many steps will run.",
+    },
+    {
+      question: "What's the actual decision test this lesson proposes for choosing between an agent and a workflow?",
+      options: [
+        "Always choose whichever uses more LLM calls",
+        "Whether the task's control flow genuinely depends on information only available at runtime, which a fixed sequence structurally can't accommodate",
+        "Always choose an agent by default",
+        "Choose based on team familiarity alone",
+      ],
+      correctIndex: 1,
+      explanation:
+        "If the steps and their order are knowable in advance, a workflow gets there for less. If they depend on runtime information, the agent's flexibility earns its cost.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<Subsection title="Closing synthesis — classify, then apply the decision test" variant="a">
+
+This isn't graded — it's a chance to apply everything in this lesson to
+three new scenarios.
+
+For each scenario, decide: chatbot, workflow, or agent — and for
+whichever one you call a workflow, apply
+[the decision test from Concept 3](/02-the-agent-loop/01-agents-workflows-and-the-loop/03-the-honest-case-for-not-using-an-agent/#the-actual-decision-test)
+to check whether it actually could, or should, be built as one.
+
+1. A system that always: classifies an incoming support ticket's topic
+   (using an LLM), then routes it to a canned response template based on
+   that classification.
+2. A system that searches for information, evaluates whether the results
+   are actually sufficient to answer the question, and either searches
+   again with a refined query or writes a final summary — repeating an
+   unknown number of times until the results are good enough.
+3. A simple interface where a person types a question, reads the answer,
+   and decides themselves what to ask next.
+
+*Reasoning to check against:* (1) is a **workflow** — classify, then
+route is a fixed two-step sequence; even though classification uses an
+LLM, the *order* never changes based on what either step actually
+produces. Applying the decision test: this task's steps are fully
+knowable in advance (always classify, always route), so a workflow is
+the right call here — no runtime-only information is actually driving
+the control flow. (2) is a genuine **agent** — whether to search again
+is a decision only the model can make, based on results it can't know in
+advance,
+[exactly the runtime-dependent case the decision test identifies as earning an agent's cost](/02-the-agent-loop/01-agents-workflows-and-the-loop/03-the-honest-case-for-not-using-an-agent/#the-actual-decision-test).
+(3) is a **chatbot** — a human, not the system, decides the sequence of
+the interaction at every turn.
+
+The pattern worth taking away: these three scenarios *sound* similarly
+sophisticated on the surface, but only one of them actually needs
+everything the rest of this module is about to build.
+
+</Subsection>

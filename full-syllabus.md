@@ -876,11 +876,10 @@ far" list directly below it.*
 
 **Built so far:**
 
-1. **What an Agent Is** — Building
-   Title is a working name (the mockup names only Concept 1 and says
-   Concept 2 covers "agent vs. workflow vs. chatbot" — rename the
-   folder/`_lesson.yaml` if the drafter's real title differs). Module
-   folder is `02-the-agent-loop`. Concept 1 drafted: what an agent is,
+1. **Agents, Workflows, and the Loop** — Locked
+   Title confirmed by the bookends mockup (folder renamed from the working
+   name `01-what-an-agent-is` to `01-agents-workflows-and-the-loop`).
+   Module folder is `02-the-agent-loop`. Concept 1 drafted: what an agent is,
    structurally (Module 1's tool-call round trip wrapped in a loop the
    model itself controls; the perceive → reason → act → observe cycle; a
    live demo of a two-cycle loop). Demo run in real Python, output matches
@@ -905,8 +904,17 @@ far" list directly below it.*
    to verified anchors/pages; the testing callback targets the Module 0
    error-paths concept's "systematic checklist" subsection, the closest
    match for the "assert exactly these steps" discipline the mockup
-   contrasts against. Remaining: bookends (outcomes intro, comprehensive
-   quiz, closing synthesis — drafted separately). Not yet Locked.
+   contrasts against.
+
+   Bookends: outcomes/why-it-matters intro (`00-intro.mdx`) and a
+   Recap & Practice page (`04-recap-practice.mdx`) with a 7-question
+   comprehensive quiz spanning all three concepts plus an ungraded
+   closing synthesis (classify three new scenarios as chatbot / workflow /
+   agent and apply the decision test), whose two callbacks link to the
+   Concept 3 "actual decision test" subsection, verified in the built
+   HTML. Deliberately not a graded sandbox (no learner-authored code). No
+   new verification findings in the bookends. Lesson 2.1 is now fully
+   Locked.
 
 **Old outline (superseded):**
 
