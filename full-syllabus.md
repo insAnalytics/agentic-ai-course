@@ -1030,8 +1030,17 @@ far" list directly below it.*
    the mockup's grading description doesn't state explicitly. The
    Module 1 callback and the Lesson 2.2 "request, not guarantee" callback
    link to verified pages/anchors; added a note in Q1's explanation that
-   the schema guarantee is opt-in per provider (Lesson 1.10). Remaining:
-   Concept 4 (phase-aware prompting) onward, bookends. Not yet Locked.
+   the schema guarantee is opt-in per provider (Lesson 1.10). 
+
+   Concept 4 drafted (the final concept section of the lesson, per its
+   own mockup): phase-aware prompting (a single static prompt vs. asking
+   the model to track its own phase vs. code-tracked `current_phase` with
+   phase-specific instructions). The two-phase instructions demo ran in
+   real Python and matches the mockup's output exactly. Its one callback
+   (the next lesson, "writing the loop by hand") points at a lesson not
+   built yet, so it's plain text — link it once that lesson exists.
+   Remaining: bookends (outcomes intro, comprehensive quiz, comprehensive
+   sandbox — drafted separately). Not yet Locked.
 
 **Old outline (superseded):**
 
