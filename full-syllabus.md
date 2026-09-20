@@ -814,8 +814,22 @@ Generate Text) are now fully Locked.
     mockup's two lesson-level callbacks (attention/transformer lesson,
     training pipeline lesson) were resolved to the attention-mechanism
     concept and the pretraining "parameters behind every logit"
-    subsection respectively. Remaining: Concept 2 onward, bookends. Not
-    yet Locked.
+    subsection respectively.
+
+    Concept 2 drafted: the model landscape and selection (open-weight vs.
+    closed, size tiers, reasoning vs. standard as an orthogonal axis, and
+    why total parameter count misleads under MoE). The mockup's
+    "interactive model-selection framework" is `ModelSelectionGrid.tsx` — a
+    3x3 grid (task complexity x privacy/control needs) whose cells and
+    detail panel split each recommendation into hosting, size tier, and
+    standard-vs-reasoning, so the two orthogonal axes stay visibly
+    separate; structural, no data claims, captioned as a rough starting
+    point. All five callbacks resolved to verified anchors. Quiz Q3's
+    correct option was reworded from the mockup's muddled "complexity and
+    need for control/privacy/size" to "whether a task benefits from
+    extended reasoning and how large a model it needs", matching the
+    concept's actual reasoning-vs-size axes. Remaining: Concept 3
+    (token-based pricing) onward, bookends. Not yet Locked.
 
 The rest of Module 1 (benchmark literacy and anything beyond this
 lesson) remains a rough outline — not yet broken into lessons.

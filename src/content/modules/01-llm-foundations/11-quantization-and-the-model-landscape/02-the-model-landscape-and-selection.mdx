@@ -1,0 +1,136 @@
+---
+title: "The model landscape and selection"
+lesson: "11-quantization-and-the-model-landscape"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import ModelSelectionGrid from "../../../../components/lesson/ModelSelectionGrid";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Open-weight vs. closed models" variant="a">
+
+**Open-weight** models have their trained parameters publicly
+downloadable — you can self-host them, fine-tune them freely, and inspect
+exactly what you're running. This buys real control and privacy (your
+data never has to leave your own infrastructure), at the cost of real
+operational burden: you're responsible for actually running the
+infrastructure, scaling it, and making
+[quantization decisions like the ones from Concept 1](/01-llm-foundations/11-quantization-and-the-model-landscape/01-quantization/#who-this-actually-matters-to)
+yourself.
+
+**Closed** (API-only) models are reached entirely through a provider's
+API — no infrastructure to manage, typically far faster to get started
+with, but less control (you can't inspect or directly modify the model),
+and your data passes through the provider's own servers, a real privacy
+consideration depending on what you're sending.
+
+Neither is universally better — the right choice depends on how much you
+actually value control and privacy against how much operational burden
+you're willing to take on.
+
+</Subsection>
+
+<Subsection title="Size tiers within one provider's lineup" variant="b">
+
+Most providers offer several sizes of the same model family — smaller,
+faster, cheaper versus larger, slower, more capable. The practical
+selection principle: use the smallest, cheapest tier that reliably
+handles a given task, reserving larger, more expensive tiers for
+genuinely harder cases —
+[the same reasoning from Lesson 8's model-routing decision](/01-llm-foundations/08-scaling-laws-and-emergent-behavior/04-test-time-compute/#the-practical-tradeoffs-as-a-real-design-decision),
+just applied to model *size* rather than reasoning capability
+specifically.
+
+</Subsection>
+
+<Subsection title="Reasoning vs. standard — a separate, orthogonal axis" variant="a">
+
+[Reasoning models, from Lesson 8](/01-llm-foundations/08-scaling-laws-and-emergent-behavior/04-test-time-compute/),
+are a genuinely separate selection axis from size tier — a task can be
+simple-but-needs-a-capable-model, or complex-but-fits-a-smaller-model's-abilities,
+or land anywhere else across these two independent dimensions. The
+cost/latency tradeoff for reasoning versus standard was covered in depth
+back in that lesson; this concept's job is just placing it correctly as
+one more axis in the overall landscape, not a replacement for size
+selection.
+
+Try placing a real scenario of your own on this grid — task complexity
+on one axis, privacy/control needs on the other:
+
+<ModelSelectionGrid client:load />
+
+</Subsection>
+
+<Subsection title="Why total parameter count doesn't tell the whole story" variant="b">
+
+Worth an explicit callback here:
+[MoE, from Lesson 3](/01-llm-foundations/03-attention-and-transformer-architecture/05-mixture-of-experts/#why-this-makes-how-big-is-the-model-the-wrong-question-alone),
+means a model's *total* parameter count and its actual *per-token* cost
+can diverge significantly — a model marketed with an enormous total
+parameter count might route each individual token through only a small
+fraction of those parameters, making it genuinely cheaper and faster
+per-token than its headline parameter count alone would suggest.
+Comparing models purely by parameter count, without accounting for
+whether MoE routing is involved, can be genuinely misleading when
+actually choosing between options.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What's the core tradeoff between open-weight and closed models?",
+      options: [
+        "Open-weight models are always cheaper in every respect",
+        "Open-weight models offer more control and privacy at the cost of real operational burden; closed models trade that control away for far less infrastructure responsibility",
+        "Closed models can always be inspected and modified freely",
+        "There's no real difference between the two categories",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Open-weight means you run it (control, privacy, burden); closed means the provider runs it (convenience, less control, your data on their servers). \"Always cheaper\" is tempting, but the infrastructure you take on is a real cost.",
+    },
+    {
+      question: "What's the practical principle for choosing between size tiers within a provider's model lineup?",
+      options: [
+        "Always use the largest, most capable model available, regardless of task",
+        "Use the smallest, cheapest tier that reliably handles the task, reserving larger tiers for genuinely harder cases",
+        "Model size has no relationship to task difficulty at all",
+        "Always use the smallest model regardless of whether it can handle the task",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The word that matters is \"reliably\": the smallest tier that does the job, not the smallest tier regardless of results, and not the biggest by default.",
+    },
+    {
+      question: "Why is reasoning-vs-standard considered a separate axis from size tier, rather than the same decision?",
+      options: [
+        "They're actually the same decision, just described differently",
+        "Whether a task benefits from extended reasoning and how large a model it needs are independent dimensions — a task can be simple but need a capable model, or complex but fit a smaller model's abilities",
+        "Reasoning models are always the largest size tier available",
+        "Standard models can never be large or capable",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Size is about how capable the underlying model is; reasoning is about spending extra tokens thinking before answering. Either can be chosen without the other, so you're really making two separate decisions.",
+    },
+    {
+      question: "Why can comparing models purely by total parameter count be misleading?",
+      options: [
+        "Parameter count is always a perfectly reliable predictor of cost",
+        "A mixture-of-experts model can have a large total parameter count while routing each token through only a small fraction of those parameters, making its actual per-token cost much lower than the headline number suggests",
+        "Parameter count is never actually reported by any provider",
+        "Only closed models report parameter counts",
+      ],
+      correctIndex: 1,
+      explanation:
+        "With MoE, per-token cost tracks the parameters actually activated, not the total. Two models with very different headline sizes can cost roughly the same to run.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
