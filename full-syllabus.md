@@ -828,8 +828,20 @@ Generate Text) are now fully Locked.
     correct option was reworded from the mockup's muddled "complexity and
     need for control/privacy/size" to "whether a task benefits from
     extended reasoning and how large a model it needs", matching the
-    concept's actual reasoning-vs-size axes. Remaining: Concept 3
-    (token-based pricing) onward, bookends. Not yet Locked.
+    concept's actual reasoning-vs-size axes.
+
+    Concept 3 drafted: token-based pricing and every cost driver from the
+    module pulled together (input vs. output rates, cached input, reasoning
+    tokens, language, non-text inputs). The combined-cost demo was run in
+    real Python and matches the mockup exactly (`$0.0034` vs. `$0.0334`,
+    ~9.8x); added a one-line note reconciling that with Lesson 8's output-
+    only `~14x` (the mostly-cached input cost is fixed, so the whole-
+    request multiple is lower). All six callbacks resolved to verified
+    anchors (the mockup's two-target "non-text inputs" callback became two
+    links). Lesson 1.8's Concept 4 still says the pricing math is "covered
+    forward in this module's cost lesson" as plain prose — left as is.
+    Remaining: Concept 4 (provider-side rate limits) onward, bookends. Not
+    yet Locked.
 
 The rest of Module 1 (benchmark literacy and anything beyond this
 lesson) remains a rough outline — not yet broken into lessons.

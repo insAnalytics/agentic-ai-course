@@ -1,0 +1,152 @@
+---
+title: "Token-based pricing, and every cost driver pulled together"
+lesson: "11-quantization-and-the-model-landscape"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+No new mechanism here — every individual fact in this concept was already
+covered somewhere earlier in this module. This concept's job is assembling
+all of them into one coherent cost picture, since in practice they compound
+together, not one at a time.
+
+<Subsection title="The basic pricing mechanics" variant="a">
+
+LLM APIs typically charge per token, usually with **different rates for
+input and output tokens** — output tokens are generally priced higher,
+since generation is the actual compute-intensive part of the process,
+[one full pass per token, as established back in Lesson 4](/01-llm-foundations/04-how-llms-generate-text/02-autoregressive-generation/#why-this-matters-computationally).
+
+</Subsection>
+
+<Subsection title="Every cost driver from this module, combined into one calculation" variant="b">
+
+<LiveDemo client:load code={`def estimate_request_cost(
+    input_tokens: int,
+    output_tokens: int,
+    cached_tokens: int,
+    input_price_per_1k: float,
+    cached_input_price_per_1k: float,
+    output_price_per_1k: float,
+) -> float:
+    fresh_input_tokens = input_tokens - cached_tokens
+    fresh_input_cost = (fresh_input_tokens / 1000) * input_price_per_1k
+    cached_cost = (cached_tokens / 1000) * cached_input_price_per_1k
+    output_cost = (output_tokens / 1000) * output_price_per_1k
+    return fresh_input_cost + cached_cost + output_cost
+
+# a support bot: large, stable system prompt (mostly cached), short question
+cost_standard = estimate_request_cost(
+    input_tokens=2000, output_tokens=150, cached_tokens=1800,
+    input_price_per_1k=0.003, cached_input_price_per_1k=0.0003, output_price_per_1k=0.015,
+)
+
+# the same request, but routed through a reasoning model
+cost_reasoning = estimate_request_cost(
+    input_tokens=2000, output_tokens=150 + 2000, cached_tokens=1800,
+    input_price_per_1k=0.003, cached_input_price_per_1k=0.0003, output_price_per_1k=0.015,
+)
+
+print(f"standard: \${cost_standard:.4f}")
+print(f"reasoning: \${cost_reasoning:.4f}")`} />
+
+(Illustrative pricing figures — real rates vary by provider and model.)
+
+This one calculation already combines two threads from across this
+module:
+[cache-friendly prompt structure from Lesson 6](/01-llm-foundations/06-context-windows-and-kv-cache/04-prompt-structure-and-cache-hits/#why-this-is-a-real-cost-and-latency-lever-not-just-a-style-choice)
+— `1800` of the `2000` input tokens hit the cheaper cached rate, because
+the stable system prompt sits first — and
+[reasoning tokens from Lesson 8](/01-llm-foundations/08-scaling-laws-and-emergent-behavior/04-test-time-compute/#the-real-cost-made-concrete),
+roughly `10×`-ing the cost when the same request routes through a
+reasoning model. (Lesson 8's output-only demo showed roughly `14×`; here
+the input side is a fixed, mostly-cached cost the reasoning tokens don't
+touch, so the whole-request multiple comes out a little lower.)
+
+Two more real drivers this exact same calculation would need to account
+for in practice, both already covered earlier in this module:
+**[language](/01-llm-foundations/01-tokenization/03-tokens-in-practice-and-cost/#why-language-itself-changes-the-cost)**
+— the identical conversation conducted in a language poorly represented
+in the tokenizer's training data would inflate both `input_tokens` and
+`output_tokens` well beyond what the same meaning costs in English — and
+**[non-text inputs](/01-llm-foundations/01-tokenization/04-non-text-inputs-as-tokens/)**
+(and [how they're actually sent](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/04-sending-non-text-inputs/))
+— an image attached to that support request adds real tokens to
+`input_tokens`, often several hundred, before a single word of the actual
+question is even considered.
+
+</Subsection>
+
+<Subsection title="The habit worth building" variant="a">
+
+None of these four factors — language, caching, reasoning, non-text input
+— acts alone in a real system; a genuinely cost-aware agent backend is
+affected by some combination of all four on nearly every request. The
+actual skill this lesson has been building toward isn't memorizing any one
+of these facts individually — each was already taught where it belongs —
+but developing the habit of checking all four together when actually
+estimating what a real workload will cost, rather than reasoning about
+pricing as if only one factor were ever in play at a time.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why are output tokens typically priced higher than input tokens?",
+      options: [
+        "Output tokens are simply arbitrary and unrelated to actual cost",
+        "Generation is the actual compute-intensive part of the process — each output token requires its own full pass through the model",
+        "Input tokens are never actually charged at all",
+        "Pricing is unrelated to which kind of token is involved",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Output tokens are generated one at a time, each needing a full forward pass (Lesson 4), so they reflect the expensive part of the work.",
+    },
+    {
+      question: "In the combined cost demo, what made most of the 2000 input tokens cost less than the full input rate?",
+      options: [
+        "A random discount applied for no particular reason",
+        "Most of them were cached, hitting cache-friendly pricing because the stable system prompt sat first in the request, exactly as covered in Lesson 6",
+        "Input tokens are always free regardless of caching",
+        "The reasoning model automatically discounts all input tokens",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The stable prefix (the system prompt) matched a previous request exactly, so 1800 tokens were billed at the cached rate; only the 200 fresh tokens paid the full input rate.",
+    },
+    {
+      question: "Beyond caching and reasoning, what two other cost drivers does this concept explicitly pull in from earlier in the module?",
+      options: [
+        "Quantization and open-weight vs. closed model choice",
+        "Language-dependent token counts, and tokens consumed by non-text inputs like images",
+        "Model size tier and MoE routing",
+        "Stop sequences and temperature",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Language changes how many tokens the same meaning takes, and images add their own tokens to the input. Quantization, size tier, and MoE affect what running a model costs or which model you pick, not the token count on a given request.",
+    },
+    {
+      question: "What's the actual point of this concept, given that none of its individual facts are new?",
+      options: [
+        "To introduce four entirely new pricing mechanisms",
+        "To build the habit of considering multiple cost drivers together, since they compound on real requests rather than acting one at a time",
+        "To replace everything taught earlier in the module with a simpler rule",
+        "To argue that cost doesn't actually matter in practice",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Each driver was taught where it belongs; the new skill is checking all of them together when estimating a real workload.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
