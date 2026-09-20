@@ -670,6 +670,35 @@ about counting books. Changed the donation from 60 to 70 (140 − 45 = 95,
 + 70 = 165, a third = 55, leaving 110); the task, graded checks, and
 correct-answer explanation all use the corrected figure.
 
+**Grading a composed prompt (Lesson 2.2 comprehensive sandbox).** The
+lesson's closing exercise combines specificity, few-shot, delimiters,
+chain-of-thought, and an output format into one receipt-totalling prompt,
+still graded as text via the `prompt`-variable pattern. Six hidden tests
+share one `PARSE` helper (defined once in the `.mdx` via `String.raw`; it
+writes backticks as ``` so the regex source can live inside a JS
+template literal). (1) Delimited data: at least two delimiter-marked blocks
+(`<tag>...</tag>` with any tag name, or a triple-backtick fence), with real
+instruction text before the first. (2) A *self-consistent* worked example:
+after a non-final block there is an addition chain (`4.50 + 8.25 = 12.75`,
+`$` optional) whose numbers all come from that block's own receipt, whose
+sum matches its stated result, and an exact `Total: $N.NN` equal to that
+result — so a wrong-arithmetic example or a chain unrelated to the receipt
+fails. (3) A step-by-step reasoning request appearing before the final
+block. (4) The `Total: $X.XX` format is specified. (5) The
+discount/tax-ignoring constraint is stated (the task text requires it,
+though the mockup's grading list didn't name it as its own check). (6) The
+last block is a new receipt (at least two prices, different from every
+earlier block) with nothing numeric after it, i.e. genuinely unanswered.
+Verified against real Pyodide 0.26.4 with 19 submissions: the reference
+answer (also with a trailing `Reasoning:` label, backtick fences instead of
+tags, another tag name, or `$` signs in the addition) passes all six;
+`TODO` fails all six; and each single flaw (no delimiter, no worked example,
+no summation shown, wrong arithmetic, wrong total format, a chain not drawn
+from the receipt, no step-by-step request, step-by-step only after the final
+receipt, no format, no ignore-discount/tax instruction, final receipt already
+answered, final receipt repeating the example, no instructions before the
+first block) fails exactly the check(s) it should.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped

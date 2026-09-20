@@ -1,0 +1,203 @@
+---
+title: "Recap & Practice"
+lesson: "02-prompting-fundamentals"
+order: 6
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+export const PARSE = String.raw`import re
+_p = prompt
+_t = " ".join(_p.lower().split())
+_blocks = sorted(
+    [(m.start(), m.end(), m.group(2)) for m in re.finditer(r"<(\w+)>(.*?)</\1>", _p, re.S)]
+    + [(m.start(), m.end(), m.group(1)) for m in re.finditer(r"\x60\x60\x60(.*?)\x60\x60\x60", _p, re.S)]
+)
+_reason = re.compile(r"step[- ]by[- ]step|show (?:your|the) (?:reasoning|work|steps)|explain (?:your|the) reasoning|(?:reason|think|work) (?:it |this |the problem )?through|walk through|reasoning (?:process|steps)")
+_num = r"\d+(?:\.\d+)?"
+_chain = re.compile(r"((?:\$?\s*" + _num + r"\s*\+\s*)+\$?\s*" + _num + r")\s*=\s*\$?\s*(" + _num + r")")
+def _worked_example(i):
+    s, e, body = _blocks[i]
+    nxt = _blocks[i + 1][0] if i + 1 < len(_blocks) else len(_p)
+    after = _p[e:nxt]
+    c = _chain.search(after)
+    t = re.search(r"total:\s*\$\s*(\d+\.\d{2})", after, re.I)
+    if not (c and t):
+        return False
+    nums = [float(x) for x in re.findall(_num, c.group(1))]
+    have = {round(float(x), 2) for x in re.findall(_num, body)}
+    return (abs(sum(nums) - float(c.group(2))) < 0.005
+            and abs(float(t.group(1)) - float(c.group(2))) < 0.005
+            and all(round(n, 2) in have for n in nums))
+`;
+
+export const T_FORMAT = String.raw`assert re.search(r"total:\s*\$\s*x+\.x+", _t)`;
+export const T_IGNORE = String.raw`assert re.search(r"discount|tax", _t) and re.search(r"ignor|exclud|skip|do not (?:include|count)|don't (?:include|count)|only (?:the )?item", _t)`;
+export const T_FINAL = String.raw`assert len(_blocks) >= 2 and len(re.findall(r"\d+\.\d{2}", _blocks[-1][2])) >= 2 and all(_blocks[-1][2].strip() != b[2].strip() for b in _blocks[:-1]) and not re.search(r"\d", _p[_blocks[-1][1]:])`;
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: 'Why is "Write something about our product" considered a genuinely vague prompt?',
+      options: [
+        "It contains a grammatical error",
+        "It leaves what, tone, length, format, and audience entirely unspecified, so many genuinely different completions are all equally \"valid\"",
+        "It's too short to ever be useful",
+        "The word \"product\" is inherently ambiguous",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Vagueness is about how many different outputs the prompt fails to rule out, not grammar or length.",
+    },
+    {
+      question: "Why does vagueness in an agent's own instructions carry sharper consequences than vagueness in a one-off content request?",
+      options: [
+        "It doesn't — the consequences are identical",
+        "Ambiguity about when to call a tool or what counts as \"done\" can produce structural failures, not just stylistic ones",
+        "Agents are immune to vague instructions",
+        "This only matters for agents with many tools",
+      ],
+      correctIndex: 1,
+      explanation:
+        "In an agent the instructions steer decisions inside the loop, so ambiguity changes what the agent does, not just how it sounds.",
+    },
+    {
+      question: "Why don't more few-shot examples always keep improving results indefinitely?",
+      options: [
+        "Additional examples are always strictly beneficial",
+        "Returns diminish past a small number of well-chosen examples, while token cost keeps growing, and too many can over-anchor the model",
+        "Examples past the third are ignored entirely",
+        "Adding examples always makes output worse",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The first few examples do most of the work; each extra one costs tokens on every request.",
+    },
+    {
+      question: "Why can a narrow, non-representative few-shot example set produce worse results than no examples at all?",
+      options: [
+        "This can never happen",
+        "It can mislead the model into a pattern too specific to those examples, hurting generalization to genuinely different valid inputs",
+        "Similar examples always improve consistency",
+        "The model ignores similar-looking examples",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The model infers the pattern from what it's shown, so a narrow set teaches a narrow pattern.",
+    },
+    {
+      question: "What do delimiters like `<feedback>...</feedback>` actually accomplish?",
+      options: [
+        "They guarantee the model will never make a mistake",
+        "They explicitly mark which part of a prompt is data, removing ambiguity about the boundary between instructions and content",
+        "They convert a prompt into valid JSON automatically",
+        "They have no real effect on interpretation",
+      ],
+      correctIndex: 1,
+      explanation:
+        "They clarify structure. They don't guarantee behavior, and the tags aren't parsed into anything.",
+    },
+    {
+      question: "Why would a real system typically use both prompt-level format specification and constrained decoding together?",
+      options: [
+        "They're redundant, and using both is pure waste",
+        "Prompt-level clarity helps the model's reasoning land on the right shape; constrained decoding then guarantees the final output matches, regardless",
+        "Constrained decoding only works with no format specified in the prompt",
+        "Only one of the two can ever be used per request",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The prompt makes the right shape the model's likely intent; the mask makes any other shape unreachable. Each covers what the other can't.",
+    },
+    {
+      question: "Why does asking for step-by-step reasoning tend to improve accuracy on a multi-step problem?",
+      options: [
+        "It has no real effect on accuracy",
+        "Each written-out step becomes part of the sequence the model conditions on for the next prediction, scaffolding that's absent when jumping straight to a final answer",
+        "It only helps by making the response longer",
+        "It only works for arithmetic specifically",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Generation is one token at a time, each conditioned on everything before it, so written-out intermediate results become inputs to the next step.",
+    },
+    {
+      question: "Is chain-of-thought prompting the same as using a dedicated reasoning model?",
+      options: [
+        "Yes, identical in every respect",
+        "No — CoT prompting works on any model through prompt wording alone; a reasoning model is specifically trained via RL to reason automatically",
+        "CoT prompting only works on reasoning models",
+        "Reasoning models can't be asked to show reasoning",
+      ],
+      correctIndex: 1,
+      explanation:
+        "One is a prompting technique, the other a trained capability — two routes to similar-looking behavior.",
+    },
+    {
+      question: "Why is judging a prompt change from a single example output a weak signal?",
+      options: [
+        "A single example is always sufficient",
+        "Output can vary somewhat run to run for the same prompt, so one example looking better or worse might just be noise",
+        "Single examples are always misleading in every case",
+        "This only matters for very long prompts",
+      ],
+      correctIndex: 1,
+      explanation:
+        "One output can look better or worse by chance. \"Always misleading\" overshoots — a single example is weak evidence, not worthless.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={'Write a prompt that, given receipt-style text listing several items and prices, computes the total cost (summing only item prices — ignoring any discount or tax lines) and outputs it in the exact format `Total: $X.XX`. Your prompt must: (1) clearly separate the instructions from the receipt data using a delimiter such as `<receipt>...</receipt>`; (2) include at least one worked few-shot example showing the exact computation (an addition like `4.50 + 8.25 = 12.75`) and the output format; (3) explicitly request step-by-step reasoning before the final total; (4) specify the exact output format, `Total: $X.XX`; (5) state that discount and tax lines are ignored; and (6) end with a new, unanswered receipt for the model to actually process. Assign your prompt to the `prompt` variable.'}
+  starterCode={`prompt = """
+TODO: write your prompt here.
+Instructions first, then a worked example, then a new receipt
+whose total is left for the model to compute.
+"""`}
+  hiddenTests={[
+    PARSE + "assert len(_blocks) >= 2 and len(_p[:_blocks[0][0]].split()) >= 5",
+    PARSE + "assert any(_worked_example(i) for i in range(len(_blocks) - 1))",
+    PARSE + 'assert _blocks and _reason.search(" ".join(_p[:_blocks[-1][0]].lower().split()))',
+    PARSE + T_FORMAT,
+    PARSE + T_IGNORE,
+    PARSE + T_FINAL,
+  ]}
+  hint={'This combines every piece from this lesson, each doing its own job: the delimiter marks where the actual receipt data starts and ends; the worked example pins down the exact summation and format (write the addition out, and make its numbers come from the example receipt); the step-by-step request scaffolds the arithmetic itself, [exactly as demonstrated in Concept 4](/02-the-agent-loop/02-prompting-fundamentals/04-chain-of-thought-prompting/); the format instruction narrows what a "correct" response even looks like. Keep the closing triple quotes on their own line.'}
+  correctAnswer={{
+    code: `prompt = """
+Compute the total cost of the items in the receipt below, ignoring any
+discount or tax lines. Show your reasoning step by step, then give the
+final answer in the format: Total: $X.XX
+
+Example:
+<receipt>
+Coffee - $4.50
+Sandwich - $8.25
+Discount - -$2.00
+</receipt>
+Reasoning: Sum the item prices only, ignoring the discount line.
+4.50 + 8.25 = 12.75.
+Total: $12.75
+
+<receipt>
+Notebook - $3.75
+Pen set - $6.20
+Tax - $0.80
+</receipt>
+"""`,
+    explanation:
+      "Every technique from this lesson does real, distinct work here: the <receipt> delimiter removes any ambiguity about what's actual data; the worked example pins down both the \"ignore discount/tax lines\" constraint and the exact output format; the explicit step-by-step request scaffolds the arithmetic itself; and the final, unanswered receipt is what the model actually has to process — a genuine composition of every piece from this lesson, not five separate techniques applied in isolation. Note that this exercise grades your prompt text directly, not a model's output, since no live model is available here.",
+  }}
+/>
+
+</CheckpointZone>

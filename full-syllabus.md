@@ -916,10 +916,9 @@ far" list directly below it.*
    new verification findings in the bookends. Lesson 2.1 is now fully
    Locked.
 
-2. **Prompting Fundamentals** — Building
-   Title is a working name (the mockup names only Concept 1 and says
-   Concept 2 covers few-shot examples in the prompt — rename the
-   folder/`_lesson.yaml` if the drafter's real title differs). Concept 1
+2. **Prompting Fundamentals** — Locked
+   Title confirmed by the bookends mockup (the working title was correct,
+   so no folder rename was needed). Concept 1
    drafted: specificity and clear instructions (a vague prompt vs. a
    specific one — what/how/constraints — and why vagueness has structural,
    not just stylistic, consequences inside an agent's own instructions).
@@ -972,8 +971,23 @@ far" list directly below it.*
    evaluation became a short learner-facing intro paragraph (the later
    evaluation module isn't built, so it's referenced as plain text). The
    one callback (Concept 2's representative-examples discussion) links to
-   a verified anchor. Remaining: bookends (outcomes intro, comprehensive
-   quiz, closing synthesis — drafted separately). Not yet Locked.
+   a verified anchor.
+
+   Bookends: outcomes/why-it-matters intro (`00-intro.mdx`) and a Recap &
+   Practice page (`06-recap-practice.mdx`) with a 9-question comprehensive
+   quiz spanning all five concepts plus a **graded comprehensive sandbox**
+   (unlike Lessons 1.9-1.11 and 2.1, this lesson has a real learner-authored
+   artifact — a prompt): a receipt-totalling prompt combining a delimiter, a
+   worked example, a step-by-step request, an output format, and a final
+   unanswered receipt, graded as text by six hidden tests (see
+   architecture.md §4.1; verified against real Pyodide with 19
+   submissions). The task text also requires stating that discount/tax
+   lines are ignored, which the mockup's grading list didn't name, so it's
+   its own check. The intro's "system prompt" and "tool descriptions"
+   callbacks point at lessons not built yet, so they're plain text; the
+   mockup's unmarked "warned about in Lesson 1" now links to Lesson 2.1's
+   honest-case concept. The hint's Concept 4 callback links to that page.
+   Lesson 2.2 is now fully Locked.
 
 **Old outline (superseded):**
 
