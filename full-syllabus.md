@@ -939,8 +939,19 @@ far" list directly below it.*
    directly via the stock `GradedExercise` (a `prompt` variable checked by
    four hidden Python tests); see architecture.md §4.1 for the harness and
    the 13-submission verification against real Pyodide. All four callbacks
-   resolved to verified anchors/pages. Remaining: Concept 3 (output
-   format and delimiters) onward, bookends. Not yet Locked.
+   resolved to verified anchors/pages.
+
+   Concept 3 drafted: output format and delimiters (the data-vs-instruction
+   ambiguity in an unstructured prompt, delimiters as an explicit boundary,
+   stating the output format in the prompt, and why that's a request rather
+   than a guarantee — complementary to Module 1's constrained decoding).
+   Prose only, static illustrative prompts, no demo. Both callbacks resolve
+   to Lesson 1.10 anchors verified in the built HTML. Added one sentence
+   the mockup lacks: delimiters clarify the boundary but aren't a security
+   boundary against text deliberately written to fool the model (in keeping
+   with the concept's own request-not-guarantee framing). Remaining:
+   Concept 4 (chain-of-thought prompting) onward, bookends. Not yet
+   Locked.
 
 **Old outline (superseded):**
 

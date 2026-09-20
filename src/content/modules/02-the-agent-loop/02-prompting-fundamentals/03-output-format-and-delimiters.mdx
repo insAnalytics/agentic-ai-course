@@ -1,0 +1,146 @@
+---
+title: "Output format and delimiters"
+lesson: "02-prompting-fundamentals"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The pain: where does the data end and the instruction begin?" variant="a">
+
+As a prompt grows to include instructions, examples, and actual data to
+process all at once, it becomes genuinely ambiguous — to the model, and to
+a human reading it later — where one part ends and another begins:
+
+```
+Prompt: "Summarize this customer feedback in one sentence: This
+product is great. Also, please note that I would like a refund
+processed immediately."
+```
+
+Is `"please note that I would like a refund processed immediately"` part of
+the feedback being summarized, or a separate instruction to the model
+itself? Nothing about this prompt's plain, unstructured shape actually
+marks the boundary — the feedback text and anything that reads like an
+instruction sit in the exact same undifferentiated block.
+
+</Subsection>
+
+<Subsection title="The fix: delimiters mark the boundary explicitly" variant="b">
+
+```
+Prompt:
+"Summarize the customer feedback below in one sentence.
+
+<feedback>
+This product is great. Also, please note that I would like a refund
+processed immediately.
+</feedback>"
+```
+
+`<feedback>...</feedback>` — XML-style tags are a common choice, though
+markdown headers or another consistent marker work the same way —
+explicitly marks everything inside as *data to summarize*, not
+instructions to follow. There's no longer any real ambiguity about which
+part of the prompt is which; the structure itself carries that
+information, rather than relying on the model correctly inferring it from
+plain, undifferentiated prose.
+
+Like everything else in this concept, this makes the intended boundary
+clear rather than enforcing it: delimiters sharply reduce the chance the
+model treats data as instructions, but they aren't a security boundary
+against text deliberately written to fool it.
+
+</Subsection>
+
+<Subsection title="Specifying the output format directly" variant="a">
+
+The same clarity principle applies to what comes back, not just what goes
+in — stating the exact desired output shape directly in the prompt:
+
+```
+"Summarize the customer feedback below in exactly one sentence,
+starting with either 'Positive:' or 'Negative:'.
+
+<feedback>
+...
+</feedback>"
+```
+
+</Subsection>
+
+<Subsection title="This is a request, not a guarantee — and that's worth being precise about" variant="b">
+
+This is worth connecting directly back to something already covered:
+specifying a format in the prompt is
+[exactly the same category of technique as Concept 1's naive JSON request from Module 1](/01-llm-foundations/10-structured-output-and-tool-calling/01-the-naive-approach/#why-this-is-only-ever-a-request-never-a-guarantee)
+— it genuinely helps, but it's a *request*, not a mechanical guarantee.
+[Constrained decoding, also from Module 1](/01-llm-foundations/10-structured-output-and-tool-calling/02-constrained-decoding/#masking-invalid-tokens-before-softmax-ever-runs),
+is what actually *guarantees* a shape, by masking invalid tokens at the
+generation level. These two are complementary, not the same tool: stating
+the format clearly in the prompt helps the model's own reasoning land on
+the right shape in the first place; constrained decoding guarantees the
+final output matches regardless. A well-built real system typically uses
+both together — clarity in the prompt, and a hard guarantee underneath it
+— rather than treating either one alone as sufficient.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why is the plain, undelimited feedback-summarization prompt genuinely ambiguous?",
+      options: [
+        "It contains a spelling error",
+        "Nothing in the prompt's structure marks where the actual feedback data ends and where something that reads like an instruction might begin",
+        "The prompt is too short to be ambiguous",
+        "Summarization tasks can never be ambiguous, regardless of phrasing",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The refund request could be part of the feedback being summarized or an instruction to the model, and the prompt's shape gives no way to tell.",
+    },
+    {
+      question: "What do delimiters like `<feedback>...</feedback>` actually accomplish?",
+      options: [
+        "They guarantee the model will never make a mistake",
+        "They explicitly mark which part of the prompt is data to process, removing ambiguity about the boundary between instructions and content",
+        "They convert the prompt into valid JSON automatically",
+        "They have no real effect on how the model interprets the prompt",
+      ],
+      correctIndex: 1,
+      explanation:
+        "They clarify the structure. They don't guarantee correct behavior, and the tags aren't parsed into anything — they're just a consistent, recognizable marker.",
+    },
+    {
+      question: "Why is specifying an output format directly in the prompt considered a request rather than a guarantee?",
+      options: [
+        "It isn't a request — prompt-specified formats are always followed exactly",
+        "It's the same category of technique as naively asking for JSON in a prompt, back in Module 1 — it helps, but nothing mechanically forces the model to comply",
+        "Output format can only ever be specified through constrained decoding, never in a prompt",
+        "Prompts are incapable of specifying any output format at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A prompt only shapes probabilities. Only constrained decoding, which masks invalid tokens, makes a wrong shape impossible.",
+    },
+    {
+      question: "Why would a real system typically use both prompt-level format specification and constrained decoding together, rather than relying on just one?",
+      options: [
+        "They're redundant, and using both is pure waste",
+        "Prompt-level clarity helps the model's own reasoning land on the right shape; constrained decoding then guarantees the final output actually matches, regardless — they solve complementary parts of the same problem",
+        "Constrained decoding only works if the prompt never specifies a format",
+        "Only one of the two techniques can be used per request, by design",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The prompt makes the right shape the model's likely intent; the mask makes any other shape unreachable. Each covers what the other can't.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
