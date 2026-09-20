@@ -1077,7 +1077,22 @@ far" list directly below it.*
    (the "not this one" pointer, whose target text the mockup gave only as
    "agents workflows and the loop lesson", links to that lesson's "what an
    agent's dynamism actually costs" subsection, where harder-to-test/debug
-   is covered). Remaining: Concept 2 onward, bookends. Not yet Locked.
+   is covered). 
+
+   Concept 2 drafted: from round trip to loop — the minimal viable
+   transformation (a real `while` loop calling the fake client, executing
+   one hardcoded tool, and breaking on a text block), plus Applied sandbox
+   exercise 1, graded for real against the fake client's scripted
+   responses by six hidden tests (architecture.md §4.1; verified against
+   real Pyodide with 12 submissions). The fake client's source moved to
+   `src/lib/fakeClient.ts` so demos and exercises share it. **Deviation:**
+   the loop's `tool_result` message and the exercise's task, hidden tests,
+   and reference answer include `"tool_use_id": block.id`, which the mockup
+   omitted (see Lesson 1.10 Concept 5). Callbacks resolve to verified
+   pages; the "handling multiple tools" callback is a forward pointer to
+   the next concept of this same lesson (not yet written), so it's plain
+   text. Remaining: Concept 3 (handling multiple tools) onward, bookends.
+   Not yet Locked.
 
 **Old outline (superseded):**
 

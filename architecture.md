@@ -793,6 +793,40 @@ only the usage and never depends on another demo having run first. Verified
 in real Pyodide 0.26.4 that the static block and the setup code are
 identical and that the demo's output matches the mockup exactly.
 
+**Grading a hand-written agent loop against the fake client (Lesson 2.4,
+Concept 2).** The fake client's Python source now lives in one module,
+`src/lib/fakeClient.ts` (`FAKE_CLIENT`, plus a hidden-test-only
+`RECORDING_CLIENT` subclass that snapshots the `messages` list it receives
+on every call), imported by MDX for both demo `setupCode` and exercise
+hidden tests, so lessons, demos, and grading always run against the exact
+same classes. The exercise (`run_agent_loop(client, messages)`, graded by
+stock `GradedExercise`) puts `check_price` in the learner's starter code
+and each hidden test re-declares the client classes in its own namespace
+copy; the learner's function only ever touches the `client` it's handed, so
+no learner-namespace setup is needed. Six hidden tests: (1) the mockup's own
+check (final text returned, `call_count == 2`); (2) the tool actually ran
+with the right arguments and its result reached the model; (3) a different
+argument (`pencil` -> `"unknown"`) gives a different result, so the loop
+isn't hardcoded; (4) the second call sees exactly `[user, assistant
+tool_use, user tool_result]` in that order, with the assistant content
+being the very block object and the result carrying `tool_use_id ==
+block.id`; (5) a text response on the first call returns immediately with
+`call_count == 1`; (6) three tool calls in a row then text runs four calls
+and sends back seven messages. Checking what the model was *sent* (via the
+recording client) rather than inspecting the caller's list means a
+learner who copies `messages` instead of mutating it in place is graded
+fairly. Verified against real Pyodide 0.26.4 with 12 submissions: the
+reference and an in-place-vs-copy variant pass all six; a stub, a missing
+`tool_use_id`, printing instead of returning, a hardcoded two-call flow,
+never sending the result back, a hardcoded `"notebook"` argument, passing
+the dict instead of unpacking it, a loop with no text branch (which the
+fake client's exhausted script turns into an `IndexError` rather than a
+hang), a wrong role order, and a syntax error each fail exactly the
+expected test(s). **Deviation from the mockup:** the task and reference
+answer require `"tool_use_id": block.id` (the mockup's omitted it, the same
+gap Lesson 1.10 Concept 5 found), and the task text states this requirement
+so the test isn't checking something the learner wasn't told.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped

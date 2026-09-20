@@ -1,0 +1,218 @@
+---
+title: "From round trip to loop — the minimal viable transformation"
+lesson: "04-writing-the-loop-by-hand"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+
+export const PRE = FAKE_CLIENT + RECORDING_CLIENT;
+
+<Subsection title="The actual loop, written and running for real" variant="a">
+
+[Lesson 1 introduced the loop conceptually](/02-the-agent-loop/01-agents-workflows-and-the-loop/01-the-perceive-reason-act-observe-cycle/),
+using an illustrative, pre-scripted sequence of decisions. Using
+[the fake client from Concept 1](/02-the-agent-loop/04-writing-the-loop-by-hand/01-the-fake-llm-client/),
+this concept writes the real thing — a genuine `while` loop, actually
+calling a client, actually executing a tool, actually deciding when to
+stop:
+
+<LiveDemo client:load setupCode={FAKE_CLIENT} code={`def get_weather(location: str) -> str:
+    return f"It's sunny in {location}."
+
+client = FakeLLMClient(scripted_responses=[
+    ToolUseBlock(name="get_weather", input={"location": "Paris"}),
+    TextBlock(text="It's sunny in Paris today!"),
+])
+
+messages = [{"role": "user", "content": "What's the weather in Paris?"}]
+
+while True:
+    response = client.create(messages=messages)
+    block = response.content[0]
+
+    if block.type == "tool_use":
+        result = get_weather(**block.input)
+        messages.append({"role": "assistant", "content": [block]})
+        messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
+    elif block.type == "text":
+        print(f"final answer: {block.text}")
+        break
+
+print(f"total messages: {len(messages)}")`} />
+
+(The `FakeLLMClient` and block classes from the previous concept are
+already defined for this demo. Note the tool result carries the tool
+call's `id` as `tool_use_id`, the pairing
+[Module 1's round trip](/01-llm-foundations/10-structured-output-and-tool-calling/05-the-full-round-trip/)
+showed a real API requires.)
+
+`get_weather(**block.input)` —
+[the exact `**` argument-unpacking mechanism from Module 0](/00-python-essentials/03-functions-and-reuse/02-args-and-kwargs/)
+— unpacks `block.input`'s dict directly into keyword arguments, since
+`block.input` is exactly `{"location": "Paris"}` and `get_weather` takes
+`location` as a parameter. The loop checks `block.type` at each
+iteration: `"tool_use"` means execute the tool, append both the request
+and result, and keep looping; `"text"` means the model has produced its
+actual final answer, and the loop breaks.
+
+</Subsection>
+
+<Subsection title="Deliberately minimal — one hardcoded tool" variant="b">
+
+This loop deliberately only knows about one tool, `get_weather`,
+hardcoded directly into the `if` branch. That's a real limitation, worth
+naming honestly rather than pretending it isn't there: the moment a
+second tool exists, this exact structure doesn't generalize at all —
+exactly what the next concept fixes. This concept's job was getting the
+smallest possible *correct* loop actually running, end to end, before
+addressing that real gap.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does the loop actually check at each iteration to decide what to do next?",
+      options: [
+        "The length of the messages list",
+        "`block.type` — whether the response is a `\"tool_use\"` block requiring execution, or a `\"text\"` block signaling the final answer",
+        "How many tokens the response contains",
+        "Whether the user has sent a new message",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The block's type is the whole decision: `tool_use` means run a tool and go around again, `text` means the model is done.",
+    },
+    {
+      question: "What does `get_weather(**block.input)` actually do?",
+      options: [
+        "It passes `block.input` as a single dict argument, unchanged",
+        "It unpacks `block.input`'s key-value pairs directly into keyword arguments matching `get_weather`'s parameters",
+        "It converts `block.input` into a string before calling `get_weather`",
+        "It ignores `block.input` entirely",
+      ],
+      correctIndex: 1,
+      explanation:
+        "`**` turns `{\"location\": \"Paris\"}` into `location=\"Paris\"`. Passing the dict itself would hand `get_weather` one argument instead of a `location`.",
+    },
+    {
+      question: 'Why does the loop break specifically when it encounters a `"text"` block?',
+      options: [
+        "`\"text\"` blocks always indicate an error occurred",
+        "A `\"text\"` block signals the model has produced its actual final answer, rather than requesting another tool call — nothing more needs to happen",
+        "The loop breaks after exactly two iterations regardless of block type",
+        "`\"text\"` blocks are simply ignored, and the loop continues anyway",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The loop's length isn't fixed. It ends exactly when the model answers instead of asking for a tool.",
+    },
+    {
+      question: "Why is hardcoding a single tool directly into the loop's `if` branch a real, acknowledged limitation?",
+      options: [
+        "It isn't a limitation — this is the permanent, correct design",
+        "The moment a second tool exists, this exact structure doesn't generalize at all, since there's nowhere for the loop to look up which tool to actually call",
+        "Hardcoded tools always run faster than any alternative",
+        "This limitation only matters for tools that return numbers, not strings",
+      ],
+      correctIndex: 1,
+      explanation:
+        "With one hardcoded call, a `tool_use` block naming any other tool would still run `get_weather`. The loop needs some way to map a tool's name to the right function.",
+    },
+  ]}
+/>
+
+<GradedExercise
+  client:load
+  task={'Write `run_agent_loop(client, messages)`, the minimal loop. `client` is a `FakeLLMClient` (as in the demo above) scripted with a `ToolUseBlock` requesting `check_price` and then a `TextBlock` with the final answer; `check_price(item: str) -> str` is provided. Call the client and check the response\'s block type: for a `tool_use` block, execute `check_price` with the block\'s input, append the assistant\'s tool call and a `tool_result` message (carrying the block\'s `id` as `tool_use_id`) to `messages`, and keep looping; for a `text` block, return its text.'}
+  starterCode={`def check_price(item: str) -> str:
+    return "$4.50" if item == "notebook" else "unknown"
+
+def run_agent_loop(client, messages):
+    # TODO: call the client, check the block's type, run check_price for
+    # a tool call and send its result back, or return the final text.
+    pass`}
+  hiddenTests={[
+    PRE + String.raw`
+client = FakeLLMClient(scripted_responses=[
+    ToolUseBlock(name="check_price", input={"item": "notebook"}),
+    TextBlock(text="The notebook costs $4.50."),
+])
+final_answer = run_agent_loop(client, [{"role": "user", "content": "How much is a notebook?"}])
+assert final_answer == "The notebook costs $4.50."
+assert client.call_count == 2
+`,
+    PRE + String.raw`
+tool_block = ToolUseBlock(name="check_price", input={"item": "notebook"})
+client = RecordingClient(scripted_responses=[tool_block, TextBlock(text="done")])
+run_agent_loop(client, [{"role": "user", "content": "How much is a notebook?"}])
+second = client.seen[1]
+results = [c for m in second if m["role"] == "user" and isinstance(m["content"], list) for c in m["content"] if isinstance(c, dict) and c.get("type") == "tool_result"]
+assert len(results) == 1 and results[0]["content"] == "$4.50"
+`,
+    PRE + String.raw`
+client = RecordingClient(scripted_responses=[
+    ToolUseBlock(name="check_price", input={"item": "pencil"}),
+    TextBlock(text="done"),
+])
+run_agent_loop(client, [{"role": "user", "content": "How much is a pencil?"}])
+results = [c for m in client.seen[1] if m["role"] == "user" and isinstance(m["content"], list) for c in m["content"] if isinstance(c, dict) and c.get("type") == "tool_result"]
+assert len(results) == 1 and results[0]["content"] == "unknown"
+`,
+    PRE + String.raw`
+tool_block = ToolUseBlock(name="check_price", input={"item": "notebook"})
+client = RecordingClient(scripted_responses=[tool_block, TextBlock(text="done")])
+run_agent_loop(client, [{"role": "user", "content": "How much is a notebook?"}])
+second = client.seen[1]
+assert len(second) == 3
+assert second[1]["role"] == "assistant" and second[1]["content"][0] is tool_block
+assert second[2]["role"] == "user" and second[2]["content"][0]["type"] == "tool_result"
+assert second[2]["content"][0]["tool_use_id"] == tool_block.id
+`,
+    PRE + String.raw`
+client = FakeLLMClient(scripted_responses=[TextBlock(text="Hello!")])
+assert run_agent_loop(client, [{"role": "user", "content": "hi"}]) == "Hello!"
+assert client.call_count == 1
+`,
+    PRE + String.raw`
+client = RecordingClient(scripted_responses=[
+    ToolUseBlock(name="check_price", input={"item": "notebook"}),
+    ToolUseBlock(name="check_price", input={"item": "pencil"}),
+    ToolUseBlock(name="check_price", input={"item": "notebook"}),
+    TextBlock(text="all done"),
+])
+assert run_agent_loop(client, [{"role": "user", "content": "prices?"}]) == "all done"
+assert client.call_count == 4
+assert len(client.seen[3]) == 7
+`,
+  ]}
+  hint={'This is nearly identical to this concept\'s demo — the same `while True:` structure, checking `block.type`, calling `check_price(**block.input)` in the tool-use branch (and appending the assistant\'s tool call plus a `tool_result` with `"tool_use_id": block.id`), and returning `block.text` (rather than printing it) once a `"text"` block arrives.'}
+  correctAnswer={{
+    code: `def check_price(item: str) -> str:
+    return "$4.50" if item == "notebook" else "unknown"
+
+def run_agent_loop(client, messages):
+    while True:
+        response = client.create(messages=messages)
+        block = response.content[0]
+
+        if block.type == "tool_use":
+            result = check_price(**block.input)
+            messages.append({"role": "assistant", "content": [block]})
+            messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
+        elif block.type == "text":
+            return block.text`,
+    explanation:
+      "This is the exact minimal loop from this concept, wrapped as a reusable function — the same structural pattern, now checked against the fake client's scripted sequence to confirm the tool actually gets called with the right arguments, its result goes back paired with the right tool call, and the correct final text is returned once the model's text response arrives, however many tool calls came first.",
+  }}
+/>
+
+</CheckpointZone>

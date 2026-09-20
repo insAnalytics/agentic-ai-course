@@ -7,37 +7,7 @@ import Subsection from "../../../../components/lesson/Subsection.astro";
 import LiveDemo from "../../../../components/lesson/LiveDemo";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
-
-export const FAKE_CLIENT = String.raw`import itertools
-
-_ids = itertools.count(1)
-
-class ToolUseBlock:
-    def __init__(self, name: str, input: dict):
-        self.type = "tool_use"
-        self.id = f"toolu_fake_{next(_ids):02d}"
-        self.name = name
-        self.input = input
-
-class TextBlock:
-    def __init__(self, text: str):
-        self.type = "text"
-        self.text = text
-
-class FakeResponse:
-    def __init__(self, content: list):
-        self.content = content
-
-class FakeLLMClient:
-    def __init__(self, scripted_responses: list):
-        self.scripted_responses = scripted_responses
-        self.call_count = 0
-
-    def create(self, messages: list) -> FakeResponse:
-        response_block = self.scripted_responses[self.call_count]
-        self.call_count += 1
-        return FakeResponse(content=[response_block])
-`;
+import { FAKE_CLIENT } from "../../../../lib/fakeClient";
 
 A genuine shift from the previous lessons: since there's no real network
 call involved, this fake client — and everything built on top of it for
