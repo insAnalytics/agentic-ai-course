@@ -866,11 +866,32 @@ lesson) remains a rough outline — not yet broken into lessons.
 
 ---
 
-## Module 2 — Build Intelligent Conversation Agents
+## Module 2 — The Agent Loop
 
-*Original 10-lesson outline, adjusted: frontend, auth, and observability
-lessons pulled out into their own modules (3 and 4). Not yet re-broken into
-final lesson-by-lesson detail post-split.*
+*Renamed from "Build Intelligent Conversation Agents" as part of a newer,
+more refined syllabus structure. The 7-item list below is the **old**
+outline and is superseded — kept only until the new lesson breakdown is
+handed over; lessons actually being built are tracked in the "Built so
+far" list directly below it.*
+
+**Built so far:**
+
+1. **What an Agent Is** — Building
+   Title is a working name (the mockup names only Concept 1 and says
+   Concept 2 covers "agent vs. workflow vs. chatbot" — rename the
+   folder/`_lesson.yaml` if the drafter's real title differs). Module
+   folder is `02-the-agent-loop`. Concept 1 drafted: what an agent is,
+   structurally (Module 1's tool-call round trip wrapped in a loop the
+   model itself controls; the perceive → reason → act → observe cycle; a
+   live demo of a two-cycle loop). Demo run in real Python, output matches
+   the mockup exactly. **Finding:** the mockup's tool-call/tool-result
+   messages omitted the `id` / `tool_use_id` pairing that Lesson 1.10
+   Concept 5 established Claude's API requires; added both to the demo
+   (output unchanged) with a note linking back. Both callbacks resolved to
+   Module 1 anchors verified in the built HTML. Remaining: Concept 2
+   onward, bookends. Not yet Locked.
+
+**Old outline (superseded):**
 
 1. Build AI Chatbot with No Code
 2. Configure and Call LLM APIs with LangChain
