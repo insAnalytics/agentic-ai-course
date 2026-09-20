@@ -962,8 +962,18 @@ far" list directly below it.*
    non-integer third; donation changed to 70 (answer: 110). Three callbacks
    resolved to verified pages/anchors; the fourth (the next lesson, ReAct
    and reasoning in the loop) isn't built yet, so it's plain text — link it
-   once that lesson exists. Remaining: Concept 5 (iterating
-   systematically) onward, bookends. Not yet Locked.
+   once that lesson exists.
+
+   Concept 5 drafted (the final concept section of the lesson, per its
+   own mockup): iterating systematically rather than by vibes — a small
+   representative test set checked together instead of judging a change
+   from one output, deliberately not formal evaluation. Prose only, static
+   illustrative results. The mockup's authoring note about not being formal
+   evaluation became a short learner-facing intro paragraph (the later
+   evaluation module isn't built, so it's referenced as plain text). The
+   one callback (Concept 2's representative-examples discussion) links to
+   a verified anchor. Remaining: bookends (outcomes intro, comprehensive
+   quiz, closing synthesis — drafted separately). Not yet Locked.
 
 **Old outline (superseded):**
 
