@@ -1059,6 +1059,26 @@ far" list directly below it.*
    hint and explanation's Concept 4 callbacks link to that concept's page.
    Lesson 2.3 is now fully Locked.
 
+4. **Writing the Loop by Hand** — Building
+   Title is a working name taken from an earlier mockup's callback text
+   ("the next lesson, writing the loop by hand") — confirm or rename once
+   the bookends mockup arrives. Concept 1 drafted: the fake LLM client
+   (what it is, a minimal working version, using it, and why a scripted
+   response sequence makes grading the loop's structural correctness
+   possible). This is the first Module 2 material that genuinely runs live
+   against real-shaped responses rather than illustrative snippets. Demo
+   verified in real Pyodide; output matches the mockup exactly. **Deviation:**
+   `ToolUseBlock` gains an auto-generated `.id` (constructor signature
+   unchanged) so a loop can send back a matching `tool_use_id`, per Lesson
+   1.10 Concept 5; see architecture.md §4.1. Also noted on the page: the
+   blocks are attribute-style objects like a real SDK's (Lesson 2.1's
+   illustrative snippets used dicts) and a real client's `create` takes
+   more parameters. All four callbacks resolve to verified pages/anchors
+   (the "not this one" pointer, whose target text the mockup gave only as
+   "agents workflows and the loop lesson", links to that lesson's "what an
+   agent's dynamism actually costs" subsection, where harder-to-test/debug
+   is covered). Remaining: Concept 2 onward, bookends. Not yet Locked.
+
 **Old outline (superseded):**
 
 1. Build AI Chatbot with No Code

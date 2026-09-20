@@ -771,6 +771,28 @@ positive *evidence* rather than by comparing where each tool name first
 appears, because a prompt may legitimately list both tools up front in either
 order before describing the order to use them in.
 
+**Fake LLM client for agent-loop exercises (Lesson 2.4, Concept 1).**
+Module 2's loop-writing lessons run in Pyodide against a scripted
+`FakeLLMClient` rather than a real API (no network, no non-determinism, so
+a hidden test can know the correct behavior at every step — grading stays
+scoped to the loop's *structural* correctness, never whether a model's
+decision was good). Its pieces: `ToolUseBlock`, `TextBlock`, `FakeResponse`
+(`.content` list) and `FakeLLMClient.create(messages)`, which returns the
+next scripted block per call. The blocks are attribute-style objects
+(`.type`, `.name`/`.input`/`.text`), the way a real SDK hands them back,
+whereas earlier illustrative snippets (Lesson 2.1) used plain dicts.
+**Deviation from the mockup:** `ToolUseBlock` gains an auto-generated `.id`
+(`toolu_fake_01`, ... from a module-level `itertools.count`), because Claude's
+API requires each `tool_result` to carry the matching `tool_use_id` (the
+Lesson 1.10 Concept 5 finding) and a loop built on the fake needs an id to
+send back; the constructor signature `ToolUseBlock(name, input)` is
+unchanged, so exercises and hidden tests written against the mockup's
+signature still work. On the page the classes are shown once as a static
+block and passed to the demo's `LiveDemo` as `setupCode`, so the demo shows
+only the usage and never depends on another demo having run first. Verified
+in real Pyodide 0.26.4 that the static block and the setup code are
+identical and that the demo's output matches the mockup exactly.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped

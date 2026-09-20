@@ -1,0 +1,204 @@
+---
+title: "The fake LLM client — what it is and how to use it"
+lesson: "04-writing-the-loop-by-hand"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+export const FAKE_CLIENT = String.raw`import itertools
+
+_ids = itertools.count(1)
+
+class ToolUseBlock:
+    def __init__(self, name: str, input: dict):
+        self.type = "tool_use"
+        self.id = f"toolu_fake_{next(_ids):02d}"
+        self.name = name
+        self.input = input
+
+class TextBlock:
+    def __init__(self, text: str):
+        self.type = "text"
+        self.text = text
+
+class FakeResponse:
+    def __init__(self, content: list):
+        self.content = content
+
+class FakeLLMClient:
+    def __init__(self, scripted_responses: list):
+        self.scripted_responses = scripted_responses
+        self.call_count = 0
+
+    def create(self, messages: list) -> FakeResponse:
+        response_block = self.scripted_responses[self.call_count]
+        self.call_count += 1
+        return FakeResponse(content=[response_block])
+`;
+
+A genuine shift from the previous lessons: since there's no real network
+call involved, this fake client — and everything built on top of it for
+the rest of this module — genuinely runs live in this course's sandbox,
+unlike the illustrative-only examples in earlier lessons.
+
+<Subsection title="Why a fake client, and what it actually needs to do" variant="a">
+
+Every exercise from here forward in this module needs a way to run a real
+agent loop's *code* against something that behaves exactly like
+[a real LLM API's response shapes, from Module 1](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/02-the-response-shape/)
+— without making a real, non-deterministic network call. A **fake LLM
+client** does exactly this: it mirrors a real client's call pattern and
+response structure, but returns a pre-configured, scripted sequence of
+responses instead of anything actually generated.
+
+</Subsection>
+
+<Subsection title="A minimal working version" variant="b">
+
+```python
+import itertools
+
+_ids = itertools.count(1)
+
+class ToolUseBlock:
+    def __init__(self, name: str, input: dict):
+        self.type = "tool_use"
+        self.id = f"toolu_fake_{next(_ids):02d}"
+        self.name = name
+        self.input = input
+
+class TextBlock:
+    def __init__(self, text: str):
+        self.type = "text"
+        self.text = text
+
+class FakeResponse:
+    def __init__(self, content: list):
+        self.content = content
+
+class FakeLLMClient:
+    def __init__(self, scripted_responses: list):
+        self.scripted_responses = scripted_responses
+        self.call_count = 0
+
+    def create(self, messages: list) -> FakeResponse:
+        response_block = self.scripted_responses[self.call_count]
+        self.call_count += 1
+        return FakeResponse(content=[response_block])
+```
+
+`ToolUseBlock` and `TextBlock` mirror
+[the exact content-block shapes from Module 1's tool-calling coverage](/01-llm-foundations/10-structured-output-and-tool-calling/04-tool-calling/#the-full-shape-concretely)
+— `.type`, and either `.name`/`.input` or `.text` — as attribute-style
+objects, the way a real SDK hands them back (earlier illustrative
+snippets wrote them as plain dicts). `ToolUseBlock` also gets an `.id`,
+generated automatically, because a real tool call carries one and its
+result has to be sent back with a matching `tool_use_id`, as
+[the round trip in Module 1](/01-llm-foundations/10-structured-output-and-tool-calling/05-the-full-round-trip/)
+showed. `FakeLLMClient.create()` mirrors a real client's call pattern —
+though a real one also takes a model name, `max_tokens`, and so on; this
+keeps only what the loop needs — and instead of generating anything, it
+simply returns the *next* item from a scripted list, advancing one
+position per call.
+
+</Subsection>
+
+<Subsection title="Using it" variant="a">
+
+The classes above are already defined for the demo below (loaded silently
+before it runs), so it only shows the usage:
+
+<LiveDemo client:load setupCode={FAKE_CLIENT} code={`client = FakeLLMClient(scripted_responses=[
+    ToolUseBlock(name="get_weather", input={"location": "Paris"}),
+    TextBlock(text="It's sunny in Paris today!"),
+])
+
+response_1 = client.create(messages=[{"role": "user", "content": "What's the weather in Paris?"}])
+print(response_1.content[0].type)
+print(response_1.content[0].name, response_1.content[0].input)
+
+response_2 = client.create(messages=[])
+print(response_2.content[0].type)
+print(response_2.content[0].text)`} />
+
+The first call returns the scripted tool-use response; the second call
+returns the scripted text response — exactly the two-step shape
+[from Module 1's full round trip](/01-llm-foundations/10-structured-output-and-tool-calling/05-the-full-round-trip/),
+fully deterministic, known completely in advance.
+
+</Subsection>
+
+<Subsection title="Why this makes grading possible at all" variant="b">
+
+Because the exact sequence of responses is scripted by whoever wrote the
+exercise, the loop's *correct* behavior at each step is fully known in
+advance — did the code correctly recognize a `tool_use` response and
+execute the right tool? Did it correctly append the result and continue?
+Did it correctly recognize the `text` response and stop? This is exactly
+the right scope for grading in this module: the loop's *structural
+correctness*, never whether a model's underlying decision was a good one
+— that judgment question belongs to a later module entirely,
+[not this one](/02-the-agent-loop/01-agents-workflows-and-the-loop/03-the-honest-case-for-not-using-an-agent/#what-an-agent-s-dynamism-actually-costs).
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does `FakeLLMClient` actually do differently from a real LLM client?",
+      options: [
+        "It makes a real network call, just to a different server",
+        "It returns a pre-configured, scripted sequence of responses, advancing one item per call, instead of generating anything from a real model",
+        "It only works with text responses, never tool calls",
+        "It requires a real API key to function",
+      ],
+      correctIndex: 1,
+      explanation:
+        "There's no network and no model: `create()` just hands back the next scripted item and moves its counter forward.",
+    },
+    {
+      question: "Why do `ToolUseBlock` and `TextBlock` matter, specifically in how they're shaped?",
+      options: [
+        "Their shape is arbitrary and unrelated to anything covered previously",
+        "They mirror the exact content-block shapes from Module 1's tool-calling coverage, so code written against the fake client transfers directly to a real client later",
+        "They only exist for this one specific demo, with no broader purpose",
+        "They replace the need for any actual loop logic",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Because the fake's response shape matches a real one, a loop written against it reads the same fields a real response would have.",
+    },
+    {
+      question: "Why does using a scripted, fully-known response sequence make grading a learner's loop code possible?",
+      options: [
+        "It doesn't actually help with grading in any way",
+        "Since the exact sequence is known in advance, the loop's correct behavior at each step is fully determined, letting an exercise check structural correctness reliably",
+        "Scripted responses make grading impossible, since nothing changes between runs",
+        "Grading only becomes possible once a real API key is provided",
+      ],
+      correctIndex: 1,
+      explanation:
+        "With a known script, the right behavior at every step is known too, so a hidden test can check it exactly. A real model's varying output would make that impossible.",
+    },
+    {
+      question: "What does this module's grading deliberately stay scoped to, and what does it deliberately leave out?",
+      options: [
+        "It grades whether the model's underlying decisions were good ones, not the loop's code",
+        "It grades the loop's structural correctness — parsing, execution, continuation — deliberately leaving out any judgment about whether a model's decision was actually good",
+        "It grades response style and tone exclusively",
+        "Grading in this module is identical to what a later Evaluation module will cover",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Whether a loop handles each response type correctly is checkable now. Whether the model made a good decision is an evaluation question for a later module.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
