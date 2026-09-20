@@ -1,0 +1,123 @@
+---
+title: "Specificity and clear instructions"
+lesson: "02-prompting-fundamentals"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The pain: a vague instruction leaves too much to guess" variant="a">
+
+```
+Prompt: "Write something about our product."
+```
+
+There's nothing technically wrong with this prompt — it's grammatical,
+it's on-topic — but it leaves nearly everything about the actual output
+unspecified: what aspect of the product, what tone, what length, what
+format, who the audience even is. Two equally "valid" completions of this
+exact same prompt:
+
+```
+Illustrative output A:
+"Introducing our newest innovation — built for people who refuse to
+settle. Experience the difference today."
+
+Illustrative output B:
+"Our product is a cloud-based inventory management system supporting
+real-time SKU tracking, automated reorder thresholds, and integration
+with major ERP platforms via REST API."
+```
+
+(Both outputs are illustrative, not fetched from a real call.)
+
+Both are genuinely reasonable responses to "write something about our
+product" — one reads like ad copy, the other like a technical spec — and
+nothing in the original prompt actually rules either one out. This is the
+real cost of vagueness: not that the model fails, but that it has to
+*guess* at everything left unstated, and different guesses, across
+different runs or different models, land in genuinely different places.
+
+</Subsection>
+
+<Subsection title="The fix: specify what, how, and the constraints" variant="b">
+
+```
+Prompt: "Write a 2-sentence product description for our inventory
+management software, aimed at small business owners with no technical
+background. Avoid jargon like 'API' or 'SKU' — describe what it does
+in plain terms."
+```
+
+This specifies **what** (a product description, not marketing copy or a
+spec), **how** (2 sentences, plain language), and a genuine
+**constraint** (no jargon, a specific audience). Nothing here restricts
+the model's actual writing ability — it still has real room to phrase
+things well — but the *shape* of a correct response is now genuinely
+narrow, rather than "grammatically valid text about the product" being
+the entire bar.
+
+</Subsection>
+
+<Subsection title="Why this matters more once you're building an agent" variant="a">
+
+For a single one-off request, vagueness mostly costs you style or tone you
+didn't want. Inside an agent's own instructions — its system prompt,
+covered in the next lesson — vagueness has sharper, structural
+consequences: an ambiguous instruction about *when* to call a tool can
+mean the model calls it at the wrong moment, or not at all; ambiguity
+about what counts as "done" can mean
+[the loop from Lesson 1](/02-the-agent-loop/01-agents-workflows-and-the-loop/01-the-perceive-reason-act-observe-cycle/#the-loop-s-length-isn-t-fixed-in-advance)
+never actually terminates, or stops too early. Specificity here isn't a
+stylistic nicety — it's the difference between an agent behaving reliably
+and one whose behavior is genuinely unpredictable from one run to the
+next.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: 'Why is "Write something about our product" considered a genuinely vague prompt, despite being grammatically correct?',
+      options: [
+        "It contains a grammatical error",
+        "It leaves what aspect, tone, length, format, and audience entirely unspecified, so many genuinely different completions are all equally \"valid\" responses to it",
+        "It's too short to ever produce a useful response",
+        "The word \"product\" is inherently ambiguous in any context",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Vagueness isn't about grammar or length. It's about how many different outputs the prompt fails to rule out — here, ad copy and a technical spec are both valid.",
+    },
+    {
+      question: "What did the specific version of the prompt actually add, compared to the vague one?",
+      options: [
+        "It removed the model's ability to phrase things well",
+        "It specified what to write, how to write it, and a real constraint — narrowing the shape of a correct response without restricting genuine writing quality",
+        "It made the request shorter overall",
+        "It removed the need for the model to do any actual work",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The specific version is longer, and the model still does the writing. What changed is that far fewer outputs now count as correct.",
+    },
+    {
+      question: "Why does vagueness in an agent's own instructions carry sharper consequences than vagueness in a one-off content request?",
+      options: [
+        "It doesn't — the consequences are identical in both cases",
+        "Ambiguity about when to call a tool, or what counts as \"done,\" can produce structural failures — wrong tool calls, premature stopping, or a loop that never terminates — not just stylistic ones",
+        "Agents are immune to the effects of vague instructions",
+        "This only matters for agents with more than ten available tools",
+      ],
+      correctIndex: 1,
+      explanation:
+        "In a one-off request the cost is style. In an agent, the instructions steer decisions inside the loop, so ambiguity changes what the agent does, not just how it sounds.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

@@ -916,6 +916,22 @@ far" list directly below it.*
    new verification findings in the bookends. Lesson 2.1 is now fully
    Locked.
 
+2. **Prompting Fundamentals** — Building
+   Title is a working name (the mockup names only Concept 1 and says
+   Concept 2 covers few-shot examples in the prompt — rename the
+   folder/`_lesson.yaml` if the drafter's real title differs). Concept 1
+   drafted: specificity and clear instructions (a vague prompt vs. a
+   specific one — what/how/constraints — and why vagueness has structural,
+   not just stylistic, consequences inside an agent's own instructions).
+   Prose only; the prompt/output examples are static and labeled
+   illustrative (the mockup notes no live LLM is available in the
+   sandbox). The mockup's callback to "the system prompt as agent design"
+   lesson (the next lesson, not yet built) is left as plain text "covered
+   in the next lesson" — link it once that lesson exists. The Lesson 1
+   loop callback links to Lesson 2.1's "loop's length isn't fixed"
+   subsection, verified in the built HTML. Remaining: Concept 2 onward,
+   bookends. Not yet Locked.
+
 **Old outline (superseded):**
 
 1. Build AI Chatbot with No Code
