@@ -888,8 +888,16 @@ far" list directly below it.*
    messages omitted the `id` / `tool_use_id` pairing that Lesson 1.10
    Concept 5 established Claude's API requires; added both to the demo
    (output unchanged) with a note linking back. Both callbacks resolved to
-   Module 1 anchors verified in the built HTML. Remaining: Concept 2
-   onward, bookends. Not yet Locked.
+   Module 1 anchors verified in the built HTML.
+
+   Concept 2 drafted: agent vs. workflow vs. chatbot (the distinguishing
+   question is who controls the sequence — a human, the code, or the
+   model; sophistication and structure as independent axes). Prose plus a
+   static `run_workflow` sketch (`...` bodies, labeled illustrative in the
+   mockup, so not a live demo). Both callbacks link to Concept 1
+   Subsection anchors verified in the built HTML. Remaining: Concept 3
+   (the honest case for not using an agent) onward, bookends. Not yet
+   Locked.
 
 **Old outline (superseded):**
 

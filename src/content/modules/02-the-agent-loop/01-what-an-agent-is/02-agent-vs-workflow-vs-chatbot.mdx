@@ -1,0 +1,134 @@
+---
+title: "Agent vs. workflow vs. chatbot"
+lesson: "01-what-an-agent-is"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The distinguishing question: who decides what happens next?" variant="a">
+
+These three terms get conflated constantly, but there's a precise
+structural line separating them — not "how smart" the system is, or how
+many LLM calls are involved, but specifically **who or what controls the
+sequence of steps**:
+
+- **Chatbot** — a human decides what happens next, at every turn. The
+  system responds to whatever the human asks; it has no say over the
+  sequence of the interaction itself.
+- **Workflow** — the *code* decides the sequence, fixed in advance by
+  whoever wrote it — even if individual steps call an LLM, the *order*
+  and *number* of those steps is predetermined, not decided dynamically
+  at runtime.
+- **Agent** — the *model itself* decides the sequence and number of
+  steps, dynamically, based on what happens along the way —
+  [exactly the loop from the previous concept](/02-the-agent-loop/01-what-an-agent-is/01-the-perceive-reason-act-observe-cycle/#the-round-trip-wrapped-in-a-loop).
+
+</Subsection>
+
+<Subsection title="A workflow, concretely — code decides the sequence" variant="b">
+
+```python
+def summarize(text: str) -> str:
+    ...   # an LLM call, illustrative
+
+def translate(text: str, target_language: str) -> str:
+    ...   # another LLM call, illustrative
+
+def run_workflow(document: str) -> str:
+    summary = summarize(document)                  # step 1, always runs first
+    translated = translate(summary, "French")       # step 2, always runs second
+    return translated
+```
+
+Two LLM calls happen here — genuinely sophisticated work — but the
+*sequence* is fixed directly in the code: `summarize` always runs before
+`translate`, every single time, regardless of what either call actually
+produces. Nothing about this structure changes based on the LLM's output
+— the function's control flow was decided entirely when it was written,
+not while it runs.
+
+</Subsection>
+
+<Subsection title="The same task, as an agent instead — the model decides the sequence" variant="a">
+
+Compare this to
+[Concept 1's loop](/02-the-agent-loop/01-what-an-agent-is/01-the-perceive-reason-act-observe-cycle/#the-loop-s-length-isn-t-fixed-in-advance):
+there, the *model's own output* at each step determined whether another
+cycle happened at all, and which tool got called next. Nobody wrote
+`get_weather("Paris")` followed by `get_weather("London")` as a fixed
+sequence in the code — the code only wrote the *loop*; the model decided,
+dynamically, that two calls were actually needed, and which two.
+
+</Subsection>
+
+<Subsection title="The line, restated plainly" variant="b">
+
+A workflow can call an LLM at every single step and still be structurally
+a workflow, as long as the *sequence itself* is fixed by the code. An
+agent can make a single, trivial tool call and still be structurally an
+agent, as long as *whether* to make that call, and *what* to do next, was
+the model's own decision at runtime — not something predetermined.
+Sophistication and structure are genuinely independent axes; this concept
+is only about the second one.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What's the precise structural question that distinguishes a chatbot, a workflow, and an agent?",
+      options: [
+        "How many LLM calls each one makes",
+        "Who or what controls the sequence of steps — a human, fixed code, or the model itself, dynamically",
+        "How intelligent or capable the underlying model is",
+        "Whether the system uses tools at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Call count, capability, and tool use can all vary within any of the three. The only thing that separates them is who decides what happens next.",
+    },
+    {
+      question: "In `run_workflow`, why is this considered a workflow rather than an agent, even though it makes two LLM calls?",
+      options: [
+        "Two LLM calls is always too few to count as an agent",
+        "The sequence — `summarize` always before `translate` — is fixed directly in the code, not decided dynamically based on either call's output",
+        "`run_workflow` doesn't actually use any LLM calls",
+        "Workflows can never call an LLM more than once",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Call count isn't the test. The order was fixed when the function was written, and nothing either call returns can change it.",
+    },
+    {
+      question: "Could a system making only a single, trivial tool call still be structurally an agent?",
+      options: [
+        "No — an agent must always make at least two tool calls",
+        "Yes — as long as whether to make that call, and what to do next, was the model's own runtime decision rather than something predetermined by the code",
+        "No — a single tool call is always a chatbot, never an agent",
+        "This is impossible; agents and workflows are mutually exclusive by call count",
+      ],
+      correctIndex: 1,
+      explanation:
+        "What makes it an agent is who made the decision, not how many calls resulted. One call the model chose to make is still the model steering.",
+    },
+    {
+      question: 'Why does this concept describe sophistication and structure as "genuinely independent axes"?',
+      options: [
+        "They're actually the same thing, described with different words",
+        "A workflow can be highly sophisticated (many LLM calls) while remaining structurally a workflow; an agent can be structurally simple while still being a genuine agent — the two properties don't determine each other",
+        "Only agents can ever be sophisticated; workflows are always simple",
+        "Sophistication only applies to chatbots, never workflows or agents",
+      ],
+      correctIndex: 1,
+      explanation:
+        "How elaborate the work is and who controls the sequence are separate questions, so knowing one doesn't tell you the other.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
