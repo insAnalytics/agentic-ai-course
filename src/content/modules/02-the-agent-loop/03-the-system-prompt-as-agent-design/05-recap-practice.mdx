@@ -1,0 +1,166 @@
+---
+title: "Recap & Practice"
+lesson: "03-the-system-prompt-as-agent-design"
+order: 5
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+export const PARSE = String.raw`import re
+_t = " ".join(system_prompt.lower().split())
+_norm = re.sub(r"[ \t]*\n(?![ \t]*(?:\n|[-*]|\d+[.)]))", " ", system_prompt.lower())
+_sents = [s.strip() for s in re.split(r"(?<=[.!?])\s+|\n+", _norm) if s.strip()]
+_CHK, _CRE = "check_agent_exists", "create_agent_entry"
+_chk = [i for i, s in enumerate(_sents) if _CHK in s]
+_cre = [i for i, s in enumerate(_sents) if _CRE in s]
+_rule = re.compile(r"\b(?:always|never|must not|do not|don't)\b")
+_when = re.compile(r"\b(?:whenever|when|if|before|first|prior to|each time|every time|once|after|only|otherwise)\b")
+_res = re.compile(r"\b(?:returns?|returned|results?|true|false)\b|already exists?|(?:does(?:n't| not)|not) exist|not found")
+_act = re.compile(r"\b(?:proceed|call|inform|tell|say|report|respond|create|register|stop|skip|do not|don't|only|should|must|never|ask|let)\b")
+`;
+
+export const T_ROLE = String.raw`assert re.search(r"\byou are (?:a|an|the|our)\b", _t)`;
+export const T_RULE = String.raw`assert any(_rule.search(s) and _CHK not in s and _CRE not in s and not re.search(r"\b(?:returns?|returned|results?)\b", s) for s in _sents)`;
+export const T_SEQ = String.raw`assert any(
+    (_CHK in s and re.search(r"\b(?:before|first|prior to|beforehand)\b", s) and re.search(r"creat|regist|" + _CRE, s))
+    or (_CRE in s and re.search(r"\b(?:only if|only when|only after|after|once|unless|if)\b", s) and re.search(_CHK + r"|false|not exist|n't exist|not already|no existing", s))
+    or (_CRE in s and re.search(r"\botherwise\b", s))
+    or re.search(_CHK + r"[^.!?]*\bthen\b[^.!?]*creat", s)
+    for s in _sents)`;
+export const T_NOREV = String.raw`assert not re.search(r"(?:call|use|run|invoke)\s+" + _CRE + r"\s+first|" + _CRE + r"\s*,?\s*(?:and\s+)?then\s+(?:call\s+)?" + _CHK, _t)`;
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why does a model generally treat system-role content as higher-priority instruction, mechanically?",
+      options: [
+        "System-role content is processed through a separate, privileged channel",
+        "It's a strong, learned behavioral pattern from post-training, not a hardcoded guarantee",
+        "There's no actual difference in how roles are treated",
+        "System-role content is validated by a separate security mechanism",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Roles are a learned convention over ordinary tokens (introduced in SFT, reinforced by preference training), so the priority is a strong tendency, not an architectural guarantee.",
+    },
+    {
+      question: "What's the structural difference between a system prompt and a user message?",
+      options: [
+        "There's no real structural difference",
+        "A system prompt holds standing instructions across an entire interaction; a user message carries the specific, per-turn task, which changes each time",
+        "User messages are always longer",
+        "System prompts can only contain one sentence",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The split is about how long the content should hold. The system prompt is reused unchanged; the user message changes every turn.",
+    },
+    {
+      question: "Why does a vague, role-less system prompt increase the risk of ungrounded, confidently-stated claims?",
+      options: [
+        "Vague prompts always cause outright refusal",
+        "With no instruction constraining it, the model has no particular reason not to produce a plausible-sounding but ungrounded answer — the default behavior of an unconstrained system",
+        "This risk is unrelated to system prompt wording",
+        "Vague prompts only affect response length",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Fluent, plausible text is what generation produces by default; nothing in a bare \"helpful assistant\" prompt says to do otherwise when the model doesn't know.",
+    },
+    {
+      question: "What does a tool's JSON Schema actually guarantee, and what does it leave unspecified?",
+      options: [
+        "It guarantees both format and timing",
+        "It guarantees the format of a call via constrained decoding, but says nothing about when the model should call it or how to use the result",
+        "It only specifies timing",
+        "It guarantees nothing at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The schema fixes argument names and types. When to call and what to do with the answer are separate questions it never addresses.",
+    },
+    {
+      question: "Is tool guidance in a system prompt a mechanical guarantee or a behavioral request?",
+      options: [
+        "A mechanical guarantee, exactly like constrained decoding",
+        "A behavioral request — a strong nudge, not something structurally enforced",
+        "Tool guidance has no actual effect on behavior",
+        "It's enforced by a separate, dedicated mechanism",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Like any prompt instruction, it shapes probabilities. Only constrained decoding structurally rules out an invalid call shape.",
+    },
+    {
+      question: "Why might a single, static system prompt struggle to guide an agent well across every stage of a multi-phase task?",
+      options: [
+        "Static prompts are always more effective than any alternative",
+        "Instructions written to somewhat fit every phase at once tend to be well-suited to none of them individually",
+        "This problem doesn't actually exist in practice",
+        "System prompts can only be one sentence long",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Exploring, answering, and verifying want different postures; one prompt covering all three compromises on each.",
+    },
+    {
+      question: "What's the actual difference between asking the model to self-assess its own phase versus having code track phase as state?",
+      options: [
+        "No real difference — both are equally reliable",
+        "Self-assessment depends on the model correctly recognizing its stage; code-tracked state is deterministic and doesn't depend on that",
+        "Self-assessment is always more reliable",
+        "Code-tracked state requires retraining the model",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A Python variable can't misjudge which phase it's in, and nothing needs retraining — the code just sends different instructions.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={'An agent has two tools available: `check_agent_exists(name: str) -> bool` and `create_agent_entry(name: str, model: str)`, working against [the same agent registry app introduced back in Module 0](/00-python-essentials/09-building-apis-with-fastapi/11-recap-practice/). Write a complete system prompt for an agent that helps a user register new agents in the registry. It must include: a defined role (for example "You are a..."); at least one explicit always/never constraint that isn\'t itself tool instructions (for example, against creating a duplicate entry); tool guidance naming *both* tools, including when each should be called and how to use the check\'s `True`/`False` result; and a phase structure — the agent should always **check** whether an agent with the given name already exists *before* attempting to **create** one, never the reverse. Assign your prompt to the `system_prompt` variable.'}
+  starterCode={`system_prompt = """
+TODO: write your system prompt here.
+A role, an always/never constraint, guidance for
+check_agent_exists and for create_agent_entry, and
+an explicit check-before-create ordering.
+"""`}
+  hiddenTests={[
+    PARSE + T_ROLE,
+    PARSE + T_RULE,
+    PARSE + "assert _chk and _cre",
+    PARSE + "assert any(_when.search(_sents[i]) for i in _chk)",
+    PARSE + "assert _chk and any(_res.search(s) and _act.search(s) for s in _sents[_chk[0]:])",
+    PARSE + "assert any(_when.search(_sents[i]) for i in _cre)",
+    PARSE + T_SEQ,
+    PARSE + T_NOREV,
+  ]}
+  hint={'This is every piece from this lesson, composed: role and constraint first, exactly as in Concept 2; tool guidance for each tool separately, exactly as in Concept 3; and a phase-ordering instruction — check first, create second, only if the check came back negative — applying [Concept 4\'s phase-awareness](/02-the-agent-loop/03-the-system-prompt-as-agent-design/04-phase-aware-prompting/) at the prompt level, since a single tool call round trip doesn\'t need the code-driven version that concept also covered. Keep the closing triple quotes on their own line.'}
+  correctAnswer={{
+    code: `system_prompt = """
+You are a registration assistant for the agent registry. Never create
+a duplicate entry for an agent name that already exists.
+
+Before attempting to register a new agent, always call
+check_agent_exists with the requested name first. Only if it returns
+False should you proceed to call create_agent_entry with the name and
+model. If check_agent_exists returns True, inform the user that an
+agent with that name already exists instead of attempting to create
+one.
+"""`,
+    explanation:
+      "Every piece here does distinct, necessary work: the role and constraint frame the agent's purpose and its one hard rule; the tool guidance covers both tools' calling conditions and result handling separately, since neither tool's own schema could specify any of this; and the explicit check-then-create ordering is phase-awareness expressed directly in the prompt — the simplest version of [Concept 4's idea](/02-the-agent-loop/03-the-system-prompt-as-agent-design/04-phase-aware-prompting/), appropriate here since this flow is only two steps, not something needing the loop's own code-tracked state the way a longer, more complex task would. Note that this exercise grades your prompt text directly, not a model's output, since no live model is available here.",
+  }}
+/>
+
+</CheckpointZone>

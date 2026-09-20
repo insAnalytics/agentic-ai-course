@@ -989,10 +989,10 @@ far" list directly below it.*
    honest-case concept. The hint's Concept 4 callback links to that page.
    Lesson 2.2 is now fully Locked.
 
-3. **The System Prompt as Agent Design** — Building
-   Title is taken from an earlier mockup's callback text ("the system
-   prompt as agent design lesson") — confirm or rename once the bookends
-   mockup arrives. Concept 1 drafted: what the system prompt actually is
+3. **The System Prompt as Agent Design** — Locked
+   Title confirmed by the bookends mockup (taken originally from an
+   earlier mockup's callback text, so no folder rename was needed).
+   Concept 1 drafted: what the system prompt actually is
    and why it carries weight (a learned convention over ordinary tokens,
    not an architectural channel; standing instructions vs. the per-turn
    task; resent in full every call per Module 1's statelessness). Demo run
@@ -1039,8 +1039,25 @@ far" list directly below it.*
    real Python and matches the mockup's output exactly. Its one callback
    (the next lesson, "writing the loop by hand") points at a lesson not
    built yet, so it's plain text — link it once that lesson exists.
-   Remaining: bookends (outcomes intro, comprehensive quiz, comprehensive
-   sandbox — drafted separately). Not yet Locked.
+
+   Bookends: outcomes/why-it-matters intro (`00-intro.mdx`) and a Recap &
+   Practice page (`05-recap-practice.mdx`) with a 7-question comprehensive
+   quiz spanning all four concepts (Q1 aligned to "post-training", as in
+   Concept 1) plus a **graded comprehensive sandbox** — a full system
+   prompt for the agent-registry agent (role, constraint, guidance for
+   both `check_agent_exists` and `create_agent_entry`, and check-before-
+   create ordering), graded as text by eight hidden tests (architecture.md
+   §4.1; verified against real Pyodide with 16 submissions). **Finding
+   (real bug in an earlier exercise):** building this exercise's
+   sentence-level checks showed the Concept 3 exercise's splitter also
+   split on hard line wraps, so a learner's differently-wrapped but valid
+   prompt could fail a check the shipped reference only passed by luck of
+   where its lines break; fixed in both exercises with a shared
+   join-single-newlines step and re-verified (see architecture.md's
+   follow-up note). The Module 0 callback ("the same agent registry app")
+   links to the FastAPI lesson's comprehensive registry-app exercise; the
+   hint and explanation's Concept 4 callbacks link to that concept's page.
+   Lesson 2.3 is now fully Locked.
 
 **Old outline (superseded):**
 

@@ -731,6 +731,46 @@ sentences that mention a tool return/result fixed it. The lesson's
 also ran in real Pyodide (pydantic 2.7.0) and matches the mockup's expected
 output exactly.
 
+**Follow-up fix (found while building the Lesson 2.3 comprehensive
+sandbox):** the sentence splitter above originally split on every newline
+as well as on `.`/`!`/`?`, so a learner who hard-wraps their prompt (as the
+reference answer itself does) could have a single sentence cut in two —
+e.g. `check_price` on one line and `whenever` on the next — and fail a
+check they'd actually satisfied; the reference passed only because its
+particular wrap points happened to fall on the right side of each keyword.
+The helper now first joins single line breaks into spaces (keeping blank
+lines and lines that start a `-`/`*`/numbered list item as boundaries) and
+then splits on sentence punctuation and the remaining newlines. Re-verified
+with the original 11 submissions plus three new hard-wrap/bullet cases.
+
+**Grading a two-tool system prompt (Lesson 2.3 comprehensive sandbox).**
+The lesson's closing exercise composes role, constraint, per-tool
+guidance, and check-before-create phase ordering for a two-tool agent
+registry (`check_agent_exists`, `create_agent_entry`), graded as
+`system_prompt` text by eight hidden tests over the same sentence-level
+`PARSE` helper as Concept 3's exercise: (1) role sentence; (2) a standalone
+always/never constraint (not naming either tool or a tool's return/result);
+(3) both tool names present; (4) a calling condition for the check tool;
+(5) handling of the check's result (`True`/`False`/`returns`/`already
+exists`, plus an instruction verb, from the first sentence naming the
+check tool onward); (6) a condition for the create tool (`only if`,
+`otherwise`, `after`, `once`, ...); (7) *forward sequencing evidence* — a
+sentence saying to check before/first and mentioning creating, *or* one
+gating the create tool on the check/`False`/"does not exist", *or*
+`otherwise ... create_agent_entry`, *or* `check ... then ... create`; and
+(8) *not reversed* — no `call create_agent_entry first` or
+`create_agent_entry, then check_agent_exists`. Verified against real
+Pyodide 0.26.4 with 16 submissions: the reference answer (also hard-wrapped
+at ~30 columns, or written as a bulleted list, or with `otherwise` /
+`then` / `before you call create_agent_entry` phrasings) passes all eight;
+`TODO` passes only the vacuous not-reversed check; and each flaw (no role,
+no standalone constraint, either tool unnamed, no check-result handling,
+create-first ordering, both tools listed with no sequencing, no create
+condition) fails exactly the expected check(s). Sequencing is checked as
+positive *evidence* rather than by comparing where each tool name first
+appears, because a prompt may legitimately list both tools up front in either
+order before describing the order to use them in.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped

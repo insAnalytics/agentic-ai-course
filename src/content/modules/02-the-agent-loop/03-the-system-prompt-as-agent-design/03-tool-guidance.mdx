@@ -11,7 +11,8 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 export const PARSE = String.raw`import re
 _t = " ".join(system_prompt.lower().split())
-_sents = [s.strip() for s in re.split(r"(?<=[.!?])\s+|\n+", system_prompt.lower()) if s.strip()]
+_norm = re.sub(r"[ \t]*\n(?![ \t]*(?:\n|[-*]|\d+[.)]))", " ", system_prompt.lower())
+_sents = [s.strip() for s in re.split(r"(?<=[.!?])\s+|\n+", _norm) if s.strip()]
 _tool = [i for i, s in enumerate(_sents) if "check_price" in s]
 _rule = re.compile(r"\b(?:always|never|must not|do not|don't)\b")
 _when = re.compile(r"\b(?:whenever|when|if|before|any ?time|each time|every time|for)\b")
