@@ -1006,7 +1006,17 @@ far" list directly below it.*
    field, linking Lesson 1.9's provider-differences subsection, and Q3's
    explanation notes prompt caching is a billing optimization, not the
    model remembering. All three callbacks link to verified anchors.
-   Remaining: Concept 2 onward, bookends. Not yet Locked.
+
+   Concept 2 drafted: role, persona, and behavioral constraints (a
+   role-less system prompt as vagueness in the highest-stakes place; a
+   role plus explicit always/never constraints as the guardrail against
+   ungrounded claims). Prose only, static illustrative system prompts, no
+   demo. The mockup's five callbacks resolved to verified pages/anchors
+   (the lesson-level "every technique from Lesson 2" links to that lesson's
+   intro). Added one sentence the mockup lacks: these constraints are a
+   strong nudge, not a mechanical guarantee, in keeping with Lesson 2.2's
+   request-not-guarantee framing. Remaining: Concept 3 (tool guidance)
+   onward, bookends. Not yet Locked.
 
 **Old outline (superseded):**
 
