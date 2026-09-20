@@ -1,0 +1,110 @@
+---
+title: "What the system prompt actually is, and why it carries weight"
+lesson: "03-the-system-prompt-as-agent-design"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Why a system prompt carries weight in the first place" variant="a">
+
+[Module 1 established that message roles are a learned convention](/01-llm-foundations/07-the-training-pipeline/03-preference-training-and-message-roles/#where-message-roles-actually-come-from),
+not a hardcoded architectural channel — the model was trained, during
+post-training (the chat format introduced through SFT's formatted
+examples, then reinforced by preference training), on countless examples
+where responses appropriately following `system`-role content were rated
+as better, reinforcing a strong, consistent behavioral pattern to
+generally treat it as higher-priority, persistent instruction. That's the
+actual mechanism behind why a system prompt genuinely shapes an agent's
+behavior — a real, strong, training-reinforced tendency, not an
+unbreakable technical guarantee baked into the architecture itself.
+
+</Subsection>
+
+<Subsection title="Standing instructions vs. the per-turn task" variant="b">
+
+Structurally, the system prompt is where instructions that should hold
+across an *entire* interaction go — as opposed to the user turn's actual
+task or query, which changes with every interaction:
+
+<LiveDemo client:load code={`system_prompt = "You are a helpful assistant for a small bookstore. Answer questions about inventory, prices, and store hours concisely."
+
+def build_messages(user_query: str) -> list:
+    return [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_query},
+    ]
+
+conversation_a = build_messages("Do you have any copies of Dune in stock?")
+conversation_b = build_messages("What time do you close on Sundays?")
+
+print(conversation_a)
+print(conversation_b)`} />
+
+`system_prompt` is defined exactly once, and reused unchanged across two
+entirely different user queries — this is the actual structural role a
+system prompt plays: fixed, standing behavior that applies regardless of
+what the specific interaction turns out to be about. (The demo puts the
+system prompt in the `messages` list as a `system`-role message, the
+generic shape; some real APIs, like Anthropic's, take it as a separate
+top-level `system` field instead, as
+[covered back in Module 1](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/01-the-request-shape/#real-providers-differ-in-the-details).
+Either way it's the same standing instruction.)
+
+Worth connecting to
+[Module 1's statelessness](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/03-multi-turn-conversations/#the-api-itself-has-no-memory-between-calls)
+directly: the system message still gets resent in full on every single
+API call, exactly like everything else in the conversation — nothing
+about it is magically "remembered" separately — its distinguishing
+feature is that its *content* typically doesn't change turn to turn, not
+that it's transmitted any differently.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why does a model generally treat system-role content as higher-priority instruction, mechanically?",
+      options: [
+        "System-role content is processed through a separate, architecturally-privileged channel",
+        "It's a strong, learned behavioral pattern from post-training — reinforced by countless examples where following system-role instructions was rated as better — not a hardcoded guarantee",
+        "There's no actual difference in how the model treats different roles",
+        "System-role content is validated by a separate security mechanism before generation begins",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Roles are a learned convention over ordinary tokens, not a separate channel. The priority is a strong trained tendency, which is why it isn't an unbreakable guarantee.",
+    },
+    {
+      question: "What's the structural difference between what typically goes in a system prompt versus a user message?",
+      options: [
+        "There's no real structural difference between the two",
+        "A system prompt holds standing instructions meant to apply across an entire interaction; a user message carries the specific, per-turn task or query, which changes each time",
+        "User messages are always longer than system prompts",
+        "System prompts can only ever contain a single sentence",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The split is about how long the content should hold. In the demo, one system prompt is reused unchanged across two different queries.",
+    },
+    {
+      question: "Does the system message get transmitted any differently than other messages, given that it's resent on every API call?",
+      options: [
+        "Yes, it's sent through a separate connection entirely",
+        "No — it's resent in full on every single call exactly like every other message, per Module 1's statelessness; its distinguishing feature is that its content usually doesn't change turn to turn",
+        "The system message is only sent once, at the very start of a conversation",
+        "The system message is cached permanently by the model itself between calls",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The API is stateless, so nothing is remembered between calls; the system prompt is sent every time. (Providers may cache the repeated prefix to cut cost, but that's a billing optimization, not the model remembering it.)",
+    },
+  ]}
+/>
+
+</CheckpointZone>

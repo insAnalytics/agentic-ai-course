@@ -989,6 +989,25 @@ far" list directly below it.*
    honest-case concept. The hint's Concept 4 callback links to that page.
    Lesson 2.2 is now fully Locked.
 
+3. **The System Prompt as Agent Design** — Building
+   Title is taken from an earlier mockup's callback text ("the system
+   prompt as agent design lesson") — confirm or rename once the bookends
+   mockup arrives. Concept 1 drafted: what the system prompt actually is
+   and why it carries weight (a learned convention over ordinary tokens,
+   not an architectural channel; standing instructions vs. the per-turn
+   task; resent in full every call per Module 1's statelessness). Demo run
+   in real Python; output matches the mockup exactly. **Finding:** the
+   mockup said roles are learned "during preference training"; Lesson 1.7
+   (corrected) established the chat format is introduced in SFT and
+   reinforced by preference training, so the prose and Q1's correct option
+   now say "post-training" with that detail (same fix Lesson 1.9's Q1
+   already made). Added a short note that the demo's `system`-role message
+   is the generic shape while Anthropic's API takes a top-level `system`
+   field, linking Lesson 1.9's provider-differences subsection, and Q3's
+   explanation notes prompt caching is a billing optimization, not the
+   model remembering. All three callbacks link to verified anchors.
+   Remaining: Concept 2 onward, bookends. Not yet Locked.
+
 **Old outline (superseded):**
 
 1. Build AI Chatbot with No Code
