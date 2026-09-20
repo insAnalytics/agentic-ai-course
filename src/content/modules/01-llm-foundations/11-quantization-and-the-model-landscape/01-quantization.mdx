@@ -1,0 +1,138 @@
+---
+title: "Quantization — FP16 → INT8 → INT4"
+lesson: "11-quantization-and-the-model-landscape"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Every weight is a number stored at some precision" variant="a">
+
+Every parameter in a model —
+[the embeddings and attention weights from Lesson 3](/01-llm-foundations/03-attention-and-transformer-architecture/02-the-attention-mechanism/),
+everything learned during
+[training](/01-llm-foundations/07-the-training-pipeline/01-pretraining/#what-actually-produces-the-parameters-behind-every-logit)
+— is stored as a number, at some specific numerical precision. Models are
+commonly trained and stored in **FP16** (16-bit floating point) or
+**FP32** (32-bit) by default — more bits per number means a more precise
+representation of that weight's actual value, but also more memory to
+store it and more computation to process it.
+
+</Subsection>
+
+<Subsection title="Quantization: fewer bits, less precision, less memory" variant="b">
+
+**Quantization** reduces that precision after training — converting FP16
+weights down to **INT8** (8-bit integers) or even **INT4** (4-bit
+integers), representing each weight with meaningfully fewer possible
+distinct values:
+
+<LiveDemo client:load code={`def quantize_to_n_levels(value: float, min_val: float, max_val: float, n_levels: int) -> float:
+    step_size = (max_val - min_val) / (n_levels - 1)
+    quantized_step = round((value - min_val) / step_size)
+    return min_val + quantized_step * step_size
+
+original_weight = 0.7234891
+print(f"original (full precision): {original_weight}")
+print(f"quantized to 256 levels (~INT8-like): {quantize_to_n_levels(original_weight, -1, 1, 256):.7f}")
+print(f"quantized to 16 levels (~INT4-like): {quantize_to_n_levels(original_weight, -1, 1, 16):.7f}")`} />
+
+(A simplified stand-in for real quantization schemes, illustrating the
+core idea rather than an exact production technique.)
+
+Both quantized versions are approximations of the original value —
+`256`-level quantization stays quite close (`0.7255` vs. `0.7235`), but
+`16`-level quantization is visibly coarser (`0.7333`), since there are far
+fewer discrete values available to round to. This is the actual
+mechanical shape of what quantization does: fewer possible values per
+weight, less memory per weight, at the direct cost of some genuine
+precision loss in what each weight actually represents.
+
+</Subsection>
+
+<Subsection title="The real tradeoff" variant="a">
+
+Moving from FP16 → INT8 → INT4 progressively shrinks a model's memory
+footprint and can meaningfully speed up inference — genuinely useful for
+running a model on limited hardware. It also progressively increases the
+risk of degraded output quality, since the model's actually-learned
+weights are being approximated with less and less precision than what
+they were trained with. This is a real tradeoff, not a free efficiency
+gain: more aggressive quantization (INT4 over INT8) generally means a
+real quality cost, in exchange for a real efficiency gain.
+
+</Subsection>
+
+<Subsection title="Who this actually matters to" variant="b">
+
+Worth stating plainly: quantization is a decision made by whoever is
+actually *running* a model — self-hosting it on their own or rented
+hardware, choosing how to trade off memory and speed against quality. An
+API user calling a provider's endpoint never sees or chooses this
+directly — the provider has already made that decision on their end,
+whatever it is, before the API is ever exposed. This distinction matters
+for knowing which parts of this concept apply to you: if you're only ever
+calling an API, quantization isn't a setting you'll ever touch; if you're
+deploying a model yourself, it's a genuinely central decision.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does quantization actually do to a model's parameters?",
+      options: [
+        "It adds new parameters to improve the model's capabilities",
+        "It reduces the numerical precision used to store each weight — fewer bits, fewer possible distinct values",
+        "It removes parameters from the model entirely",
+        "It retrains the model on new data",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Every parameter is kept, but each is stored with fewer bits. No parameters are added or removed, and nothing is retrained.",
+    },
+    {
+      question: "Why does INT4 quantization produce a coarser approximation of an original weight than INT8 quantization?",
+      options: [
+        "There's no actual difference between the two",
+        "INT4 has far fewer possible discrete values to round to than INT8, since it uses fewer bits",
+        "INT4 is only used for very small models",
+        "INT8 doesn't actually reduce precision at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "4 bits give 16 distinct values versus 256 for 8 bits, so each weight gets rounded to a much coarser grid — exactly what the 16-level vs. 256-level demo shows.",
+    },
+    {
+      question: "What's the real tradeoff quantization involves?",
+      options: [
+        "There's no tradeoff — quantization only ever improves a model",
+        "Reduced memory footprint and often faster inference, at the cost of some genuine risk to output quality, since weights are approximated with less precision",
+        "Quantization only affects a model's training speed, never inference",
+        "Quantization always improves output quality as a side effect",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Fewer bits per weight means less memory and often faster inference, but the weights are now approximations of what training produced, so quality can degrade.",
+    },
+    {
+      question: "Who actually makes quantization decisions, and who typically doesn't?",
+      options: [
+        "Every API user configures quantization settings directly",
+        "Whoever is actually running/self-hosting a model makes this decision; an API user calling a provider's endpoint never sees or chooses it directly",
+        "Quantization is decided automatically by the tokenizer",
+        "Only reasoning models support quantization at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "It's a deployment-side choice. A provider has already made it before exposing an endpoint, so an API caller has no setting to change.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

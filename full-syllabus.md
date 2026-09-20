@@ -802,9 +802,23 @@ Generate Text) are now fully Locked.
     code). No new verification findings in the bookends. Lesson 1.10 is
     now fully Locked.
 
-The rest of Module 1 (model landscape/benchmark literacy, raw API
-mechanics, structured outputs) remains a rough outline — not yet broken
-into lessons.
+11. **Quantization and the Model Landscape** — Building
+    Title is a working name (the mockup names only Concept 1 and says
+    Concept 2 covers "the model landscape and selection" — rename the
+    folder/`_lesson.yaml` if the drafter's real title differs). Concept 1
+    drafted: quantization (FP16 → INT8 → INT4 as fewer bits per weight,
+    the memory/speed vs. quality tradeoff, and that it's a decision for
+    whoever self-hosts a model, not for API users). The
+    `quantize_to_n_levels` demo was checked against an equivalent
+    computation and matches the mockup's expected output exactly. The
+    mockup's two lesson-level callbacks (attention/transformer lesson,
+    training pipeline lesson) were resolved to the attention-mechanism
+    concept and the pretraining "parameters behind every logit"
+    subsection respectively. Remaining: Concept 2 onward, bookends. Not
+    yet Locked.
+
+The rest of Module 1 (benchmark literacy and anything beyond this
+lesson) remains a rough outline — not yet broken into lessons.
 
 ---
 
