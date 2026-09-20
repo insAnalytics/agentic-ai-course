@@ -1,0 +1,211 @@
+---
+title: "Examples in the prompt (few-shot)"
+lesson: "02-prompting-fundamentals"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+export const PARSE = String.raw`import re
+_tail = re.compile(r"\s—\s\$\d[\d,]*(?:\.\d+)?\s*$")
+_label = re.compile(r"(?:output|answer|result)\s*:?", re.I)
+_lines = [l.strip() for l in prompt.strip().splitlines() if l.strip()]
+_ex = [i for i, l in enumerate(_lines) if _tail.search(l)]
+def _input_idx(i):
+    j = i - 1
+    if j >= 0 and _label.fullmatch(_lines[j]):
+        j -= 1
+    return j
+_ex_in = [_input_idx(i) for i in _ex]
+_last = len(_lines) - 1
+if _last >= 0 and _label.fullmatch(_lines[_last]):
+    _final = _last - 1
+else:
+    _final = _last
+`;
+
+<Subsection title="The deferred payoff from Module 1" variant="a">
+
+[Module 1 established in-context learning as a real mechanism](/01-llm-foundations/08-scaling-laws-and-emergent-behavior/03-in-context-learning/):
+a model can pick up a task purely from examples given in the prompt, with
+no weight updates at all — and explicitly deferred *how to actually write
+good examples* to
+[this course's prompting coverage](/01-llm-foundations/08-scaling-laws-and-emergent-behavior/03-in-context-learning/#what-this-concept-does-and-doesn-t-cover).
+This concept is that payoff.
+
+</Subsection>
+
+<Subsection title="Zero-shot vs. few-shot" variant="b">
+
+**Zero-shot** means an instruction alone, no examples —
+[exactly the specific prompt from Concept 1](/02-the-agent-loop/02-prompting-fundamentals/01-specificity-and-clear-instructions/#the-fix-specify-what-how-and-the-constraints).
+**Few-shot** means the instruction *plus* a small number of example
+input/output pairs demonstrating the exact pattern wanted (**one-shot**
+being the special case of exactly one example).
+
+</Subsection>
+
+<Subsection title="Where a description alone genuinely falls short" variant="a">
+
+Some tasks have a "shape" that's much easier to *show* than to fully
+*describe* in words — a specific structured extraction format is a good
+case:
+
+```
+Zero-shot prompt: "Extract the person's name and role from this text,
+in the format Name (Role)."
+
+Input: "Dr. Sarah Chen, who leads the research division, announced..."
+
+Illustrative output: "The person is Sarah Chen, and she leads the
+research division."
+```
+
+Even a reasonably specific instruction leaves room for the model to drift
+from the *exact* format wanted — here producing a sentence instead of the
+requested `Name (Role)` shape. Adding examples pins that down directly:
+
+```
+Few-shot prompt:
+"Extract the person's name and role, in the format Name (Role).
+
+Text: 'Dr. Sarah Chen, who leads the research division, announced...'
+Output: Sarah Chen (Research Division Lead)
+
+Text: 'Marcus Webb, the company's CFO, confirmed...'
+Output: Marcus Webb (CFO)
+
+Text: 'The announcement was made by Elena Ruiz, VP of Engineering...'
+Output:"
+
+Illustrative output: "Elena Ruiz (VP of Engineering)"
+```
+
+(Both outputs are illustrative, not fetched from a real call.)
+
+The two worked examples show the exact desired format directly, rather
+than relying on the model to correctly infer every detail of
+`Name (Role)` from a one-line description alone — far more reliable
+adherence to precisely the shape wanted.
+
+</Subsection>
+
+<Subsection title="How many examples actually help" variant="b">
+
+More examples aren't free, and don't help indefinitely: 2–5 well-chosen
+examples typically capture a pattern well; adding many more past that
+point produces diminishing returns while adding real,
+[unavoidable token cost](/01-llm-foundations/11-quantization-cost-and-operational-concerns/03-token-based-pricing/)
+to every single request. Past a certain point, too many examples can even
+*over-anchor* the model to the specific examples given, making it less
+able to correctly generalize to a genuinely different but still valid new
+input.
+
+</Subsection>
+
+<Subsection title="Representative examples, not just more examples" variant="a">
+
+The examples chosen matter as much as how many there are. An example set
+where every example looks very similar to every other one — all short,
+all one particular sentence structure, all the same kind of input — can
+genuinely *mislead* the model into a narrower pattern than actually
+intended, producing worse results on real, varied input than giving no
+examples at all would have. A good example set deliberately covers the
+real range of variation expected — different lengths, genuine edge cases,
+different input structures — not just several near-identical restatements
+of the easiest case.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What's the difference between zero-shot and few-shot prompting?",
+      options: [
+        "Zero-shot always produces worse results than few-shot, with no exceptions",
+        "Zero-shot gives an instruction alone; few-shot adds example input/output pairs demonstrating the exact desired pattern",
+        "Few-shot means the model is retrained on the examples given",
+        "Zero-shot can only be used for very simple tasks",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The difference is only whether the prompt contains worked examples. Nothing is retrained (that's in-context learning, not weight updates), and zero-shot is often good enough.",
+    },
+    {
+      question: "Why can even a reasonably specific zero-shot instruction still fail to produce output in an exact desired format?",
+      options: [
+        "Zero-shot prompts can never specify a format at all",
+        "Some formatting details are easier to demonstrate directly than to fully and unambiguously describe in words alone",
+        "This never actually happens with a well-written instruction",
+        "Only few-shot prompts can specify any format requirement",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A description leaves room for interpretation, like the model answering in a sentence instead of `Name (Role)`. An example leaves almost none.",
+    },
+    {
+      question: "Why don't more examples always keep improving results indefinitely?",
+      options: [
+        "Additional examples are always strictly beneficial with no downside",
+        "Returns diminish past a small number of well-chosen examples, while token cost keeps growing, and too many can even over-anchor the model to those specific examples",
+        "Examples past the third one are simply ignored by the model",
+        "Adding examples always makes output worse, regardless of count",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The first few examples do most of the work. Every extra one adds tokens to every request, and a large pile can pin the model to the examples' specifics.",
+    },
+    {
+      question: "Why can a set of examples that are all very similar to each other actually produce worse results than no examples at all?",
+      options: [
+        "This can never happen — more examples are always at least neutral",
+        "A narrow, non-representative example set can mislead the model into a pattern too specific to those examples, hurting generalization to genuinely different, valid inputs",
+        "Similar examples always improve consistency with no real downside",
+        "The model ignores examples that resemble each other too closely",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The model infers the pattern from what it's shown. If every example is short and simple, it may treat \"short and simple\" as part of the pattern.",
+    },
+  ]}
+/>
+
+<GradedExercise
+  client:load
+  task={'Write a few-shot prompt for extracting a product\'s name and price from a sentence, in the exact format `Name — $Price` (an em dash, then a dollar sign). Your prompt must include the instruction, at least two worked examples in that exact format using different example sentences, and end with a new, unanswered input for the model to complete. Assign your prompt to the `prompt` variable.'}
+  starterCode={`prompt = """
+TODO: write your few-shot prompt here.
+An instruction, then two or more worked examples,
+then a final input with its answer left blank.
+"""`}
+  hiddenTests={[
+    PARSE + "assert _ex_in and min(_ex_in) >= 1 and len(_lines[0].split()) >= 4 and not _tail.search(_lines[0])",
+    PARSE + "assert len(_ex) >= 2",
+    PARSE + "assert len({_lines[i] for i in _ex}) >= 2 and len({_lines[j] for j in _ex_in if j >= 0}) >= 2",
+    PARSE + "assert _ex and _final > max(_ex) and not _tail.search(_lines[_final]) and len(_lines[_final].split()) >= 3 and _lines[_final] not in {_lines[j] for j in _ex_in if j >= 0}",
+  ]}
+  hint={'Structure: one instruction sentence, then two or more input/output pairs (for example `Text: "..."` followed by `Output: Name — $Price`) using two different example sentences, then a final new `Text: "..."` with no answer filled in. Keep the closing triple quotes on their own line.'}
+  correctAnswer={{
+    code: `prompt = """
+Extract the product name and price, in the format Name — $Price.
+
+Text: "The UltraBrew coffee maker is available now for $89.99."
+Output: UltraBrew — $89.99
+
+Text: "Pick up the TrailRunner backpack today, priced at $54.50."
+Output: TrailRunner — $54.50
+
+Text: "The new NightGlow desk lamp retails for $32.00."
+Output:
+"""`,
+    explanation:
+      "Two genuinely distinct worked examples pin down the exact format — product name, an em dash, a dollar sign, the price — before the final unanswered input, giving a model far more reliable footing than a one-line format description alone would. Note that this exercise grades your prompt text directly, not a model's output, since no live model is available here.",
+  }}
+/>
+
+</CheckpointZone>

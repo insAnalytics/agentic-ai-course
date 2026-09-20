@@ -929,8 +929,18 @@ far" list directly below it.*
    lesson (the next lesson, not yet built) is left as plain text "covered
    in the next lesson" — link it once that lesson exists. The Lesson 1
    loop callback links to Lesson 2.1's "loop's length isn't fixed"
-   subsection, verified in the built HTML. Remaining: Concept 2 onward,
-   bookends. Not yet Locked.
+   subsection, verified in the built HTML.
+
+   Concept 2 drafted: examples in the prompt (few-shot) — zero-shot vs.
+   few-shot, where a description alone falls short, how many examples
+   help, representative vs. merely numerous examples — plus Applied
+   sandbox exercise 1, the first graded exercise in Module 2. No live LLM
+   exists in the sandbox, so it grades the learner's written *prompt text*
+   directly via the stock `GradedExercise` (a `prompt` variable checked by
+   four hidden Python tests); see architecture.md §4.1 for the harness and
+   the 13-submission verification against real Pyodide. All four callbacks
+   resolved to verified anchors/pages. Remaining: Concept 3 (output
+   format and delimiters) onward, bookends. Not yet Locked.
 
 **Old outline (superseded):**
 

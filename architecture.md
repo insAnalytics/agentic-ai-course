@@ -618,6 +618,30 @@ in `src/lib/fastapiPyodide.ts`:
   `websocket.accept`, not the expected `websocket.close`) — confirming
   the checks are actually independent, not coincidentally all-or-nothing.
 
+**Grading a written prompt, not model output (Lesson 2.2, Concept 2).**
+No live LLM exists in the sandbox, so the few-shot-prompt exercise grades
+the learner's prompt *text* directly. It reuses the stock
+`GradedExercise` (no new component): the learner assigns their prompt to
+a `prompt` variable, written as a triple-quoted string, and four hidden
+Python tests parse `prompt` with a shared `re`-based helper (`PARSE`,
+defined once in the `.mdx` via `String.raw` and prepended to each test,
+since each hidden test runs in its own copy of the namespace). Checks:
+an instruction line precedes the first example; at least two answer lines
+match the exact `Name — $Price` shape (em dash, dollar sign, number);
+those examples have distinct inputs and outputs; and the prompt ends with
+a new, still-unanswered input that isn't a repeat of an example. Verified
+against real Pyodide 0.26.4 (scratch Node script) with 13 submissions: a
+correct answer (also with the trailing `Output:` label omitted, or with
+each answer on the line after its `Output:` label) passes all four;
+empty/`TODO`/description-only prompts fail all four; and each single flaw
+(no instruction, one example, two identical examples, a hyphen instead of
+an em dash, a final input already answered, a final input repeating an
+example, no final input) fails exactly the check(s) it should. One
+authoring trap found: a learner who ends the prompt on a line ending in a
+quote character and puts the closing `"""` right after it produces
+`""""` and a `SyntaxError`, so the starter code and the hint both keep
+the closing triple quotes on their own line.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped
