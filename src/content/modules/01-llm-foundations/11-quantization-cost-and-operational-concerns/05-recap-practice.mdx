@@ -1,0 +1,155 @@
+---
+title: "Recap & Practice"
+lesson: "11-quantization-cost-and-operational-concerns"
+order: 5
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does quantization actually do to a model's parameters?",
+      options: [
+        "It adds new parameters to improve capabilities",
+        "It reduces the numerical precision used to store each weight — fewer bits, fewer possible distinct values",
+        "It removes parameters entirely",
+        "It retrains the model on new data",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Every parameter is kept, but each is stored with fewer bits. Nothing is added, removed, or retrained.",
+    },
+    {
+      question: "Who actually makes quantization decisions in practice?",
+      options: [
+        "Every API user configures this directly",
+        "Whoever is running/self-hosting a model; an API user calling a provider's endpoint never sees or chooses it directly",
+        "The tokenizer decides automatically",
+        "Only reasoning models support quantization",
+      ],
+      correctIndex: 1,
+      explanation:
+        "It's a deployment-side choice. A provider has already made it before exposing an endpoint.",
+    },
+    {
+      question: "What's the core tradeoff between open-weight and closed models?",
+      options: [
+        "Open-weight models are always cheaper in every respect",
+        "Open-weight models offer more control and privacy at the cost of real operational burden; closed models trade that away for far less infrastructure responsibility",
+        "Closed models can always be freely inspected and modified",
+        "There's no real difference between the two",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Open-weight means you run it (control, privacy, burden); closed means the provider does (convenience, less control, your data on their servers). \"Always cheaper\" ignores the infrastructure you take on.",
+    },
+    {
+      question: "Why can comparing models purely by total parameter count be misleading?",
+      options: [
+        "Parameter count is always a perfectly reliable predictor of cost",
+        "A mixture-of-experts model can have a large total parameter count while routing each token through only a small fraction of it, making actual per-token cost much lower than the headline number suggests",
+        "Parameter count is never actually reported",
+        "Only closed models report parameter counts",
+      ],
+      correctIndex: 1,
+      explanation:
+        "With MoE, per-token cost tracks the parameters actually activated, not the total.",
+    },
+    {
+      question: "Why are output tokens typically priced higher than input tokens?",
+      options: [
+        "Output tokens are arbitrary and unrelated to actual cost",
+        "Generation is the actual compute-intensive part — each output token requires its own full pass through the model",
+        "Input tokens are never charged at all",
+        "Pricing is unrelated to token type",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Autoregressive generation costs one full forward pass per output token (Lesson 4).",
+    },
+    {
+      question: "What's the actual point of pulling language, caching, reasoning, and non-text input together in one cost concept, given none of those facts are new?",
+      options: [
+        "To introduce four entirely new pricing mechanisms",
+        "To build the habit of considering multiple cost drivers together, since they compound on real requests rather than acting one at a time",
+        "To replace everything taught earlier with a simpler rule",
+        "To argue cost doesn't actually matter",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Each driver was taught where it belongs; the skill is checking all of them together when estimating a real workload.",
+    },
+    {
+      question: "How does provider-side rate limiting differ from Module 0's FastAPI rate limiting?",
+      options: [
+        "They're the exact same concept",
+        "Module 0's version protects your own API from client misuse; this is the reverse — the provider limiting how often you can call theirs",
+        "Provider-side limiting only applies to free-tier accounts",
+        "There's no real implementation difference",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Same mechanism (a cap per time window, answered with a 429), opposite side: now you're the one being limited.",
+    },
+    {
+      question: "Why is exponential backoff preferred over immediate retries after a `429`?",
+      options: [
+        "Immediate retries always succeed",
+        "Immediate retries would likely hit the same limit again right away; a growing wait time gives shared capacity genuine room to recover",
+        "Exponential backoff is legally required",
+        "There's no real difference between the two approaches",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The limit covers a time window, so an instant retry lands in the same one. A growing wait also adapts if pressure is sustained.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<Subsection title="Closing synthesis — one operational decision, every piece" variant="a">
+
+This isn't graded — it's a chance to pull quantization, model selection,
+and rate-limit handling into one deployment decision.
+
+You're deploying an agent backend under real cost and reliability
+constraints: moderate request volume, mixed task difficulty (mostly
+simple lookups, occasional genuinely complex planning), and a strict
+monthly budget. Before checking below, reason through: self-host or use
+an API? If self-hosting, what quantization level? What model
+size/reasoning tier for the two different task types? How do you handle
+being rate-limited in production?
+
+*Reasoning to check against:* given a strict budget and *moderate*
+volume (not massive scale), an **API** is likely the more practical
+starting choice —
+[self-hosting's real ops burden](/01-llm-foundations/11-quantization-cost-and-operational-concerns/02-the-model-landscape-and-selection/#open-weight-vs-closed-models)
+isn't obviously worth taking on yet, though it stays a real option if
+volume grows enough to justify it. For the mixed task difficulty,
+[Concept 2's size-tier and reasoning-axis principles](/01-llm-foundations/11-quantization-cost-and-operational-concerns/02-the-model-landscape-and-selection/#size-tiers-within-one-provider-s-lineup)
+both apply independently: route simple lookups to a small, standard
+model; route genuinely complex planning to a larger and/or
+reasoning-capable model — never the reverse, and never one tier for
+everything regardless of task. If self-hosting *were* chosen instead,
+[Concept 1's quantization tradeoff](/01-llm-foundations/11-quantization-cost-and-operational-concerns/01-quantization/#the-real-tradeoff)
+becomes directly relevant: INT8 as a reasonable default balancing cost
+and quality, reserving INT4 only if the budget genuinely demands it and
+some quality loss is acceptable. And regardless of which model or
+provider is chosen,
+[Concept 4's exponential backoff](/01-llm-foundations/11-quantization-cost-and-operational-concerns/04-provider-side-rate-limits/#the-real-handling-pattern-exponential-backoff-not-just-send-less)
+is a necessary piece of any production system calling an external API —
+not optional infrastructure, since a `429` under real load is a *when*,
+not an *if*.
+
+This is the actual shape of the judgment this entire module has been
+building toward: not memorized facts, but a coherent set of reasoned
+tradeoffs, ready to apply the moment a real system actually needs
+building.
+
+</Subsection>

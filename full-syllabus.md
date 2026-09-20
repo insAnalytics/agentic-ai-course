@@ -802,10 +802,10 @@ Generate Text) are now fully Locked.
     code). No new verification findings in the bookends. Lesson 1.10 is
     now fully Locked.
 
-11. **Quantization and the Model Landscape** — Building
-    Title is a working name (the mockup names only Concept 1 and says
-    Concept 2 covers "the model landscape and selection" — rename the
-    folder/`_lesson.yaml` if the drafter's real title differs). Concept 1
+11. **Quantization, Cost, and Operational Concerns** — Locked
+    Title confirmed by the bookends mockup (folder renamed from the working
+    name `11-quantization-and-the-model-landscape` to
+    `11-quantization-cost-and-operational-concerns`). Concept 1
     drafted: quantization (FP16 → INT8 → INT4 as fewer bits per weight,
     the memory/speed vs. quality tradeoff, and that it's a decision for
     whoever self-hosts a model, not for API users). The
@@ -848,9 +848,18 @@ Generate Text) are now fully Locked.
     handling" concept, which never mentions `429` — the status is actually
     shown in the FastAPI lesson's rate-limiting subsection, so both
     callbacks now link there. Added a short note on jitter and the
-    `Retry-After` header (standard practice the bare demo omits). Remaining:
-    bookends (outcomes intro, comprehensive quiz, closing synthesis —
-    drafted separately). Not yet Locked.
+    `Retry-After` header (standard practice the bare demo omits).
+
+    Bookends: outcomes/why-it-matters intro (`00-intro.mdx`) and a
+    Recap & Practice page (`05-recap-practice.mdx`) with an 8-question
+    comprehensive quiz spanning all four concepts plus an ungraded closing
+    synthesis (a deployment decision: API vs. self-host, quantization
+    level, size/reasoning tier, rate-limit handling), whose four callbacks
+    deep-link to Subsection anchors verified against the built HTML.
+    Deliberately not a graded sandbox (no learner-authored code). The
+    fourth outcome says "implement exponential backoff", but the lesson
+    only demos a simulated backoff loop (no graded exercise) — wording kept
+    as drafted. Lesson 1.11 is now fully Locked.
 
 The rest of Module 1 (benchmark literacy and anything beyond this
 lesson) remains a rough outline — not yet broken into lessons.
