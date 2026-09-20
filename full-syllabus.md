@@ -840,8 +840,17 @@ Generate Text) are now fully Locked.
     anchors (the mockup's two-target "non-text inputs" callback became two
     links). Lesson 1.8's Concept 4 still says the pricing math is "covered
     forward in this module's cost lesson" as plain prose — left as is.
-    Remaining: Concept 4 (provider-side rate limits) onward, bookends. Not
-    yet Locked.
+    Concept 4 drafted (the final concept section of the lesson, and of
+    Module 1's concept content, per its own mockup): provider-side rate
+    limits (RPM/TPM caps, `429`, exponential backoff). Backoff demo run in
+    real Python and matches the mockup exactly. **Finding:** the mockup
+    pointed its `429` callback at Module 0's "response models and exception
+    handling" concept, which never mentions `429` — the status is actually
+    shown in the FastAPI lesson's rate-limiting subsection, so both
+    callbacks now link there. Added a short note on jitter and the
+    `Retry-After` header (standard practice the bare demo omits). Remaining:
+    bookends (outcomes intro, comprehensive quiz, closing synthesis —
+    drafted separately). Not yet Locked.
 
 The rest of Module 1 (benchmark literacy and anything beyond this
 lesson) remains a rough outline — not yet broken into lessons.

@@ -1,0 +1,130 @@
+---
+title: "Provider-side rate limits"
+lesson: "11-quantization-and-the-model-landscape"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The reverse direction from Module 0's rate limiting" variant="a">
+
+[Rate limiting, covered in Module 0's FastAPI lesson](/00-python-essentials/09-building-apis-with-fastapi/10-building-a-real-app/#rate-limiting),
+was about *your* API limiting how often *clients* could call *your*
+endpoints — protecting your own backend from overload or misuse. This
+concept is the exact reverse direction: the **LLM provider** limiting how
+often *you*, as a client, can call *their* API — commonly expressed as a
+cap on requests per minute (RPM) and/or tokens per minute (TPM).
+
+</Subsection>
+
+<Subsection title="Why the limit exists, and how it shows up" variant="b">
+
+Providers manage genuinely shared infrastructure capacity across every
+customer — without limits, one client sending an unrestrained volume of
+requests could degrade service for everyone else sharing that capacity.
+Exceeding your own rate limit typically produces a `429` status code —
+[Too Many Requests, the same status you saw come back in Module 0's rate-limiting demo](/00-python-essentials/09-building-apis-with-fastapi/10-building-a-real-app/#rate-limiting)
+— signaling the request was rejected specifically because you're calling
+too frequently, not because anything was actually wrong with the request
+itself.
+
+</Subsection>
+
+<Subsection title='The real handling pattern: exponential backoff, not "just send less"' variant="a">
+
+"Send fewer requests" isn't a real strategy on its own — the actual
+standard pattern is **exponential backoff**: on hitting a `429`, wait a
+short time and retry; if that retry *also* fails, wait meaningfully
+longer before trying again, growing the wait time with each consecutive
+failure rather than retrying immediately or at some fixed interval.
+Retrying immediately would likely hit the exact same limit again right
+away; a fixed, non-growing wait doesn't adapt if the provider is under
+genuinely sustained pressure.
+
+<LiveDemo client:load code={`def call_api_with_backoff(max_retries: int) -> str:
+    for attempt in range(max_retries):
+        wait_time = 2 ** attempt   # 1, 2, 4, 8 seconds, doubling each attempt
+        success = attempt == max_retries - 1   # simulating eventual success, for this demo
+        if success:
+            return "success"
+        print(f"attempt {attempt + 1} failed with 429, waiting {wait_time}s before retrying")
+    return "failed after all retries"
+
+result = call_api_with_backoff(max_retries=4)
+print(result)`} />
+
+(`time.sleep()` calls are omitted here to keep the demo fast, but a real
+implementation would actually wait between attempts.)
+
+`wait_time = 2 ** attempt` is the actual exponential shape: `1`, `2`,
+`4`, `8` seconds — each failure roughly doubling the wait before the next
+attempt, giving the provider's shared capacity genuine room to recover
+rather than hammering it with immediate, repeated retries.
+
+Two refinements real implementations commonly add on top of this bare
+shape: a small random **jitter** on each wait (so many clients that were
+rate-limited at the same moment don't all retry at the same instant), and
+honoring the `Retry-After` header when the provider sends one, since it
+states directly how long to wait.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "How does provider-side rate limiting differ from the rate limiting covered in Module 0's FastAPI lesson?",
+      options: [
+        "They're the exact same concept, just described twice",
+        "Module 0's version protects your own API from client misuse; this concept is the reverse — the provider limiting how often you can call their API",
+        "Provider-side rate limiting only applies to free-tier accounts",
+        "There's no real difference in how either is actually implemented",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The mechanism (a cap on calls per window, answered with a 429) is the same; what differs is which side you're on. Before, you were the one enforcing the limit; now you're the one being limited.",
+    },
+    {
+      question: "What HTTP status code typically indicates a rate-limited request?",
+      options: [
+        "`200 OK`",
+        "`429 Too Many Requests`",
+        "`404 Not Found`",
+        "`500 Internal Server Error`",
+      ],
+      correctIndex: 1,
+      explanation:
+        "429 means the request was rejected for calling too often, not because the request itself was wrong — which is why retrying later can succeed.",
+    },
+    {
+      question: "Why is exponential backoff preferred over retrying immediately after hitting a rate limit?",
+      options: [
+        "Immediate retries always succeed, so backoff is unnecessary",
+        "Retrying immediately would likely hit the exact same limit again right away, while a growing wait time gives the provider's shared capacity genuine room to recover",
+        "Exponential backoff is required by law for all APIs",
+        "There's no real difference between immediate retries and backoff",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The limit is over a time window, so an instant retry lands in the same window. A growing wait also adapts if pressure is sustained, which a fixed wait doesn't.",
+    },
+    {
+      question: "In the demo, why does `wait_time` grow from `1` to `2` to `4` seconds across successive failed attempts?",
+      options: [
+        "This is arbitrary and unrelated to the retry logic",
+        "`2 ** attempt` doubles the wait time with each consecutive attempt, the actual exponential shape backoff is named for",
+        "The wait time is fixed and never actually changes",
+        "The wait time decreases with each attempt, not increases",
+      ],
+      correctIndex: 1,
+      explanation:
+        "attempt goes 0, 1, 2, 3, so 2 ** attempt gives 1, 2, 4, 8 — doubling each time.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
