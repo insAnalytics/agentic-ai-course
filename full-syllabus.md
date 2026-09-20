@@ -1015,8 +1015,23 @@ far" list directly below it.*
    (the lesson-level "every technique from Lesson 2" links to that lesson's
    intro). Added one sentence the mockup lacks: these constraints are a
    strong nudge, not a mechanical guarantee, in keeping with Lesson 2.2's
-   request-not-guarantee framing. Remaining: Concept 3 (tool guidance)
-   onward, bookends. Not yet Locked.
+   request-not-guarantee framing.
+
+   Concept 3 drafted: tool guidance — strategic, not mechanical (a tool's
+   schema guarantees a call's shape but says nothing about when to call it
+   or how to use the result; that guidance lives in the system prompt as a
+   request, not a guarantee) plus Applied sandbox exercise 1, graded as
+   system-prompt *text* through the stock `GradedExercise` (a
+   `system_prompt` variable, five hidden tests — see architecture.md §4.1,
+   verified against real Pyodide with 11 submissions, which caught and
+   fixed a real bug in the constraint check). The `check_inventory`
+   schema demo ran in real Pyodide and matches the mockup exactly. The
+   task text says the constraint must not just be about the tool, which
+   the mockup's grading description doesn't state explicitly. The
+   Module 1 callback and the Lesson 2.2 "request, not guarantee" callback
+   link to verified pages/anchors; added a note in Q1's explanation that
+   the schema guarantee is opt-in per provider (Lesson 1.10). Remaining:
+   Concept 4 (phase-aware prompting) onward, bookends. Not yet Locked.
 
 **Old outline (superseded):**
 

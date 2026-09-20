@@ -1,0 +1,160 @@
+---
+title: "Tool guidance — strategic, not mechanical"
+lesson: "03-the-system-prompt-as-agent-design"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+export const PARSE = String.raw`import re
+_t = " ".join(system_prompt.lower().split())
+_sents = [s.strip() for s in re.split(r"(?<=[.!?])\s+|\n+", system_prompt.lower()) if s.strip()]
+_tool = [i for i, s in enumerate(_sents) if "check_price" in s]
+_rule = re.compile(r"\b(?:always|never|must not|do not|don't)\b")
+_when = re.compile(r"\b(?:whenever|when|if|before|any ?time|each time|every time|for)\b")
+_result = re.compile(r"\b(?:returns?|returned|results?|responses?|output)\b")
+_act = re.compile(r"\b(?:state|report|tell|say|quote|give|provide|present|share|mention|tell|inform|relay|use|respond|answer|show|cite|always|never|should|must|do not|don't)\b")
+`;
+
+export const T_ROLE = String.raw`assert re.search(r"\byou are (?:a|an|the|our)\b", _t)`;
+export const T_RULE = String.raw`assert any(_rule.search(s) and "check_price" not in s and not re.search(r"\b(?:returns?|returned|results?)\b", s) for s in _sents)`;
+
+<Subsection title="What a schema does and doesn't cover" variant="a">
+
+[A tool's schema — a Pydantic model converted to JSON Schema, from Module 1](/01-llm-foundations/10-structured-output-and-tool-calling/03-from-a-pydantic-model-to-a-schema/)
+— mechanically guarantees the *shape* of a tool call, via constrained
+decoding: the right argument names, the right types. It says nothing at
+all about *when* the model should actually decide to call that tool, or
+how it should interpret and act on whatever comes back. That's a
+separate, genuinely distinct kind of guidance — and it belongs in the
+system prompt, not the schema.
+
+<LiveDemo client:load code={`from pydantic import BaseModel
+
+class CheckInventoryArguments(BaseModel):
+    book_title: str
+
+schema = CheckInventoryArguments.model_json_schema()
+print(schema)`} />
+
+This schema constrains the *format* of a `check_inventory` call
+completely — but it's silent on every strategic question: should the
+model call this for every book-related question, or only some? What
+should it do with a result of zero? None of that lives here.
+
+</Subsection>
+
+<Subsection title="Strategic guidance, in the system prompt" variant="b">
+
+```
+System prompt (tool guidance section): "Use check_inventory whenever a
+customer asks about a specific book's availability. Do not use it for
+general questions about store hours or return policy. If
+check_inventory returns zero, tell the customer the book is currently
+out of stock — do not suggest it might still be available without
+checking again."
+```
+
+This is
+[the same "request, not guarantee" category as prompt-specified output format from Lesson 2](/02-the-agent-loop/02-prompting-fundamentals/03-output-format-and-delimiters/#this-is-a-request-not-a-guarantee-and-that-s-worth-being-precise-about)
+— a strong behavioral nudge, not a mechanical constraint. It's genuinely
+necessary alongside the schema, not optional: a tool with a perfectly
+well-defined schema but no strategic guidance can still get called at the
+wrong moment, skipped when it should have been used, or have its results
+misinterpreted — the schema was never responsible for any of that in the
+first place.
+
+</Subsection>
+
+<Subsection title="Why both pieces are needed together" variant="a">
+
+The schema and the tool guidance answer two genuinely different
+questions: the schema answers *"if the model decides to call this, what
+should the call look like"*; the system prompt guidance answers *"when
+should the model actually decide to call this, and what should it do with
+what comes back."* An agent missing either piece is incomplete in a
+different way — missing the schema means calls that don't reliably parse;
+missing the guidance means calls that happen at the wrong time, or
+results the agent doesn't know how to actually use.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does a tool's JSON Schema actually guarantee, and what does it leave completely unspecified?",
+      options: [
+        "It guarantees both the format and the timing of every tool call",
+        "It guarantees the format of a call (via constrained decoding), but says nothing about when the model should decide to call it, or how to interpret the result",
+        "It only specifies timing, never format",
+        "It guarantees nothing at all — schemas are purely documentation",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The schema fixes argument names and types. When to call and what to do with the result are separate questions it never addresses. (As Module 1 noted, that shape guarantee is opt-in per provider, so it's worth validating client-side too.)",
+    },
+    {
+      question: "Why does a tool need strategic guidance in the system prompt, even with a perfectly well-defined schema?",
+      options: [
+        "It doesn't — a good schema alone is always sufficient",
+        "The schema constrains only the shape of a call; nothing about it governs when the model should actually decide to call the tool, or how to act on its result",
+        "Schemas are optional if strategic guidance is provided instead",
+        "Strategic guidance and schemas control exactly the same thing, redundantly",
+      ],
+      correctIndex: 1,
+      explanation:
+        "They answer different questions: what a call looks like versus when to make one and what to do with the answer. Neither substitutes for the other.",
+    },
+    {
+      question: "Is tool guidance in a system prompt a mechanical guarantee or a behavioral request?",
+      options: [
+        "A mechanical guarantee, exactly like constrained decoding",
+        "A behavioral request — a strong, trained-in nudge, not something structurally enforced the way schema validation is",
+        "Neither — tool guidance has no actual effect on behavior",
+        "It's enforced by a separate, dedicated mechanism unrelated to the prompt",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Like any prompt instruction, it shapes probabilities. Only constrained decoding structurally rules out an invalid call shape.",
+    },
+  ]}
+/>
+
+<GradedExercise
+  client:load
+  task={'A bookstore agent has access to a `check_price(book_title: str)` tool. Write a system prompt section that includes: a defined role for the agent (for example "You are a..."); at least one explicit always/never behavioral constraint that isn\'t about the tool itself; and tool guidance naming `check_price` that specifies both *when* to call it and *how* to handle its result. Assign your prompt to the `system_prompt` variable.'}
+  starterCode={`system_prompt = """
+TODO: write your system prompt here.
+A role, at least one always/never constraint,
+and guidance on when to call check_price and
+what to do with what it returns.
+"""`}
+  hiddenTests={[
+    PARSE + T_ROLE,
+    PARSE + T_RULE,
+    PARSE + "assert _tool",
+    PARSE + "assert any(_when.search(_sents[i]) for i in _tool)",
+    PARSE + "assert _tool and any(_result.search(s) and _act.search(s) for s in _sents[_tool[0]:])",
+  ]}
+  hint={'Follow the same three-part shape as this concept\'s demo — a role sentence, one or more always/never constraints, then a section specifically about `check_price`: when to call it (e.g., "whenever asked about a specific book\'s price"), and what to do with what it returns (e.g., "always state the exact price returned; never estimate or round"). Keep the closing triple quotes on their own line.'}
+  correctAnswer={{
+    code: `system_prompt = """
+You are a customer support agent for Riverside Books. Always be polite
+and concise. Never guess at information you haven't actually verified.
+
+Use check_price whenever a customer asks about a specific book's
+price. Always state the exact price the tool returns — never estimate
+or provide a rounded figure instead.
+"""`,
+    explanation:
+      "This is the full composition this concept builds toward: a role framing who the agent is, an explicit behavioral constraint against guessing, and tool guidance covering both *when* check_price should actually be called and *how* its result should be used — none of which the tool's own schema could have specified on its own. Note that this exercise grades your prompt text directly, not a model's output, since no live model is available here.",
+  }}
+/>
+
+</CheckpointZone>

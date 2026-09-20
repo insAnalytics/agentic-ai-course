@@ -699,6 +699,38 @@ receipt, no format, no ignore-discount/tax instruction, final receipt already
 answered, final receipt repeating the example, no instructions before the
 first block) fails exactly the check(s) it should.
 
+**Grading a system prompt (Lesson 2.3, Concept 3).** Same
+text-grading pattern as the prompt exercises above, but the learner
+assigns to `system_prompt` (matching the topic) and the checks are
+sentence-level rather than block-level: the prompt is lower-cased and
+split into sentences (on `.`/`!`/`?` and newlines), and five hidden tests
+share one `PARSE` helper. (1) A role sentence (`you are a/an/the/our`).
+(2) An always/never/must-not/do-not constraint in a sentence that neither
+names `check_price` nor talks about a tool `return`/`result` — so the
+constraint has to be a genuine behavioral rule, not just the tool-handling
+sentence; a rule like "always keep responses short" still counts. (3)
+`check_price` is named. (4) A *calling condition*: a sentence naming
+`check_price` that contains a when-marker (`whenever`, `when`, `if`,
+`before`, `for`, ...). (5) *Result handling*: from the first sentence
+naming `check_price` onward, a sentence mentioning what the tool
+returns/its result/output plus an instruction verb — so a single sentence
+covering both condition and result passes both, while result-handling
+placed only *before* the tool is ever named fails. Verified against real
+Pyodide 0.26.4 with 11 submissions: the reference answer passes all five;
+`TODO` fails all five; and each flaw (no role, no standalone constraint,
+tool never named, no calling condition, no result handling, role only,
+result handling before any tool mention) fails exactly the expected
+check(s), while paraphrased valid answers (condition and result in one
+sentence, an `if the result is empty, say ...` style, a constraint that
+mentions "responses") pass. **Bug caught by this verification:** the first
+draft of check (2) counted the tool-handling sentence itself ("Always
+state the exact price the tool returns") as the required standalone
+constraint, so a prompt with no separate behavioral rule passed; excluding
+sentences that mention a tool return/result fixed it. The lesson's
+`check_inventory` schema demo (`CheckInventoryArguments.model_json_schema()`)
+also ran in real Pyodide (pydantic 2.7.0) and matches the mockup's expected
+output exactly.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped
