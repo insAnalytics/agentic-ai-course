@@ -642,6 +642,34 @@ quote character and puts the closing `"""` right after it produces
 `""""` and a `SyntaxError`, so the starter code and the hint both keep
 the closing triple quotes on their own line.
 
+**Grading a chain-of-thought prompt (Lesson 2.2, Concept 4).** Same
+`prompt`-variable harness as the few-shot exercise above, with a second
+shared helper (`PARSE`) and a fourth check (`BARE`). The four checks: the
+full word problem is present (key numbers and words); an explicit
+step-by-step-reasoning request exists (`step by step`, `show your
+reasoning`, `walk through`, ...); that request comes *before* any request
+for the final answer; and the prompt doesn't contradict itself by also
+demanding a bare answer (`just the number`, `no explanation`, ...). The
+ordering check deliberately ignores the problem's own trailing question
+("How many books remain available?"), which legitimately precedes the
+reasoning request in the reference answer, by only looking for explicit
+final-answer *requests* (`final answer`, `then give/state/...`,
+`finally`), and it strips a `before giving your final answer` construction
+first, since that form legitimately puts the phrase "final answer" ahead
+of the reasoning request. Verified against real Pyodide 0.26.4 with 14
+submissions: the reference answer and several paraphrases (`show your
+reasoning`, `walk through it step-by-step`, `before giving your final
+answer, think step by step`) pass all four; the `TODO` starter, a bare
+"answer with just the number", a prompt with no reasoning request, a
+missing problem, a wrong donation figure, and "give your final answer
+first, then think step by step" each fail exactly the expected check(s).
+**Finding (mockup bug):** the mockup's problem (140 books − 45 + 60, then
+"removes a third") reaches 155 books, and a third of 155 isn't a whole
+number (51.67), so there was no clean correct answer for a word problem
+about counting books. Changed the donation from 60 to 70 (140 − 45 = 95,
++ 70 = 165, a third = 55, leaving 110); the task, graded checks, and
+correct-answer explanation all use the corrected figure.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped

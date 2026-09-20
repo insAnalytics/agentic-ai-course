@@ -949,9 +949,21 @@ far" list directly below it.*
    to Lesson 1.10 anchors verified in the built HTML. Added one sentence
    the mockup lacks: delimiters clarify the boundary but aren't a security
    boundary against text deliberately written to fool the model (in keeping
-   with the concept's own request-not-guarantee framing). Remaining:
-   Concept 4 (chain-of-thought prompting) onward, bookends. Not yet
-   Locked.
+   with the concept's own request-not-guarantee framing).
+
+   Concept 4 drafted: chain-of-thought prompting (a multi-step problem
+   answered badly when only the final number is requested, asking for the
+   reasoning explicitly and why that helps mechanically, CoT prompting vs.
+   a trained reasoning model) plus Applied sandbox exercise 2, a second
+   prompt-text-graded exercise using the same `prompt`-variable pattern
+   (four hidden tests; verified against real Pyodide with 14 submissions —
+   see architecture.md §4.1). **Finding:** the mockup's exercise problem
+   (140 − 45 + 60 books, then "a third" removed) gives 155 books and a
+   non-integer third; donation changed to 70 (answer: 110). Three callbacks
+   resolved to verified pages/anchors; the fourth (the next lesson, ReAct
+   and reasoning in the loop) isn't built yet, so it's plain text — link it
+   once that lesson exists. Remaining: Concept 5 (iterating
+   systematically) onward, bookends. Not yet Locked.
 
 **Old outline (superseded):**
 

@@ -1,0 +1,167 @@
+---
+title: "Chain-of-thought prompting"
+lesson: "02-prompting-fundamentals"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+export const PARSE = String.raw`import re
+_t = " ".join(prompt.lower().split())
+_reason = re.compile(r"step[- ]by[- ]step|show (?:your|the) (?:reasoning|work|steps)|explain (?:your|the) reasoning|(?:reason|think|work) (?:it |this |the problem )?through|walk through|reasoning (?:process|steps)")
+_t2 = re.sub(r"before\s+(?:\w+\s+){0,3}(?:your\s+|the\s+|a\s+)?final answer", " ", _t)
+_r = _reason.search(_t2)
+_f = re.search(r"final answer|then (?:give|state|provide|tell|answer|conclude)|(?:^|[.,;] )finally", _t2)
+`;
+
+export const BARE = String.raw`assert not re.search(r"(?:just|only|simply)\s+(?:give\s+|state\s+|provide\s+)?(?:me\s+)?(?:the\s+)?(?:final\s+)?(?:answer|number)|no (?:explanation|work|reasoning)|nothing else|without (?:any )?(?:explanation|reasoning|work)|don'?t (?:show|explain)", _t)`;
+
+<Subsection title="The pain: jumping straight to an answer, on a multi-step problem" variant="a">
+
+```
+Prompt: "A store has 23 apples. They sell 8 in the morning and receive
+a shipment of 15 in the afternoon. Then they sell half of what they now
+have. How many apples do they have left? Answer with just the number."
+
+Illustrative (incorrect) output: "22"
+```
+
+(The output is illustrative, not fetched from a real call.)
+
+Asked for only a final number, with no room to work through the problem,
+a model can jump straight to a plausible-*sounding* answer that's
+actually wrong — here, skipping or misapplying one of the problem's
+several sequential steps (23 − 8 = 15, +15 = 30, half of 30 = 15 — the
+correct answer is `15`, not `22`).
+
+</Subsection>
+
+<Subsection title="The fix: asking for the reasoning explicitly" variant="b">
+
+```
+Prompt: "A store has 23 apples. They sell 8 in the morning and receive
+a shipment of 15 in the afternoon. Then they sell half of what they now
+have. How many apples do they have left? Think step by step, then give
+your final answer."
+
+Illustrative output:
+"Start with 23 apples.
+Sell 8: 23 - 8 = 15.
+Receive 15 more: 15 + 15 = 30.
+Sell half of 30: 30 / 2 = 15.
+Final answer: 15"
+```
+
+This isn't just a formatting difference —
+[every step written out becomes part of the context the next prediction actually conditions on](/01-llm-foundations/04-how-llms-generate-text/02-autoregressive-generation/#the-model-never-generates-more-than-one-token-at-once).
+Working through `23 - 8 = 15` explicitly, as generated text, means that
+intermediate result is genuinely present in the sequence when the model
+goes on to compute the next step — skipping straight to a final number
+means none of that intermediate scaffolding was ever actually available to
+condition on in the first place.
+
+</Subsection>
+
+<Subsection title="Not the same thing as a trained reasoning model" variant="a">
+
+This is worth being precise about, since it's easy to conflate with
+[Module 1's reasoning models](/01-llm-foundations/08-scaling-laws-and-emergent-behavior/04-test-time-compute/):
+chain-of-thought *prompting*, as covered here, is a technique that works
+on *any* model, achieved purely by how the prompt is written — no special
+training required. A dedicated reasoning model has been *specifically
+trained*, via
+[RL for reasoning](/01-llm-foundations/07-the-training-pipeline/04-rl-for-reasoning/),
+to produce this kind of extended reasoning automatically, often without
+even needing to be explicitly asked. These are two different routes to a
+similar-looking behavior: one a prompting technique applicable to any
+model, the other a trained, often more sophisticated capability inherent
+to specific models. Prompted chain-of-thought on a standard model is
+generally less reliable than a genuinely trained reasoning model's native
+behavior — but it's still a real, widely-applicable, and often sufficient
+technique, especially when a full reasoning model isn't available or isn't
+worth its extra cost for a given task.
+
+</Subsection>
+
+<Subsection title="Where this leads next" variant="b">
+
+Reasoning *before* answering is exactly the idea the next lesson extends
+into an agent loop specifically — interleaving reasoning with actual tool
+use, rather than reasoning about a standalone question in isolation.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why does asking for step-by-step reasoning tend to improve accuracy on a multi-step problem, mechanically?",
+      options: [
+        "It doesn't actually have any real effect on accuracy",
+        "Each written-out intermediate step becomes part of the sequence the model conditions on for the next prediction — skipping straight to a final answer means that scaffolding was never actually available",
+        "It only helps because it makes the response longer, regardless of content",
+        "Step-by-step prompting only works for arithmetic problems specifically",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Generation is one token at a time, each conditioned on everything before it. Written-out intermediate results are part of that \"everything\"; a bare final number has none.",
+    },
+    {
+      question: "Is chain-of-thought prompting the same thing as using a dedicated reasoning model?",
+      options: [
+        "Yes, they're identical in every respect",
+        "No — CoT prompting works on any model purely through how the prompt is written; a reasoning model has been specifically trained via RL to produce extended reasoning automatically",
+        "CoT prompting only works on reasoning models, never standard ones",
+        "Reasoning models can't be asked to show their reasoning at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "One is a prompting technique, the other a trained capability. They produce similar-looking behavior by different routes.",
+    },
+    {
+      question: "Why might CoT prompting on a standard model still be worth using, even though a dedicated reasoning model is generally more reliable at this same kind of task?",
+      options: [
+        "CoT prompting is always strictly better, so this comparison never actually matters",
+        "A full reasoning model isn't always available or worth its extra cost for a given task, and CoT prompting is a real, widely-applicable technique that works on any model without that added cost",
+        "Standard models are incapable of chain-of-thought reasoning under any circumstances",
+        "There's no real difference in reliability between the two approaches",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Reliability isn't the only factor. When a reasoning model isn't available or isn't worth its cost, prompted chain-of-thought is often good enough.",
+    },
+  ]}
+/>
+
+<GradedExercise
+  client:load
+  task={'Write a prompt for this problem: "A library has 140 books. It lends out 45 books, then receives a donation of 70 more books. Later, it removes a third of its current collection for repairs. How many books remain available?" Your prompt must explicitly ask the model to reason through the problem step by step *before* stating a final answer — not just ask for the final answer alone. Assign your prompt to the `prompt` variable.'}
+  starterCode={`prompt = """
+TODO: write your prompt here.
+Include the full word problem, and ask for the reasoning
+before the final answer.
+"""`}
+  hiddenTests={[
+    PARSE + 'assert all(k in _t for k in ("library", "140", "45", "70", "third", "books"))',
+    PARSE + "assert _r",
+    PARSE + "assert _r and (_f is None or _r.start() < _f.start())",
+    PARSE + BARE,
+  ]}
+  hint={'The structure that worked in this concept\'s demo: state the problem, then add something like `"Think step by step, then give your final answer."` — the key requirement is that the prompt asks for the reasoning process itself, not just a bare final number. Keep the closing triple quotes on their own line.'}
+  correctAnswer={{
+    code: `prompt = """
+A library has 140 books. It lends out 45 books, then receives a
+donation of 70 more books. Later, it removes a third of its current
+collection for repairs. How many books remain available? Think step by
+step, then give your final answer.
+"""`,
+    explanation:
+      "This explicitly requests the intermediate reasoning — each step (140 − 45 = 95, + 70 = 165, minus a third of 165, which is 55, leaving 110) gets written out and becomes part of what the model conditions on for the next step, rather than jumping straight to a single, unscaffolded final number. Note that this exercise grades your prompt text directly, not a model's output, since no live model is available here.",
+  }}
+/>
+
+</CheckpointZone>
