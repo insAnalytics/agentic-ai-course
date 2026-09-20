@@ -895,9 +895,18 @@ far" list directly below it.*
    model; sophistication and structure as independent axes). Prose plus a
    static `run_workflow` sketch (`...` bodies, labeled illustrative in the
    mockup, so not a live demo). Both callbacks link to Concept 1
-   Subsection anchors verified in the built HTML. Remaining: Concept 3
-   (the honest case for not using an agent) onward, bookends. Not yet
-   Locked.
+   Subsection anchors verified in the built HTML.
+
+   Concept 3 drafted (the final concept section of the lesson, per its
+   own mockup): the honest case for not using an agent (unpredictable
+   cost/latency, harder to test, harder to debug; when a fixed workflow is
+   clearly better; the runtime-information decision test; how to read the
+   rest of the module). Prose only, no demo. All four callbacks resolved
+   to verified anchors/pages; the testing callback targets the Module 0
+   error-paths concept's "systematic checklist" subsection, the closest
+   match for the "assert exactly these steps" discipline the mockup
+   contrasts against. Remaining: bookends (outcomes intro, comprehensive
+   quiz, closing synthesis — drafted separately). Not yet Locked.
 
 **Old outline (superseded):**
 

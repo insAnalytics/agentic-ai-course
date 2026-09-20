@@ -1,0 +1,130 @@
+---
+title: "The honest case for not using an agent"
+lesson: "01-what-an-agent-is"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="What an agent's dynamism actually costs" variant="a">
+
+[An agent's defining trait](/02-the-agent-loop/01-what-an-agent-is/02-agent-vs-workflow-vs-chatbot/#the-distinguishing-question-who-decides-what-happens-next)
+— the model deciding the sequence of steps dynamically — is a genuine
+trade, not a strict upgrade over a fixed workflow. Three real costs come
+with that flexibility:
+
+- **Unpredictable cost and latency.** Since the number of loop cycles
+  isn't fixed,
+  [actual cost and response time — everything Module 1's pricing concepts covered](/01-llm-foundations/11-quantization-cost-and-operational-concerns/03-token-based-pricing/)
+  — can vary widely for what looks like the same kind of request. A task
+  might resolve in one cycle, or genuinely need eight, depending entirely
+  on how the model reasons through it that particular time.
+- **Harder to test.** A fixed workflow's behavior is deterministic — given
+  input X, you can assert exactly which steps run, in what order. An
+  agent's actual sequence of steps can vary run to run,
+  [a real complication for the testing discipline covered in Module 0](/00-python-essentials/10-testing-fastapi-apps/05-testing-error-paths-systematically/#a-systematic-checklist-applied-to-one-endpoint)
+  — you can't simply assert "exactly these three tool calls happen in this
+  exact order" the way a workflow's test suite could.
+- **Harder to debug.** When something goes wrong, tracing through *why*
+  the model made a particular sequence of decisions is a fundamentally
+  harder problem than debugging a fixed, linear workflow, where the
+  entire control flow is already fully visible directly in the code.
+
+</Subsection>
+
+<Subsection title="When a fixed workflow is clearly the better choice" variant="b">
+
+If a task's actual steps are fully knowable in advance — "always
+summarize, then always translate," with no case where the order should
+differ, a step should be skipped, or something should repeat based on an
+intermediate result —
+[a workflow](/02-the-agent-loop/01-what-an-agent-is/02-agent-vs-workflow-vs-chatbot/#a-workflow-concretely-code-decides-the-sequence)
+gets the exact same outcome more cheaply, more predictably, and more
+testably, with no real loss of capability. The dynamic decision-making an
+agent provides simply isn't being *used* for a task like that — you'd be
+paying its real costs for a flexibility the task never actually needed.
+
+</Subsection>
+
+<Subsection title="The actual decision test" variant="a">
+
+The honest question worth asking before reaching for an agent: does this
+task's control flow genuinely depend on information only available at
+*runtime* — a tool's actual result, something the model needs to figure
+out along the way, a number of steps that can't be known ahead of time —
+that a fixed sequence structurally can't accommodate? If yes, an agent's
+dynamism is earning its real cost. If the steps and their order are
+actually fully determinable in advance, a workflow reaches the same
+outcome for less.
+
+</Subsection>
+
+<Subsection title="Why this framing matters for the rest of this module" variant="b">
+
+Everything from here forward in this module is about building and
+controlling agent loops — worth reading that content with this concept's
+honest framing in mind, not as "agents are the correct default for every
+problem," but as "here's how to build the specific tool that fits when a
+task's control flow genuinely can't be known in advance." That's a real,
+common, and important category of problem — it just isn't every problem.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does an agent's dynamic control flow trade away, compared to a fixed workflow?",
+      options: [
+        "Nothing — an agent is strictly better in every respect",
+        "Predictability — cost, latency, and behavior all become harder to know in advance, and harder to test and debug as a direct consequence",
+        "The ability to use tools at all",
+        "The ability to produce a final text answer",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Agents can use tools and give final answers just fine. What they give up is knowing in advance how many steps will run, which is what makes cost, testing, and debugging harder.",
+    },
+    {
+      question: "Why is an agent's behavior genuinely harder to test than a fixed workflow's?",
+      options: [
+        "Agents can never be tested at all, under any circumstances",
+        "A workflow's fixed sequence can be asserted directly; an agent's actual sequence of steps can vary run to run, making a simple \"exactly these calls, in this order\" assertion unreliable",
+        "Testing frameworks don't support LLM-based systems",
+        "There's no real testing difference between the two",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Agents can be tested, but you can't pin down the exact sequence in advance, so the tests have to check outcomes more loosely.",
+    },
+    {
+      question: "What's the actual decision test this concept proposes for choosing between an agent and a workflow?",
+      options: [
+        "Always choose whichever approach uses more LLM calls",
+        "Whether the task's control flow genuinely depends on information only available at runtime, which a fixed sequence structurally can't accommodate",
+        "Always choose an agent, since it's more capable by definition",
+        "Choose based purely on which approach a team has more experience with",
+      ],
+      correctIndex: 1,
+      explanation:
+        "If the steps and their order are knowable in advance, a workflow gets there for less. If they genuinely depend on runtime information, the agent's flexibility is earning its cost.",
+    },
+    {
+      question: "How should the rest of this module's content on building agent loops be read, given this concept's framing?",
+      options: [
+        "As proof that agents should always be the default choice for any task",
+        "As instruction for the specific category of problem where a task's control flow genuinely can't be known in advance — not a universal default",
+        "As irrelevant, since workflows are always the better choice",
+        "As a complete replacement for everything covered about workflows",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Agents are the right tool for a real, common category of problem, not for every problem. Workflows remain the better choice when the steps are knowable.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
