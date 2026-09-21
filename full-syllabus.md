@@ -1117,10 +1117,8 @@ far" list directly below it.*
    never does — flagged for the mockup author. Lesson 2.4 is now fully
    Locked.
 
-5. **ReAct and Reasoning in the Loop** — Building
-   Title is a working name taken from earlier mockups' callback text ("react
-   and reasoning in the loop lesson") — confirm or rename once the bookends
-   mockup arrives. Folder `05-react-and-reasoning-in-the-loop`. Concept 1
+5. **ReAct and Reasoning in the Loop** — Locked
+   Title confirmed by the bookends mockup. Folder `05-react-and-reasoning-in-the-loop`. Concept 1
    drafted: the ReAct pattern (an explicit `thinking` block ahead of each
    action; the fake client evolves to scripted *lists* of blocks, added as
    `REACT_FAKE_CLIENT` in `src/lib/fakeClient.ts` so Lesson 2.4 is
@@ -1153,9 +1151,22 @@ far" list directly below it.*
    parser breaking on `"Action :"` (run in real Pyodide; output matches the
    mockup exactly); no graded exercise, per its mockup. All four callbacks
    link to verified pages/anchors (three to Module 1's structured-output
-   lesson, one back to Concept 1). Remaining: bookends (outcomes callout/
-   why it matters, comprehensive quiz, comprehensive sandbox). Not yet
-   Locked.
+   lesson, one back to Concept 1).    Bookends: outcomes/why-it-matters intro (`00-intro.mdx`) and a Recap &
+   Practice page (`04-recap-practice.mdx`) with a 6-question comprehensive
+   quiz spanning all three concepts, plus a **graded multi-file
+   comprehensive sandbox**: the learner upgrades `agent_loop.py` to the
+   ReAct loop while Lesson 2.4's finished `tools.py` is provided read-only
+   (graded by one hidden-test script; architecture.md §4.1; verified against
+   real Pyodide with 13 submissions). **Deviation:** `"tool_use_id":
+   block.id` again added to the task and reference answer. The task's
+   "Lesson 4's comprehensive sandbox" callback links to that lesson's Recap
+   & Practice page, the hint's "Concept 1's exercise answer" to Concept 1's
+   page (its exercise has no anchor), and the explanation's Lesson 3
+   check-before-create callback to Lesson 2.3's Recap & Practice page
+   (where that prompt is actually written, rather than the lesson intro).
+   Lesson 2.2's bookends still have a plain-text "tool descriptions"
+   callback pointing at this lesson, which stays plain: no concept here
+   teaches tool descriptions. Lesson 2.5 is now fully Locked.
 
 **Old outline (superseded):**
 

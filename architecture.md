@@ -932,6 +932,35 @@ anyway. **Deviation from the mockup:** `"tool_use_id": block.id` is required
 in the loop, demo, task, and reference answer (omitted by the mockup, as in
 Lesson 2.4).
 
+**Grading a multi-file ReAct loop (Lesson 2.5 comprehensive sandbox).** A
+second multi-file exercise on stock `MultiFileGradedExercise`, this time with
+a **read-only provided file**: `tools.py` (Lesson 2.4's finished tools,
+`readOnly: true`, identical text to the reference's) plus the learner's
+`agent_loop.py` (entry file). The mockup lists one file tab but the module has
+to exist for the import to work, so it's shown read-only, which is also what
+"unchanged" means to the learner. One hidden-test script (multi-file gives a
+single pass/fail), `REACT_FAKE_CLIENT` + `RECORDING_CLIENT` prepended, with
+ordered asserts: the mockup's three-step exchange (answer, `call_count == 3`,
+`_registry` really updated) and the three reasoning lines logged in order
+(`redirect_stdout`, filtered to lines starting `[reasoning]`); each response
+preserved whole in the history by identity (thinking block *and* tool call in
+the assistant message, five alternating messages after two calls) with each
+result paired to its own `tool_use_id`; a pre-populated registry gives a
+different result; a tool added to `tools.TOOL_REGISTRY` afterwards
+(`list_agents`, removed in a `finally`) is dispatched, so an `if`/`elif` chain
+or a private registry copy fails; a response with no thinking block works and
+logs nothing; and `[Thinking, Text]` first returns immediately. Result content
+accepts the raw bool or its `str()`, as in the Lesson 2.4 sandbox. Verified
+against real Pyodide 0.26.4 (harness emulated) with 13 submissions: the
+reference and a `list(response.content)` variant pass; a stub, an action-only
+append, no logging, a wrong log format, Lesson 2.4's single-block loop, a
+missing `tool_use_id`, an `elif` chain, a private registry copy, printing
+instead of returning, passing the dict instead of unpacking, and a syntax
+error each fail. Omitting the inner `break` still passes (as in Concept 1, it
+is a no-op with these scripts). **Deviation from the mockup:** `"tool_use_id":
+block.id` is required in the task and reference answer, as throughout Lesson 2.4
+and Concept 1.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped

@@ -1,0 +1,267 @@
+---
+title: "Recap & Practice"
+lesson: "05-react-and-reasoning-in-the-loop"
+order: 4
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+
+export const PRE = REACT_FAKE_CLIENT + RECORDING_CLIENT;
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does a `\"thinking\"` block add to the loop that Lesson 4's version didn't have?",
+      options: [
+        "A new way to execute a tool",
+        "An explicit, visible reasoning step before an action, rather than jumping directly from state to decision",
+        "A replacement for the `text` block entirely",
+        "A mechanism for stopping the loop early",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The `thinking` block doesn't run or stop anything. It carries the model's stated reasoning for the action that follows, so that reasoning is visible instead of implicit.",
+    },
+    {
+      question: "Why does a single response now potentially contain more than one block?",
+      options: [
+        "This is arbitrary and unrelated to how real APIs work",
+        "It matches the actual multi-block response shape from Module 1's reasoning-output coverage",
+        "Multiple blocks only happen when an error occurs",
+        "The fake client requires exactly two blocks always",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A real response's content is a list of blocks, with reasoning arriving as its own block ahead of the action. Lesson 4's one-block fake was a simplification.",
+    },
+    {
+      question: "What mechanism does reasoning-before-tool-selection apply, that was originally demonstrated in a different context?",
+      options: [
+        "Constrained decoding",
+        "Chain-of-thought's scaffolding effect from Lesson 2 — written-out reasoning becomes part of what the next prediction conditions on",
+        "The KV cache mechanism",
+        "Presence penalty",
+      ],
+      correctIndex: 1,
+      explanation:
+        "It's the same effect as step-by-step arithmetic in Lesson 2: text already generated is context for what comes next. Here that text is the reasoning about which tool fits.",
+    },
+    {
+      question: "Why can't the fake client's demo fully prove reasoning improves tool choice?",
+      options: [
+        "The claim is actually false",
+        "The fake client is fully scripted in advance, so showing reasoning alongside a correct choice doesn't demonstrate the reasoning caused it — the real evidence is Lesson 2's mechanism",
+        "Tool selection can never be improved by any technique",
+        "This concept secretly disagrees with Lesson 2",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The author scripted the reasoning and the correct choice together, so seeing them side by side shows nothing about cause. The claim rests on the mechanism Lesson 2 covered.",
+    },
+    {
+      question: "In the original text-parsed ReAct format, what did the surrounding code have to do to extract a tool call?",
+      options: [
+        "Nothing — the format was always automatically structured",
+        "Parse plain text with string splitting or pattern matching, since nothing guaranteed the exact expected format",
+        "Call a separate parsing API",
+        "The original format never included action information",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The `Action:` and `Action Input:` lines were ordinary text. The code had to find and pull out the name and arguments itself, with no guarantee about how they'd be written.",
+    },
+    {
+      question: "What actually changed between the original text-parsed format and native tool calling?",
+      options: [
+        "Reasoning became unnecessary once native tool calling existed",
+        "Reasoning still happens via thinking blocks; the action itself became structured and guaranteed via constrained decoding, instead of requiring fragile text parsing",
+        "Native tool calling removed the need for any action",
+        "The two formats are functionally identical",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Only the action half changed. The reasoning is still generated text in a `thinking` block; the action is now a structured `tool_use` block that needs no parsing.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<MultiFileGradedExercise
+  client:load
+  entry="agent_loop.py"
+  task={'Upgrade `run_agent_loop` to the ReAct-extended version from this lesson, without touching `tools.py` at all (it\'s the exact `tools.py` from [Lesson 4\'s comprehensive sandbox](/02-the-agent-loop/04-writing-the-loop-by-hand/04-recap-practice/), shown read-only) — proving the same registry tools work correctly under the new, reasoning-aware loop. As in the lesson, after each tool call append `response.content` and then a `tool_result` message (carrying the block\'s `id` as `tool_use_id`) to `messages`. `agent_loop.py` is the entry file.'}
+  files={[
+    {
+      name: "tools.py",
+      readOnly: true,
+      code: `# in-memory stand-ins for the registry app's operations —
+# real HTTP calls to a live API are outside this lesson's scope
+_registry = {}
+
+def check_agent_exists(name: str) -> bool:
+    return name in _registry
+
+def create_agent_entry(name: str, model: str) -> str:
+    _registry[name] = {"model": model}
+    return f"created agent '{name}' with model '{model}'"
+
+TOOL_REGISTRY = {
+    "check_agent_exists": check_agent_exists,
+    "create_agent_entry": create_agent_entry,
+}`,
+    },
+    {
+      name: "agent_loop.py",
+      code: `from tools import TOOL_REGISTRY
+
+def run_agent_loop(client, messages):
+    """
+    TODO: the ReAct-extended version — iterate every block in each
+    response, printing any "thinking" block's content as
+    f"[reasoning]: {block.thinking}", dispatching a "tool_use" block via
+    TOOL_REGISTRY and appending the full response.content (not just the
+    action block) plus the tool result, or returning on a "text" block.
+    """
+    pass`,
+    },
+  ]}
+  hiddenTests={PRE + String.raw`
+import io, contextlib
+import tools
+from agent_loop import run_agent_loop
+
+def logged(text):
+    return [line for line in text.splitlines() if line.startswith("[reasoning]")]
+
+# the full scripted exchange: answer, calls, registry updated, reasoning logged in order
+client = FakeLLMClient(scripted_responses=[
+    [ThinkingBlock(thinking="I should check whether research_agent already exists before creating it."),
+     ToolUseBlock(name="check_agent_exists", input={"name": "research_agent"})],
+    [ThinkingBlock(thinking="It doesn't exist yet, so I can safely create it."),
+     ToolUseBlock(name="create_agent_entry", input={"name": "research_agent", "model": "claude-sonnet"})],
+    [ThinkingBlock(thinking="The agent has been created successfully."),
+     TextBlock(text="research_agent has been created with claude-sonnet.")],
+])
+buf = io.StringIO()
+with contextlib.redirect_stdout(buf):
+    final_answer = run_agent_loop(client, [{"role": "user", "content": "..."}])
+assert final_answer == "research_agent has been created with claude-sonnet."
+assert client.call_count == 3
+assert tools._registry["research_agent"] == {"model": "claude-sonnet"}
+assert logged(buf.getvalue()) == [
+    "[reasoning]: I should check whether research_agent already exists before creating it.",
+    "[reasoning]: It doesn't exist yet, so I can safely create it.",
+    "[reasoning]: The agent has been created successfully.",
+]
+
+# each response is preserved whole in the history, and each result is paired with its own call
+tools._registry.clear()
+t1 = ThinkingBlock(thinking="first")
+u1 = ToolUseBlock(name="check_agent_exists", input={"name": "writer"})
+t2 = ThinkingBlock(thinking="second")
+u2 = ToolUseBlock(name="create_agent_entry", input={"name": "writer", "model": "claude-haiku"})
+recording = RecordingClient(scripted_responses=[[t1, u1], [t2, u2], [TextBlock(text="done")]])
+run_agent_loop(recording, [{"role": "user", "content": "..."}])
+seen = recording.seen[2]
+assert len(seen) == 5
+assert [m["role"] for m in seen] == ["user", "assistant", "user", "assistant", "user"]
+assert len(seen[1]["content"]) == 2 and seen[1]["content"][0] is t1 and seen[1]["content"][1] is u1
+assert len(seen[3]["content"]) == 2 and seen[3]["content"][0] is t2 and seen[3]["content"][1] is u2
+assert seen[2]["content"][0]["tool_use_id"] == u1.id
+assert seen[4]["content"][0]["tool_use_id"] == u2.id
+assert seen[2]["content"][0]["content"] in (False, "False")
+assert seen[4]["content"][0]["content"] == "created agent 'writer' with model 'claude-haiku'"
+
+# a different starting state gives a different result
+tools._registry.clear()
+tools._registry["known"] = {"model": "claude-sonnet"}
+recording = RecordingClient(scripted_responses=[
+    [ThinkingBlock(thinking="Check first."), ToolUseBlock(name="check_agent_exists", input={"name": "known"})],
+    [ThinkingBlock(thinking="It exists, so I'm done."), TextBlock(text="It already exists.")],
+])
+assert run_agent_loop(recording, [{"role": "user", "content": "..."}]) == "It already exists."
+assert recording.seen[1][2]["content"][0]["content"] in (True, "True")
+assert tools._registry == {"known": {"model": "claude-sonnet"}}
+
+# dispatch still goes through the registry: a tool added to it later is found
+tools.TOOL_REGISTRY["list_agents"] = lambda: sorted(tools._registry)
+try:
+    client = FakeLLMClient(scripted_responses=[
+        [ThinkingBlock(thinking="I'll list them."), ToolUseBlock(name="list_agents", input={})],
+        [TextBlock(text="listed")],
+    ])
+    assert run_agent_loop(client, [{"role": "user", "content": "..."}]) == "listed"
+    assert client.call_count == 2
+finally:
+    del tools.TOOL_REGISTRY["list_agents"]
+
+# a response with no thinking block still works, and logs nothing
+client = FakeLLMClient(scripted_responses=[
+    [ToolUseBlock(name="check_agent_exists", input={"name": "ghost"})],
+    [TextBlock(text="Not found.")],
+])
+buf = io.StringIO()
+with contextlib.redirect_stdout(buf):
+    assert run_agent_loop(client, [{"role": "user", "content": "..."}]) == "Not found."
+assert logged(buf.getvalue()) == []
+
+# thinking followed directly by a final answer ends the loop immediately
+client = FakeLLMClient(scripted_responses=[[ThinkingBlock(thinking="Easy one."), TextBlock(text="Hello!")]])
+buf = io.StringIO()
+with contextlib.redirect_stdout(buf):
+    assert run_agent_loop(client, [{"role": "user", "content": "hi"}]) == "Hello!"
+assert client.call_count == 1
+assert logged(buf.getvalue()) == ["[reasoning]: Easy one."]
+`}
+  hint={"This is [Concept 1's exercise answer, exactly](/02-the-agent-loop/05-react-and-reasoning-in-the-loop/01-the-react-pattern/) — the only thing that's changed is which tools live in `TOOL_REGISTRY`, imported from `tools.py` unchanged. The loop's own logic needs no modification for the new tools to work correctly."}
+  correctFiles={[
+    {
+      name: "tools.py",
+      code: `# in-memory stand-ins for the registry app's operations —
+# real HTTP calls to a live API are outside this lesson's scope
+_registry = {}
+
+def check_agent_exists(name: str) -> bool:
+    return name in _registry
+
+def create_agent_entry(name: str, model: str) -> str:
+    _registry[name] = {"model": model}
+    return f"created agent '{name}' with model '{model}'"
+
+TOOL_REGISTRY = {
+    "check_agent_exists": check_agent_exists,
+    "create_agent_entry": create_agent_entry,
+}`,
+    },
+    {
+      name: "agent_loop.py",
+      code: `from tools import TOOL_REGISTRY
+
+def run_agent_loop(client, messages):
+    while True:
+        response = client.create(messages=messages)
+        for block in response.content:
+            if block.type == "thinking":
+                print(f"[reasoning]: {block.thinking}")
+            elif block.type == "tool_use":
+                tool_function = TOOL_REGISTRY[block.name]
+                result = tool_function(**block.input)
+                messages.append({"role": "assistant", "content": response.content})
+                messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
+                break
+            elif block.type == "text":
+                return block.text`,
+    },
+  ]}
+  explanation="This is the real payoff of the registry-based dispatch design from Lesson 4: upgrading the loop's own capabilities — adding reasoning awareness — required zero changes to tools.py, since the dispatch mechanism only ever depended on block.name matching a registry key, never on the loop's internal structure. The three-step scripted sequence now shows the model explicitly reasoning through the exact check-before-create logic [from Lesson 3's system prompt design](/02-the-agent-loop/03-the-system-prompt-as-agent-design/05-recap-practice/) — no longer just an instruction hoped to be followed, but visible, logged reasoning genuinely present at each step of a real, running loop."
+/>
+
+</CheckpointZone>
