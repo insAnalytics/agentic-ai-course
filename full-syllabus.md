@@ -1183,7 +1183,17 @@ far" list directly below it.*
    **Deviation:** `"tool_use_id": block.id` added to the demo's tool result,
    as in Lessons 2.4-2.5. Both callbacks link to verified anchors (Lesson
    2.4 Concept 2's loop; Module 1's token-pricing mechanics). No exercise in
-   this concept, per its mockup. Remaining: Concept 2 (max steps) onward,
+   this concept, per its mockup. 
+   Concept 2 drafted: max steps — the first, simplest fix (a `for` loop
+   over `range(1, max_steps + 1)` that stops cleanly with a message; the
+   honest limitation that a count can't tell productive work from a stuck
+   loop). Live demo run in real Pyodide against Concept 1's 20-response
+   repeated-call script: prints the mockup's stop message after exactly 10
+   calls. **Deviation:** `"tool_use_id": block.id` added, as before. The
+   Concept 1, Module 0 `range()`, and "from Concept 1" callbacks link to
+   verified anchors; the "covered next (repeated action detection)"
+   pointer is a forward reference to Concept 3, not yet written, so it's
+   plain text. Remaining: Concept 3 (repeated-action detection) onward,
    bookends. Not yet Locked.
 
 **Old outline (superseded):**
