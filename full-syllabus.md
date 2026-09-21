@@ -1146,8 +1146,16 @@ far" list directly below it.*
    the built HTML); also linked "Concept 1's `thinking` block" back to
    Concept 1. Note the mockup describes Lesson 2's outputs as "real
    numbers", though that concept's outputs are labeled illustrative; the
-   converted text keeps the mockup's wording. Remaining: Concept 3 (text-
-   parsed format vs. native tool calling) onward, bookends. Not yet Locked.
+   converted text keeps the mockup's wording. 
+   Concept 3 drafted (the final concept section of the lesson, per its
+   own mockup): the historical text-parsed ReAct format vs. native tool
+   calling, and why native won. Live demo of a `Thought:/Action:` text
+   parser breaking on `"Action :"` (run in real Pyodide; output matches the
+   mockup exactly); no graded exercise, per its mockup. All four callbacks
+   link to verified pages/anchors (three to Module 1's structured-output
+   lesson, one back to Concept 1). Remaining: bookends (outcomes callout/
+   why it matters, comprehensive quiz, comprehensive sandbox). Not yet
+   Locked.
 
 **Old outline (superseded):**
 

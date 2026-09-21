@@ -1,0 +1,123 @@
+---
+title: "The historical text-parsed format vs. native tool calling, and why native won"
+lesson: "05-react-and-reasoning-in-the-loop"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="How ReAct originally worked, before native tool calling existed" variant="a">
+
+The original ReAct approach predates
+[native tool calling from Module 1](/01-llm-foundations/10-structured-output-and-tool-calling/04-tool-calling/#the-model-doesn-t-call-anything-it-produces-structured-data)
+— the model produced its reasoning and its intended action as plain
+text, in an expected format:
+
+```
+Thought: I need to check the weather in Paris.
+Action: get_weather
+Action Input: {"location": "Paris"}
+```
+
+And the surrounding code had to *parse* this plain text — string
+splitting, pattern matching — to extract the actual tool name and
+arguments, since nothing mechanically guaranteed the model would follow
+this exact format precisely.
+
+</Subsection>
+
+<Subsection title="The pain: a tiny, plausible variation breaks the parser" variant="b">
+
+<LiveDemo client:load code={`import json
+
+def parse_react_text(model_output: str) -> dict:
+    lines = model_output.split("\\n")
+    action_line = next(line for line in lines if line.startswith("Action:"))
+    action_name = action_line.replace("Action:", "").strip()
+    input_line = next(line for line in lines if line.startswith("Action Input:"))
+    action_input = json.loads(input_line.replace("Action Input:", "").strip())
+    return {"name": action_name, "input": action_input}
+
+well_formed_output = "Thought: I need to check the weather in Paris.\\nAction: get_weather\\nAction Input: {\\"location\\": \\"Paris\\"}"
+print(parse_react_text(well_formed_output))
+
+slightly_different_output = "Thought: I need to check the weather in Paris.\\nAction : get_weather\\nAction Input: {\\"location\\": \\"Paris\\"}"
+try:
+    print(parse_react_text(slightly_different_output))
+except StopIteration:
+    print("failed to parse: no line matched the expected 'Action:' prefix exactly")`} />
+
+One extra space — `"Action :"` instead of `"Action:"` — and
+`next(line for line in lines if line.startswith("Action:"))` finds
+nothing at all, raising `StopIteration`. This is
+[exactly the same class of fragility as Module 1's naive JSON parsing failure](/01-llm-foundations/10-structured-output-and-tool-calling/01-the-naive-approach/#failure-mode-1-extra-text-breaks-parsing-entirely),
+in a new context: a plausible, minor variation in the model's exact
+phrasing completely breaks a parser that was only ever designed for one
+precise expected shape.
+
+</Subsection>
+
+<Subsection title="Why native tool calling won" variant="a">
+
+Native tool calling doesn't eliminate the reasoning step —
+[`thinking` blocks, from Concept 1](/02-the-agent-loop/05-react-and-reasoning-in-the-loop/01-the-react-pattern/#jumping-straight-from-state-to-action),
+are still plain text, still valuable, still there. What changed is the
+*action* half: a `tool_use` block already has a real, structured `.name`
+and `.input` —
+[guaranteed well-formed via constrained decoding](/01-llm-foundations/10-structured-output-and-tool-calling/02-constrained-decoding/#a-hard-guarantee-not-a-soft-nudge),
+not text requiring fragile extraction at all. This is precisely why
+native tool calling replaced the original text-parsed format: not because
+reasoning-before-acting stopped mattering, but because the *mechanism*
+for turning that reasoning into an actual, executable action became
+categorically more reliable once constrained decoding existed to
+guarantee it.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "In the original text-parsed ReAct format, what did the surrounding code have to do to actually extract a tool call?",
+      options: [
+        "Nothing — the format was always automatically structured",
+        "Parse plain text output — string splitting, pattern matching — to extract the tool name and arguments, since nothing guaranteed the exact format",
+        "Call a separate API specifically for parsing",
+        "The original format never included any action information at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The `Action:` and `Action Input:` lines were just text. The code had to find them and pull out the name and arguments itself, and had no guarantee they'd be written exactly as expected.",
+    },
+    {
+      question: "Why does `next(line for line in lines if line.startswith(\"Action:\"))` fail on `\"Action : get_weather\"` (with an extra space before the colon)?",
+      options: [
+        "It doesn't actually fail — this is a demo error",
+        "`\"Action : ...\"` doesn't literally start with the exact string `\"Action:\"`, so no line matches the generator's condition, and `next()` raises `StopIteration`",
+        "`startswith()` ignores whitespace differences automatically",
+        "The parser only works on the second line of any input",
+      ],
+      correctIndex: 1,
+      explanation:
+        "`startswith` compares characters exactly, so the extra space means no line matches. `next()` on an empty generator raises `StopIteration`, which is what the demo above catches.",
+    },
+    {
+      question: "What actually changed between the original text-parsed ReAct format and native tool calling — did reasoning-before-acting stop mattering?",
+      options: [
+        "Yes, reasoning became unnecessary once native tool calling existed",
+        "No — reasoning still matters and still happens via thinking blocks; what changed is that the action itself became structured and guaranteed via constrained decoding, instead of text requiring fragile parsing",
+        "Native tool calling removed the need for any reasoning or any action entirely",
+        "The two formats are functionally identical, just named differently",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Only the action half changed. The reasoning is still generated text, in a `thinking` block. The action is now a structured `tool_use` block, so nothing has to be parsed out of prose.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
