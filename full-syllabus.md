@@ -1379,6 +1379,23 @@ far" list directly below it.*
    subsection; the task links Lesson 4's Recap & Practice for `tools.py`. Lesson
    2.8 is now fully Locked.
 
+9. **Reflection and Self-Critique** — Building
+   Title is a working name (folder `09-reflection-and-self-critique`) taken from
+   Lesson 6 Concept 4's callback text ("reflection and self critique lesson") —
+   confirm or rename once the bookends mockup arrives. Concept 1 drafted: the
+   evaluator-optimizer pattern implemented (a model-judged check where Lesson 6's
+   goal-state check couldn't be deterministic; generate, evaluate, feed the
+   critique into a revised prompt, repeat, with `max_attempts` as a backstop),
+   with a live demo (matches the mockup's output exactly) plus Applied sandbox
+   exercise 1, graded for real against scripted generation and evaluation
+   clients by six hidden tests (architecture.md §4.1; verified against real
+   Pyodide with 12 submissions). The mockup's two tests would pass a loop that
+   never feeds the critique back, so tests were added and the task now states the
+   contract. Callbacks link to verified anchors (Lesson 6 goal-state check and max
+   steps, Lesson 2 CoT). Lesson 6 Concept 4's plain-text "covered properly later
+   in this module" pointer now links here. Remaining: Concept 2 (when a second
+   pass genuinely helps) onward, bookends. Not yet Locked.
+
 **Old outline (superseded):**
 
 1. Build AI Chatbot with No Code

@@ -1207,6 +1207,31 @@ and a syntax error each fail. The task spells out the block/message contract
 (as in Concept 5's exercise). No `tool_use_id` is involved (no `tool_result`
 messages are built here).
 
+**Grading an evaluator-optimizer loop (Lesson 2.9, Concept 1).** Stock
+`GradedExercise` against two scripted clients (`REACT_FAKE_CLIENT`, a local
+`EvaluationBlock`, and `RECORDING_CLIENT`); the starter is a stub
+`run_evaluator_optimizer(generation_client, evaluation_client, prompt,
+max_attempts=3)`. The mockup's two tests (revise-and-pass with `call_count == 2`
+on each client; a never-passing run whose result contains `"Error"`) can't tell
+a loop that feeds the critique forward from one that regenerates the same prompt
+(confirmed: a no-feedback variant passes both), so six tests are used: the two
+mockup scenarios (the second also asserts three calls on each client and that the
+result *starts with* `Error`); recorded prompts (the generator gets the plain
+prompt first, then a revised prompt containing the original prompt, the failed
+attempt and the critique; the evaluator is sent each candidate); a first-attempt
+pass returns immediately with one call each; a pass on the last allowed attempt
+is still returned; and `max_attempts` is honored for a smaller value and by
+default (three). The task now states the contract the mockup left implicit
+(what each client returns, that the candidate is sent to the evaluator, what the
+revised prompt must contain, that failure returns a string starting `Error`).
+Verified against real Pyodide 0.26.4 with 12 submissions: the reference passes
+all six; a stub, no critique feedback, critique-only (no previous attempt), no
+original prompt in the revision, the evaluator being sent the prompt instead of the
+candidate, no cap, an off-by-one cap, a hardcoded cap of 3, raising at the cap,
+returning the block instead of its text, returning the last candidate instead of an
+error, and a syntax error each fail the expected tests. Live demo output matches the
+mockup exactly.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped
