@@ -1151,7 +1151,9 @@ far" list directly below it.*
    parser breaking on `"Action :"` (run in real Pyodide; output matches the
    mockup exactly); no graded exercise, per its mockup. All four callbacks
    link to verified pages/anchors (three to Module 1's structured-output
-   lesson, one back to Concept 1).    Bookends: outcomes/why-it-matters intro (`00-intro.mdx`) and a Recap &
+   lesson, one back to Concept 1).
+
+   Bookends: outcomes/why-it-matters intro (`00-intro.mdx`) and a Recap &
    Practice page (`04-recap-practice.mdx`) with a 6-question comprehensive
    quiz spanning all three concepts, plus a **graded multi-file
    comprehensive sandbox**: the learner upgrades `agent_loop.py` to the
