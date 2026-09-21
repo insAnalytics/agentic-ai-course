@@ -1312,10 +1312,10 @@ far" list directly below it.*
    fix" subsection; the task links Lesson 4's Recap & Practice page for
    `tools.py`. Lesson 2.7 is now fully Locked.
 
-8. **Planning** — Building
-   Title is a working name (folder `08-planning`) taken from earlier
-   mockups' lesson lists ("termination and control, planning, reflection,
-   ...") — confirm or rename once the bookends mockup arrives. Concept 1
+8. **Planning and Decomposition** — Locked
+   Title confirmed by the bookends mockup (renamed from the working name
+   "Planning"; folder `08-planning` renamed to `08-planning-and-decomposition`,
+   links updated). Concept 1
    drafted: goal decomposition (every loop so far is reactive; decomposing a
    goal into sub-tasks *before* any execution; a `PlanBlock` and a live demo
    printing a two-sub-task plan, using `REACT_FAKE_CLIENT`). Demo run in real
@@ -1367,8 +1367,17 @@ far" list directly below it.*
    executor clients by six hidden tests (architecture.md §4.1; verified against
    real Pyodide with 11 submissions). The task now states the block/message
    contract the mockup implied. Both Lesson 6 callbacks link to the
-   tool-errors concept's subsections. Remaining: bookends (outcomes callout/why
-   it matters, comprehensive quiz, comprehensive sandbox). Not yet Locked.
+   tool-errors concept's subsections. 
+   Bookends: outcomes/why-it-matters intro (`00-intro.mdx`, five outcomes) and
+   a Recap & Practice page (`06-recap-practice.mdx`) with an 8-question
+   comprehensive quiz spanning all five concepts, plus a **graded multi-file
+   comprehensive sandbox** (`run_plan_execute_replan` in `plan_execute.py`,
+   with `tools.py` provided read-only): the full plan/execute/replan cycle with
+   real tool dispatch, graded by one hidden-test script (architecture.md §4.1;
+   verified against real Pyodide with 10 submissions). The hint's callbacks link
+   to Concept 5's "The fix" subsection and Lesson 4 Concept 3's "The fix"
+   subsection; the task links Lesson 4's Recap & Practice for `tools.py`. Lesson
+   2.8 is now fully Locked.
 
 **Old outline (superseded):**
 

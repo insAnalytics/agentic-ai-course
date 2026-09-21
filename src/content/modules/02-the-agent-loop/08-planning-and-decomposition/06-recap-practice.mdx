@@ -1,0 +1,295 @@
+---
+title: "Recap & Practice"
+lesson: "08-planning-and-decomposition"
+order: 6
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+
+export const PRE = REACT_FAKE_CLIENT + String.raw`
+class PlanBlock:
+    def __init__(self, sub_tasks: list):
+        self.type = "plan"
+        self.sub_tasks = sub_tasks
+
+class FailureBlock:
+    def __init__(self, reason: str):
+        self.type = "failure"
+        self.reason = reason
+` + RECORDING_CLIENT;
+
+export const TOOLS_PY = `# in-memory stand-ins for the registry app's operations —
+# real HTTP calls to a live API are outside this lesson's scope
+_registry = {}
+
+def check_agent_exists(name: str) -> bool:
+    return name in _registry
+
+def create_agent_entry(name: str, model: str) -> str:
+    _registry[name] = {"model": model}
+    return f"created agent '{name}' with model '{model}'"
+
+TOOL_REGISTRY = {
+    "check_agent_exists": check_agent_exists,
+    "create_agent_entry": create_agent_entry,
+}`;
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "How does every loop built in Lessons 4–7 decide what to do at each step?",
+      options: [
+        "By consulting a plan produced before execution began",
+        "Reactively — deciding only the next step, based on current state, with no advance structure",
+        "By randomly selecting from all available tools",
+        "By asking the user to specify every step manually",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Each iteration looks at the current state and picks the next action. None of those loops held a plan for the whole task in advance.",
+    },
+    {
+      question: "What does `dependency_graph[\"verify_team_setup\"] = [\"create_research_agent\", \"create_support_agent\"]` actually express?",
+      options: [
+        "That `verify_team_setup` must run before the other two tasks",
+        "That `verify_team_setup` can only run once both other tasks have already completed",
+        "That all three tasks must run in strict alphabetical order",
+        "That the three tasks are entirely unrelated",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The list holds a task's prerequisites, so `verify_team_setup` waits for both creation tasks, which themselves have no prerequisites.",
+    },
+    {
+      question: "What real capability does a dependency graph unlock that a strict linear plan doesn't?",
+      options: [
+        "Nothing — both representations are functionally identical",
+        "Genuinely independent tasks can be identified as such, opening the door to running them concurrently",
+        "Dependency graphs can never actually be executed",
+        "A dependency graph always executes faster regardless of structure",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A linear list forces an order even where none is needed. The graph records only real prerequisites, so independent work is visibly independent. It makes concurrency possible; it doesn't guarantee speed.",
+    },
+    {
+      question: "What's the key structural difference between Tree of Thought and plain chain-of-thought?",
+      options: [
+        "ToT is just a longer version of the same single reasoning chain",
+        "ToT generates multiple candidates at a decision point, evaluates them, and can abandon unpromising ones, rather than committing to one linear chain",
+        "Plain CoT can already backtrack from a bad early step",
+        "ToT and CoT are unrelated techniques",
+      ],
+      correctIndex: 1,
+      explanation:
+        "ToT adds candidates, evaluation and abandonment. CoT commits to one chain and keeps going even if an early step was poor.",
+    },
+    {
+      question: "When does ToT's extra cost actually earn its keep?",
+      options: [
+        "For every task, regardless of difficulty",
+        "Specifically for problems where an early misstep is hard to recover from in a purely linear chain — overkill for anything plain CoT already handles fine",
+        "Only for tasks involving exactly three candidates",
+        "ToT never provides any real benefit over CoT",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Backing out of a bad early choice only pays off when such choices are costly and hard to undo. For ordinary single-path problems it's several times the cost for nothing.",
+    },
+    {
+      question: "What does plan-and-execute trade away in exchange for predictability and foresight?",
+      options: [
+        "Nothing — it's strictly better with no tradeoff",
+        "Adaptiveness — a fixed plan isn't naturally built to notice and adjust to something genuinely unexpected during execution",
+        "The ability to use any tools at all",
+        "The ability to ever produce a final answer",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A plan fixed in advance can't account for what it didn't anticipate. A reactive loop decides fresh at each step, so it adapts, at the cost of not knowing the task's shape ahead of time.",
+    },
+    {
+      question: "Why can a step failing in a plan-and-execute agent invalidate more than just that one step?",
+      options: [
+        "It never does — only the failed step is ever affected",
+        "Later steps may have been written assuming the failed step's outcome, so they can become invalid too once that assumption turns out wrong",
+        "A single failure always invalidates the entire original goal",
+        "This only happens with plans longer than five steps",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A plan is a chain of assumptions. When one step's outcome isn't what was expected, the steps written on top of it can't be trusted.",
+    },
+    {
+      question: "What does replanning actually do that simply retrying the failed step wouldn't?",
+      options: [
+        "Nothing different — the two are the same operation",
+        "It calls the planner again with the failure's actual reason as context, producing a genuinely revised plan, rather than repeating a step that would just fail again",
+        "Replanning always produces the exact same plan as before",
+        "Replanning skips the remainder of the task entirely",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A definitive failure fails the same way on every retry. Replanning changes what happens next, because the planner now knows what went wrong.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<MultiFileGradedExercise
+  client:load
+  entry="plan_execute.py"
+  task={'Implement the full cycle in `plan_execute.py`, then verify it against a scenario where the first planned step conflicts with existing registry state, triggering a genuine replan that succeeds. `run_plan_execute_replan(planning_client, execution_client, goal)` decomposes `goal` via `planning_client` (a plan block with `.sub_tasks`) and executes each sub-task by sending it to `execution_client` as a single user message. A `"failure"` block (with a `.reason`) means: ask `planning_client` again with that reason included, and replace the remaining plan with the result. A `"tool_use"` block means: dispatch it through `TOOL_REGISTRY` and append the real tool result. A `"text"` block means: append its `.text`. Return the accumulated results. `tools.py` is provided read-only, unchanged from [Lesson 4\'s comprehensive sandbox](/02-the-agent-loop/04-writing-the-loop-by-hand/04-recap-practice/).'}
+  files={[
+    { name: "tools.py", readOnly: true, code: TOOLS_PY },
+    {
+      name: "plan_execute.py",
+      code: `from tools import TOOL_REGISTRY
+import tools
+
+def run_plan_execute_replan(planning_client, execution_client, goal: str) -> list:
+    """
+    TODO: decompose goal via planning_client (a PlanBlock). For each
+    sub-task, call execution_client and handle three possible response
+    types: "failure" (replan the remainder via planning_client, using
+    the failure reason as context), "tool_use" (dispatch via
+    TOOL_REGISTRY, append the real tool result), or "text" (append
+    directly). Return the list of accumulated results.
+    """
+    pass`,
+    },
+  ]}
+  hiddenTests={PRE + String.raw`
+import tools
+from plan_execute import run_plan_execute_replan
+
+# the mockup's scenario: the first step hits a conflict, the replan succeeds for real
+tools._registry.clear()
+tools._registry["research_agent"] = {"model": "claude-sonnet"}
+
+planning_client = FakeLLMClient(scripted_responses=[
+    [PlanBlock(sub_tasks=["Create research_agent with claude-sonnet"])],
+    [PlanBlock(sub_tasks=["Create research_agent_backup with claude-sonnet"])],
+])
+
+execution_client = FakeLLMClient(scripted_responses=[
+    [FailureBlock(reason="research_agent already exists")],
+    [ToolUseBlock(name="create_agent_entry", input={"name": "research_agent_backup", "model": "claude-sonnet"})],
+])
+
+results = run_plan_execute_replan(planning_client, execution_client, "Set up a research agent with claude-sonnet")
+
+assert planning_client.call_count == 2
+assert tools._registry["research_agent_backup"] == {"model": "claude-sonnet"}
+assert results == ["created agent 'research_agent_backup' with model 'claude-sonnet'"]
+assert tools._registry["research_agent"] == {"model": "claude-sonnet"}   # the failed step changed nothing
+assert execution_client.call_count == 2
+
+# the planner is asked for the plan, then told what went wrong; the executor sees each sub-task
+tools._registry.clear()
+planning_client = RecordingClient(scripted_responses=[
+    [PlanBlock(sub_tasks=["step one", "step two"])],
+    [PlanBlock(sub_tasks=["revised step"])],
+])
+execution_client = RecordingClient(scripted_responses=[
+    [FailureBlock(reason="step one is impossible")],
+    [TextBlock(text="revised done")],
+])
+assert run_plan_execute_replan(planning_client, execution_client, "the goal") == ["revised done"]
+assert "the goal" in planning_client.seen[0][-1]["content"]
+assert "step one is impossible" in planning_client.seen[1][-1]["content"]
+assert execution_client.seen[0][-1]["content"] == "step one"
+assert execution_client.seen[1][-1]["content"] == "revised step"
+
+# all three response types in one plan: text and tool calls append in order, tools really run
+tools._registry.clear()
+planning_client = FakeLLMClient(scripted_responses=[
+    [PlanBlock(sub_tasks=["announce", "create writer", "create editor", "wrap up"])],
+])
+execution_client = FakeLLMClient(scripted_responses=[
+    [TextBlock(text="starting")],
+    [ToolUseBlock(name="create_agent_entry", input={"name": "writer", "model": "claude-haiku"})],
+    [ToolUseBlock(name="create_agent_entry", input={"name": "editor", "model": "claude-sonnet"})],
+    [TextBlock(text="all set")],
+])
+results = run_plan_execute_replan(planning_client, execution_client, "goal")
+assert results == [
+    "starting",
+    "created agent 'writer' with model 'claude-haiku'",
+    "created agent 'editor' with model 'claude-sonnet'",
+    "all set",
+]
+assert tools._registry == {"writer": {"model": "claude-haiku"}, "editor": {"model": "claude-sonnet"}}
+assert planning_client.call_count == 1
+
+# a failure partway through keeps the earlier real results and drops the rest of the old plan
+tools._registry.clear()
+planning_client = FakeLLMClient(scripted_responses=[
+    [PlanBlock(sub_tasks=["create writer", "create editor", "create reviewer"])],
+    [PlanBlock(sub_tasks=["check writer"])],
+])
+execution_client = FakeLLMClient(scripted_responses=[
+    [ToolUseBlock(name="create_agent_entry", input={"name": "writer", "model": "claude-haiku"})],
+    [FailureBlock(reason="editor could not be created")],
+    [ToolUseBlock(name="check_agent_exists", input={"name": "writer"})],
+])
+results = run_plan_execute_replan(planning_client, execution_client, "goal")
+assert results == ["created agent 'writer' with model 'claude-haiku'", True]
+assert "editor" not in tools._registry and "reviewer" not in tools._registry
+assert planning_client.call_count == 2 and execution_client.call_count == 3
+
+# a revised plan that is empty ends the run cleanly
+planning_client = FakeLLMClient(scripted_responses=[
+    [PlanBlock(sub_tasks=["only step", "another"])],
+    [PlanBlock(sub_tasks=[])],
+])
+execution_client = FakeLLMClient(scripted_responses=[[FailureBlock(reason="nothing left")]])
+assert run_plan_execute_replan(planning_client, execution_client, "goal") == []
+assert execution_client.call_count == 1
+`}
+  hint={"This combines [Concept 5's failure/replan handling](/02-the-agent-loop/08-planning-and-decomposition/05-replanning-when-a-step-fails/#the-fix-call-the-planner-again-with-what-was-actually-learned) with [Lesson 4's `TOOL_REGISTRY[block.name]` dispatch](/02-the-agent-loop/04-writing-the-loop-by-hand/03-handling-multiple-tools/#the-fix-a-dict-mapping-names-to-actual-callables) — the same `while remaining_tasks:` structure, now with a third branch (`\"tool_use\"`) that actually calls a real registry tool instead of just recording scripted text."}
+  correctFiles={[
+    { name: "tools.py", code: TOOLS_PY },
+    {
+      name: "plan_execute.py",
+      code: `from tools import TOOL_REGISTRY
+import tools
+
+def run_plan_execute_replan(planning_client, execution_client, goal: str) -> list:
+    plan_response = planning_client.create(messages=[{"role": "user", "content": goal}])
+    plan = plan_response.content[0]
+    results = []
+
+    remaining_tasks = list(plan.sub_tasks)
+    while remaining_tasks:
+        sub_task = remaining_tasks.pop(0)
+        response = execution_client.create(messages=[{"role": "user", "content": sub_task}])
+        result_block = response.content[0]
+
+        if result_block.type == "failure":
+            replan_response = planning_client.create(messages=[
+                {"role": "user", "content": f"Original goal: {goal}. This happened: {result_block.reason}. What should the remaining steps be?"}
+            ])
+            new_plan = replan_response.content[0]
+            remaining_tasks = list(new_plan.sub_tasks)
+        elif result_block.type == "tool_use":
+            tool_function = TOOL_REGISTRY[result_block.name]
+            tool_result = tool_function(**result_block.input)
+            results.append(tool_result)
+        elif result_block.type == "text":
+            results.append(result_block.text)
+    return results`,
+    },
+  ]}
+  explanation="Every piece of this lesson does real work here: the original plan assumed research_agent didn't exist; execution genuinely discovers it does; a real replan happens (planning_client.call_count == 2 confirms it); and the revised plan's tool call genuinely executes against tools.py, actually creating research_agent_backup in the real registry — not an illustrative result, a real, verified consequence of the entire plan-execute-replan cycle working correctly end to end."
+/>
+
+</CheckpointZone>

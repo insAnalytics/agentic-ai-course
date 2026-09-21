@@ -1184,6 +1184,29 @@ replacing, putting the failure reason in the results, retrying the same step,
 replanning only once, sending the goal to the executor, and a syntax error each
 fail the expected tests. Live demo output matches the mockup exactly.
 
+**Grading a full plan-execute-replan cycle against the real registry
+(Lesson 2.8 comprehensive sandbox).** `MultiFileGradedExercise`, entry
+`plan_execute.py`, with `tools.py` provided read-only (Lesson 2.4's, unchanged,
+per the mockup; the mockup listed one tab, but the module has to exist to
+import). The tests prepend `REACT_FAKE_CLIENT`, local `PlanBlock`/`FailureBlock`
+and `RECORDING_CLIENT` and run as one script: the mockup's scenario, extended
+(the replanned `create_agent_entry` really creates `research_agent_backup`, the
+original `research_agent` entry is untouched, `execution_client.call_count ==
+2`); recorded messages (the planner is given the goal, then the failure reason;
+the executor sees each sub-task text); all three response types in one plan,
+with two tool calls that really mutate `tools._registry` and appended results in
+order (a raw `True` from `check_agent_exists` must stay a bool, so stringifying
+tool results fails, which the task's "append the real tool result" covers); a
+failure partway through keeps earlier real results, drops the rest of the old
+plan, and leaves the abandoned steps' agents uncreated; and an empty revised
+plan ends cleanly. Verified against real Pyodide 0.26.4 (harness emulated) with
+10 submissions: the reference passes; a stub, no `tool_use` branch, a tool that
+never executes, a hardcoded tool name, no replan, a replan without the reason,
+appending instead of replacing the plan, no `text` branch, stringified results,
+and a syntax error each fail. The task spells out the block/message contract
+(as in Concept 5's exercise). No `tool_use_id` is involved (no `tool_result`
+messages are built here).
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped
