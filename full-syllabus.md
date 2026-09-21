@@ -1217,8 +1217,22 @@ far" list directly below it.*
    mockup. **Deviation:** `"tool_use_id": block.id` added. The two guard
    callbacks link to Concept 2 and 3 subsection anchors; the "later in this
    module, reflection and self critique lesson" pointer isn't built yet, so
-   it's plain text. Remaining: Concept 5 (tool errors as observations)
-   onward, bookends. Not yet Locked.
+   it's plain text. 
+   Concept 5 drafted: tool errors as observations, not exceptions (an
+   unhandled tool exception crashes the whole loop; `try`/`except` turns it
+   into an ordinary `tool_result` the model reads). Two **multi-file** live
+   demos (shared `tools.py` whose `create_agent_entry` raises on a duplicate;
+   the second adds the read-only fake client tab), run in real Pyodide:
+   the first ends in the `ValueError` traceback, the second prints the
+   mockup's final answer. No exercise, per its mockup. **Findings:** the
+   mockup's error-handling demo never actually triggered the error (the
+   registry started empty, so `create_agent_entry` succeeded and the scripted
+   "already exists" text was unearned); the demo now registers
+   `research_agent` up front so the error really happens. **Deviation:**
+   `"tool_use_id": block.id` added. The Module 0 error-handling callback links
+   to that page's "The basic shape" subsection. Remaining: Concept 6
+   (timeouts, retry with backoff, graceful give-up) onward, bookends. Not yet
+   Locked.
 
 **Old outline (superseded):**
 

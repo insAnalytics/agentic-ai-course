@@ -1,0 +1,171 @@
+---
+title: "Tool errors as observations, not exceptions"
+lesson: "06-termination-and-control"
+order: 5
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import MultiFileLiveDemo from "../../../../components/lesson/MultiFileLiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT } from "../../../../lib/fakeClient";
+
+export const TOOLS_PY = `# in-memory stand-ins for the registry app's operations
+_registry = {}
+
+def check_agent_exists(name: str) -> bool:
+    return name in _registry
+
+def create_agent_entry(name: str, model: str) -> str:
+    if name in _registry:
+        raise ValueError(f"an agent named '{name}' already exists")
+    _registry[name] = {"model": model}
+    return f"created agent '{name}' with model '{model}'"
+
+TOOL_REGISTRY = {
+    "check_agent_exists": check_agent_exists,
+    "create_agent_entry": create_agent_entry,
+}`;
+
+<Subsection title="The pain: an unhandled tool error crashes the entire loop" variant="a">
+
+Every tool call in this loop so far has assumed the tool succeeds.
+Real tools fail — invalid input, a genuine conflict, something outside
+the caller's control. With no handling in place, that failure
+*propagates straight up* and crashes the whole loop:
+
+<MultiFileLiveDemo
+  client:load
+  entry="main.py"
+  files={[
+    { name: "tools.py", code: TOOLS_PY },
+    {
+      name: "main.py",
+      code: `import tools
+from tools import create_agent_entry
+
+tools._registry["research_agent"] = {"model": "claude-sonnet"}   # already exists
+
+block_input = {"name": "research_agent", "model": "claude-sonnet"}
+result = create_agent_entry(**block_input)   # raises, crashing right here`,
+    },
+  ]}
+/>
+
+(The registry tools live in their own `tools.py` tab, and
+`create_agent_entry` now refuses to overwrite an existing agent. The
+crash is the point: run it and it ends in a traceback.)
+
+The entire interaction ends abruptly, with a raw traceback — no chance
+for the agent to recognize the problem, try something different, or
+even tell the user what went wrong.
+
+</Subsection>
+
+<Subsection title="The fix: catch it, and let the model see it" variant="b">
+
+Wrap the tool call in `try`/`except`, exactly
+[the mechanism from Module 0's error-handling lesson](/00-python-essentials/01-python-basics/03-error-handling/#the-basic-shape-and-how-it-compares)
+— but instead of the error's audience being a human reading a traceback,
+its audience is now the *model itself*, delivered as an ordinary
+`tool_result` message, exactly like a successful result would be:
+
+<MultiFileLiveDemo
+  client:load
+  entry="main.py"
+  files={[
+    { name: "fake_llm_client.py", readOnly: true, code: REACT_FAKE_CLIENT },
+    { name: "tools.py", code: TOOLS_PY },
+    {
+      name: "main.py",
+      code: `import tools
+from tools import TOOL_REGISTRY
+from fake_llm_client import FakeLLMClient, ToolUseBlock, TextBlock
+
+def run_agent_loop_with_error_handling(client, messages, max_steps=10):
+    for step_count in range(1, max_steps + 1):
+        response = client.create(messages=messages)
+        block = response.content[0]
+        if block.type == "tool_use":
+            tool_function = TOOL_REGISTRY[block.name]
+            try:
+                result = tool_function(**block.input)
+            except Exception as e:
+                result = f"Error: {str(e)}"
+            messages.append({"role": "assistant", "content": response.content})
+            messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
+        elif block.type == "text":
+            return block.text
+    return f"stopped after reaching the maximum of {max_steps} steps without a final answer"
+
+tools._registry["research_agent"] = {"model": "claude-sonnet"}   # already exists
+
+client = FakeLLMClient(scripted_responses=[
+    [ToolUseBlock(name="create_agent_entry", input={"name": "research_agent", "model": "claude-sonnet"})],
+    [TextBlock(text="It looks like research_agent already exists, so I wasn't able to create it again.")],
+])
+
+result = run_agent_loop_with_error_handling(client, [{"role": "user", "content": "..."}])
+print(result)`,
+    },
+  ]}
+/>
+
+(Same tabs as before, plus the fake client. `research_agent` is
+registered up front so the scripted `create_agent_entry` call really does
+hit the "already exists" error, and each tool result carries its call's
+`id` as `tool_use_id`.)
+
+The `ValueError` still happens — the tool genuinely still fails — but
+`except Exception as e: result = f"Error: {str(e)}"` catches it and
+turns it into ordinary `tool_result` content instead of letting it
+crash anything. The loop continues normally; the model receives the
+error as information and produces a sensible response about it, rather
+than the entire interaction simply ending.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What happens to the loop if a tool call raises an exception with no error handling in place?",
+      options: [
+        "The loop automatically catches it and continues normally",
+        "The exception propagates straight up and crashes the entire loop, ending the interaction abruptly",
+        "The exception is silently ignored, and the loop continues as if nothing happened",
+        "Only the specific tool call fails; every other part of the system keeps running unaffected",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Nothing in the loop catches it, so Python unwinds through the loop and the whole run ends with a traceback. Python never swallows an exception on its own.",
+    },
+    {
+      question: "What does wrapping the tool call in `try`/`except` actually change about who \"sees\" a tool's error?",
+      options: [
+        "Nothing changes — the error's audience is always a human reading a traceback",
+        "The error becomes an ordinary `tool_result` message the model itself receives and can react to, rather than a raw traceback only a human developer would see",
+        "The error is deleted entirely and never seen by anyone",
+        "The error is only visible in a separate logging system, never part of the conversation",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The `except` branch turns the exception into a string and sends it back exactly where a successful result would have gone, so it's part of the conversation the model reads on its next turn.",
+    },
+    {
+      question: "Why does turning a tool error into a `tool_result` message matter practically, compared to letting it crash the loop?",
+      options: [
+        "It has no practical benefit — both approaches produce identical outcomes",
+        "It gives the agent an actual chance to recognize the problem and respond sensibly — trying something different, or explaining the failure to the user — rather than the whole interaction simply ending",
+        "It prevents the error from ever actually being a real problem",
+        "It only matters for errors that occur on the very first tool call",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The tool still fails either way. What changes is that the model gets to see the failure and respond to it, instead of the run simply dying.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
