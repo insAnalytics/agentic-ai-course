@@ -1048,6 +1048,35 @@ says so; scenario 3 now also asserts the model received `Error: an agent named
 'research_agent' already exists`. Also: `"tool_use_id": block.id` required, as
 throughout.
 
+**Grading scratchpad serialization (Lesson 2.7, Concept 2).** Stock
+`GradedExercise`, no fake client. The starter provides `ThinkingBlock`,
+`ToolUseBlock` and `TextBlock`, each with `to_dict()`, plus a stub
+`serialize_messages`; the hidden tests use the *learner-namespace* classes (not
+re-declared copies), so an `isinstance`-based solution against the given
+classes is graded fairly alongside the `hasattr` one. Six tests: the mockup's
+own round trip (`json.dumps` must not raise; thinking block and `tool_result`
+survive); a `tool_use` block round-trips to its full dict including `id`; a
+plain-string user message, roles and length are preserved; the original
+`messages` list is not mutated (the task now says so, since it's the live
+scratchpad; the block objects must still be there afterwards); an empty list
+gives `[]`; and a content list mixing objects and an already-plain dict comes
+out as all dicts and JSON-round-trips to itself. Verified against real Pyodide
+0.26.4 with 10 submissions: the reference, an `isinstance`-style solution and a
+`json.dumps(default=...)` solution all pass; a stub, a passthrough, an
+unconditional `.to_dict()`, converting only the first item, dropping string
+messages, mutating in place, and a syntax error each fail the expected tests.
+**Deviations from the mockup:** (1) `ToolUseBlock` now has an `.id` (matching
+the fake client) and its `to_dict()` includes it; the mockup's omitted it, but a
+serialized scratchpad without it would leave every later `tool_result`'s
+`tool_use_id` (required throughout Lessons 2.4-2.6) pointing at nothing once
+checkpoint/resume rebuilds the blocks, so the demo output shows an `id` field
+the mockup's didn't. (2) The mockup's second demo reused a `messages` list built
+with the *first* demo's classes (no `to_dict`), which would not have worked as
+a continuous script; each demo now builds its own. (3) The mockup's claim that
+`hasattr` is "the same attribute-checking pattern from earlier in this course"
+(Module 0's OOP lesson) has no target (Module 0 never covers `hasattr`), so the
+prose now just says what it is.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped

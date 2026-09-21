@@ -1272,9 +1272,22 @@ far" list directly below it.*
    exactly. No exercise, per its mockup. **Deviation:** `"tool_use_id":
    action_block.id` added to the tool result. The Lesson 4 and Module 1
    statelessness callbacks link to verified anchors; the "context and memory
-   module" pointer isn't built, so it's plain text. Remaining: Concept 2
-   (serializing state, from Python objects to JSON) onward, bookends. Not yet
-   Locked.
+   module" pointer isn't built, so it's plain text. 
+   Concept 2 drafted: serializing state — from Python objects to JSON (the
+   `TypeError` from `json.dumps` on block objects; a `to_dict()` per block
+   class plus a `serialize_messages` helper using `hasattr`), plus Applied
+   sandbox exercise 1, graded for real by six hidden tests (architecture.md
+   §4.1; verified against real Pyodide with 10 submissions). Two live demos
+   (the crash; the fix, self-contained). **Deviations:** `ToolUseBlock` gets an
+   `.id` that `to_dict()` includes (so a saved scratchpad keeps
+   `tool_use_id` pairings; the demo output therefore shows an `id` field);
+   each demo builds its own `messages`; the task says not to mutate the
+   original list. The mockup's "same attribute-checking pattern from earlier
+   in this course" has no Module 0 target (no `hasattr` coverage exists), so
+   it's plain prose; the Module 0 JSON callbacks link to verified anchors, and
+   "checkpoint and resume, covered next" is a forward pointer to Concept 3
+   (plain text until it exists). Remaining: Concept 3 (checkpoint and resume)
+   onward, bookends. Not yet Locked.
 
 **Old outline (superseded):**
 

@@ -1,0 +1,284 @@
+---
+title: "Serializing state — from Python objects to JSON"
+lesson: "07-agent-state-and-the-scratchpad"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT } from "../../../../lib/fakeClient";
+
+export const BLOCKS = String.raw`import itertools
+
+_ids = itertools.count(1)
+
+class ThinkingBlock:
+    def __init__(self, thinking: str):
+        self.type = "thinking"
+        self.thinking = thinking
+
+    def to_dict(self) -> dict:
+        return {"type": self.type, "thinking": self.thinking}
+
+class ToolUseBlock:
+    def __init__(self, name: str, input: dict):
+        self.type = "tool_use"
+        self.id = f"toolu_fake_{next(_ids):02d}"
+        self.name = name
+        self.input = input
+
+    def to_dict(self) -> dict:
+        return {"type": self.type, "id": self.id, "name": self.name, "input": self.input}
+`;
+
+export const SERIALIZE = String.raw`def serialize_messages(messages: list) -> list:
+    serializable = []
+    for message in messages:
+        content = message["content"]
+        if isinstance(content, list):
+            content = [block.to_dict() if hasattr(block, "to_dict") else block for block in content]
+        serializable.append({"role": message["role"], "content": content})
+    return serializable
+`;
+
+<Subsection title="The pain: the scratchpad isn't plain JSON-serializable data" variant="a">
+
+Saving the scratchpad to a file — needed for checkpoint and resume,
+covered next — means converting it to text first, and
+[JSON is the natural choice](/00-python-essentials/06-files-errors-and-validation/02-working-with-json/#json-is-just-text-and-it-maps-directly-onto-dicts-and-lists).
+But the scratchpad's assistant-turn entries contain real Python objects —
+`ThinkingBlock`, `ToolUseBlock` instances — not plain dicts:
+
+<LiveDemo client:load setupCode={REACT_FAKE_CLIENT} code={`import json
+
+messages = [
+    {"role": "user", "content": "What's the weather in Paris?"},
+    {"role": "assistant", "content": [ThinkingBlock(thinking="I should check."), ToolUseBlock(name="get_weather", input={"location": "Paris"})]},
+]
+
+json.dumps(messages)`} />
+
+(The fake client's block classes are already defined for this demo. The
+crash is the point: run it and it ends in a `TypeError`.)
+
+This is a related but genuinely different failure from
+[Module 0's JSON coverage](/00-python-essentials/06-files-errors-and-validation/02-working-with-json/#when-the-json-itself-is-malformed-jsondecodeerror)
+— that was about *parsing* malformed JSON text; this is the reverse
+direction, *serializing* something that was never JSON-shaped data to begin
+with.
+
+</Subsection>
+
+<Subsection title="The fix: a to_dict() method, and a helper that applies it" variant="b">
+
+Give each block class a `to_dict()` method converting it into a plain,
+JSON-serializable dict, then write a helper that walks the scratchpad,
+applying that conversion wherever it's actually needed:
+
+<LiveDemo client:load code={BLOCKS + "\n" + SERIALIZE + `
+messages = [
+    {"role": "user", "content": "What's the weather in Paris?"},
+    {"role": "assistant", "content": [ThinkingBlock(thinking="I should check."), ToolUseBlock(name="get_weather", input={"location": "Paris"})]},
+]
+
+import json
+serialized = serialize_messages(messages)
+print(json.dumps(serialized, indent=2))`} />
+
+(This demo defines its own copies of the block classes so it runs on its
+own. `ToolUseBlock` keeps its `id` in `to_dict()`, because a saved scratchpad
+that dropped it would leave every later `tool_result` pointing at a tool
+call that no longer has an `id` to match.)
+
+`hasattr(block, "to_dict")` — Python's built-in check for whether an
+object has a given attribute — correctly handles a *mixed* content list: a
+real `ThinkingBlock`/`ToolUseBlock` gets converted via `.to_dict()`, while
+an already-plain dict (like a `tool_result` entry, built directly as a
+dict from the start) passes through unchanged, since it has no `to_dict`
+method to call at all.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why does `json.dumps(messages)` fail directly on the raw scratchpad?",
+      options: [
+        "The scratchpad contains too much data for `json.dumps` to handle",
+        "It contains real Python objects — `ThinkingBlock`, `ToolUseBlock` instances — which `json.dumps` has no built-in way to convert into JSON",
+        "`json.dumps` only works on strings, never lists",
+        "This is identical to a `JSONDecodeError`, just under a different name",
+      ],
+      correctIndex: 1,
+      explanation:
+        "`json.dumps` knows how to write dicts, lists, strings, numbers, booleans and `None`. A custom class instance is none of those, so it raises a `TypeError`. A `JSONDecodeError` is the opposite direction: parsing bad text.",
+    },
+    {
+      question: "What does a `to_dict()` method on `ThinkingBlock` actually do?",
+      options: [
+        "It converts the block into a JSON-formatted string directly",
+        "It converts the block into a plain, JSON-serializable dict, which `json.dumps` can then handle normally",
+        "It deletes the block's data entirely",
+        "It's required syntax with no actual functional effect",
+      ],
+      correctIndex: 1,
+      explanation:
+        "It returns a dict of plain values. `json.dumps` turns that into text afterwards, so the method's job is only to make the object JSON-shaped.",
+    },
+    {
+      question: "Why does `serialize_messages` check `hasattr(block, \"to_dict\")` before calling it, rather than calling `.to_dict()` on every content item unconditionally?",
+      options: [
+        "This check is unnecessary and has no real purpose",
+        "Some content items — like `tool_result` entries — are already plain dicts with no `to_dict` method, so calling it unconditionally would raise an error on those",
+        "`hasattr` is required syntax for any dict-related operation",
+        "`to_dict` only exists on the very first item in any content list",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A content list can mix objects and plain dicts. Calling `.to_dict()` on a dict would raise an `AttributeError`, so the check converts what needs converting and passes everything else through.",
+    },
+  ]}
+/>
+
+<GradedExercise
+  client:load
+  task={'Given `ThinkingBlock`, `ToolUseBlock` and `TextBlock` (all with `to_dict()` already implemented, as shown above), implement `serialize_messages(messages)` so the result is genuinely passable to `json.dumps()` without error, correctly handling both custom-object content lists and already-plain-dict content (like a `tool_result` message\'s content, or a plain string user message). Build a new list rather than modifying `messages` — it\'s the agent\'s live scratchpad.'}
+  starterCode={`import itertools
+
+_ids = itertools.count(1)
+
+class ThinkingBlock:
+    def __init__(self, thinking: str):
+        self.type = "thinking"
+        self.thinking = thinking
+
+    def to_dict(self) -> dict:
+        return {"type": self.type, "thinking": self.thinking}
+
+class ToolUseBlock:
+    def __init__(self, name: str, input: dict):
+        self.type = "tool_use"
+        self.id = f"toolu_fake_{next(_ids):02d}"
+        self.name = name
+        self.input = input
+
+    def to_dict(self) -> dict:
+        return {"type": self.type, "id": self.id, "name": self.name, "input": self.input}
+
+class TextBlock:
+    def __init__(self, text: str):
+        self.type = "text"
+        self.text = text
+
+    def to_dict(self) -> dict:
+        return {"type": self.type, "text": self.text}
+
+def serialize_messages(messages: list) -> list:
+    # TODO: return a new list where every block object in a content list is
+    # replaced by its to_dict(), and everything already plain is left as is.
+    pass`}
+  hiddenTests={[
+    String.raw`import json
+messages = [
+    {"role": "user", "content": "What's the weather in Paris?"},
+    {"role": "assistant", "content": [ThinkingBlock(thinking="Checking now."), ToolUseBlock(name="get_weather", input={"location": "Paris"})]},
+    {"role": "user", "content": [{"type": "tool_result", "content": "It's sunny in Paris."}]},
+]
+
+serialized = serialize_messages(messages)
+json_text = json.dumps(serialized)   # must not raise
+round_tripped = json.loads(json_text)
+
+assert round_tripped[1]["content"][0] == {"type": "thinking", "thinking": "Checking now."}
+assert round_tripped[2]["content"][0] == {"type": "tool_result", "content": "It's sunny in Paris."}
+`,
+    String.raw`import json
+tool_use = ToolUseBlock(name="get_weather", input={"location": "Paris"})
+messages = [{"role": "assistant", "content": [tool_use]}]
+round_tripped = json.loads(json.dumps(serialize_messages(messages)))
+assert round_tripped[0]["content"][0] == {"type": "tool_use", "id": tool_use.id, "name": "get_weather", "input": {"location": "Paris"}}
+`,
+    String.raw`messages = [
+    {"role": "user", "content": "What's the weather in Paris?"},
+    {"role": "assistant", "content": [TextBlock(text="It's sunny.")]},
+    {"role": "user", "content": "Thanks!"},
+]
+serialized = serialize_messages(messages)
+assert len(serialized) == 3
+assert [m["role"] for m in serialized] == ["user", "assistant", "user"]
+assert serialized[0] == {"role": "user", "content": "What's the weather in Paris?"}
+assert serialized[1] == {"role": "assistant", "content": [{"type": "text", "text": "It's sunny."}]}
+assert serialized[2] == {"role": "user", "content": "Thanks!"}
+`,
+    String.raw`thinking = ThinkingBlock(thinking="Checking now.")
+tool_use = ToolUseBlock(name="get_weather", input={"location": "Paris"})
+messages = [
+    {"role": "user", "content": "What's the weather in Paris?"},
+    {"role": "assistant", "content": [thinking, tool_use]},
+]
+serialize_messages(messages)
+assert messages[1]["content"][0] is thinking
+assert messages[1]["content"][1] is tool_use
+assert len(messages[1]["content"]) == 2 and len(messages) == 2
+`,
+    String.raw`assert serialize_messages([]) == []
+`,
+    String.raw`import json
+already_plain = {"type": "text", "text": "already a dict"}
+messages = [{"role": "assistant", "content": [ThinkingBlock(thinking="hm"), already_plain]}]
+serialized = serialize_messages(messages)
+assert serialized[0]["content"] == [{"type": "thinking", "thinking": "hm"}, {"type": "text", "text": "already a dict"}]
+assert json.loads(json.dumps(serialized)) == serialized
+`,
+  ]}
+  hint={'This concept\'s exact `serialize_messages` implementation is the answer — loop through `messages`, and for any entry whose `content` is a list, build a new list converting each item via `.to_dict()` only if that item actually has one.'}
+  correctAnswer={{
+    code: `import itertools
+
+_ids = itertools.count(1)
+
+class ThinkingBlock:
+    def __init__(self, thinking: str):
+        self.type = "thinking"
+        self.thinking = thinking
+
+    def to_dict(self) -> dict:
+        return {"type": self.type, "thinking": self.thinking}
+
+class ToolUseBlock:
+    def __init__(self, name: str, input: dict):
+        self.type = "tool_use"
+        self.id = f"toolu_fake_{next(_ids):02d}"
+        self.name = name
+        self.input = input
+
+    def to_dict(self) -> dict:
+        return {"type": self.type, "id": self.id, "name": self.name, "input": self.input}
+
+class TextBlock:
+    def __init__(self, text: str):
+        self.type = "text"
+        self.text = text
+
+    def to_dict(self) -> dict:
+        return {"type": self.type, "text": self.text}
+
+def serialize_messages(messages: list) -> list:
+    serializable = []
+    for message in messages:
+        content = message["content"]
+        if isinstance(content, list):
+            content = [block.to_dict() if hasattr(block, "to_dict") else block for block in content]
+        serializable.append({"role": message["role"], "content": content})
+    return serializable`,
+    explanation:
+      "The test confirms both real cases: a ThinkingBlock genuinely converts to its dict form, and an already-plain tool_result dict passes through completely unchanged — the exact mixed-content handling this concept's demo already proved correct.",
+  }}
+/>
+
+</CheckpointZone>
