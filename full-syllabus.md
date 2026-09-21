@@ -1260,6 +1260,22 @@ far" list directly below it.*
    Practice page for `tools.py`, and Concepts 3-6 subsections in the hint).
    Lesson 2.6 is now fully Locked.
 
+7. **Agent State and the Scratchpad** — Building
+   Title is a working name (folder `07-agent-state-and-the-scratchpad`)
+   inferred from Concept 1 ("the scratchpad") and its forward pointer to
+   Concept 2 ("serializing state") — confirm or rename once the bookends
+   mockup arrives. Concept 1 drafted: what the loop accumulates — the
+   scratchpad (the `messages` list, named as the agent's entire state,
+   grounded in Module 1's statelessness; a live demo of it growing from 1 to
+   3 entries using `REACT_FAKE_CLIENT`; scoped explicitly away from a fuller
+   memory system). Demo run in real Pyodide, output matches the mockup
+   exactly. No exercise, per its mockup. **Deviation:** `"tool_use_id":
+   action_block.id` added to the tool result. The Lesson 4 and Module 1
+   statelessness callbacks link to verified anchors; the "context and memory
+   module" pointer isn't built, so it's plain text. Remaining: Concept 2
+   (serializing state, from Python objects to JSON) onward, bookends. Not yet
+   Locked.
+
 **Old outline (superseded):**
 
 1. Build AI Chatbot with No Code
