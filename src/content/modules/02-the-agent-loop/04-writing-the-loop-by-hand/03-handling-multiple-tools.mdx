@@ -1,0 +1,264 @@
+---
+title: "Handling multiple tools — a dispatch mechanism"
+lesson: "04-writing-the-loop-by-hand"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+
+export const PRE = FAKE_CLIENT + RECORDING_CLIENT;
+
+<Subsection title="The pain: hardcoding doesn't survive a second tool" variant="a">
+
+[Concept 2's loop](/02-the-agent-loop/04-writing-the-loop-by-hand/02-from-round-trip-to-loop/#the-actual-loop-written-and-running-for-real)
+hardcoded exactly one tool. Add a second — `check_price`, alongside
+`get_weather` — and that structure breaks immediately:
+
+```python
+def get_weather(location: str) -> str:
+    return f"It's sunny in {location}."
+
+def check_price(item: str) -> str:
+    return "$4.50" if item == "notebook" else "unknown"
+
+# the Concept 2 loop, awkwardly extended for a second tool
+if block.type == "tool_use":
+    if block.name == "get_weather":
+        result = get_weather(**block.input)
+    elif block.name == "check_price":
+        result = check_price(**block.input)
+    # every new tool needs yet another elif branch here...
+```
+
+This is exactly
+[the same "show the pain, then the fix" shape this course has hit before](/00-python-essentials/01-python-basics/03-error-handling/#seeing-the-crash-first)
+— a chain of `elif` branches that grows every single time a new tool
+gets added, each one hardcoding a specific tool name directly into the
+loop's own control flow.
+
+</Subsection>
+
+<Subsection title="The fix: a dict mapping names to actual callables" variant="b">
+
+Python functions are ordinary objects — they can be stored as dict
+values, exactly like any other value. That's the entire fix: a dict
+mapping each tool's *name* (a string) directly to the actual, callable
+*function* itself:
+
+<LiveDemo client:load setupCode={FAKE_CLIENT} code={`def get_weather(location: str) -> str:
+    return f"It's sunny in {location}."
+
+def check_price(item: str) -> str:
+    return "$4.50" if item == "notebook" else "unknown"
+
+TOOL_REGISTRY = {
+    "get_weather": get_weather,
+    "check_price": check_price,
+}
+
+client = FakeLLMClient(scripted_responses=[
+    ToolUseBlock(name="get_weather", input={"location": "Paris"}),
+    ToolUseBlock(name="check_price", input={"item": "notebook"}),
+    TextBlock(text="It's sunny in Paris, and the notebook costs $4.50."),
+])
+
+messages = [{"role": "user", "content": "What's the weather in Paris, and how much is a notebook?"}]
+
+while True:
+    response = client.create(messages=messages)
+    block = response.content[0]
+
+    if block.type == "tool_use":
+        tool_function = TOOL_REGISTRY[block.name]
+        result = tool_function(**block.input)
+        print(f"called {block.name}({block.input}) -> {result}")
+        messages.append({"role": "assistant", "content": [block]})
+        messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
+    elif block.type == "text":
+        print(f"final answer: {block.text}")
+        break`} />
+
+(As before, the fake client's classes are already defined for this demo,
+and each tool result carries its call's `id` as `tool_use_id`.)
+
+`tool_function = TOOL_REGISTRY[block.name]` is the entire dispatch
+mechanism — one line, correctly selecting `get_weather` on the first
+tool-use response and `check_price` on the second, purely by looking up
+`block.name` in the registry. Adding a third tool means adding one
+entry to `TOOL_REGISTRY`; the loop's own logic never needs to change at
+all, no matter how many tools exist.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What breaks about Concept 2's hardcoded loop the moment a second tool is added?",
+      options: [
+        "Nothing breaks — the original loop already handles any number of tools",
+        "The loop only knows how to call one specific, hardcoded function — a second tool has nowhere to actually be dispatched to without further hardcoded branches",
+        "The fake client stops working entirely",
+        "`block.type` no longer works correctly with two tools",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The loop's tool-use branch names one function directly. A `tool_use` block asking for any other tool would still run that one function, so every new tool needs its own hardcoded branch.",
+    },
+    {
+      question: "Why does `TOOL_REGISTRY[block.name]` work as a dispatch mechanism at all?",
+      options: [
+        "It doesn't actually work — this is just illustrative pseudocode",
+        "Python functions are ordinary objects that can be stored as dict values, so looking up a tool's name retrieves the actual callable function to invoke",
+        "`block.name` is automatically converted into a function by Python",
+        "`TOOL_REGISTRY` only works with exactly two tools, never more or fewer",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The dict's values are the functions themselves, not strings naming them. The lookup hands back something you can call directly, which is why it runs in the live demo above.",
+    },
+    {
+      question: "What has to change in the loop's own code when a third tool gets added, using the registry approach?",
+      options: [
+        "The entire `while` loop needs to be rewritten",
+        "Nothing in the loop's logic changes at all — only one new entry needs to be added to `TOOL_REGISTRY`",
+        "A new `elif` branch must be added, exactly like the hardcoded version",
+        "The fake client needs to be reconfigured entirely",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The loop never mentions a tool by name, so it doesn't need to know a new one exists. Growth happens in the registry, not in the control flow.",
+    },
+    {
+      question: "In the live demo, how does the loop correctly call two different functions across two separate tool-use responses?",
+      options: [
+        "It doesn't — both responses actually call the same function",
+        "Each response's `block.name` is looked up in `TOOL_REGISTRY` independently, correctly retrieving `get_weather` for the first and `check_price` for the second",
+        "The loop guesses which function to call based on the input's shape",
+        "`TOOL_REGISTRY` only supports one lookup per entire loop run",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The lookup runs fresh on every iteration, using whichever name the model just asked for. Nothing is remembered between iterations, and nothing is guessed.",
+    },
+  ]}
+/>
+
+<GradedExercise
+  client:load
+  task={'Given `get_weather(location: str) -> str` and `check_price(item: str) -> str` (both provided), build a `TOOL_REGISTRY` dict mapping both tool names to their functions, and write `run_agent_loop(client, messages)` using registry-based dispatch instead of hardcoded branches — handling any number of scripted tool-use responses before a final `text` block. As in the demo, append the assistant\'s tool call and a `tool_result` message (carrying the block\'s `id` as `tool_use_id`) to `messages` after each tool call, and return the final text.'}
+  starterCode={`def get_weather(location: str) -> str:
+    return f"It's sunny in {location}."
+
+def check_price(item: str) -> str:
+    return "$4.50" if item == "notebook" else "unknown"
+
+# TODO: map each tool's name to its function
+TOOL_REGISTRY = {}
+
+def run_agent_loop(client, messages):
+    # TODO: the loop from Concept 2, but dispatching through TOOL_REGISTRY
+    # instead of calling one hardcoded function.
+    pass`}
+  hiddenTests={[
+    PRE + String.raw`
+client = FakeLLMClient(scripted_responses=[
+    ToolUseBlock(name="check_price", input={"item": "notebook"}),
+    ToolUseBlock(name="get_weather", input={"location": "Berlin"}),
+    TextBlock(text="The notebook is $4.50 and Berlin is sunny."),
+])
+final_answer = run_agent_loop(client, [{"role": "user", "content": "..."}])
+assert final_answer == "The notebook is $4.50 and Berlin is sunny."
+assert client.call_count == 3
+`,
+    PRE + String.raw`
+assert TOOL_REGISTRY["get_weather"] is get_weather
+assert TOOL_REGISTRY["check_price"] is check_price
+`,
+    PRE + String.raw`
+client = RecordingClient(scripted_responses=[
+    ToolUseBlock(name="check_price", input={"item": "notebook"}),
+    ToolUseBlock(name="get_weather", input={"location": "Berlin"}),
+    TextBlock(text="done"),
+])
+run_agent_loop(client, [{"role": "user", "content": "..."}])
+results = [c for m in client.seen[2] if m["role"] == "user" and isinstance(m["content"], list) for c in m["content"] if isinstance(c, dict) and c.get("type") == "tool_result"]
+assert [r["content"] for r in results] == ["$4.50", "It's sunny in Berlin."]
+`,
+    PRE + String.raw`
+first = ToolUseBlock(name="get_weather", input={"location": "Paris"})
+second = ToolUseBlock(name="check_price", input={"item": "notebook"})
+client = RecordingClient(scripted_responses=[first, second, TextBlock(text="done")])
+run_agent_loop(client, [{"role": "user", "content": "..."}])
+seen = client.seen[2]
+assert len(seen) == 5
+assert [m["role"] for m in seen] == ["user", "assistant", "user", "assistant", "user"]
+assert seen[1]["content"][0] is first and seen[3]["content"][0] is second
+assert seen[2]["content"][0]["tool_use_id"] == first.id
+assert seen[4]["content"][0]["tool_use_id"] == second.id
+`,
+    PRE + String.raw`
+client = RecordingClient(scripted_responses=[
+    ToolUseBlock(name="get_weather", input={"location": "Tokyo"}),
+    ToolUseBlock(name="check_price", input={"item": "pencil"}),
+    TextBlock(text="done"),
+])
+run_agent_loop(client, [{"role": "user", "content": "..."}])
+results = [c for m in client.seen[2] if m["role"] == "user" and isinstance(m["content"], list) for c in m["content"] if isinstance(c, dict) and c.get("type") == "tool_result"]
+assert [r["content"] for r in results] == ["It's sunny in Tokyo.", "unknown"]
+`,
+    PRE + String.raw`
+TOOL_REGISTRY["get_time"] = lambda zone: f"12:00 in {zone}"
+try:
+    client = FakeLLMClient(scripted_responses=[
+        ToolUseBlock(name="get_time", input={"zone": "UTC"}),
+        TextBlock(text="It is noon."),
+    ])
+    assert run_agent_loop(client, [{"role": "user", "content": "time?"}]) == "It is noon."
+    assert client.call_count == 2
+finally:
+    del TOOL_REGISTRY["get_time"]
+`,
+    PRE + String.raw`
+client = FakeLLMClient(scripted_responses=[TextBlock(text="Hello!")])
+assert run_agent_loop(client, [{"role": "user", "content": "hi"}]) == "Hello!"
+assert client.call_count == 1
+`,
+  ]}
+  hint={'Build `TOOL_REGISTRY = {"get_weather": get_weather, "check_price": check_price}` once, outside the loop. Inside the tool-use branch, replace any hardcoded function call with `tool_function = TOOL_REGISTRY[block.name]` followed by `tool_function(**block.input)` — this one change is what lets the function correctly handle a scripted sequence involving either tool, in any order.'}
+  correctAnswer={{
+    code: `def get_weather(location: str) -> str:
+    return f"It's sunny in {location}."
+
+def check_price(item: str) -> str:
+    return "$4.50" if item == "notebook" else "unknown"
+
+TOOL_REGISTRY = {
+    "get_weather": get_weather,
+    "check_price": check_price,
+}
+
+def run_agent_loop(client, messages):
+    while True:
+        response = client.create(messages=messages)
+        block = response.content[0]
+
+        if block.type == "tool_use":
+            tool_function = TOOL_REGISTRY[block.name]
+            result = tool_function(**block.input)
+            messages.append({"role": "assistant", "content": [block]})
+            messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
+        elif block.type == "text":
+            return block.text`,
+    explanation:
+      "This is the complete, generalizable version of the loop — the dispatch line is the only real change from Concept 2's minimal version, and it's what lets this exact same function correctly handle check_price first, get_weather second, in this test's scripted sequence, without ever needing to know in advance which tools would actually be requested or in what order.",
+  }}
+/>
+
+</CheckpointZone>

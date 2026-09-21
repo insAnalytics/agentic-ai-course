@@ -1089,10 +1089,19 @@ far" list directly below it.*
    the loop's `tool_result` message and the exercise's task, hidden tests,
    and reference answer include `"tool_use_id": block.id`, which the mockup
    omitted (see Lesson 1.10 Concept 5). Callbacks resolve to verified
-   pages; the "handling multiple tools" callback is a forward pointer to
-   the next concept of this same lesson (not yet written), so it's plain
-   text. Remaining: Concept 3 (handling multiple tools) onward, bookends.
-   Not yet Locked.
+   pages.
+
+   Concept 3 drafted: handling multiple tools — a dispatch mechanism (the
+   `elif`-chain pain, then a `TOOL_REGISTRY` dict of name -> callable and
+   the one-line `TOOL_REGISTRY[block.name]` dispatch), plus Applied sandbox
+   exercise 2, graded for real against the fake client by seven hidden
+   tests including an extensibility test that registers a third tool after
+   the learner's code runs (architecture.md §4.1; verified against real
+   Pyodide with 13 submissions). **Deviation:** `"tool_use_id": block.id`
+   again added to the demo, task, and reference answer. Concept 2's "next
+   concept fixes it" forward pointer now links here. Remaining: bookends
+   (outcomes callout/why it matters, comprehensive quiz, comprehensive
+   sandbox). Not yet Locked.
 
 **Old outline (superseded):**
 

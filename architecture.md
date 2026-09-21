@@ -827,6 +827,39 @@ answer require `"tool_use_id": block.id` (the mockup's omitted it, the same
 gap Lesson 1.10 Concept 5 found), and the task text states this requirement
 so the test isn't checking something the learner wasn't told.
 
+**Grading registry-based tool dispatch (Lesson 2.4, Concept 3).** Same stock
+`GradedExercise` and the shared `FAKE_CLIENT`/`RECORDING_CLIENT` from
+`src/lib/fakeClient.ts`. The starter code provides `get_weather` and
+`check_price` plus an empty `TOOL_REGISTRY = {}` and a stub
+`run_agent_loop`; hidden tests run in a shallow copy of the learner's
+namespace, so they can read `TOOL_REGISTRY` and the tool functions directly
+and can also *mutate* the shared registry dict. Seven hidden tests: (1) the
+mockup's own check (`check_price` then `get_weather`, final text, `call_count
+== 3`); (2) `TOOL_REGISTRY` maps both names to the actual function objects;
+(3) both results reach the model, in order; (4) after two tool calls the model
+sees exactly five alternating user/assistant messages, the assistant contents
+being the very block objects, each `tool_result` carrying its own block's
+`tool_use_id`; (5) different arguments (Tokyo / pencil -> `"unknown"`) give
+different results; (6) **extensibility**: the test adds a third tool
+(`get_time`) to `TOOL_REGISTRY` *after* the learner's code has run (removing
+it in a `finally` so the shared dict isn't polluted for later tests) and
+scripts a call to it, which only passes if the loop dispatches through the
+module-level registry rather than an `if`/`elif` chain or a private copy;
+(7) a text response first returns immediately. Test (6) matters because the
+mockup's single test can't distinguish a real registry from a hardcoded
+two-branch loop that merely also defines `TOOL_REGISTRY` (both pass it).
+Verified against real Pyodide 0.26.4 with 13 submissions: the reference and a
+copy-instead-of-mutate variant pass all seven; a stub, an `elif` chain that
+still defines the registry (fails only (6)), a loop with a private local
+registry (fails only (6)), an empty registry, a registry of name strings, a
+missing `tool_use_id`, printing instead of returning, never sending results
+back, passing the dict instead of unpacking it, a wrong role order, a loop
+with no text branch, a hardcoded call sequence (passes only (1)), and a
+syntax error each fail exactly the expected test(s). **Deviation from the
+mockup:** `"tool_use_id": block.id` is required in the demo, the task, and the
+reference answer (the mockup omitted it, as in Concept 2), and the task text
+states the requirement.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped
