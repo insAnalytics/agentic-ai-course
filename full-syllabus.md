@@ -1337,8 +1337,20 @@ far" list directly below it.*
    **Finding:** the mockup's async callback points at "Module 1, the training
    pipeline lesson", which has nothing on concurrency; it's Module 0's async
    lesson, so the prose and link were corrected. The Concept 1 callback links to
-   its "Decomposing" subsection. Remaining: Concept 3 (Tree of Thought as a
-   plan-search variant) onward, bookends. Not yet Locked.
+   its "Decomposing" subsection. 
+   Concept 3 drafted: Tree of Thought as a plan-search variant (several
+   candidate next steps at a decision point, scored, the best kept and the rest
+   abandoned; the contrast with chain-of-thought; the real cost tradeoff and when
+   it's worth it), with a scope note (the scripted client can show ToT's
+   structure but not the quality of a model's evaluation) and a live demo using
+   `REACT_FAKE_CLIENT` and a `CandidateBlock` (run in real Pyodide; output
+   matches the mockup exactly). No exercise, per its mockup. Callbacks link to
+   verified anchors (Concept 2's tree subsection, Lesson 2's CoT "The fix",
+   Module 1 pricing and test-time compute). **Finding:** the `key=`-selection
+   callback names "Module 0, the data structures lesson", but that pattern is
+   actually taught in Module 0's functions lesson (lambda/map/filter, "Closing
+   the loop: sorted(..., key=...)"), so it links there. Remaining: Concept 4
+   (plan-and-execute vs. purely reactive) onward, bookends. Not yet Locked.
 
 **Old outline (superseded):**
 
