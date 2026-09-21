@@ -1170,6 +1170,22 @@ far" list directly below it.*
    callback pointing at this lesson, which stays plain: no concept here
    teaches tool descriptions. Lesson 2.5 is now fully Locked.
 
+6. **Termination and Control** — Building
+   Title is a working name (folder `06-termination-and-control`) taken from
+   earlier mockups' phrasing ("termination and control") — confirm or
+   rename once the bookends mockup arrives. Concept 1 drafted: the pain, a
+   loop that never stops (nothing in the loop asks "have I done enough?";
+   live demo of a model stuck re-requesting the same call, ending only when
+   the finite 20-response script runs out with an `IndexError`, using
+   `REACT_FAKE_CLIENT`; why it's a real, billed cost). Demo run in real
+   Pyodide: no output, 20 calls, 41 messages, then the `IndexError` (the
+   mockup's traceback is illustrative; the live one shows `<exec>` frames).
+   **Deviation:** `"tool_use_id": block.id` added to the demo's tool result,
+   as in Lessons 2.4-2.5. Both callbacks link to verified anchors (Lesson
+   2.4 Concept 2's loop; Module 1's token-pricing mechanics). No exercise in
+   this concept, per its mockup. Remaining: Concept 2 (max steps) onward,
+   bookends. Not yet Locked.
+
 **Old outline (superseded):**
 
 1. Build AI Chatbot with No Code

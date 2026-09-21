@@ -1,0 +1,122 @@
+---
+title: "The pain — a loop that never stops"
+lesson: "06-termination-and-control"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT } from "../../../../lib/fakeClient";
+
+<Subsection title='Nothing in the loop itself ever asks "have I done enough?"' variant="a">
+
+Look closely at
+[every version of the loop built so far](/02-the-agent-loop/04-writing-the-loop-by-hand/02-from-round-trip-to-loop/#the-actual-loop-written-and-running-for-real):
+it keeps calling the client and dispatching tool calls for exactly as
+long as the model keeps requesting them, and not one line longer or
+shorter. There's no step counter, no check for repetition, nothing at all
+asking "has this actually made progress." If a model gets stuck —
+repeatedly re-checking the same thing, looping between two tools — the
+loop has no way to notice on its own.
+
+</Subsection>
+
+<Subsection title="Watching it actually happen" variant="b">
+
+<LiveDemo client:load setupCode={REACT_FAKE_CLIENT} code={`def get_weather(location: str) -> str:
+    return f"It's sunny in {location}."
+
+TOOL_REGISTRY = {"get_weather": get_weather}
+
+# a model stuck re-requesting the exact same call, over and over.
+# this script is finite (20 responses) only because a demo has to be --
+# a real model exhibiting this failure has no such limit at all
+repeated_responses = [[ToolUseBlock(name="get_weather", input={"location": "Paris"})] for _ in range(20)]
+client = FakeLLMClient(scripted_responses=repeated_responses)
+
+messages = [{"role": "user", "content": "What's the weather in Paris?"}]
+
+while True:
+    response = client.create(messages=messages)
+    block = response.content[0]
+    if block.type == "tool_use":
+        result = get_weather(**block.input)
+        messages.append({"role": "assistant", "content": response.content})
+        messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
+    elif block.type == "text":
+        print(f"final answer: {block.text}")
+        break`} />
+
+(The updated fake client from the last lesson is already defined for this
+demo, and the tool result carries the call's `id` as `tool_use_id`. The
+crash is the point: run it and it ends in an `IndexError` when the script
+runs out.)
+
+The loop ran through all 20 identical, pointless calls to
+`get_weather("Paris")` — 20 identical results, no progress made, no
+sign anywhere in the loop's own logic that anything was wrong — and it
+only actually *stopped* because the demo's finite script ran out and
+crashed. A real model genuinely stuck in this pattern isn't limited by
+a 20-item list — nothing structurally prevents it from continuing
+indefinitely, and this exact loop, run against it, would too.
+
+</Subsection>
+
+<Subsection title="Why this is a real, expensive risk, not just a theoretical one" variant="a">
+
+Every one of those pointless calls is
+[a real, billed API request](/01-llm-foundations/11-quantization-cost-and-operational-concerns/03-token-based-pricing/#the-basic-pricing-mechanics)
+— a loop stuck like this doesn't fail loudly and cheaply, it fails by
+quietly running up real cost, indefinitely, until something *external* to
+the loop's own logic intervenes. Building that intervention — several
+different, complementary ways of actually recognizing and stopping this —
+is exactly what the rest of this lesson covers.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does the loop, as written across every earlier lesson, ever check to decide whether it's made enough progress?",
+      options: [
+        "A dedicated step counter built into the loop",
+        "Nothing at all — it only ever checks whether the current response is a tool call or a final text block, with no notion of \"progress\" or \"enough\"",
+        "The total number of tokens used so far",
+        "Whether the same tool has been called more than once",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The only decision the loop makes is tool call versus text. It keeps no count and no history of what it has already done, so it can't tell a productive run from a stuck one.",
+    },
+    {
+      question: "In the demo, why does the loop only actually stop when it does?",
+      options: [
+        "It recognizes the repeated calls and intentionally stops",
+        "The finite demo script runs out of scripted responses and crashes with an `IndexError` — nothing about the loop's own logic caused it to stop",
+        "`get_weather` is only allowed to be called 20 times, by design",
+        "The loop has a built-in 20-step limit",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The 20 is a property of the demo's script, not of the loop. When the 21st call finds no scripted response left, the client raises `IndexError`. A real model has no such list to run out of.",
+    },
+    {
+      question: "Why is this failure mode described as a real, expensive risk rather than just a theoretical concern?",
+      options: [
+        "It has no actual real-world cost, since tool calls are always free",
+        "Every repeated call is a real, billed API request — a stuck loop fails by quietly accumulating real cost indefinitely, not by crashing loudly and cheaply",
+        "This failure mode can only occur in a testing environment, never in production",
+        "Repeated tool calls are always automatically deduplicated by the API",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Each iteration is another paid request, and nothing errors while the loop spins. The cost keeps growing quietly until something outside the loop steps in.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
