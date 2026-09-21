@@ -1,0 +1,166 @@
+---
+title: "Goal-state termination checks"
+lesson: "06-termination-and-control"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import MultiFileLiveDemo from "../../../../components/lesson/MultiFileLiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT } from "../../../../lib/fakeClient";
+
+export const TOOLS_PY = `# in-memory stand-ins for the registry app's operations
+_registry = {}
+
+def check_agent_exists(name: str) -> bool:
+    return name in _registry
+
+def create_agent_entry(name: str, model: str) -> str:
+    _registry[name] = {"model": model}
+    return f"created agent '{name}' with model '{model}'"
+
+TOOL_REGISTRY = {
+    "check_agent_exists": check_agent_exists,
+    "create_agent_entry": create_agent_entry,
+}`;
+
+<Subsection title="Stopping because something went right, not just because something went wrong" variant="a">
+
+[Max steps](/02-the-agent-loop/06-termination-and-control/02-max-steps/#the-simplest-possible-guard-a-hard-cap-unconditionally)
+and
+[repeated-action detection](/02-the-agent-loop/06-termination-and-control/03-repeated-action-detection/#a-sharper-signal-than-too-many-steps)
+both stop the loop by recognizing a *failure* signal — too long, or
+stuck. This concept covers a genuinely different kind of check: does the
+surrounding *code* have a way to directly verify the actual goal has been
+achieved, independent of whether the model itself has gotten around to
+announcing it's done?
+
+</Subsection>
+
+<Subsection title="A deterministic check on real state" variant="b">
+
+If the task's success condition is something the code can check
+directly — did a specific entry actually get created, does a specific
+file now exist — that check can run after any state-changing tool call,
+terminating the loop the *moment* the real goal is satisfied, rather
+than waiting for the model to eventually produce a `text` block saying
+so:
+
+<MultiFileLiveDemo
+  client:load
+  entry="main.py"
+  files={[
+    { name: "fake_llm_client.py", readOnly: true, code: REACT_FAKE_CLIENT },
+    { name: "tools.py", code: TOOLS_PY },
+    {
+      name: "main.py",
+      code: `import tools
+from tools import TOOL_REGISTRY
+from fake_llm_client import FakeLLMClient, ToolUseBlock, TextBlock
+
+def run_agent_loop_with_goal_check(client, messages, target_agent_name: str, max_steps: int = 10):
+    seen_calls = []
+    for step_count in range(1, max_steps + 1):
+        response = client.create(messages=messages)
+        block = response.content[0]
+        if block.type == "tool_use":
+            current_call = (block.name, block.input)
+            if current_call in seen_calls:
+                return f"stopped after detecting a repeated call to {block.name} with the same arguments"
+            seen_calls.append(current_call)
+            tool_function = TOOL_REGISTRY[block.name]
+            result = tool_function(**block.input)
+            messages.append({"role": "assistant", "content": response.content})
+            messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
+
+            if target_agent_name in tools._registry:
+                return f"goal reached: '{target_agent_name}' now exists in the registry"
+        elif block.type == "text":
+            return block.text
+    return f"stopped after reaching the maximum of {max_steps} steps without a final answer"
+
+client = FakeLLMClient(scripted_responses=[
+    [ToolUseBlock(name="create_agent_entry", input={"name": "research_agent", "model": "claude-sonnet"})],
+    [ToolUseBlock(name="check_agent_exists", input={"name": "research_agent"})],
+    [TextBlock(text="research_agent has been created.")],
+])
+
+result = run_agent_loop_with_goal_check(client, [{"role": "user", "content": "..."}], target_agent_name="research_agent", max_steps=10)
+print(result)
+print(f"stopped after {client.call_count} calls")`,
+    },
+  ]}
+/>
+
+(The fake client and the registry tools from earlier lessons are provided
+as their own tabs so this demo can import them. As before, each tool
+result carries its call's `id` as `tool_use_id`.)
+
+The scripted sequence has *three* responses queued up — including an
+unnecessary re-check the model would otherwise have made before
+eventually reaching the `text` block — but the loop never gets there,
+since `target_agent_name in tools._registry` already becomes true
+immediately after the very first tool call. Two entirely avoidable
+calls never happen at all: a real efficiency gain, not just a
+correctness one.
+
+</Subsection>
+
+<Subsection title="What this concept stays scoped to" variant="a">
+
+Worth being precise about the boundary here: this is a *deterministic*,
+code-evaluated check — the surrounding code directly verifying real
+state, nothing more sophisticated. A different, more advanced version —
+the *model itself* judging whether its own work satisfies some
+checklist or rubric — is a genuinely different mechanism, covered
+properly later in this module, not here. This concept's version only
+works when success is something code can check directly and simply; it
+isn't a substitute for that more sophisticated case.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What kind of signal does a goal-state check rely on, compared to max steps or repeated-action detection?",
+      options: [
+        "The exact same failure signal as the other two guards",
+        "A success signal — deterministically verifying that the real goal has actually been achieved, rather than detecting that something has gone wrong",
+        "The model's own stated confidence in its answer",
+        "The total token cost accumulated so far",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The other two guards fire when something looks wrong: too long, or stuck. This one fires when the code can see the goal has been met, and it looks at real state rather than at anything the model says.",
+    },
+    {
+      question: "In the demo, why does the loop stop after only 1 call, even though the scripted sequence had 3 responses available?",
+      options: [
+        "The fake client only allows 1 call per loop run",
+        "The goal-state check — `target_agent_name in tools._registry` — becomes true immediately after the first tool call, so the loop returns before ever reaching the remaining scripted responses",
+        "This is a bug; the loop should have used all 3 responses",
+        "`max_steps` was set to 1 for this specific demo",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The first call creates `research_agent`, so the check right after it passes and the loop returns. The other two scripted responses are never requested, and `max_steps` was 10.",
+    },
+    {
+      question: "What does this concept explicitly distinguish itself from, covered later in this module instead?",
+      options: [
+        "Max steps and repeated-action detection",
+        "The model itself judging whether its own work satisfies a checklist or rubric — a genuinely different, more sophisticated mechanism",
+        "Tool dispatch via a registry",
+        "The fake LLM client's basic usage",
+      ],
+      correctIndex: 1,
+      explanation:
+        "This concept's check is plain code inspecting real state. Having the model judge its own work against a rubric is a different mechanism, and it's saved for a later lesson.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

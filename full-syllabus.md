@@ -1206,8 +1206,19 @@ far" list directly below it.*
    anchors/pages; the "dicts already support equality" callback links to the
    dicts concept page (no anchor: that page doesn't discuss equality
    explicitly, so it's a page-level link, worth a look from the mockup
-   author). Remaining: Concept 4 (goal-state termination checks) onward,
-   bookends. Not yet Locked.
+   author). 
+   Concept 4 drafted: goal-state termination checks (a deterministic,
+   code-evaluated check on real state after each tool call, so the loop
+   stops the moment the goal is met; scoped explicitly away from
+   model-judged self-critique). Live demo is **multi-file** (read-only
+   `fake_llm_client.py` tab, `tools.py`, `main.py`) because the mockup's loop
+   reads `tools._registry`; run in real Pyodide, output matches the mockup
+   exactly (goal reached, "stopped after 1 calls"). No exercise, per its
+   mockup. **Deviation:** `"tool_use_id": block.id` added. The two guard
+   callbacks link to Concept 2 and 3 subsection anchors; the "later in this
+   module, reflection and self critique lesson" pointer isn't built yet, so
+   it's plain text. Remaining: Concept 5 (tool errors as observations)
+   onward, bookends. Not yet Locked.
 
 **Old outline (superseded):**
 
