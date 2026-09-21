@@ -1286,8 +1286,20 @@ far" list directly below it.*
    in this course" has no Module 0 target (no `hasattr` coverage exists), so
    it's plain prose; the Module 0 JSON callbacks link to verified anchors, and
    "checkpoint and resume, covered next" is a forward pointer to Concept 3
-   (plain text until it exists). Remaining: Concept 3 (checkpoint and resume)
-   onward, bookends. Not yet Locked.
+   (plain text until it exists). 
+   Concept 3 drafted (the final concept section of the lesson, per its
+   own mockup): checkpoint and resume (`save_checkpoint`/`load_checkpoint`
+   using Concept 2's serialization; loading needs no object reconstruction; a
+   two-"session" demo that resumes without redoing the tool call), plus
+   Applied sandbox exercise 2, graded for real against a save-then-load cycle
+   by six hidden tests (architecture.md §4.1; verified against real Pyodide
+   with 10 submissions). Demo output matches the mockup exactly. **Deviations:**
+   the `tool_use` dict includes `id` and the demo/tests carry `tool_use_id`, as
+   in Concept 2 and Lessons 2.4-2.6; the exercise's tests clean up their own
+   files. Callbacks link to verified anchors (Module 1 pricing mechanics,
+   Module 0 `with open`, Concept 2's fix subsection). Remaining: bookends
+   (outcomes callout/why it matters, comprehensive quiz, comprehensive
+   sandbox). Not yet Locked.
 
 **Old outline (superseded):**
 

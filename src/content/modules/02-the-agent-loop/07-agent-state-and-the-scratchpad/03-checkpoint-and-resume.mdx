@@ -1,0 +1,351 @@
+---
+title: "Checkpoint and resume"
+lesson: "07-agent-state-and-the-scratchpad"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT } from "../../../../lib/fakeClient";
+
+export const SETUP = REACT_FAKE_CLIENT + String.raw`
+def _block_to_dict(self):
+    return dict(vars(self))
+
+for _cls in (ThinkingBlock, ToolUseBlock, TextBlock):
+    _cls.to_dict = _block_to_dict
+
+def serialize_messages(messages: list) -> list:
+    serializable = []
+    for message in messages:
+        content = message["content"]
+        if isinstance(content, list):
+            content = [block.to_dict() if hasattr(block, "to_dict") else block for block in content]
+        serializable.append({"role": message["role"], "content": content})
+    return serializable
+`;
+
+<Subsection title="Why this matters: interrupted work shouldn't mean starting over" variant="a">
+
+A long-running task, interrupted partway through — a crash, a planned
+pause, a process restart — shouldn't mean redoing every step already
+completed,
+[re-paying real cost for work already done](/01-llm-foundations/11-quantization-cost-and-operational-concerns/03-token-based-pricing/#the-basic-pricing-mechanics).
+Saving the scratchpad periodically, and being able to load it back to
+resume exactly where things left off, is the fix — a direct application of
+[Module 0's file I/O](/00-python-essentials/06-files-errors-and-validation/01-file-io-and-context-managers/#with-guaranteed-cleanup-even-on-exception),
+combined with
+[Concept 2's serialization](/02-the-agent-loop/07-agent-state-and-the-scratchpad/02-serializing-state/#the-fix-a-to-dict-method-and-a-helper-that-applies-it).
+
+</Subsection>
+
+<Subsection title="Saving and loading" variant="b">
+
+```python
+import json
+
+def save_checkpoint(messages: list, filepath: str) -> None:
+    serialized = serialize_messages(messages)
+    with open(filepath, "w") as f:
+        json.dump(serialized, f, indent=2)
+
+def load_checkpoint(filepath: str) -> list:
+    with open(filepath, "r") as f:
+        return json.load(f)
+```
+
+Worth noticing what `load_checkpoint` *doesn't* need to do: it doesn't
+reconstruct `ThinkingBlock`/`ToolUseBlock` objects from the saved dicts
+— resuming the loop only ever needs `messages` to be valid,
+re-sendable data going forward, not the exact original Python objects.
+Serialization is genuinely a one-way trip; nothing about resuming
+requires reversing it.
+
+</Subsection>
+
+<Subsection title="A full checkpoint-and-resume cycle" variant="a">
+
+<LiveDemo client:load setupCode={SETUP} code={`import json
+
+def save_checkpoint(messages: list, filepath: str) -> None:
+    serialized = serialize_messages(messages)
+    with open(filepath, "w") as f:
+        json.dump(serialized, f, indent=2)
+
+def load_checkpoint(filepath: str) -> list:
+    with open(filepath, "r") as f:
+        return json.load(f)
+
+def get_weather(location: str) -> str:
+    return f"It's sunny in {location}."
+
+TOOL_REGISTRY = {"get_weather": get_weather}
+
+# --- first "session": complete one step, then save and stop ---
+client = FakeLLMClient(scripted_responses=[
+    [ToolUseBlock(name="get_weather", input={"location": "Paris"})],
+])
+
+messages = [{"role": "user", "content": "What's the weather in Paris?"}]
+response = client.create(messages=messages)
+block = response.content[0]
+result = get_weather(**block.input)
+messages.append({"role": "assistant", "content": response.content})
+messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
+
+save_checkpoint(messages, "checkpoint.json")
+print("checkpoint saved -- session ends here")
+
+# --- second "session": resume from the checkpoint ---
+resumed_messages = load_checkpoint("checkpoint.json")
+print(f"resumed with {len(resumed_messages)} messages already recorded")
+
+resumed_client = FakeLLMClient(scripted_responses=[
+    [TextBlock(text="It's sunny in Paris today!")],
+])
+response = resumed_client.create(messages=resumed_messages)
+final_block = response.content[0]
+print(f"final answer: {final_block.text}")`} />
+
+(The fake client, its block classes with a `to_dict()` each, and
+`serialize_messages` from Concept 2 are already defined for this demo.
+The tool result carries its call's `id` as `tool_use_id` as before, and
+because `to_dict()` keeps the tool call's `id`, that pairing survives the
+trip through the file.)
+
+The second "session" — a completely fresh client, only holding the
+*remaining* scripted response — never redoes the `get_weather` call at
+all. It resumes with all three already-recorded messages loaded
+directly from the file, and produces the correct final answer using
+exactly that resumed state, precisely as though the first session had
+simply continued uninterrupted.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why does interrupting a long-running agent task without any checkpoint mechanism risk real, unnecessary cost?",
+      options: [
+        "It doesn't — restarting a task is always free",
+        "Without saved state, resuming means redoing every step already completed, including real, already-paid-for API calls",
+        "Checkpointing has no relationship to cost at all",
+        "This risk only applies to tasks involving exactly one tool call",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Each step is a paid request. With no saved scratchpad the only way back to where you were is to redo those steps, and pay for them again.",
+    },
+    {
+      question: "Why doesn't `load_checkpoint` need to reconstruct `ThinkingBlock`/`ToolUseBlock` objects from the saved data?",
+      options: [
+        "It actually does need to, and this is a bug in the demo",
+        "Resuming the loop only needs `messages` to be valid, re-sendable data going forward — nothing about continuing the loop requires the exact original Python objects back",
+        "`ThinkingBlock` and `ToolUseBlock` don't actually need to be saved at all",
+        "`load_checkpoint` is only used for reading, never for actually resuming a loop",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The model only ever sees the data in `messages`, and plain dicts carry all of it. Plain dicts are also exactly what gets sent to the API, so nothing has to be turned back into objects.",
+    },
+    {
+      question: "In the demo, why doesn't the second \"session\" need to call `get_weather` again?",
+      options: [
+        "`get_weather` is called automatically behind the scenes regardless",
+        "That step's result was already captured in the checkpoint and loaded back as part of `resumed_messages`, so it's already part of the state the resumed loop starts from",
+        "The second session's client happens to already know the answer",
+        "`get_weather` only needs to be called once per program run globally",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The tool call and its result were saved in the first session's scratchpad. Loading it back puts them in the resumed `messages`, which is all the model needs to carry on.",
+    },
+  ]}
+/>
+
+<GradedExercise
+  client:load
+  task={'Implement `save_checkpoint(messages, filepath)` and `load_checkpoint(filepath)` as shown in this concept — using `serialize_messages` (from Concept 2, provided) before writing, and plain `json.load` when reading back.'}
+  starterCode={`import json
+import itertools
+
+_ids = itertools.count(1)
+
+class ThinkingBlock:
+    def __init__(self, thinking: str):
+        self.type = "thinking"
+        self.thinking = thinking
+
+    def to_dict(self) -> dict:
+        return {"type": self.type, "thinking": self.thinking}
+
+class ToolUseBlock:
+    def __init__(self, name: str, input: dict):
+        self.type = "tool_use"
+        self.id = f"toolu_fake_{next(_ids):02d}"
+        self.name = name
+        self.input = input
+
+    def to_dict(self) -> dict:
+        return {"type": self.type, "id": self.id, "name": self.name, "input": self.input}
+
+def serialize_messages(messages: list) -> list:
+    serializable = []
+    for message in messages:
+        content = message["content"]
+        if isinstance(content, list):
+            content = [block.to_dict() if hasattr(block, "to_dict") else block for block in content]
+        serializable.append({"role": message["role"], "content": content})
+    return serializable
+
+def save_checkpoint(messages: list, filepath: str) -> None:
+    # TODO: serialize the messages, then write them to filepath as JSON
+    pass
+
+def load_checkpoint(filepath: str) -> list:
+    # TODO: read the JSON back from filepath and return it
+    pass`}
+  hiddenTests={[
+    String.raw`import os
+original_messages = [
+    {"role": "user", "content": "Test question"},
+    {"role": "assistant", "content": [ThinkingBlock(thinking="Thinking..."), ToolUseBlock(name="get_weather", input={"location": "Berlin"})]},
+]
+tool_use_id = original_messages[1]["content"][1].id
+try:
+    save_checkpoint(original_messages, "test_checkpoint.json")
+    resumed = load_checkpoint("test_checkpoint.json")
+finally:
+    if os.path.exists("test_checkpoint.json"):
+        os.remove("test_checkpoint.json")
+
+assert resumed[0] == {"role": "user", "content": "Test question"}
+assert resumed[1]["content"][0] == {"type": "thinking", "thinking": "Thinking..."}
+assert resumed[1]["content"][1] == {"type": "tool_use", "id": tool_use_id, "name": "get_weather", "input": {"location": "Berlin"}}
+`,
+    String.raw`import os, json
+path = "test_checkpoint_disk.json"
+messages = [
+    {"role": "user", "content": "hi"},
+    {"role": "assistant", "content": [ThinkingBlock(thinking="hm")]},
+]
+try:
+    save_checkpoint(messages, path)
+    assert os.path.exists(path)
+    with open(path) as f:
+        on_disk = json.load(f)
+    assert on_disk == [
+        {"role": "user", "content": "hi"},
+        {"role": "assistant", "content": [{"type": "thinking", "thinking": "hm"}]},
+    ]
+    assert load_checkpoint(path) == on_disk
+finally:
+    if os.path.exists(path):
+        os.remove(path)
+`,
+    String.raw`import os
+path = "test_checkpoint_pairing.json"
+call = ToolUseBlock(name="get_weather", input={"location": "Paris"})
+messages = [
+    {"role": "user", "content": "What's the weather in Paris?"},
+    {"role": "assistant", "content": [call]},
+    {"role": "user", "content": [{"type": "tool_result", "tool_use_id": call.id, "content": "It's sunny in Paris."}]},
+]
+try:
+    save_checkpoint(messages, path)
+    resumed = load_checkpoint(path)
+finally:
+    if os.path.exists(path):
+        os.remove(path)
+assert len(resumed) == 3
+assert resumed[1]["content"][0]["id"] == resumed[2]["content"][0]["tool_use_id"] == call.id
+assert resumed[2]["content"][0]["content"] == "It's sunny in Paris."
+`,
+    String.raw`import os
+path = "test_checkpoint_mutation.json"
+thinking = ThinkingBlock(thinking="keep me an object")
+messages = [{"role": "assistant", "content": [thinking]}]
+try:
+    save_checkpoint(messages, path)
+finally:
+    if os.path.exists(path):
+        os.remove(path)
+assert messages[0]["content"][0] is thinking
+`,
+    String.raw`import os
+path = "test_checkpoint_overwrite.json"
+try:
+    save_checkpoint([{"role": "user", "content": "first"}, {"role": "user", "content": "second"}], path)
+    save_checkpoint([{"role": "user", "content": "only"}], path)
+    resumed = load_checkpoint(path)
+finally:
+    if os.path.exists(path):
+        os.remove(path)
+assert resumed == [{"role": "user", "content": "only"}]
+`,
+    String.raw`import os
+path_a, path_b = "test_checkpoint_a.json", "test_checkpoint_b.json"
+try:
+    save_checkpoint([{"role": "user", "content": "A"}], path_a)
+    save_checkpoint([], path_b)
+    assert load_checkpoint(path_a) == [{"role": "user", "content": "A"}]
+    assert load_checkpoint(path_b) == []
+finally:
+    for p in (path_a, path_b):
+        if os.path.exists(p):
+            os.remove(p)
+`,
+  ]}
+  hint={'Both functions are short — `save_checkpoint` calls `serialize_messages` then writes the result with `json.dump` inside a `with open(filepath, "w") as f:` block; `load_checkpoint` just opens the file for reading and returns `json.load(f)` directly.'}
+  correctAnswer={{
+    code: `import json
+import itertools
+
+_ids = itertools.count(1)
+
+class ThinkingBlock:
+    def __init__(self, thinking: str):
+        self.type = "thinking"
+        self.thinking = thinking
+
+    def to_dict(self) -> dict:
+        return {"type": self.type, "thinking": self.thinking}
+
+class ToolUseBlock:
+    def __init__(self, name: str, input: dict):
+        self.type = "tool_use"
+        self.id = f"toolu_fake_{next(_ids):02d}"
+        self.name = name
+        self.input = input
+
+    def to_dict(self) -> dict:
+        return {"type": self.type, "id": self.id, "name": self.name, "input": self.input}
+
+def serialize_messages(messages: list) -> list:
+    serializable = []
+    for message in messages:
+        content = message["content"]
+        if isinstance(content, list):
+            content = [block.to_dict() if hasattr(block, "to_dict") else block for block in content]
+        serializable.append({"role": message["role"], "content": content})
+    return serializable
+
+def save_checkpoint(messages: list, filepath: str) -> None:
+    serialized = serialize_messages(messages)
+    with open(filepath, "w") as f:
+        json.dump(serialized, f, indent=2)
+
+def load_checkpoint(filepath: str) -> list:
+    with open(filepath, "r") as f:
+        return json.load(f)`,
+    explanation:
+      "The test confirms a genuine round trip: a scratchpad containing real ThinkingBlock/ToolUseBlock objects gets saved, and loading it back produces exactly the plain-dict equivalents — proving the data survives the save-and-reload cycle intact and ready to resume with.",
+  }}
+/>
+
+</CheckpointZone>

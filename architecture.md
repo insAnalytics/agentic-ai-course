@@ -1077,6 +1077,33 @@ a continuous script; each demo now builds its own. (3) The mockup's claim that
 (Module 0's OOP lesson) has no target (Module 0 never covers `hasattr`), so the
 prose now just says what it is.
 
+**Grading checkpoint save/load with real file I/O (Lesson 2.7, Concept 3).**
+Stock `GradedExercise`, no fake client and no `setupCode`: file I/O goes to
+Pyodide's in-memory filesystem and works in a plain exec namespace. The starter
+provides Concept 2's block classes (same auto-`id` `ToolUseBlock`) and
+`serialize_messages`, plus stubs for `save_checkpoint`/`load_checkpoint`. Each
+of six hidden tests uses its own uniquely named file and removes it in a
+`finally` (verified: no `test_checkpoint*` files left over after any
+submission, including failing ones): the mockup's round trip (extended so the
+`tool_use` dict includes the block's `id`); the file on disk is valid JSON
+equal to what `load_checkpoint` returns; a `tool_use`'s `id` and its
+`tool_result`'s `tool_use_id` still match after the round trip (the point of
+keeping `id` in `to_dict()`); `save_checkpoint` doesn't mutate the live
+`messages`; saving twice to one path overwrites rather than appends; and two
+different paths hold independent checkpoints (catches a hardcoded filename),
+including an empty list. Verified against real Pyodide 0.26.4 with 10
+submissions: the reference and a no-`indent` variant pass; a stub, skipping
+`serialize_messages`, returning raw text from load, append mode, a hardcoded
+filename, mutating the input, writing `str()` instead of JSON, and a syntax
+error each fail the expected tests. The live demo's block classes come from
+`REACT_FAKE_CLIENT` plus a hidden setup that adds a `to_dict` to each class
+(`dict(vars(self))`, behaviorally the same as Concept 2's explicit methods) and
+`serialize_messages`; output matches the mockup exactly and the saved file
+shows the `tool_use_id` pairing intact. **Deviations from the mockup:** the
+mockup's hidden test expected the `tool_use` dict without an `id`, and its demo's
+`tool_result` had no `tool_use_id`; both now carry the `id`, consistent with
+Concept 2 and Lessons 2.4-2.6.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped
