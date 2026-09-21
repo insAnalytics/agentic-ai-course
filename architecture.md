@@ -860,6 +860,41 @@ mockup:** `"tool_use_id": block.id` is required in the demo, the task, and the
 reference answer (the mockup omitted it, as in Concept 2), and the task text
 states the requirement.
 
+**Grading a multi-file agent loop (Lesson 2.4 comprehensive sandbox).** The
+first multi-file exercise in Module 2, on stock `MultiFileGradedExercise`
+(entry `agent_loop.py`; `tools.py` holds the in-memory `_registry`, the two
+tool functions, and `TOOL_REGISTRY`). The multi-file harness runs the hidden
+tests as *one* script (one pass/fail, no per-test counts), so the script is
+`PRE` (the shared `FAKE_CLIENT` + `RECORDING_CLIENT`) followed by ordered
+asserts: the tools work independent of the loop (`check_agent_exists` is a real
+`bool`; `create_agent_entry` stores `{"model": ...}` and returns the exact
+string); `TOOL_REGISTRY` maps both names to the actual functions; the mockup's
+own scripted exchange, including `_registry["research_agent"]` really updated;
+after two tool calls the model saw five alternating messages with each
+`tool_result` carrying its own block's `tool_use_id`; a pre-populated registry
+gives a different result (so nothing is hardcoded); a tool added to
+`tools.TOOL_REGISTRY` afterwards (`list_agents`, removed in a `finally`) is
+dispatched, which only passes if the loop goes through the registry rather
+than an `if`/`elif` chain or a private copy; and a text-first response returns
+immediately. Both `from tools import TOOL_REGISTRY` and `import tools` styles
+in `agent_loop.py` pass, since they share the same dict object. Tool-result
+`content` accepts the raw bool or its `str()` (`in (False, "False")`) so a
+learner who stringifies isn't failed for something the task didn't specify.
+Assertions carry no messages on purpose: the component surfaces the raw
+exception text on failure, so a bare `AssertionError` leaks nothing about the
+hidden tests. Verified against real Pyodide 0.26.4 (harness emulated: files
+written to a per-run dir on `sys.path`, entry run first, tests `exec`'d in a
+fresh namespace) with 15 submissions: the reference and the `import tools`
+variant pass; a stub, a `create_agent_entry` that doesn't store, a
+`check_agent_exists` returning strings, the wrong stored model, an empty
+`TOOL_REGISTRY`, an `elif` chain (still importing the registry), a private
+registry copy, a missing `tool_use_id`, printing instead of returning, passing
+the dict instead of unpacking, never sending results back, and a syntax error
+each fail; only stringified results pass besides the reference, by design.
+**Deviation from the mockup:** `"tool_use_id": block.id` is required in the
+task and reference answer (omitted by the mockup, as in Concepts 2-3), and
+the mockup's single test is expanded as above.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped

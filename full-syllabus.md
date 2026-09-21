@@ -1059,10 +1059,8 @@ far" list directly below it.*
    hint and explanation's Concept 4 callbacks link to that concept's page.
    Lesson 2.3 is now fully Locked.
 
-4. **Writing the Loop by Hand** — Building
-   Title is a working name taken from an earlier mockup's callback text
-   ("the next lesson, writing the loop by hand") — confirm or rename once
-   the bookends mockup arrives. Concept 1 drafted: the fake LLM client
+4. **Writing the Loop by Hand** — Locked
+   Title confirmed by the bookends mockup. Concept 1 drafted: the fake LLM client
    (what it is, a minimal working version, using it, and why a scripted
    response sequence makes grading the loop's structural correctness
    possible). This is the first Module 2 material that genuinely runs live
@@ -1099,9 +1097,25 @@ far" list directly below it.*
    the learner's code runs (architecture.md §4.1; verified against real
    Pyodide with 13 submissions). **Deviation:** `"tool_use_id": block.id`
    again added to the demo, task, and reference answer. Concept 2's "next
-   concept fixes it" forward pointer now links here. Remaining: bookends
-   (outcomes callout/why it matters, comprehensive quiz, comprehensive
-   sandbox). Not yet Locked.
+   concept fixes it" forward pointer now links here.
+
+   Bookends: outcomes/why-it-matters intro (`00-intro.mdx`) and a Recap &
+   Practice page (`04-recap-practice.mdx`) with a 7-question comprehensive
+   quiz spanning all three concepts, plus a **graded multi-file
+   comprehensive sandbox** (`tools.py` + `agent_loop.py`: in-memory
+   agent-registry tools, `TOOL_REGISTRY`, and the dispatch loop, entry file
+   `agent_loop.py`), graded by one hidden-test script (the multi-file
+   harness gives a single pass/fail; architecture.md §4.1; verified against
+   real Pyodide with 15 submissions). **Deviation:** `"tool_use_id":
+   block.id` again added to the task and reference answer. The hint's two
+   Concept 3 callbacks link to that concept's page (the dict-of-callables
+   one to its "The fix" subsection); the Lesson 3 sandbox callback links to
+   Lesson 2.3's Recap & Practice page. Lesson 2.3 Concept 4's plain-text
+   "covered directly in the next lesson" pointer now links to this lesson's
+   intro. **Open content gap:** that concept (and its quiz Q) promises the
+   next lesson covers tracking `current_phase` in the loop, but this lesson
+   never does — flagged for the mockup author. Lesson 2.4 is now fully
+   Locked.
 
 **Old outline (superseded):**
 

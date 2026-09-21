@@ -1,0 +1,258 @@
+---
+title: "Recap & Practice"
+lesson: "04-writing-the-loop-by-hand"
+order: 4
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+
+export const PRE = FAKE_CLIENT + RECORDING_CLIENT;
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does `FakeLLMClient` actually do differently from a real LLM client?",
+      options: [
+        "It makes a real network call, just to a different server",
+        "It returns a pre-configured, scripted sequence of responses, advancing one item per call",
+        "It only works with text responses, never tool calls",
+        "It requires a real API key to function",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Nothing goes over the network: each `create()` call hands back the next scripted block. It can script tool calls and text alike, and needs no key.",
+    },
+    {
+      question: "Why does using a scripted, fully-known response sequence make grading a learner's loop code possible?",
+      options: [
+        "It doesn't actually help with grading",
+        "Since the exact sequence is known in advance, the loop's correct behavior at each step is fully determined and checkable",
+        "Scripted responses make grading impossible",
+        "Grading only becomes possible with a real API key",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A real model's replies vary run to run, so there's no fixed correct behavior to assert against. With a script, every call, tool result and final answer is known ahead of time.",
+    },
+    {
+      question: "What does the loop check at each iteration to decide what to do next?",
+      options: [
+        "The length of the messages list",
+        "`block.type` — whether the response is a tool-use block or a text block",
+        "How many tokens the response contains",
+        "Whether the user has sent a new message",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A `tool_use` block means run a tool and go around again; a `text` block means the model has answered and the loop is done.",
+    },
+    {
+      question: "What does `get_weather(**block.input)` actually do?",
+      options: [
+        "It passes `block.input` as a single dict argument, unchanged",
+        "It unpacks `block.input`'s key-value pairs directly into keyword arguments matching the function's parameters",
+        "It converts `block.input` into a string first",
+        "It ignores `block.input` entirely",
+      ],
+      correctIndex: 1,
+      explanation:
+        "`**` turns `{\"location\": \"Paris\"}` into `location=\"Paris\"`. Passing the dict itself would hand the function one argument instead of a `location`.",
+    },
+    {
+      question: "What breaks about a hardcoded, single-tool loop the moment a second tool is added?",
+      options: [
+        "Nothing breaks — the original loop already handles any number of tools",
+        "The loop only knows how to call one specific function — a second tool has nowhere to be dispatched to without further hardcoded branches",
+        "The fake client stops working entirely",
+        "`block.type` no longer works correctly",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The tool-use branch names one function directly, so a request for any other tool would still run that one. Each new tool would need its own branch.",
+    },
+    {
+      question: "Why does `TOOL_REGISTRY[block.name]` work as a dispatch mechanism?",
+      options: [
+        "It doesn't actually work — it's just illustrative pseudocode",
+        "Python functions are ordinary objects that can be stored as dict values, so looking up a name retrieves the actual callable to invoke",
+        "`block.name` is automatically converted into a function by Python",
+        "The registry only works with exactly two tools",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The dict's values are the functions themselves, so the lookup returns something you can call directly. The size of the dict doesn't matter.",
+    },
+    {
+      question: "What has to change in the loop's own code when a third tool gets added, using the registry approach?",
+      options: [
+        "The entire loop needs to be rewritten",
+        "Nothing in the loop's logic changes — only one new entry needs to be added to the registry",
+        "A new branch must be added, exactly like the hardcoded version",
+        "The fake client needs to be reconfigured",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The loop never names a tool, so it doesn't need to know a new one exists. Growth happens in the registry, not the control flow.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<MultiFileGradedExercise
+  client:load
+  entry="agent_loop.py"
+  task={'Implement both files so a scripted sequence of `check_agent_exists` and `create_agent_entry` calls, followed by a final text response, runs correctly end to end — including actually updating `_registry`, not just returning plausible-looking results. As in earlier exercises, after each tool call append the assistant\'s tool call and a `tool_result` message (carrying the block\'s `id` as `tool_use_id`) to `messages`, and return the final text. `agent_loop.py` is the entry file.'}
+  files={[
+    {
+      name: "tools.py",
+      code: `# in-memory stand-ins for the registry app's operations —
+# real HTTP calls to a live API are outside this lesson's scope
+_registry = {}
+
+def check_agent_exists(name: str) -> bool:
+    """TODO: return True if name is already a key in _registry, else False."""
+    pass
+
+def create_agent_entry(name: str, model: str) -> str:
+    """
+    TODO: store {"model": model} under _registry[name], and return
+    the string f"created agent '{name}' with model '{model}'".
+    """
+    pass
+
+TOOL_REGISTRY = {
+    # TODO: map "check_agent_exists" and "create_agent_entry" to the
+    # functions above
+}`,
+    },
+    {
+      name: "agent_loop.py",
+      code: `from tools import TOOL_REGISTRY
+
+def run_agent_loop(client, messages):
+    """
+    TODO: implement the full loop — call client.create(messages=messages),
+    check the response's block type, dispatch via TOOL_REGISTRY and
+    append both the tool-use and tool-result messages if it's a tool
+    call, or return the text if it's a final answer.
+    """
+    pass`,
+    },
+  ]}
+  hiddenTests={PRE + String.raw`
+import tools
+from agent_loop import run_agent_loop
+
+# the tools themselves, independent of the loop
+tools._registry.clear()
+assert tools.check_agent_exists("solo") is False
+assert tools.create_agent_entry("solo", "claude-haiku") == "created agent 'solo' with model 'claude-haiku'"
+assert tools._registry["solo"] == {"model": "claude-haiku"}
+assert tools.check_agent_exists("solo") is True
+tools._registry.clear()
+
+assert tools.TOOL_REGISTRY["check_agent_exists"] is tools.check_agent_exists
+assert tools.TOOL_REGISTRY["create_agent_entry"] is tools.create_agent_entry
+
+# the full scripted exchange, and _registry really updated
+client = FakeLLMClient(scripted_responses=[
+    ToolUseBlock(name="check_agent_exists", input={"name": "research_agent"}),
+    ToolUseBlock(name="create_agent_entry", input={"name": "research_agent", "model": "claude-sonnet"}),
+    TextBlock(text="research_agent has been created with claude-sonnet."),
+])
+final_answer = run_agent_loop(client, [{"role": "user", "content": "..."}])
+assert final_answer == "research_agent has been created with claude-sonnet."
+assert client.call_count == 3
+assert tools._registry["research_agent"] == {"model": "claude-sonnet"}
+
+# each result reaches the model, paired with its own tool call
+tools._registry.clear()
+first = ToolUseBlock(name="check_agent_exists", input={"name": "writer"})
+second = ToolUseBlock(name="create_agent_entry", input={"name": "writer", "model": "claude-haiku"})
+recording = RecordingClient(scripted_responses=[first, second, TextBlock(text="done")])
+run_agent_loop(recording, [{"role": "user", "content": "..."}])
+seen = recording.seen[2]
+assert len(seen) == 5
+assert [m["role"] for m in seen] == ["user", "assistant", "user", "assistant", "user"]
+assert seen[1]["content"][0] is first and seen[3]["content"][0] is second
+assert seen[2]["content"][0]["tool_use_id"] == first.id
+assert seen[4]["content"][0]["tool_use_id"] == second.id
+assert seen[2]["content"][0]["content"] in (False, "False")
+assert seen[4]["content"][0]["content"] == "created agent 'writer' with model 'claude-haiku'"
+
+# a different starting state gives a different result
+tools._registry.clear()
+tools._registry["known"] = {"model": "claude-sonnet"}
+recording = RecordingClient(scripted_responses=[
+    ToolUseBlock(name="check_agent_exists", input={"name": "known"}),
+    TextBlock(text="It already exists."),
+])
+assert run_agent_loop(recording, [{"role": "user", "content": "..."}]) == "It already exists."
+assert recording.seen[1][2]["content"][0]["content"] in (True, "True")
+assert tools._registry == {"known": {"model": "claude-sonnet"}}
+
+# dispatch really goes through the registry: a tool added to it later is found
+tools.TOOL_REGISTRY["list_agents"] = lambda: sorted(tools._registry)
+try:
+    client = FakeLLMClient(scripted_responses=[
+        ToolUseBlock(name="list_agents", input={}),
+        TextBlock(text="listed"),
+    ])
+    assert run_agent_loop(client, [{"role": "user", "content": "..."}]) == "listed"
+    assert client.call_count == 2
+finally:
+    del tools.TOOL_REGISTRY["list_agents"]
+
+# a text response on the first call ends the loop immediately
+client = FakeLLMClient(scripted_responses=[TextBlock(text="Hello!")])
+assert run_agent_loop(client, [{"role": "user", "content": "hi"}]) == "Hello!"
+assert client.call_count == 1
+`}
+  hint={"tools.py's three functions are each one or two lines — check_agent_exists is a single `return name in _registry`; create_agent_entry sets `_registry[name] = {\"model\": model}` then returns the formatted string; TOOL_REGISTRY is exactly [the dict-of-callables pattern from Concept 3](/02-the-agent-loop/04-writing-the-loop-by-hand/03-handling-multiple-tools/#the-fix-a-dict-mapping-names-to-actual-callables). agent_loop.py's run_agent_loop is [the exact dispatch-based loop from Concept 3's exercise](/02-the-agent-loop/04-writing-the-loop-by-hand/03-handling-multiple-tools/), unchanged — only the specific tools being dispatched to have changed."}
+  correctFiles={[
+    {
+      name: "tools.py",
+      code: `_registry = {}
+
+def check_agent_exists(name: str) -> bool:
+    return name in _registry
+
+def create_agent_entry(name: str, model: str) -> str:
+    _registry[name] = {"model": model}
+    return f"created agent '{name}' with model '{model}'"
+
+TOOL_REGISTRY = {
+    "check_agent_exists": check_agent_exists,
+    "create_agent_entry": create_agent_entry,
+}`,
+    },
+    {
+      name: "agent_loop.py",
+      code: `from tools import TOOL_REGISTRY
+
+def run_agent_loop(client, messages):
+    while True:
+        response = client.create(messages=messages)
+        block = response.content[0]
+
+        if block.type == "tool_use":
+            tool_function = TOOL_REGISTRY[block.name]
+            result = tool_function(**block.input)
+            messages.append({"role": "assistant", "content": [block]})
+            messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
+        elif block.type == "text":
+            return block.text`,
+    },
+  ]}
+  explanation="This is the complete composition this lesson has been building toward: the fake client drives a fully deterministic, three-step exchange; the dispatch mechanism correctly routes to check_agent_exists first and create_agent_entry second, purely from block.name, exactly [the check-before-create phase ordering from Lesson 3's own comprehensive sandbox](/02-the-agent-loop/03-the-system-prompt-as-agent-design/05-recap-practice/) — except now that ordering is actually proven by the scripted sequence and the loop's real behavior, not just described in a system prompt. This is genuinely the smallest complete agent this course has built so far, and everything from here forward in this module extends it."
+/>
+
+</CheckpointZone>
