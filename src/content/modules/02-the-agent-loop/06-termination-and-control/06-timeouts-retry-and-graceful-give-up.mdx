@@ -1,0 +1,270 @@
+---
+title: "Timeouts, retry with backoff, and graceful give-up"
+lesson: "06-termination-and-control"
+order: 6
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+export const UNRELIABLE = String.raw`class UnreliableTool:
+    def __init__(self, fail_times: int):
+        self.fail_times = fail_times
+        self.attempt_count = 0
+
+    def __call__(self, value: str) -> str:
+        self.attempt_count += 1
+        if self.attempt_count <= self.fail_times:
+            raise ConnectionError(f"temporary connection issue (attempt {self.attempt_count})")
+        return f"processed: {value}"
+`;
+
+export const PRE = UNRELIABLE + String.raw`
+import time
+time.sleep = lambda s: None
+if "sleep" in call_with_retry.__globals__:
+    call_with_retry.__globals__["sleep"] = lambda s: None
+`;
+
+export const RETRY = String.raw`def call_with_retry(tool_function, max_retries: int = 4, **kwargs):
+    for attempt in range(max_retries):
+        wait_time = 2 ** attempt
+        try:
+            return tool_function(**kwargs)
+        except ConnectionError as e:
+            print(f"attempt {attempt + 1} failed ({e}), waiting {wait_time}s before retrying")
+    return f"Error: tool failed after {max_retries} attempts, giving up"
+`;
+
+<Subsection title="A different kind of failure than Concept 5's" variant="a">
+
+[Concept 5 handled a tool failing *definitively*](/02-the-agent-loop/06-termination-and-control/05-tool-errors-as-observations/#the-pain-an-unhandled-tool-error-crashes-the-entire-loop)
+— a clear, permanent error like "already exists," where trying again with
+the same input would just fail again. This concept covers two different,
+related risks: a tool that *hangs* — takes too long, never actually
+returns — needs a **timeout** bounding how long the loop will wait on any
+single call; and a tool that fails *transiently* — something that might
+genuinely succeed if simply tried again — calls for a **retry**, not an
+immediate give-up.
+
+A timeout is worth understanding conceptually here even without a full
+implementation: without one, a single hung tool call could block the
+entire loop indefinitely, regardless of every other guard already
+covered in this lesson — none of `max_steps`, repeated-action detection,
+or goal-state checks can help if the loop never even gets past one
+stuck call in the first place.
+
+</Subsection>
+
+<Subsection title="Retry with exponential backoff — the same pattern, a new context" variant="b">
+
+This is
+[the exact same exponential backoff pattern from Module 1's rate-limit handling](/01-llm-foundations/11-quantization-cost-and-operational-concerns/04-provider-side-rate-limits/#the-real-handling-pattern-exponential-backoff-not-just-send-less),
+now applied to a transiently-failing tool call instead of a rate-limited
+API call:
+
+<LiveDemo client:load code={UNRELIABLE + "\n" + RETRY + `
+tool = UnreliableTool(fail_times=2)
+result = call_with_retry(tool, max_retries=4, value="some data")
+print(result)`} />
+
+`UnreliableTool` deterministically fails its first `fail_times` calls,
+then succeeds — a reproducible stand-in for a genuinely transient
+failure, without relying on actual randomness. `wait_time = 2 **
+attempt` is the identical doubling pattern from Module 1: 1s, 2s, 4s,
+8s. Here, the tool succeeds on its third attempt, well within the
+`max_retries=4` budget. (The demo only *prints* each wait time rather
+than actually sleeping, so it runs instantly.)
+
+</Subsection>
+
+<Subsection title="Graceful give-up: a defined result, not a crash or an infinite retry" variant="a">
+
+Retries can't continue forever, though — if a tool genuinely, persistently fails:
+
+<LiveDemo client:load setupCode={UNRELIABLE + "\n" + RETRY} code={`persistent_failure_tool = UnreliableTool(fail_times=10)
+result = call_with_retry(persistent_failure_tool, max_retries=4, value="some data")
+print(result)`} />
+
+(`UnreliableTool` and `call_with_retry` from the previous demo are already
+defined here.)
+
+Once `max_retries` is exhausted, `call_with_retry` returns a clear,
+defined error string — never a crash, and never an unbounded retry
+loop.
+[Feeding this back as a `tool_result`, exactly as Concept 5 covered](/02-the-agent-loop/06-termination-and-control/05-tool-errors-as-observations/#the-fix-catch-it-and-let-the-model-see-it),
+lets the model see clearly that this specific approach genuinely didn't
+work after real effort, giving it a chance to try something else
+entirely, rather than either crashing the whole interaction or blindly
+hammering the same failing call forever.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why does a hung tool call pose a risk that none of this lesson's other guards — max steps, repeated-action detection, goal-state checks — can help with?",
+      options: [
+        "It doesn't pose any real risk beyond what the other guards already cover",
+        "A single hung call could block the loop indefinitely before the loop ever gets to check any of those other conditions at all",
+        "Hung tool calls are automatically detected by `max_steps`",
+        "This risk only applies to tools that don't use the `TOOL_REGISTRY` pattern",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Every other guard runs between iterations. A call that never returns means the loop never reaches the next check, so a timeout on the call itself is the only thing that can bound it.",
+    },
+    {
+      question: "What's the actual difference between the transient failure this concept addresses and the failure covered in Concept 5?",
+      options: [
+        "There's no real difference between the two",
+        "Concept 5 covered a definitive failure unlikely to change on retry; this concept covers a failure that might genuinely succeed if simply tried again",
+        "Concept 5's failures are always more severe than this concept's",
+        "This concept only applies to tools that never actually succeed",
+      ],
+      correctIndex: 1,
+      explanation:
+        "\"Already exists\" will fail the same way every time, so retrying is pointless. A dropped connection may well work on the next attempt, which is what makes a retry worth it.",
+    },
+    {
+      question: "What does `call_with_retry` return once `max_retries` is genuinely exhausted?",
+      options: [
+        "It raises the original exception, crashing the caller",
+        "A clear, defined error string — never a crash, and never an unbounded retry loop",
+        "It retries forever until the tool eventually succeeds",
+        "It silently returns `None` with no indication anything went wrong",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The `for` loop is bounded, and when it finishes without returning, the function falls through to the give-up message. That string can go straight back to the model as a `tool_result`.",
+    },
+    {
+      question: "Why does feeding a graceful give-up message back as a `tool_result`, rather than crashing, matter for the model's next decision?",
+      options: [
+        "It doesn't matter — the model has no way to use this information either way",
+        "It gives the model clear information that this specific approach genuinely didn't work after real effort, letting it choose to try something different rather than repeat the same failing call blindly",
+        "This information is only useful to a human developer, never to the model itself",
+        "A give-up message always causes the loop to terminate immediately",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The model reads the `tool_result` on its next turn, so it knows the attempt failed after real effort and can switch approach or explain the failure. A crash would give it no chance to do either.",
+    },
+  ]}
+/>
+
+<GradedExercise
+  client:load
+  task={'Implement `call_with_retry(tool_function, max_retries, **kwargs)`: retry on `ConnectionError`, doubling the wait time each attempt (`2 ** attempt`, though the actual waiting itself isn\'t required to run in this exercise — just compute and print it, in the form `waiting 1s`), and return a clear `"Error: tool failed after {max_retries} attempts, giving up"` message if every attempt fails. `UnreliableTool` is provided for your own experiments.'}
+  starterCode={`class UnreliableTool:
+    def __init__(self, fail_times: int):
+        self.fail_times = fail_times
+        self.attempt_count = 0
+
+    def __call__(self, value: str) -> str:
+        self.attempt_count += 1
+        if self.attempt_count <= self.fail_times:
+            raise ConnectionError(f"temporary connection issue (attempt {self.attempt_count})")
+        return f"processed: {value}"
+
+def call_with_retry(tool_function, max_retries: int = 4, **kwargs):
+    # TODO: try the call up to max_retries times, retrying on ConnectionError
+    # and printing the doubling wait time; give up with an error string.
+    pass`}
+  hiddenTests={[
+    PRE + String.raw`
+succeeds_eventually = UnreliableTool(fail_times=2)
+result_1 = call_with_retry(succeeds_eventually, max_retries=4, value="data")
+assert result_1 == "processed: data"
+assert succeeds_eventually.attempt_count == 3
+
+never_succeeds = UnreliableTool(fail_times=10)
+result_2 = call_with_retry(never_succeeds, max_retries=4, value="data")
+assert result_2 == "Error: tool failed after 4 attempts, giving up"
+assert never_succeeds.attempt_count == 4
+`,
+    PRE + String.raw`
+import io, re, contextlib
+tool = UnreliableTool(fail_times=3)
+buf = io.StringIO()
+with contextlib.redirect_stdout(buf):
+    result = call_with_retry(tool, max_retries=4, value="data")
+assert result == "processed: data"
+waits = [int(n) for n in re.findall(r"\b(\d+)\s*(?:s|secs?|seconds?)\b", buf.getvalue())]
+assert waits == [1, 2, 4]
+`,
+    PRE + String.raw`
+import io, contextlib
+tool = UnreliableTool(fail_times=0)
+buf = io.StringIO()
+with contextlib.redirect_stdout(buf):
+    assert call_with_retry(tool, max_retries=4, value="data") == "processed: data"
+assert tool.attempt_count == 1
+assert buf.getvalue().strip() == ""
+`,
+    PRE + String.raw`
+tool = UnreliableTool(fail_times=3)
+assert call_with_retry(tool, max_retries=4, value="data") == "processed: data"
+assert tool.attempt_count == 4
+`,
+    PRE + String.raw`
+tool = UnreliableTool(fail_times=5)
+assert call_with_retry(tool, max_retries=1, value="data") == "Error: tool failed after 1 attempts, giving up"
+assert tool.attempt_count == 1
+`,
+    PRE + String.raw`
+calls = []
+def flaky_add(a, b):
+    calls.append((a, b))
+    if len(calls) < 2:
+        raise ConnectionError("blip")
+    return a + b
+assert call_with_retry(flaky_add, max_retries=3, a=1, b=2) == 3
+assert calls == [(1, 2), (1, 2)]
+`,
+    PRE + String.raw`
+count = 0
+def broken(value):
+    global count
+    count += 1
+    raise ValueError("not transient")
+try:
+    call_with_retry(broken, max_retries=4, value="data")
+    raise AssertionError("a non-ConnectionError should not be swallowed")
+except ValueError:
+    pass
+assert count == 1
+`,
+  ]}
+  hint={'This concept\'s demo *is* the answer — a `for attempt in range(max_retries):` loop, a `try`/`except ConnectionError` around calling `tool_function(**kwargs)`, returning immediately on success, and falling through to the give-up message only if the loop finishes without ever returning.'}
+  correctAnswer={{
+    code: `class UnreliableTool:
+    def __init__(self, fail_times: int):
+        self.fail_times = fail_times
+        self.attempt_count = 0
+
+    def __call__(self, value: str) -> str:
+        self.attempt_count += 1
+        if self.attempt_count <= self.fail_times:
+            raise ConnectionError(f"temporary connection issue (attempt {self.attempt_count})")
+        return f"processed: {value}"
+
+def call_with_retry(tool_function, max_retries: int = 4, **kwargs):
+    for attempt in range(max_retries):
+        wait_time = 2 ** attempt
+        try:
+            return tool_function(**kwargs)
+        except ConnectionError as e:
+            print(f"attempt {attempt + 1} failed ({e}), waiting {wait_time}s before retrying")
+    return f"Error: tool failed after {max_retries} attempts, giving up"`,
+    explanation:
+      "The first scenario confirms a genuinely transient failure recovers correctly, on exactly the expected attempt. The second confirms the give-up path activates cleanly once retries are truly exhausted — returning a defined result, never crashing, and never attempting a fifth call beyond the stated budget.",
+  }}
+/>
+
+</CheckpointZone>

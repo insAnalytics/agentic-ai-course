@@ -986,6 +986,34 @@ states the cap must return a message, and six tests were added to the mockup's
 two so the task's stated requirements (name in the message, cap, non-consecutive
 repeats) are actually checked.
 
+**Grading retry with exponential backoff (Lesson 2.6, Concept 6).** Stock
+`GradedExercise`, no fake LLM client involved: the starter provides
+`UnreliableTool` (deterministically fails its first `fail_times` calls with
+`ConnectionError`) and a stub `call_with_retry(tool_function, max_retries=4,
+**kwargs)`. Each hidden test re-declares `UnreliableTool` from a shared JS
+constant rather than trusting the learner's copy. Seven tests: the mockup's two
+scenarios (recovers on attempt 3; gives up after exactly 4 attempts with the
+exact message); the printed wait times double (`1, 2, 4`, extracted with a
+unit-tolerant regex so `1s`, `1 sec` and `1 seconds` all pass, since the
+mockup only says "compute and print it" and the task now says to use the form
+`waiting 1s`); a first-try success makes one attempt and prints nothing;
+succeeding on the very last attempt returns the result; `max_retries=1` gives
+up after one attempt with `{max_retries}` interpolated; `**kwargs` are
+forwarded to arbitrary tool functions; and a non-`ConnectionError` propagates
+after one attempt (only transient errors are retried). The tests patch
+`time.sleep` (and a `from time import sleep` name in the learner's globals) to
+a no-op, so a learner who actually waits isn't stalled 15s by the persistent-
+failure case; the task says waiting isn't required. Verified against real
+Pyodide 0.26.4 with 13 submissions: the reference passes all seven; a stub, no
+doubling, constant wait, no printing, retrying every exception type, an
+off-by-one attempt count (in both directions), raising instead of returning at
+give-up, a wrong message, ignoring kwargs, and a syntax error each fail the
+expected tests; real `time.sleep` and `from time import sleep` variants both
+pass (patched). **Deviation from the mockup:** the mockup's demo output prints
+"waiting 8s before retrying" after the fourth and final failure, though no
+retry follows; kept as-is since the output must match the code, but worth a
+look from the mockup author.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped

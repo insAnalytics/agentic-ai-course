@@ -1230,9 +1230,21 @@ far" list directly below it.*
    "already exists" text was unearned); the demo now registers
    `research_agent` up front so the error really happens. **Deviation:**
    `"tool_use_id": block.id` added. The Module 0 error-handling callback links
-   to that page's "The basic shape" subsection. Remaining: Concept 6
-   (timeouts, retry with backoff, graceful give-up) onward, bookends. Not yet
-   Locked.
+   to that page's "The basic shape" subsection. 
+   Concept 6 drafted (the final concept section of the lesson, per its
+   own mockup): timeouts (conceptual only), retry with exponential backoff
+   for transient failures, and graceful give-up, plus Applied sandbox
+   exercise 2, graded for real by seven hidden tests (architecture.md §4.1;
+   verified against real Pyodide with 13 submissions). Two live demos
+   (success on attempt 3; persistent failure, using `setupCode` for the
+   shared definitions) match the mockup's output exactly. **Deviations:**
+   the task now specifies the printed wait form (`waiting 1s`) so it can be
+   checked; the tests neutralize `sleep`. The Concept 5 callbacks and the
+   Module 1 backoff callback link to verified anchors. **Finding:** the
+   demo's output says "waiting 8s before retrying" after the final failure
+   though no retry follows (kept, as it matches the code). Remaining:
+   bookends (outcomes callout/why it matters, comprehensive quiz,
+   comprehensive sandbox). Not yet Locked.
 
 **Old outline (superseded):**
 
