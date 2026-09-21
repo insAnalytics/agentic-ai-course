@@ -961,6 +961,31 @@ is a no-op with these scripts). **Deviation from the mockup:** `"tool_use_id":
 block.id` is required in the task and reference answer, as throughout Lesson 2.4
 and Concept 1.
 
+**Grading loop guards: max steps + repeated-action detection (Lesson 2.6,
+Concept 3).** Stock `GradedExercise` against `REACT_FAKE_CLIENT` (+
+`RECORDING_CLIENT`); the starter provides `get_weather` and a stub
+`run_agent_loop(client, messages, max_steps=10)`. Eight hidden tests: the
+mockup's two scenarios (20 identical calls -> message containing "repeated
+call" with `call_count == 2`; a normal two-response run returns the real
+answer); the message names the repeated tool; same tool with *different*
+arguments is not a repeat (catches comparing by name only); a repeat is caught
+even with a different call in between (catches comparing only to the previous
+call); `max_steps` still caps a loop of 12 all-different calls at
+`call_count == 5` and returns a string rather than raising (the mockup didn't
+specify the cap's behavior or message, so the task now says "returning a
+message rather than raising" and the test checks only that, plus that it isn't
+the repeat message); results reach the model paired with their calls; and a
+text-first response returns immediately. Verified against real Pyodide 0.26.4
+with 12 submissions: the reference passes all eight; a stub, a max-steps-only
+loop (Concept 2's version), name-only detection, previous-call-only detection,
+no cap, raising at the cap, a message without the tool name, always flagging,
+a missing `tool_use_id`, an off-by-one cap, and a syntax error each fail the
+expected tests. **Deviations from the mockup:** `"tool_use_id": block.id` is
+required (omitted by the mockup, as throughout Lessons 2.4-2.6), the task
+states the cap must return a message, and six tests were added to the mockup's
+two so the task's stated requirements (name in the message, cap, non-consecutive
+repeats) are actually checked.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped

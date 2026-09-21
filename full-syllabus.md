@@ -1193,7 +1193,20 @@ far" list directly below it.*
    Concept 1, Module 0 `range()`, and "from Concept 1" callbacks link to
    verified anchors; the "covered next (repeated action detection)"
    pointer is a forward reference to Concept 3, not yet written, so it's
-   plain text. Remaining: Concept 3 (repeated-action detection) onward,
+   plain text. 
+   Concept 3 drafted: repeated-action detection (the `seen_calls` list of
+   `(name, input)` tuples; stops on the second identical call; why
+   `max_steps` stays as a backstop) plus Applied sandbox exercise 1, graded
+   for real against the fake client by eight hidden tests (architecture.md
+   §4.1; verified against real Pyodide with 12 submissions). Demo output
+   matches the mockup (stops after 2 calls). **Deviations:** `"tool_use_id":
+   block.id` added; the task now says the cap returns a message rather than
+   raising (unspecified in the mockup); six tests added to the mockup's two.
+   The "max steps" callback and Concept 2's forward pointer link to verified
+   anchors/pages; the "dicts already support equality" callback links to the
+   dicts concept page (no anchor: that page doesn't discuss equality
+   explicitly, so it's a page-level link, worth a look from the mockup
+   author). Remaining: Concept 4 (goal-state termination checks) onward,
    bookends. Not yet Locked.
 
 **Old outline (superseded):**

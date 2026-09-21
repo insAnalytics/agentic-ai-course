@@ -1,0 +1,249 @@
+---
+title: "Repeated-action detection"
+lesson: "06-termination-and-control"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+
+export const PRE = REACT_FAKE_CLIENT + RECORDING_CLIENT;
+
+<Subsection title='A sharper signal than "too many steps"' variant="a">
+
+[Max steps, from Concept 2](/02-the-agent-loop/06-termination-and-control/02-max-steps/#the-simplest-possible-guard-a-hard-cap-unconditionally),
+only notices a problem after a fixed count is reached — regardless of
+what actually happened along the way. **Repeated-action detection**
+notices something more specific and genuinely diagnostic: the *exact
+same* tool call — same name, same arguments — happening more than once.
+That's a strong, concrete signal the loop is stuck, catchable far earlier
+than any fixed step count would ever trigger.
+
+<LiveDemo client:load setupCode={REACT_FAKE_CLIENT} code={`def get_weather(location: str) -> str:
+    return f"It's sunny in {location}."
+
+def run_agent_loop(client, messages, max_steps: int = 10):
+    seen_calls = []
+    for step_count in range(1, max_steps + 1):
+        response = client.create(messages=messages)
+        block = response.content[0]
+        if block.type == "tool_use":
+            current_call = (block.name, block.input)
+            if current_call in seen_calls:
+                return f"stopped after detecting a repeated call to {block.name} with the same arguments"
+            seen_calls.append(current_call)
+            result = get_weather(**block.input)
+            messages.append({"role": "assistant", "content": response.content})
+            messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
+        elif block.type == "text":
+            return block.text
+    return f"stopped after reaching the maximum of {max_steps} steps without a final answer"
+
+repeated_responses = [[ToolUseBlock(name="get_weather", input={"location": "Paris"})] for _ in range(20)]
+client = FakeLLMClient(scripted_responses=repeated_responses)
+
+result = run_agent_loop(client, [{"role": "user", "content": "What's the weather in Paris?"}], max_steps=10)
+print(result)`} />
+
+(The fake client is already defined for this demo, and each tool result
+carries its call's `id` as `tool_use_id`, as before.)
+
+`current_call = (block.name, block.input)` builds a tuple; `current_call
+in seen_calls` checks it against every previously-seen call — this
+works correctly on a plain list, without needing anything more exotic,
+since Python's `in` operator on a list checks equality (`==`) between
+items, and
+[dicts already support direct equality comparison](/00-python-essentials/02-collections/03-dicts/)
+— no special hashable representation is needed. Against the exact same
+scenario from Concept 1 and 2, this version stops after just **2**
+steps — the first call gets recorded, the second identical call triggers
+the detection immediately — instead of running all the way to the
+`max_steps=10` limit.
+
+</Subsection>
+
+<Subsection title="Complementary, not a replacement for max steps" variant="b">
+
+Repeated-action detection catches one specific, diagnosable pattern —
+exact repetition — but it doesn't catch every way a loop could fail to
+make real progress; an agent bouncing between several *different*,
+still-unproductive calls would slip right past it. `max_steps` remains
+a necessary backstop regardless — a hard ceiling that catches whatever
+repeated-action detection doesn't, even if it's slower and less
+specific about *why* it's stopping.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does repeated-action detection actually check for?",
+      options: [
+        "Whether the total number of steps has exceeded a fixed limit",
+        "Whether the exact same tool call — same name, same arguments — has already been made earlier in the loop",
+        "Whether the model has taken longer than a fixed amount of time",
+        "Whether any tool call has ever failed",
+      ],
+      correctIndex: 1,
+      explanation:
+        "It compares each new tool call, name and arguments together, against the calls already made. A step count, a timer or a failure never enters into it.",
+    },
+    {
+      question: "Why does `current_call in seen_calls` work correctly on a plain Python list, without needing a special hashable representation?",
+      options: [
+        "It doesn't actually work correctly — this code has a bug",
+        "List membership checks use equality (`==`) between items, and dicts already support direct equality comparison, so no hashing is needed",
+        "`seen_calls` is secretly a set, not a list",
+        "Tuples can never contain dicts, so this code would raise an error",
+      ],
+      correctIndex: 1,
+      explanation:
+        "`in` on a list walks the items comparing with `==`, and two dicts with the same keys and values are equal. Hashing only matters for sets and dict keys, and a tuple containing a dict is fine to build; it just can't be hashed.",
+    },
+    {
+      question: "In the demo, why does repeated-action detection stop the loop after just 2 steps, while `max_steps` alone needed all 10?",
+      options: [
+        "This is a coincidence specific to this one example",
+        "The exact same call gets flagged the moment it repeats a second time, rather than needing to wait for a fixed step count to be reached regardless of what actually happened",
+        "Repeated-action detection is always exactly 5 times faster than max steps",
+        "`max_steps` and repeated-action detection are mutually exclusive and can't be used together",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The first call is recorded; the second is identical and gets flagged right away. The two guards aren't exclusive: the demo runs both, and detection simply fires first.",
+    },
+    {
+      question: "Why does `max_steps` remain necessary even with repeated-action detection in place?",
+      options: [
+        "It doesn't — repeated-action detection makes max_steps entirely redundant",
+        "Repeated-action detection only catches exact repetition; a loop bouncing between different, still-unproductive calls would slip past it entirely, so max_steps remains a necessary backstop",
+        "`max_steps` is required syntactically for repeated-action detection to function at all",
+        "Repeated-action detection can only be used on the very first step",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Calls that differ in name or arguments are never \"repeats\", however unproductive. Only a hard ceiling catches that case.",
+    },
+  ]}
+/>
+
+<GradedExercise
+  client:load
+  task={'Implement `run_agent_loop(client, messages, max_steps)` combining both guards from this lesson: a hard `max_steps` cap (returning a message rather than raising when it\'s hit), and detection that stops immediately (with a message naming the repeated tool) the moment the exact same `(name, input)` call repeats. A scenario with no repeats and a normal final answer within the limit should still return that real answer, unaffected by either guard. `get_weather` is provided; as in earlier exercises, append the assistant\'s tool call and a `tool_result` message (carrying the block\'s `id` as `tool_use_id`) to `messages` after each executed call.'}
+  starterCode={`def get_weather(location: str) -> str:
+    return f"It's sunny in {location}."
+
+def run_agent_loop(client, messages, max_steps: int = 10):
+    # TODO: cap the loop at max_steps, and stop immediately when the exact
+    # same (name, input) tool call is requested a second time.
+    pass`}
+  hiddenTests={[
+    PRE + String.raw`
+# scenario 1: genuine repetition, should be caught early
+stuck_client = FakeLLMClient(scripted_responses=[
+    [ToolUseBlock(name="get_weather", input={"location": "Paris"})] for _ in range(20)
+])
+result_1 = run_agent_loop(stuck_client, [{"role": "user", "content": "..."}], max_steps=10)
+assert "repeated call" in result_1
+assert stuck_client.call_count == 2   # caught on the second identical call, not run to max_steps
+`,
+    PRE + String.raw`
+# scenario 2: genuine progress, no repeats, should complete normally
+normal_client = FakeLLMClient(scripted_responses=[
+    [ToolUseBlock(name="get_weather", input={"location": "Paris"})],
+    [TextBlock(text="It's sunny in Paris.")],
+])
+result_2 = run_agent_loop(normal_client, [{"role": "user", "content": "..."}], max_steps=10)
+assert result_2 == "It's sunny in Paris."
+`,
+    PRE + String.raw`
+# the message names the repeated tool
+client = FakeLLMClient(scripted_responses=[
+    [ToolUseBlock(name="get_weather", input={"location": "Paris"})] for _ in range(5)
+])
+result = run_agent_loop(client, [{"role": "user", "content": "..."}], max_steps=10)
+assert "get_weather" in result
+`,
+    PRE + String.raw`
+# same tool, different arguments is not a repeat
+client = FakeLLMClient(scripted_responses=[
+    [ToolUseBlock(name="get_weather", input={"location": "Paris"})],
+    [ToolUseBlock(name="get_weather", input={"location": "Berlin"})],
+    [TextBlock(text="Both are sunny.")],
+])
+assert run_agent_loop(client, [{"role": "user", "content": "..."}], max_steps=10) == "Both are sunny."
+assert client.call_count == 3
+`,
+    PRE + String.raw`
+# a repeat is caught even when other calls came in between
+client = FakeLLMClient(scripted_responses=[
+    [ToolUseBlock(name="get_weather", input={"location": "Paris"})],
+    [ToolUseBlock(name="get_weather", input={"location": "Berlin"})],
+    [ToolUseBlock(name="get_weather", input={"location": "Paris"})],
+    [TextBlock(text="never reached")],
+])
+result = run_agent_loop(client, [{"role": "user", "content": "..."}], max_steps=10)
+assert "repeated call" in result
+assert client.call_count == 3
+`,
+    PRE + String.raw`
+# max_steps still caps a loop whose calls are all different
+client = FakeLLMClient(scripted_responses=[
+    [ToolUseBlock(name="get_weather", input={"location": f"city{i}"})] for i in range(12)
+])
+result = run_agent_loop(client, [{"role": "user", "content": "..."}], max_steps=5)
+assert isinstance(result, str) and "repeated call" not in result
+assert client.call_count == 5
+`,
+    PRE + String.raw`
+# results reach the model, paired with their calls
+first = ToolUseBlock(name="get_weather", input={"location": "Paris"})
+client = RecordingClient(scripted_responses=[[first], [TextBlock(text="done")]])
+run_agent_loop(client, [{"role": "user", "content": "..."}], max_steps=10)
+second = client.seen[1]
+assert len(second) == 3
+assert second[1]["role"] == "assistant" and second[1]["content"][0] is first
+assert second[2]["role"] == "user" and second[2]["content"][0]["type"] == "tool_result"
+assert second[2]["content"][0]["content"] == "It's sunny in Paris."
+assert second[2]["content"][0]["tool_use_id"] == first.id
+`,
+    PRE + String.raw`
+# a final text answer on the first call returns immediately
+client = FakeLLMClient(scripted_responses=[[TextBlock(text="Hello!")]])
+assert run_agent_loop(client, [{"role": "user", "content": "hi"}], max_steps=10) == "Hello!"
+assert client.call_count == 1
+`,
+  ]}
+  hint={'This is this concept\'s exact demo code — the only change needed beyond Concept 2\'s version is adding `seen_calls = []` before the loop, and the `current_call`/`in seen_calls` check right after receiving a `tool_use` block, before actually executing it.'}
+  correctAnswer={{
+    code: `def get_weather(location: str) -> str:
+    return f"It's sunny in {location}."
+
+def run_agent_loop(client, messages, max_steps: int = 10):
+    seen_calls = []
+    for step_count in range(1, max_steps + 1):
+        response = client.create(messages=messages)
+        block = response.content[0]
+        if block.type == "tool_use":
+            current_call = (block.name, block.input)
+            if current_call in seen_calls:
+                return f"stopped after detecting a repeated call to {block.name} with the same arguments"
+            seen_calls.append(current_call)
+            result = get_weather(**block.input)
+            messages.append({"role": "assistant", "content": response.content})
+            messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
+        elif block.type == "text":
+            return block.text
+    return f"stopped after reaching the maximum of {max_steps} steps without a final answer"`,
+    explanation:
+      "Scenario 1 confirms the repeated-call detection triggers on exactly the second identical call, well before max_steps would ever matter. Scenario 2 confirms neither guard interferes with a loop that's genuinely making progress — both are safety nets, not obstacles to normal, successful operation.",
+  }}
+/>
+
+</CheckpointZone>
