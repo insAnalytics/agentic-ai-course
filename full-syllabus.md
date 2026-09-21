@@ -1325,8 +1325,20 @@ far" list directly below it.*
    callback to Module 1's "A hard guarantee" subsection. **Finding:** the
    mockup's "`enumerate`, from Module 0, the data structures lesson" callback
    has no target (Module 0 never covers `enumerate`), so the prose now just
-   says what it is. Remaining: Concept 2 (plan representations: linear, tree,
-   dependency graph) onward, bookends. Not yet Locked.
+   says what it is. 
+   Concept 2 drafted: plan representations — linear, tree, and dependency
+   graph (a static tree example; a live `compute_execution_order` demo that
+   finds tasks whose prerequisites are done, matching the mockup's output), plus
+   Applied sandbox exercise 1, graded for real by six constraint-based hidden
+   tests (architecture.md §4.1; verified against real Pyodide with 11
+   submissions). The mockup's single test passes a bare `list(graph)`, so
+   tests were added (out-of-order graph, independent tasks, chain, non-mutation,
+   cycles); the task now states the cycle `ValueError` and non-mutation.
+   **Finding:** the mockup's async callback points at "Module 1, the training
+   pipeline lesson", which has nothing on concurrency; it's Module 0's async
+   lesson, so the prose and link were corrected. The Concept 1 callback links to
+   its "Decomposing" subsection. Remaining: Concept 3 (Tree of Thought as a
+   plan-search variant) onward, bookends. Not yet Locked.
 
 **Old outline (superseded):**
 

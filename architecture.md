@@ -1132,6 +1132,34 @@ the wrong messages, calling the client twice, and a syntax error each fail; no
 checkpoint file is left behind. **Deviation:** `"tool_use_id": block.id` is
 required in the task and reference answer, as throughout.
 
+**Grading dependency-graph ordering (Lesson 2.8, Concept 2).** Stock
+`GradedExercise`, pure Python, no fake client. Because several orderings are
+valid, the tests check *constraints* rather than one sequence (the mockup's
+approach), via an `is_valid(order, graph)` helper that asserts every task
+appears exactly once and every dependency precedes its dependent. The mockup's
+single test (four precedence asserts on `publish_graph`) can't tell a real
+topological sort from returning `list(graph)`, because `publish_graph`'s keys
+already happen to be in a valid order (confirmed: `list(g)` passes it), so six
+tests are used: the mockup's own; a different graph written deliberately out of
+order (dependents listed before their prerequisites); fully independent tasks,
+a diamond, a single task and an empty graph; a 30-step chain with exactly one
+valid order; the input graph isn't mutated and repeated calls agree; and cycles
+(two-node, self-loop, and one hidden behind an unrelated ok task) raise
+`ValueError`. The task now states the two requirements the mockup left implicit
+(raise `ValueError` on a cycle, as its demo and reference do; don't modify the
+given graph), and points at `publish_graph` in the starter code rather than
+embedding a code fence, since `LinkedText` only renders links. Verified against
+real Pyodide 0.26.4 with 11 submissions: the reference and an independent
+DFS-based topological sort both pass; a stub, returning the keys as-is,
+reversing them, sorting by dependency count (passes the mockup's test but not
+the out-of-order graph), mutating the input, dropping the last layer, no cycle
+detection, the wrong exception type, and a syntax error each fail the expected
+tests. **Deviation from the mockup (wrong callback):** its last callback sends
+"the exact same opportunity Module 1's async concepts were built around" to
+Module 1's training-pipeline lesson, which has nothing on concurrency; async is
+Module 0's async lesson, so the prose says Module 0 and links to that lesson's
+"What concurrency means here" subsection.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped

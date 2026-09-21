@@ -1,0 +1,241 @@
+---
+title: "Plan representations — linear, tree, and dependency graph"
+lesson: "08-planning"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Linear: the shape already used in Concept 1" variant="a">
+
+[Concept 1's `PlanBlock`](/02-the-agent-loop/08-planning/01-goal-decomposition/#decomposing-before-executing-anything)
+was already a **linear** plan — a flat, ordered list, each step happening
+strictly after the one before it. This is the simplest representation, and
+fits any task whose steps genuinely have to happen in a fixed sequence.
+
+</Subsection>
+
+<Subsection title="Tree: sub-goals with their own sub-steps" variant="b">
+
+A **tree** representation lets a sub-goal itself decompose further — a
+recursive, branching structure rather than a flat list:
+
+```python
+plan_tree = {
+    "task": "Set up the support team",
+    "sub_tasks": [
+        {"task": "Create research_agent", "sub_tasks": []},
+        {"task": "Create support_agent", "sub_tasks": []},
+    ],
+}
+```
+
+Each node is the same shape — a `task` and its own `sub_tasks` — which
+is what makes it genuinely tree-shaped rather than just a nested list:
+any sub-task could itself have further sub-tasks, at any depth.
+
+</Subsection>
+
+<Subsection title="Dependency graph: prerequisites, not strict sequence" variant="a">
+
+Neither a strict linear order nor a strict hierarchy captures every
+real planning situation. A **dependency graph** represents each task's
+actual *prerequisites* — tasks that genuinely have no ordering
+constraint relative to each other can run in either order, or even
+concurrently, while a task depending on several others waits for all of
+them:
+
+<LiveDemo client:load code={`dependency_graph = {
+    "create_research_agent": [],
+    "create_support_agent": [],
+    "verify_team_setup": ["create_research_agent", "create_support_agent"],
+}
+
+def compute_execution_order(dependency_graph: dict) -> list:
+    order = []
+    remaining = dict(dependency_graph)
+    while remaining:
+        ready = [task for task, deps in remaining.items() if all(dep in order for dep in deps)]
+        if not ready:
+            raise ValueError("circular dependency detected -- no task is ready to run")
+        for task in ready:
+            order.append(task)
+            del remaining[task]
+    return order
+
+print(compute_execution_order(dependency_graph))`} />
+
+`create_research_agent` and `create_support_agent` have no dependency
+on each other at all — genuinely, they could run in either order,
+`ready` correctly identifies both as available on the very first pass.
+`verify_team_setup` only becomes ready once *both* have actually
+completed — `all(dep in order for dep in deps)` is what enforces that.
+This is the real payoff a dependency graph offers that neither a
+strict linear list nor a strict tree provides directly: independent
+work is genuinely identified as independent, opening the door to
+running it concurrently —
+[the exact same opportunity Module 0's async concepts were built around](/00-python-essentials/07-async-python/01-why-concurrency-matters/#what-concurrency-means-here)
+— rather than being forced into an arbitrary fixed order that was never
+actually required.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What makes a plan representation genuinely \"tree-shaped,\" rather than just a flat list?",
+      options: [
+        "It uses a Python `list` instead of a `dict`",
+        "Any sub-task can itself have its own further sub-tasks, at any depth, following the same recursive shape",
+        "It always has exactly two branches",
+        "Tree representations can never be converted to any other format",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Every node has the same shape, a `task` and its own `sub_tasks`, so nesting can go as deep as the task needs. The container types and the number of branches don't define it.",
+    },
+    {
+      question: "What does `dependency_graph[\"verify_team_setup\"] = [\"create_research_agent\", \"create_support_agent\"]` actually express?",
+      options: [
+        "That `verify_team_setup` must run before either of the other two tasks",
+        "That `verify_team_setup` can only run once both `create_research_agent` and `create_support_agent` have already completed",
+        "That all three tasks must run in strict alphabetical order",
+        "That the three tasks are entirely unrelated to each other",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The list holds a task's prerequisites. Here both must be done before `verify_team_setup` can start, while the two creation tasks have empty lists and depend on nothing.",
+    },
+    {
+      question: "In `compute_execution_order`, what does `all(dep in order for dep in deps)` actually check?",
+      options: [
+        "Whether the task itself has already been added to the order",
+        "Whether every one of a task's prerequisites has already been added to `order`, meaning that task is now genuinely ready to run",
+        "Whether the dependency graph contains any circular dependencies",
+        "Whether `deps` is an empty list",
+      ],
+      correctIndex: 1,
+      explanation:
+        "`order` holds what has been scheduled so far, so this asks whether all of a task's prerequisites are already in it. A task with no prerequisites passes trivially, but that's a side effect, not what the check is for.",
+    },
+    {
+      question: "What real capability does a dependency graph unlock, that a strict linear plan doesn't?",
+      options: [
+        "Nothing — both representations are functionally identical",
+        "Genuinely independent tasks can be identified as such, opening the door to running them concurrently rather than an arbitrary fixed sequence",
+        "Dependency graphs can never actually be executed",
+        "A dependency graph always executes faster regardless of the actual task structure",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A linear list forces an order even where none is needed. The graph records only real prerequisites, so independent tasks are visible as independent. It doesn't promise speed by itself; it makes concurrency possible.",
+    },
+  ]}
+/>
+
+<GradedExercise
+  client:load
+  task={'Given the `publish_graph` in the starter code — a dependency graph for a document publishing task — implement `compute_execution_order(dependency_graph)`, returning a valid execution order respecting every dependency. Raise a `ValueError` if the graph has a circular dependency, and don\'t modify the graph you were given.'}
+  starterCode={`publish_graph = {
+    "write_draft": [],
+    "review_draft": ["write_draft"],
+    "add_images": ["write_draft"],
+    "publish": ["review_draft", "add_images"],
+}
+
+def compute_execution_order(dependency_graph: dict) -> list:
+    # TODO: return every task in an order where each task comes after
+    # all of its dependencies.
+    pass`}
+  hiddenTests={[
+    String.raw`order = compute_execution_order(publish_graph)
+
+assert order.index("write_draft") < order.index("review_draft")
+assert order.index("write_draft") < order.index("add_images")
+assert order.index("review_draft") < order.index("publish")
+assert order.index("add_images") < order.index("publish")
+assert len(order) == 4
+`,
+    String.raw`def is_valid(order, graph):
+    assert sorted(order) == sorted(graph), "every task exactly once"
+    for task, deps in graph.items():
+        for dep in deps:
+            assert order.index(dep) < order.index(task), f"{dep} must come before {task}"
+
+# a different graph, deliberately written out of order (dependents listed before their prerequisites)
+graph = {
+    "ship": ["test", "package"],
+    "package": ["build"],
+    "test": ["build"],
+    "build": ["fetch"],
+    "fetch": [],
+}
+is_valid(compute_execution_order(graph), graph)
+`,
+    String.raw`def is_valid(order, graph):
+    assert sorted(order) == sorted(graph)
+    for task, deps in graph.items():
+        for dep in deps:
+            assert order.index(dep) < order.index(task)
+
+# fully independent tasks, all present, none dropped or repeated
+graph = {"a": [], "b": [], "c": []}
+order = compute_execution_order(graph)
+assert sorted(order) == ["a", "b", "c"] and len(order) == 3
+
+# a diamond, and a single task, and an empty graph
+diamond = {"top": [], "left": ["top"], "right": ["top"], "bottom": ["left", "right"]}
+is_valid(compute_execution_order(diamond), diamond)
+assert compute_execution_order({"only": []}) == ["only"]
+assert compute_execution_order({}) == []
+`,
+    String.raw`# a long chain has exactly one valid order
+chain = {f"step{i}": ([f"step{i-1}"] if i else []) for i in range(30)}
+assert compute_execution_order(chain) == [f"step{i}" for i in range(30)]
+`,
+    String.raw`import copy
+before = copy.deepcopy(publish_graph)
+compute_execution_order(publish_graph)
+assert publish_graph == before
+assert compute_execution_order(publish_graph) == compute_execution_order(publish_graph)
+`,
+    String.raw`for cyclic in ({"a": ["b"], "b": ["a"]}, {"a": ["a"]}, {"ok": [], "x": ["y"], "y": ["z"], "z": ["x"]}):
+    try:
+        compute_execution_order(cyclic)
+    except ValueError:
+        continue
+    raise AssertionError("a circular dependency must raise ValueError")
+`,
+  ]}
+  hint={'This is genuinely this concept\'s exact function — a `while remaining:` loop, finding every task whose dependencies are already satisfied via `all(dep in order for dep in deps)`, adding all such ready tasks each pass. `review_draft` and `add_images` have no dependency on each other, so either could legitimately come first — the test checks relative ordering against dependencies, not one single expected sequence.'}
+  correctAnswer={{
+    code: `publish_graph = {
+    "write_draft": [],
+    "review_draft": ["write_draft"],
+    "add_images": ["write_draft"],
+    "publish": ["review_draft", "add_images"],
+}
+
+def compute_execution_order(dependency_graph: dict) -> list:
+    order = []
+    remaining = dict(dependency_graph)
+    while remaining:
+        ready = [task for task, deps in remaining.items() if all(dep in order for dep in deps)]
+        if not ready:
+            raise ValueError("circular dependency detected -- no task is ready to run")
+        for task in ready:
+            order.append(task)
+            del remaining[task]
+    return order`,
+    explanation:
+      "write_draft has no dependencies, so it's always first. review_draft and add_images both depend only on write_draft, so they become ready together — in either relative order — and publish only becomes ready once both have completed. The test checks exactly the constraints that actually matter, not an arbitrary single \"correct\" sequence.",
+  }}
+/>
+
+</CheckpointZone>
