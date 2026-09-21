@@ -1349,8 +1349,17 @@ far" list directly below it.*
    Module 1 pricing and test-time compute). **Finding:** the `key=`-selection
    callback names "Module 0, the data structures lesson", but that pattern is
    actually taught in Module 0's functions lesson (lambda/map/filter, "Closing
-   the loop: sorted(..., key=...)"), so it links there. Remaining: Concept 4
-   (plan-and-execute vs. purely reactive) onward, bookends. Not yet Locked.
+   the loop: sorted(..., key=...)"), so it links there. 
+   Concept 4 drafted: plan-and-execute vs. purely reactive (naming the
+   reactive choice every loop in Lessons 4-7 made; a live demo of
+   plan-and-execute whose step count is known before any execution, with
+   `PlanBlock` repeated in the demo so it runs alone, using `REACT_FAKE_CLIENT`;
+   the foresight-vs-adaptiveness tradeoff). Demo run in real Pyodide, output
+   matches the mockup exactly. No exercise, per its mockup. Callbacks link to
+   verified pages/anchors: "Lessons 4-7" and "Lesson 6" point at those lessons'
+   intros (the mockup names lessons, not concepts), and Lesson 1's honest case
+   links to "What an agent's dynamism actually costs". Remaining: Concept 5
+   (replanning when a step fails) onward, bookends. Not yet Locked.
 
 **Old outline (superseded):**
 
