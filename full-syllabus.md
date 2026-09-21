@@ -1358,8 +1358,17 @@ far" list directly below it.*
    matches the mockup exactly. No exercise, per its mockup. Callbacks link to
    verified pages/anchors: "Lessons 4-7" and "Lesson 6" point at those lessons'
    intros (the mockup names lessons, not concepts), and Lesson 1's honest case
-   links to "What an agent's dynamism actually costs". Remaining: Concept 5
-   (replanning when a step fails) onward, bookends. Not yet Locked.
+   links to "What an agent's dynamism actually costs". 
+   Concept 5 drafted (the final concept section of the lesson, per its
+   own mockup): replanning when a step fails (a plan's remaining steps can be
+   invalidated by one failure; the fix is calling the planner again with the
+   failure reason), with a live demo (matches the mockup's output exactly) plus
+   Applied sandbox exercise 2, graded for real against scripted planner and
+   executor clients by six hidden tests (architecture.md §4.1; verified against
+   real Pyodide with 11 submissions). The task now states the block/message
+   contract the mockup implied. Both Lesson 6 callbacks link to the
+   tool-errors concept's subsections. Remaining: bookends (outcomes callout/why
+   it matters, comprehensive quiz, comprehensive sandbox). Not yet Locked.
 
 **Old outline (superseded):**
 

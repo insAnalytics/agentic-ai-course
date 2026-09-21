@@ -1,0 +1,292 @@
+---
+title: "Replanning when a step fails"
+lesson: "08-planning"
+order: 5
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+
+export const PRE = REACT_FAKE_CLIENT + String.raw`
+class PlanBlock:
+    def __init__(self, sub_tasks: list):
+        self.type = "plan"
+        self.sub_tasks = sub_tasks
+
+class FailureBlock:
+    def __init__(self, reason: str):
+        self.type = "failure"
+        self.reason = reason
+` + RECORDING_CLIENT;
+
+<Subsection title="More than just retrying the failed step" variant="a">
+
+[Lesson 6 covered a single step failing in isolation](/02-the-agent-loop/06-termination-failure-and-control/05-tool-errors-as-observations/#the-fix-catch-it-and-let-the-model-see-it)
+— retry with backoff, or a graceful give-up. In a plan-and-execute agent,
+a step failing has an *additional* consequence a reactive loop never had
+to worry about: the plan's *remaining* steps might have been built on an
+assumption that just turned out to be wrong, making them invalid too —
+not just the one step that failed.
+
+</Subsection>
+
+<Subsection title="The scenario: a plan built on a false assumption" variant="b">
+
+A plan assumes `"Create research_agent"` will succeed, and its second
+step, `"Configure research_agent's model"`, was written expecting that
+first step to have actually happened. But execution reveals
+`research_agent` already exists — a definitive conflict,
+[exactly like Lesson 6's failure case](/02-the-agent-loop/06-termination-failure-and-control/05-tool-errors-as-observations/#the-pain-an-unhandled-tool-error-crashes-the-entire-loop),
+not something retrying would fix. Simply skipping the failed step and
+continuing to step two isn't safe either — step two's own assumptions may
+no longer hold.
+
+</Subsection>
+
+<Subsection title="The fix: call the planner again, with what was actually learned" variant="a">
+
+<LiveDemo client:load setupCode={REACT_FAKE_CLIENT} code={`class PlanBlock:
+    def __init__(self, sub_tasks: list):
+        self.type = "plan"
+        self.sub_tasks = sub_tasks
+
+class FailureBlock:
+    def __init__(self, reason: str):
+        self.type = "failure"
+        self.reason = reason
+
+def run_plan_execute_replan(planning_client, execution_client, goal: str) -> list:
+    plan_response = planning_client.create(messages=[{"role": "user", "content": goal}])
+    plan = plan_response.content[0]
+    results = []
+
+    remaining_tasks = list(plan.sub_tasks)
+    while remaining_tasks:
+        sub_task = remaining_tasks.pop(0)
+        response = execution_client.create(messages=[{"role": "user", "content": sub_task}])
+        result_block = response.content[0]
+
+        if result_block.type == "failure":
+            print(f"step failed: {result_block.reason} -- replanning remaining work")
+            replan_response = planning_client.create(messages=[
+                {"role": "user", "content": f"Original goal: {goal}. This happened: {result_block.reason}. What should the remaining steps be?"}
+            ])
+            new_plan = replan_response.content[0]
+            remaining_tasks = list(new_plan.sub_tasks)
+            print(f"revised plan now has {len(remaining_tasks)} remaining steps")
+        else:
+            results.append(result_block.text)
+    return results
+
+planning_client = FakeLLMClient(scripted_responses=[
+    [PlanBlock(sub_tasks=["Create research_agent", "Configure research_agent's model to claude-sonnet"])],
+    [PlanBlock(sub_tasks=["Update research_agent's model to claude-sonnet"])],
+])
+
+execution_client = FakeLLMClient(scripted_responses=[
+    [FailureBlock(reason="research_agent already exists")],
+    [TextBlock(text="research_agent's model updated to claude-sonnet.")],
+])
+
+results = run_plan_execute_replan(planning_client, execution_client, "Set up research_agent with claude-sonnet")
+print(results)`} />
+
+(The updated fake client is already defined for this demo, and `PlanBlock`
+is repeated from earlier so it runs on its own.)
+
+`remaining_tasks = list(new_plan.sub_tasks)` — this is the actual
+replanning: the *entire remaining plan* gets replaced with a fresh one,
+built with the failure's actual reason included as new context, rather
+than either retrying the same doomed step or blindly executing a
+second step written for a world that turned out not to be true. The
+revised plan correctly drops "create" (already unnecessary) in favor of
+"update" — genuinely different from the original, because it now
+reflects what was actually learned.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why can a step failing in a plan-and-execute agent invalidate more than just that one step?",
+      options: [
+        "It never does — only the failed step itself is ever affected",
+        "Later steps in the plan may have been written assuming the failed step's outcome, so they can become invalid too once that assumption turns out to be wrong",
+        "A single failure always invalidates the entire original goal, not just the plan",
+        "This only happens if the plan has more than five steps",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A plan is a chain of assumptions: step two was written expecting step one to have happened. When step one fails, that expectation is false, so step two can't be trusted, whatever the length of the plan.",
+    },
+    {
+      question: "What does replanning actually do, that simply retrying the failed step wouldn't?",
+      options: [
+        "Nothing different — replanning and retrying are the same operation",
+        "It calls the planner again, with the failure's actual reason as new context, producing a genuinely revised plan for the remaining work, rather than repeating a step that would just fail again",
+        "Replanning always produces the exact same plan as before",
+        "Replanning skips the remainder of the task entirely",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A definitive failure like \"already exists\" fails the same way on every retry. Replanning changes what happens next, because the planner now knows what went wrong.",
+    },
+    {
+      question: "In the demo, why does the revised plan contain `\"Update research_agent's model\"` instead of the original's `\"Create research_agent\"` followed by `\"Configure...\"`?",
+      options: [
+        "This is arbitrary and unrelated to the actual failure",
+        "The revised plan was generated with the actual failure reason — the agent already exists — as context, producing steps genuinely appropriate to that new information",
+        "The execution client randomly decided to change the wording",
+        "`\"Update\"` and `\"Create\"` are functionally identical in this system",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The planner was told the agent already exists, so \"create\" is no longer needed and \"update\" is what's left. (In this demo the revised plan is scripted, but it shows the shape: the failure reason goes in, a different plan comes out.)",
+    },
+  ]}
+/>
+
+<GradedExercise
+  client:load
+  task={'Implement `run_plan_execute_replan(planning_client, execution_client, goal)` exactly as shown in this concept — asking `planning_client` for a plan for `goal` (a block with `.sub_tasks`), then executing the sub-tasks in order by sending each one to `execution_client` as a single user message. A `"text"` block\'s `.text` is that step\'s result. On encountering a `"failure"` block, call `planning_client` again with the failure\'s `.reason` included in the message, and replace the remaining plan with the result. Return the list of results.'}
+  starterCode={`def run_plan_execute_replan(planning_client, execution_client, goal: str) -> list:
+    # TODO: get a plan, execute its sub-tasks in order, and when a step
+    # comes back as a "failure" block, ask the planner for a revised plan
+    # (including the failure reason) and continue with that instead.
+    pass`}
+  hiddenTests={[
+    PRE + String.raw`
+planning_client = FakeLLMClient(scripted_responses=[
+    [PlanBlock(sub_tasks=["Create support_agent", "Send welcome notification"])],
+    [PlanBlock(sub_tasks=["Send update notification instead"])],
+])
+
+execution_client = FakeLLMClient(scripted_responses=[
+    [FailureBlock(reason="support_agent already exists")],
+    [TextBlock(text="Update notification sent.")],
+])
+
+results = run_plan_execute_replan(planning_client, execution_client, "Set up support_agent")
+assert results == ["Update notification sent."]
+assert planning_client.call_count == 2   # the original plan, plus one genuine replan
+assert execution_client.call_count == 2   # the failed step, plus the single revised step
+`,
+    PRE + String.raw`
+planning_client = RecordingClient(scripted_responses=[
+    [PlanBlock(sub_tasks=["Create support_agent", "Send welcome notification"])],
+    [PlanBlock(sub_tasks=["Send update notification instead"])],
+])
+execution_client = RecordingClient(scripted_responses=[
+    [FailureBlock(reason="support_agent already exists")],
+    [TextBlock(text="Update notification sent.")],
+])
+run_plan_execute_replan(planning_client, execution_client, "Set up support_agent")
+
+# the planner is asked for the plan, and later told what actually went wrong
+assert "Set up support_agent" in planning_client.seen[0][-1]["content"]
+assert "support_agent already exists" in planning_client.seen[1][-1]["content"]
+
+# each step goes to the executor as its own user message; the old second step never runs
+assert execution_client.seen[0][-1]["content"] == "Create support_agent"
+assert execution_client.seen[1][-1]["content"] == "Send update notification instead"
+assert all(m["content"] != "Send welcome notification" for msgs in execution_client.seen for m in msgs)
+`,
+    PRE + String.raw`
+# no failure: every step runs in order, and the planner is only asked once
+planning_client = FakeLLMClient(scripted_responses=[
+    [PlanBlock(sub_tasks=["one", "two", "three"])],
+])
+execution_client = FakeLLMClient(scripted_responses=[
+    [TextBlock(text="one done")], [TextBlock(text="two done")], [TextBlock(text="three done")],
+])
+results = run_plan_execute_replan(planning_client, execution_client, "goal")
+assert results == ["one done", "two done", "three done"]
+assert planning_client.call_count == 1
+assert execution_client.call_count == 3
+`,
+    PRE + String.raw`
+# a failure partway through keeps earlier results and drops the rest of the old plan
+planning_client = FakeLLMClient(scripted_responses=[
+    [PlanBlock(sub_tasks=["A", "B", "C"])],
+    [PlanBlock(sub_tasks=["D"])],
+])
+execution_client = FakeLLMClient(scripted_responses=[
+    [TextBlock(text="A done")],
+    [FailureBlock(reason="B blocked")],
+    [TextBlock(text="D done")],
+])
+results = run_plan_execute_replan(planning_client, execution_client, "goal")
+assert results == ["A done", "D done"]
+assert planning_client.call_count == 2
+assert execution_client.call_count == 3
+`,
+    PRE + String.raw`
+# the revised plan can itself fail, and be revised again
+planning_client = FakeLLMClient(scripted_responses=[
+    [PlanBlock(sub_tasks=["first try"])],
+    [PlanBlock(sub_tasks=["second try", "then more"])],
+    [PlanBlock(sub_tasks=["third try"])],
+])
+execution_client = FakeLLMClient(scripted_responses=[
+    [FailureBlock(reason="first failed")],
+    [FailureBlock(reason="second failed")],
+    [TextBlock(text="third worked")],
+])
+results = run_plan_execute_replan(planning_client, execution_client, "goal")
+assert results == ["third worked"]
+assert planning_client.call_count == 3
+assert execution_client.call_count == 3
+`,
+    PRE + String.raw`
+# a revised plan with nothing left to do simply ends the run
+planning_client = FakeLLMClient(scripted_responses=[
+    [PlanBlock(sub_tasks=["only step", "another"])],
+    [PlanBlock(sub_tasks=[])],
+])
+execution_client = FakeLLMClient(scripted_responses=[
+    [FailureBlock(reason="nothing more to do")],
+])
+assert run_plan_execute_replan(planning_client, execution_client, "goal") == []
+assert execution_client.call_count == 1
+
+# and an empty original plan runs nothing at all
+planning_client = FakeLLMClient(scripted_responses=[[PlanBlock(sub_tasks=[])]])
+execution_client = FakeLLMClient(scripted_responses=[])
+assert run_plan_execute_replan(planning_client, execution_client, "goal") == []
+assert execution_client.call_count == 0
+`,
+  ]}
+  hint={'This is this concept\'s exact function, unchanged — the failure detection and replanning call happen inside the `while remaining_tasks:` loop, checking `result_block.type == "failure"` before deciding whether to append a result or replace `remaining_tasks` with a freshly-planned list.'}
+  correctAnswer={{
+    code: `def run_plan_execute_replan(planning_client, execution_client, goal: str) -> list:
+    plan_response = planning_client.create(messages=[{"role": "user", "content": goal}])
+    plan = plan_response.content[0]
+    results = []
+
+    remaining_tasks = list(plan.sub_tasks)
+    while remaining_tasks:
+        sub_task = remaining_tasks.pop(0)
+        response = execution_client.create(messages=[{"role": "user", "content": sub_task}])
+        result_block = response.content[0]
+
+        if result_block.type == "failure":
+            replan_response = planning_client.create(messages=[
+                {"role": "user", "content": f"Original goal: {goal}. This happened: {result_block.reason}. What should the remaining steps be?"}
+            ])
+            new_plan = replan_response.content[0]
+            remaining_tasks = list(new_plan.sub_tasks)
+        else:
+            results.append(result_block.text)
+    return results`,
+    explanation:
+      "planning_client.call_count == 2 confirms replanning genuinely happened — one call for the original plan, one for the revision — and the final result reflects the revised plan's single remaining step, not the original, now-invalid one.",
+  }}
+/>
+
+</CheckpointZone>

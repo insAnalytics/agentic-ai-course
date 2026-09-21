@@ -1160,6 +1160,30 @@ Module 1's training-pipeline lesson, which has nothing on concurrency; async is
 Module 0's async lesson, so the prose says Module 0 and links to that lesson's
 "What concurrency means here" subsection.
 
+**Grading replanning against scripted planner/executor clients (Lesson 2.8,
+Concept 5).** Stock `GradedExercise`; the hidden tests prepend
+`REACT_FAKE_CLIENT`, local `PlanBlock`/`FailureBlock` classes and
+`RECORDING_CLIENT`, so the learner's starter is just a stub
+`run_plan_execute_replan(planning_client, execution_client, goal)` (the function
+only touches the clients it's handed). The task now spells out the contract the
+mockup left implicit: the planner returns a block with `.sub_tasks`; each
+sub-task goes to the executor as one user message; a `text` block's `.text` is
+the step's result; a `failure` block triggers a second planner call whose
+message includes its `.reason`, replacing the remaining plan. Six hidden tests:
+the mockup's own (results, `planning_client.call_count == 2`,
+`execution_client.call_count == 2`); recorded messages (the planner is first
+given the goal, later the failure reason; the executor receives each sub-task
+text in order and the abandoned step never runs); a failure-free three-step run
+with one planner call; a failure partway through keeps earlier results and
+drops the rest of the old plan; a revised plan that itself fails is revised
+again; an empty revised plan (and an empty original plan) ends cleanly with
+no further executor calls. Verified against real Pyodide 0.26.4 with 11
+submissions: the reference passes all six; a stub, skipping the step without
+replanning, replanning without the reason, appending the new plan instead of
+replacing, putting the failure reason in the results, retrying the same step,
+replanning only once, sending the goal to the executor, and a syntax error each
+fail the expected tests. Live demo output matches the mockup exactly.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped
