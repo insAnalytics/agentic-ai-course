@@ -1312,6 +1312,22 @@ far" list directly below it.*
    fix" subsection; the task links Lesson 4's Recap & Practice page for
    `tools.py`. Lesson 2.7 is now fully Locked.
 
+8. **Planning** — Building
+   Title is a working name (folder `08-planning`) taken from earlier
+   mockups' lesson lists ("termination and control, planning, reflection,
+   ...") — confirm or rename once the bookends mockup arrives. Concept 1
+   drafted: goal decomposition (every loop so far is reactive; decomposing a
+   goal into sub-tasks *before* any execution; a `PlanBlock` and a live demo
+   printing a two-sub-task plan, using `REACT_FAKE_CLIENT`). Demo run in real
+   Pyodide, output matches the mockup exactly. No exercise, per its mockup.
+   The "every loop since Lesson 4" callback links to Lesson 4's intro (the
+   mockup points at the lesson, not a concept), the constrained-decoding
+   callback to Module 1's "A hard guarantee" subsection. **Finding:** the
+   mockup's "`enumerate`, from Module 0, the data structures lesson" callback
+   has no target (Module 0 never covers `enumerate`), so the prose now just
+   says what it is. Remaining: Concept 2 (plan representations: linear, tree,
+   dependency graph) onward, bookends. Not yet Locked.
+
 **Old outline (superseded):**
 
 1. Build AI Chatbot with No Code

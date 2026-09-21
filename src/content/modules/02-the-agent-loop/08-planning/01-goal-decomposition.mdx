@@ -1,0 +1,118 @@
+---
+title: "Goal decomposition"
+lesson: "08-planning"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT } from "../../../../lib/fakeClient";
+
+<Subsection title="Every loop so far has been purely reactive" variant="a">
+
+[Every loop built since Lesson 4](/02-the-agent-loop/04-writing-the-loop-by-hand/00-intro/)
+works the same way: at each step, decide what to do *next*, based on the
+current state — with no advance structure for the whole task laid out
+ahead of time. This works fine for simple tasks, but for a genuinely
+multi-step goal, deciding everything one step at a time, with no sense of
+the overall shape of what needs to happen, can mean real inefficiency, or
+losing track of the bigger picture entirely.
+
+</Subsection>
+
+<Subsection title="Decomposing before executing anything" variant="b">
+
+**Goal decomposition** is the alternative: before any execution begins,
+break a high-level goal into a set of concrete sub-tasks — a genuine
+upfront plan, distinct from reactive step-by-step decision-making.
+
+<LiveDemo client:load setupCode={REACT_FAKE_CLIENT} code={`class PlanBlock:
+    def __init__(self, sub_tasks: list):
+        self.type = "plan"
+        self.sub_tasks = sub_tasks
+
+decomposition_client = FakeLLMClient(scripted_responses=[
+    [PlanBlock(sub_tasks=[
+        "Check if 'research_agent' exists; create it with model 'claude-sonnet' if not.",
+        "Check if 'support_agent' exists; create it with model 'claude-haiku' if not.",
+    ])],
+])
+
+response = decomposition_client.create(messages=[{"role": "user", "content": "Register research_agent (claude-sonnet) and support_agent (claude-haiku) if they don't already exist."}])
+plan = response.content[0]
+print(f"decomposed into {len(plan.sub_tasks)} sub-tasks:")
+for i, task in enumerate(plan.sub_tasks, start=1):
+    print(f"  {i}. {task}")`} />
+
+(The updated fake client is already defined for this demo; `PlanBlock` is
+new.)
+
+A new block type, `PlanBlock`, represents a structured decomposition —
+[the same "give the model's output a real, checkable structure" instinct from constrained decoding, back in Module 1](/01-llm-foundations/10-structured-output-and-tool-calling/02-constrained-decoding/#a-hard-guarantee-not-a-soft-nudge),
+just applied to planning output rather than a tool call. Crucially, this
+entire response happens *before* any tool has been called at all —
+nothing about it is a reaction to a prior result, unlike every loop step
+covered in Lessons 4–7.
+
+</Subsection>
+
+<Subsection title="The real contrast" variant="a">
+
+`for i, task in enumerate(plan.sub_tasks, start=1):` — `enumerate` is
+Python's built-in for numbering items as you loop over them — is simply
+printing the plan, but the point worth sitting with is what's *not*
+happening here: no tool has run yet, no result has come back, and the
+agent already knows the shape of the whole task ahead of it. A reactive
+loop, by contrast, would have had no visibility into "there are two
+sub-tasks" until it had already executed the first one and seen what
+happened — decomposition trades that in-the-moment reactivity for upfront
+structure.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "How does every loop built in Lessons 4–7 decide what to do at each step?",
+      options: [
+        "By consulting a plan produced before execution began",
+        "Reactively — deciding only the *next* step, based on the current state, with no advance structure for the whole task",
+        "By randomly selecting from all available tools",
+        "By asking the user to specify every step manually",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Each iteration looks at the current `messages` and decides the next action. Nothing in those loops holds a plan for the whole task in advance.",
+    },
+    {
+      question: "What does goal decomposition actually produce, and when?",
+      options: [
+        "A single tool call, exactly like a reactive loop's first step",
+        "A set of concrete sub-tasks, produced entirely before any execution begins",
+        "The final answer to the user's original question, immediately",
+        "A decomposition only ever happens after the task is already complete",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The output is a plan: a list of sub-tasks, produced up front. No tool has been called at that point, and it isn't the final answer either.",
+    },
+    {
+      question: "What's the real, structural difference between a reactive loop and a decomposition-first approach, illustrated by the demo?",
+      options: [
+        "There's no real difference — both approaches behave identically",
+        "A reactive loop only learns the task's shape one step at a time, as results come back; decomposition reveals the whole plan's shape upfront, before any tool has been called at all",
+        "Decomposition never actually produces more than one sub-task",
+        "Reactive loops always require more total API calls than decomposition",
+      ],
+      correctIndex: 1,
+      explanation:
+        "In the demo the two sub-tasks are known before anything runs. A reactive loop would only find out about the second one after finishing the first. Call counts aren't what differs.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
