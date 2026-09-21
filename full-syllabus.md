@@ -1393,8 +1393,14 @@ far" list directly below it.*
    never feeds the critique back, so tests were added and the task now states the
    contract. Callbacks link to verified anchors (Lesson 6 goal-state check and max
    steps, Lesson 2 CoT). Lesson 6 Concept 4's plain-text "covered properly later
-   in this module" pointer now links here. Remaining: Concept 2 (when a second
-   pass genuinely helps) onward, bookends. Not yet Locked.
+   in this module" pointer now links here. 
+   Concept 2 drafted: when a second pass genuinely helps (generating vs.
+   checking as different tasks; omissions, format violations and internal
+   inconsistency as concrete shapes), with an explicit epistemic-care note that
+   the scripted client can't prove the asymmetry. Prose only, no demo or
+   exercise, per its mockup. Both callbacks link to verified anchors (Lesson 8's
+   Tree of Thought subsection, Concept 1's pattern subsection). Remaining:
+   Concept 3 (the limits, shared blind spots) onward, bookends. Not yet Locked.
 
 **Old outline (superseded):**
 

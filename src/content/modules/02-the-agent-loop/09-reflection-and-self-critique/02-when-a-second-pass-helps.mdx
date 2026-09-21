@@ -1,0 +1,103 @@
+---
+title: "When a second pass genuinely helps"
+lesson: "09-reflection-and-self-critique"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+> **Same epistemic care as elsewhere in this module:** the deterministic
+> fake client can't prove a model actually evaluates better than it
+> generates — this concept explains the *mechanistic reason* this
+> asymmetry is plausible, not something demonstrated with certainty.
+
+<Subsection title="Generating and checking are genuinely different tasks" variant="a">
+
+The real reason reflection can catch what a first pass missed:
+generating a response from nothing, open-ended, is often a *harder*
+task than checking a given candidate against explicit, already-stated
+criteria. Evaluation is closer to a constrained classification task —
+"does this satisfy X" — than to open-ended composition. The same
+underlying capability that might not reliably guarantee X during
+generation can often recognize, directly and specifically, whether X
+actually happened once there's something concrete to check it against.
+
+This is the same underlying asymmetry
+[Lesson 8's Tree of Thought evaluation step relied on](/02-the-agent-loop/08-planning-and-decomposition/03-tree-of-thought/#a-fixed-tree-vs-a-search-over-candidate-trees):
+scoring an already-generated candidate against criteria is a different,
+often more tractable task than generating the single best option
+directly, in one shot, with nothing to compare it against yet.
+
+</Subsection>
+
+<Subsection title="Concrete shapes this asymmetry takes" variant="b">
+
+- **Omissions.** "Mention the target audience" is a checkable fact once
+  a candidate exists — either it's there or it isn't. Guaranteeing that
+  detail gets included during open-ended generation, before anything's
+  actually been written, is a meaningfully different, harder kind of
+  reliability to ask for.
+- **Format violations.** "Exactly two sentences" is trivial to verify
+  against a finished candidate — count them. Reliably self-constraining
+  to exactly that length *while* generating is a different, often
+  less-reliable kind of task.
+- **Internal inconsistency.** Two parts of a longer response
+  contradicting each other is easier to spot by comparing two
+  already-written pieces side by side than to guarantee consistency
+  while generating linearly, one token at a time, without ever having
+  "seen" the whole response at once until it's already done.
+
+[Concept 1's critique](/02-the-agent-loop/09-reflection-and-self-critique/01-the-evaluator-optimizer-pattern/#the-pattern-generate-evaluate-revise-repeat)
+— `"Too vague -- doesn't mention specific features or the target audience"`
+— is exactly this kind of omission: trivially checkable once the candidate
+exists, genuinely harder to have guaranteed avoiding during the original,
+open-ended generation pass.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What's the core mechanistic reason reflection can catch what a first generation pass missed?",
+      options: [
+        "The evaluation step always uses a more powerful model than generation",
+        "Checking a candidate against explicit criteria is a more constrained task than open-ended generation, and the same capability that struggles to guarantee something during generation can often reliably recognize it once there's something concrete to check",
+        "Reflection always guarantees a perfect result on the second attempt",
+        "There's no real mechanistic explanation — reflection just happens to work",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Nothing here depends on a stronger evaluator or a guaranteed result. Judging a finished candidate against stated criteria is a narrower task than composing one from scratch, so the same model can do it more reliably.",
+    },
+    {
+      question: "Why is a format violation like \"should have been exactly two sentences\" a good example of this asymmetry?",
+      options: [
+        "Format violations can never actually be detected by any method",
+        "Counting sentences in an already-written candidate is trivial; reliably self-constraining to that exact length during open-ended generation is a meaningfully harder kind of reliability",
+        "Format requirements are always impossible to satisfy",
+        "This example has nothing to do with the generation-versus-checking asymmetry",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Checking is a count over something that already exists. Producing exactly that length while writing, with no draft to count, is the harder thing to guarantee.",
+    },
+    {
+      question: "How does this concept's argument connect to Lesson 8's Tree of Thought coverage?",
+      options: [
+        "It doesn't connect to anything covered previously",
+        "Both rely on the same underlying idea: scoring an already-generated candidate against criteria is often more tractable than generating the single best option directly, in one shot",
+        "ToT and reflection are actually the exact same mechanism",
+        "Lesson 8 explicitly argued against everything this concept claims",
+      ],
+      correctIndex: 1,
+      explanation:
+        "ToT generates candidates and scores them; reflection generates a candidate and evaluates it. Both lean on evaluating being easier than getting it right in one shot, though they're different mechanisms.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
