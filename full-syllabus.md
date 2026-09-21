@@ -1117,6 +1117,28 @@ far" list directly below it.*
    never does — flagged for the mockup author. Lesson 2.4 is now fully
    Locked.
 
+5. **ReAct and Reasoning in the Loop** — Building
+   Title is a working name taken from earlier mockups' callback text ("react
+   and reasoning in the loop lesson") — confirm or rename once the bookends
+   mockup arrives. Folder `05-react-and-reasoning-in-the-loop`. Concept 1
+   drafted: the ReAct pattern (an explicit `thinking` block ahead of each
+   action; the fake client evolves to scripted *lists* of blocks, added as
+   `REACT_FAKE_CLIENT` in `src/lib/fakeClient.ts` so Lesson 2.4 is
+   untouched; the loop iterates every block and appends `response.content`
+   whole; live demo matches the mockup's output exactly), plus Applied
+   sandbox exercise 1, graded for real by seven hidden tests (architecture.md
+   §4.1; verified against real Pyodide with 13 submissions). **Deviation:**
+   `"tool_use_id": block.id` added throughout, as in Lesson 2.4.
+   **Finding:** the mockup's inner-loop `break` is behaviorally a no-op with
+   scripted responses, so it can't be graded. All four callbacks link to
+   verified pages/anchors. Lesson 2.2 Concept 4's plain-text "the next
+   lesson extends" pointer (which the mockup says points here, though
+   Lesson 2.3 is actually next in order) now links to this concept. Lesson
+   2.2's bookends also point a "tool descriptions" callback at this lesson;
+   that stays plain text until a concept on tool descriptions exists.
+   Remaining: Concept 2 (why reasoning before acting improves tool choice)
+   onward, bookends. Not yet Locked.
+
 **Old outline (superseded):**
 
 1. Build AI Chatbot with No Code

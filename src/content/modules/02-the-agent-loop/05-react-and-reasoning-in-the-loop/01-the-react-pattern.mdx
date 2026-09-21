@@ -1,0 +1,306 @@
+---
+title: "The ReAct pattern — interleaving thought before action"
+lesson: "05-react-and-reasoning-in-the-loop"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+
+export const PRE = REACT_FAKE_CLIENT + RECORDING_CLIENT;
+
+<Subsection title="Jumping straight from state to action" variant="a">
+
+[Lesson 4's loop](/02-the-agent-loop/04-writing-the-loop-by-hand/02-from-round-trip-to-loop/#the-actual-loop-written-and-running-for-real)
+goes directly from receiving a response to acting on it — a `tool_use`
+block means "execute this," with no explicit reasoning step captured
+anywhere in between. **ReAct** (Reasoning + Acting) adds that missing
+step back in: an explicit `"thinking"` block, alongside `tool_use` and
+`text`, where the model's reasoning about *why* it's about to act becomes
+its own visible, distinguishable part of the response —
+[exactly chain-of-thought from Lesson 2](/02-the-agent-loop/02-prompting-fundamentals/04-chain-of-thought-prompting/#the-fix-asking-for-the-reasoning-explicitly),
+now applied specifically to *choosing an action* inside the loop, not
+just reasoning toward a standalone final answer.
+
+</Subsection>
+
+<Subsection title="Extending the fake client: multiple blocks, one response" variant="b">
+
+This requires a real evolution of
+[the fake client from Lesson 4](/02-the-agent-loop/04-writing-the-loop-by-hand/01-the-fake-llm-client/#a-minimal-working-version):
+a single response can now contain *more than one* content block together
+— a `thinking` block followed by the actual action —
+[matching the exact multi-block response shape from Module 1's reasoning-output coverage](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/06-reasoning-output-in-responses/#where-the-thinking-from-lesson-8-actually-shows-up),
+rather than one block per response as before.
+
+```python
+class ThinkingBlock:
+    def __init__(self, thinking: str):
+        self.type = "thinking"
+        self.thinking = thinking
+
+class FakeLLMClient:
+    def __init__(self, scripted_responses: list):
+        self.scripted_responses = scripted_responses   # now: a list of block-lists
+        self.call_count = 0
+
+    def create(self, messages: list) -> FakeResponse:
+        content_blocks = self.scripted_responses[self.call_count]
+        self.call_count += 1
+        return FakeResponse(content=content_blocks)
+```
+
+`scripted_responses` now holds a *list of lists* — each inner list is
+one full response's content, potentially containing several blocks
+together.
+
+</Subsection>
+
+<Subsection title="The loop, updated to process every block in a response" variant="a">
+
+```python
+def run_agent_loop(client, messages):
+    while True:
+        response = client.create(messages=messages)
+        for block in response.content:
+            if block.type == "thinking":
+                print(f"[reasoning]: {block.thinking}")
+            elif block.type == "tool_use":
+                tool_function = TOOL_REGISTRY[block.name]
+                result = tool_function(**block.input)
+                messages.append({"role": "assistant", "content": response.content})
+                messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
+                break
+            elif block.type == "text":
+                return block.text
+```
+
+The loop now iterates every block in a response — logging any
+`"thinking"` block along the way, then acting on whichever block
+actually represents the decision (`tool_use` or `text`). Appending
+`response.content` back into `messages` (rather than just the action
+block alone) preserves the model's own reasoning as part of the
+conversation history, exactly as it was actually generated. (The tool
+result still carries the call's `id` as `tool_use_id`, as in the last
+lesson.)
+
+</Subsection>
+
+<Subsection title="A complete run" variant="b">
+
+<LiveDemo client:load setupCode={REACT_FAKE_CLIENT} code={`def get_weather(location: str) -> str:
+    return f"It's sunny in {location}."
+
+TOOL_REGISTRY = {"get_weather": get_weather}
+
+def run_agent_loop(client, messages):
+    while True:
+        response = client.create(messages=messages)
+        for block in response.content:
+            if block.type == "thinking":
+                print(f"[reasoning]: {block.thinking}")
+            elif block.type == "tool_use":
+                tool_function = TOOL_REGISTRY[block.name]
+                result = tool_function(**block.input)
+                messages.append({"role": "assistant", "content": response.content})
+                messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
+                break
+            elif block.type == "text":
+                return block.text
+
+client = FakeLLMClient(scripted_responses=[
+    [ThinkingBlock(thinking="The user wants the weather in Paris. I should call get_weather."), ToolUseBlock(name="get_weather", input={"location": "Paris"})],
+    [ThinkingBlock(thinking="I now have what I need to answer."), TextBlock(text="It's sunny in Paris today!")],
+])
+
+messages = [{"role": "user", "content": "What's the weather in Paris?"}]
+final = run_agent_loop(client, messages)
+print(f"final answer: {final}")`} />
+
+(The updated fake client and the block classes are already defined for
+this demo. The loop from above is repeated here so the demo runs on its
+own.)
+
+Every action — the tool call *and* the eventual final answer — is now
+preceded by its own explicit reasoning, visible and inspectable, rather
+than happening silently.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does a `\"thinking\"` block add to the loop that Lesson 4's version didn't have?",
+      options: [
+        "A new way to execute a tool",
+        "An explicit, visible reasoning step before an action, rather than jumping directly from state to decision with no captured reasoning",
+        "A replacement for the `text` block entirely",
+        "A mechanism for stopping the loop early",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The `thinking` block doesn't execute or stop anything. It carries the model's stated reasoning for the action that follows it, so that reasoning is visible instead of implicit.",
+    },
+    {
+      question: "Why does a single response now potentially contain more than one block, unlike Lesson 4's version?",
+      options: [
+        "This is arbitrary and has no real basis in how real APIs work",
+        "It matches the actual multi-block response shape from Module 1's reasoning-output coverage — a thinking block and an action block genuinely arrive together in one response",
+        "Multiple blocks per response only happen when an error occurs",
+        "`FakeLLMClient` requires exactly two blocks per response, always",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A real response's content is a list of blocks, and reasoning comes back as its own block ahead of the action. Lesson 4's one-block-per-response fake was a simplification; the block count isn't fixed.",
+    },
+    {
+      question: "Why does the loop append `response.content` (the full list of blocks) rather than just the single action block back into `messages`?",
+      options: [
+        "It doesn't matter which is appended — the two are equivalent",
+        "It preserves the model's own reasoning as part of the conversation history, exactly as it was actually generated, not just the resulting action",
+        "`response.content` is required to always be appended in full for the fake client to function",
+        "Appending only the action block would cause a runtime error",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The two aren't equivalent: appending only the action drops the reasoning from the history the model sees on its next turn. Nothing would crash, which is exactly why it's an easy mistake to make.",
+    },
+  ]}
+/>
+
+<GradedExercise
+  client:load
+  task={'Given `check_price(item: str) -> str` (provided) and a `TOOL_REGISTRY` mapping it, update `run_agent_loop` to iterate every block in a response — logging any `"thinking"` block\'s content with `print(f"[reasoning]: {block.thinking}")`, executing and continuing on a `"tool_use"` block, and returning on a `"text"` block. As in the demo, append `response.content` and then a `tool_result` message (carrying the block\'s `id` as `tool_use_id`) to `messages` after each tool call.'}
+  starterCode={`def check_price(item: str) -> str:
+    return "$4.50" if item == "notebook" else "unknown"
+
+TOOL_REGISTRY = {"check_price": check_price}
+
+def run_agent_loop(client, messages):
+    # TODO: loop over every block in each response — log thinking blocks,
+    # run tool calls, and return the text of a final answer.
+    pass`}
+  hiddenTests={[
+    PRE + String.raw`
+client = FakeLLMClient(scripted_responses=[
+    [ThinkingBlock(thinking="I should check the price of the notebook."), ToolUseBlock(name="check_price", input={"item": "notebook"})],
+    [ThinkingBlock(thinking="I have the price now."), TextBlock(text="The notebook costs $4.50.")],
+])
+final_answer = run_agent_loop(client, [{"role": "user", "content": "..."}])
+assert final_answer == "The notebook costs $4.50."
+assert client.call_count == 2
+`,
+    PRE + String.raw`
+import io, contextlib
+client = FakeLLMClient(scripted_responses=[
+    [ThinkingBlock(thinking="I should check the price of the notebook."), ToolUseBlock(name="check_price", input={"item": "notebook"})],
+    [ThinkingBlock(thinking="I have the price now."), TextBlock(text="The notebook costs $4.50.")],
+])
+buf = io.StringIO()
+with contextlib.redirect_stdout(buf):
+    run_agent_loop(client, [{"role": "user", "content": "..."}])
+logged = [line for line in buf.getvalue().splitlines() if line.startswith("[reasoning]")]
+assert logged == ["[reasoning]: I should check the price of the notebook.", "[reasoning]: I have the price now."]
+`,
+    PRE + String.raw`
+def tool_results(messages):
+    return [c for m in messages if m["role"] == "user" and isinstance(m["content"], list) for c in m["content"] if isinstance(c, dict) and c.get("type") == "tool_result"]
+
+tool_block = ToolUseBlock(name="check_price", input={"item": "notebook"})
+client = RecordingClient(scripted_responses=[[ThinkingBlock(thinking="t"), tool_block], [TextBlock(text="done")]])
+run_agent_loop(client, [{"role": "user", "content": "..."}])
+results = tool_results(client.seen[1])
+assert len(results) == 1 and results[0]["content"] == "$4.50" and results[0]["tool_use_id"] == tool_block.id
+
+client = RecordingClient(scripted_responses=[
+    [ThinkingBlock(thinking="t"), ToolUseBlock(name="check_price", input={"item": "pencil"})],
+    [TextBlock(text="done")],
+])
+run_agent_loop(client, [{"role": "user", "content": "..."}])
+assert tool_results(client.seen[1])[0]["content"] == "unknown"
+`,
+    PRE + String.raw`
+thinking = ThinkingBlock(thinking="I should check the price of the notebook.")
+tool_block = ToolUseBlock(name="check_price", input={"item": "notebook"})
+client = RecordingClient(scripted_responses=[[thinking, tool_block], [TextBlock(text="done")]])
+run_agent_loop(client, [{"role": "user", "content": "..."}])
+second = client.seen[1]
+assert len(second) == 3
+assert second[1]["role"] == "assistant"
+assert len(second[1]["content"]) == 2
+assert second[1]["content"][0] is thinking and second[1]["content"][1] is tool_block
+assert second[2]["role"] == "user" and second[2]["content"][0]["type"] == "tool_result"
+`,
+    PRE + String.raw`
+import io, contextlib
+client = RecordingClient(scripted_responses=[
+    [ToolUseBlock(name="check_price", input={"item": "notebook"})],
+    [TextBlock(text="No reasoning needed.")],
+])
+buf = io.StringIO()
+with contextlib.redirect_stdout(buf):
+    final_answer = run_agent_loop(client, [{"role": "user", "content": "..."}])
+assert final_answer == "No reasoning needed."
+assert "[reasoning]" not in buf.getvalue()
+assert len(client.seen[1]) == 3
+`,
+    PRE + String.raw`
+import io, contextlib
+client = RecordingClient(scripted_responses=[
+    [ThinkingBlock(thinking="one"), ToolUseBlock(name="check_price", input={"item": "notebook"})],
+    [ThinkingBlock(thinking="two"), ToolUseBlock(name="check_price", input={"item": "pencil"})],
+    [ThinkingBlock(thinking="three"), ToolUseBlock(name="check_price", input={"item": "notebook"})],
+    [ThinkingBlock(thinking="four"), TextBlock(text="all done")],
+])
+buf = io.StringIO()
+with contextlib.redirect_stdout(buf):
+    final_answer = run_agent_loop(client, [{"role": "user", "content": "prices?"}])
+assert final_answer == "all done"
+assert client.call_count == 4
+assert len(client.seen[3]) == 7
+assert [l for l in buf.getvalue().splitlines() if l.startswith("[reasoning]")] == ["[reasoning]: one", "[reasoning]: two", "[reasoning]: three", "[reasoning]: four"]
+`,
+    PRE + String.raw`
+import io, contextlib
+client = FakeLLMClient(scripted_responses=[[ThinkingBlock(thinking="Easy one."), TextBlock(text="Hello!")]])
+buf = io.StringIO()
+with contextlib.redirect_stdout(buf):
+    final_answer = run_agent_loop(client, [{"role": "user", "content": "hi"}])
+assert final_answer == "Hello!"
+assert client.call_count == 1
+assert "[reasoning]: Easy one." in buf.getvalue()
+`,
+  ]}
+  hint={'This is nearly identical to this concept\'s demo — a `for block in response.content:` loop inside the `while`, handling all three block types, appending `response.content` (not just the action block) alongside the tool result, and `break`-ing the inner loop after handling a tool call so the outer `while` makes its next call.'}
+  correctAnswer={{
+    code: `def check_price(item: str) -> str:
+    return "$4.50" if item == "notebook" else "unknown"
+
+TOOL_REGISTRY = {"check_price": check_price}
+
+def run_agent_loop(client, messages):
+    while True:
+        response = client.create(messages=messages)
+        for block in response.content:
+            if block.type == "thinking":
+                print(f"[reasoning]: {block.thinking}")
+            elif block.type == "tool_use":
+                tool_function = TOOL_REGISTRY[block.name]
+                result = tool_function(**block.input)
+                messages.append({"role": "assistant", "content": response.content})
+                messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
+                break
+            elif block.type == "text":
+                return block.text`,
+    explanation:
+      "This is the exact ReAct-extended loop from this concept — genuinely tested against a scripted sequence where each response includes both reasoning and an action, confirming the loop correctly logs the reasoning, dispatches the tool call, and returns the final answer once it actually arrives.",
+  }}
+/>
+
+</CheckpointZone>

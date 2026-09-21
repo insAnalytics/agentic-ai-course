@@ -54,3 +54,31 @@ class RecordingClient(FakeLLMClient):
         self.seen.append(list(messages))
         return super().create(messages)
 `;
+
+/**
+ * Lesson 2.5 (ReAct) evolution of the fake client: a response is now a *list*
+ * of content blocks (a `thinking` block followed by the action, like a real
+ * multi-block response), so `scripted_responses` becomes a list of block-lists.
+ * Appended after `FAKE_CLIENT` it redefines `FakeLLMClient` and adds
+ * `ThinkingBlock`; `RECORDING_CLIENT` (defined after it) subclasses whichever
+ * `FakeLLMClient` is in scope, so it works with either version. The lesson
+ * page shows this exact text as a static block, so keep them identical.
+ */
+export const REACT_CLIENT_UPGRADE = String.raw`
+class ThinkingBlock:
+    def __init__(self, thinking: str):
+        self.type = "thinking"
+        self.thinking = thinking
+
+class FakeLLMClient:
+    def __init__(self, scripted_responses: list):
+        self.scripted_responses = scripted_responses   # now: a list of block-lists
+        self.call_count = 0
+
+    def create(self, messages: list) -> FakeResponse:
+        content_blocks = self.scripted_responses[self.call_count]
+        self.call_count += 1
+        return FakeResponse(content=content_blocks)
+`;
+
+export const REACT_FAKE_CLIENT = FAKE_CLIENT + REACT_CLIENT_UPGRADE;

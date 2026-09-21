@@ -895,6 +895,43 @@ each fail; only stringified results pass besides the reference, by design.
 task and reference answer (omitted by the mockup, as in Concepts 2-3), and
 the mockup's single test is expanded as above.
 
+**Grading a ReAct loop with multi-block responses (Lesson 2.5, Concept 1).**
+The fake client evolves: a response is now a *list* of content blocks (a
+`thinking` block, then the action), so `scripted_responses` becomes a list of
+block-lists. `src/lib/fakeClient.ts` gains `REACT_CLIENT_UPGRADE` (adds
+`ThinkingBlock`, redefines `FakeLLMClient`) and `REACT_FAKE_CLIENT`
+(`FAKE_CLIENT` + the upgrade); the original `FAKE_CLIENT` is untouched, so
+Lesson 2.4's demos and tests keep the one-block-per-response client.
+`RECORDING_CLIENT` subclasses whichever `FakeLLMClient` is in scope when it's
+defined, so `REACT_FAKE_CLIENT + RECORDING_CLIENT` records multi-block
+responses too. The lesson page shows `REACT_CLIENT_UPGRADE` as a static block;
+verified byte-identical (modulo surrounding whitespace) to the source the demo
+runs on. The exercise (`run_agent_loop`, stock `GradedExercise`, `check_price`
+and `TOOL_REGISTRY` in the starter) has seven hidden tests: (1) the mockup's
+own check; (2) reasoning is logged, in order, in the exact
+`[reasoning]: ...` format (stdout captured with `contextlib.redirect_stdout`,
+filtering to lines starting `[reasoning]` so extra prints aren't penalized);
+(3) the tool ran with the right arguments and its result, with the right
+`tool_use_id`, reached the model (different argument -> different result);
+(4) the assistant message appended for a tool call holds *both* the thinking
+block and the tool call, by identity (this is what catches appending only the
+action block, the concept's Q3 trap); (5) a response with no thinking block
+still works and logs nothing; (6) four steps in a row send back seven messages
+and log four reasoning lines; (7) `[Thinking, Text]` on the first call returns
+immediately. Verified against real Pyodide 0.26.4 with 13 submissions: the
+reference and a `list(response.content)` copy pass all seven; a stub, an
+action-only append (fails only (4)), no logging or a wrong log format (fail
+(2), (6), (7)), Lesson 2.4's single-block loop, a missing `tool_use_id`,
+passing the dict instead of unpacking, printing instead of returning, a
+hardcoded result, and a syntax error each fail the expected tests. **Finding:**
+the mockup's `break` after a tool call is a no-op here (the tool call is
+always the last block scripted), so omitting it passes every test; the hint
+mentions it as the mockup does, but nothing can grade it without scripting
+blocks after a tool call, which the mockup's loop wouldn't handle sensibly
+anyway. **Deviation from the mockup:** `"tool_use_id": block.id` is required
+in the loop, demo, task, and reference answer (omitted by the mockup, as in
+Lesson 2.4).
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped
