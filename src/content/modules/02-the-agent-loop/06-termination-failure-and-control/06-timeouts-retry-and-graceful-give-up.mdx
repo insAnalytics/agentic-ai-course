@@ -1,6 +1,6 @@
 ---
 title: "Timeouts, retry with backoff, and graceful give-up"
-lesson: "06-termination-and-control"
+lesson: "06-termination-failure-and-control"
 order: 6
 ---
 import Subsection from "../../../../components/lesson/Subsection.astro";
@@ -40,7 +40,7 @@ export const RETRY = String.raw`def call_with_retry(tool_function, max_retries: 
 
 <Subsection title="A different kind of failure than Concept 5's" variant="a">
 
-[Concept 5 handled a tool failing *definitively*](/02-the-agent-loop/06-termination-and-control/05-tool-errors-as-observations/#the-pain-an-unhandled-tool-error-crashes-the-entire-loop)
+[Concept 5 handled a tool failing *definitively*](/02-the-agent-loop/06-termination-failure-and-control/05-tool-errors-as-observations/#the-pain-an-unhandled-tool-error-crashes-the-entire-loop)
 — a clear, permanent error like "already exists," where trying again with
 the same input would just fail again. This concept covers two different,
 related risks: a tool that *hangs* — takes too long, never actually
@@ -94,7 +94,7 @@ defined here.)
 Once `max_retries` is exhausted, `call_with_retry` returns a clear,
 defined error string — never a crash, and never an unbounded retry
 loop.
-[Feeding this back as a `tool_result`, exactly as Concept 5 covered](/02-the-agent-loop/06-termination-and-control/05-tool-errors-as-observations/#the-fix-catch-it-and-let-the-model-see-it),
+[Feeding this back as a `tool_result`, exactly as Concept 5 covered](/02-the-agent-loop/06-termination-failure-and-control/05-tool-errors-as-observations/#the-fix-catch-it-and-let-the-model-see-it),
 lets the model see clearly that this specific approach genuinely didn't
 work after real effort, giving it a chance to try something else
 entirely, rather than either crashing the whole interaction or blindly

@@ -1170,10 +1170,11 @@ far" list directly below it.*
    callback pointing at this lesson, which stays plain: no concept here
    teaches tool descriptions. Lesson 2.5 is now fully Locked.
 
-6. **Termination and Control** — Building
-   Title is a working name (folder `06-termination-and-control`) taken from
-   earlier mockups' phrasing ("termination and control") — confirm or
-   rename once the bookends mockup arrives. Concept 1 drafted: the pain, a
+6. **Termination, Failure, and Control** — Locked
+   Title confirmed by the bookends mockup (renamed from the working name
+   "Termination and Control"; folder renamed from
+   `06-termination-and-control` to `06-termination-failure-and-control`,
+   links updated). Concept 1 drafted: the pain, a
    loop that never stops (nothing in the loop asks "have I done enough?";
    live demo of a model stuck re-requesting the same call, ending only when
    the finite 20-response script runs out with an `IndexError`, using
@@ -1242,9 +1243,22 @@ far" list directly below it.*
    checked; the tests neutralize `sleep`. The Concept 5 callbacks and the
    Module 1 backoff callback link to verified anchors. **Finding:** the
    demo's output says "waiting 8s before retrying" after the final failure
-   though no retry follows (kept, as it matches the code). Remaining:
-   bookends (outcomes callout/why it matters, comprehensive quiz,
-   comprehensive sandbox). Not yet Locked.
+   though no retry follows (kept, as it matches the code).
+
+   Bookends: outcomes/why-it-matters intro (`00-intro.mdx`, six outcomes)
+   and a Recap & Practice page (`07-recap-practice.mdx`) with a 9-question
+   comprehensive quiz spanning all six concepts, plus a **graded multi-file
+   comprehensive sandbox** (`execute_tool_safely` + the fully hardened
+   `run_agent_loop` in `agent_loop.py`, with `tools.py` provided read-only;
+   architecture.md §4.1; verified against real Pyodide with 13 submissions).
+   **Finding (real bug in the mockup):** the provided `tools.py` is described
+   as Lesson 4's, unchanged, but Lesson 4's `create_agent_entry` never raises,
+   so scenario 3's "definitive tool error" never occurred; `tools.py` now
+   includes Concept 5's duplicate check and scenario 3 asserts the model saw
+   the error. **Deviation:** `"tool_use_id": block.id` added. Callbacks link
+   to verified anchors (Lesson 4's intro for "Lesson 4's loop", its Recap &
+   Practice page for `tools.py`, and Concepts 3-6 subsections in the hint).
+   Lesson 2.6 is now fully Locked.
 
 **Old outline (superseded):**
 

@@ -1,0 +1,27 @@
+---
+title: "Intro"
+lesson: "06-termination-failure-and-control"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Explain why an agent loop has no natural stopping point on its own, and demonstrate the real cost risk that creates",
+    "Implement `max_steps` as a hard backstop, and explain its honest limitation",
+    "Implement repeated-action detection as a sharper, earlier-triggering guard, complementary to max steps",
+    "Implement a deterministic goal-state check as a third, success-based stopping mechanism, distinct from the model's own reasoning judgment",
+    "Turn a tool's exception into an observation the model can react to, rather than letting it crash the loop",
+    "Implement retry with exponential backoff for a transiently-failing tool, and a defined, graceful give-up path once retries are exhausted",
+  ]}
+/>
+
+<WhyItMatters>
+  [Lesson 4's loop](/02-the-agent-loop/04-writing-the-loop-by-hand/00-intro/)
+  works — but only under the assumption that everything goes right. This
+  lesson is what makes it something you'd actually trust running
+  unattended: every control mechanism here exists because something
+  specific, real, and costly can go wrong, and each one is a deliberate,
+  code-level answer to a distinct failure mode, not a vague safety net.
+</WhyItMatters>

@@ -1014,6 +1014,40 @@ pass (patched). **Deviation from the mockup:** the mockup's demo output prints
 retry follows; kept as-is since the output must match the code, but worth a
 look from the mockup author.
 
+**Grading a fully hardened multi-file loop (Lesson 2.6 comprehensive
+sandbox).** `MultiFileGradedExercise`, entry `agent_loop.py`, with `tools.py`
+provided read-only. The learner writes `execute_tool_safely` (retry
+`ConnectionError` with `2 ** attempt` backoff, return `Error: ...` for any
+other exception immediately, give up with the exact message) and
+`run_agent_loop` (max steps, repeated-call detection, dispatch through
+`execute_tool_safely`, goal-state check after each tool call). One hidden-test
+script (single pass/fail), `REACT_FAKE_CLIENT` + `RECORDING_CLIENT`
+prepended, re-declaring `UnreliableTool` itself and patching `time.sleep` (and
+a `sleep` name in `agent_loop`) to a no-op. It checks `execute_tool_safely` on
+its own (recovers on attempt 3; gives up after exactly `max_retries`
+attempts; a `ValueError` is returned after one attempt; kwargs forwarded), the
+mockup's three scenarios, and extras: in scenario 3 the model is *sent* the
+error string (`RecordingClient`); a transient tool registered in
+`tools.TOOL_REGISTRY` mid-test is retried inside the loop and its result
+paired by `tool_use_id`; different arguments aren't a repeat; `max_steps` caps
+a loop of all-different calls; correct history shape; text-first returns
+immediately. Verified against real Pyodide 0.26.4 (harness emulated) with 13
+submissions: the reference passes; a stub, no generic-exception branch,
+retrying every exception, no retry, no goal check, no repeat check, no cap,
+bare (unsafe) dispatch, a missing `tool_use_id`, name-only repeat detection, a
+wrong give-up message, and a syntax error each fail; a variant that really
+sleeps passes (patched). **Deviation from the mockup (real bug):** the mockup
+supplies "`tools.py` from Lesson 4, unchanged", but Lesson 4's
+`create_agent_entry` silently overwrites and never raises, so its scenario 3
+("a real, definitive tool error handled gracefully") never actually hit an
+error and would pass with no error handling at all (confirmed in real Pyodide: a
+bare-dispatch loop with no `try`/`except` passes the mockup's scenario 3 against
+Lesson 4's tools). The provided `tools.py` is instead Lesson 4's plus the duplicate
+check from Concept 5 (raises `ValueError` if the name exists), and the task
+says so; scenario 3 now also asserts the model received `Error: an agent named
+'research_agent' already exists`. Also: `"tool_use_id": block.id` required, as
+throughout.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped

@@ -1,6 +1,6 @@
 ---
 title: "Max steps — the first, simplest fix"
-lesson: "06-termination-and-control"
+lesson: "06-termination-failure-and-control"
 order: 2
 ---
 import Subsection from "../../../../components/lesson/Subsection.astro";
@@ -12,7 +12,7 @@ import { REACT_FAKE_CLIENT } from "../../../../lib/fakeClient";
 <Subsection title="The simplest possible guard: a hard cap, unconditionally" variant="a">
 
 The most basic fix for
-[Concept 1's pain](/02-the-agent-loop/06-termination-and-control/01-the-pain-a-loop-that-never-stops/):
+[Concept 1's pain](/02-the-agent-loop/06-termination-failure-and-control/01-the-pain-a-loop-that-never-stops/):
 a hard limit on the number of loop iterations, enforced by the code
 itself, regardless of what the model wants to keep doing. Once the cap is
 reached, the loop stops — cleanly, not via a crash — whether or not the
@@ -46,7 +46,7 @@ tool result carries its call's `id` as `tool_use_id`.)
 [the same `range()` pattern already covered back in Module 0](/00-python-essentials/01-python-basics/02-control-flow-and-syntax/#for-loops-iterate-over-values-not-a-counter)
 — caps the loop at exactly `max_steps` iterations. Against the exact same
 20-item repeated-call scenario
-[from Concept 1](/02-the-agent-loop/06-termination-and-control/01-the-pain-a-loop-that-never-stops/#watching-it-actually-happen),
+[from Concept 1](/02-the-agent-loop/06-termination-failure-and-control/01-the-pain-a-loop-that-never-stops/#watching-it-actually-happen),
 this version stops cleanly after 10 steps with a clear, informative
 message — no crash, no `IndexError`, and critically, this now works
 identically against a real model that could otherwise continue
@@ -66,7 +66,7 @@ distinguish "this agent is making real progress and just needs more
 room" from "this agent is stuck and will never actually finish." A
 sharper fix — one that can actually notice *why* a loop might be
 stuck, not just *how long* it's been running — is
-[covered next](/02-the-agent-loop/06-termination-and-control/03-repeated-action-detection/).
+[covered next](/02-the-agent-loop/06-termination-failure-and-control/03-repeated-action-detection/).
 
 </Subsection>
 

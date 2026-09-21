@@ -1,0 +1,356 @@
+---
+title: "Recap & Practice"
+lesson: "06-termination-failure-and-control"
+order: 7
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+
+export const PRE = REACT_FAKE_CLIENT + RECORDING_CLIENT;
+
+export const TOOLS_PY = `# in-memory stand-ins for the registry app's operations
+_registry = {}
+
+def check_agent_exists(name: str) -> bool:
+    return name in _registry
+
+def create_agent_entry(name: str, model: str) -> str:
+    if name in _registry:
+        raise ValueError(f"an agent named '{name}' already exists")
+    _registry[name] = {"model": model}
+    return f"created agent '{name}' with model '{model}'"
+
+TOOL_REGISTRY = {
+    "check_agent_exists": check_agent_exists,
+    "create_agent_entry": create_agent_entry,
+}`;
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does the loop, as written in earlier lessons, ever check to decide whether it's made enough progress?",
+      options: [
+        "A dedicated step counter built into the loop",
+        "Nothing at all — it only checks whether the response is a tool call or final text",
+        "The total number of tokens used",
+        "Whether the same tool has been called more than once",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The loop's only decision is tool call versus text. It keeps no count and no history, so it can't tell a productive run from a stuck one.",
+    },
+    {
+      question: "What does `max_steps` actually guarantee about a loop?",
+      options: [
+        "That the task will always be completed within the limit",
+        "That the loop stops after a fixed number of iterations, regardless of whether the task was actually completed",
+        "That repeated calls are automatically detected",
+        "That the model always receives a warning before the limit",
+      ],
+      correctIndex: 1,
+      explanation:
+        "It bounds the number of iterations and nothing else. It says nothing about whether the work got done, and it never looks at what the calls were.",
+    },
+    {
+      question: "What's the real, honest limitation of `max_steps`?",
+      options: [
+        "It has no limitations",
+        "It can't distinguish genuine multi-step progress from useless looping — both get cut off identically",
+        "It only works for tasks involving one tool",
+        "It can only be set to 10",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The cap looks only at the count, so a productive 15-step task and a stuck 15-step loop get the same cut-off and the same generic message.",
+    },
+    {
+      question: "What does repeated-action detection actually check for?",
+      options: [
+        "Whether a fixed step limit has been exceeded",
+        "Whether the exact same tool call — same name, same arguments — has already been made",
+        "Whether the model has taken too long",
+        "Whether any tool call has ever failed",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Each new tool call, name and arguments together, is compared against the calls already made. Step counts, timing and failures don't enter into it.",
+    },
+    {
+      question: "What kind of signal does a goal-state check rely on, compared to max steps or repeated-action detection?",
+      options: [
+        "The same failure signal as the other two guards",
+        "A success signal — deterministically verifying the real goal has actually been achieved",
+        "The model's own stated confidence",
+        "Total accumulated token cost",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The other two guards fire when something looks wrong. This one fires when the code can see the goal has been met, by inspecting real state rather than trusting anything the model says.",
+    },
+    {
+      question: "What does this lesson explicitly distinguish goal-state checks from, covered later in this module?",
+      options: [
+        "Max steps and repeated-action detection",
+        "The model itself judging whether its own work satisfies a checklist — a genuinely different, more sophisticated mechanism",
+        "Tool dispatch via a registry",
+        "The fake LLM client",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A goal-state check is plain code inspecting real state. Having the model judge its own work against a rubric is a different mechanism, saved for a later lesson.",
+    },
+    {
+      question: "What happens to the loop if a tool call raises an exception with no error handling?",
+      options: [
+        "The loop automatically catches it and continues",
+        "The exception propagates up and crashes the entire loop",
+        "The exception is silently ignored",
+        "Only that tool call fails; everything else keeps running",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Nothing in the loop catches it, so Python unwinds through the loop and the whole run ends with a traceback.",
+    },
+    {
+      question: "What's the actual difference between Concept 5's failure and Concept 6's?",
+      options: [
+        "No real difference",
+        "Concept 5 covers a definitive failure unlikely to change on retry; Concept 6 covers a failure that might genuinely succeed if tried again",
+        "Concept 5's failures are always more severe",
+        "Concept 6 only applies to tools that never succeed",
+      ],
+      correctIndex: 1,
+      explanation:
+        "\"Already exists\" fails the same way every time, so retrying is pointless. A dropped connection may work on the next attempt, which is what makes a retry worth it.",
+    },
+    {
+      question: "What does `call_with_retry` return once `max_retries` is exhausted?",
+      options: [
+        "It raises the original exception",
+        "A clear, defined error string — never a crash, never an unbounded retry",
+        "It retries forever",
+        "It silently returns `None`",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The retry loop is bounded, and falling out of it returns the give-up message. That string can go straight back to the model as a `tool_result`.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<MultiFileGradedExercise
+  client:load
+  entry="agent_loop.py"
+  task={'Implement both functions, combining every guard from this lesson into one hardened loop. `tools.py` is provided read-only: it\'s the `tools.py` from [Lesson 4\'s comprehensive sandbox](/02-the-agent-loop/04-writing-the-loop-by-hand/04-recap-practice/), except that `create_agent_entry` now raises a `ValueError` if the agent already exists, as in Concept 5. As in earlier exercises, after each tool call append the assistant\'s tool call and a `tool_result` message (carrying the block\'s `id` as `tool_use_id`) to `messages`. `agent_loop.py` is the entry file.'}
+  files={[
+    { name: "tools.py", readOnly: true, code: TOOLS_PY },
+    {
+      name: "agent_loop.py",
+      code: `from tools import TOOL_REGISTRY
+import tools
+
+def execute_tool_safely(tool_function, max_retries: int = 3, **kwargs):
+    """
+    TODO: retry on ConnectionError with exponential backoff (2 ** attempt);
+    on any OTHER exception, return f"Error: {str(e)}" immediately, no
+    retry; if all retries are exhausted, return
+    f"Error: tool failed after {max_retries} attempts, giving up".
+    """
+    pass
+
+def run_agent_loop(client, messages, target_agent_name: str, max_steps: int = 10):
+    """
+    TODO: the fully hardened loop — max_steps cap, repeated-action
+    detection, dispatch via execute_tool_safely, and a goal-state check
+    (target_agent_name in tools._registry) after each tool call.
+    """
+    pass`,
+    },
+  ]}
+  hiddenTests={PRE + String.raw`
+import io, contextlib, time
+import tools
+import agent_loop
+from agent_loop import run_agent_loop, execute_tool_safely
+
+# the tests never really wait, even if the learner's code sleeps
+time.sleep = lambda s: None
+if "sleep" in vars(agent_loop):
+    agent_loop.sleep = lambda s: None
+
+class UnreliableTool:
+    def __init__(self, fail_times):
+        self.fail_times = fail_times
+        self.attempt_count = 0
+    def __call__(self, value):
+        self.attempt_count += 1
+        if self.attempt_count <= self.fail_times:
+            raise ConnectionError(f"temporary connection issue (attempt {self.attempt_count})")
+        return f"processed: {value}"
+
+def quiet(fn, *args, **kwargs):
+    with contextlib.redirect_stdout(io.StringIO()):
+        return fn(*args, **kwargs)
+
+def tool_results(messages):
+    return [c for m in messages if m["role"] == "user" and isinstance(m["content"], list) for c in m["content"] if isinstance(c, dict) and c.get("type") == "tool_result"]
+
+USER = [{"role": "user", "content": "..."}]
+
+# execute_tool_safely on its own: transient failures are retried, then it gives up
+tool = UnreliableTool(fail_times=2)
+assert quiet(execute_tool_safely, tool, value="data") == "processed: data"
+assert tool.attempt_count == 3
+tool = UnreliableTool(fail_times=10)
+assert quiet(execute_tool_safely, tool, value="data") == "Error: tool failed after 3 attempts, giving up"
+assert tool.attempt_count == 3
+tool = UnreliableTool(fail_times=10)
+assert quiet(execute_tool_safely, tool, max_retries=2, value="data") == "Error: tool failed after 2 attempts, giving up"
+assert tool.attempt_count == 2
+
+# any other exception is returned immediately, with no retry
+seen = []
+def broken(name):
+    seen.append(name)
+    raise ValueError(f"bad name: {name}")
+assert quiet(execute_tool_safely, broken, name="x") == "Error: bad name: x"
+assert seen == ["x"]
+assert quiet(execute_tool_safely, lambda a, b: a + b, a=1, b=2) == 3
+
+# scenario 1: success, caught early by the goal-state check
+tools._registry.clear()
+client_1 = FakeLLMClient(scripted_responses=[
+    [ToolUseBlock(name="create_agent_entry", input={"name": "research_agent", "model": "claude-sonnet"})],
+    [ToolUseBlock(name="check_agent_exists", input={"name": "research_agent"})],  # never reached
+])
+result_1 = quiet(run_agent_loop, client_1, [{"role": "user", "content": "..."}], target_agent_name="research_agent")
+assert "goal reached" in result_1 and "research_agent" in result_1
+assert client_1.call_count == 1
+assert tools._registry["research_agent"] == {"model": "claude-sonnet"}
+
+# scenario 2: stuck loop, caught by repeated-action detection
+tools._registry.clear()
+client_2 = FakeLLMClient(scripted_responses=[
+    [ToolUseBlock(name="check_agent_exists", input={"name": "ghost_agent"})] for _ in range(20)
+])
+result_2 = quiet(run_agent_loop, client_2, [{"role": "user", "content": "..."}], target_agent_name="ghost_agent")
+assert "repeated call" in result_2
+assert client_2.call_count == 2
+
+# scenario 3: a real, definitive tool error handled gracefully, and the model sees it
+tools._registry.clear()
+tools._registry["research_agent"] = {"model": "claude-sonnet"}
+client_3 = RecordingClient(scripted_responses=[
+    [ToolUseBlock(name="create_agent_entry", input={"name": "research_agent", "model": "claude-sonnet"})],
+    [TextBlock(text="research_agent already exists, so I couldn't create it again.")],
+])
+result_3 = quiet(run_agent_loop, client_3, [{"role": "user", "content": "..."}], target_agent_name="new_agent_that_wont_exist")
+assert result_3 == "research_agent already exists, so I couldn't create it again."
+assert client_3.call_count == 2
+assert tool_results(client_3.seen[1])[0]["content"] == "Error: an agent named 'research_agent' already exists"
+
+# a transient failure inside the loop is retried, and the eventual result reaches the model
+tools._registry.clear()
+tools.TOOL_REGISTRY["flaky"] = UnreliableTool(fail_times=2)
+try:
+    flaky_call = ToolUseBlock(name="flaky", input={"value": "x"})
+    client_4 = RecordingClient(scripted_responses=[[flaky_call], [TextBlock(text="ok")]])
+    assert quiet(run_agent_loop, client_4, [{"role": "user", "content": "..."}], target_agent_name="nobody") == "ok"
+    assert tools.TOOL_REGISTRY["flaky"].attempt_count == 3
+    results = tool_results(client_4.seen[1])
+    assert results[0]["content"] == "processed: x" and results[0]["tool_use_id"] == flaky_call.id
+finally:
+    del tools.TOOL_REGISTRY["flaky"]
+
+# same tool with different arguments is not a repeat
+tools._registry.clear()
+client_5 = FakeLLMClient(scripted_responses=[
+    [ToolUseBlock(name="check_agent_exists", input={"name": "a"})],
+    [ToolUseBlock(name="check_agent_exists", input={"name": "b"})],
+    [TextBlock(text="Neither exists.")],
+])
+assert quiet(run_agent_loop, client_5, [{"role": "user", "content": "..."}], target_agent_name="never") == "Neither exists."
+assert client_5.call_count == 3
+
+# max_steps still caps a loop whose calls are all different
+tools._registry.clear()
+client_6 = FakeLLMClient(scripted_responses=[
+    [ToolUseBlock(name="check_agent_exists", input={"name": f"agent{i}"})] for i in range(12)
+])
+result_6 = quiet(run_agent_loop, client_6, [{"role": "user", "content": "..."}], target_agent_name="never", max_steps=5)
+assert isinstance(result_6, str) and "repeated call" not in result_6 and "goal reached" not in result_6
+assert client_6.call_count == 5
+
+# the history is built correctly, results paired with their calls
+tools._registry.clear()
+first = ToolUseBlock(name="check_agent_exists", input={"name": "writer"})
+client_7 = RecordingClient(scripted_responses=[[first], [TextBlock(text="done")]])
+quiet(run_agent_loop, client_7, [{"role": "user", "content": "..."}], target_agent_name="writer")
+second = client_7.seen[1]
+assert len(second) == 3
+assert second[1]["role"] == "assistant" and second[1]["content"][0] is first
+assert second[2]["role"] == "user" and second[2]["content"][0]["type"] == "tool_result"
+assert second[2]["content"][0]["tool_use_id"] == first.id
+assert second[2]["content"][0]["content"] in (False, "False")
+
+# a final text answer on the first call returns immediately
+client_8 = FakeLLMClient(scripted_responses=[[TextBlock(text="Hello!")]])
+assert quiet(run_agent_loop, client_8, [{"role": "user", "content": "hi"}], target_agent_name="anything") == "Hello!"
+assert client_8.call_count == 1
+`}
+  hint={"`execute_tool_safely` combines [Concept 5's immediate catch for a definitive error](/02-the-agent-loop/06-termination-failure-and-control/05-tool-errors-as-observations/#the-fix-catch-it-and-let-the-model-see-it) with [Concept 6's retry loop for a transient one](/02-the-agent-loop/06-termination-failure-and-control/06-timeouts-retry-and-graceful-give-up/#retry-with-exponential-backoff-the-same-pattern-a-new-context) — two separate `except` clauses inside the same `for attempt in range(max_retries):` loop. `run_agent_loop` combines [Concept 3's `seen_calls` check](/02-the-agent-loop/06-termination-failure-and-control/03-repeated-action-detection/#a-sharper-signal-than-too-many-steps), [Concept 4's goal-state check](/02-the-agent-loop/06-termination-failure-and-control/04-goal-state-termination-checks/#a-deterministic-check-on-real-state), and dispatch through `execute_tool_safely` instead of a bare function call — every earlier concept's exact code, assembled into one function."}
+  correctFiles={[
+    { name: "tools.py", code: TOOLS_PY },
+    {
+      name: "agent_loop.py",
+      code: `from tools import TOOL_REGISTRY
+import tools
+
+def execute_tool_safely(tool_function, max_retries: int = 3, **kwargs):
+    for attempt in range(max_retries):
+        wait_time = 2 ** attempt
+        try:
+            return tool_function(**kwargs)
+        except ConnectionError as e:
+            print(f"attempt {attempt + 1} failed ({e}), waiting {wait_time}s before retrying")
+        except Exception as e:
+            return f"Error: {str(e)}"
+    return f"Error: tool failed after {max_retries} attempts, giving up"
+
+def run_agent_loop(client, messages, target_agent_name: str, max_steps: int = 10):
+    seen_calls = []
+    for step_count in range(1, max_steps + 1):
+        response = client.create(messages=messages)
+        block = response.content[0]
+        if block.type == "tool_use":
+            current_call = (block.name, block.input)
+            if current_call in seen_calls:
+                return f"stopped after detecting a repeated call to {block.name} with the same arguments"
+            seen_calls.append(current_call)
+
+            tool_function = TOOL_REGISTRY[block.name]
+            result = execute_tool_safely(tool_function, **block.input)
+
+            messages.append({"role": "assistant", "content": response.content})
+            messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
+
+            if target_agent_name in tools._registry:
+                return f"goal reached: '{target_agent_name}' now exists in the registry"
+        elif block.type == "text":
+            return block.text
+    return f"stopped after reaching the maximum of {max_steps} steps without a final answer"`,
+    },
+  ]}
+  explanation="Every guard from this lesson does real, distinct work in these three scenarios: goal-state detection ends scenario 1 after a single call, before two entirely avoidable ones; repeated-action detection catches scenario 2's stuck pattern on the second identical call, not the twentieth; and execute_tool_safely's immediate, no-retry `except Exception` branch handles scenario 3's genuine, definitive conflict cleanly, letting the model produce a real, sensible explanation instead of crashing the whole interaction. This is the fully hardened version of the loop this entire lesson has been building toward."
+/>
+
+</CheckpointZone>
