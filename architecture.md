@@ -1104,6 +1104,34 @@ mockup's hidden test expected the `tool_use` dict without an `id`, and its demo'
 `tool_result` had no `tool_use_id`; both now carry the `id`, consistent with
 Concept 2 and Lessons 2.4-2.6.
 
+**Grading a multi-file interrupted-and-resumed cycle (Lesson 2.7
+comprehensive sandbox).** `MultiFileGradedExercise`, entry
+`checkpoint_demo.py`, with two read-only provided files: `tools.py` (Lesson
+2.4's, unchanged, per the mockup) and `checkpoint.py` (`serialize_messages`,
+`save_checkpoint`, `load_checkpoint` from this lesson; the mockup listed them as
+"context provided" but a module has to exist for the tests to import them from).
+The learner writes `run_partial_session` (exactly one tool-call step, returning
+the updated messages) and `resume_and_finish` (one `client.create`, return the
+text). One hidden-test script (single pass/fail) prepends `REACT_FAKE_CLIENT`, a
+`to_dict` patch on its block classes (`dict(vars(self))`, as in Concept 3's demo
+setup), and `RECORDING_CLIENT`, and runs the whole cycle against a real file
+(`session_checkpoint.json`, removed in a `finally`): the mockup's cycle (registry
+updated by session 1, final answer, `call_count == 1`); the partial session
+stops after exactly one step even with more responses queued, leaves only the
+first agent in the registry, and builds `[user, assistant(tool_use block),
+user(tool_result with the right content and `tool_use_id`)]`; after save and load
+the `tool_use` `id` still matches the `tool_result`'s `tool_use_id`; and
+resuming passes exactly the loaded messages to the client (recorded), makes one
+call, and re-runs no tool (the registry is cleared first and must stay empty).
+In-place mutation of `initial_messages` is allowed, since the task only says
+"return the updated list". Verified against real Pyodide 0.26.4 (harness
+emulated) with 11 submissions: the reference and an in-place variant pass; a stub,
+a tool that never executes, a missing `tool_use_id`, a partial session that runs
+the whole loop, returning `None`, returning blocks instead of text, resuming with
+the wrong messages, calling the client twice, and a syntax error each fail; no
+checkpoint file is left behind. **Deviation:** `"tool_use_id": block.id` is
+required in the task and reference answer, as throughout.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped

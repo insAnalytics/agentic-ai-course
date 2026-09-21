@@ -1,0 +1,25 @@
+---
+title: "Intro"
+lesson: "07-agent-state-and-the-scratchpad"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Explain why the accumulating `messages` list is the agent's entire state, grounded in the model's own statelessness",
+    "Serialize a scratchpad containing custom block objects into genuine JSON, correctly handling a mix of objects and already-plain dicts",
+    "Implement a full checkpoint-and-resume cycle, and explain why resuming doesn't require reconstructing the original objects",
+  ]}
+/>
+
+<WhyItMatters>
+  Every loop built since Lesson 4 has quietly depended on the scratchpad
+  without ever naming it — this lesson makes that dependency explicit and
+  gives it real infrastructure: the ability to save real, in-progress
+  agent work and pick it back up without redoing anything already
+  completed. For any task that runs long enough to actually risk
+  interruption, this isn't optional infrastructure — it's the difference
+  between a system that can run unattended and one that can't.
+</WhyItMatters>

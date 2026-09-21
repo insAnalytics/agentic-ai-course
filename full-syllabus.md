@@ -1260,11 +1260,9 @@ far" list directly below it.*
    Practice page for `tools.py`, and Concepts 3-6 subsections in the hint).
    Lesson 2.6 is now fully Locked.
 
-7. **Agent State and the Scratchpad** — Building
-   Title is a working name (folder `07-agent-state-and-the-scratchpad`)
-   inferred from Concept 1 ("the scratchpad") and its forward pointer to
-   Concept 2 ("serializing state") — confirm or rename once the bookends
-   mockup arrives. Concept 1 drafted: what the loop accumulates — the
+7. **Agent State and the Scratchpad** — Locked
+   Title confirmed by the bookends mockup (my working name was right; folder
+   `07-agent-state-and-the-scratchpad`). Concept 1 drafted: what the loop accumulates — the
    scratchpad (the `messages` list, named as the agent's entire state,
    grounded in Module 1's statelessness; a live demo of it growing from 1 to
    3 entries using `REACT_FAKE_CLIENT`; scoped explicitly away from a fuller
@@ -1297,9 +1295,22 @@ far" list directly below it.*
    the `tool_use` dict includes `id` and the demo/tests carry `tool_use_id`, as
    in Concept 2 and Lessons 2.4-2.6; the exercise's tests clean up their own
    files. Callbacks link to verified anchors (Module 1 pricing mechanics,
-   Module 0 `with open`, Concept 2's fix subsection). Remaining: bookends
-   (outcomes callout/why it matters, comprehensive quiz, comprehensive
-   sandbox). Not yet Locked.
+   Module 0 `with open`, Concept 2's fix subsection).
+
+   Bookends: outcomes/why-it-matters intro (`00-intro.mdx`) and a Recap &
+   Practice page (`04-recap-practice.mdx`) with a 7-question comprehensive
+   quiz spanning all three concepts, plus a **graded multi-file
+   comprehensive sandbox**: the learner writes `run_partial_session` and
+   `resume_and_finish` in `checkpoint_demo.py`, with `tools.py` (Lesson 4's,
+   unchanged) and `checkpoint.py` (this lesson's serialize/save/load) provided
+   read-only; graded by one hidden-test script that runs a real
+   save-then-resume cycle through a file (architecture.md §4.1; verified
+   against real Pyodide with 11 submissions). **Deviations:** `"tool_use_id":
+   block.id` added; the mockup's "context provided" functions live in a
+   read-only `checkpoint.py` so the tests can import them. The hint's
+   "familiar dispatch pattern" callback links to Lesson 4 Concept 3's "The
+   fix" subsection; the task links Lesson 4's Recap & Practice page for
+   `tools.py`. Lesson 2.7 is now fully Locked.
 
 **Old outline (superseded):**
 

@@ -1,0 +1,277 @@
+---
+title: "Recap & Practice"
+lesson: "07-agent-state-and-the-scratchpad"
+order: 4
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+
+export const PRE = REACT_FAKE_CLIENT + String.raw`
+def _block_to_dict(self):
+    return dict(vars(self))
+
+for _cls in (ThinkingBlock, ToolUseBlock, TextBlock):
+    _cls.to_dict = _block_to_dict
+` + RECORDING_CLIENT;
+
+export const TOOLS_PY = `# in-memory stand-ins for the registry app's operations —
+# real HTTP calls to a live API are outside this lesson's scope
+_registry = {}
+
+def check_agent_exists(name: str) -> bool:
+    return name in _registry
+
+def create_agent_entry(name: str, model: str) -> str:
+    _registry[name] = {"model": model}
+    return f"created agent '{name}' with model '{model}'"
+
+TOOL_REGISTRY = {
+    "check_agent_exists": check_agent_exists,
+    "create_agent_entry": create_agent_entry,
+}`;
+
+export const CHECKPOINT_PY = `import json
+
+def serialize_messages(messages: list) -> list:
+    serializable = []
+    for message in messages:
+        content = message["content"]
+        if isinstance(content, list):
+            content = [block.to_dict() if hasattr(block, "to_dict") else block for block in content]
+        serializable.append({"role": message["role"], "content": content})
+    return serializable
+
+def save_checkpoint(messages: list, filepath: str) -> None:
+    serialized = serialize_messages(messages)
+    with open(filepath, "w") as f:
+        json.dump(serialized, f, indent=2)
+
+def load_checkpoint(filepath: str) -> list:
+    with open(filepath, "r") as f:
+        return json.load(f)`;
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What is the agent's \"scratchpad\"?",
+      options: [
+        "A separate database the model queries independently",
+        "The accumulating `messages` list — the working record of everything that's happened in this specific loop run",
+        "A cache maintained automatically by the LLM provider",
+        "Something entirely separate from the messages sent to the API",
+      ],
+      correctIndex: 1,
+      explanation:
+        "It's the `messages` list the loop has been building since Lesson 4. Nothing sits alongside it: no database, no provider-side cache.",
+    },
+    {
+      question: "Why does the scratchpad have to be the agent's entire state?",
+      options: [
+        "This isn't actually true",
+        "The model remembers nothing between API calls, so anything not included in `messages` doesn't exist as far as the model is concerned",
+        "The scratchpad is optional",
+        "State is stored server-side automatically",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Each call starts fresh and `messages` is resent in full, so whatever isn't in that list can't influence the next response.",
+    },
+    {
+      question: "Why does `json.dumps(messages)` fail directly on the raw scratchpad?",
+      options: [
+        "The scratchpad contains too much data",
+        "It contains real Python objects — `ThinkingBlock`, `ToolUseBlock` — which `json.dumps` has no built-in way to convert",
+        "`json.dumps` only works on strings",
+        "This is identical to a `JSONDecodeError`",
+      ],
+      correctIndex: 1,
+      explanation:
+        "`json.dumps` only knows plain dicts, lists, strings, numbers, booleans and `None`. A custom object raises a `TypeError`; a `JSONDecodeError` is the opposite direction, parsing bad text.",
+    },
+    {
+      question: "What does a `to_dict()` method actually do?",
+      options: [
+        "It converts the block into a JSON-formatted string directly",
+        "It converts the block into a plain, JSON-serializable dict",
+        "It deletes the block's data",
+        "It has no functional effect",
+      ],
+      correctIndex: 1,
+      explanation:
+        "It returns a dict of plain values, which `json.dumps` can then turn into text. Its job is only to make the object JSON-shaped.",
+    },
+    {
+      question: "Why does `serialize_messages` check `hasattr(block, \"to_dict\")` before calling it?",
+      options: [
+        "This check is unnecessary",
+        "Some content items, like `tool_result` entries, are already plain dicts with no `to_dict` method",
+        "`hasattr` is required for any dict operation",
+        "`to_dict` only exists on the first content item",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A content list can mix objects and plain dicts, and calling `.to_dict()` on a dict raises an `AttributeError`. The check converts what needs converting and passes the rest through.",
+    },
+    {
+      question: "Why does interrupting a long-running task without a checkpoint mechanism risk real, unnecessary cost?",
+      options: [
+        "It doesn't — restarting is always free",
+        "Without saved state, resuming means redoing every step already completed, including real, already-paid-for calls",
+        "Checkpointing has no relationship to cost",
+        "This only applies to single-tool tasks",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Every step is a paid request, and with no saved scratchpad the only way back to where you were is to redo those steps.",
+    },
+    {
+      question: "Why doesn't `load_checkpoint` need to reconstruct `ThinkingBlock`/`ToolUseBlock` objects?",
+      options: [
+        "It actually does need to",
+        "Resuming only needs `messages` to be valid, re-sendable data going forward — not the exact original objects",
+        "These objects don't need to be saved at all",
+        "`load_checkpoint` is only for reading, never resuming",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The model only ever sees the data in `messages`, and plain dicts carry all of it. Serialization is a one-way trip, and nothing about resuming needs to reverse it.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<MultiFileGradedExercise
+  client:load
+  entry="checkpoint_demo.py"
+  task={'Implement both functions in `checkpoint_demo.py`, so they can be used together with `save_checkpoint`/`load_checkpoint` to prove a full interrupted-and-resumed cycle: run one step, save, "restart" by loading the checkpoint, and finish — confirming the tool call from before the checkpoint is never repeated. `tools.py` is provided unchanged from [Lesson 4\'s comprehensive sandbox](/02-the-agent-loop/04-writing-the-loop-by-hand/04-recap-practice/), and `checkpoint.py` holds `serialize_messages`, `save_checkpoint` and `load_checkpoint` from this lesson (both read-only). As in earlier exercises, the tool result you append carries the block\'s `id` as `tool_use_id`.'}
+  files={[
+    { name: "tools.py", readOnly: true, code: TOOLS_PY },
+    { name: "checkpoint.py", readOnly: true, code: CHECKPOINT_PY },
+    {
+      name: "checkpoint_demo.py",
+      code: `import tools
+from tools import TOOL_REGISTRY
+
+def run_partial_session(client, initial_messages: list) -> list:
+    """
+    TODO: run the loop for exactly one tool-call step (call the client,
+    execute the resulting tool call via TOOL_REGISTRY, append the
+    assistant and tool_result messages), then return the updated
+    messages list WITHOUT continuing further — simulating a session
+    that gets interrupted right after this one step.
+    """
+    pass
+
+def resume_and_finish(client, resumed_messages: list) -> str:
+    """
+    TODO: continue the loop from resumed_messages — call the client,
+    and return the text once a final text block arrives. Assume this
+    session's client is scripted to finish in one more call.
+    """
+    pass`,
+    },
+  ]}
+  hiddenTests={PRE + String.raw`
+import os
+import tools
+from checkpoint import save_checkpoint, load_checkpoint
+from checkpoint_demo import run_partial_session, resume_and_finish
+
+PATH = "session_checkpoint.json"
+
+def cleanup():
+    if os.path.exists(PATH):
+        os.remove(PATH)
+
+try:
+    # the mockup's cycle: one step, save, "restart" from the file, finish
+    tools._registry.clear()
+    session_1_client = FakeLLMClient(scripted_responses=[
+        [ToolUseBlock(name="create_agent_entry", input={"name": "research_agent", "model": "claude-sonnet"})],
+    ])
+    messages_after_step_1 = run_partial_session(session_1_client, [{"role": "user", "content": "..."}])
+    save_checkpoint(messages_after_step_1, PATH)
+
+    # proves the entry was genuinely created during session 1, before any "resume"
+    assert tools._registry["research_agent"] == {"model": "claude-sonnet"}
+
+    resumed_messages = load_checkpoint(PATH)
+    session_2_client = FakeLLMClient(scripted_responses=[
+        [TextBlock(text="research_agent has been created with claude-sonnet.")],
+    ])
+    final_answer = resume_and_finish(session_2_client, resumed_messages)
+
+    assert final_answer == "research_agent has been created with claude-sonnet."
+    assert session_2_client.call_count == 1   # never repeats the already-completed tool call
+
+    # the partial session is exactly one step, even if more responses were queued
+    tools._registry.clear()
+    first = ToolUseBlock(name="create_agent_entry", input={"name": "writer", "model": "claude-haiku"})
+    session_1_client = FakeLLMClient(scripted_responses=[
+        [first],
+        [ToolUseBlock(name="create_agent_entry", input={"name": "editor", "model": "claude-haiku"})],
+        [TextBlock(text="never reached")],
+    ])
+    messages_after_step_1 = run_partial_session(session_1_client, [{"role": "user", "content": "..."}])
+    assert session_1_client.call_count == 1
+    assert list(tools._registry) == ["writer"]
+    assert len(messages_after_step_1) == 3
+    assert messages_after_step_1[1]["role"] == "assistant" and messages_after_step_1[1]["content"][0] is first
+    assert messages_after_step_1[2]["role"] == "user"
+    tool_result = messages_after_step_1[2]["content"][0]
+    assert tool_result["type"] == "tool_result"
+    assert tool_result["content"] == "created agent 'writer' with model 'claude-haiku'"
+    assert tool_result["tool_use_id"] == first.id
+
+    # the tool call and its result survive the file, still paired up
+    save_checkpoint(messages_after_step_1, PATH)
+    resumed = load_checkpoint(PATH)
+    assert resumed[1]["content"][0]["id"] == resumed[2]["content"][0]["tool_use_id"] == first.id
+
+    # resuming hands the loaded messages to the client, runs no tool, and calls it once
+    tools._registry.clear()
+    session_2_client = RecordingClient(scripted_responses=[[TextBlock(text="all done")]])
+    assert resume_and_finish(session_2_client, resumed) == "all done"
+    assert session_2_client.call_count == 1
+    assert session_2_client.seen[0] == resumed
+    assert tools._registry == {}
+finally:
+    cleanup()
+`}
+  hint={"`run_partial_session` is a single iteration of [the familiar dispatch pattern](/02-the-agent-loop/04-writing-the-loop-by-hand/03-handling-multiple-tools/#the-fix-a-dict-mapping-names-to-actual-callables), returning the updated `messages` instead of looping further. `resume_and_finish` is even simpler — one `client.create(messages=resumed_messages)` call, returning `response.content[0].text` directly, since its scripted client is set up to finish immediately."}
+  correctFiles={[
+    { name: "tools.py", code: TOOLS_PY },
+    { name: "checkpoint.py", code: CHECKPOINT_PY },
+    {
+      name: "checkpoint_demo.py",
+      code: `from tools import TOOL_REGISTRY
+import tools
+
+def run_partial_session(client, initial_messages: list) -> list:
+    response = client.create(messages=initial_messages)
+    block = response.content[0]
+    tool_function = TOOL_REGISTRY[block.name]
+    result = tool_function(**block.input)
+    messages = initial_messages + [
+        {"role": "assistant", "content": response.content},
+        {"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]},
+    ]
+    return messages
+
+def resume_and_finish(client, resumed_messages: list) -> str:
+    response = client.create(messages=resumed_messages)
+    return response.content[0].text`,
+    },
+  ]}
+  explanation="This is the real payoff of everything this lesson built: tools.py already has research_agent recorded after session 1 alone — save_checkpoint captures that same fact in messages, and resume_and_finish's client never needs to touch create_agent_entry again, since the checkpoint already carries the completed work forward. A genuinely interrupted, genuinely resumed task, finishing correctly without redoing anything real."
+/>
+
+</CheckpointZone>
