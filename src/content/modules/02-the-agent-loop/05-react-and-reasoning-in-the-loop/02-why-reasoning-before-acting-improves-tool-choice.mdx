@@ -1,0 +1,118 @@
+---
+title: "Why reasoning before acting improves tool choice"
+lesson: "05-react-and-reasoning-in-the-loop"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+> **A note on scope:** the fake client is fully deterministic and
+> scripted — it can show the *structure* of reasoning preceding an
+> action, but it can't genuinely demonstrate a model making a *better*
+> decision because it reasoned first, since every response here is
+> authored in advance, not actually decided by live judgment. What this
+> concept can do is apply an already-proven mechanism —
+> [Lesson 2's chain-of-thought scaffolding effect](/02-the-agent-loop/02-prompting-fundamentals/04-chain-of-thought-prompting/#the-fix-asking-for-the-reasoning-explicitly)
+> — to a new situation, rather than re-proving it from scratch.
+
+<Subsection title="The same mechanism, now shaping which tool gets chosen" variant="a">
+
+[Lesson 2 demonstrated concretely](/02-the-agent-loop/02-prompting-fundamentals/04-chain-of-thought-prompting/#the-fix-asking-for-the-reasoning-explicitly)
+that writing out an intermediate reasoning step becomes part of the
+actual sequence the next prediction conditions on — not a documentation
+nicety, a real mechanical effect on generation.
+[Concept 1's](/02-the-agent-loop/05-react-and-reasoning-in-the-loop/01-the-react-pattern/)
+`"thinking"` block applies that exact same mechanism to *tool selection*
+specifically: reasoning explicitly about *which* tool fits, and *why*,
+before producing the `tool_use` block, means that reasoning text is
+genuinely present in the context the `tool_use` block itself gets
+generated from.
+
+</Subsection>
+
+<Subsection title="Where this matters: genuinely ambiguous tool choices" variant="b">
+
+Consider an agent with two available tools: `search_database` (an
+internal company knowledge base) and `search_web` (general internet
+search). A user asks: *"What's our current return policy for damaged
+items?"* Nothing in the query alone makes the right tool choice
+completely obvious without some actual judgment — this is internal,
+company-specific information, so `search_database` is very likely the
+better fit, but a model jumping straight to a tool call, with no
+reasoning captured anywhere, has no visible trace of ever having
+weighed that distinction at all.
+
+```
+Illustrative reasoning block: "The user is asking about our company's
+own return policy — this is internal information, not something a
+general web search would reliably have. I should use search_database
+rather than search_web."
+```
+
+Writing this out *before* the resulting `tool_use` block means the
+distinction between "internal knowledge" and "general web content" is
+now explicitly present in the sequence — the same scaffolding effect
+that helped arithmetic accuracy in Lesson 2, here applied to a genuinely
+judgment-dependent tool selection instead of a calculation.
+
+</Subsection>
+
+<Subsection title="Why this concept doesn't (and can't) prove the claim with the fake client" variant="a">
+
+It's worth being honest about the limit here: a scripted demo showing
+"reasoning present → correct tool chosen" doesn't actually *prove*
+reasoning caused the correct choice, since the exercise author scripted
+both together in advance. The actual evidence for this mechanism is
+[what Lesson 2 already demonstrated with real numbers](/02-the-agent-loop/02-prompting-fundamentals/04-chain-of-thought-prompting/#the-fix-asking-for-the-reasoning-explicitly)
+— this concept's job is applying that already-established mechanism to a
+new, genuinely useful case, not manufacturing new proof the deterministic
+fake client structurally can't provide.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What mechanism does this concept apply to tool selection, originally demonstrated in a different context?",
+      options: [
+        "Constrained decoding, from Module 1",
+        "Chain-of-thought's scaffolding effect from Lesson 2 — written-out reasoning becomes part of what the next prediction conditions on",
+        "The KV cache mechanism from Module 1",
+        "Presence penalty, from Module 1",
+      ],
+      correctIndex: 1,
+      explanation:
+        "It's the same effect as Lesson 2's step-by-step arithmetic: text the model has already generated is part of the context for what it generates next. Here that text is the reasoning about which tool fits.",
+    },
+    {
+      question: "Why can the `search_database` vs. `search_web` example be considered genuinely ambiguous, rather than an obvious choice?",
+      options: [
+        "Both tools always return identical results regardless of the query",
+        "Nothing in the query alone makes the right choice completely obvious without judgment about whether the information is internal company knowledge or general public content",
+        "The two tools have literally identical names",
+        "This scenario never actually occurs in practice",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Both tools search for information and could plausibly handle the question. Picking the right one means judging where this particular information lives, and that judgment is what the reasoning block makes visible.",
+    },
+    {
+      question: "Why does this concept explicitly state that its fake-client demo can't fully prove reasoning improves tool choice?",
+      options: [
+        "The claim itself is actually false",
+        "The fake client is fully scripted in advance, so a demo showing reasoning alongside a correct choice doesn't demonstrate the reasoning genuinely caused that choice — the real evidence is Lesson 2's already-established mechanism",
+        "Tool selection can never actually be improved by any technique",
+        "This concept secretly disagrees with Lesson 2's findings",
+      ],
+      correctIndex: 1,
+      explanation:
+        "In a scripted demo the author wrote the reasoning and the correct choice together, so seeing them side by side shows nothing about cause. The claim rests on the mechanism Lesson 2 already covered, not on the demo.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

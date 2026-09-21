@@ -1136,8 +1136,18 @@ far" list directly below it.*
    Lesson 2.3 is actually next in order) now links to this concept. Lesson
    2.2's bookends also point a "tool descriptions" callback at this lesson;
    that stays plain text until a concept on tool descriptions exists.
-   Remaining: Concept 2 (why reasoning before acting improves tool choice)
-   onward, bookends. Not yet Locked.
+
+   Concept 2 drafted: why reasoning before acting improves tool choice —
+   prose only (no demo or exercise, per its mockup): applies Lesson 2's
+   chain-of-thought scaffolding effect to tool selection, with a
+   `search_database` vs. `search_web` example and an explicit statement
+   that the scripted fake client can't prove the claim. All three callbacks
+   link to the chain-of-thought concept's "The fix" subsection (verified in
+   the built HTML); also linked "Concept 1's `thinking` block" back to
+   Concept 1. Note the mockup describes Lesson 2's outputs as "real
+   numbers", though that concept's outputs are labeled illustrative; the
+   converted text keeps the mockup's wording. Remaining: Concept 3 (text-
+   parsed format vs. native tool calling) onward, bookends. Not yet Locked.
 
 **Old outline (superseded):**
 
