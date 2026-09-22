@@ -1437,8 +1437,23 @@ far" list directly below it.*
     since the described code unambiguously exists only there. Other two
     callbacks link to verified anchors (Lesson 4's `TOOL_REGISTRY` dispatch
     fix, Lesson 1 Concept 2's agent-decides-the-sequence subsection). No
-    graded exercise, per its mockup. Remaining: Concept 2 (parallelization)
-    onward, bookends. Not yet Locked.
+    graded exercise, per its mockup.
+    Concept 2 drafted: parallelization (the concurrency payoff Lesson 8's
+    dependency graph pointed at, actually implemented via
+    `asyncio.gather`, applied to the two genuinely independent sub-tasks
+    from that lesson's own example). **Finding:** the mockup's shown code
+    didn't actually print the mockup's own first output line
+    ("calling both concurrently...") — no matching `print` call existed in
+    the source — so a `print("calling both concurrently...")` was added
+    before the `gather` call so the live demo's real output matches what
+    the mockup claims to show. No new grading logic, so no separate
+    Pyodide verification needed. The mockup's callback again said "Module
+    1, the training pipeline lesson" for the async coverage, but
+    `asyncio.gather` and its timing proof actually live in Module 0's
+    async-python lesson — linked there instead, same reasoning as
+    Concept 1's `run_workflow` mislabeling. No graded exercise, per its
+    mockup. Remaining: Concept 3 (orchestrator-workers) onward, bookends.
+    Not yet Locked.
 
 **Old outline (superseded):**
 

@@ -1,0 +1,80 @@
+---
+title: "Parallelization"
+lesson: "10-workflow-patterns"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The payoff Lesson 8 pointed at" variant="a">
+
+[Lesson 8's dependency graph](/02-the-agent-loop/08-planning-and-decomposition/02-plan-representations/#dependency-graph-prerequisites-not-strict-sequence)
+noted that tasks with no dependency on each other could run
+concurrently, not just in either sequential order — this concept is
+that payoff, actually implemented with
+[Module 0's async coverage](/00-python-essentials/07-async-python/03-asyncio-gather/#asyncio-gather-actually-running-things-concurrently):
+
+<LiveDemo client:load code={`import asyncio
+import time
+
+async def create_agent_async(name: str, model: str) -> str:
+    await asyncio.sleep(0.5)
+    return f"created {name} with {model}"
+
+async def main():
+    print("calling both concurrently...")
+    start = time.perf_counter()
+    results = await asyncio.gather(
+        create_agent_async("research_agent", "claude-sonnet"),
+        create_agent_async("support_agent", "claude-haiku"),
+    )
+    elapsed = time.perf_counter() - start
+    print(results)
+    print(f"elapsed: {elapsed:.1f}s")
+
+asyncio.run(main())`} />
+
+`asyncio.gather` runs both calls concurrently, not sequentially — total
+time is `~0.5s`, the single longest wait, not `1.0s`, the sum. This is
+exactly
+[the timing proof from Module 0's asyncio.gather concept](/00-python-essentials/07-async-python/03-asyncio-gather/#asyncio-gather-actually-running-things-concurrently),
+now applied to two genuinely independent sub-tasks identified by a
+dependency graph, rather than a generic example.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What made create_research_agent and create_support_agent safe to run in parallel, per Lesson 8?",
+      options: [
+        "They use the same tool name",
+        "They had no dependency on each other in the dependency graph — neither's outcome depended on the other's",
+        "They were both scheduled at the same time by coincidence",
+        "Parallelization is always safe regardless of dependencies",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The dependency graph showed both tasks with an empty prerequisite list. Nothing about one's outcome could affect the other, which is exactly what makes running them concurrently safe.",
+    },
+    {
+      question: "Why does the demo's elapsed time come out around 0.5s, not 1.0s?",
+      options: [
+        "asyncio.gather runs the two calls sequentially, just faster",
+        "Both calls run concurrently, so total time approaches the single longest wait rather than the sum of both",
+        "The second call is skipped entirely",
+        "This is unrelated to how asyncio.gather works",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Both 0.5s waits overlap instead of stacking, so the whole call finishes in roughly the time of the slower one, not the combined total of both.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
