@@ -12,7 +12,7 @@ import { REACT_FAKE_CLIENT } from "../../../../lib/fakeClient";
 <Subsection title="The simplest possible guard: a hard cap, unconditionally" variant="a">
 
 The most basic fix for
-[Concept 1's pain](/02-the-agent-loop/06-termination-failure-and-control/01-the-pain-a-loop-that-never-stops/):
+[the previous concept's pain](/02-the-agent-loop/06-termination-failure-and-control/01-the-pain-a-loop-that-never-stops/):
 a hard limit on the number of loop iterations, enforced by the code
 itself, regardless of what the model wants to keep doing. Once the cap is
 reached, the loop stops — cleanly, not via a crash — whether or not the
@@ -50,7 +50,7 @@ tool result carries its call's `id` as `tool_use_id`.)
 [the same `range()` pattern already covered back in Module 0](/00-python-essentials/01-python-basics/02-control-flow-and-syntax/#for-loops-iterate-over-values-not-a-counter)
 — caps the loop at exactly `max_steps` iterations. Against the exact same
 20-item repeated-call scenario
-[from Concept 1](/02-the-agent-loop/06-termination-failure-and-control/01-the-pain-a-loop-that-never-stops/#watching-it-actually-happen),
+[from the previous concept](/02-the-agent-loop/06-termination-failure-and-control/01-the-pain-a-loop-that-never-stops/#watching-it-actually-happen),
 this version stops cleanly after 10 steps with a clear, informative
 message — no crash, no `IndexError`, and critically, this now works
 identically against a real model that could otherwise continue
@@ -92,21 +92,21 @@ stuck, not just *how long* it's been running — is
         "It's a bound on iterations and nothing more. It says nothing about whether the task got done, and it doesn't look at what the calls were.",
     },
     {
-      question: "Why does the `max_steps` version stop cleanly, with a message, rather than crashing like Concept 1's version did?",
+      question: "Why does the `max_steps` version stop cleanly, with a message, rather than crashing like the earlier version did?",
       options: [
-        "It doesn't actually stop cleanly — this is identical to Concept 1's behavior",
+        "It doesn't actually stop cleanly — this is identical to the earlier behavior",
         "The `for` loop only ever calls `client.create()` up to `max_steps` times, so it never attempts a call beyond what's actually available or needed",
         "`FakeLLMClient` automatically prevents crashes regardless of how it's called",
         "`max_steps` disables the client entirely once reached",
       ],
       correctIndex: 1,
       explanation:
-        "Concept 1's `while True` kept calling until the script ran out. Here the `for` loop ends after 10 iterations, well before the 20-item script is used up, and falls through to the message at the bottom.",
+        "The earlier `while True` kept calling until the script ran out. Here the `for` loop ends after 10 iterations, well before the 20-item script is used up, and falls through to the message at the bottom.",
     },
     {
       question: "What's the real, honest limitation of `max_steps` as a stopping mechanism?",
       options: [
-        "It has no limitations — it fully solves the problem from Concept 1",
+        "It has no limitations — it fully solves the earlier pain point",
         "It can't distinguish a task that genuinely needed many steps of real progress from one that looped uselessly the entire time — both get cut off identically",
         "It only works for tasks involving exactly one tool",
         "It can only be set to a maximum value of 10",

@@ -61,7 +61,7 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
         "In-context learning involves no training at all: the same frozen weights just process the examples as ordinary input.",
     },
     {
-      question: "How does in-context learning's scaling behavior relate to training loss scaling from Concept 1?",
+      question: "How does in-context learning's scaling behavior relate to training loss scaling from the scaling-laws concept?",
       options: [
         "They're identical — the same thing under different names",
         "They're distinct: larger models aren't just lower-loss, they're also better at this specific non-training-based adaptation, given the same examples",
@@ -134,15 +134,15 @@ extra cost?
    constraints: [...]"
 
 *Reasoning to check against:* (1) is training-time scaling —
-[exactly Concept 1's picture](/01-llm-foundations/08-scaling-laws-and-emergent-behavior/01-scaling-laws/),
+[exactly the scaling-laws concept's picture](/01-llm-foundations/08-scaling-laws-and-emergent-behavior/01-scaling-laws/),
 a bigger model trained once. (2) is inference-time scaling —
-[test-time compute, from Concept 4](/01-llm-foundations/08-scaling-laws-and-emergent-behavior/04-test-time-compute/),
+[test-time compute](/01-llm-foundations/08-scaling-laws-and-emergent-behavior/04-test-time-compute/),
 the same model spending more compute on this specific, harder request.
 (3) is a simple factual lookup — a reasoning model's extra thinking
 tokens would very likely add cost and latency with no real quality
 improvement; a standard model is the better fit. (4) is a genuinely
 multi-step planning task with real constraints to reason through —
-[exactly the case Concept 4 identified as where test-time compute earns its cost](/01-llm-foundations/08-scaling-laws-and-emergent-behavior/04-test-time-compute/#the-practical-tradeoffs-as-a-real-design-decision).
+[exactly the case the test-time-compute concept identified as where it earns its cost](/01-llm-foundations/08-scaling-laws-and-emergent-behavior/04-test-time-compute/#the-practical-tradeoffs-as-a-real-design-decision).
 
 The pattern worth taking away: "make the model better" isn't one lever —
 it's at least two genuinely different ones, trained-in capability versus

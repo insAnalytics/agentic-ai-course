@@ -37,7 +37,7 @@ Saving the scratchpad periodically, and being able to load it back to
 resume exactly where things left off, is the fix — a direct application of
 [Module 0's file I/O](/00-python-essentials/06-files-errors-and-validation/01-file-io-and-context-managers/#with-guaranteed-cleanup-even-on-exception),
 combined with
-[Concept 2's serialization](/02-the-agent-loop/07-agent-state-and-the-scratchpad/02-serializing-state/#the-fix-a-to-dict-method-and-a-helper-that-applies-it).
+[the earlier serialization concept](/02-the-agent-loop/07-agent-state-and-the-scratchpad/02-serializing-state/#the-fix-a-to-dict-method-and-a-helper-that-applies-it).
 
 </Subsection>
 
@@ -110,7 +110,7 @@ final_block = response.content[0]
 print(f"final answer: {final_block.text}")`} />
 
 (The fake client, its block classes with a `to_dict()` each, and
-`serialize_messages` from Concept 2 are already defined for this demo.
+`serialize_messages` from the serializing-state concept are already defined for this demo.
 The tool result carries its call's `id` as `tool_use_id` as before, and
 because `to_dict()` keeps the tool call's `id`, that pairing survives the
 trip through the file.)
@@ -170,7 +170,7 @@ simply continued uninterrupted.
 
 <GradedExercise
   client:load
-  task={'Implement `save_checkpoint(messages, filepath)` and `load_checkpoint(filepath)` as shown in this concept — using `serialize_messages` (from Concept 2, provided) before writing, and plain `json.load` when reading back.'}
+  task={'Implement `save_checkpoint(messages, filepath)` and `load_checkpoint(filepath)` as shown in this concept — using `serialize_messages` (from the serializing-state concept, provided) before writing, and plain `json.load` when reading back.'}
   starterCode={`import json
 import itertools
 

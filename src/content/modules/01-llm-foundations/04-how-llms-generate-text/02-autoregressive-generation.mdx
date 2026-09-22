@@ -10,7 +10,7 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 <Subsection title="The model never generates more than one token at once" variant="a">
 
-[Concept 1 showed how a single next-token probability distribution gets produced](/01-llm-foundations/04-how-llms-generate-text/01-logits-and-the-probability-distribution/).
+[the previous concept showed how a single next-token probability distribution gets produced](/01-llm-foundations/04-how-llms-generate-text/01-logits-and-the-probability-distribution/).
 A full response — a sentence, a paragraph — is never generated in one
 step. The model picks one token from that distribution (exactly *how*
 it picks — always the top one, or something more varied — is a later
@@ -47,7 +47,7 @@ in as input, over and over, one token at a time.
 <Subsection title="Why this matters computationally" variant="b">
 
 Every single one of those calls is
-[the entire logit/softmax computation from Concept 1](/01-llm-foundations/04-how-llms-generate-text/01-logits-and-the-probability-distribution/),
+[the entire logit/softmax computation from the previous concept](/01-llm-foundations/04-how-llms-generate-text/01-logits-and-the-probability-distribution/),
 run over the whole sequence so far — not some cheaper, incremental
 shortcut. A ten-token response requires ten full passes through the
 model; a thousand-token response requires a thousand. Generation cost

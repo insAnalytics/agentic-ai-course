@@ -255,7 +255,7 @@ execution_client = FakeLLMClient(scripted_responses=[[FailureBlock(reason="nothi
 assert run_plan_execute_replan(planning_client, execution_client, "goal") == []
 assert execution_client.call_count == 1
 `}
-  hint={"This combines [Concept 5's failure/replan handling](/02-the-agent-loop/08-planning-and-decomposition/05-replanning-when-a-step-fails/#the-fix-call-the-planner-again-with-what-was-actually-learned) with [Lesson 4's `TOOL_REGISTRY[block.name]` dispatch](/02-the-agent-loop/04-writing-the-loop-by-hand/03-handling-multiple-tools/#the-fix-a-dict-mapping-names-to-actual-callables) — the same `while remaining_tasks:` structure, now with a third branch (`\"tool_use\"`) that actually calls a real registry tool instead of just recording scripted text."}
+  hint={"This combines [the failure/replan handling from the replanning concept](/02-the-agent-loop/08-planning-and-decomposition/05-replanning-when-a-step-fails/#the-fix-call-the-planner-again-with-what-was-actually-learned) with [Lesson 4's `TOOL_REGISTRY[block.name]` dispatch](/02-the-agent-loop/04-writing-the-loop-by-hand/03-handling-multiple-tools/#the-fix-a-dict-mapping-names-to-actual-callables) — the same `while remaining_tasks:` structure, now with a third branch (`\"tool_use\"`) that actually calls a real registry tool instead of just recording scripted text."}
   correctFiles={[
     { name: "tools.py", code: TOOLS_PY },
     {

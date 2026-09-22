@@ -13,7 +13,7 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 This is worth demonstrating directly, since it's a natural assumption to
 make: simply rewriting the three API calls
-[from Concept 1](/00-python-essentials/07-async-python/01-why-concurrency-matters/#the-problem-before-any-new-syntax)
+[from the previous concept](/00-python-essentials/07-async-python/01-why-concurrency-matters/#the-problem-before-any-new-syntax)
 as coroutines, and `await`-ing each one, does **not** make them run
 concurrently:
 
@@ -99,7 +99,7 @@ time is now roughly **2.0 seconds — the single longest wait**, not the
 sum of all three. While `call_search_api()` is in the middle of its
 2-second wait, the other two are also waiting, at the same time, instead
 of sitting in line — exactly
-[the overlap Concept 1 identified as the actual goal](/00-python-essentials/07-async-python/01-why-concurrency-matters/#what-concurrency-means-here).
+[the overlap the previous concept identified as the actual goal](/00-python-essentials/07-async-python/01-why-concurrency-matters/#what-concurrency-means-here).
 
 `asyncio.gather()` is passed each coroutine directly — note
 `call_search_api()` here, *calling* the function to produce a coroutine

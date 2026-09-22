@@ -203,7 +203,7 @@ except ConfigError as e:
     assert "no valid agent configs found" in str(e)
     assert e.__cause__ is None`,
   ]}
-  hint={`Structure: one try around with open(path, "r") as f: / csv.DictReader(f), catching FileNotFoundError around the whole read. Inside the loop over rows, a separate, inner try/except ValidationError around AgentConfig(**row) — that's what lets one bad row get logged and skipped without stopping the loop, which is different from Concept 7's version, where any validation failure stopped the whole function. After the loop, a plain if not results: raise ConfigError(...) — with no from, since there's no single exception to chain from at that point.`}
+  hint={`Structure: one try around with open(path, "r") as f: / csv.DictReader(f), catching FileNotFoundError around the whole read. Inside the loop over rows, a separate, inner try/except ValidationError around AgentConfig(**row) — that's what lets one bad row get logged and skipped without stopping the loop, which is different from the putting-it-together concept's version, where any validation failure stopped the whole function. After the loop, a plain if not results: raise ConfigError(...) — with no from, since there's no single exception to chain from at that point.`}
   correctAnswer={{
     code: `def load_agent_configs_from_csv(path: str) -> list:
     results = []
@@ -224,7 +224,7 @@ except ConfigError as e:
 
     return results`,
     explanation:
-      "This is a deliberately different composition than Concept 7's pipeline, not a repeat of it: validation failures here are recoverable, handled per-row with their own inner try/except so one bad row doesn't sink the whole batch — while a missing file is still fatal, chained with from e exactly as before. The final if not results: check shows that not every raise needs a from — chaining only makes sense when there's an actual underlying exception causing the new one, which isn't the case when the failure is \"nothing succeeded\" rather than \"this one specific thing broke.\" Every piece from this lesson — with, CSV, Pydantic validation and its automatic coercion, a custom exception hierarchy, selective chaining, and logging — is doing real, distinct work in one realistic function.",
+      "This is a deliberately different composition than the earlier putting-it-together pipeline, not a repeat of it: validation failures here are recoverable, handled per-row with their own inner try/except so one bad row doesn't sink the whole batch — while a missing file is still fatal, chained with from e exactly as before. The final if not results: check shows that not every raise needs a from — chaining only makes sense when there's an actual underlying exception causing the new one, which isn't the case when the failure is \"nothing succeeded\" rather than \"this one specific thing broke.\" Every piece from this lesson — with, CSV, Pydantic validation and its automatic coercion, a custom exception hierarchy, selective chaining, and logging — is doing real, distinct work in one realistic function.",
   }}
 />
 

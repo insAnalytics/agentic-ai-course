@@ -216,7 +216,7 @@ client = FakeLLMClient(scripted_responses=[TextBlock(text="Hello!")])
 assert run_agent_loop(client, [{"role": "user", "content": "hi"}]) == "Hello!"
 assert client.call_count == 1
 `}
-  hint={"tools.py's three functions are each one or two lines — check_agent_exists is a single `return name in _registry`; create_agent_entry sets `_registry[name] = {\"model\": model}` then returns the formatted string; TOOL_REGISTRY is exactly [the dict-of-callables pattern from Concept 3](/02-the-agent-loop/04-writing-the-loop-by-hand/03-handling-multiple-tools/#the-fix-a-dict-mapping-names-to-actual-callables). agent_loop.py's run_agent_loop is [the exact dispatch-based loop from Concept 3's exercise](/02-the-agent-loop/04-writing-the-loop-by-hand/03-handling-multiple-tools/), unchanged — only the specific tools being dispatched to have changed."}
+  hint={"tools.py's three functions are each one or two lines — check_agent_exists is a single `return name in _registry`; create_agent_entry sets `_registry[name] = {\"model\": model}` then returns the formatted string; TOOL_REGISTRY is exactly [the dict-of-callables pattern from the multiple-tools concept](/02-the-agent-loop/04-writing-the-loop-by-hand/03-handling-multiple-tools/#the-fix-a-dict-mapping-names-to-actual-callables). agent_loop.py's run_agent_loop is [the exact dispatch-based loop from that concept's exercise](/02-the-agent-loop/04-writing-the-loop-by-hand/03-handling-multiple-tools/), unchanged — only the specific tools being dispatched to have changed."}
   correctFiles={[
     {
       name: "tools.py",

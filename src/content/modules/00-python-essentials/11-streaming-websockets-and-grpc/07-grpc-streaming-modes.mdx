@@ -10,7 +10,7 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 <Subsection title="Four shapes, one mechanism" variant="a">
 
-[Concept 6's `ExecuteTool`](/00-python-essentials/11-streaming-websockets-and-grpc/06-grpc-fundamentals/#writing-a-proto-file)
+[the grpc-fundamentals concept's `ExecuteTool`](/00-python-essentials/11-streaming-websockets-and-grpc/06-grpc-fundamentals/#writing-a-proto-file)
 was a **unary** RPC — one request, one response, the simplest of
 gRPC's four call shapes. The other three let either side send more
 than one message over the same call, and each has a direct analog
@@ -271,7 +271,7 @@ def collect_statuses(stub, task_id):
         for s in stub.StreamTaskStatus(task_service_pb2.TaskRequest(task_id=task_id))
     ]`,
     explanation:
-      "This is server-streaming's complete real shape: the servicer method looks almost exactly like any other Python generator function, and the client consumes it the same way it would consume any iterable -- [the same division of labor Concept 6's unary example already established](/00-python-essentials/11-streaming-websockets-and-grpc/06-grpc-fundamentals/#writing-a-proto-file). Grading calls your TaskServiceServicer directly through a small stand-in for a real gRPC stub -- one whose StreamTaskStatus just forwards to your servicer method -- rather than a real network connection: gRPC's actual transport (grpc.server, grpc.insecure_channel) is a compiled C extension with no pure-Python build, so no browser sandbox can run it. This still checks the exact behavior a real call would exercise -- your generator's real yields, your function's real iteration -- just without a real socket underneath.",
+      "This is server-streaming's complete real shape: the servicer method looks almost exactly like any other Python generator function, and the client consumes it the same way it would consume any iterable -- [the same division of labor the grpc-fundamentals concept's unary example already established](/00-python-essentials/11-streaming-websockets-and-grpc/06-grpc-fundamentals/#writing-a-proto-file). Grading calls your TaskServiceServicer directly through a small stand-in for a real gRPC stub -- one whose StreamTaskStatus just forwards to your servicer method -- rather than a real network connection: gRPC's actual transport (grpc.server, grpc.insecure_channel) is a compiled C extension with no pure-Python build, so no browser sandbox can run it. This still checks the exact behavior a real call would exercise -- your generator's real yields, your function's real iteration -- just without a real socket underneath.",
   }}
 />
 

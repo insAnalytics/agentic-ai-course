@@ -38,9 +38,9 @@ export const RETRY = String.raw`def call_with_retry(tool_function, max_retries: 
     return f"Error: tool failed after {max_retries} attempts, giving up"
 `;
 
-<Subsection title="A different kind of failure than Concept 5's" variant="a">
+<Subsection title="A different kind of failure than the earlier one" variant="a">
 
-[Concept 5 handled a tool failing *definitively*](/02-the-agent-loop/06-termination-failure-and-control/05-tool-errors-as-observations/#the-pain-an-unhandled-tool-error-crashes-the-entire-loop)
+[The earlier concept handled a tool failing *definitively*](/02-the-agent-loop/06-termination-failure-and-control/05-tool-errors-as-observations/#the-pain-an-unhandled-tool-error-crashes-the-entire-loop)
 — a clear, permanent error like "already exists," where trying again with
 the same input would just fail again. This concept covers two different,
 related risks: a tool that *hangs* — takes too long, never actually
@@ -94,7 +94,7 @@ defined here.)
 Once `max_retries` is exhausted, `call_with_retry` returns a clear,
 defined error string — never a crash, and never an unbounded retry
 loop.
-[Feeding this back as a `tool_result`, exactly as Concept 5 covered](/02-the-agent-loop/06-termination-failure-and-control/05-tool-errors-as-observations/#the-fix-catch-it-and-let-the-model-see-it),
+[Feeding this back as a `tool_result`, exactly as the earlier concept covered](/02-the-agent-loop/06-termination-failure-and-control/05-tool-errors-as-observations/#the-fix-catch-it-and-let-the-model-see-it),
 lets the model see clearly that this specific approach genuinely didn't
 work after real effort, giving it a chance to try something else
 entirely, rather than either crashing the whole interaction or blindly
@@ -120,11 +120,11 @@ hammering the same failing call forever.
         "Every other guard runs between iterations. A call that never returns means the loop never reaches the next check, so a timeout on the call itself is the only thing that can bound it.",
     },
     {
-      question: "What's the actual difference between the transient failure this concept addresses and the failure covered in Concept 5?",
+      question: "What's the actual difference between the transient failure this concept addresses and the failure covered earlier?",
       options: [
         "There's no real difference between the two",
-        "Concept 5 covered a definitive failure unlikely to change on retry; this concept covers a failure that might genuinely succeed if simply tried again",
-        "Concept 5's failures are always more severe than this concept's",
+        "The earlier concept covered a definitive failure unlikely to change on retry; this concept covers a failure that might genuinely succeed if simply tried again",
+        "The earlier failures are always more severe than this concept's",
         "This concept only applies to tools that never actually succeed",
       ],
       correctIndex: 1,

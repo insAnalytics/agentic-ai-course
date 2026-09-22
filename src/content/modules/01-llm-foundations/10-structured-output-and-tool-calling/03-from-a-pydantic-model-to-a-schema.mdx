@@ -10,7 +10,7 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 <Subsection title="Where the schema constraining generation actually comes from" variant="a">
 
-[Concept 2 showed how constrained decoding masks invalid tokens](/01-llm-foundations/10-structured-output-and-tool-calling/02-constrained-decoding/)
+[the previous concept showed how constrained decoding masks invalid tokens](/01-llm-foundations/10-structured-output-and-tool-calling/02-constrained-decoding/)
 — but that mechanism needs to be told, concretely, what "valid"
 actually means for a given request. This is where
 [`AgentConfig` and every other `BaseModel` used as a teaching device throughout Module 0](/00-python-essentials/05-typed-data-models/04-pydantic-fundamentals/)
@@ -81,7 +81,7 @@ Pydantic class directly, doing this conversion for you. The idea is the
 same everywhere: the schema travels in the request.
 
 `AgentConfig.model_validate_json(...)` here is
-[the exact same parsing method covered in Concept 1's failure demo](/01-llm-foundations/10-structured-output-and-tool-calling/01-the-naive-approach/)
+[the exact same parsing method covered in the naive-approach concept's failure demo](/01-llm-foundations/10-structured-output-and-tool-calling/01-the-naive-approach/)
 — the crucial difference is that this time, because constrained decoding
 already guaranteed the response matches the schema at generation time,
 this parsing step essentially can't fail on a shape mismatch the way it
@@ -128,7 +128,7 @@ checks `stop_reason` before trusting the result.
         "One Pydantic class defines the shape; FastAPI uses it to validate input and the LLM API uses its schema to constrain output.",
     },
     {
-      question: "Why does parsing a constrained-decoding-guaranteed response with model_validate_json() behave differently in practice than parsing a naively-prompted response from Concept 1?",
+      question: "Why does parsing a constrained-decoding-guaranteed response with model_validate_json() behave differently in practice than parsing a naively-prompted response from the earlier concept?",
       options: [
         "It's the exact same risk of failure in both cases",
         "Because constrained decoding already guaranteed the response matches the schema at generation time, this parsing step essentially can't fail on a shape mismatch, unlike the naive case",

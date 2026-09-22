@@ -91,14 +91,14 @@ class EvaluationBlock:
       ],
       correctIndex: 1,
       explanation:
-        "Concepts 1 and 2's value stands. Concept 3 narrows the claim to a specific category of problem reflection can't cover, not a reversal of the earlier concepts.",
+        "The earlier concepts' value stands. This lesson's limits concept narrows the claim to a specific category of problem reflection can't cover, not a reversal of the earlier concepts.",
     },
   ]}
 />
 
 <GradedExercise
   client:load
-  task={'Reuse `run_evaluator_optimizer` from [Concept 1](/02-the-agent-loop/09-reflection-and-self-critique/01-the-evaluator-optimizer-pattern/#the-pattern-generate-evaluate-revise-repeat) to generate and validate a one-sentence description of the registry app\'s purpose, revising on failure, giving up cleanly after `max_attempts`. Implement `run_evaluator_optimizer(generation_client, evaluation_client, prompt, max_attempts=3)` exactly as in Concept 1: each attempt asks `generation_client` (a text block) for a candidate, then asks `evaluation_client` (a block with `.passed` and `.critique`) to evaluate it, sending the candidate text in the message. Return the first passing candidate\'s text. When one fails, the next generation prompt must include the original prompt, the previous attempt, and its critique. If no candidate passes within `max_attempts`, return a string starting with `"Error"`.'}
+  task={'Reuse `run_evaluator_optimizer` from [the evaluator-optimizer pattern concept](/02-the-agent-loop/09-reflection-and-self-critique/01-the-evaluator-optimizer-pattern/#the-pattern-generate-evaluate-revise-repeat) to generate and validate a one-sentence description of the registry app\'s purpose, revising on failure, giving up cleanly after `max_attempts`. Implement `run_evaluator_optimizer(generation_client, evaluation_client, prompt, max_attempts=3)` exactly as before: each attempt asks `generation_client` (a text block) for a candidate, then asks `evaluation_client` (a block with `.passed` and `.critique`) to evaluate it, sending the candidate text in the message. Return the first passing candidate\'s text. When one fails, the next generation prompt must include the original prompt, the previous attempt, and its critique. If no candidate passes within `max_attempts`, return a string starting with `"Error"`.'}
   starterCode={`def run_evaluator_optimizer(generation_client, evaluation_client, prompt: str, max_attempts: int = 3) -> str:
     # TODO: generate a candidate, evaluate it, and either return it or feed
     # the critique into a revised prompt and try again, up to max_attempts.
@@ -130,7 +130,7 @@ assert gen_client.call_count == 3
 assert eval_client.call_count == 3
 `,
   ]}
-  hint={"Identical structure to Concept 1's function — nothing new to implement, only a new scenario to apply it to."}
+  hint={"Identical structure to the evaluator-optimizer pattern's function — nothing new to implement, only a new scenario to apply it to."}
   correctAnswer={{
     code: `def run_evaluator_optimizer(generation_client, evaluation_client, prompt: str, max_attempts: int = 3) -> str:
     current_prompt = prompt
@@ -146,7 +146,7 @@ assert eval_client.call_count == 3
         current_prompt = f"{prompt}\\n\\nPrevious attempt: {candidate}\\nCritique: {evaluation.critique}\\nPlease revise."
     return f"Error: no passing candidate produced after {max_attempts} attempts"`,
     explanation:
-      "Every piece of this lesson does real work here: the first candidate genuinely fails the evaluator's check, the critique genuinely reaches the next generation prompt, and the revised candidate genuinely passes. Worth remembering [Concept 3's limit](/02-the-agent-loop/09-reflection-and-self-critique/03-the-limits-shared-blind-spots/) even here: this test's evaluator correctly caught a checkable omission -- exactly the category reflection is good at -- but nothing about this pattern would catch the evaluator being wrong about what \"vague\" means, if that judgment itself reflected a shared gap with the generator. Reflection closes one real gap; it doesn't replace grounding for the other kind.",
+      "Every piece of this lesson does real work here: the first candidate genuinely fails the evaluator's check, the critique genuinely reaches the next generation prompt, and the revised candidate genuinely passes. Worth remembering [the limits-and-shared-blind-spots concept](/02-the-agent-loop/09-reflection-and-self-critique/03-the-limits-shared-blind-spots/) even here: this test's evaluator correctly caught a checkable omission -- exactly the category reflection is good at -- but nothing about this pattern would catch the evaluator being wrong about what \"vague\" means, if that judgment itself reflected a shared gap with the generator. Reflection closes one real gap; it doesn't replace grounding for the other kind.",
   }}
 />
 

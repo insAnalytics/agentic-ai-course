@@ -132,17 +132,17 @@ starting choice —
 [self-hosting's real ops burden](/01-llm-foundations/11-quantization-cost-and-operational-concerns/02-the-model-landscape-and-selection/#open-weight-vs-closed-models)
 isn't obviously worth taking on yet, though it stays a real option if
 volume grows enough to justify it. For the mixed task difficulty,
-[Concept 2's size-tier and reasoning-axis principles](/01-llm-foundations/11-quantization-cost-and-operational-concerns/02-the-model-landscape-and-selection/#size-tiers-within-one-provider-s-lineup)
+[the model-landscape concept's size-tier and reasoning-axis principles](/01-llm-foundations/11-quantization-cost-and-operational-concerns/02-the-model-landscape-and-selection/#size-tiers-within-one-provider-s-lineup)
 both apply independently: route simple lookups to a small, standard
 model; route genuinely complex planning to a larger and/or
 reasoning-capable model — never the reverse, and never one tier for
 everything regardless of task. If self-hosting *were* chosen instead,
-[Concept 1's quantization tradeoff](/01-llm-foundations/11-quantization-cost-and-operational-concerns/01-quantization/#the-real-tradeoff)
+[the quantization concept's tradeoff](/01-llm-foundations/11-quantization-cost-and-operational-concerns/01-quantization/#the-real-tradeoff)
 becomes directly relevant: INT8 as a reasonable default balancing cost
 and quality, reserving INT4 only if the budget genuinely demands it and
 some quality loss is acceptable. And regardless of which model or
 provider is chosen,
-[Concept 4's exponential backoff](/01-llm-foundations/11-quantization-cost-and-operational-concerns/04-provider-side-rate-limits/#the-real-handling-pattern-exponential-backoff-not-just-send-less)
+[the rate-limits concept's exponential backoff](/01-llm-foundations/11-quantization-cost-and-operational-concerns/04-provider-side-rate-limits/#the-real-handling-pattern-exponential-backoff-not-just-send-less)
 is a necessary piece of any production system calling an external API —
 not optional infrastructure, since a `429` under real load is a *when*,
 not an *if*.

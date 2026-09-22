@@ -14,7 +14,7 @@ export const PRE = FAKE_CLIENT + RECORDING_CLIENT;
 
 <Subsection title="The pain: hardcoding doesn't survive a second tool" variant="a">
 
-[Concept 2's loop](/02-the-agent-loop/04-writing-the-loop-by-hand/02-from-round-trip-to-loop/#the-actual-loop-written-and-running-for-real)
+[the previous concept's loop](/02-the-agent-loop/04-writing-the-loop-by-hand/02-from-round-trip-to-loop/#the-actual-loop-written-and-running-for-real)
 hardcoded exactly one tool. Add a second — `check_price`, alongside
 `get_weather` — and that structure breaks immediately:
 
@@ -25,7 +25,7 @@ def get_weather(location: str) -> str:
 def check_price(item: str) -> str:
     return "$4.50" if item == "notebook" else "unknown"
 
-# the Concept 2 loop, awkwardly extended for a second tool
+# the previous loop, awkwardly extended for a second tool
 if block.type == "tool_use":
     if block.name == "get_weather":
         result = get_weather(**block.input)
@@ -100,7 +100,7 @@ all, no matter how many tools exist.
   client:load
   questions={[
     {
-      question: "What breaks about Concept 2's hardcoded loop the moment a second tool is added?",
+      question: "What breaks about the earlier hardcoded loop the moment a second tool is added?",
       options: [
         "Nothing breaks — the original loop already handles any number of tools",
         "The loop only knows how to call one specific, hardcoded function — a second tool has nowhere to actually be dispatched to without further hardcoded branches",
@@ -163,7 +163,7 @@ def check_price(item: str) -> str:
 TOOL_REGISTRY = {}
 
 def run_agent_loop(client, messages):
-    # TODO: the loop from Concept 2, but dispatching through TOOL_REGISTRY
+    # TODO: the loop from the previous concept, but dispatching through TOOL_REGISTRY
     # instead of calling one hardcoded function.
     pass`}
   hiddenTests={[
@@ -257,7 +257,7 @@ def run_agent_loop(client, messages):
         elif block.type == "text":
             return block.text`,
     explanation:
-      "This is the complete, generalizable version of the loop — the dispatch line is the only real change from Concept 2's minimal version, and it's what lets this exact same function correctly handle check_price first, get_weather second, in this test's scripted sequence, without ever needing to know in advance which tools would actually be requested or in what order.",
+      "This is the complete, generalizable version of the loop — the dispatch line is the only real change from the earlier minimal version, and it's what lets this exact same function correctly handle check_price first, get_weather second, in this test's scripted sequence, without ever needing to know in advance which tools would actually be requested or in what order.",
   }}
 />
 
