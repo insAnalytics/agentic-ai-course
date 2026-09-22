@@ -1,0 +1,115 @@
+---
+title: "Orchestrator-workers"
+lesson: "10-workflow-patterns"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Decompose, dispatch to many, aggregate" variant="a">
+
+Genuinely distinct from both prior patterns: routing picks *one* fixed
+path; orchestrator-workers decomposes a task into several sub-tasks —
+[the same shape as Lesson 8's `PlanBlock`](/02-the-agent-loop/08-planning-and-decomposition/01-goal-decomposition/#decomposing-before-executing-anything)
+— dispatches *all* of them to workers, and aggregates the results into
+one output.
+
+<LiveDemo client:load code={`import asyncio
+
+async def worker(sub_task: str) -> str:
+    await asyncio.sleep(0.3)
+    return f"completed: {sub_task}"
+
+async def run_orchestrator(sub_tasks: list) -> str:
+    worker_results = await asyncio.gather(*(worker(task) for task in sub_tasks))
+    return "\\n".join(worker_results)
+
+sub_tasks = ["Create research_agent", "Create support_agent", "Create billing_agent"]
+summary = asyncio.run(run_orchestrator(sub_tasks))
+print(summary)`} />
+
+Each worker has a fixed job — run its one sub-task, report back — never
+deciding what to do next dynamically the way
+[a full agent loop from Lesson 4 onward](/02-the-agent-loop/04-writing-the-loop-by-hand/00-intro/)
+would. This is genuinely different from a full agent loop, not a
+smaller version of one: the sub-tasks are already known upfront,
+[Concept 2's parallel dispatch](/02-the-agent-loop/10-workflow-patterns/02-parallelization/)
+runs them together, and aggregation is a final, fixed join step — no
+open-ended decision-making anywhere in the structure.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "How does orchestrator-workers differ from routing?",
+      options: [
+        "They're the same pattern, just named differently",
+        "Routing picks one fixed path; orchestrator-workers dispatches to multiple workers and aggregates their results",
+        "Orchestrator-workers never uses an LLM call at all",
+        "Routing always runs more workers than orchestrator-workers",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Routing chooses a single destination from a fixed set. Orchestrator-workers fans a task out to several workers at once and joins what comes back.",
+    },
+    {
+      question: "Why is orchestrator-workers genuinely different from a smaller agent loop, not just a simplified version of one?",
+      options: [
+        "There's no real difference between the two",
+        "Each worker has a fixed job with no open-ended decision-making; the full agent loop's defining trait -- the model deciding what to do next dynamically -- is entirely absent",
+        "Orchestrator-workers always uses more tool calls than an agent loop",
+        "Workers are always run sequentially, never in parallel",
+      ],
+      correctIndex: 1,
+      explanation:
+        "An agent loop's defining feature is the model choosing its own next step. A worker here just runs the one sub-task it was handed and reports back -- there's no decision loop to shrink.",
+    },
+  ]}
+/>
+
+<GradedExercise
+  client:load
+  task={'Implement `run_orchestrator(sub_tasks)` as shown, dispatching all sub-tasks concurrently via `asyncio.gather` and joining results with `"\\n"`.'}
+  starterCode={`import asyncio
+
+async def worker(sub_task: str) -> str:
+    await asyncio.sleep(0.3)
+    return f"completed: {sub_task}"
+
+async def run_orchestrator(sub_tasks: list) -> str:
+    # TODO: dispatch all sub_tasks to worker(...) concurrently via
+    # asyncio.gather, then join the results with "\\n".
+    pass`}
+  hiddenTests={[
+    `result = asyncio.run(run_orchestrator(["Task A", "Task B"]))
+assert result == "completed: Task A\\ncompleted: Task B"`,
+    `import time
+
+async def run_test():
+    start = time.perf_counter()
+    result = await run_orchestrator(["Task A", "Task B", "Task C"])
+    elapsed = time.perf_counter() - start
+    return result, elapsed
+
+result, elapsed = asyncio.run(run_test())
+assert result == "completed: Task A\\ncompleted: Task B\\ncompleted: Task C"
+assert elapsed < 0.6  # concurrent (~0.3s) not sequential (~0.9s)`,
+  ]}
+  hint={"`asyncio.gather(*(worker(task) for task in sub_tasks))` unpacks a generator of coroutines directly into gather's arguments."}
+  correctAnswer={{
+    code: `async def run_orchestrator(sub_tasks: list) -> str:
+    worker_results = await asyncio.gather(*(worker(task) for task in sub_tasks))
+    return "\\n".join(worker_results)`,
+    explanation:
+      "The first test confirms the join and per-worker output are correct. The second confirms the dispatch is genuinely concurrent, not just correct: three 0.3s workers finish in well under 0.6s total, which a sequential (awaited one at a time) implementation -- producing the same joined string -- could never do in time for that assertion to pass.",
+  }}
+/>
+
+</CheckpointZone>

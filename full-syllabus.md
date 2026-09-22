@@ -1452,8 +1452,22 @@ far" list directly below it.*
     `asyncio.gather` and its timing proof actually live in Module 0's
     async-python lesson — linked there instead, same reasoning as
     Concept 1's `run_workflow` mislabeling. No graded exercise, per its
-    mockup. Remaining: Concept 3 (orchestrator-workers) onward, bookends.
-    Not yet Locked.
+    mockup.
+    Concept 3 drafted: orchestrator-workers (decomposing a task into several
+    sub-tasks — the same shape as Lesson 8's `PlanBlock` — dispatching all
+    of them to workers via `asyncio.gather`, and aggregating into one
+    output; genuinely different from a smaller agent loop, not a shrunk
+    version of one, since no worker ever decides anything dynamically),
+    with a live demo plus Applied sandbox exercise 1, graded by two hidden
+    tests (architecture.md §4.1). The mockup's own single correctness test
+    can't distinguish real concurrent dispatch from a sequential loop
+    producing the identical joined string, so a second, added test times
+    three workers and asserts the total stays well under the sequential
+    sum — verified against real Pyodide with 2 submissions (the reference,
+    and a sequential rewrite that fails only the added timing test, exactly
+    as intended). Callbacks link to verified anchors (Lesson 8's `PlanBlock`
+    subsection, Lesson 4's intro, this lesson's Concept 2). Remaining:
+    bookends. Not yet Locked.
 
 **Old outline (superseded):**
 

@@ -1232,6 +1232,17 @@ returning the block instead of its text, returning the last candidate instead of
 error, and a syntax error each fail the expected tests. Live demo output matches the
 mockup exactly.
 
+**Lesson 2.10 Concept 3 (orchestrator-workers)** — `run_orchestrator`'s hidden
+tests reuse the `asyncio.run()` shim (§4.1 above), first exercised for grading
+in Lesson 0.7. A correctness-only test can't distinguish real concurrent
+dispatch from a sequential loop that happens to join the same strings in the
+same order, so a second hidden test times three 0.3s workers and asserts
+`elapsed < 0.6` (concurrent finishes in ~0.3s; sequential would take ~0.9s).
+Verified against real Pyodide 0.26.4: the reference (`asyncio.gather`)
+passes both tests; a sequential rewrite (`for task in sub_tasks: results.append(await worker(task))`)
+produces the identical joined string but fails the timing assertion, exactly
+as intended.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped
