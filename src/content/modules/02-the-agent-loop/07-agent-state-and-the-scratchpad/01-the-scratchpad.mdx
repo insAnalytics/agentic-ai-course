@@ -52,22 +52,23 @@ print(f"step 0 -- messages: {len(messages)} entries")
 
 while True:
     response = client.create(messages=messages)
-    action_block = None
     for b in response.content:
         if b.type == "thinking":
             print(f"[reasoning]: {b.thinking}")
-        else:
-            action_block = b
+    messages.append({"role": "assistant", "content": response.content})
 
-    if action_block.type == "tool_use":
-        tool_function = TOOL_REGISTRY[action_block.name]
-        result = tool_function(**action_block.input)
-        messages.append({"role": "assistant", "content": response.content})
-        messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": action_block.id, "content": result}]})
-        print(f"after tool call -- messages: {len(messages)} entries")
-    elif action_block.type == "text":
-        print(f"final answer: {action_block.text}")
+    tool_calls = [b for b in response.content if b.type == "tool_use"]
+    if not tool_calls:
+        print(f"final answer: {''.join(b.text for b in response.content if b.type == 'text')}")
         break
+
+    results = []
+    for call in tool_calls:
+        tool_function = TOOL_REGISTRY[call.name]
+        output = tool_function(**call.input)
+        results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+    messages.append({"role": "user", "content": results})
+    print(f"after tool call -- messages: {len(messages)} entries")
 
 print(f"final scratchpad size: {len(messages)} entries")`} />
 

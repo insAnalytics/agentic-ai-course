@@ -59,33 +59,132 @@ together.
 
 </Subsection>
 
-<Subsection title="The loop, updated to process every block in a response" variant="a">
+<Subsection title="The pain: reacting to only one block silently drops the rest" variant="a">
 
-```python
+A real response's content is a *list*, and a model can put more than
+one action-shaped block in it — for instance, a short text remark
+*alongside* a tool call, in either order. A loop that jumps straight to
+the first block that looks like a decision — exactly what Lesson 4's
+loop does, reading only `response.content[0]` — breaks the moment that
+first block isn't the one that actually matters:
+
+<LiveDemo client:load setupCode={REACT_FAKE_CLIENT} code={`def check_price(item: str) -> str:
+    return "$4.50" if item == "notebook" else "unknown"
+
+TOOL_REGISTRY = {"check_price": check_price}
+
+# Lesson 4's loop, unchanged -- reacts only to the very first block
+def naive_agent_loop(client, messages):
+    while True:
+        response = client.create(messages=messages)
+        block = response.content[0]
+        if block.type == "tool_use":
+            tool_function = TOOL_REGISTRY[block.name]
+            result = tool_function(**block.input)
+            messages.append({"role": "assistant", "content": response.content})
+            messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
+        elif block.type == "text":
+            return block.text
+
+# a real response shape this loop was never tested against:
+# a text remark arriving BEFORE the tool call in the same response
+client = FakeLLMClient(scripted_responses=[
+    [TextBlock(text="Let me check that for you."), ToolUseBlock(name="check_price", input={"item": "notebook"})],
+])
+
+result = naive_agent_loop(client, [{"role": "user", "content": "How much is a notebook?"}])
+print(f"loop returned: {result!r}")
+print(f"but check_price was actually called: {'check_price' in str(client.scripted_responses)}")`} />
+
+(The fake client's classes are already defined for this demo.)
+
+`response.content[0]` is the `TextBlock`, so the loop returns
+`"Let me check that for you."` immediately and stops — the `ToolUseBlock`
+sitting right next to it in the very same response never runs at all.
+Nothing crashed; the loop just silently did the wrong thing, which is
+exactly the kind of bug a demo scripted one-block-per-response could
+never have surfaced.
+
+</Subsection>
+
+<Subsection title="The fix: gather every tool call, act on all of them, reply once" variant="b">
+
+The fix isn't "look harder for the right block" — it's to stop reacting
+to a single block at all. Instead: collect *every* `tool_use` block in
+the response; if there are none, the response is the final answer;
+otherwise, run every collected call and send back *all* of their
+results together, in one message:
+
+<LiveDemo client:load setupCode={REACT_FAKE_CLIENT} code={`def check_price(item: str) -> str:
+    return "$4.50" if item == "notebook" else "unknown"
+
+TOOL_REGISTRY = {"check_price": check_price}
+
 def run_agent_loop(client, messages):
     while True:
         response = client.create(messages=messages)
         for block in response.content:
             if block.type == "thinking":
                 print(f"[reasoning]: {block.thinking}")
-            elif block.type == "tool_use":
-                tool_function = TOOL_REGISTRY[block.name]
-                result = tool_function(**block.input)
-                messages.append({"role": "assistant", "content": response.content})
-                messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
-                break
-            elif block.type == "text":
-                return block.text
+        messages.append({"role": "assistant", "content": response.content})
+
+        tool_calls = [block for block in response.content if block.type == "tool_use"]
+        if not tool_calls:
+            return "".join(block.text for block in response.content if block.type == "text")
+
+        results = []
+        for call in tool_calls:
+            tool_function = TOOL_REGISTRY[call.name]
+            output = tool_function(**call.input)
+            results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+        messages.append({"role": "user", "content": results})
+
+# the exact same "text before the tool call" response from the pain demo
+client = FakeLLMClient(scripted_responses=[
+    [TextBlock(text="Let me check that for you."), ToolUseBlock(name="check_price", input={"item": "notebook"})],
+    [TextBlock(text="The notebook costs $4.50.")],
+])
+
+result = run_agent_loop(client, [{"role": "user", "content": "How much is a notebook?"}])
+print(f"loop returned: {result!r}")`} />
+
+(The fake client's classes are already defined for this demo.)
+
+Three things hold true on every single iteration now, regardless of how
+many blocks a response contains or what order they arrive in: the
+assistant's *entire* response gets appended to `messages` exactly once;
+the loop only stops once a response contains *no* tool calls at all
+(any accompanying text before then is just conversational filler,
+correctly not treated as the final answer); and when there are tool
+calls, every one of them gets executed and its result goes back
+together, in a single follow-up message.
+
+</Subsection>
+
+<Subsection title="Why every tool call needs its own result, in the same message" variant="a">
+
+A response can just as easily contain *two* `tool_use` blocks together
+— a model asking for two independent pieces of information in one
+turn:
+
+```python
+[
+    ToolUseBlock(name="check_price", input={"item": "notebook"}),
+    ToolUseBlock(name="check_price", input={"item": "pencil"}),
+]
 ```
 
-The loop now iterates every block in a response — logging any
-`"thinking"` block along the way, then acting on whichever block
-actually represents the decision (`tool_use` or `text`). Appending
-`response.content` back into `messages` (rather than just the action
-block alone) preserves the model's own reasoning as part of the
-conversation history, exactly as it was actually generated. (The tool
-result still carries the call's `id` as `tool_use_id`, as in the last
-lesson.)
+A loop that acts on the first tool call and then moves on — the way an
+easy, tempting fix for the pain demo above might look, stopping the
+`for` loop the moment *any* tool call is found — would leave the second
+call with no `tool_result` at all.
+[Module 1's round trip](/01-llm-foundations/10-structured-output-and-tool-calling/05-the-full-round-trip/)
+already established that every `tool_use` needs a matching
+`tool_result`; a real API expects *all* of them accounted for in the
+very next message, not just however many the loop got around to. The
+fixed loop above handles this correctly for exactly this reason: it
+builds one `results` list covering every collected call, and appends
+it as a single message only once every call has actually run.
 
 </Subsection>
 
@@ -102,21 +201,28 @@ def run_agent_loop(client, messages):
         for block in response.content:
             if block.type == "thinking":
                 print(f"[reasoning]: {block.thinking}")
-            elif block.type == "tool_use":
-                tool_function = TOOL_REGISTRY[block.name]
-                result = tool_function(**block.input)
-                messages.append({"role": "assistant", "content": response.content})
-                messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
-                break
-            elif block.type == "text":
-                return block.text
+        messages.append({"role": "assistant", "content": response.content})
+
+        tool_calls = [block for block in response.content if block.type == "tool_use"]
+        if not tool_calls:
+            return "".join(block.text for block in response.content if block.type == "text")
+
+        results = []
+        for call in tool_calls:
+            tool_function = TOOL_REGISTRY[call.name]
+            output = tool_function(**call.input)
+            print(f"called {call.name}({call.input}) -> {output}")
+            results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+        messages.append({"role": "user", "content": results})
 
 client = FakeLLMClient(scripted_responses=[
-    [ThinkingBlock(thinking="The user wants the weather in Paris. I should call get_weather."), ToolUseBlock(name="get_weather", input={"location": "Paris"})],
-    [ThinkingBlock(thinking="I now have what I need to answer."), TextBlock(text="It's sunny in Paris today!")],
+    [ThinkingBlock(thinking="The user wants the weather in both Paris and Berlin. I should check both."),
+     ToolUseBlock(name="get_weather", input={"location": "Paris"}),
+     ToolUseBlock(name="get_weather", input={"location": "Berlin"})],
+    [ThinkingBlock(thinking="I now have what I need to answer."), TextBlock(text="It's sunny in both Paris and Berlin today!")],
 ])
 
-messages = [{"role": "user", "content": "What's the weather in Paris?"}]
+messages = [{"role": "user", "content": "What's the weather in Paris and Berlin?"}]
 final = run_agent_loop(client, messages)
 print(f"final answer: {final}")`} />
 
@@ -124,9 +230,11 @@ print(f"final answer: {final}")`} />
 this demo. The loop from above is repeated here so the demo runs on its
 own.)
 
-Every action — the tool call *and* the eventual final answer — is now
-preceded by its own explicit reasoning, visible and inspectable, rather
-than happening silently.
+Every action — both tool calls *and* the eventual final answer — is now
+preceded by its own explicit reasoning, visible and inspectable, and
+both `get_weather` calls genuinely run and get paired with their own
+result in the single follow-up message, rather than one of them
+silently going unanswered.
 
 </Subsection>
 
@@ -148,43 +256,68 @@ than happening silently.
         "The `thinking` block doesn't execute or stop anything. It carries the model's stated reasoning for the action that follows it, so that reasoning is visible instead of implicit.",
     },
     {
+      question: "In the pain demo, why does the naive loop return \"Let me check that for you.\" without ever calling check_price?",
+      options: [
+        "check_price raises an exception that gets silently swallowed",
+        "The loop only ever looks at response.content[0] — the TextBlock happens to come first in this response, so the ToolUseBlock right next to it is never even inspected",
+        "The fake client only supports one block type at a time",
+        "This is the intended, correct behavior",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Reading only the first block means whatever's in that position decides everything. A text remark placed before the tool call hides the tool call completely, with no error to signal anything went wrong.",
+    },
+    {
+      question: "In the fixed loop, why doesn't a text block that arrives alongside a tool call get treated as the final answer?",
+      options: [
+        "Text blocks are simply deleted from the response before processing",
+        "The loop only returns once a response contains zero tool_use blocks — any text present in a response that also requests a tool call is left for the model to reiterate once the results are back, not treated as the finished answer",
+        "The fixed loop is identical to the naive one in this respect",
+        "This scenario can never actually happen with the fixed loop",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The stopping condition is \"no tool calls left to run,\" not \"a text block appeared somewhere.\" A response can carry both a tool call and some accompanying text; the tool call means the loop isn't done yet.",
+    },
+    {
+      question: "Why does the fixed loop collect every tool_use block into one list before executing any of them, rather than acting on each one as it's found?",
+      options: [
+        "It doesn't matter — either order produces identical results",
+        "So that every call's result can be gathered into a single results list and sent back in one follow-up message, since a real API expects a tool_result for every tool_use in the very next message, not spread across several",
+        "Collecting first is required only because the fake client would otherwise crash",
+        "Only the first tool call in a response is ever actually meant to run",
+      ],
+      correctIndex: 1,
+      explanation:
+        "If the loop stopped after handling just one call, a response with two tool_use blocks would leave one of them without a matching tool_result — exactly the failure the earlier subsection on parallel tool calls describes.",
+    },
+    {
       question: "Why does a single response now potentially contain more than one block, unlike Lesson 4's version?",
       options: [
         "This is arbitrary and has no real basis in how real APIs work",
-        "It matches the actual multi-block response shape from Module 1's reasoning-output coverage — a thinking block and an action block genuinely arrive together in one response",
+        "It matches the actual multi-block response shape from Module 1's reasoning-output coverage — a thinking block and one or more action blocks genuinely arrive together in one response",
         "Multiple blocks per response only happen when an error occurs",
         "`FakeLLMClient` requires exactly two blocks per response, always",
       ],
       correctIndex: 1,
       explanation:
-        "A real response's content is a list of blocks, and reasoning comes back as its own block ahead of the action. Lesson 4's one-block-per-response fake was a simplification; the block count isn't fixed.",
-    },
-    {
-      question: "Why does the loop append `response.content` (the full list of blocks) rather than just the single action block back into `messages`?",
-      options: [
-        "It doesn't matter which is appended — the two are equivalent",
-        "It preserves the model's own reasoning as part of the conversation history, exactly as it was actually generated, not just the resulting action",
-        "`response.content` is required to always be appended in full for the fake client to function",
-        "Appending only the action block would cause a runtime error",
-      ],
-      correctIndex: 1,
-      explanation:
-        "The two aren't equivalent: appending only the action drops the reasoning from the history the model sees on its next turn. Nothing would crash, which is exactly why it's an easy mistake to make.",
+        "A real response's content is a list of blocks, and reasoning — plus, sometimes, more than one tool call — comes back together in that same list. Lesson 4's one-block-per-response fake was a simplification; neither the block count nor the block order is fixed.",
     },
   ]}
 />
 
 <GradedExercise
   client:load
-  task={'Given `check_price(item: str) -> str` (provided) and a `TOOL_REGISTRY` mapping it, update `run_agent_loop` to iterate every block in a response — logging any `"thinking"` block\'s content with `print(f"[reasoning]: {block.thinking}")`, executing and continuing on a `"tool_use"` block, and returning on a `"text"` block. As in the demo, append `response.content` and then a `tool_result` message (carrying the block\'s `id` as `tool_use_id`) to `messages` after each tool call.'}
+  task={'Given `check_price(item: str) -> str` (provided) and a `TOOL_REGISTRY` mapping it, write `run_agent_loop(client, messages)` using the corrected pattern from this concept: log any `"thinking"` block\'s content with `print(f"[reasoning]: {block.thinking}")`, append the full response to `messages` exactly once, collect every `"tool_use"` block in the response and execute all of them, sending all of their results back together in a single follow-up message (each carrying its call\'s `id` as `tool_use_id`) — and only return the joined text of any `"text"` blocks once a response contains no tool calls at all.'}
   starterCode={`def check_price(item: str) -> str:
     return "$4.50" if item == "notebook" else "unknown"
 
 TOOL_REGISTRY = {"check_price": check_price}
 
 def run_agent_loop(client, messages):
-    # TODO: loop over every block in each response — log thinking blocks,
-    # run tool calls, and return the text of a final answer.
+    # TODO: log thinking blocks, append the full response once, run every
+    # tool_use block in the response, send all results back together, and
+    # return the joined text once a response has no tool calls left.
     pass`}
   hiddenTests={[
     PRE + String.raw`
@@ -195,6 +328,30 @@ client = FakeLLMClient(scripted_responses=[
 final_answer = run_agent_loop(client, [{"role": "user", "content": "..."}])
 assert final_answer == "The notebook costs $4.50."
 assert client.call_count == 2
+`,
+    PRE + String.raw`
+# a text block arriving BEFORE the tool call in the same response must not end the loop early
+client = FakeLLMClient(scripted_responses=[
+    [TextBlock(text="Let me check that for you."), ToolUseBlock(name="check_price", input={"item": "notebook"})],
+    [TextBlock(text="The notebook costs $4.50.")],
+])
+final_answer = run_agent_loop(client, [{"role": "user", "content": "..."}])
+assert final_answer == "The notebook costs $4.50."
+assert client.call_count == 2
+`,
+    PRE + String.raw`
+# two tool_use blocks in one response: both must run, each with its own tool_result,
+# in a single follow-up message
+first = ToolUseBlock(name="check_price", input={"item": "notebook"})
+second = ToolUseBlock(name="check_price", input={"item": "pencil"})
+client = RecordingClient(scripted_responses=[[first, second], [TextBlock(text="done")]])
+run_agent_loop(client, [{"role": "user", "content": "..."}])
+second_message_batch = client.seen[1]
+assert len(second_message_batch) == 3
+results = second_message_batch[2]["content"]
+assert len(results) == 2
+assert {r["tool_use_id"] for r in results} == {first.id, second.id}
+assert {r["content"] for r in results} == {"$4.50", "unknown"}
 `,
     PRE + String.raw`
 import io, contextlib
@@ -209,32 +366,14 @@ logged = [line for line in buf.getvalue().splitlines() if line.startswith("[reas
 assert logged == ["[reasoning]: I should check the price of the notebook.", "[reasoning]: I have the price now."]
 `,
     PRE + String.raw`
-def tool_results(messages):
-    return [c for m in messages if m["role"] == "user" and isinstance(m["content"], list) for c in m["content"] if isinstance(c, dict) and c.get("type") == "tool_result"]
-
 tool_block = ToolUseBlock(name="check_price", input={"item": "notebook"})
 client = RecordingClient(scripted_responses=[[ThinkingBlock(thinking="t"), tool_block], [TextBlock(text="done")]])
-run_agent_loop(client, [{"role": "user", "content": "..."}])
-results = tool_results(client.seen[1])
-assert len(results) == 1 and results[0]["content"] == "$4.50" and results[0]["tool_use_id"] == tool_block.id
-
-client = RecordingClient(scripted_responses=[
-    [ThinkingBlock(thinking="t"), ToolUseBlock(name="check_price", input={"item": "pencil"})],
-    [TextBlock(text="done")],
-])
-run_agent_loop(client, [{"role": "user", "content": "..."}])
-assert tool_results(client.seen[1])[0]["content"] == "unknown"
-`,
-    PRE + String.raw`
-thinking = ThinkingBlock(thinking="I should check the price of the notebook.")
-tool_block = ToolUseBlock(name="check_price", input={"item": "notebook"})
-client = RecordingClient(scripted_responses=[[thinking, tool_block], [TextBlock(text="done")]])
 run_agent_loop(client, [{"role": "user", "content": "..."}])
 second = client.seen[1]
 assert len(second) == 3
 assert second[1]["role"] == "assistant"
 assert len(second[1]["content"]) == 2
-assert second[1]["content"][0] is thinking and second[1]["content"][1] is tool_block
+assert second[1]["content"][0] is tool_block or second[1]["content"][1] is tool_block
 assert second[2]["role"] == "user" and second[2]["content"][0]["type"] == "tool_result"
 `,
     PRE + String.raw`
@@ -248,36 +387,14 @@ with contextlib.redirect_stdout(buf):
     final_answer = run_agent_loop(client, [{"role": "user", "content": "..."}])
 assert final_answer == "No reasoning needed."
 assert "[reasoning]" not in buf.getvalue()
-assert len(client.seen[1]) == 3
 `,
     PRE + String.raw`
-import io, contextlib
-client = RecordingClient(scripted_responses=[
-    [ThinkingBlock(thinking="one"), ToolUseBlock(name="check_price", input={"item": "notebook"})],
-    [ThinkingBlock(thinking="two"), ToolUseBlock(name="check_price", input={"item": "pencil"})],
-    [ThinkingBlock(thinking="three"), ToolUseBlock(name="check_price", input={"item": "notebook"})],
-    [ThinkingBlock(thinking="four"), TextBlock(text="all done")],
-])
-buf = io.StringIO()
-with contextlib.redirect_stdout(buf):
-    final_answer = run_agent_loop(client, [{"role": "user", "content": "prices?"}])
-assert final_answer == "all done"
-assert client.call_count == 4
-assert len(client.seen[3]) == 7
-assert [l for l in buf.getvalue().splitlines() if l.startswith("[reasoning]")] == ["[reasoning]: one", "[reasoning]: two", "[reasoning]: three", "[reasoning]: four"]
-`,
-    PRE + String.raw`
-import io, contextlib
 client = FakeLLMClient(scripted_responses=[[ThinkingBlock(thinking="Easy one."), TextBlock(text="Hello!")]])
-buf = io.StringIO()
-with contextlib.redirect_stdout(buf):
-    final_answer = run_agent_loop(client, [{"role": "user", "content": "hi"}])
-assert final_answer == "Hello!"
+assert run_agent_loop(client, [{"role": "user", "content": "hi"}]) == "Hello!"
 assert client.call_count == 1
-assert "[reasoning]: Easy one." in buf.getvalue()
 `,
   ]}
-  hint={'This is nearly identical to this concept\'s demo — a `for block in response.content:` loop inside the `while`, handling all three block types, appending `response.content` (not just the action block) alongside the tool result, and `break`-ing the inner loop after handling a tool call so the outer `while` makes its next call.'}
+  hint={'This is nearly identical to this concept\'s demo — a `for block in response.content:` pass to log any thinking, appending `response.content` to `messages` once, then `tool_calls = [b for b in response.content if b.type == "tool_use"]`. If `tool_calls` is empty, return the joined text of every `"text"` block. Otherwise, build one `results` list by calling `TOOL_REGISTRY[call.name](**call.input)` for every call in `tool_calls`, and append it as a single `{"role": "user", "content": results}` message.'}
   correctAnswer={{
     code: `def check_price(item: str) -> str:
     return "$4.50" if item == "notebook" else "unknown"
@@ -290,16 +407,20 @@ def run_agent_loop(client, messages):
         for block in response.content:
             if block.type == "thinking":
                 print(f"[reasoning]: {block.thinking}")
-            elif block.type == "tool_use":
-                tool_function = TOOL_REGISTRY[block.name]
-                result = tool_function(**block.input)
-                messages.append({"role": "assistant", "content": response.content})
-                messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
-                break
-            elif block.type == "text":
-                return block.text`,
+        messages.append({"role": "assistant", "content": response.content})
+
+        tool_calls = [block for block in response.content if block.type == "tool_use"]
+        if not tool_calls:
+            return "".join(block.text for block in response.content if block.type == "text")
+
+        results = []
+        for call in tool_calls:
+            tool_function = TOOL_REGISTRY[call.name]
+            output = tool_function(**call.input)
+            results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+        messages.append({"role": "user", "content": results})`,
     explanation:
-      "This is the exact ReAct-extended loop from this concept — genuinely tested against a scripted sequence where each response includes both reasoning and an action, confirming the loop correctly logs the reasoning, dispatches the tool call, and returns the final answer once it actually arrives.",
+      "This is the exact ReAct-extended loop from this concept, genuinely tested against the two response shapes a single-block reaction would get wrong: a text remark arriving before a tool call (still runs the tool, still doesn't return early) and two tool calls arriving together (both run, both get their own tool_result, in one follow-up message) — alongside the same reasoning-logging and dispatch checks as before.",
   }}
 />
 

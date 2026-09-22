@@ -29,17 +29,21 @@ def run_agent_loop(client, messages, max_steps: int = 10):
     seen_calls = []
     for step_count in range(1, max_steps + 1):
         response = client.create(messages=messages)
-        block = response.content[0]
-        if block.type == "tool_use":
-            current_call = (block.name, block.input)
+        messages.append({"role": "assistant", "content": response.content})
+
+        tool_calls = [block for block in response.content if block.type == "tool_use"]
+        if not tool_calls:
+            return "".join(block.text for block in response.content if block.type == "text")
+
+        results = []
+        for call in tool_calls:
+            current_call = (call.name, call.input)
             if current_call in seen_calls:
-                return f"stopped after detecting a repeated call to {block.name} with the same arguments"
+                return f"stopped after detecting a repeated call to {call.name} with the same arguments"
             seen_calls.append(current_call)
-            result = get_weather(**block.input)
-            messages.append({"role": "assistant", "content": response.content})
-            messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
-        elif block.type == "text":
-            return block.text
+            output = get_weather(**call.input)
+            results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+        messages.append({"role": "user", "content": results})
     return f"stopped after reaching the maximum of {max_steps} steps without a final answer"
 
 repeated_responses = [[ToolUseBlock(name="get_weather", input={"location": "Paris"})] for _ in range(20)]
@@ -135,13 +139,14 @@ specific about *why* it's stopping.
 
 <GradedExercise
   client:load
-  task={'Implement `run_agent_loop(client, messages, max_steps)` combining both guards from this lesson: a hard `max_steps` cap (returning a message rather than raising when it\'s hit), and detection that stops immediately (with a message naming the repeated tool) the moment the exact same `(name, input)` call repeats. A scenario with no repeats and a normal final answer within the limit should still return that real answer, unaffected by either guard. `get_weather` is provided; as in earlier exercises, append the assistant\'s tool call and a `tool_result` message (carrying the block\'s `id` as `tool_use_id`) to `messages` after each executed call.'}
+  task={'Implement `run_agent_loop(client, messages, max_steps)` combining both guards from this lesson: a hard `max_steps` cap (returning a message rather than raising when it\'s hit), and detection that stops immediately (with a message naming the repeated tool) the moment the exact same `(name, input)` call repeats. A scenario with no repeats and a normal final answer within the limit should still return that real answer, unaffected by either guard. `get_weather` is provided. As in this lesson\'s pattern, append the assistant\'s full response to `messages` exactly once per response, collect every `tool_use` block, and send all of their results back together in one follow-up message (each carrying its call\'s `id` as `tool_use_id`) — checking each call for repetition before it runs.'}
   starterCode={`def get_weather(location: str) -> str:
     return f"It's sunny in {location}."
 
 def run_agent_loop(client, messages, max_steps: int = 10):
     # TODO: cap the loop at max_steps, and stop immediately when the exact
-    # same (name, input) tool call is requested a second time.
+    # same (name, input) tool call is requested a second time. Handle
+    # every tool_use block in a response, not just the first.
     pass`}
   hiddenTests={[
     PRE + String.raw`
@@ -219,8 +224,32 @@ client = FakeLLMClient(scripted_responses=[[TextBlock(text="Hello!")]])
 assert run_agent_loop(client, [{"role": "user", "content": "hi"}], max_steps=10) == "Hello!"
 assert client.call_count == 1
 `,
+    PRE + String.raw`
+# a text block arriving BEFORE the tool call in the same response must not end the loop early
+client = FakeLLMClient(scripted_responses=[
+    [TextBlock(text="Checking now."), ToolUseBlock(name="get_weather", input={"location": "Paris"})],
+    [TextBlock(text="It's sunny in Paris.")],
+])
+result = run_agent_loop(client, [{"role": "user", "content": "..."}], max_steps=10)
+assert result == "It's sunny in Paris."
+assert client.call_count == 2
+`,
+    PRE + String.raw`
+# two different tool_use blocks in one response: both run, neither is a "repeat" of the other,
+# and both get their own tool_result in a single follow-up message
+first = ToolUseBlock(name="get_weather", input={"location": "Paris"})
+second = ToolUseBlock(name="get_weather", input={"location": "Berlin"})
+client = RecordingClient(scripted_responses=[[first, second], [TextBlock(text="both checked")]])
+result = run_agent_loop(client, [{"role": "user", "content": "..."}], max_steps=10)
+assert result == "both checked"
+second_message_batch = client.seen[1]
+assert len(second_message_batch) == 3
+results = second_message_batch[2]["content"]
+assert len(results) == 2
+assert {r["tool_use_id"] for r in results} == {first.id, second.id}
+`,
   ]}
-  hint={'This is this concept\'s exact demo code — the only change needed beyond Concept 2\'s version is adding `seen_calls = []` before the loop, and the `current_call`/`in seen_calls` check right after receiving a `tool_use` block, before actually executing it.'}
+  hint={'This is this concept\'s exact demo code — the only change needed beyond max steps\' version is adding `seen_calls = []` before the loop, and checking each collected `tool_use` block\'s `(name, input)` against `seen_calls` before executing it, inside the loop over `tool_calls`.'}
   correctAnswer={{
     code: `def get_weather(location: str) -> str:
     return f"It's sunny in {location}."
@@ -229,20 +258,24 @@ def run_agent_loop(client, messages, max_steps: int = 10):
     seen_calls = []
     for step_count in range(1, max_steps + 1):
         response = client.create(messages=messages)
-        block = response.content[0]
-        if block.type == "tool_use":
-            current_call = (block.name, block.input)
+        messages.append({"role": "assistant", "content": response.content})
+
+        tool_calls = [block for block in response.content if block.type == "tool_use"]
+        if not tool_calls:
+            return "".join(block.text for block in response.content if block.type == "text")
+
+        results = []
+        for call in tool_calls:
+            current_call = (call.name, call.input)
             if current_call in seen_calls:
-                return f"stopped after detecting a repeated call to {block.name} with the same arguments"
+                return f"stopped after detecting a repeated call to {call.name} with the same arguments"
             seen_calls.append(current_call)
-            result = get_weather(**block.input)
-            messages.append({"role": "assistant", "content": response.content})
-            messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
-        elif block.type == "text":
-            return block.text
+            output = get_weather(**call.input)
+            results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+        messages.append({"role": "user", "content": results})
     return f"stopped after reaching the maximum of {max_steps} steps without a final answer"`,
     explanation:
-      "Scenario 1 confirms the repeated-call detection triggers on exactly the second identical call, well before max_steps would ever matter. Scenario 2 confirms neither guard interferes with a loop that's genuinely making progress — both are safety nets, not obstacles to normal, successful operation.",
+      "Scenario 1 confirms the repeated-call detection triggers on exactly the second identical call, well before max_steps would ever matter. Scenario 2 confirms neither guard interferes with a loop that's genuinely making progress. The last two tests confirm the loop handles real response shapes correctly: a text remark before a tool call doesn't end the loop early, and two different tool calls in one response both run and both get a paired result, rather than only the first one being handled.",
   }}
 />
 

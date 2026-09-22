@@ -1263,6 +1263,39 @@ hidden tests; a sequential-dispatch variant fails only the timing test; a
 variant that skips `normalize_request` fails only the first (whitespace)
 test.
 
+**Module 2 review fix — the core agent loop's single-block bug (Lessons 4–7).**
+Every scripted fake-client response used throughout the module happened to put
+the decisive block (a lone `tool_use` or `text`) first, or to only ever need
+one tool call per response, so no exercise's hidden tests ever exercised two
+real cases a genuine API response can produce: text arriving *before* a tool
+call in the same response, and *two or more* `tool_use` blocks in one
+response. Two shapes of loop in Lessons 4–7 read only `response.content[0]`
+(Lesson 4, deliberately, and copied forward unnoticed into Lessons 6–7) or
+iterated every block but returned on the first `text` block / `break`-ed after
+the first `tool_use` (Lesson 5's original ReAct loop) — both silently drop a
+tool call that arrives after text, and both leave a second `tool_use` in the
+same response with no matching `tool_result`, which a real API rejects on the
+next call. Lesson 4 is kept as the deliberately minimal version (its own
+concept explicitly names the one-hardcoded-tool limitation as pedagogical);
+Lesson 5 Concept 1 now opens with a live "pain" demo showing the naive loop
+silently skip a tool call, then teaches the fix: collect every `tool_use`
+block first, dispatch all of them, and send all of their results back in one
+message, only returning once a response has no tool calls left. That shape
+was then propagated to every dispatch loop in Lessons 5–7 (both `LiveDemo`s
+and every `GradedExercise`/`MultiFileGradedExercise`), and from Lesson 5
+onward every graded loop exercise's hidden tests now include both edge cases.
+Verified against real Pyodide 0.26.4: every modified exercise's reference
+solution passes all of its hidden tests (Lesson 5 Concept 1, Lesson 5
+recap-practice, Lesson 6 Concept 3, Lesson 6 recap-practice), and the *old*
+single-block loop was confirmed to fail both new edge-case tests, confirming
+they actually catch the bug. Lessons 8 and 9's `content[0]` usages were
+checked by hand and left alone — their scripted clients return exactly one
+block representing an entire planning/evaluation outcome (`PlanBlock`,
+`FailureBlock`, `EvaluationBlock`), never raw multi-block model output, so the
+same bug class doesn't apply there. Lesson 7's checkpoint/resume files were
+also left alone — deliberately single-call-per-session by design, not a
+`while` dispatch loop.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped

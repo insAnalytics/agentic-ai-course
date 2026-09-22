@@ -62,21 +62,26 @@ def run_agent_loop_with_goal_check(client, messages, target_agent_name: str, max
     seen_calls = []
     for step_count in range(1, max_steps + 1):
         response = client.create(messages=messages)
-        block = response.content[0]
-        if block.type == "tool_use":
-            current_call = (block.name, block.input)
+        messages.append({"role": "assistant", "content": response.content})
+
+        tool_calls = [block for block in response.content if block.type == "tool_use"]
+        if not tool_calls:
+            return "".join(block.text for block in response.content if block.type == "text")
+
+        results = []
+        for call in tool_calls:
+            current_call = (call.name, call.input)
             if current_call in seen_calls:
-                return f"stopped after detecting a repeated call to {block.name} with the same arguments"
+                return f"stopped after detecting a repeated call to {call.name} with the same arguments"
             seen_calls.append(current_call)
-            tool_function = TOOL_REGISTRY[block.name]
-            result = tool_function(**block.input)
-            messages.append({"role": "assistant", "content": response.content})
-            messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
+            tool_function = TOOL_REGISTRY[call.name]
+            output = tool_function(**call.input)
+            results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
 
             if target_agent_name in tools._registry:
+                messages.append({"role": "user", "content": results})
                 return f"goal reached: '{target_agent_name}' now exists in the registry"
-        elif block.type == "text":
-            return block.text
+        messages.append({"role": "user", "content": results})
     return f"stopped after reaching the maximum of {max_steps} steps without a final answer"
 
 client = FakeLLMClient(scripted_responses=[

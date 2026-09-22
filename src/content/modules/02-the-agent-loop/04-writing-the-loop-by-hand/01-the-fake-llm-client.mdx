@@ -64,7 +64,14 @@ class FakeLLMClient:
 [the exact content-block shapes from Module 1's tool-calling coverage](/01-llm-foundations/10-structured-output-and-tool-calling/04-tool-calling/#the-full-shape-concretely)
 — `.type`, and either `.name`/`.input` or `.text` — as attribute-style
 objects, the way a real SDK hands them back (earlier illustrative
-snippets wrote them as plain dicts). `ToolUseBlock` also gets an `.id`,
+snippets wrote them as plain dicts). That match is genuinely useful —
+code that reads `block.type`, `block.name`, `block.input`, `block.text`
+reads the same fields either way — but it's a match in *shape*, not a
+guarantee of correctness: a loop can still read those fields in a way
+that happens to work against this lesson's one-block-per-response
+scripts and would still handle a real response wrong.
+[The next lesson shows a real case exactly like that](/02-the-agent-loop/05-react-and-reasoning-in-the-loop/01-the-react-pattern/#the-pain-reacting-to-only-one-block-silently-drops-the-rest).
+`ToolUseBlock` also gets an `.id`,
 generated automatically, because a real tool call carries one and its
 result has to be sent back with a matching `tool_use_id`, as
 [the round trip in Module 1](/01-llm-foundations/10-structured-output-and-tool-calling/05-the-full-round-trip/)
@@ -136,13 +143,13 @@ correctness*, never whether a model's underlying decision was a good one
       question: "Why do `ToolUseBlock` and `TextBlock` matter, specifically in how they're shaped?",
       options: [
         "Their shape is arbitrary and unrelated to anything covered previously",
-        "They mirror the exact content-block shapes from Module 1's tool-calling coverage, so code written against the fake client transfers directly to a real client later",
+        "They mirror the exact content-block shapes from Module 1's tool-calling coverage, so a loop written against the fake client reads the same fields — `.type`, `.name`, `.input`, `.text` — a real response would have",
         "They only exist for this one specific demo, with no broader purpose",
         "They replace the need for any actual loop logic",
       ],
       correctIndex: 1,
       explanation:
-        "Because the fake's response shape matches a real one, a loop written against it reads the same fields a real response would have.",
+        "Because the fake's response shape matches a real one, a loop written against it reads the same fields a real response would have — but matching shape isn't the same as being correct: the next lesson shows a loop that reads those exact fields in a way that still gets a real response wrong.",
     },
     {
       question: "Why does using a scripted, fully-known response sequence make grading a learner's loop code possible?",

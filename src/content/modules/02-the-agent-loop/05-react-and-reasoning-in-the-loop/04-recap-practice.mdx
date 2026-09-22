@@ -97,7 +97,7 @@ export const PRE = REACT_FAKE_CLIENT + RECORDING_CLIENT;
 <MultiFileGradedExercise
   client:load
   entry="agent_loop.py"
-  task={'Upgrade `run_agent_loop` to the ReAct-extended version from this lesson, without touching `tools.py` at all (it\'s the exact `tools.py` from [Lesson 4\'s comprehensive sandbox](/02-the-agent-loop/04-writing-the-loop-by-hand/04-recap-practice/), shown read-only) — proving the same registry tools work correctly under the new, reasoning-aware loop. As in the lesson, after each tool call append `response.content` and then a `tool_result` message (carrying the block\'s `id` as `tool_use_id`) to `messages`. `agent_loop.py` is the entry file.'}
+  task={'Upgrade `run_agent_loop` to the corrected, ReAct-extended version from this lesson, without touching `tools.py` at all (it\'s the exact `tools.py` from [Lesson 4\'s comprehensive sandbox](/02-the-agent-loop/04-writing-the-loop-by-hand/04-recap-practice/), shown read-only) — proving the same registry tools work correctly under the new, reasoning-aware loop. As in the lesson, append `response.content` to `messages` exactly once per response, collect every `tool_use` block in the response, run all of them, and send all of their results back together in one follow-up message (each carrying its call\'s `id` as `tool_use_id`) — only returning the joined text of any `text` blocks once a response has no tool calls left. `agent_loop.py` is the entry file.'}
   files={[
     {
       name: "tools.py",
@@ -124,11 +124,13 @@ TOOL_REGISTRY = {
 
 def run_agent_loop(client, messages):
     """
-    TODO: the ReAct-extended version — iterate every block in each
-    response, printing any "thinking" block's content as
-    f"[reasoning]: {block.thinking}", dispatching a "tool_use" block via
-    TOOL_REGISTRY and appending the full response.content (not just the
-    action block) plus the tool result, or returning on a "text" block.
+    TODO: the corrected, ReAct-extended version — print any "thinking"
+    block's content as f"[reasoning]: {block.thinking}", append the full
+    response.content to messages exactly once, collect every "tool_use"
+    block in the response and dispatch all of them via TOOL_REGISTRY,
+    sending all of their results back together in a single follow-up
+    message, and only return the joined text of any "text" blocks once a
+    response has no tool calls left.
     """
     pass`,
     },
@@ -220,8 +222,33 @@ with contextlib.redirect_stdout(buf):
     assert run_agent_loop(client, [{"role": "user", "content": "hi"}]) == "Hello!"
 assert client.call_count == 1
 assert logged(buf.getvalue()) == ["[reasoning]: Easy one."]
+
+# a text block arriving BEFORE the tool call in the same response must not end the loop early
+tools._registry.clear()
+client = FakeLLMClient(scripted_responses=[
+    [TextBlock(text="Let me check that for you."), ToolUseBlock(name="check_agent_exists", input={"name": "research_agent"})],
+    [TextBlock(text="research_agent does not exist yet.")],
+])
+final_answer = run_agent_loop(client, [{"role": "user", "content": "..."}])
+assert final_answer == "research_agent does not exist yet."
+assert client.call_count == 2
+
+# two tool_use blocks in one response: both must run, each with its own tool_result,
+# in a single follow-up message
+tools._registry.clear()
+first = ToolUseBlock(name="create_agent_entry", input={"name": "writer", "model": "claude-haiku"})
+second = ToolUseBlock(name="create_agent_entry", input={"name": "editor", "model": "claude-sonnet"})
+recording = RecordingClient(scripted_responses=[[first, second], [TextBlock(text="both done")]])
+final_answer = run_agent_loop(recording, [{"role": "user", "content": "..."}])
+assert final_answer == "both done"
+assert tools._registry == {"writer": {"model": "claude-haiku"}, "editor": {"model": "claude-sonnet"}}
+second_message_batch = recording.seen[1]
+assert len(second_message_batch) == 3
+results = second_message_batch[2]["content"]
+assert len(results) == 2
+assert {r["tool_use_id"] for r in results} == {first.id, second.id}
 `}
-  hint={"This is [Concept 1's exercise answer, exactly](/02-the-agent-loop/05-react-and-reasoning-in-the-loop/01-the-react-pattern/) — the only thing that's changed is which tools live in `TOOL_REGISTRY`, imported from `tools.py` unchanged. The loop's own logic needs no modification for the new tools to work correctly."}
+  hint={"This is [this lesson's exercise answer, exactly](/02-the-agent-loop/05-react-and-reasoning-in-the-loop/01-the-react-pattern/) — the only thing that's changed is which tools live in `TOOL_REGISTRY`, imported from `tools.py` unchanged. The loop's own logic needs no modification for the new tools to work correctly."}
   correctFiles={[
     {
       name: "tools.py",
@@ -251,17 +278,21 @@ def run_agent_loop(client, messages):
         for block in response.content:
             if block.type == "thinking":
                 print(f"[reasoning]: {block.thinking}")
-            elif block.type == "tool_use":
-                tool_function = TOOL_REGISTRY[block.name]
-                result = tool_function(**block.input)
-                messages.append({"role": "assistant", "content": response.content})
-                messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
-                break
-            elif block.type == "text":
-                return block.text`,
+        messages.append({"role": "assistant", "content": response.content})
+
+        tool_calls = [block for block in response.content if block.type == "tool_use"]
+        if not tool_calls:
+            return "".join(block.text for block in response.content if block.type == "text")
+
+        results = []
+        for call in tool_calls:
+            tool_function = TOOL_REGISTRY[call.name]
+            output = tool_function(**call.input)
+            results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+        messages.append({"role": "user", "content": results})`,
     },
   ]}
-  explanation="This is the real payoff of the registry-based dispatch design from Lesson 4: upgrading the loop's own capabilities — adding reasoning awareness — required zero changes to tools.py, since the dispatch mechanism only ever depended on block.name matching a registry key, never on the loop's internal structure. The three-step scripted sequence now shows the model explicitly reasoning through the exact check-before-create logic [from Lesson 3's system prompt design](/02-the-agent-loop/03-the-system-prompt-as-agent-design/05-recap-practice/) — no longer just an instruction hoped to be followed, but visible, logged reasoning genuinely present at each step of a real, running loop."
+  explanation="This is the real payoff of the registry-based dispatch design from Lesson 4: upgrading the loop's own capabilities — adding reasoning awareness, and correctly handling every tool call in a response rather than just the first — required zero changes to tools.py, since the dispatch mechanism only ever depended on block.name matching a registry key, never on the loop's internal structure. The three-step scripted sequence now shows the model explicitly reasoning through the exact check-before-create logic [from Lesson 3's system prompt design](/02-the-agent-loop/03-the-system-prompt-as-agent-design/05-recap-practice/) — no longer just an instruction hoped to be followed, but visible, logged reasoning genuinely present at each step of a real, running loop, one that also survives a text remark arriving before a tool call and two tool calls arriving together."
 />
 
 </CheckpointZone>
