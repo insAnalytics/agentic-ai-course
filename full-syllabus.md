@@ -1486,9 +1486,10 @@ far" list directly below it.*
     sequential rewrite). Verified against real Pyodide with 3 submissions
     (architecture.md §4.1). Lesson 10 is now fully Locked.
 
-11. **Agent Frameworks** — Building
-    Title is a working name (folder `11-agent-frameworks`) — confirm or
-    rename once the bookends mockup arrives. Concept 1 drafted: what a
+11. **From Hand-Rolled to a Runtime** — Locked
+    Title confirmed by the bookends mockup (folder renamed from the working
+    name `11-agent-frameworks` to `11-from-hand-rolled-to-a-runtime`).
+    Concept 1 drafted: what a
     framework actually provides (four pieces — the loop and state handling,
     already built by hand in Lessons 4 and 7 respectively, plus tracing
     hooks and a deployment path as genuinely new; none of it is new
@@ -1522,7 +1523,14 @@ far" list directly below it.*
     comprehensive sandbox page, the only place `execute_tool_safely`
     actually exists, matching the mockup's own general, no-concept-named
     callback; Lesson 8's plan-and-execute-vs-reactive concept page).
-    Remaining: bookends. Not yet Locked.
+    Bookends drafted: intro (outcomes + why-it-matters, linking Lesson 1's
+    intro), a 5-question comprehensive quiz spanning all three concepts,
+    and an ungraded reflective closing synthesis naming the module's full
+    arc (Lessons 1, 4, 6, 7, 8, 9's intros) — the correct slot here per
+    lesson-structure.md, since unlike Lesson 10 this lesson genuinely has
+    no learner-authored code anywhere in it, matching the mockup exactly
+    with no conflict to resolve. Lesson 11 is now fully Locked — **Module
+    2 (The Agent Loop) is now fully built, all 11 lessons Locked.**
 
 **Old outline (superseded):**
 

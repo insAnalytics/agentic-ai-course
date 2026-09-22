@@ -1,0 +1,100 @@
+---
+title: "Recap & Practice"
+lesson: "11-from-hand-rolled-to-a-runtime"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Which two things a framework provides has this module already built by hand?",
+      options: [
+        "Tracing hooks and a deployment path",
+        "The loop and state handling",
+        "Nothing new",
+        "Only the loop",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The while/dispatch loop and the scratchpad/serialization mechanics were both built from scratch earlier in this module. A framework packages the same mechanisms, not new capability.",
+    },
+    {
+      question: "Why does a LangChain tool's docstring matter specifically?",
+      options: [
+        "It's ignored entirely",
+        "It becomes part of the tool's schema, directly shown to the model",
+        "Docstrings are never used by @tool",
+        "Only matters with no type hints",
+      ],
+      correctIndex: 1,
+      explanation:
+        "@tool builds the tool's schema from the function's signature and docstring together, so the model actually reads it -- it isn't just a comment for humans.",
+    },
+    {
+      question: "What does \"{agent_scratchpad}\" confirm about this course's terminology?",
+      options: [
+        "Nothing -- coincidental",
+        "\"Scratchpad\" is genuine, standard framework terminology, not invented for this course",
+        "LangChain uses an unrelated concept",
+        "Scratchpads don't exist in real frameworks",
+      ],
+      correctIndex: 1,
+      explanation:
+        "LangChain's own prompt template literally names this placeholder agent_scratchpad -- the same accumulating-state idea this course named back in Lesson 7.",
+    },
+    {
+      question: "What does AgentExecutor(..., max_iterations=10) correspond to?",
+      options: [
+        "Nothing new",
+        "Lesson 4's loop, with max_iterations as Lesson 6's max_steps",
+        "Only tool dispatch",
+        "The evaluator-optimizer pattern",
+      ],
+      correctIndex: 1,
+      explanation:
+        "AgentExecutor runs the loop to completion, the same job the hand-written while loop did, and max_iterations is the identical hard cap max_steps enforced.",
+    },
+    {
+      question: "Why does this lesson treat understanding hand-rolled mechanics as valuable even once a framework is adopted?",
+      options: [
+        "It isn't valuable",
+        "It's what makes adopting a framework an informed choice, not a leap of faith",
+        "Frameworks require rewriting the hand-rolled version every time",
+        "This isn't actually argued",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Choosing convenience over visibility is only a real trade-off if you understand what you're giving up. Having built the loop by hand is what turns adopting a framework into an informed decision.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<Subsection title="Closing synthesis — the full arc" variant="a">
+
+This isn't graded — it's a chance to name the module's whole
+trajectory, start to finish.
+
+From
+[Lesson 1's bare structural definition of an agent](/02-the-agent-loop/01-agents-workflows-and-the-loop/00-intro/)
+through
+[Lesson 4's hand-written loop](/02-the-agent-loop/04-writing-the-loop-by-hand/00-intro/),
+[Lesson 6's guards](/02-the-agent-loop/06-termination-failure-and-control/00-intro/),
+[Lesson 7's scratchpad](/02-the-agent-loop/07-agent-state-and-the-scratchpad/00-intro/),
+[Lesson 8's planning](/02-the-agent-loop/08-planning-and-decomposition/00-intro/),
+and
+[Lesson 9's reflection](/02-the-agent-loop/09-reflection-and-self-critique/00-intro/)
+— every mechanism a real framework like LangChain packages was built
+here first, by hand, understood at the level of every line. That's the
+actual point of this module: not that hand-rolling is always the right
+choice, but that choosing a framework afterward is a genuine, informed
+decision — never a black box accepted on faith.
+
+</Subsection>
