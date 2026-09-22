@@ -1,0 +1,150 @@
+---
+title: "Recap & Practice"
+lesson: "10-workflow-patterns-beyond-a-single-loop"
+order: 4
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does prompt chaining actually name?",
+      options: [
+        "A brand-new mechanism",
+        "A fixed sequence where each step's output feeds the next",
+        "A technique only usable with two steps",
+        "The agent's own dynamic tool selection",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Nothing mechanically new is introduced -- chaining just names the fixed-sequence pattern already built earlier in the module.",
+    },
+    {
+      question: "Why is routing still structurally a workflow, not an agent?",
+      options: [
+        "It isn't",
+        "The set of possible downstream paths is fixed in code; only which one gets chosen is decided at runtime",
+        "Routing never involves an LLM call",
+        "Routes are rebuilt fresh each request",
+      ],
+      correctIndex: 1,
+      explanation:
+        "An LLM call can classify the request, but the code still enumerates every possible destination in advance -- unlike an agent's open-ended tool selection.",
+    },
+    {
+      question: "What made two sub-tasks safe to parallelize, per Lesson 8?",
+      options: [
+        "Same tool name",
+        "No dependency on each other in the dependency graph",
+        "Coincidental scheduling",
+        "Parallelization is always safe",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The dependency graph showed both tasks with an empty prerequisite list -- nothing about one's outcome could affect the other.",
+    },
+    {
+      question: "How does orchestrator-workers differ from routing?",
+      options: [
+        "Same pattern, different name",
+        "Routing picks one path; orchestrator-workers dispatches to multiple workers and aggregates",
+        "Never uses an LLM call",
+        "Always runs more workers than routing",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Routing chooses a single destination from a fixed set. Orchestrator-workers fans a task out to several workers at once and joins what comes back.",
+    },
+    {
+      question: "Why is orchestrator-workers genuinely different from a smaller agent loop?",
+      options: [
+        "No real difference",
+        "Each worker has a fixed job with no open-ended decision-making -- the agent loop's defining trait is absent",
+        "Always uses more tool calls",
+        "Workers always run sequentially",
+      ],
+      correctIndex: 1,
+      explanation:
+        "An agent loop's defining feature is the model choosing its own next step. A worker just runs the one sub-task it was handed and reports back.",
+    },
+  ]}
+/>
+
+<GradedExercise
+  client:load
+  task={'Combine every pattern from this lesson into one pipeline. `handle_billing`, `handle_technical`, `ROUTES`, and `normalize_request` are already given. Implement `process_ticket(ticket)`: `await asyncio.sleep(0.3)` to simulate work, then **chain** `ticket["request"]` through `normalize_request` before **routing** the normalized text through `ROUTES[ticket["category"]]`, returning the routed result. Then implement `run_ticket_pipeline(tickets)`: dispatch every ticket to `process_ticket` **concurrently** via `asyncio.gather` (this is the orchestrator-workers shape from Concept 3 -- decompose the batch, dispatch all of it, aggregate), joining the results with `"\\n"`.'}
+  starterCode={`import asyncio
+
+def handle_billing(request: str) -> str:
+    return f"Routed to billing: {request}"
+
+def handle_technical(request: str) -> str:
+    return f"Routed to technical support: {request}"
+
+ROUTES = {"billing": handle_billing, "technical": handle_technical}
+
+def normalize_request(request: str) -> str:
+    return request.strip()
+
+async def process_ticket(ticket: dict) -> str:
+    # TODO: await asyncio.sleep(0.3), normalize ticket["request"] via
+    # normalize_request, then dispatch the normalized text through
+    # ROUTES[ticket["category"]] and return the result.
+    pass
+
+async def run_ticket_pipeline(tickets: list) -> str:
+    # TODO: dispatch every ticket to process_ticket concurrently via
+    # asyncio.gather, then join the results with "\\n".
+    pass`}
+  hiddenTests={[
+    `tickets = [
+    {"category": "billing", "request": "  My invoice is wrong  "},
+    {"category": "technical", "request": "App crashes on launch"},
+]
+result = asyncio.run(run_ticket_pipeline(tickets))
+assert result == "Routed to billing: My invoice is wrong\\nRouted to technical support: App crashes on launch"`,
+    `import time
+
+async def run_test():
+    tickets = [
+        {"category": "billing", "request": "a"},
+        {"category": "technical", "request": "b"},
+        {"category": "billing", "request": "c"},
+    ]
+    start = time.perf_counter()
+    result = await run_ticket_pipeline(tickets)
+    elapsed = time.perf_counter() - start
+    return result, elapsed
+
+result, elapsed = asyncio.run(run_test())
+assert elapsed < 0.6  # concurrent (~0.3s) not sequential (~0.9s)
+assert result.count("\\n") == 2`,
+    `def handle_sales(request: str) -> str:
+    return f"Routed to sales: {request}"
+ROUTES["sales"] = handle_sales
+result = asyncio.run(run_ticket_pipeline([{"category": "sales", "request": "new plan"}]))
+assert result == "Routed to sales: new plan"
+del ROUTES["sales"]`,
+  ]}
+  hint={"Each ticket's own routing is a two-step chain: normalize_request(ticket[\"request\"]) first, then ROUTES[ticket[\"category\"]] on the result -- exactly Concept 1's chaining-then-routing shape. Dispatching every ticket happens the same way Concept 3's run_orchestrator did: asyncio.gather(*(process_ticket(t) for t in tickets)), then \"\\n\".join(...)."}
+  correctAnswer={{
+    code: `async def process_ticket(ticket: dict) -> str:
+    await asyncio.sleep(0.3)
+    normalized = normalize_request(ticket["request"])
+    handler = ROUTES[ticket["category"]]
+    return handler(normalized)
+
+async def run_ticket_pipeline(tickets: list) -> str:
+    results = await asyncio.gather(*(process_ticket(t) for t in tickets))
+    return "\\n".join(results)`,
+    explanation:
+      "Every pattern from this lesson does real work here: normalize_request then ROUTES[...] is a genuine two-step chain inside each ticket's own processing; ROUTES[ticket[\"category\"]] is genuine dict-based routing, confirmed by the third test adding a brand-new \"sales\" category at runtime with no code change needed; and asyncio.gather across all tickets is the same decompose-dispatch-aggregate shape as Concept 3's orchestrator-workers, confirmed by the second test's timing assertion, which a correct-looking but sequential implementation could never pass in time.",
+  }}
+/>
+
+</CheckpointZone>

@@ -1421,9 +1421,10 @@ far" list directly below it.*
    already-verified harness. The correct-answer explanation links Concept 3's
    limit. Lesson 9 is now fully Locked.
 
-10. **Workflow Patterns** — Building
-    Title is a working name (folder `10-workflow-patterns`) — confirm or
-    rename once the bookends mockup arrives. Concept 1 drafted: prompt
+10. **Workflow Patterns Beyond a Single Loop** — Locked
+    Title confirmed by the bookends mockup (folder renamed from the working
+    name `10-workflow-patterns` to `10-workflow-patterns-beyond-a-single-loop`).
+    Concept 1 drafted: prompt
     chaining and routing (chaining as a name for the already-built
     fixed-sequence pattern; routing as a classification step dispatching to
     a fixed set of downstream paths via a dict, contrasted with an agent's
@@ -1466,8 +1467,24 @@ far" list directly below it.*
     sum — verified against real Pyodide with 2 submissions (the reference,
     and a sequential rewrite that fails only the added timing test, exactly
     as intended). Callbacks link to verified anchors (Lesson 8's `PlanBlock`
-    subsection, Lesson 4's intro, this lesson's Concept 2). Remaining:
-    bookends. Not yet Locked.
+    subsection, Lesson 4's intro, this lesson's Concept 2).
+    Bookends drafted: intro (outcomes + why-it-matters, linking Lesson 4's
+    intro and Lesson 1's honest-case-for-not-using-an-agent concept), and a
+    5-question comprehensive quiz spanning all three concepts. **Content
+    conflict, resolved with the user:** the mockup's closing section was an
+    ungraded "match the pattern to the problem" synthesis, but
+    lesson-structure.md reserves that slot for lessons with no
+    learner-authored code anywhere in them — this lesson already has
+    Concept 3's graded exercise, so per that section's own rule a real
+    graded comprehensive sandbox was owed instead. Asked the user, who
+    confirmed building the graded version. `run_ticket_pipeline` composes
+    all three code-bearing patterns from the lesson: chaining
+    (`normalize_request` then routing, per ticket), routing (`ROUTES[...]`,
+    a real dict dispatch, confirmed by a hidden test adding a new `"sales"`
+    category at runtime), and orchestrator-workers (`asyncio.gather` across
+    all tickets, timed the same way as Concept 3's test to reject a
+    sequential rewrite). Verified against real Pyodide with 3 submissions
+    (architecture.md §4.1). Lesson 10 is now fully Locked.
 
 **Old outline (superseded):**
 

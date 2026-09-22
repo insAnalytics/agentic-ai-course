@@ -1243,6 +1243,26 @@ passes both tests; a sequential rewrite (`for task in sub_tasks: results.append(
 produces the identical joined string but fails the timing assertion, exactly
 as intended.
 
+**Lesson 2.10 comprehensive sandbox (`run_ticket_pipeline`)** — content
+conflict, not a Pyodide-specific finding: the mockup's closing section was an
+ungraded "match the pattern to the problem" reflective synthesis, but
+lesson-structure.md §2 reserves that slot for lessons with *no* learner-authored
+code anywhere in them, and this lesson already has one (Concept 3's
+`run_orchestrator`). Per the section's own rule ("a lesson with any real
+learner-authored code... still gets a real graded comprehensive sandbox"),
+asked the user, who confirmed: build a real graded sandbox instead of the
+mockup's synthesis. `run_ticket_pipeline` composes all three code-bearing
+patterns in one function: chaining (`normalize_request` then `ROUTES[...]`
+inside each ticket, in sequence), routing (`ROUTES[ticket["category"]]`, a real
+dict dispatch — confirmed by a hidden test that adds a brand-new `"sales"`
+category at runtime with no code change needed), and orchestrator-workers
+(`asyncio.gather` across all tickets, joined with `"\n"`, timed the same way as
+Concept 3's exercise to reject a sequential-but-correct rewrite). Verified
+against real Pyodide 0.26.4 with 3 submissions: the reference passes all three
+hidden tests; a sequential-dispatch variant fails only the timing test; a
+variant that skips `normalize_request` fails only the first (whitespace)
+test.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped
