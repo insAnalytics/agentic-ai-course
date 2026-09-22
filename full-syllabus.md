@@ -1548,14 +1548,31 @@ Langfuse Observability" — these three moved to Modules 3 and 4 below.)*
 
 ---
 
-## Module 3 — Agent Frontends
+## Module 3 — Tool Design for Agents
 
-*Rough outline — pulled out of the original Module 2 list, not yet
-broken into final lesson detail.*
+*Working title — the first Module 3 mockup arrived with tool-design
+content (names/descriptions/parameters as prompts the model reasons
+over), not the "Agent Frontends" rough outline previously logged here;
+same situation as Module 2's earlier rename, kept as-is until a bookends
+mockup confirms the real module title. The original "Agent Frontends"
+scope (Streamlit/Gradio UIs, a production frontend, auth) is not yet
+re-homed to a specific module — flagged for the mockup author.*
 
-Quick-UI frontends (Streamlit/Gradio) for early agent work, then a more
-production-oriented frontend, plus user authentication and authorization
-— originally lessons 7-8 of the pre-split Module 2 list.
+1. **Writing Tools Models Can Use** — Building
+   Working title (folder `01-writing-tools-models-can-use`), no bookends
+   mockup yet to confirm it. Concept 1 drafted: names and descriptions as
+   prompts — a tool's name/description is literally what the model reasons
+   over when choosing and calling a tool, the same specificity/vagueness
+   stakes as Module 2's prompting-fundamentals lesson and system-prompt
+   always/never constraints, just applied at the individual-tool level.
+   Static illustrative code (function stubs with `...` bodies — nothing to
+   actually run), no live demo or graded exercise, per its own mockup. Both
+   Module-1 and Module-2 callbacks resolved to verified anchors (Module 1's
+   tool-calling concept's "The model doesn't call anything" subsection;
+   Module 2's specificity concept's "The pain" subsection; Module 2's
+   role/persona concept's "Role, and explicit behavioral constraints"
+   subsection). The mockup's own closing note says Concept 2 (parameter
+   design) is drafted separately, not yet converted.
 
 ---
 
