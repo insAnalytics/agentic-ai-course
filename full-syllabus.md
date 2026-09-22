@@ -1486,6 +1486,19 @@ far" list directly below it.*
     sequential rewrite). Verified against real Pyodide with 3 submissions
     (architecture.md §4.1). Lesson 10 is now fully Locked.
 
+11. **Agent Frameworks** — Building
+    Title is a working name (folder `11-agent-frameworks`) — confirm or
+    rename once the bookends mockup arrives. Concept 1 drafted: what a
+    framework actually provides (four pieces — the loop and state handling,
+    already built by hand in Lessons 4 and 7 respectively, plus tracing
+    hooks and a deployment path as genuinely new; none of it is new
+    capability, just packaging). Prose only, no demo or exercise, per its
+    mockup. Callbacks link to verified anchors (Lesson 4 Concept 2's actual
+    loop subsection; Lesson 7's intro, covering both the scratchpad and
+    serialization concepts it names together). Remaining: Concept 2
+    (rebuilding the Lesson 4–6 agent in a framework) onward, bookends. Not
+    yet Locked.
+
 **Old outline (superseded):**
 
 1. Build AI Chatbot with No Code
