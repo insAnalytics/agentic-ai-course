@@ -1495,9 +1495,22 @@ far" list directly below it.*
     capability, just packaging). Prose only, no demo or exercise, per its
     mockup. Callbacks link to verified anchors (Lesson 4 Concept 2's actual
     loop subsection; Lesson 7's intro, covering both the scratchpad and
-    serialization concepts it names together). Remaining: Concept 2
-    (rebuilding the Lesson 4–6 agent in a framework) onward, bookends. Not
-    yet Locked.
+    serialization concepts it names together).
+    Concept 2 drafted: rebuilding the Lesson 4–6 agent in LangChain (`@tool`
+    mapped to Lesson 4's `TOOL_REGISTRY`, with the docstring load-bearing
+    the same way a Pydantic model's fields became a schema in Module 1;
+    `"{agent_scratchpad}"` confirming Lesson 7's own term is standard,
+    real-framework terminology; `create_tool_calling_agent` as the
+    dispatch/reasoning logic; `AgentExecutor` as Lesson 4's `while` loop,
+    with `max_iterations` as the exact same guard as Lesson 6's
+    `max_steps`). Explicitly illustrative per its mockup (genuine LangChain
+    API shape, not executed — no package/network access in this sandbox),
+    a static code block, not a `LiveDemo`; no graded exercise. Callbacks
+    link to verified anchors (Lesson 4's `TOOL_REGISTRY` fix, Module 1's
+    Pydantic-to-schema concept, Lesson 7's scratchpad concept page, Lesson
+    4's intro for the "Lessons 4–5" reference, Lesson 4 Concept 2's loop
+    subsection, Lesson 6's max-steps guard subsection). Remaining: Concept
+    3 (what control was given up) onward, bookends. Not yet Locked.
 
 **Old outline (superseded):**
 
