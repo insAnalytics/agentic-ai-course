@@ -37,28 +37,28 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
         "@tool builds the tool's schema from the function's signature and docstring together, so the model actually reads it -- it isn't just a comment for humans.",
     },
     {
-      question: "What does \"{agent_scratchpad}\" confirm about this course's terminology?",
+      question: "What does the {\"messages\": [...]} dict passed to agent.invoke() confirm about this course's own terminology?",
       options: [
         "Nothing -- coincidental",
-        "\"Scratchpad\" is genuine, standard framework terminology, not invented for this course",
+        "The scratchpad -- a growing list of everything that's happened in the run -- is genuine, standard framework terminology, not invented for this course",
         "LangChain uses an unrelated concept",
         "Scratchpads don't exist in real frameworks",
       ],
       correctIndex: 1,
       explanation:
-        "LangChain's own prompt template literally names this placeholder agent_scratchpad -- the same accumulating-state idea this course named back in Lesson 7.",
+        "A framework still has to carry the full conversation state somewhere. Here it's literally named messages, both in and out of invoke() -- the same accumulating-state idea this course named back in Lesson 7.",
     },
     {
-      question: "What does AgentExecutor(..., max_iterations=10) correspond to?",
+      question: "What does config={\"recursion_limit\": 10} correspond to?",
       options: [
         "Nothing new",
-        "Lesson 4's loop, with max_iterations as Lesson 6's max_steps",
+        "Lesson 4's loop, with the recursion limit as Lesson 6's max_steps",
         "Only tool dispatch",
         "The evaluator-optimizer pattern",
       ],
       correctIndex: 1,
       explanation:
-        "AgentExecutor runs the loop to completion, the same job the hand-written while loop did, and max_iterations is the identical hard cap max_steps enforced.",
+        "create_agent compiles onto LangGraph, and recursion_limit is the underlying engine's own hard cap on how many steps a single run can take -- the same job max_steps did, enforced by the framework instead of a loop condition you wrote.",
     },
     {
       question: "Why does this lesson treat understanding hand-rolled mechanics as valuable even once a framework is adopted?",

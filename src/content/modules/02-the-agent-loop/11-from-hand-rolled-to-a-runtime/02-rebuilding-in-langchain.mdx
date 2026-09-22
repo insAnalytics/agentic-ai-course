@@ -9,15 +9,14 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 > **Illustrative:** genuine LangChain API syntax, not executed live in
 > this sandbox (no package/network access) — but the shape and
-> terminology below are real, not a made-up stand-in.
+> terminology below are real, current LangChain (`create_agent`, the
+> API this course targets as of LangChain 1.0), not a made-up stand-in.
 
 <Subsection title="The same agent, in LangChain" variant="a">
 
 ```python
-from langchain.agents import create_tool_calling_agent, AgentExecutor
+from langchain.agents import create_agent
 from langchain.tools import tool
-from langchain_anthropic import ChatAnthropic
-from langchain_core.prompts import ChatPromptTemplate
 
 @tool
 def check_agent_exists(name: str) -> bool:
@@ -30,22 +29,19 @@ def create_agent_entry(name: str, model: str) -> str:
     registry[name] = {"model": model}
     return f"created agent '{name}' with model '{model}'"
 
-llm = ChatAnthropic(model="claude-sonnet-5")
-tools = [check_agent_exists, create_agent_entry]
+agent = create_agent(
+    model="anthropic:claude-sonnet-5",
+    tools=[check_agent_exists, create_agent_entry],
+    system_prompt="Always check_agent_exists before create_agent_entry.",
+)
 
-prompt = ChatPromptTemplate.from_messages([
-    ("system", "Always check_agent_exists before create_agent_entry."),
-    ("human", "{input}"),
-    ("placeholder", "{agent_scratchpad}"),
-])
-
-agent = create_tool_calling_agent(llm, tools, prompt)
-executor = AgentExecutor(agent=agent, tools=tools, max_iterations=10)
-
-result = executor.invoke({"input": "Register research_agent with claude-sonnet."})
-print(result["output"])
+result = agent.invoke(
+    {"messages": [{"role": "user", "content": "Register research_agent with claude-sonnet."}]},
+    config={"recursion_limit": 10},
+)
+print(result["messages"][-1].content)
 ```
-*(illustrative — real LangChain API shape, not executed here)*
+*(illustrative — real, current LangChain API shape, not executed here)*
 
 </Subsection>
 
@@ -58,22 +54,33 @@ print(result["output"])
   ([the same idea, one layer up, from Module 1's Pydantic-to-schema concept](/01-llm-foundations/10-structured-output-and-tool-calling/03-from-a-pydantic-model-to-a-schema/#generating-the-schema-directly-from-a-model-you-already-know)),
   so the docstring here isn't just documentation — it's load-bearing,
   part of what the model actually sees.
-- **`"{agent_scratchpad}"`** is LangChain's *own* literal name for the
-  accumulating state —
-  [Lesson 7's scratchpad](/02-the-agent-loop/07-agent-state-and-the-scratchpad/01-the-scratchpad/),
-  confirmed as real, standard terminology, not a name this course
-  invented.
-- **`create_tool_calling_agent`** builds the decision logic —
-  [Lesson 4–5's dispatch and reasoning](/02-the-agent-loop/04-writing-the-loop-by-hand/00-intro/)
-  — separately from the loop itself.
-- **`AgentExecutor`** *is*
-  [Lesson 4's `while` loop](/02-the-agent-loop/04-writing-the-loop-by-hand/02-from-round-trip-to-loop/#the-actual-loop-written-and-running-for-real),
-  and `max_iterations=10` *is*
+- **`system_prompt`** is a direct parameter now, not a message assembled
+  by hand — but it plays exactly the role
+  [Lesson 3 gave the system prompt](/02-the-agent-loop/03-the-system-prompt-as-agent-design/00-intro/):
+  a standing instruction the model sees on every turn, here enforcing
+  the same check-before-create discipline this module's own system
+  prompts have used throughout.
+- **The `{"messages": [...]}` passed to `invoke`** is
+  [Lesson 7's scratchpad](/02-the-agent-loop/07-agent-state-and-the-scratchpad/01-the-scratchpad/)
+  by another name — a growing list of messages *is* the agent's state,
+  whether it's a variable this module built by hand or the input/output
+  shape of a framework's own `invoke` call. `result["messages"]` comes
+  back holding the *entire* accumulated conversation, tool calls and
+  all, for exactly the same reason Lesson 7's `messages` list had to
+  hold everything: the model remembers nothing between calls.
+- **`create_agent`** builds the decision logic and the loop together —
+  [Lesson 4's dispatch](/02-the-agent-loop/04-writing-the-loop-by-hand/02-from-round-trip-to-loop/#the-actual-loop-written-and-running-for-real)
+  and
+  [Lesson 5's reasoning-before-acting](/02-the-agent-loop/05-react-and-reasoning-in-the-loop/01-the-react-pattern/)
+  — and compiles them onto LangGraph, the graph-execution engine
+  LangChain's agents now run on.
+- **`config={"recursion_limit": 10}`**, passed to `invoke` rather than
+  the agent's own constructor, *is*
   [Lesson 6's `max_steps`](/02-the-agent-loop/06-termination-failure-and-control/02-max-steps/#the-simplest-possible-guard-a-hard-cap-unconditionally)
-  — same guard, now a constructor argument instead of a loop condition
-  you wrote.
-- **`executor.invoke(...)`** runs the whole loop to completion — the
-  same role `run_agent_loop(...)` has played throughout this module.
+  — the same hard cap on how many steps a single run can take, enforced
+  by the underlying graph engine rather than a loop condition you wrote
+  yourself. Exceed it and LangGraph raises an error, the framework's
+  equivalent of this module's own clean, hand-written stop.
 
 </Subsection>
 
@@ -95,28 +102,28 @@ print(result["output"])
         "@tool builds the tool's schema from the function's signature and docstring together. The model reads that schema to decide how to call the tool, so the docstring is functional, not just a comment for humans.",
     },
     {
-      question: "What does LangChain's \"{agent_scratchpad}\" placeholder confirm about this course's own terminology?",
+      question: "What does the {\"messages\": [...]} dict passed to agent.invoke() actually correspond to, from earlier in this module?",
       options: [
-        "Nothing -- it's an unrelated, coincidental naming choice",
-        "\"Scratchpad,\" as used since Lesson 7, is genuine, standard terminology in a real framework, not something invented for this course",
-        "LangChain uses a completely different concept with a similar name",
-        "The scratchpad concept doesn't actually exist in real frameworks",
+        "Nothing -- it's a framework-specific detail with no real equivalent",
+        "The scratchpad -- the same growing list of everything that's happened in the run, whether it's a variable this module built by hand or a framework's own input/output shape",
+        "It only ever holds the very first user message, nothing else",
+        "It replaces the need for a system prompt entirely",
       ],
       correctIndex: 1,
       explanation:
-        "LangChain's own prompt template literally names this placeholder agent_scratchpad -- the same accumulating-state idea this course named back in Lesson 7, not a course-specific invention.",
+        "A framework still has to carry the full conversation state somewhere, for the same statelessness reason Lesson 7 covered. Here that state is literally named messages, both in and out.",
     },
     {
-      question: "What does AgentExecutor(agent=agent, tools=tools, max_iterations=10) actually correspond to, from earlier in this module?",
+      question: "What does config={\"recursion_limit\": 10}, passed to agent.invoke(), actually correspond to?",
       options: [
-        "Nothing -- AgentExecutor is an entirely new concept",
-        "The while loop from Lesson 4, with max_iterations as the exact same guard as Lesson 6's max_steps",
+        "Nothing -- create_agent has no equivalent to any guard built earlier in this module",
+        "The while loop from Lesson 4, with the recursion limit as the exact same guard as Lesson 6's max_steps",
         "Only the tool dispatch mechanism, not the loop itself",
-        "The evaluator-optimizer pattern from Lesson 9",
+        "The evaluator-optimizer pattern from a later lesson",
       ],
       correctIndex: 1,
       explanation:
-        "AgentExecutor runs the loop to completion, the same job the hand-written while loop did. max_iterations is the identical hard cap max_steps enforced, just passed as a constructor argument instead of a loop condition.",
+        "create_agent compiles onto LangGraph, and recursion_limit is LangGraph's own hard cap on how many steps a single run can take -- the same job max_steps did, enforced by the underlying engine instead of a loop condition you wrote.",
     },
   ]}
 />
