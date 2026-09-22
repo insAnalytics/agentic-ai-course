@@ -1,0 +1,153 @@
+---
+title: "Validate, and return failures as observations"
+lesson: "02-schemas-and-their-limits"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Closing the gap: a validator, plus the failure-as-observation pattern" variant="a">
+
+<LiveDemo client:load code={`from pydantic import BaseModel, field_validator
+from datetime import date
+
+class ScheduleMaintenanceArgs(BaseModel):
+    agent_name: str
+    date: date
+
+    @field_validator("date")
+    @classmethod
+    def date_must_be_future(cls, value: date) -> date:
+        if value < date.today():
+            raise ValueError(f"date {value} is in the past")
+        return value
+
+def schedule_maintenance(agent_name: str, date: str, registry: dict) -> str:
+    try:
+        args = ScheduleMaintenanceArgs(agent_name=agent_name, date=date)
+    except Exception as e:
+        return f"Error: {str(e)}"
+    if args.agent_name not in registry:
+        return f"Error: no agent named '{args.agent_name}' exists in the registry"
+    return f"maintenance scheduled for {args.agent_name} on {args.date}"
+
+result = schedule_maintenance("research_agent", "2020-01-01", registry={"research_agent": {}})
+print(result)`} />
+
+`field_validator` — a custom semantic check beyond what a type alone can
+express, on top of the `BaseModel` fundamentals from
+[Module 0's Pydantic lesson](/00-python-essentials/05-typed-data-models/04-pydantic-fundamentals/)
+— catches what the schema's type alone couldn't; the existence check
+catches the other gap. Both return a plain string,
+[the exact same failure-as-observation pattern from Module 2](/02-the-agent-loop/06-termination-failure-and-control/05-tool-errors-as-observations/#the-fix-catch-it-and-let-the-model-see-it)
+— never a crash, always something the model can actually see and react
+to.
+
+One real-Pydantic detail beyond the mockup's own hand-written output: a
+real validation error also appends a `[type=value_error, ...]` detail and
+a trailing "For further information visit..." docs link, so the live
+output above is longer than a hand-typed error message might suggest —
+the message text itself (`date 2020-01-01 is in the past`) is exactly
+what the `raise ValueError(...)` call wrote.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does field_validator add that a plain type annotation alone couldn't?",
+      options: [
+        "Nothing — types alone already catch this",
+        "A semantic check — here, that a date is actually in the future — beyond what the type system alone can express",
+        "It changes the field's actual type",
+        "It only works on string fields",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A type annotation only constrains shape (a date object). Whether that date is actually in the future is a semantic rule field_validator adds on top.",
+    },
+    {
+      question: "Why does schedule_maintenance return a string on failure, rather than letting the exception propagate?",
+      options: [
+        "Returning a string is required by Pydantic",
+        "It follows Module 2's tool-errors-as-observations pattern — the model needs to actually see the failure, not have the whole interaction crash",
+        "This has no real purpose",
+        "Exceptions can never be caught in Python",
+      ],
+      correctIndex: 1,
+      explanation:
+        "An unhandled exception here would crash the whole agent loop; a returned string is an observation the model can read and react to instead.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={'Given registry = {"support_agent": {}}, implement schedule_maintenance exactly as shown above, validating both the future-date constraint and registry existence, returning "Error: ..." strings rather than raising.'}
+  starterCode={`from pydantic import BaseModel, field_validator
+from datetime import date
+
+registry = {"support_agent": {}}
+
+class ScheduleMaintenanceArgs(BaseModel):
+    agent_name: str
+    date: date
+
+    @field_validator("date")
+    @classmethod
+    def date_must_be_future(cls, value: date) -> date:
+        # TODO: raise ValueError if value is in the past
+        ...
+
+def schedule_maintenance(agent_name: str, date: str, registry: dict) -> str:
+    # TODO: build ScheduleMaintenanceArgs, catching a validation error
+    # TODO: check agent_name exists in registry
+    # TODO: return the success string
+    ...`}
+  hiddenTests={[
+    'assert "in the past" in schedule_maintenance("support_agent", "2020-01-01", registry)',
+    'assert "no agent named" in schedule_maintenance("ghost_agent", "2030-01-01", registry)',
+    'assert schedule_maintenance("support_agent", "2030-01-01", registry) == "maintenance scheduled for support_agent on 2030-01-01"',
+  ]}
+  hint={"Two separate checks, two separate failure paths: wrap the ScheduleMaintenanceArgs(...) construction in a try/except and return an Error: string built from the caught exception (this is what field_validator's raise ValueError(...) ends up surfacing as); then, only once construction succeeds, check args.agent_name against registry and return a second Error: string if it's missing. Only after both checks pass should you return the success string."}
+  correctAnswer={{
+    code: `from pydantic import BaseModel, field_validator
+from datetime import date
+
+registry = {"support_agent": {}}
+
+class ScheduleMaintenanceArgs(BaseModel):
+    agent_name: str
+    date: date
+
+    @field_validator("date")
+    @classmethod
+    def date_must_be_future(cls, value: date) -> date:
+        if value < date.today():
+            raise ValueError(f"date {value} is in the past")
+        return value
+
+def schedule_maintenance(agent_name: str, date: str, registry: dict) -> str:
+    try:
+        args = ScheduleMaintenanceArgs(agent_name=agent_name, date=date)
+    except Exception as e:
+        return f"Error: {str(e)}"
+    if args.agent_name not in registry:
+        return f"Error: no agent named '{args.agent_name}' exists in the registry"
+    return f"maintenance scheduled for {args.agent_name} on {args.date}"`,
+    explanation:
+      "The try/except around construction turns field_validator's raised ValueError into an observation instead of a crash; the registry membership check afterward catches the gap no schema or validator could express, since it's a fact about a different dict entirely.",
+  }}
+/>
+
+</CheckpointZone>

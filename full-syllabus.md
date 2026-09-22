@@ -1634,9 +1634,34 @@ re-homed to a specific module — flagged for the mockup author.*
    structurally can't check. Live demo verified exactly against real
    Pyodide/Pydantic 2.7 — no mockup error. Its one callback resolved to the
    same constrained-decoding "hard guarantee" anchor used in Concept 2 of
-   Lesson 1. The mockup's own closing note says Concept 3 (validate, and
-   return failures as observations) is drafted separately, not yet
-   converted.
+   Lesson 1. Concept 3 drafted (the final concept of this lesson, per its
+   own mockup): validate, and return failures as observations — a
+   `field_validator` closes the date-validity gap, an explicit registry
+   membership check closes the existence gap, and both failures return a
+   plain `"Error: ..."` string rather than raising, the same
+   failure-as-observation pattern from Module 2's termination lesson. Live
+   demo verified exactly against real Pyodide/Pydantic 2.7, with one
+   real-Pydantic addition beyond the mockup's own hand-written expected
+   output: a real validation error also appends a `[type=value_error, ...]`
+   detail and a trailing docs-link line (the same 2.7-vs-hand-written gap
+   noted for Lesson 1.10 Concept 1 and Module 0's error-paths concept),
+   called out in a short caveat rather than left to surprise a learner.
+   Plus Applied sandbox exercise 1: implement `schedule_maintenance`
+   against a provided `registry`, graded by the mockup's own three hidden
+   tests, verified unchanged against real Pyodide — the correct answer
+   passes all three, the unmodified starter fails all three, and a
+   submission that skips the registry-existence check and lets the
+   validator's exception propagate fails two of three, exactly as
+   intended. **Finding:** the mockup's "Pydantic's semantic-check mechanism
+   from Module 0" callback claims Module 0's Pydantic lesson already taught
+   `field_validator`, but that lesson only covers `BaseModel` and
+   type-level validation — `field_validator` is genuinely new here, so the
+   prose was reworded to credit Module 0 for the `BaseModel` groundwork
+   without overclaiming it taught this specific mechanism. Its link still
+   points to Module 0's Pydantic-fundamentals page.
+
+   Bookends not yet drafted (mockup author's own closing note: "Continues
+   with bookends — drafted separately").
 
 ---
 
