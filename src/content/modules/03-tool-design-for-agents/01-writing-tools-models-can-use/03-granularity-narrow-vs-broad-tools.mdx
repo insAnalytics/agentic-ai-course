@@ -1,0 +1,88 @@
+---
+title: "Granularity — narrow vs. broad tools"
+lesson: "01-writing-tools-models-can-use"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="A real usability tradeoff, not a purely technical one" variant="a">
+
+```python
+def get_user_profile(user_id: str) -> dict:
+    """Retrieve one user's profile by their user ID."""
+    ...
+
+def run_sql(query: str) -> list:
+    """Run an arbitrary SQL query against the database."""
+    ...
+```
+
+`get_user_profile` is **narrow**: it does exactly one thing, and the
+model has very little room to call it wrong — a `user_id` is either
+right or it isn't. `run_sql` is **broad**: genuinely more flexible (it
+can answer questions no narrow tool anticipated), but that flexibility
+means the model has to correctly construct an entire query itself,
+leaving far more room for a subtly wrong — or badly-scoped — call than a
+narrow tool ever could.
+
+</Subsection>
+
+<Subsection title="The real tradeoff, stated plainly" variant="b">
+
+Narrow tools are easier for a model to use *correctly*, at the cost of
+covering only what was anticipated in advance. Broad tools cover far
+more ground, at the cost of asking the model to get something more
+complex right on every single call. This concept is scoped strictly to
+that usability question — the same tradeoff has a real *security*
+dimension too (what a broad tool like `run_sql` could do if misused),
+covered properly in a later lesson on designing for least privilege.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: 'What makes get_user_profile(user_id) a "narrow" tool?',
+      options: [
+        "It has a shorter name than run_sql",
+        "It does exactly one thing, leaving the model very little room to call it incorrectly",
+        "It never returns any data",
+        "It requires more parameters than a broad tool",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A narrow tool's single, well-defined purpose leaves little room for a model to get the call wrong — a user_id is either right or it isn't.",
+    },
+    {
+      question: "What's the real tradeoff broad tools like run_sql offer, compared to narrow ones?",
+      options: [
+        "No real tradeoff — broad tools are strictly better",
+        "More flexibility to handle unanticipated needs, at the cost of asking the model to correctly construct something more complex, with more room for error",
+        "Broad tools are always faster to execute",
+        "Broad tools can never actually be misused",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Flexibility and correctness pull in opposite directions here: a broad tool covers more ground but asks more of every single call.",
+    },
+    {
+      question: "What aspect of the narrow-vs-broad tradeoff does this concept explicitly leave for a later lesson?",
+      options: [
+        "Nothing — this concept covers the tradeoff completely",
+        "The security dimension — what a broad tool could do if misused, covered in a later lesson on designing for least privilege",
+        "Whether tools can have more than one parameter",
+        "The Pydantic schema generation mechanism",
+      ],
+      correctIndex: 1,
+      explanation:
+        "This concept is scoped to usability only; a broad tool's misuse potential is a separate, security-focused question saved for later.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

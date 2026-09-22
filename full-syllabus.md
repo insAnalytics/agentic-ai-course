@@ -1581,9 +1581,20 @@ re-homed to a specific module — flagged for the mockup author.*
    callbacks resolved to verified anchors (Module 1's constrained-decoding
    concept's "A hard guarantee, not a soft nudge" subsection; its
    from-Pydantic-to-schema concept's "Generating the schema directly from a
-   model you already know" subsection, where `AgentConfig` is shown). The
-   mockup's own closing note says Concept 3 (granularity, narrow vs. broad
-   tools) is drafted separately, not yet converted.
+   model you already know" subsection, where `AgentConfig` is shown).
+   Concept 3 drafted (the final concept of this lesson, per its own
+   mockup): granularity — narrow vs. broad tools (`get_user_profile` as
+   narrow, little room to call incorrectly, vs. `run_sql` as broad, more
+   flexible but asking the model to correctly construct something more
+   complex on every call), scoped explicitly to the usability question
+   only — the security dimension of a broad tool's misuse potential is
+   named as covered "properly in Lesson 11" of this module, but no such
+   lesson exists yet, so it's left as plain text ("a later lesson on
+   designing for least privilege") rather than a link. Static illustrative
+   code, no live demo or graded exercise, per its own mockup.
+
+   Bookends not yet drafted (mockup author's own closing note: "Continues
+   with bookends — drafted separately").
 
 ---
 
