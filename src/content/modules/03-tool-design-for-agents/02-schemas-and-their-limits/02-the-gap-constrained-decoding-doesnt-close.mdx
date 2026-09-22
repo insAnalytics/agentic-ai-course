@@ -1,0 +1,68 @@
+---
+title: "The gap constrained decoding doesn't close"
+lesson: "02-schemas-and-their-limits"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Valid shape, nonsensical content" variant="a">
+
+[Constrained decoding](/01-llm-foundations/10-structured-output-and-tool-calling/02-constrained-decoding/#a-hard-guarantee-not-a-soft-nudge)
+guarantees a call matches its schema — the right field names, the right
+types. It guarantees nothing about whether those values actually make
+sense:
+
+<LiveDemo client:load code={`from pydantic import BaseModel
+
+class ScheduleMaintenanceArgs(BaseModel):
+    agent_name: str
+    date: str   # ISO 8601
+
+call = ScheduleMaintenanceArgs(agent_name="research_agent", date="2020-01-01")
+print(call)   # perfectly schema-valid -- and a date years in the past`} />
+
+Nothing about this fails — `date` is a correctly-typed string,
+`agent_name` is a correctly-typed string. The schema has no concept of
+"in the past," or of `"research_agent"` actually existing in the real
+registry. Both are real, meaningful problems the schema structurally
+cannot catch, because they're facts about the world, not facts about
+shape.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: 'Why does call = ScheduleMaintenanceArgs(agent_name=..., date="2020-01-01") succeed without error?',
+      options: [
+        "Pydantic automatically rejects past dates",
+        'date is a correctly-typed string — the schema has no concept of "in the past," only of matching the declared type',
+        "This is actually a bug that should raise an error",
+        "2020-01-01 isn't valid ISO 8601 format",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The schema only checks type and required fields. Whether a date makes sense given today's date is a fact about the world it has no way to represent.",
+    },
+    {
+      question: "What do a past-dated schedule and a nonexistent agent_name have in common, as failures?",
+      options: [
+        "Neither is actually a real problem",
+        "Both are facts about the real world the schema structurally can't check — only shape, never whether a value is sensible or real",
+        "Both would be caught automatically by constrained decoding",
+        "Only the date problem is real; nonexistent names are always caught",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Constrained decoding enforces shape at generation time; it has no access to real-world facts like today's date or the actual contents of a database.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

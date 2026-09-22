@@ -1626,8 +1626,16 @@ re-homed to a specific module — flagged for the mockup author.*
    verified exactly against real Pyodide/Pydantic 2.7 — no mockup error.
    Both callbacks resolved to verified anchors (Module 1's from-Pydantic-
    to-schema concept's `AgentConfig` subsection; Lesson 1's parameter-design
-   concept page). The mockup's own closing note says Concept 2 (the gap
-   constrained decoding doesn't close) is drafted separately, not yet
+   concept page). Concept 2 drafted: the gap constrained decoding doesn't
+   close — a schema-valid call (`ScheduleMaintenanceArgs` with a
+   correctly-typed but years-in-the-past `date`) still succeeds, since the
+   schema has no concept of "in the past" or of an `agent_name` actually
+   existing in the real registry; both are real-world facts the schema
+   structurally can't check. Live demo verified exactly against real
+   Pyodide/Pydantic 2.7 — no mockup error. Its one callback resolved to the
+   same constrained-decoding "hard guarantee" anchor used in Concept 2 of
+   Lesson 1. The mockup's own closing note says Concept 3 (validate, and
+   return failures as observations) is drafted separately, not yet
    converted.
 
 ---
