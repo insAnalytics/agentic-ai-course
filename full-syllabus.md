@@ -1509,8 +1509,20 @@ far" list directly below it.*
     link to verified anchors (Lesson 4's `TOOL_REGISTRY` fix, Module 1's
     Pydantic-to-schema concept, Lesson 7's scratchpad concept page, Lesson
     4's intro for the "Lessons 4–5" reference, Lesson 4 Concept 2's loop
-    subsection, Lesson 6's max-steps guard subsection). Remaining: Concept
-    3 (what control was given up) onward, bookends. Not yet Locked.
+    subsection, Lesson 6's max-steps guard subsection).
+    Concept 3 drafted (final concept of Lesson 11 and Module 2): what
+    control was given up (termination logic, state serialization, and
+    dispatch-on-failure all still happen under a framework, just no longer
+    as code you wrote and can read directly; framed as an honest trade,
+    not a criticism, since having built the loop by hand is what makes
+    adopting a framework an informed choice rather than a leap of faith).
+    Prose only, no demo or exercise, per its mockup. Callbacks link to
+    verified anchors/pages (this lesson's Concept 2; Lesson 6's max-steps
+    guard subsection; Lesson 7's serializing-state concept page; Lesson 6's
+    comprehensive sandbox page, the only place `execute_tool_safely`
+    actually exists, matching the mockup's own general, no-concept-named
+    callback; Lesson 8's plan-and-execute-vs-reactive concept page).
+    Remaining: bookends. Not yet Locked.
 
 **Old outline (superseded):**
 

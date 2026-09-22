@@ -1,0 +1,70 @@
+---
+title: "What control was given up"
+lesson: "11-agent-frameworks"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Explicit becomes implicit — not gone, just hidden" variant="a">
+
+Everything
+[Concept 2's framework version](/02-the-agent-loop/11-agent-frameworks/02-rebuilding-in-langchain/)
+does, the hand-rolled version also did — but several things that were
+explicit and inspectable by hand are now internal to the framework:
+
+- **Exactly when `max_steps` fires** —
+  [Lesson 6's precise, hand-written check](/02-the-agent-loop/06-termination-failure-and-control/02-max-steps/#the-simplest-possible-guard-a-hard-cap-unconditionally)
+  is now a number you set, not logic you can read directly.
+- **Exactly how state serializes** —
+  [Lesson 7's `to_dict()`/`serialize_messages`](/02-the-agent-loop/07-agent-state-and-the-scratchpad/02-serializing-state/)
+  happens somewhere inside `agent.run()`, not in code you wrote or can
+  trace line by line.
+- **Exactly what the dispatch mechanism does** on an unexpected input —
+  [Lesson 6's `execute_tool_safely`](/02-the-agent-loop/06-termination-failure-and-control/07-recap-practice/)
+  was fully yours to read; a framework's equivalent is a black box
+  unless you go looking for its source.
+
+This isn't a criticism of frameworks — it's the actual, honest trade
+[this course has named repeatedly](/02-the-agent-loop/08-planning-and-decomposition/04-plan-and-execute-vs-reactive/):
+less code to write, at the cost of less direct visibility into exactly
+what's happening. Knowing this loop's real mechanics by having built it
+yourself is what makes that trade a genuine choice, not a leap of
+faith.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: 'What does this concept mean by "explicit becomes implicit"?',
+      options: [
+        "Frameworks remove capabilities the hand-rolled version had",
+        "Mechanisms like termination logic and serialization still happen, but internally, no longer as code you wrote and can read directly",
+        "Frameworks are strictly worse than hand-rolled code",
+        "Nothing actually changes between the two versions",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The mechanisms themselves are unchanged -- a cap still fires, state still serializes, tools still get dispatched. What changes is whether that logic is code you wrote and can read, or something happening inside the framework.",
+    },
+    {
+      question: "Why does this concept frame understanding the hand-rolled mechanics as valuable, even once a framework is adopted?",
+      options: [
+        "It isn't valuable -- the framework makes that knowledge obsolete",
+        "It's what makes adopting a framework a genuine, informed choice about trading code for convenience, rather than a leap of faith into something never actually understood",
+        "Frameworks require rewriting the hand-rolled version every time",
+        "This concept doesn't actually make that argument",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Choosing convenience over visibility is only a real trade-off if you understand what you're giving up. Having built the loop by hand is what turns adopting a framework into an informed decision.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
