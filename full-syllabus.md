@@ -1571,8 +1571,19 @@ re-homed to a specific module — flagged for the mockup author.*
    tool-calling concept's "The model doesn't call anything" subsection;
    Module 2's specificity concept's "The pain" subsection; Module 2's
    role/persona concept's "Role, and explicit behavioral constraints"
-   subsection). The mockup's own closing note says Concept 2 (parameter
-   design) is drafted separately, not yet converted.
+   subsection). Concept 2 drafted: parameter design — a valid Pydantic
+   schema guarantees argument *shape* (via Module 1's constrained
+   decoding), not that the parameters themselves are well-designed;
+   contrasts a vague `BadArgs` (`d: str`, `flag: str`) against a clear
+   `GoodArgs` (`date: str` with a format comment, a real `include_archived:
+   bool`). Static illustrative code (class definitions only, nothing to
+   run), no live demo or graded exercise, per its own mockup. Both
+   callbacks resolved to verified anchors (Module 1's constrained-decoding
+   concept's "A hard guarantee, not a soft nudge" subsection; its
+   from-Pydantic-to-schema concept's "Generating the schema directly from a
+   model you already know" subsection, where `AgentConfig` is shown). The
+   mockup's own closing note says Concept 3 (granularity, narrow vs. broad
+   tools) is drafted separately, not yet converted.
 
 ---
 

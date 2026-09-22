@@ -1,0 +1,74 @@
+---
+title: "Parameter design"
+lesson: "01-writing-tools-models-can-use"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The schema constrains shape — not whether the shape makes sense" variant="a">
+
+[Constrained decoding, from Module 1](/01-llm-foundations/10-structured-output-and-tool-calling/02-constrained-decoding/#a-hard-guarantee-not-a-soft-nudge),
+guarantees a tool call's arguments match the declared types — but
+*choosing* clear, well-typed, unambiguous parameters in the first place
+is still an authored design decision the schema itself can't make for
+you.
+
+```python
+from pydantic import BaseModel
+
+class BadArgs(BaseModel):
+    d: str
+    flag: str
+
+class GoodArgs(BaseModel):
+    date: str   # ISO 8601, e.g. "2026-09-23"
+    include_archived: bool
+```
+
+`BadArgs` technically has a schema, generated the same way
+[Module 1's `AgentConfig` example did](/01-llm-foundations/10-structured-output-and-tool-calling/03-from-a-pydantic-model-to-a-schema/#generating-the-schema-directly-from-a-model-you-already-know)
+— but `d` gives the model no signal about expected format, and
+`flag: str` invites something like `"yes"` or `"true"` instead of an
+actual boolean, a genuinely ambiguous choice the schema itself never
+rules out. `GoodArgs` uses a real `bool` (letting constrained decoding
+do its actual job) and a name plus comment clarifying the expected date
+format — the same information a well-written docstring carries, now
+living directly on the parameter.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why doesn't a valid Pydantic schema guarantee a tool's parameters are well-designed?",
+      options: [
+        "It does guarantee this — a valid schema is sufficient on its own",
+        "The schema only constrains argument shape (types, required fields); choosing clear, unambiguous names and the right types in the first place is a separate design decision",
+        "Pydantic schemas can't actually be generated for tool parameters",
+        "This concept contradicts Module 1's constrained decoding coverage",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Constrained decoding enforces the shape a schema declares, but it can't decide for you whether that shape (a str where a bool belongs, a name like d) is actually a good design.",
+    },
+    {
+      question: "Why is flag: str a worse design choice than include_archived: bool?",
+      options: [
+        "There's no real difference — both work identically",
+        'str leaves room for ambiguous values like "yes"; a real bool lets constrained decoding enforce an actual boolean directly',
+        "Pydantic doesn't support boolean fields",
+        "flag is a reserved keyword in Python",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A str field can be filled with any string that satisfies the type check, ambiguous values included; a bool field gives constrained decoding an actual true/false to enforce.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
