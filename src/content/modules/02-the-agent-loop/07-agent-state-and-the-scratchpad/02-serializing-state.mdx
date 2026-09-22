@@ -10,11 +10,7 @@ import GradedExercise from "../../../../components/lesson/GradedExercise";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 import { REACT_FAKE_CLIENT } from "../../../../lib/fakeClient";
 
-export const BLOCKS = String.raw`import itertools
-
-_ids = itertools.count(1)
-
-class ThinkingBlock:
+export const BLOCKS = String.raw`class ThinkingBlock:
     def __init__(self, thinking: str):
         self.type = "thinking"
         self.thinking = thinking
@@ -23,9 +19,12 @@ class ThinkingBlock:
         return {"type": self.type, "thinking": self.thinking}
 
 class ToolUseBlock:
+    _next_id = 1
+
     def __init__(self, name: str, input: dict):
         self.type = "tool_use"
-        self.id = f"toolu_fake_{next(_ids):02d}"
+        self.id = f"toolu_fake_{ToolUseBlock._next_id:02d}"
+        ToolUseBlock._next_id += 1
         self.name = name
         self.input = input
 
@@ -99,6 +98,15 @@ an already-plain dict (like a `tool_result` entry, built directly as a
 dict from the start) passes through unchanged, since it has no `to_dict`
 method to call at all.
 
+Worth knowing for when this stops being a fake client: a real SDK's
+response objects (Claude's `ToolUseBlock`, `TextBlock`, and the rest)
+are actually Pydantic models under the hood, so they already come with
+[`.model_dump()`](/00-python-essentials/05-typed-data-models/04-pydantic-fundamentals/#getting-the-data-back-out-model-dump)
+built in — no hand-written `to_dict()` needed at all. This lesson still
+writes `to_dict()` by hand because it's teaching *why* serialization is
+necessary and what it actually has to do, not because a real project
+would reimplement something Pydantic already provides for free.
+
 </Subsection>
 
 <CheckpointZone>
@@ -148,11 +156,7 @@ method to call at all.
 <GradedExercise
   client:load
   task={'Given `ThinkingBlock`, `ToolUseBlock` and `TextBlock` (all with `to_dict()` already implemented, as shown above), implement `serialize_messages(messages)` so the result is genuinely passable to `json.dumps()` without error, correctly handling both custom-object content lists and already-plain-dict content (like a `tool_result` message\'s content, or a plain string user message). Build a new list rather than modifying `messages` — it\'s the agent\'s live scratchpad.'}
-  starterCode={`import itertools
-
-_ids = itertools.count(1)
-
-class ThinkingBlock:
+  starterCode={`class ThinkingBlock:
     def __init__(self, thinking: str):
         self.type = "thinking"
         self.thinking = thinking
@@ -161,9 +165,12 @@ class ThinkingBlock:
         return {"type": self.type, "thinking": self.thinking}
 
 class ToolUseBlock:
+    _next_id = 1
+
     def __init__(self, name: str, input: dict):
         self.type = "tool_use"
-        self.id = f"toolu_fake_{next(_ids):02d}"
+        self.id = f"toolu_fake_{ToolUseBlock._next_id:02d}"
+        ToolUseBlock._next_id += 1
         self.name = name
         self.input = input
 
@@ -238,11 +245,7 @@ assert json.loads(json.dumps(serialized)) == serialized
   ]}
   hint={'This concept\'s exact `serialize_messages` implementation is the answer — loop through `messages`, and for any entry whose `content` is a list, build a new list converting each item via `.to_dict()` only if that item actually has one.'}
   correctAnswer={{
-    code: `import itertools
-
-_ids = itertools.count(1)
-
-class ThinkingBlock:
+    code: `class ThinkingBlock:
     def __init__(self, thinking: str):
         self.type = "thinking"
         self.thinking = thinking
@@ -251,9 +254,12 @@ class ThinkingBlock:
         return {"type": self.type, "thinking": self.thinking}
 
 class ToolUseBlock:
+    _next_id = 1
+
     def __init__(self, name: str, input: dict):
         self.type = "tool_use"
-        self.id = f"toolu_fake_{next(_ids):02d}"
+        self.id = f"toolu_fake_{ToolUseBlock._next_id:02d}"
+        ToolUseBlock._next_id += 1
         self.name = name
         self.input = input
 

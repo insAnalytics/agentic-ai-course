@@ -78,6 +78,15 @@ attempt` is the identical doubling pattern from Module 1: 1s, 2s, 4s,
 `max_retries=4` budget. (The demo only *prints* each wait time rather
 than actually sleeping, so it runs instantly.)
 
+Worth knowing about, even though this demo's fixed doubling keeps it
+simple to follow: real retry logic in production usually adds a small
+amount of random **jitter** to each wait time — `2 ** attempt +
+random.uniform(0, 1)`, say — rather than a purely deterministic delay.
+If a whole fleet of clients hits the same failure at the same moment
+(a brief outage, a deploy), pure exponential backoff has them all
+retrying in lockstep, hammering the recovering service with synchronized
+bursts; jitter spreads those retries out instead.
+
 </Subsection>
 
 <Subsection title="Graceful give-up: a defined result, not a crash or an infinite retry" variant="a">

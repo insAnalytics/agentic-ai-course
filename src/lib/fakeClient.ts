@@ -5,16 +5,18 @@
  * same classes the lesson shows the learner. See architecture.md §4.1.
  *
  * `ToolUseBlock` gets an auto-generated `.id` (not in the original mockup) so a
- * loop can send back a matching `tool_use_id`, as Claude's API requires.
+ * loop can send back a matching `tool_use_id`, as Claude's API requires. The
+ * counter is a class variable incremented via the class name (`ToolUseBlock`),
+ * not `itertools.count` (untaught in Module 0) -- the exact pattern from
+ * Module 0's instance-vs-class-variables concept.
  */
-export const FAKE_CLIENT = String.raw`import itertools
+export const FAKE_CLIENT = String.raw`class ToolUseBlock:
+    _next_id = 1
 
-_ids = itertools.count(1)
-
-class ToolUseBlock:
     def __init__(self, name: str, input: dict):
         self.type = "tool_use"
-        self.id = f"toolu_fake_{next(_ids):02d}"
+        self.id = f"toolu_fake_{ToolUseBlock._next_id:02d}"
+        ToolUseBlock._next_id += 1
         self.name = name
         self.input = input
 

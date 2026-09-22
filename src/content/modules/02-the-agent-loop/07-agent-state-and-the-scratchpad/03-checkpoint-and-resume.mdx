@@ -172,9 +172,6 @@ simply continued uninterrupted.
   client:load
   task={'Implement `save_checkpoint(messages, filepath)` and `load_checkpoint(filepath)` as shown in this concept — using `serialize_messages` (from the serializing-state concept, provided) before writing, and plain `json.load` when reading back.'}
   starterCode={`import json
-import itertools
-
-_ids = itertools.count(1)
 
 class ThinkingBlock:
     def __init__(self, thinking: str):
@@ -185,9 +182,12 @@ class ThinkingBlock:
         return {"type": self.type, "thinking": self.thinking}
 
 class ToolUseBlock:
+    _next_id = 1
+
     def __init__(self, name: str, input: dict):
         self.type = "tool_use"
-        self.id = f"toolu_fake_{next(_ids):02d}"
+        self.id = f"toolu_fake_{ToolUseBlock._next_id:02d}"
+        ToolUseBlock._next_id += 1
         self.name = name
         self.input = input
 
@@ -304,9 +304,6 @@ finally:
   hint={'Both functions are short — `save_checkpoint` calls `serialize_messages` then writes the result with `json.dump` inside a `with open(filepath, "w") as f:` block; `load_checkpoint` just opens the file for reading and returns `json.load(f)` directly.'}
   correctAnswer={{
     code: `import json
-import itertools
-
-_ids = itertools.count(1)
 
 class ThinkingBlock:
     def __init__(self, thinking: str):
@@ -317,9 +314,12 @@ class ThinkingBlock:
         return {"type": self.type, "thinking": self.thinking}
 
 class ToolUseBlock:
+    _next_id = 1
+
     def __init__(self, name: str, input: dict):
         self.type = "tool_use"
-        self.id = f"toolu_fake_{next(_ids):02d}"
+        self.id = f"toolu_fake_{ToolUseBlock._next_id:02d}"
+        ToolUseBlock._next_id += 1
         self.name = name
         self.input = input
 
