@@ -1,0 +1,24 @@
+---
+title: "Intro"
+lesson: "02-tool-schemas-and-argument-validation"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Generate a tool's schema from a Pydantic model, as the standard mechanism for every tool going forward",
+    "Identify the gap between schema-valid and semantically valid — a real, structural limit constrained decoding can't close",
+    "Write Pydantic validators for semantic checks, and return failures as observations rather than exceptions",
+  ]}
+/>
+
+<WhyItMatters>
+  A schema-valid call isn't the same as a *correct* call — this lesson is
+  the gap between "the model formatted this right" and "this actually
+  makes sense," and closing it the same way
+  [Module 2](/02-the-agent-loop/06-termination-failure-and-control/05-tool-errors-as-observations/#the-fix-catch-it-and-let-the-model-see-it)
+  taught every other tool failure to be handled: as information the agent
+  can act on, not a crash.
+</WhyItMatters>

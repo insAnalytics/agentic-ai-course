@@ -1,0 +1,146 @@
+---
+title: "Recap & Practice"
+lesson: "02-tool-schemas-and-argument-validation"
+order: 4
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What generates a tool's schema, as established since Module 1?",
+      options: [
+        "A hand-written JSON file",
+        "`.model_json_schema()` on a Pydantic `BaseModel`",
+        "The fake client, automatically",
+        "An unrelated schema tool",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A Pydantic model's own `.model_json_schema()` method produces the schema directly.",
+    },
+    {
+      question: 'Why does a past-dated ScheduleMaintenanceArgs call succeed without a schema error?',
+      options: [
+        "Pydantic rejects past dates automatically",
+        'The date is correctly-typed — the schema has no concept of "in the past"',
+        "This is a bug",
+        "The date format is invalid",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The schema only checks type and required fields; whether a date is in the past is a fact about the world it has no way to represent.",
+    },
+    {
+      question: "What do a past-dated schedule and a nonexistent agent name have in common as failures?",
+      options: [
+        "Neither is a real problem",
+        "Both are facts about the world the schema structurally can't check",
+        "Both are caught by constrained decoding automatically",
+        "Only one is real",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Constrained decoding enforces shape at generation time; it has no access to real-world facts like today's date or a database's actual contents.",
+    },
+    {
+      question: "What does field_validator add beyond a plain type annotation?",
+      options: [
+        "Nothing",
+        "A semantic check beyond what the type system alone can express",
+        "It changes the field's type",
+        "Only works on strings",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A type annotation only constrains shape; field_validator adds a custom rule on top, like requiring a date to actually be in the future.",
+    },
+    {
+      question: "Why return a string on failure rather than let the exception propagate?",
+      options: [
+        "Required by Pydantic",
+        "Follows Module 2's tool-errors-as-observations pattern — the model needs to see the failure, not crash the interaction",
+        "No real purpose",
+        "Exceptions can't be caught in Python",
+      ],
+      correctIndex: 1,
+      explanation:
+        "An unhandled exception here would crash the whole agent loop; a returned string is an observation the model can read and react to instead.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={'Implement update_agent_model(agent_name: str, model: str, registry: dict) -> str, validating that agent_name exists and model is one of {"claude-sonnet", "claude-haiku", "claude-opus"} (a Pydantic validator), returning "Error: ..." strings on either failure, or a success message otherwise.'}
+  starterCode={`from pydantic import BaseModel, field_validator
+
+VALID_MODELS = {"claude-sonnet", "claude-haiku", "claude-opus"}
+
+class UpdateModelArgs(BaseModel):
+    agent_name: str
+    model: str
+
+    @field_validator("model")
+    @classmethod
+    def model_must_be_valid(cls, value: str) -> str:
+        # TODO: raise ValueError if value isn't in VALID_MODELS
+        ...
+
+def update_agent_model(agent_name: str, model: str, registry: dict) -> str:
+    # TODO: build UpdateModelArgs, catching a validation error
+    # TODO: check agent_name exists in registry
+    # TODO: update registry and return the success message
+    ...`}
+  hiddenTests={[
+    `registry = {"research_agent": {"model": "claude-haiku"}}
+assert "no agent named" in update_agent_model("ghost", "claude-sonnet", registry)`,
+    `registry = {"research_agent": {"model": "claude-haiku"}}
+assert "not a valid model" in update_agent_model("research_agent", "gpt-5", registry)`,
+    `registry = {"research_agent": {"model": "claude-haiku"}}
+assert update_agent_model("research_agent", "claude-sonnet", registry) == "research_agent updated to claude-sonnet"`,
+    `registry = {"research_agent": {"model": "claude-haiku"}}
+update_agent_model("research_agent", "claude-sonnet", registry)
+assert registry["research_agent"]["model"] == "claude-sonnet"`,
+  ]}
+  hint={"Same two-check shape as the lesson's own schedule_maintenance: wrap UpdateModelArgs(...) construction in a try/except and return an Error: string built from the caught exception -- this is what model_must_be_valid's raise ValueError(...) surfaces as. Only once construction succeeds, check agent_name against registry and return a second Error: string if it's missing. Only after both checks pass should you actually write the new model into registry and return the success message -- don't forget that last write, a passing return string alone isn't the whole job."}
+  correctAnswer={{
+    code: `from pydantic import BaseModel, field_validator
+
+VALID_MODELS = {"claude-sonnet", "claude-haiku", "claude-opus"}
+
+class UpdateModelArgs(BaseModel):
+    agent_name: str
+    model: str
+
+    @field_validator("model")
+    @classmethod
+    def model_must_be_valid(cls, value: str) -> str:
+        if value not in VALID_MODELS:
+            raise ValueError(f"'{value}' is not a valid model")
+        return value
+
+def update_agent_model(agent_name: str, model: str, registry: dict) -> str:
+    try:
+        args = UpdateModelArgs(agent_name=agent_name, model=model)
+    except Exception as e:
+        return f"Error: {str(e)}"
+    if args.agent_name not in registry:
+        return f"Error: no agent named '{args.agent_name}' exists in the registry"
+    registry[args.agent_name]["model"] = args.model
+    return f"{args.agent_name} updated to {args.model}"`,
+    explanation:
+      "This is the whole lesson composed a second time on a new tool: field_validator closes the semantic gap (an invalid model name is correctly-typed but still wrong), the registry check closes the existence gap, and both return an observation string instead of raising. The final registry[args.agent_name][\"model\"] = args.model line is easy to forget -- without it, the function reports success without actually updating anything.",
+  }}
+/>
+
+</CheckpointZone>

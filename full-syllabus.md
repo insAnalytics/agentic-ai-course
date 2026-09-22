@@ -1616,9 +1616,11 @@ re-homed to a specific module — flagged for the mockup author.*
    this lesson's own three concept pages. Lesson 3.1 is now fully Locked —
    Module 3 (Tool Design for Agents) has one lesson built so far.
 
-2. **Schemas and Their Limits** — Building
-   Working title (folder `02-schemas-and-their-limits`), no bookends mockup
-   yet to confirm it. Concept 1 drafted: the schema, generated — the payoff
+2. **Tool Schemas and Argument Validation** — Locked
+   Title confirmed by the bookends mockup (folder renamed from the working
+   name `02-schemas-and-their-limits` to
+   `02-tool-schemas-and-argument-validation`, all files' `lesson`
+   frontmatter updated to match). Concept 1 drafted: the schema, generated — the payoff
    completed (`.model_json_schema()` on a Pydantic `BaseModel`, unchanged
    from Module 1, is the standard every tool in this module uses; explicitly
    ties Lesson 1's parameter-design discipline and this schema mechanism
@@ -1660,8 +1662,26 @@ re-homed to a specific module — flagged for the mockup author.*
    without overclaiming it taught this specific mechanism. Its link still
    points to Module 0's Pydantic-fundamentals page.
 
-   Bookends not yet drafted (mockup author's own closing note: "Continues
-   with bookends — drafted separately").
+   Bookends: outcomes/why-it-matters intro (`00-intro.mdx`, linking Module
+   2's tool-errors-as-observations concept) and a Recap & Practice page
+   (`04-recap-practice.mdx`) with a 5-question comprehensive quiz spanning
+   all three concepts, plus a **graded comprehensive sandbox**: a second
+   tool with its own semantic gap — `update_agent_model`, validating a
+   model name against an allowed set (a Pydantic validator) and registry
+   existence, mutating the registry and returning a success message.
+   **Finding:** the mockup's own three hidden test cases each define a
+   fresh `registry` before their one assertion, so none of them can
+   actually observe whether a prior call mutated it — a submission that
+   returns the right success string without writing
+   `registry[agent_name]["model"] = ...` passes all three unnoticed;
+   added a fourth test that calls the function once and then asserts the
+   registry was actually updated. Verified against real Pyodide/Pydantic
+   2.7 with 3 submissions (the correct answer, the unmodified starter, and
+   the non-mutating submission the added test exists to catch) — the
+   correct answer passes all four, the starter fails all four, and the
+   non-mutating submission passes exactly the three original tests and
+   fails only the new one, as intended. Lesson 3.2 is now fully Locked —
+   Module 3 (Tool Design for Agents) has two lessons built so far.
 
 ---
 
