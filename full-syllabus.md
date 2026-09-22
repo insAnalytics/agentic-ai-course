@@ -1399,8 +1399,18 @@ far" list directly below it.*
    inconsistency as concrete shapes), with an explicit epistemic-care note that
    the scripted client can't prove the asymmetry. Prose only, no demo or
    exercise, per its mockup. Both callbacks link to verified anchors (Lesson 8's
-   Tree of Thought subsection, Concept 1's pattern subsection). Remaining:
-   Concept 3 (the limits, shared blind spots) onward, bookends. Not yet Locked.
+   Tree of Thought subsection, Concept 1's pattern subsection).
+   Concept 3 drafted: the limits, shared blind spots (the evaluator is the same
+   model with the same knowledge, so a genuine understanding gap survives both
+   generation and evaluation), with a live demo (the Einstein/Nobel Prize
+   example, reusing Concept 1's exact fake-client pattern) showing a factually
+   wrong candidate pass evaluation uncaught. No graded exercise, per its
+   mockup — no new grading logic, so no separate Pyodide verification needed
+   beyond Concept 1's already-verified harness. Callbacks link to verified
+   anchors (Concepts 1 and 2 here, Module 1's hallucination concept's Einstein
+   subsection); the RAG Systems module callback stays plain text (module not
+   built). Remaining: bookends (intro, comprehensive quiz, comprehensive
+   sandbox). Not yet Locked.
 
 **Old outline (superseded):**
 

@@ -1,0 +1,153 @@
+---
+title: "The limits: shared blind spots"
+lesson: "09-reflection-and-self-critique"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT } from "../../../../lib/fakeClient";
+
+<Subsection title="Reflection doesn't bring in a second, independent perspective" variant="a">
+
+[Concepts 1 and 2 showed real, genuine value in reflection](/02-the-agent-loop/09-reflection-and-self-critique/01-the-evaluator-optimizer-pattern/)
+— but there's a category of problem it structurally cannot reliably
+catch. The evaluation step isn't an independent check by some other
+source of knowledge; it's the *same* model, with the *same* underlying
+understanding, being asked a different question about the same content.
+If a gap in that understanding caused the original mistake, that
+identical gap is very likely present during evaluation too.
+
+</Subsection>
+
+<Subsection title="Grounded directly in Module 1's hallucination mechanism" variant="b">
+
+[Recall the Einstein example](/01-llm-foundations/04-how-llms-generate-text/04-hallucination-as-a-direct-consequence/#plausible-isn-t-the-same-as-rare-sometimes-it-s-a-popular-misconception):
+a popular misconception can genuinely outscore the correct fact during
+generation, because it's more heavily represented in training data —
+not a random error, a real, systematic pattern in what the model
+actually learned. Asking that same model to "check this for accuracy"
+doesn't introduce anything new; it's drawing on the exact same learned
+pattern, both times:
+
+<LiveDemo client:load setupCode={REACT_FAKE_CLIENT} code={`class EvaluationBlock:
+    def __init__(self, passed: bool, critique: str = ""):
+        self.type = "evaluation"
+        self.passed = passed
+        self.critique = critique
+
+generation_client = FakeLLMClient(scripted_responses=[
+    [TextBlock(text="Einstein won the Nobel Prize in Physics for his theory of relativity.")],
+])
+
+evaluation_client = FakeLLMClient(scripted_responses=[
+    [EvaluationBlock(passed=True)],
+])
+
+def run_evaluator_optimizer(generation_client, evaluation_client, prompt: str, max_attempts: int = 3) -> str:
+    current_prompt = prompt
+    for attempt in range(max_attempts):
+        gen_response = generation_client.create(messages=[{"role": "user", "content": current_prompt}])
+        candidate = gen_response.content[0].text
+
+        eval_response = evaluation_client.create(messages=[{"role": "user", "content": f"Evaluate this: {candidate}"}])
+        evaluation = eval_response.content[0]
+
+        if evaluation.passed:
+            return candidate
+        print(f"attempt {attempt + 1} failed evaluation: {evaluation.critique}")
+        current_prompt = f"{prompt}\\n\\nPrevious attempt: {candidate}\\nCritique: {evaluation.critique}\\nPlease revise."
+    return f"Error: no passing candidate produced after {max_attempts} attempts"
+
+result = run_evaluator_optimizer(generation_client, evaluation_client, "What did Einstein win the Nobel Prize for?")
+print(result)`} />
+
+*(This demo's scripted output is fixed by design — it illustrates the
+structural point, not evidence that this specific outcome is likely
+with any real model.)*
+
+The mechanism ran completely correctly — a candidate was generated, an
+evaluation genuinely happened, the loop returned the evaluated result —
+and yet the actual factual error (Einstein's prize was for the
+photoelectric effect, not relativity) sailed straight through uncaught.
+This isn't a bug in the pattern; it's the honest limit of what
+reflection alone can do, when the exact same underlying blind spot
+produced both the mistake and the check on it.
+
+</Subsection>
+
+<Subsection title="Not a reason to avoid reflection — a reason not to over-trust it" variant="a">
+
+This doesn't undo
+[Concept 1 and 2's real value](/02-the-agent-loop/09-reflection-and-self-critique/02-when-a-second-pass-helps/)
+for omissions, format violations, and checkable inconsistencies —
+reflection genuinely helps with exactly that category of problem. What
+it isn't is a general reliability guarantee, and it shouldn't be relied
+on as the *sole* defense against a model being confidently,
+systematically wrong about something it fundamentally doesn't know
+correctly. Real grounding — retrieval against verified sources,
+tool-checked facts — is a genuinely different, more robust defense
+against that specific category of problem, covered properly in later
+modules (the RAG Systems module), not something reflection alone was
+ever going to solve.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why can't the evaluation step in reflection reliably catch a mistake caused by a genuine gap in the model's own understanding?",
+      options: [
+        "Evaluation always uses a completely different, more capable model",
+        "The evaluation step is the same model with the same underlying knowledge — if a gap in that knowledge caused the original mistake, the same gap is very likely present during evaluation too",
+        "This kind of mistake is actually impossible for any model to make",
+        "Evaluation always catches every possible kind of error, without exception",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The evaluator isn't an independent source of knowledge — it's the same model asked a different question about the same content, so a shared blind spot survives both passes.",
+    },
+    {
+      question: "In the demo, why does the evaluation incorrectly pass a factually wrong candidate?",
+      options: [
+        "This represents a bug in the evaluator-optimizer pattern's mechanism",
+        "It illustrates the structural point that reflection provides no guarantee against a shared blind spot — the same misconception that produced the error can just as easily be present during the check",
+        "The fake client always produces incorrect evaluations by design",
+        "EvaluationBlock can only ever represent a passing result",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The loop itself runs exactly as designed — generate, evaluate, return. The scripted evaluation is deliberately wrong to make the structural point concrete, not because the mechanism malfunctioned.",
+    },
+    {
+      question: "Does this concept argue reflection should be avoided altogether?",
+      options: [
+        "Yes — reflection provides no real value and should never be used",
+        "No — it genuinely helps with omissions, format violations, and checkable inconsistencies; the limitation is specifically about over-trusting it as a guarantee against systematic knowledge gaps",
+        "Reflection should only ever be used for factual questions",
+        "This concept contradicts everything covered in Concepts 1 and 2",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Concepts 1 and 2's value stands. This concept narrows the claim to a specific category of problem reflection can't cover, not a reversal of the earlier concepts.",
+    },
+    {
+      question: "What does this concept point to as a more robust defense against a model being confidently wrong about something it doesn't actually know?",
+      options: [
+        "Running the evaluator-optimizer loop more times",
+        "Real grounding — retrieval against verified sources, tool-checked facts — covered properly in later modules",
+        "Nothing — no real defense against this problem exists",
+        "Increasing the model's temperature during generation",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Running the same loop more times doesn't introduce any new information — the shared blind spot persists. Retrieval and tool-checking bring in a source of truth outside the model's own learned patterns.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
