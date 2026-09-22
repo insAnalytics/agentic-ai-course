@@ -1,0 +1,97 @@
+---
+title: "Prompt chaining and routing"
+lesson: "10-workflow-patterns"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Chaining: naming a pattern already built" variant="a">
+
+[Lesson 1's `run_workflow`](/02-the-agent-loop/01-agents-workflows-and-the-loop/02-agent-vs-workflow-vs-chatbot/#a-workflow-concretely-code-decides-the-sequence)
+— `summarize` always before `translate` — is **prompt chaining**: a
+fixed sequence where each step's output feeds the next. Nothing new
+mechanically; this concept just gives it a name worth recognizing as a
+deliberate pattern, not an ad hoc example.
+
+</Subsection>
+
+<Subsection title="Routing: classify, then dispatch to a fixed path" variant="b">
+
+**Routing** adds a classification step choosing between *fixed*
+downstream paths:
+
+<LiveDemo client:load code={`def handle_billing(request: str) -> str:
+    return f"Routed to billing: {request}"
+
+def handle_technical(request: str) -> str:
+    return f"Routed to technical support: {request}"
+
+ROUTES = {"billing": handle_billing, "technical": handle_technical}
+
+def run_router(request: str, category: str) -> str:
+    handler = ROUTES[category]
+    return handler(request)
+
+print(run_router("My invoice is wrong", category="billing"))`} />
+
+`ROUTES[category]` —
+[the exact dispatch-dict mechanism from Lesson 4's `TOOL_REGISTRY`](/02-the-agent-loop/04-writing-the-loop-by-hand/03-handling-multiple-tools/#the-fix-a-dict-mapping-names-to-actual-callables)
+— dispatches to a handler based on a classification. `category` would
+typically come from an LLM call classifying the request; the *paths
+themselves* (`handle_billing`, `handle_technical`) are fixed in code,
+never freely chosen the way
+[an agent picks its own next tool](/02-the-agent-loop/01-agents-workflows-and-the-loop/02-agent-vs-workflow-vs-chatbot/#the-same-task-as-an-agent-instead-the-model-decides-the-sequence).
+This is exactly the workflow side of that earlier distinction: an LLM
+call happens, but the *sequence of possible outcomes* was decided when
+the code was written, not at runtime.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What does prompt chaining actually name?",
+      options: [
+        "A brand-new mechanism not covered elsewhere in this course",
+        "A fixed sequence where each step's output feeds the next — exactly what Lesson 1's run_workflow already was",
+        "A technique only usable with exactly two steps",
+        "The agent's own dynamic tool selection",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Nothing mechanically new is introduced here — this concept just gives a name to the fixed-sequence pattern already built earlier in the module.",
+    },
+    {
+      question: "Why is routing still structurally a workflow, not an agent, even though it uses an LLM call to classify?",
+      options: [
+        "It isn't — routing is actually a form of agent behavior",
+        "The set of possible downstream paths is fixed in code; only which one fixed path gets chosen is decided at runtime, unlike an agent's open-ended tool selection",
+        "Routing never actually involves an LLM call",
+        "ROUTES is rebuilt fresh on every single request",
+      ],
+      correctIndex: 1,
+      explanation:
+        "An LLM call can classify the request, but the code still enumerates every possible destination in advance. An agent, by contrast, isn't limited to a fixed menu of pre-written paths.",
+    },
+    {
+      question: "What mechanism does ROUTES[category] directly reuse from earlier in this module?",
+      options: [
+        "The exponential backoff pattern from Lesson 6",
+        "The dispatch-dict pattern from Lesson 4's TOOL_REGISTRY",
+        "The replanning logic from Lesson 8",
+        "Nothing — this is a genuinely new mechanism",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Both map a string key to a callable and invoke it directly — the same dict-dispatch idea, just applied to routing a request instead of dispatching a tool call.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

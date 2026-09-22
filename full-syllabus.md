@@ -1421,6 +1421,25 @@ far" list directly below it.*
    already-verified harness. The correct-answer explanation links Concept 3's
    limit. Lesson 9 is now fully Locked.
 
+10. **Workflow Patterns** — Building
+    Title is a working name (folder `10-workflow-patterns`) — confirm or
+    rename once the bookends mockup arrives. Concept 1 drafted: prompt
+    chaining and routing (chaining as a name for the already-built
+    fixed-sequence pattern; routing as a classification step dispatching to
+    a fixed set of downstream paths via a dict, contrasted with an agent's
+    open-ended tool choice). Live demo (plain Python, no fake client needed
+    — no LLM call in the demo itself) matches the mockup's output exactly;
+    no new grading logic, so no Pyodide harness verification needed. The
+    mockup's own callback text said "Lesson 2's `run_workflow`," but
+    `run_workflow` (`summarize` before `translate`) actually lives in
+    Lesson 1 Concept 2, not Lesson 2 — linked to the actual matching
+    content (Lesson 1's anchor) rather than the mislabeled lesson number,
+    since the described code unambiguously exists only there. Other two
+    callbacks link to verified anchors (Lesson 4's `TOOL_REGISTRY` dispatch
+    fix, Lesson 1 Concept 2's agent-decides-the-sequence subsection). No
+    graded exercise, per its mockup. Remaining: Concept 2 (parallelization)
+    onward, bookends. Not yet Locked.
+
 **Old outline (superseded):**
 
 1. Build AI Chatbot with No Code
