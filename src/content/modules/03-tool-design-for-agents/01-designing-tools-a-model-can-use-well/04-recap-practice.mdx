@@ -1,0 +1,129 @@
+---
+title: "Recap & Practice"
+lesson: "01-designing-tools-a-model-can-use-well"
+order: 4
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Who is a tool's name and description actually written for?",
+      options: [
+        "A future human developer",
+        "The model itself — text it directly reasons over",
+        "No one — no functional effect",
+        "Only the tool's original author",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A tool's name and description are exactly what the model sees when choosing among tools and deciding how to call one.",
+    },
+    {
+      question: "Why does get_data(id)'s vague description create a real problem?",
+      options: [
+        "It doesn't",
+        "No real basis for the model to choose it correctly over an alternative",
+        "Python requires descriptive names to run",
+        "Only matters with multiple parameters",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A model choosing between two underspecified tools has nothing to reason with — that's a real decision-making problem, not a style issue.",
+    },
+    {
+      question: "Why doesn't a valid schema guarantee well-designed parameters?",
+      options: [
+        "It does guarantee this",
+        "The schema only constrains shape; choosing clear names and the right types is a separate decision",
+        "Schemas can't be generated for tool parameters",
+        "This contradicts Module 1's coverage",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Constrained decoding enforces the shape a schema declares, but nothing about the schema itself decides whether that shape is a good design.",
+    },
+    {
+      question: 'What makes a tool "narrow"?',
+      options: [
+        "A shorter name",
+        "It does exactly one thing, leaving little room to call it wrong",
+        "It never returns data",
+        "More parameters than a broad tool",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A narrow tool's single, well-defined purpose leaves little room for a model to get the call wrong.",
+    },
+    {
+      question: "What does broad-tool flexibility trade away?",
+      options: [
+        "Nothing — strictly better",
+        "More room for the model to get a more complex call wrong",
+        "Execution speed",
+        "The possibility of misuse",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A broad tool covers more ground, but asks the model to correctly construct something more complex on every single call.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Given this tool from [the agent registry app introduced back in Module 0](/00-python-essentials/09-building-apis-with-fastapi/11-recap-practice/) — redesign it as a well-designed, narrow tool for looking up a single registered agent's configuration by name. Your version must have: a descriptive function name (not q), a docstring specifying exactly what's returned and what the parameter means, a well-typed parameter, and (in a comment) a one-line justification for why this stays narrow rather than becoming a broader run_query-style tool."}
+  starterCode={`def q(s: str) -> str:
+    """Query."""
+    ...`}
+  hiddenTests={[
+    `import types
+_fns = [v for k, v in globals().items() if isinstance(v, types.FunctionType) and not k.startswith("__")]
+assert len(_fns) == 1
+assert _fns[0].__name__ != "q"`,
+    `import types, inspect
+_fn = [v for k, v in globals().items() if isinstance(v, types.FunctionType) and not k.startswith("__")][0]
+_doc = _fn.__doc__ or ""
+_params = list(inspect.signature(_fn).parameters)
+_param_name = _params[0].lower() if _params else ""
+_param_as_words = _param_name.replace("_", " ")
+assert len(_doc.strip()) > len("Query.")
+assert _params and (_param_name in _doc.lower() or _param_as_words in _doc.lower())
+assert "agent" in _doc.lower()`,
+    `import types, inspect
+_fn = [v for k, v in globals().items() if isinstance(v, types.FunctionType) and not k.startswith("__")][0]
+_sig = inspect.signature(_fn)
+_params = list(_sig.parameters.values())
+assert len(_params) == 1
+assert _params[0].annotation is str`,
+    `_src_lines = __source__.splitlines()
+_comment_lines = [l for l in _src_lines if "#" in l]
+_comment_text = " ".join(_comment_lines).lower()
+assert any(word in _comment_text for word in ("narrow", "broad", "granular"))`,
+  ]}
+  hint={"Compose the whole lesson: a name and docstring specific enough to disambiguate, exactly as in [the names-and-descriptions concept](/03-tool-design-for-agents/01-designing-tools-a-model-can-use-well/01-names-and-descriptions-as-prompts/); a real type hint on the parameter rather than a vague str, as in [the parameter-design concept](/03-tool-design-for-agents/01-designing-tools-a-model-can-use-well/02-parameter-design/); and a one-line comment stating this stays narrow on purpose, per [the granularity concept](/03-tool-design-for-agents/01-designing-tools-a-model-can-use-well/03-granularity-narrow-vs-broad-tools/)."}
+  correctAnswer={{
+    code: `def get_agent_config(agent_name: str) -> dict:
+    """
+    Retrieve one agent's configuration (model, creation date) by its
+    exact registered name. Use this for a specific, already-known
+    agent name -- not for searching or listing multiple agents.
+    """
+    ...
+    # kept narrow: a single, unambiguous lookup is far less error-prone
+    # for the model to call correctly than a general query tool would be`,
+    explanation:
+      "Every piece here composes something from this lesson: get_agent_config and its docstring are specific enough that the model knows exactly what it returns and what agent_name means; agent_name: str is a real type hint, not the original's ambiguous str-for-everything; and the trailing comment states the granularity tradeoff explicitly, the same reasoning as run_sql's broader, riskier alternative.",
+  }}
+/>
+
+</CheckpointZone>

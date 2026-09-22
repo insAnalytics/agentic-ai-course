@@ -1558,9 +1558,11 @@ mockup confirms the real module title. The original "Agent Frontends"
 scope (Streamlit/Gradio UIs, a production frontend, auth) is not yet
 re-homed to a specific module — flagged for the mockup author.*
 
-1. **Writing Tools Models Can Use** — Building
-   Working title (folder `01-writing-tools-models-can-use`), no bookends
-   mockup yet to confirm it. Concept 1 drafted: names and descriptions as
+1. **Designing Tools a Model Can Use Well** — Locked
+   Title confirmed by the bookends mockup (folder renamed from the working
+   name `01-writing-tools-models-can-use` to
+   `01-designing-tools-a-model-can-use-well`, all three concepts' `lesson`
+   frontmatter updated to match). Concept 1 drafted: names and descriptions as
    prompts — a tool's name/description is literally what the model reasons
    over when choosing and calling a tool, the same specificity/vagueness
    stakes as Module 2's prompting-fundamentals lesson and system-prompt
@@ -1593,8 +1595,26 @@ re-homed to a specific module — flagged for the mockup author.*
    designing for least privilege") rather than a link. Static illustrative
    code, no live demo or graded exercise, per its own mockup.
 
-   Bookends not yet drafted (mockup author's own closing note: "Continues
-   with bookends — drafted separately").
+   Bookends: outcomes/why-it-matters intro (`00-intro.mdx`, linking Module
+   2's writing-the-loop-by-hand lesson intro, where `TOOL_REGISTRY`
+   dispatch against scripted responses was built) and a Recap & Practice
+   page (`04-recap-practice.mdx`) with a 5-question comprehensive quiz
+   spanning all three concepts, plus a **graded comprehensive sandbox** —
+   the lesson's first real learner-authored code: redesign a poorly-named
+   agent-registry tool (`def q(s: str) -> str`) into a well-designed,
+   narrow `get_agent_config` tool, graded by four hidden tests checking a
+   renamed function, a docstring naming both the parameter and what's
+   returned, a real `str` type hint (not the original's ambiguous
+   catch-all), and a granularity-justifying comment. The last check needed
+   a small shared-harness addition (`__source__`, exposing the learner's
+   raw source text to hidden tests, since exec'd code has no comments left
+   to inspect) — see architecture.md §4.1; verified against real Pyodide
+   with 6 submissions (the correct answer, the unmodified starter, and one
+   violation per hidden-test requirement, each failing only its own check).
+   The task's "agent registry app" callback links to Module 0's FastAPI
+   comprehensive-registry-app exercise; the hint's three callbacks link to
+   this lesson's own three concept pages. Lesson 3.1 is now fully Locked —
+   Module 3 (Tool Design for Agents) has one lesson built so far.
 
 ---
 

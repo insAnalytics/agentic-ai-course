@@ -121,6 +121,15 @@ export async function runCapturingOutput(
 // with the same asyncio.run() -> await (...) shim runPythonAsync's own
 // caller applies, this lets both the learner's own code and a hidden test
 // use real \`asyncio.run(...)\` exactly as shown in lesson content.
+//
+// \`_ns["__source__"]\` stashes the learner's raw, un-exec'd source text into
+// the namespace every hidden test's copy inherits — exec/eval only ever
+// produces runtime objects (functions, classes, values), which drop any
+// comments outright, so a hidden test that needs to check for a comment
+// (e.g. "justify this in a comment") has no other way to see one. Every
+// pre-existing hidden test elsewhere in the course ignores this extra key
+// entirely, since none of them reference \`__source__\`. First needed by
+// Module 3 Lesson 1's comprehensive sandbox.
 const TEST_HARNESS = `
 import json, ast
 
@@ -137,6 +146,7 @@ _ns = {}
 _error = None
 try:
     await _run(__learner_code, _ns)
+    _ns["__source__"] = __learner_code
 except Exception as e:
     _error = f"{type(e).__name__}: {e}"
 

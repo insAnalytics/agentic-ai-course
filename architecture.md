@@ -287,6 +287,17 @@ real syntax highlighting and Python-aware completions, not a plain
   a hidden test whose function reads a real file by path (real file I/O
   touches Pyodide's actual FS regardless of the in-memory namespace
   `hiddenTests` otherwise runs in). First used in Lesson 0.6's CSV concept.
+  `TEST_HARNESS`'s namespace also always includes a `__source__` key holding
+  the learner's raw, un-exec'd source text — needed the first time a hidden
+  test had to check for a *comment* (Module 3 Lesson 1's comprehensive
+  sandbox, grading "justify this in a comment"): exec/eval only ever
+  produces runtime objects, which drop comments entirely, so no other
+  namespace value can see one. Verified against real Pyodide (0.26.4, a
+  scratch Node script) before shipping: the correct answer passes all four
+  hidden tests, and four different single-requirement violations (function
+  not renamed, a too-short/unspecific docstring, an untyped parameter, a
+  missing granularity comment) each fail exactly the one test checking that
+  requirement.
 - **`asyncio.run()` shim**: `pyodide.runPythonAsync` already executes inside
   its own live event loop, so real `asyncio.run(...)` — the standard entry
   point every learner would actually write — raises "cannot be called from a
