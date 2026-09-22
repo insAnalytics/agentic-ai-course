@@ -1379,10 +1379,10 @@ far" list directly below it.*
    subsection; the task links Lesson 4's Recap & Practice for `tools.py`. Lesson
    2.8 is now fully Locked.
 
-9. **Reflection and Self-Critique** — Building
+9. **Reflection and Self-Critique** — Locked
    Title is a working name (folder `09-reflection-and-self-critique`) taken from
-   Lesson 6 Concept 4's callback text ("reflection and self critique lesson") —
-   confirm or rename once the bookends mockup arrives. Concept 1 drafted: the
+   Lesson 6 Concept 4's callback text ("reflection and self critique lesson").
+   Concept 1 drafted: the
    evaluator-optimizer pattern implemented (a model-judged check where Lesson 6's
    goal-state check couldn't be deterministic; generate, evaluate, feed the
    critique into a revised prompt, repeat, with `max_attempts` as a backstop),
@@ -1409,8 +1409,17 @@ far" list directly below it.*
    beyond Concept 1's already-verified harness. Callbacks link to verified
    anchors (Concepts 1 and 2 here, Module 1's hallucination concept's Einstein
    subsection); the RAG Systems module callback stays plain text (module not
-   built). Remaining: bookends (intro, comprehensive quiz, comprehensive
-   sandbox). Not yet Locked.
+   built).
+   Bookends drafted: intro (outcomes + why-it-matters, linking Lesson 6's
+   goal-state check concept), comprehensive quiz (6 questions spanning all
+   three concepts, mixed order), and a comprehensive sandbox reusing Concept
+   1's exact `run_evaluator_optimizer` on a new registry-app scenario, graded
+   by two hidden tests (the mockup's revise-and-pass scenario, plus an added
+   never-passes test enforcing the task's stated `max_attempts` backstop
+   contract — same reasoning as Concept 1's added tests). No new grading
+   logic, so no separate Pyodide verification beyond Concept 1's
+   already-verified harness. The correct-answer explanation links Concept 3's
+   limit. Lesson 9 is now fully Locked.
 
 **Old outline (superseded):**
 

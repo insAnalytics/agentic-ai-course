@@ -1,0 +1,153 @@
+---
+title: "Recap & Practice"
+lesson: "09-reflection-and-self-critique"
+order: 4
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT } from "../../../../lib/fakeClient";
+
+export const PRE = REACT_FAKE_CLIENT + String.raw`
+class EvaluationBlock:
+    def __init__(self, passed: bool, critique: str = ""):
+        self.type = "evaluation"
+        self.passed = passed
+        self.critique = critique
+`;
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why couldn't Lesson 6's deterministic goal-state check handle something like \"does this summary read well\"?",
+      options: [
+        "It actually could",
+        "A deterministic check can only verify facts about real state directly; \"reads well\" requires genuine qualitative judgment",
+        "Lesson 6's check never worked",
+        "Text quality can always be checked with an if statement",
+      ],
+      correctIndex: 1,
+      explanation:
+        "`target_agent_name in tools._registry` tests a fact code can look up. Whether prose reads well isn't stored anywhere to look up, so it takes a judgment call instead.",
+    },
+    {
+      question: "What actually changes about the prompt between a failed and a revised generation attempt?",
+      options: [
+        "Nothing changes",
+        "The failed candidate and its specific critique get appended as new context for the next attempt",
+        "The prompt shortens each time",
+        "The prompt resets to an unrelated topic",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The revised prompt is the original prompt plus the previous attempt and its critique, so the generator can see exactly what was wrong and fix it.",
+    },
+    {
+      question: "What's the core mechanistic reason reflection can catch what generation missed?",
+      options: [
+        "Evaluation always uses a more powerful model",
+        "Checking against explicit criteria is a more constrained task than open-ended generation",
+        "Reflection always guarantees a perfect second result",
+        "There's no real mechanistic explanation",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Judging a finished candidate against stated criteria is a narrower task than composing one from scratch, so the same model can do it more reliably.",
+    },
+    {
+      question: "Why is a format violation a clean example of the generation/checking asymmetry?",
+      options: [
+        "Format violations can never be detected",
+        "Counting sentences in a finished candidate is trivial; reliably self-constraining to that length during generation is harder",
+        "Format requirements are always impossible",
+        "This has nothing to do with the asymmetry",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Checking is a count over something that already exists. Producing exactly that length while writing, with nothing to count yet, is the harder thing to guarantee.",
+    },
+    {
+      question: "Why can't the evaluation step reliably catch a mistake caused by a genuine gap in the model's own understanding?",
+      options: [
+        "Evaluation always uses a different model",
+        "The evaluator is the same model with the same knowledge — a gap causing the original mistake is likely present during the check too",
+        "This kind of mistake is impossible",
+        "Evaluation always catches every error",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The evaluator isn't an independent source of knowledge — it's the same model asked a different question about the same content, so a shared blind spot survives both passes.",
+    },
+    {
+      question: "Does this lesson conclude reflection should be avoided?",
+      options: [
+        "Yes — it provides no real value",
+        "No — it genuinely helps with omissions, format violations, and checkable inconsistencies; the limit is specifically about over-trusting it against systematic knowledge gaps",
+        "Only for factual questions",
+        "It contradicts Concepts 1 and 2",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Concepts 1 and 2's value stands. Concept 3 narrows the claim to a specific category of problem reflection can't cover, not a reversal of the earlier concepts.",
+    },
+  ]}
+/>
+
+<GradedExercise
+  client:load
+  task={'Reuse `run_evaluator_optimizer` from [Concept 1](/02-the-agent-loop/09-reflection-and-self-critique/01-the-evaluator-optimizer-pattern/#the-pattern-generate-evaluate-revise-repeat) to generate and validate a one-sentence description of the registry app\'s purpose, revising on failure, giving up cleanly after `max_attempts`. Implement `run_evaluator_optimizer(generation_client, evaluation_client, prompt, max_attempts=3)` exactly as in Concept 1: each attempt asks `generation_client` (a text block) for a candidate, then asks `evaluation_client` (a block with `.passed` and `.critique`) to evaluate it, sending the candidate text in the message. Return the first passing candidate\'s text. When one fails, the next generation prompt must include the original prompt, the previous attempt, and its critique. If no candidate passes within `max_attempts`, return a string starting with `"Error"`.'}
+  starterCode={`def run_evaluator_optimizer(generation_client, evaluation_client, prompt: str, max_attempts: int = 3) -> str:
+    # TODO: generate a candidate, evaluate it, and either return it or feed
+    # the critique into a revised prompt and try again, up to max_attempts.
+    pass`}
+  hiddenTests={[
+    PRE + String.raw`
+gen_client = FakeLLMClient(scripted_responses=[
+    [TextBlock(text="It's a system.")],
+    [TextBlock(text="A lightweight registry for tracking agent configurations by name and model.")],
+])
+eval_client = FakeLLMClient(scripted_responses=[
+    [EvaluationBlock(passed=False, critique="Too vague -- no mention of what's actually stored.")],
+    [EvaluationBlock(passed=True)],
+])
+
+result = run_evaluator_optimizer(gen_client, eval_client, "Describe the registry app in one sentence.")
+assert result == "A lightweight registry for tracking agent configurations by name and model."
+assert gen_client.call_count == 2
+assert eval_client.call_count == 2
+`,
+    PRE + String.raw`
+# a candidate that never passes gives up cleanly after max_attempts, with no infinite loop
+gen_client = FakeLLMClient(scripted_responses=[[TextBlock(text="It's a system.")] for _ in range(3)])
+eval_client = FakeLLMClient(scripted_responses=[[EvaluationBlock(passed=False, critique="still too vague")] for _ in range(3)])
+
+result = run_evaluator_optimizer(gen_client, eval_client, "Describe the registry app in one sentence.", max_attempts=3)
+assert isinstance(result, str) and result.startswith("Error")
+assert gen_client.call_count == 3
+assert eval_client.call_count == 3
+`,
+  ]}
+  hint={"Identical structure to Concept 1's function — nothing new to implement, only a new scenario to apply it to."}
+  correctAnswer={{
+    code: `def run_evaluator_optimizer(generation_client, evaluation_client, prompt: str, max_attempts: int = 3) -> str:
+    current_prompt = prompt
+    for attempt in range(max_attempts):
+        gen_response = generation_client.create(messages=[{"role": "user", "content": current_prompt}])
+        candidate = gen_response.content[0].text
+
+        eval_response = evaluation_client.create(messages=[{"role": "user", "content": f"Evaluate this: {candidate}"}])
+        evaluation = eval_response.content[0]
+
+        if evaluation.passed:
+            return candidate
+        current_prompt = f"{prompt}\\n\\nPrevious attempt: {candidate}\\nCritique: {evaluation.critique}\\nPlease revise."
+    return f"Error: no passing candidate produced after {max_attempts} attempts"`,
+    explanation:
+      "Every piece of this lesson does real work here: the first candidate genuinely fails the evaluator's check, the critique genuinely reaches the next generation prompt, and the revised candidate genuinely passes. Worth remembering [Concept 3's limit](/02-the-agent-loop/09-reflection-and-self-critique/03-the-limits-shared-blind-spots/) even here: this test's evaluator correctly caught a checkable omission -- exactly the category reflection is good at -- but nothing about this pattern would catch the evaluator being wrong about what \"vague\" means, if that judgment itself reflected a shared gap with the generator. Reflection closes one real gap; it doesn't replace grounding for the other kind.",
+  }}
+/>
+
+</CheckpointZone>
