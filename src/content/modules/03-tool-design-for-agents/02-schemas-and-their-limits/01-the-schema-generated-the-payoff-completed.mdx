@@ -1,0 +1,64 @@
+---
+title: "The schema, generated — the payoff completed"
+lesson: "02-schemas-and-their-limits"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="The standard, from here forward" variant="a">
+
+Every tool in this module gets its shape defined the same way:
+[a Pydantic `BaseModel`, converted via `.model_json_schema()`](/01-llm-foundations/10-structured-output-and-tool-calling/03-from-a-pydantic-model-to-a-schema/#generating-the-schema-directly-from-a-model-you-already-know).
+
+<LiveDemo client:load code={`from pydantic import BaseModel
+
+class GetAgentConfigArgs(BaseModel):
+    agent_name: str
+
+schema = GetAgentConfigArgs.model_json_schema()
+print(schema)`} />
+
+Nothing new mechanically — this concept exists to make explicit that
+[Lesson 1's parameter-design discipline](/03-tool-design-for-agents/01-designing-tools-a-model-can-use-well/02-parameter-design/)
+and this schema mechanism are two halves of the same job: good field
+names and types feed directly into a schema the model's calls are
+actually constrained against.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What generates a tool's schema, as established since Module 1?",
+      options: [
+        "A hand-written JSON file",
+        "`.model_json_schema()` on a Pydantic `BaseModel`",
+        "The fake LLM client, automatically",
+        "A separate schema-writing tool unrelated to Pydantic",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A Pydantic model's own `.model_json_schema()` method produces the schema directly — no hand-written JSON and no separate tool.",
+    },
+    {
+      question: "How does this concept connect to Lesson 1's parameter design?",
+      options: [
+        "They're unrelated",
+        "Good field names and types from Lesson 1 are exactly what the generated schema actually constrains the model's calls against",
+        "Schema generation replaces the need for parameter design",
+        "Parameter design only matters for narrow tools",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The schema mechanism enforces whatever shape the Pydantic model declares — Lesson 1's discipline is what decides whether that shape is actually a good one.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

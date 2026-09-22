@@ -1616,6 +1616,20 @@ re-homed to a specific module — flagged for the mockup author.*
    this lesson's own three concept pages. Lesson 3.1 is now fully Locked —
    Module 3 (Tool Design for Agents) has one lesson built so far.
 
+2. **Schemas and Their Limits** — Building
+   Working title (folder `02-schemas-and-their-limits`), no bookends mockup
+   yet to confirm it. Concept 1 drafted: the schema, generated — the payoff
+   completed (`.model_json_schema()` on a Pydantic `BaseModel`, unchanged
+   from Module 1, is the standard every tool in this module uses; explicitly
+   ties Lesson 1's parameter-design discipline and this schema mechanism
+   together as two halves of one job). Live demo (`GetAgentConfigArgs`)
+   verified exactly against real Pyodide/Pydantic 2.7 — no mockup error.
+   Both callbacks resolved to verified anchors (Module 1's from-Pydantic-
+   to-schema concept's `AgentConfig` subsection; Lesson 1's parameter-design
+   concept page). The mockup's own closing note says Concept 2 (the gap
+   constrained decoding doesn't close) is drafted separately, not yet
+   converted.
+
 ---
 
 ## Module 4 — Evaluation & Observability
