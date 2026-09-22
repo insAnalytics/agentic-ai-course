@@ -53,16 +53,16 @@ export const PRE = REACT_FAKE_CLIENT + RECORDING_CLIENT;
         "A framework still has to carry the full conversation state somewhere. Here it's literally named messages, both in and out of invoke() -- the same accumulating-state idea this course named back in Lesson 7.",
     },
     {
-      question: "What does config={\"recursion_limit\": 10} correspond to?",
+      question: "Why isn't config={\"recursion_limit\": 10} actually equivalent to max_steps=10?",
       options: [
-        "Nothing new",
-        "Lesson 4's loop, with the recursion limit as Lesson 6's max_steps",
-        "Only tool dispatch",
-        "The evaluator-optimizer pattern",
+        "It is equivalent -- same unit, same failure behavior",
+        "Same purpose, but LangGraph counts a model call and a tool execution as separate steps (so 10 allows roughly 5 loop iterations), and exceeding it raises an error instead of returning a clean message",
+        "recursion_limit only ever applies to tool dispatch, never the model's own turns",
+        "recursion_limit has nothing to do with the loop at all",
       ],
       correctIndex: 1,
       explanation:
-        "create_agent compiles onto LangGraph, and recursion_limit is the underlying engine's own hard cap on how many steps a single run can take -- the same job max_steps did, enforced by the framework instead of a loop condition you wrote.",
+        "Same purpose, different unit and different failure behavior: LangGraph's step count runs roughly double the loop-iteration count, and GraphRecursionError crashes the run rather than returning the clean message max_steps guaranteed.",
     },
     {
       question: "Why does this lesson treat understanding hand-rolled mechanics as valuable even once a framework is adopted?",

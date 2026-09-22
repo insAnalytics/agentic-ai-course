@@ -151,7 +151,7 @@ def load_checkpoint(filepath: str) -> list:
 <MultiFileGradedExercise
   client:load
   entry="checkpoint_demo.py"
-  task={'Implement both functions in `checkpoint_demo.py`, so they can be used together with `save_checkpoint`/`load_checkpoint` to prove a full interrupted-and-resumed cycle: run one step, save, "restart" by loading the checkpoint, and finish — confirming the tool call from before the checkpoint is never repeated. `tools.py` is provided unchanged from [Lesson 4\'s comprehensive sandbox](/02-the-agent-loop/04-writing-the-loop-by-hand/04-recap-practice/), and `checkpoint.py` holds `serialize_messages`, `save_checkpoint` and `load_checkpoint` from this lesson (both read-only). As in earlier exercises, the tool result you append carries the block\'s `id` as `tool_use_id`.'}
+  task={'Implement both functions in `checkpoint_demo.py`, so they can be used together with `save_checkpoint`/`load_checkpoint` to prove a full interrupted-and-resumed cycle: run one round trip, save, "restart" by loading the checkpoint, and finish — confirming the tool call from before the checkpoint is never repeated. `tools.py` is provided unchanged from [Lesson 4\'s comprehensive sandbox](/02-the-agent-loop/04-writing-the-loop-by-hand/04-recap-practice/), and `checkpoint.py` holds `serialize_messages`, `save_checkpoint` and `load_checkpoint` from this lesson (both read-only). As in [Lesson 5\'s corrected loop](/02-the-agent-loop/05-react-and-reasoning-in-the-loop/01-the-react-pattern/#the-fix-gather-every-tool-call-act-on-all-of-them-reply-once), collect every `tool_use` block in a response and dispatch all of them, sending all of their results back together (each carrying its call\'s `id` as `tool_use_id`) — never assume a response has exactly one block.'}
   files={[
     { name: "tools.py", readOnly: true, code: TOOLS_PY },
     { name: "checkpoint.py", readOnly: true, code: CHECKPOINT_PY },
@@ -162,19 +162,23 @@ from tools import TOOL_REGISTRY
 
 def run_partial_session(client, initial_messages: list) -> list:
     """
-    TODO: run the loop for exactly one tool-call step (call the client,
-    execute the resulting tool call via TOOL_REGISTRY, append the
-    assistant and tool_result messages), then return the updated
-    messages list WITHOUT continuing further — simulating a session
-    that gets interrupted right after this one step.
+    TODO: call the client once, append the full response to messages,
+    then collect every "tool_use" block in that response, execute each
+    one via TOOL_REGISTRY, and append all of their results together in
+    a single follow-up message. Return the updated messages list
+    WITHOUT continuing further — simulating a session that gets
+    interrupted right after this one round trip. (A "thinking" block
+    alongside the tool call, if present, carries no separate action —
+    only tool_use blocks need dispatching.)
     """
     pass
 
 def resume_and_finish(client, resumed_messages: list) -> str:
     """
-    TODO: continue the loop from resumed_messages — call the client,
-    and return the text once a final text block arrives. Assume this
-    session's client is scripted to finish in one more call.
+    TODO: continue from resumed_messages — call the client once, and
+    return the joined text of every "text" block in the response.
+    Assume this session's client is scripted to finish in one more
+    call (a response with no tool_use blocks).
     """
     pass`,
     },
@@ -243,10 +247,39 @@ try:
     assert session_2_client.call_count == 1
     assert session_2_client.seen[0] == resumed
     assert tools._registry == {}
+
+    # a thinking block alongside the tool call doesn't break dispatch
+    tools._registry.clear()
+    session_1_client = FakeLLMClient(scripted_responses=[
+        [ThinkingBlock(thinking="I should register research_agent."),
+         ToolUseBlock(name="create_agent_entry", input={"name": "research_agent", "model": "claude-sonnet"})],
+    ])
+    messages_after_step_1 = run_partial_session(session_1_client, [{"role": "user", "content": "..."}])
+    assert tools._registry["research_agent"] == {"model": "claude-sonnet"}
+    tool_result = messages_after_step_1[2]["content"][0]
+    assert tool_result["content"] == "created agent 'research_agent' with model 'claude-sonnet'"
+
+    # two tool_use blocks in one round trip: both dispatch, both get a paired result
+    tools._registry.clear()
+    first = ToolUseBlock(name="create_agent_entry", input={"name": "writer", "model": "claude-haiku"})
+    second = ToolUseBlock(name="create_agent_entry", input={"name": "editor", "model": "claude-sonnet"})
+    session_1_client = FakeLLMClient(scripted_responses=[[first, second]])
+    messages_after_step_1 = run_partial_session(session_1_client, [{"role": "user", "content": "..."}])
+    assert tools._registry == {"writer": {"model": "claude-haiku"}, "editor": {"model": "claude-sonnet"}}
+    results = messages_after_step_1[2]["content"]
+    assert len(results) == 2
+    assert {r["tool_use_id"] for r in results} == {first.id, second.id}
+
+    # resuming into a thinking-block-then-text response still returns just the text
+    tools._registry.clear()
+    session_2_client = FakeLLMClient(scripted_responses=[
+        [ThinkingBlock(thinking="All done here."), TextBlock(text="Finished.")],
+    ])
+    assert resume_and_finish(session_2_client, [{"role": "user", "content": "..."}]) == "Finished."
 finally:
     cleanup()
 `}
-  hint={"`run_partial_session` is a single iteration of [the familiar dispatch pattern](/02-the-agent-loop/04-writing-the-loop-by-hand/03-handling-multiple-tools/#the-fix-a-dict-mapping-names-to-actual-callables), returning the updated `messages` instead of looping further. `resume_and_finish` is even simpler — one `client.create(messages=resumed_messages)` call, returning `response.content[0].text` directly, since its scripted client is set up to finish immediately."}
+  hint={"`run_partial_session` is one round trip of [Lesson 5's corrected loop](/02-the-agent-loop/05-react-and-reasoning-in-the-loop/01-the-react-pattern/#the-fix-gather-every-tool-call-act-on-all-of-them-reply-once) — collect `tool_calls = [b for b in response.content if b.type == \"tool_use\"]`, dispatch each through `TOOL_REGISTRY`, and append all results as one message — returning `messages` instead of looping further. `resume_and_finish` is the same collection idea applied to text: `\"\".join(b.text for b in response.content if b.type == \"text\")`."}
   correctFiles={[
     { name: "tools.py", code: TOOLS_PY },
     { name: "checkpoint.py", code: CHECKPOINT_PY },
@@ -257,21 +290,23 @@ import tools
 
 def run_partial_session(client, initial_messages: list) -> list:
     response = client.create(messages=initial_messages)
-    block = response.content[0]
-    tool_function = TOOL_REGISTRY[block.name]
-    result = tool_function(**block.input)
-    messages = initial_messages + [
-        {"role": "assistant", "content": response.content},
-        {"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]},
-    ]
+    messages = initial_messages + [{"role": "assistant", "content": response.content}]
+
+    tool_calls = [block for block in response.content if block.type == "tool_use"]
+    results = []
+    for call in tool_calls:
+        tool_function = TOOL_REGISTRY[call.name]
+        output = tool_function(**call.input)
+        results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+    messages.append({"role": "user", "content": results})
     return messages
 
 def resume_and_finish(client, resumed_messages: list) -> str:
     response = client.create(messages=resumed_messages)
-    return response.content[0].text`,
+    return "".join(block.text for block in response.content if block.type == "text")`,
     },
   ]}
-  explanation="This is the real payoff of everything this lesson built: tools.py already has research_agent recorded after session 1 alone — save_checkpoint captures that same fact in messages, and resume_and_finish's client never needs to touch create_agent_entry again, since the checkpoint already carries the completed work forward. A genuinely interrupted, genuinely resumed task, finishing correctly without redoing anything real."
+  explanation="This is the real payoff of everything this lesson built: tools.py already has research_agent recorded after session 1 alone — save_checkpoint captures that same fact in messages, and resume_and_finish's client never needs to touch create_agent_entry again, since the checkpoint already carries the completed work forward. The last three scenarios confirm both functions handle real response shapes correctly, not just the single-tool-use-block case: a thinking block alongside the tool call doesn't interfere with dispatch, two tool calls in one round trip both run and both get a paired result, and a thinking block before the final text still returns just the text -- the same guarantees Lesson 5's corrected loop made, now inside a checkpoint-and-resume cycle."
 />
 
 </CheckpointZone>

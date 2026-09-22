@@ -75,12 +75,24 @@ print(result["messages"][-1].content)
   — and compiles them onto LangGraph, the graph-execution engine
   LangChain's agents now run on.
 - **`config={"recursion_limit": 10}`**, passed to `invoke` rather than
-  the agent's own constructor, *is*
+  the agent's own constructor, serves the *same purpose* as
   [Lesson 6's `max_steps`](/02-the-agent-loop/06-termination-failure-and-control/02-max-steps/#the-simplest-possible-guard-a-hard-cap-unconditionally)
-  — the same hard cap on how many steps a single run can take, enforced
-  by the underlying graph engine rather than a loop condition you wrote
-  yourself. Exceed it and LangGraph raises an error, the framework's
-  equivalent of this module's own clean, hand-written stop.
+  — a hard cap on a single run — but neither the unit nor the failure
+  behavior actually match. LangGraph counts every graph step, and a
+  model call and a tool execution are *separate* steps run
+  sequentially, so `recursion_limit=10` allows roughly **5** loop
+  iterations, not 10 — `max_steps=10` in this module always meant 10
+  full iterations. And exceeding it doesn't return cleanly: LangGraph
+  raises `GraphRecursionError`, the run simply crashes — the opposite
+  of the graceful, defined-message stop `max_steps` was built to
+  guarantee.
+  [What that difference actually costs is covered next](/02-the-agent-loop/11-from-hand-rolled-to-a-runtime/03-what-control-was-given-up/).
+  LangChain 1.0's `ModelCallLimitMiddleware` (`langchain.agents.middleware`)
+  is the closer match on both counts: its `run_limit` counts model
+  calls directly, one per loop iteration exactly like `max_steps`, and
+  its default `exit_behavior="end"` ends the run gracefully rather than
+  raising — `exit_behavior="error"` is available for when a hard
+  failure is actually wanted instead.
 
 </Subsection>
 
@@ -114,16 +126,16 @@ print(result["messages"][-1].content)
         "A framework still has to carry the full conversation state somewhere, for the same statelessness reason Lesson 7 covered. Here that state is literally named messages, both in and out.",
     },
     {
-      question: "What does config={\"recursion_limit\": 10}, passed to agent.invoke(), actually correspond to?",
+      question: "Why isn't config={\"recursion_limit\": 10} actually the same guard as Lesson 6's max_steps=10?",
       options: [
-        "Nothing -- create_agent has no equivalent to any guard built earlier in this module",
-        "The while loop from Lesson 4, with the recursion limit as the exact same guard as Lesson 6's max_steps",
-        "Only the tool dispatch mechanism, not the loop itself",
-        "The evaluator-optimizer pattern from a later lesson",
+        "It isn't a guard at all -- create_agent has no equivalent to anything built earlier in this module",
+        "They serve the same purpose -- a hard cap on a run -- but LangGraph counts a model call and a tool execution as separate steps (so 10 allows roughly 5 loop iterations, not 10), and exceeding it raises an error instead of returning a clean message",
+        "recursion_limit and max_steps count in exactly the same unit and fail in exactly the same way",
+        "recursion_limit only applies to tool calls, never to the model's own turns",
       ],
       correctIndex: 1,
       explanation:
-        "create_agent compiles onto LangGraph, and recursion_limit is LangGraph's own hard cap on how many steps a single run can take -- the same job max_steps did, enforced by the underlying engine instead of a loop condition you wrote.",
+        "Same purpose, different unit and different failure behavior: LangGraph's step count is roughly double the loop-iteration count max_steps used, and GraphRecursionError crashes the run rather than returning the clean, defined message max_steps guaranteed.",
     },
   ]}
 />

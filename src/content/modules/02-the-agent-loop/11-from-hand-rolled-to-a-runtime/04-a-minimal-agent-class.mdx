@@ -16,8 +16,9 @@ export const PRE = REACT_FAKE_CLIENT + RECORDING_CLIENT;
 
 `create_agent` can't run here — no real package, no real network — but
 the *packaging* it does is something this module already has every
-piece of, and building a small class around it makes concept 1's four
-pieces concrete rather than abstract:
+piece of, and building a small class around it makes
+[the four things a framework provides](/02-the-agent-loop/11-from-hand-rolled-to-a-runtime/01-what-a-framework-actually-provides/)
+concrete rather than abstract:
 
 <LiveDemo client:load setupCode={REACT_FAKE_CLIENT} code={`class Agent:
     def __init__(self, client, system_prompt: str, tools: list, max_steps: int = 10):
@@ -61,9 +62,11 @@ print(agent.invoke("What's the weather in Paris?"))`} />
 (The fake client's classes are already defined for this demo.) Every
 piece this concept named is right here: `system_prompt` set once in
 `__init__`, exactly the way a framework's own `system_prompt` parameter
-works; `self.tools`, built from `tool.__name__` — the same technique
-[Module 0's decorator-adjacent function-introspection concept](/00-python-essentials/03-functions-and-reuse/02-args-and-kwargs/#logging-every-call-with-args-and-kwargs)
-used — is a real `TOOL_REGISTRY`, just built automatically from a list
+works; `self.tools`, built from `tool.__name__` — every Python function
+is itself an object, and `.__name__` is the plain string it carries its
+own definition-time name in
+([`func.__name__` did the same job inside Module 0's call-forwarding wrapper](/00-python-essentials/03-functions-and-reuse/02-args-and-kwargs/#why-this-matters-for-agent-code-forwarding-calls))
+— is a real `TOOL_REGISTRY`, just built automatically from a list
 instead of written by hand; `max_steps` caps the loop exactly as it did
 in Lesson 6; and `invoke`'s body *is*
 [Lesson 5's corrected loop](/02-the-agent-loop/05-react-and-reasoning-in-the-loop/01-the-react-pattern/#the-fix-gather-every-tool-call-act-on-all-of-them-reply-once),

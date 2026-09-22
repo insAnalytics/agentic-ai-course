@@ -68,7 +68,10 @@ the first block that looks like a decision — exactly what Lesson 4's
 loop does, reading only `response.content[0]` — breaks the moment that
 first block isn't the one that actually matters:
 
-<LiveDemo client:load setupCode={REACT_FAKE_CLIENT} code={`def check_price(item: str) -> str:
+<LiveDemo client:load setupCode={REACT_FAKE_CLIENT} code={`calls_made = []
+
+def check_price(item: str) -> str:
+    calls_made.append(item)   # records every real call, so we can actually check
     return "$4.50" if item == "notebook" else "unknown"
 
 TOOL_REGISTRY = {"check_price": check_price}
@@ -94,7 +97,7 @@ client = FakeLLMClient(scripted_responses=[
 
 result = naive_agent_loop(client, [{"role": "user", "content": "How much is a notebook?"}])
 print(f"loop returned: {result!r}")
-print(f"but check_price was actually called: {'check_price' in str(client.scripted_responses)}")`} />
+print(f"check_price was actually called: {len(calls_made) > 0} (calls: {calls_made})")`} />
 
 (The fake client's classes are already defined for this demo.)
 

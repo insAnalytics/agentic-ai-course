@@ -12,11 +12,26 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 Everything
 [the framework version from earlier in this lesson](/02-the-agent-loop/11-from-hand-rolled-to-a-runtime/02-rebuilding-in-langchain/)
 does, the hand-rolled version also did — but several things that were
-explicit and inspectable by hand are now internal to the framework:
+explicit and inspectable by hand are now internal to the framework.
+Most of what follows is genuinely still the same mechanism, just no
+longer visible; one is worse than that — a case where adopting the
+framework's default actually changes the behavior itself, not just how
+much of it you can see:
 
-- **Exactly when `max_steps` fires** —
-  [Lesson 6's precise, hand-written check](/02-the-agent-loop/06-termination-failure-and-control/02-max-steps/#the-simplest-possible-guard-a-hard-cap-unconditionally)
-  is now a number you set, not logic you can read directly.
+- **The step cap doesn't just stop being visible — it stops behaving
+  the same way.**
+  [`recursion_limit`, from the previous concept](/02-the-agent-loop/11-from-hand-rolled-to-a-runtime/02-rebuilding-in-langchain/),
+  counts in a different unit than
+  [Lesson 6's `max_steps`](/02-the-agent-loop/06-termination-failure-and-control/02-max-steps/#the-simplest-possible-guard-a-hard-cap-unconditionally)
+  did (roughly half as many loop iterations as the number suggests),
+  and it fails differently too — `GraphRecursionError` crashes the run,
+  where `max_steps` was built specifically to avoid that and return a
+  clean message instead. Reaching for the default without knowing this
+  isn't a visibility problem to shrug off; it's a real behavior
+  regression a framework's convenient default can quietly introduce,
+  exactly why `ModelCallLimitMiddleware`'s `exit_behavior="end"` exists
+  as the closer match — but nothing forces you to reach for it if you
+  don't already know `recursion_limit` alone isn't equivalent.
 - **Exactly how state serializes** —
   [Lesson 7's `to_dict()`/`serialize_messages`](/02-the-agent-loop/07-agent-state-and-the-scratchpad/02-serializing-state/)
   happens somewhere inside `agent.invoke()`, not in code you wrote or
@@ -63,6 +78,18 @@ faith.
       correctIndex: 1,
       explanation:
         "Choosing convenience over visibility is only a real trade-off if you understand what you're giving up. Having built the loop by hand is what turns adopting a framework into an informed decision.",
+    },
+    {
+      question: "Why is recursion_limit a genuinely different case from the other examples in this concept, not just another thing that's now hidden?",
+      options: [
+        "It isn't different -- all of these examples are the same kind of thing",
+        "The other examples are the same mechanism, just less visible; recursion_limit's default actually behaves differently from max_steps -- a different unit, and a crash instead of a clean stop -- so reaching for it without knowing that is a real behavior regression, not just reduced visibility",
+        "recursion_limit doesn't actually do anything at all",
+        "max_steps and recursion_limit are identical in every respect",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Serialization and dispatch still work the same way under the framework, just out of view. recursion_limit alone doesn't reproduce max_steps's behavior at all -- it's a case where the convenient default is a genuine downgrade, not merely a hidden version of the same guard.",
     },
   ]}
 />

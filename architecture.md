@@ -1329,6 +1329,53 @@ scenario) — the same lesson-structure.md rule already applied to Lesson 10,
 not a fresh design decision. Verified against real Pyodide 0.26.4: every new
 and modified exercise's reference solution passes all of its hidden tests.
 
+**Module 2 review follow-up fixes (5 issues from a second review pass).**
+(1) Lesson 11 Concept 2 claimed `config={"recursion_limit": 10}` *is* Lesson
+6's `max_steps` — wrong on two counts, confirmed against the current
+LangGraph/LangChain docs: LangGraph counts a model call and a tool
+execution as separate sequential super-steps, so `recursion_limit=10`
+allows roughly 5 loop iterations, not 10; and exceeding it raises
+`GraphRecursionError` (a crash), the opposite of `max_steps`'s
+graceful, defined-message stop, which was the entire point of Lesson 6's
+"graceful give-up" teaching. Corrected to "same purpose, different unit,
+different failure behavior," and added a sourced mention of
+`ModelCallLimitMiddleware` (`langchain.agents.middleware`, `run_limit` +
+`exit_behavior="end"` by default) as the actual closer match — same unit
+(model calls) and same default graceful behavior. The crash-vs-graceful
+point was also added to Concept 3 (what-control-was-given-up) as a
+genuine example of a framework default changing behavior, not just
+hiding it — distinct from that concept's other examples, which are
+unchanged mechanisms that are merely less visible.
+(2) Lesson 5's pain-demo "proof" line checked `'check_price' in
+str(client.scripted_responses)`, which is always true regardless of
+whether the tool ran (the tool's name string never appears in the
+blocks' default object `repr()` either way, so the line happened to
+print `False` for the right-looking but wrong reason). Fixed by having
+`check_price` append to a `calls_made` list and printing that instead —
+verified against real Pyodide that it now genuinely proves the tool was
+never called.
+(3) Lesson 7's checkpoint demo and its `run_partial_session`/
+`resume_and_finish` comprehensive exercise still read `response.content[0]`
+and used `block.name`/`.text` directly — both would crash (not just
+misbehave) on a response with a thinking block alongside the tool call,
+two tool calls together, or a thinking-then-text final response, since
+none of the hidden tests' scripted responses ever exercised those shapes.
+Converted both to the Lesson 5 collect-every-tool_use/join-every-text
+pattern, and added three hidden tests for exactly those shapes. Verified
+against real Pyodide: the corrected version passes all tests, and the old
+version was confirmed to crash on the two new edge-case tests specifically.
+(4) One lowercase "concept 1" (missed by the original case-sensitive
+cleanup pass) in Lesson 11's new minimal-agent-class file, replaced with
+a real link to the framework-provides concept.
+(5) `tool.__name__`, used in the new `Agent` class to build its tool
+registry, had no explanatory sentence anywhere in the course before this
+lesson — Module 0's one prior use of a function's own `.__name__`
+(`args-and-kwargs`'s call-forwarding wrapper) appears in a live demo with
+no prose calling it out. Added one sentence at first use in Lesson 11
+explaining that every function is an object carrying its own
+definition-time name in `.__name__`, linking to that Module 0 demo as a
+supporting (not primary) example rather than the sole citation.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped
