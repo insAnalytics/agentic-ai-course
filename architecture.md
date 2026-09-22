@@ -1296,6 +1296,39 @@ same bug class doesn't apply there. Lesson 7's checkpoint/resume files were
 also left alone — deliberately single-call-per-session by design, not a
 `while` dispatch loop.
 
+**Module 2 review fix — Lessons 10–11 strengthened with real scripted LLM
+steps.** Both lessons previously never actually exercised the LLM call each
+pattern is supposed to be *about*: routing took `category` as a plain
+argument instead of classifying it; the orchestrator's sub-tasks were a
+hardcoded list instead of a scripted plan; parallelization only ever showed
+plain async functions, never LLM calls run concurrently. Rewrote all four
+Lesson 10 files to make each pattern's LLM step real and graded: chaining is
+now two genuine scripted calls with a check between them (an empty/whitespace
+summary stops the chain before the second call, verified via `call_count`);
+routing classifies via one scripted call before dispatching through `ROUTES`;
+parallelization adds a second demo dispatching independent scripted
+summarization calls via `asyncio.gather` (order-stability across concurrent
+calls against a stateful fake client's `call_count` verified with 8 repeated
+real-Pyodide runs, since nothing in the docs guarantees it — it held every
+time, consistent with CPython's asyncio being single-threaded and
+deterministic for equal-delay `sleep`s) and a short subsection connecting to
+Lesson 5's multi-tool-call fix as the same payoff via a different mechanism;
+orchestrator-workers gets its plan from a scripted `PlanBlock` call instead of
+a hardcoded list. Lesson 10's comprehensive sandbox (`run_ticket_pipeline`)
+was updated to match — routing is now genuinely LLM-classified per ticket,
+not read off a pre-set `category` field. Added Lesson 11's first graded
+exercise (it previously had none): a small `Agent` class (`__init__` building
+a `{tool.__name__: tool}` registry from a plain tool list; `invoke` running
+this module's corrected loop) that makes concrete what `create_agent`
+packages, with hidden tests covering the system prompt reaching the client,
+tool dispatch, the step limit, and both of item 1's edge cases. Since this
+gave Lesson 11 real learner-authored code for the first time, its previously
+ungraded closing synthesis became a real graded comprehensive sandbox
+(same `Agent` class, reused unchanged on the registry app's check-before-create
+scenario) — the same lesson-structure.md rule already applied to Lesson 10,
+not a fresh design decision. Verified against real Pyodide 0.26.4: every new
+and modified exercise's reference solution passes all of its hidden tests.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped

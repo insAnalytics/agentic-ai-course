@@ -8,35 +8,60 @@ import LiveDemo from "../../../../components/lesson/LiveDemo";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import GradedExercise from "../../../../components/lesson/GradedExercise";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+
+export const PRE = FAKE_CLIENT + String.raw`
+class PlanBlock:
+    def __init__(self, sub_tasks: list):
+        self.type = "plan"
+        self.sub_tasks = sub_tasks
+` + RECORDING_CLIENT;
 
 <Subsection title="Decompose, dispatch to many, aggregate" variant="a">
 
 Genuinely distinct from both prior patterns: routing picks *one* fixed
-path; orchestrator-workers decomposes a task into several sub-tasks —
-[the same shape as Lesson 8's `PlanBlock`](/02-the-agent-loop/08-planning-and-decomposition/01-goal-decomposition/#decomposing-before-executing-anything)
-— dispatches *all* of them to workers, and aggregates the results into
-one output.
+path; orchestrator-workers decomposes a task into several sub-tasks,
+dispatches *all* of them to workers, and aggregates the results into
+one output — and that decomposition is itself a real, scripted call:
+[the same `PlanBlock` shape from Lesson 8's goal decomposition](/02-the-agent-loop/08-planning-and-decomposition/01-goal-decomposition/#decomposing-before-executing-anything),
+not a list hardcoded into the orchestrator's own code.
 
-<LiveDemo client:load code={`import asyncio
+<LiveDemo client:load setupCode={FAKE_CLIENT} code={`import asyncio
+
+class PlanBlock:
+    def __init__(self, sub_tasks: list):
+        self.type = "plan"
+        self.sub_tasks = sub_tasks
 
 async def worker(sub_task: str) -> str:
     await asyncio.sleep(0.3)
     return f"completed: {sub_task}"
 
-async def run_orchestrator(sub_tasks: list) -> str:
+async def run_orchestrator(client, goal: str) -> str:
+    response = client.create(messages=[{"role": "user", "content": f"Decompose this goal into sub-tasks: {goal}"}])
+    sub_tasks = response.content[0].sub_tasks
+
     worker_results = await asyncio.gather(*(worker(task) for task in sub_tasks))
     return "\\n".join(worker_results)
 
-sub_tasks = ["Create research_agent", "Create support_agent", "Create billing_agent"]
-summary = asyncio.run(run_orchestrator(sub_tasks))
+client = FakeLLMClient(scripted_responses=[
+    PlanBlock(sub_tasks=["Create research_agent", "Create support_agent", "Create billing_agent"]),
+])
+
+summary = asyncio.run(run_orchestrator(client, "Set up a full team of agents"))
 print(summary)`} />
 
-Each worker has a fixed job — run its one sub-task, report back — never
-deciding what to do next dynamically the way
+(The fake client's classes are already defined for this demo.) The
+orchestrating call happens exactly once, upfront, before any worker
+runs — `sub_tasks` is whatever the model actually decided the goal
+decomposes into, not a fixed list the orchestrator's own code already
+knew. Each worker has a fixed job — run its one sub-task, report back —
+never deciding what to do next dynamically the way
 [a full agent loop from Lesson 4 onward](/02-the-agent-loop/04-writing-the-loop-by-hand/00-intro/)
 would. This is genuinely different from a full agent loop, not a
-smaller version of one: the sub-tasks are already known upfront,
-[Concept 2's parallel dispatch](/02-the-agent-loop/10-workflow-patterns-beyond-a-single-loop/02-parallelization/)
+smaller version of one: once the plan comes back, the sub-tasks are
+fixed for the rest of the run,
+[this lesson's parallel dispatch](/02-the-agent-loop/10-workflow-patterns-beyond-a-single-loop/02-parallelization/)
 runs them together, and aggregation is a final, fixed join step — no
 open-ended decision-making anywhere in the structure.
 
@@ -60,6 +85,18 @@ open-ended decision-making anywhere in the structure.
         "Routing chooses a single destination from a fixed set. Orchestrator-workers fans a task out to several workers at once and joins what comes back.",
     },
     {
+      question: "Why does the plan come from a scripted call to the client, rather than being hardcoded into run_orchestrator?",
+      options: [
+        "It doesn't matter either way",
+        "A hardcoded list would mean the orchestrator already knew the answer; getting sub_tasks from the model is what makes this a genuine decomposition step, not a disguised constant",
+        "asyncio.gather requires its inputs to come from a function call",
+        "Hardcoding a list of sub-tasks is impossible in Python",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The whole point of orchestrator-workers is that the decomposition is real work the model does, not something the orchestrator's own code already had memorized.",
+    },
+    {
       question: "Why is orchestrator-workers genuinely different from a smaller agent loop, not just a simplified version of one?",
       options: [
         "There's no real difference between the two",
@@ -76,39 +113,55 @@ open-ended decision-making anywhere in the structure.
 
 <GradedExercise
   client:load
-  task={'Implement `run_orchestrator(sub_tasks)` as shown, dispatching all sub-tasks concurrently via `asyncio.gather` and joining results with `"\\n"`.'}
+  task={'Implement `run_orchestrator(client, goal)` as shown: ask `client` to decompose `goal` (a `PlanBlock` with `.sub_tasks`), then dispatch every sub-task to `worker(...)` concurrently via `asyncio.gather`, joining the results with `"\\n"`.'}
   starterCode={`import asyncio
 
 async def worker(sub_task: str) -> str:
     await asyncio.sleep(0.3)
     return f"completed: {sub_task}"
 
-async def run_orchestrator(sub_tasks: list) -> str:
-    # TODO: dispatch all sub_tasks to worker(...) concurrently via
-    # asyncio.gather, then join the results with "\\n".
+async def run_orchestrator(client, goal: str) -> str:
+    # TODO: ask client to decompose goal into a PlanBlock's sub_tasks,
+    # then dispatch all of them to worker(...) concurrently via
+    # asyncio.gather, and join the results with "\\n".
     pass`}
   hiddenTests={[
-    `result = asyncio.run(run_orchestrator(["Task A", "Task B"]))
-assert result == "completed: Task A\\ncompleted: Task B"`,
-    `import time
+    PRE + String.raw`
+client = FakeLLMClient(scripted_responses=[PlanBlock(sub_tasks=["Task A", "Task B"])])
+result = asyncio.run(run_orchestrator(client, "some goal"))
+assert result == "completed: Task A\\ncompleted: Task B"
+assert client.call_count == 1
+`,
+    PRE + String.raw`
+import time
 
 async def run_test():
+    client = FakeLLMClient(scripted_responses=[PlanBlock(sub_tasks=["Task A", "Task B", "Task C"])])
     start = time.perf_counter()
-    result = await run_orchestrator(["Task A", "Task B", "Task C"])
+    result = await run_orchestrator(client, "some goal")
     elapsed = time.perf_counter() - start
     return result, elapsed
 
 result, elapsed = asyncio.run(run_test())
 assert result == "completed: Task A\\ncompleted: Task B\\ncompleted: Task C"
-assert elapsed < 0.6  # concurrent (~0.3s) not sequential (~0.9s)`,
+assert elapsed < 0.6  # concurrent (~0.3s) not sequential (~0.9s)
+`,
+    PRE + String.raw`
+client = RecordingClient(scripted_responses=[PlanBlock(sub_tasks=["Register writer_agent"])])
+asyncio.run(run_orchestrator(client, "Register a writer agent"))
+assert "Register a writer agent" in client.seen[0][-1]["content"]
+`,
   ]}
-  hint={"`asyncio.gather(*(worker(task) for task in sub_tasks))` unpacks a generator of coroutines directly into gather's arguments."}
+  hint={"This is the demo's exact `run_orchestrator` -- one `client.create` call to get the plan, then `asyncio.gather(*(worker(task) for task in sub_tasks))` unpacks a generator of coroutines directly into gather's arguments."}
   correctAnswer={{
-    code: `async def run_orchestrator(sub_tasks: list) -> str:
+    code: `async def run_orchestrator(client, goal: str) -> str:
+    response = client.create(messages=[{"role": "user", "content": f"Decompose this goal into sub-tasks: {goal}"}])
+    sub_tasks = response.content[0].sub_tasks
+
     worker_results = await asyncio.gather(*(worker(task) for task in sub_tasks))
     return "\\n".join(worker_results)`,
     explanation:
-      "The first test confirms the join and per-worker output are correct. The second confirms the dispatch is genuinely concurrent, not just correct: three 0.3s workers finish in well under 0.6s total, which a sequential (awaited one at a time) implementation -- producing the same joined string -- could never do in time for that assertion to pass.",
+      "The first test confirms the plan genuinely comes from the client (call_count == 1 for the planning call) and every sub-task gets dispatched and joined correctly. The second confirms the dispatch is genuinely concurrent, not just correct: three 0.3s workers finish in well under 0.6s total, which a sequential implementation could never do in time for that assertion to pass. The third confirms the goal itself reaches the orchestrating call.",
   }}
 />
 

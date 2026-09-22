@@ -6,24 +6,81 @@ order: 1
 import Subsection from "../../../../components/lesson/Subsection.astro";
 import LiveDemo from "../../../../components/lesson/LiveDemo";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
 
-<Subsection title="Chaining: naming a pattern already built" variant="a">
+export const PRE = FAKE_CLIENT + RECORDING_CLIENT;
+
+<Subsection title="Chaining: a fixed sequence, with a check in between" variant="a">
 
 [Lesson 1's `run_workflow`](/02-the-agent-loop/01-agents-workflows-and-the-loop/02-agent-vs-workflow-vs-chatbot/#a-workflow-concretely-code-decides-the-sequence)
-— `summarize` always before `translate` — is **prompt chaining**: a
-fixed sequence where each step's output feeds the next. Nothing new
-mechanically; this concept just gives it a name worth recognizing as a
-deliberate pattern, not an ad hoc example.
+sketched `summarize` always before `translate` as illustrative `...`
+bodies. **Prompt chaining** is that same fixed-sequence pattern, made
+real: each step is a genuine scripted call, and the code checks a
+step's output before ever starting the next one — not just piping text
+through blindly:
+
+<LiveDemo client:load setupCode={FAKE_CLIENT} code={`def run_chain(client, document: str) -> str:
+    response = client.create(messages=[{"role": "user", "content": f"Summarize this document: {document}"}])
+    summary = response.content[0].text
+
+    if not summary.strip():
+        return "Error: summarization produced an empty result, stopping before translation"
+
+    response = client.create(messages=[{"role": "user", "content": f"Translate to French: {summary}"}])
+    return response.content[0].text
+
+client = FakeLLMClient(scripted_responses=[
+    TextBlock(text="Agentic systems combine planning, tool use, and memory."),
+    TextBlock(text="Les systèmes agentiques combinent planification, utilisation d'outils et mémoire."),
+])
+
+result = run_chain(client, "... a long document about agentic systems ...")
+print(result)`} />
+
+(The fake client's classes are already defined for this demo.) Two
+genuinely separate calls happen, in a fixed order the code decided —
+never the model. `if not summary.strip():` is the check: a chain that
+never inspects a step's output before trusting it with the next one is
+just blind piping, not a deliberately engineered sequence.
 
 </Subsection>
 
-<Subsection title="Routing: classify, then dispatch to a fixed path" variant="b">
+<Subsection title="Stopping cleanly when a step's output fails the check" variant="b">
+
+<LiveDemo client:load setupCode={FAKE_CLIENT} code={`def run_chain(client, document: str) -> str:
+    response = client.create(messages=[{"role": "user", "content": f"Summarize this document: {document}"}])
+    summary = response.content[0].text
+
+    if not summary.strip():
+        return "Error: summarization produced an empty result, stopping before translation"
+
+    response = client.create(messages=[{"role": "user", "content": f"Translate to French: {summary}"}])
+    return response.content[0].text
+
+client = FakeLLMClient(scripted_responses=[
+    TextBlock(text=""),
+    TextBlock(text="this second response is never actually requested"),
+])
+
+result = run_chain(client, "... a document that produces an empty summary ...")
+print(result)
+print(f"calls actually made: {client.call_count}")`} />
+
+`client.call_count` stops at **1** — the second, scripted translation
+response sits unused. The check caught a bad intermediate result before
+wasting a call (and real cost) on translating nothing.
+
+</Subsection>
+
+<Subsection title="Routing: a scripted classification, then dispatch to a fixed path" variant="a">
 
 **Routing** adds a classification step choosing between *fixed*
-downstream paths:
+downstream paths — and that classification is itself a real, scripted
+LLM call, not an argument handed in from outside:
 
-<LiveDemo client:load code={`def handle_billing(request: str) -> str:
+<LiveDemo client:load setupCode={FAKE_CLIENT} code={`def handle_billing(request: str) -> str:
     return f"Routed to billing: {request}"
 
 def handle_technical(request: str) -> str:
@@ -31,22 +88,25 @@ def handle_technical(request: str) -> str:
 
 ROUTES = {"billing": handle_billing, "technical": handle_technical}
 
-def run_router(request: str, category: str) -> str:
+def run_router(client, request: str) -> str:
+    response = client.create(messages=[{"role": "user", "content": f"Classify this support request as exactly 'billing' or 'technical': {request}"}])
+    category = response.content[0].text
     handler = ROUTES[category]
     return handler(request)
 
-print(run_router("My invoice is wrong", category="billing"))`} />
+client = FakeLLMClient(scripted_responses=[TextBlock(text="billing")])
+print(run_router(client, "My invoice is wrong"))`} />
 
 `ROUTES[category]` —
 [the exact dispatch-dict mechanism from Lesson 4's `TOOL_REGISTRY`](/02-the-agent-loop/04-writing-the-loop-by-hand/03-handling-multiple-tools/#the-fix-a-dict-mapping-names-to-actual-callables)
-— dispatches to a handler based on a classification. `category` would
-typically come from an LLM call classifying the request; the *paths
-themselves* (`handle_billing`, `handle_technical`) are fixed in code,
-never freely chosen the way
+— dispatches to a handler based on the model's own classification. The
+*paths themselves* (`handle_billing`, `handle_technical`) are still
+fixed in code, never freely chosen the way
 [an agent picks its own next tool](/02-the-agent-loop/01-agents-workflows-and-the-loop/02-agent-vs-workflow-vs-chatbot/#the-same-task-as-an-agent-instead-the-model-decides-the-sequence).
 This is exactly the workflow side of that earlier distinction: an LLM
-call happens, but the *sequence of possible outcomes* was decided when
-the code was written, not at runtime.
+call genuinely happens and genuinely decides *which* path, but the
+*set of possible outcomes* was decided when the code was written, not
+at runtime.
 
 </Subsection>
 
@@ -56,19 +116,31 @@ the code was written, not at runtime.
   client:load
   questions={[
     {
-      question: "What does prompt chaining actually name?",
+      question: "What does prompt chaining actually name, and what does the check between steps add to it?",
       options: [
         "A brand-new mechanism not covered elsewhere in this course",
-        "A fixed sequence where each step's output feeds the next — exactly what Lesson 1's run_workflow already was",
+        "A fixed sequence where each step's output feeds the next — the check adds a real verification that a step's output is usable before spending a call on the next step",
         "A technique only usable with exactly two steps",
         "The agent's own dynamic tool selection",
       ],
       correctIndex: 1,
       explanation:
-        "Nothing mechanically new is introduced here — this concept just gives a name to the fixed-sequence pattern already built earlier in the module.",
+        "Chaining alone is just a fixed sequence. Checking the intermediate result before continuing is what keeps that sequence from blindly wasting a call on garbage input.",
     },
     {
-      question: "Why is routing still structurally a workflow, not an agent, even though it uses an LLM call to classify?",
+      question: "In the second demo, why does client.call_count stop at 1 instead of reaching 2?",
+      options: [
+        "The fake client only supports a single call, ever",
+        "The check caught an empty summary and returned early, before the code ever reached the line that would have made the second (translation) call",
+        "This is a bug — the chain should always make exactly 2 calls",
+        "FakeLLMClient automatically skips empty responses",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The scripted translation response was queued up but never requested. The early return happens before that line of code runs at all.",
+    },
+    {
+      question: "Why is routing still structurally a workflow, not an agent, even though the classification itself is a genuine LLM call?",
       options: [
         "It isn't — routing is actually a form of agent behavior",
         "The set of possible downstream paths is fixed in code; only which one fixed path gets chosen is decided at runtime, unlike an agent's open-ended tool selection",
@@ -77,7 +149,7 @@ the code was written, not at runtime.
       ],
       correctIndex: 1,
       explanation:
-        "An LLM call can classify the request, but the code still enumerates every possible destination in advance. An agent, by contrast, isn't limited to a fixed menu of pre-written paths.",
+        "The LLM call genuinely decides which path gets taken, but the code still enumerates every possible destination in advance. An agent, by contrast, isn't limited to a fixed menu of pre-written paths.",
     },
     {
       question: "What mechanism does ROUTES[category] directly reuse from earlier in this module?",
@@ -92,6 +164,116 @@ the code was written, not at runtime.
         "Both map a string key to a callable and invoke it directly — the same dict-dispatch idea, just applied to routing a request instead of dispatching a tool call.",
     },
   ]}
+/>
+
+<GradedExercise
+  client:load
+  task={'Implement `run_chain(client, document)` exactly as shown: summarize `document` via `client`, check that the summary is non-empty (stripping whitespace) before continuing, and if it is empty return a string starting with `"Error"` without making a second call; otherwise translate the summary to French via a second call to `client`, and return that final text.'}
+  starterCode={`def run_chain(client, document: str) -> str:
+    # TODO: summarize document via client, check the summary isn't empty
+    # (after stripping whitespace) before continuing, and either return an
+    # "Error"-prefixed string with no second call, or translate the
+    # summary via a second call and return that final text.
+    pass`}
+  hiddenTests={[
+    PRE + String.raw`
+client = FakeLLMClient(scripted_responses=[
+    TextBlock(text="Agentic systems combine planning, tool use, and memory."),
+    TextBlock(text="Les systèmes agentiques combinent planification, utilisation d'outils et mémoire."),
+])
+result = run_chain(client, "a document")
+assert result == "Les systèmes agentiques combinent planification, utilisation d'outils et mémoire."
+assert client.call_count == 2
+`,
+    PRE + String.raw`
+client = FakeLLMClient(scripted_responses=[TextBlock(text=""), TextBlock(text="never requested")])
+result = run_chain(client, "a document that summarizes to nothing")
+assert isinstance(result, str) and result.startswith("Error")
+assert client.call_count == 1
+`,
+    PRE + String.raw`
+# whitespace-only counts as empty too
+client = FakeLLMClient(scripted_responses=[TextBlock(text="   "), TextBlock(text="never requested")])
+result = run_chain(client, "a document")
+assert result.startswith("Error")
+assert client.call_count == 1
+`,
+    PRE + String.raw`
+client = RecordingClient(scripted_responses=[TextBlock(text="A short summary."), TextBlock(text="Un résumé court.")])
+run_chain(client, "the source document")
+assert "the source document" in client.seen[0][-1]["content"]
+assert "A short summary." in client.seen[1][-1]["content"]
+`,
+  ]}
+  hint={'This is the demo\'s exact `run_chain` — two calls to `client.create`, with `if not summary.strip():` between them deciding whether the second call ever happens.'}
+  correctAnswer={{
+    code: `def run_chain(client, document: str) -> str:
+    response = client.create(messages=[{"role": "user", "content": f"Summarize this document: {document}"}])
+    summary = response.content[0].text
+
+    if not summary.strip():
+        return "Error: summarization produced an empty result, stopping before translation"
+
+    response = client.create(messages=[{"role": "user", "content": f"Translate to French: {summary}"}])
+    return response.content[0].text`,
+    explanation:
+      "The first test confirms the full two-step chain works when both steps succeed. The second and third confirm the check genuinely gates the second call -- an empty or whitespace-only summary returns an error immediately, with call_count staying at 1, proving the translation call never actually happens.",
+  }}
+/>
+
+<GradedExercise
+  client:load
+  task={'Given `handle_billing(request: str) -> str` and `handle_technical(request: str) -> str` (both provided) and a `ROUTES` dict mapping their category names to them, implement `run_router(client, request)`: classify `request` with a single call to `client` (asking it to classify as `\'billing\'` or `\'technical\'`), then dispatch the request to the matching handler in `ROUTES` and return its result.'}
+  starterCode={`def handle_billing(request: str) -> str:
+    return f"Routed to billing: {request}"
+
+def handle_technical(request: str) -> str:
+    return f"Routed to technical support: {request}"
+
+ROUTES = {"billing": handle_billing, "technical": handle_technical}
+
+def run_router(client, request: str) -> str:
+    # TODO: classify request with one call to client, then dispatch
+    # through ROUTES using the classification and return the result.
+    pass`}
+  hiddenTests={[
+    PRE + String.raw`
+client = FakeLLMClient(scripted_responses=[TextBlock(text="billing")])
+assert run_router(client, "My invoice is wrong") == "Routed to billing: My invoice is wrong"
+assert client.call_count == 1
+`,
+    PRE + String.raw`
+client = FakeLLMClient(scripted_responses=[TextBlock(text="technical")])
+assert run_router(client, "The app crashes on launch") == "Routed to technical support: The app crashes on launch"
+`,
+    PRE + String.raw`
+client = RecordingClient(scripted_responses=[TextBlock(text="billing")])
+run_router(client, "My invoice is wrong")
+assert "My invoice is wrong" in client.seen[0][-1]["content"]
+`,
+    PRE + String.raw`
+# a third route added to ROUTES at runtime is found through the same dict dispatch --
+# confirming this is real dispatch, not a hardcoded if/elif
+def handle_sales(request: str) -> str:
+    return f"Routed to sales: {request}"
+ROUTES["sales"] = handle_sales
+try:
+    client = FakeLLMClient(scripted_responses=[TextBlock(text="sales")])
+    assert run_router(client, "I want to upgrade my plan") == "Routed to sales: I want to upgrade my plan"
+finally:
+    del ROUTES["sales"]
+`,
+  ]}
+  hint={'This is the demo\'s exact `run_router` -- one `client.create` call to classify, then `ROUTES[category]` to get the handler and call it with `request`.'}
+  correctAnswer={{
+    code: `def run_router(client, request: str) -> str:
+    response = client.create(messages=[{"role": "user", "content": f"Classify this support request as exactly 'billing' or 'technical': {request}"}])
+    category = response.content[0].text
+    handler = ROUTES[category]
+    return handler(request)`,
+    explanation:
+      "The first two tests confirm each classification correctly reaches its own fixed handler. The last test adds a brand-new category to ROUTES at runtime with no code change to run_router at all -- confirming this is genuine dict-based dispatch off the model's own classification, not a hardcoded if/elif chain.",
+  }}
 />
 
 </CheckpointZone>

@@ -1,0 +1,224 @@
+---
+title: "Building a minimal agent class"
+lesson: "11-from-hand-rolled-to-a-runtime"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+
+export const PRE = REACT_FAKE_CLIENT + RECORDING_CLIENT;
+
+<Subsection title="Making the packaging concrete, in code this sandbox can actually run" variant="a">
+
+`create_agent` can't run here — no real package, no real network — but
+the *packaging* it does is something this module already has every
+piece of, and building a small class around it makes concept 1's four
+pieces concrete rather than abstract:
+
+<LiveDemo client:load setupCode={REACT_FAKE_CLIENT} code={`class Agent:
+    def __init__(self, client, system_prompt: str, tools: list, max_steps: int = 10):
+        self.client = client
+        self.system_prompt = system_prompt
+        self.tools = {tool.__name__: tool for tool in tools}
+        self.max_steps = max_steps
+
+    def invoke(self, user_message: str) -> str:
+        messages = [
+            {"role": "system", "content": self.system_prompt},
+            {"role": "user", "content": user_message},
+        ]
+        for step_count in range(1, self.max_steps + 1):
+            response = self.client.create(messages=messages)
+            messages.append({"role": "assistant", "content": response.content})
+
+            tool_calls = [block for block in response.content if block.type == "tool_use"]
+            if not tool_calls:
+                return "".join(block.text for block in response.content if block.type == "text")
+
+            results = []
+            for call in tool_calls:
+                tool_function = self.tools[call.name]
+                output = tool_function(**call.input)
+                results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+            messages.append({"role": "user", "content": results})
+        return f"stopped after reaching the maximum of {self.max_steps} steps without a final answer"
+
+def get_weather(location: str) -> str:
+    return f"It's sunny in {location}."
+
+client = FakeLLMClient(scripted_responses=[
+    [ThinkingBlock(thinking="I should check the weather."), ToolUseBlock(name="get_weather", input={"location": "Paris"})],
+    [TextBlock(text="It's sunny in Paris today!")],
+])
+
+agent = Agent(client, system_prompt="Always check the weather before answering.", tools=[get_weather], max_steps=5)
+print(agent.invoke("What's the weather in Paris?"))`} />
+
+(The fake client's classes are already defined for this demo.) Every
+piece this concept named is right here: `system_prompt` set once in
+`__init__`, exactly the way a framework's own `system_prompt` parameter
+works; `self.tools`, built from `tool.__name__` — the same technique
+[Module 0's decorator-adjacent function-introspection concept](/00-python-essentials/03-functions-and-reuse/02-args-and-kwargs/#logging-every-call-with-args-and-kwargs)
+used — is a real `TOOL_REGISTRY`, just built automatically from a list
+instead of written by hand; `max_steps` caps the loop exactly as it did
+in Lesson 6; and `invoke`'s body *is*
+[Lesson 5's corrected loop](/02-the-agent-loop/05-react-and-reasoning-in-the-loop/01-the-react-pattern/#the-fix-gather-every-tool-call-act-on-all-of-them-reply-once),
+now living inside a method instead of a bare function. A framework's
+`create_agent` does more — real networking, real retries, a real
+graph engine underneath — but structurally, this *is* what it packages.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why does Agent.__init__ build self.tools from tool.__name__ rather than requiring the caller to pass a dict directly?",
+      options: [
+        "It doesn't actually change anything about how tools get called",
+        "It turns a plain list of functions into the same name-to-callable registry this module has used since Lesson 4, without asking the caller to write that mapping by hand",
+        "tool.__name__ is required by Python before any function can be called",
+        "This makes the class incompatible with the loop from Lesson 5",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The constructor does the TOOL_REGISTRY-building work internally, using each function's own __name__, so the caller just hands over a list -- convenience, not a different underlying mechanism.",
+    },
+    {
+      question: "What part of this module does Agent.invoke's body actually reuse?",
+      options: [
+        "A brand-new loop, unrelated to anything built earlier",
+        "Lesson 5's corrected loop -- collect every tool_use block, dispatch all of them, send all results back together, and only return once a response has no tool calls left",
+        "Only Lesson 4's original, deliberately minimal single-block loop",
+        "The evaluator-optimizer pattern",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The method body is exactly the fixed multi-call-safe loop from Lesson 5, just moved inside a class method instead of living as a standalone function.",
+    },
+  ]}
+/>
+
+<GradedExercise
+  client:load
+  task={'Implement the `Agent` class shown: `__init__(self, client, system_prompt, tools, max_steps=10)` stores `client`, `system_prompt`, builds `self.tools` as a `{tool.__name__: tool}` dict from the `tools` list, and stores `max_steps`. `invoke(self, user_message)` sends a `system` message with `self.system_prompt` followed by the user message, then runs this module\'s corrected loop against `self.client`: collect every `tool_use` block in a response, dispatch all of them through `self.tools`, send all results back together, and only return the joined text once a response has no tool calls left -- or a message saying the step limit was reached if `self.max_steps` is exhausted first.'}
+  starterCode={`class Agent:
+    def __init__(self, client, system_prompt: str, tools: list, max_steps: int = 10):
+        # TODO: store client, system_prompt, build self.tools as a
+        # {tool.__name__: tool} dict, and store max_steps.
+        pass
+
+    def invoke(self, user_message: str) -> str:
+        # TODO: send a system message (self.system_prompt) then the user
+        # message, then run the corrected loop against self.client, up to
+        # self.max_steps.
+        pass`}
+  hiddenTests={[
+    PRE + String.raw`
+def get_weather(location: str) -> str:
+    return f"It's sunny in {location}."
+
+client = RecordingClient(scripted_responses=[
+    [ToolUseBlock(name="get_weather", input={"location": "Paris"})],
+    [TextBlock(text="It's sunny in Paris!")],
+])
+agent = Agent(client, system_prompt="Always check the weather before answering.", tools=[get_weather], max_steps=5)
+result = agent.invoke("What's the weather in Paris?")
+assert result == "It's sunny in Paris!"
+assert client.seen[0][0] == {"role": "system", "content": "Always check the weather before answering."}
+assert client.seen[0][1] == {"role": "user", "content": "What's the weather in Paris?"}
+`,
+    PRE + String.raw`
+def check_price(item: str) -> str:
+    return "$4.50" if item == "notebook" else "unknown"
+
+client = FakeLLMClient(scripted_responses=[
+    [ToolUseBlock(name="check_price", input={"item": "notebook"})],
+    [TextBlock(text="The notebook costs $4.50.")],
+])
+agent = Agent(client, system_prompt="Be concise.", tools=[check_price], max_steps=5)
+assert agent.invoke("How much is a notebook?") == "The notebook costs $4.50."
+`,
+    PRE + String.raw`
+def get_weather(location: str) -> str:
+    return f"It's sunny in {location}."
+
+client = FakeLLMClient(scripted_responses=[
+    [ToolUseBlock(name="get_weather", input={"location": "Paris"})] for _ in range(10)
+])
+agent = Agent(client, system_prompt="...", tools=[get_weather], max_steps=3)
+result = agent.invoke("What's the weather?")
+assert isinstance(result, str) and "3" in result
+assert client.call_count == 3
+`,
+    PRE + String.raw`
+# a text block arriving BEFORE the tool call in the same response must not end the loop early
+def get_weather(location: str) -> str:
+    return f"It's sunny in {location}."
+
+client = FakeLLMClient(scripted_responses=[
+    [TextBlock(text="Let me check that for you."), ToolUseBlock(name="get_weather", input={"location": "Paris"})],
+    [TextBlock(text="It's sunny in Paris.")],
+])
+agent = Agent(client, system_prompt="...", tools=[get_weather], max_steps=5)
+assert agent.invoke("Weather in Paris?") == "It's sunny in Paris."
+assert client.call_count == 2
+`,
+    PRE + String.raw`
+# two tool_use blocks in one response: both must run, each with its own tool_result,
+# in a single follow-up message
+def get_weather(location: str) -> str:
+    return f"It's sunny in {location}."
+
+first = ToolUseBlock(name="get_weather", input={"location": "Paris"})
+second = ToolUseBlock(name="get_weather", input={"location": "Berlin"})
+client = RecordingClient(scripted_responses=[[first, second], [TextBlock(text="both checked")]])
+agent = Agent(client, system_prompt="...", tools=[get_weather], max_steps=5)
+assert agent.invoke("Weather in Paris and Berlin?") == "both checked"
+second_message_batch = client.seen[1]
+results = second_message_batch[3]["content"]
+assert len(results) == 2
+assert {r["tool_use_id"] for r in results} == {first.id, second.id}
+`,
+  ]}
+  hint={'`self.tools = {tool.__name__: tool for tool in tools}` is a dict comprehension building the registry. `invoke` starts with `messages = [{"role": "system", "content": self.system_prompt}, {"role": "user", "content": user_message}]`, then runs exactly [Lesson 5\'s corrected loop](/02-the-agent-loop/05-react-and-reasoning-in-the-loop/01-the-react-pattern/#the-fix-gather-every-tool-call-act-on-all-of-them-reply-once) against `self.client` and `self.tools`, bounded by `for step_count in range(1, self.max_steps + 1):`.'}
+  correctAnswer={{
+    code: `class Agent:
+    def __init__(self, client, system_prompt: str, tools: list, max_steps: int = 10):
+        self.client = client
+        self.system_prompt = system_prompt
+        self.tools = {tool.__name__: tool for tool in tools}
+        self.max_steps = max_steps
+
+    def invoke(self, user_message: str) -> str:
+        messages = [
+            {"role": "system", "content": self.system_prompt},
+            {"role": "user", "content": user_message},
+        ]
+        for step_count in range(1, self.max_steps + 1):
+            response = self.client.create(messages=messages)
+            messages.append({"role": "assistant", "content": response.content})
+
+            tool_calls = [block for block in response.content if block.type == "tool_use"]
+            if not tool_calls:
+                return "".join(block.text for block in response.content if block.type == "text")
+
+            results = []
+            for call in tool_calls:
+                tool_function = self.tools[call.name]
+                output = tool_function(**call.input)
+                results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+            messages.append({"role": "user", "content": results})
+        return f"stopped after reaching the maximum of {self.max_steps} steps without a final answer"`,
+    explanation:
+      "The first test confirms the system prompt and user message both genuinely reach the client, in the right shape. The second confirms basic tool dispatch. The third confirms max_steps genuinely bounds the loop. The last two are this module's own edge cases: a text remark before a tool call doesn't end the loop early, and two tool calls arriving together both run and both get a paired result -- proving this class is a real, correct packaging of the loop, not just a demo that happens to work on the easy case.",
+  }}
+/>
+
+</CheckpointZone>

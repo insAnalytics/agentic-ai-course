@@ -1,0 +1,216 @@
+---
+title: "Recap & Practice"
+lesson: "11-from-hand-rolled-to-a-runtime"
+order: 5
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+
+export const PRE = REACT_FAKE_CLIENT + RECORDING_CLIENT;
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Which two things a framework provides has this module already built by hand?",
+      options: [
+        "Tracing hooks and a deployment path",
+        "The loop and state handling",
+        "Nothing new",
+        "Only the loop",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The while/dispatch loop and the scratchpad/serialization mechanics were both built from scratch earlier in this module. A framework packages the same mechanisms, not new capability.",
+    },
+    {
+      question: "Why does a LangChain tool's docstring matter specifically?",
+      options: [
+        "It's ignored entirely",
+        "It becomes part of the tool's schema, directly shown to the model",
+        "Docstrings are never used by @tool",
+        "Only matters with no type hints",
+      ],
+      correctIndex: 1,
+      explanation:
+        "@tool builds the tool's schema from the function's signature and docstring together, so the model actually reads it -- it isn't just a comment for humans.",
+    },
+    {
+      question: "What does the {\"messages\": [...]} dict passed to agent.invoke() confirm about this course's own terminology?",
+      options: [
+        "Nothing -- coincidental",
+        "The scratchpad -- a growing list of everything that's happened in the run -- is genuine, standard framework terminology, not invented for this course",
+        "LangChain uses an unrelated concept",
+        "Scratchpads don't exist in real frameworks",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A framework still has to carry the full conversation state somewhere. Here it's literally named messages, both in and out of invoke() -- the same accumulating-state idea this course named back in Lesson 7.",
+    },
+    {
+      question: "What does config={\"recursion_limit\": 10} correspond to?",
+      options: [
+        "Nothing new",
+        "Lesson 4's loop, with the recursion limit as Lesson 6's max_steps",
+        "Only tool dispatch",
+        "The evaluator-optimizer pattern",
+      ],
+      correctIndex: 1,
+      explanation:
+        "create_agent compiles onto LangGraph, and recursion_limit is the underlying engine's own hard cap on how many steps a single run can take -- the same job max_steps did, enforced by the framework instead of a loop condition you wrote.",
+    },
+    {
+      question: "Why does this lesson treat understanding hand-rolled mechanics as valuable even once a framework is adopted?",
+      options: [
+        "It isn't valuable",
+        "It's what makes adopting a framework an informed choice, not a leap of faith",
+        "Frameworks require rewriting the hand-rolled version every time",
+        "This isn't actually argued",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Choosing convenience over visibility is only a real trade-off if you understand what you're giving up. Having built the loop by hand is what turns adopting a framework into an informed decision.",
+    },
+    {
+      question: "In the Agent class, why does __init__ build self.tools from tool.__name__ instead of requiring a pre-built dict?",
+      options: [
+        "It doesn't change anything meaningful",
+        "It turns a plain list of functions into the same name-to-callable registry pattern this module has used since Lesson 4, automatically",
+        "Python requires every class to store its data this way",
+        "This is only possible because of LangChain",
+      ],
+      correctIndex: 1,
+      explanation:
+        "tool.__name__ gives the constructor a string key for each function, so a caller can hand over a plain list and still get real TOOL_REGISTRY-style dispatch inside invoke.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<Subsection title="The full arc" variant="a">
+
+From
+[Lesson 1's bare structural definition of an agent](/02-the-agent-loop/01-agents-workflows-and-the-loop/00-intro/)
+through
+[Lesson 4's hand-written loop](/02-the-agent-loop/04-writing-the-loop-by-hand/00-intro/),
+[Lesson 6's guards](/02-the-agent-loop/06-termination-failure-and-control/00-intro/),
+[Lesson 7's scratchpad](/02-the-agent-loop/07-agent-state-and-the-scratchpad/00-intro/),
+[Lesson 8's planning](/02-the-agent-loop/08-planning-and-decomposition/00-intro/),
+and
+[Lesson 9's reflection](/02-the-agent-loop/09-reflection-and-self-critique/00-intro/)
+— every mechanism a real framework like LangChain packages was built
+here first, by hand, understood at the level of every line. The
+`Agent` class below is that whole arc, packaged one more time, by
+you — the natural close of this lesson and this module: not that
+hand-rolling is always the right choice, but that choosing a framework
+afterward is a genuine, informed decision, never a black box accepted
+on faith.
+
+</Subsection>
+
+<GradedExercise
+  client:load
+  task={'Reuse the exact `Agent` class from this lesson on a new scenario: register an agent through the registry app\'s two-tool workflow (`check_agent_exists` before `create_agent_entry`, the same discipline this module\'s system prompts have used throughout), driven entirely through `Agent.invoke`.'}
+  starterCode={`class Agent:
+    def __init__(self, client, system_prompt: str, tools: list, max_steps: int = 10):
+        # TODO: store client, system_prompt, build self.tools as a
+        # {tool.__name__: tool} dict, and store max_steps.
+        pass
+
+    def invoke(self, user_message: str) -> str:
+        # TODO: send a system message (self.system_prompt) then the user
+        # message, then run the corrected loop against self.client, up to
+        # self.max_steps.
+        pass`}
+  hiddenTests={[
+    PRE + String.raw`
+registry = {}
+
+def check_agent_exists(name: str) -> bool:
+    return name in registry
+
+def create_agent_entry(name: str, model: str) -> str:
+    registry[name] = {"model": model}
+    return f"created agent '{name}' with model '{model}'"
+
+client = FakeLLMClient(scripted_responses=[
+    [ThinkingBlock(thinking="I should check whether research_agent already exists before creating it."),
+     ToolUseBlock(name="check_agent_exists", input={"name": "research_agent"})],
+    [ThinkingBlock(thinking="It doesn't exist yet, so I can safely create it."),
+     ToolUseBlock(name="create_agent_entry", input={"name": "research_agent", "model": "claude-sonnet"})],
+    [TextBlock(text="research_agent has been created with claude-sonnet.")],
+])
+agent = Agent(
+    client,
+    system_prompt="Always check_agent_exists before create_agent_entry.",
+    tools=[check_agent_exists, create_agent_entry],
+    max_steps=5,
+)
+result = agent.invoke("Register research_agent with claude-sonnet.")
+assert result == "research_agent has been created with claude-sonnet."
+assert registry["research_agent"] == {"model": "claude-sonnet"}
+assert client.call_count == 3
+`,
+    PRE + String.raw`
+registry = {"known": {"model": "claude-sonnet"}}
+
+def check_agent_exists(name: str) -> bool:
+    return name in registry
+
+def create_agent_entry(name: str, model: str) -> str:
+    registry[name] = {"model": model}
+    return f"created agent '{name}' with model '{model}'"
+
+client = RecordingClient(scripted_responses=[
+    [ToolUseBlock(name="check_agent_exists", input={"name": "known"})],
+    [TextBlock(text="It already exists.")],
+])
+agent = Agent(client, system_prompt="Always check first.", tools=[check_agent_exists, create_agent_entry], max_steps=5)
+assert agent.invoke("Register known.") == "It already exists."
+assert client.seen[0][0] == {"role": "system", "content": "Always check first."}
+assert registry == {"known": {"model": "claude-sonnet"}}
+`,
+  ]}
+  hint={"No new code -- exactly the Agent class from this lesson's concept, applied to check_agent_exists and create_agent_entry instead of get_weather or check_price."}
+  correctAnswer={{
+    code: `class Agent:
+    def __init__(self, client, system_prompt: str, tools: list, max_steps: int = 10):
+        self.client = client
+        self.system_prompt = system_prompt
+        self.tools = {tool.__name__: tool for tool in tools}
+        self.max_steps = max_steps
+
+    def invoke(self, user_message: str) -> str:
+        messages = [
+            {"role": "system", "content": self.system_prompt},
+            {"role": "user", "content": user_message},
+        ]
+        for step_count in range(1, self.max_steps + 1):
+            response = self.client.create(messages=messages)
+            messages.append({"role": "assistant", "content": response.content})
+
+            tool_calls = [block for block in response.content if block.type == "tool_use"]
+            if not tool_calls:
+                return "".join(block.text for block in response.content if block.type == "text")
+
+            results = []
+            for call in tool_calls:
+                tool_function = self.tools[call.name]
+                output = tool_function(**call.input)
+                results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+            messages.append({"role": "user", "content": results})
+        return f"stopped after reaching the maximum of {self.max_steps} steps without a final answer"`,
+    explanation:
+      "This is the entire module's payoff in one exercise: the same Agent class, unchanged, correctly drives the exact check-before-create discipline this course's system prompts have relied on since Lesson 3 -- genuinely calling check_agent_exists, genuinely reasoning about the result, genuinely creating the entry, and genuinely refusing to repeat work already done, all through one general-purpose class built from pieces this module taught one at a time.",
+  }}
+/>
+
+</CheckpointZone>

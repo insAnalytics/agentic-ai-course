@@ -6,7 +6,11 @@ order: 2
 import Subsection from "../../../../components/lesson/Subsection.astro";
 import LiveDemo from "../../../../components/lesson/LiveDemo";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+
+export const PRE = FAKE_CLIENT + RECORDING_CLIENT;
 
 <Subsection title="The payoff Lesson 8 pointed at" variant="a">
 
@@ -45,6 +49,52 @@ dependency graph, rather than a generic example.
 
 </Subsection>
 
+<Subsection title="The same idea, applied to independent LLM calls themselves" variant="b">
+
+The sub-tasks don't have to be plain function calls — they can just as
+easily be independent LLM calls, run concurrently and then combined:
+
+<LiveDemo client:load setupCode={FAKE_CLIENT} code={`import asyncio
+
+async def summarize_async(client, topic: str) -> str:
+    await asyncio.sleep(0.1)   # standing in for real network latency
+    response = client.create(messages=[{"role": "user", "content": f"Summarize: {topic}"}])
+    return response.content[0].text
+
+async def run_parallel_summaries(client, topics: list) -> str:
+    summaries = await asyncio.gather(*(summarize_async(client, topic) for topic in topics))
+    return " ".join(summaries)
+
+client = FakeLLMClient(scripted_responses=[
+    TextBlock(text="Agents plan, act, and observe in a loop."),
+    TextBlock(text="Workflows fix the sequence of steps in code."),
+])
+
+result = asyncio.run(run_parallel_summaries(client, ["agents", "workflows"]))
+print(result)`} />
+
+(The fake client's classes are already defined for this demo.) Neither
+summary depends on the other's content, so both requests genuinely
+overlap — the *combining* step (`" ".join(summaries)`) only happens
+once both are back, which is the whole shape of this pattern: dispatch
+several independent calls together, then merge what comes back.
+
+</Subsection>
+
+<Subsection title="The other kind of parallel: several tool calls in one response" variant="a">
+
+There's a second, entirely different form of parallelism this module
+already built:
+[a single response carrying two or more `tool_use` blocks together](/02-the-agent-loop/05-react-and-reasoning-in-the-loop/01-the-react-pattern/#why-every-tool-call-needs-its-own-result-in-the-same-message),
+which Lesson 5's corrected loop dispatches *all* of before replying.
+That's not `asyncio.gather` — it's a single model turn requesting
+several independent actions at once — but it's the same underlying
+idea as this concept: independent work, recognized as independent, run
+together rather than one at a time. Two different mechanisms, the same
+payoff.
+
+</Subsection>
+
 <CheckpointZone>
 
 <QuizGroup
@@ -74,7 +124,92 @@ dependency graph, rather than a generic example.
       explanation:
         "Both 0.5s waits overlap instead of stacking, so the whole call finishes in roughly the time of the slower one, not the combined total of both.",
     },
+    {
+      question: "In run_parallel_summaries, why does the combining step (\" \".join(summaries)) only happen after asyncio.gather returns?",
+      options: [
+        "It doesn't matter when it happens",
+        "asyncio.gather only returns once every one of the concurrent calls has actually completed, so combining before then would mean combining results that don't exist yet",
+        "Combining always has to happen before dispatching the calls",
+        "The summaries are combined one at a time, as each call finishes",
+      ],
+      correctIndex: 1,
+      explanation:
+        "gather() is awaited, which suspends until every task it's tracking is done. There's nothing to join until all the concurrent calls have actually returned.",
+    },
+    {
+      question: "How does several tool_use blocks in one response relate to this concept's asyncio.gather pattern?",
+      options: [
+        "They're unrelated mechanisms with nothing in common",
+        "Both are ways of running independent work together rather than one at a time -- one is several concurrent async calls, the other is several actions requested in a single model turn",
+        "A response can only ever contain one tool_use block, so this never actually happens",
+        "asyncio.gather is required to handle multiple tool_use blocks",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The mechanisms are genuinely different -- one is Python-level concurrency, the other is a single response's own content -- but both recognize independent work as independent and run it together instead of serializing it.",
+    },
   ]}
+/>
+
+<GradedExercise
+  client:load
+  task={'Implement `run_parallel_summaries(client, topics)`: dispatch a summarization call for every topic in `topics` concurrently via `asyncio.gather` (each call should `await asyncio.sleep(0.1)` first, then call `client.create` with a message asking to summarize that topic), and return every summary joined with `" "`, in the same order as `topics`.'}
+  starterCode={`import asyncio
+
+async def run_parallel_summaries(client, topics: list) -> str:
+    # TODO: dispatch a summarize_async-style call for every topic in
+    # topics concurrently via asyncio.gather (each awaiting
+    # asyncio.sleep(0.1) before calling client.create), then join all
+    # the summaries with " ", preserving the order of topics.
+    pass`}
+  hiddenTests={[
+    PRE + String.raw`
+client = FakeLLMClient(scripted_responses=[
+    TextBlock(text="Agents plan, act, and observe in a loop."),
+    TextBlock(text="Workflows fix the sequence of steps in code."),
+])
+result = asyncio.run(run_parallel_summaries(client, ["agents", "workflows"]))
+assert result == "Agents plan, act, and observe in a loop. Workflows fix the sequence of steps in code."
+assert client.call_count == 2
+`,
+    PRE + String.raw`
+import time
+
+async def run_test():
+    client = FakeLLMClient(scripted_responses=[
+        TextBlock(text="one"), TextBlock(text="two"), TextBlock(text="three"),
+    ])
+    start = time.perf_counter()
+    result = await run_parallel_summaries(client, ["a", "b", "c"])
+    elapsed = time.perf_counter() - start
+    return result, elapsed
+
+result, elapsed = asyncio.run(run_test())
+assert result == "one two three"
+assert elapsed < 0.25  # concurrent (~0.1s) not sequential (~0.3s)
+`,
+    PRE + String.raw`
+client = RecordingClient(scripted_responses=[TextBlock(text="x"), TextBlock(text="y")])
+asyncio.run(run_parallel_summaries(client, ["topic-a", "topic-b"]))
+all_content = " ".join(m["content"] for seen in client.seen for m in seen)
+assert "topic-a" in all_content and "topic-b" in all_content
+`,
+  ]}
+  hint={'This is the demo\'s exact `summarize_async` and `run_parallel_summaries`, just renamed for the general case: `asyncio.gather(*(summarize_async(client, topic) for topic in topics))`, then `" ".join(...)` on the result.'}
+  correctAnswer={{
+    code: `import asyncio
+
+async def summarize_async(client, topic: str) -> str:
+    await asyncio.sleep(0.1)
+    response = client.create(messages=[{"role": "user", "content": f"Summarize: {topic}"}])
+    return response.content[0].text
+
+async def run_parallel_summaries(client, topics: list) -> str:
+    summaries = await asyncio.gather(*(summarize_async(client, topic) for topic in topics))
+    return " ".join(summaries)`,
+    explanation:
+      "The first test confirms the summaries come back joined in the right order. The second confirms the calls genuinely run concurrently -- three 0.1s calls finish in well under the 0.3s a sequential version would need -- and the third confirms every topic actually reached the client as its own message.",
+  }}
 />
 
 </CheckpointZone>

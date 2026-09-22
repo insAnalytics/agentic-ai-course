@@ -6,6 +6,9 @@ order: 4
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import GradedExercise from "../../../../components/lesson/GradedExercise";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+
+export const PRE = FAKE_CLIENT + RECORDING_CLIENT;
 
 <CheckpointZone>
 
@@ -77,7 +80,7 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 <GradedExercise
   client:load
-  task={'Combine every pattern from this lesson into one pipeline. `handle_billing`, `handle_technical`, `ROUTES`, and `normalize_request` are already given. Implement `process_ticket(ticket)`: `await asyncio.sleep(0.3)` to simulate work, then **chain** `ticket["request"]` through `normalize_request` before **routing** the normalized text through `ROUTES[ticket["category"]]`, returning the routed result. Then implement `run_ticket_pipeline(tickets)`: dispatch every ticket to `process_ticket` **concurrently** via `asyncio.gather` (this is the orchestrator-workers shape from Concept 3 -- decompose the batch, dispatch all of it, aggregate), joining the results with `"\\n"`.'}
+  task={'Combine every pattern from this lesson into one pipeline. `handle_billing`, `handle_technical`, `ROUTES`, and `normalize_request` are already given. Implement `process_ticket(client, ticket)`: `await asyncio.sleep(0.3)` to simulate work, **chain** `ticket["request"]` through `normalize_request`, then **route** it by asking `client` to classify the normalized text (exactly as this lesson\'s routing pattern does), dispatching through `ROUTES[category]` and returning the routed result. Then implement `run_ticket_pipeline(client, tickets)`: dispatch every ticket to `process_ticket` **concurrently** via `asyncio.gather` (the orchestrator-workers shape -- dispatch all of a batch, aggregate), joining the results with `"\\n"`.'}
   starterCode={`import asyncio
 
 def handle_billing(request: str) -> str:
@@ -91,59 +94,75 @@ ROUTES = {"billing": handle_billing, "technical": handle_technical}
 def normalize_request(request: str) -> str:
     return request.strip()
 
-async def process_ticket(ticket: dict) -> str:
+async def process_ticket(client, ticket: dict) -> str:
     # TODO: await asyncio.sleep(0.3), normalize ticket["request"] via
-    # normalize_request, then dispatch the normalized text through
-    # ROUTES[ticket["category"]] and return the result.
+    # normalize_request, classify the normalized text with one call to
+    # client, then dispatch through ROUTES[category] and return the
+    # result.
     pass
 
-async def run_ticket_pipeline(tickets: list) -> str:
+async def run_ticket_pipeline(client, tickets: list) -> str:
     # TODO: dispatch every ticket to process_ticket concurrently via
     # asyncio.gather, then join the results with "\\n".
     pass`}
   hiddenTests={[
-    `tickets = [
-    {"category": "billing", "request": "  My invoice is wrong  "},
-    {"category": "technical", "request": "App crashes on launch"},
+    PRE + String.raw`
+tickets = [
+    {"request": "  My invoice is wrong  "},
+    {"request": "App crashes on launch"},
 ]
-result = asyncio.run(run_ticket_pipeline(tickets))
-assert result == "Routed to billing: My invoice is wrong\\nRouted to technical support: App crashes on launch"`,
-    `import time
+client = FakeLLMClient(scripted_responses=[TextBlock(text="billing"), TextBlock(text="technical")])
+result = asyncio.run(run_ticket_pipeline(client, tickets))
+assert result == "Routed to billing: My invoice is wrong\\nRouted to technical support: App crashes on launch"
+`,
+    PRE + String.raw`
+import time
 
 async def run_test():
-    tickets = [
-        {"category": "billing", "request": "a"},
-        {"category": "technical", "request": "b"},
-        {"category": "billing", "request": "c"},
-    ]
+    tickets = [{"request": "a"}, {"request": "b"}, {"request": "c"}]
+    client = FakeLLMClient(scripted_responses=[TextBlock(text="billing"), TextBlock(text="technical"), TextBlock(text="billing")])
     start = time.perf_counter()
-    result = await run_ticket_pipeline(tickets)
+    result = await run_ticket_pipeline(client, tickets)
     elapsed = time.perf_counter() - start
     return result, elapsed
 
 result, elapsed = asyncio.run(run_test())
 assert elapsed < 0.6  # concurrent (~0.3s) not sequential (~0.9s)
-assert result.count("\\n") == 2`,
-    `def handle_sales(request: str) -> str:
+assert result.count("\\n") == 2
+`,
+    PRE + String.raw`
+def handle_sales(request: str) -> str:
     return f"Routed to sales: {request}"
 ROUTES["sales"] = handle_sales
-result = asyncio.run(run_ticket_pipeline([{"category": "sales", "request": "new plan"}]))
-assert result == "Routed to sales: new plan"
-del ROUTES["sales"]`,
+try:
+    client = FakeLLMClient(scripted_responses=[TextBlock(text="sales")])
+    result = asyncio.run(run_ticket_pipeline(client, [{"request": "new plan"}]))
+    assert result == "Routed to sales: new plan"
+finally:
+    del ROUTES["sales"]
+`,
+    PRE + String.raw`
+client = RecordingClient(scripted_responses=[TextBlock(text="billing")])
+asyncio.run(run_ticket_pipeline(client, [{"request": "  spaced out request  "}]))
+assert "spaced out request" in client.seen[0][-1]["content"]
+assert "  spaced out request  " not in client.seen[0][-1]["content"]
+`,
   ]}
-  hint={"Each ticket's own routing is a two-step chain: normalize_request(ticket[\"request\"]) first, then ROUTES[ticket[\"category\"]] on the result -- exactly Concept 1's chaining-then-routing shape. Dispatching every ticket happens the same way Concept 3's run_orchestrator did: asyncio.gather(*(process_ticket(t) for t in tickets)), then \"\\n\".join(...)."}
+  hint={"Each ticket's own routing is a two-step chain: normalize_request(ticket[\"request\"]) first, then a single client.create call classifying the normalized text, then ROUTES[category] on the result -- exactly this lesson's chaining-then-routing shape. Dispatching every ticket happens the same way run_orchestrator did: asyncio.gather(*(process_ticket(client, t) for t in tickets)), then \"\\n\".join(...)."}
   correctAnswer={{
-    code: `async def process_ticket(ticket: dict) -> str:
+    code: `async def process_ticket(client, ticket: dict) -> str:
     await asyncio.sleep(0.3)
     normalized = normalize_request(ticket["request"])
-    handler = ROUTES[ticket["category"]]
+    response = client.create(messages=[{"role": "user", "content": f"Classify this support request as exactly 'billing' or 'technical': {normalized}"}])
+    category = response.content[0].text
+    handler = ROUTES[category]
     return handler(normalized)
 
-async def run_ticket_pipeline(tickets: list) -> str:
-    results = await asyncio.gather(*(process_ticket(t) for t in tickets))
+async def run_ticket_pipeline(client, tickets: list) -> str:
+    results = await asyncio.gather(*(process_ticket(client, t) for t in tickets))
     return "\\n".join(results)`,
     explanation:
-      "Every pattern from this lesson does real work here: normalize_request then ROUTES[...] is a genuine two-step chain inside each ticket's own processing; ROUTES[ticket[\"category\"]] is genuine dict-based routing, confirmed by the third test adding a brand-new \"sales\" category at runtime with no code change needed; and asyncio.gather across all tickets is the same decompose-dispatch-aggregate shape as Concept 3's orchestrator-workers, confirmed by the second test's timing assertion, which a correct-looking but sequential implementation could never pass in time.",
+      "Every pattern from this lesson does real work here: normalize_request then a real classification call is a genuine two-step chain inside each ticket's own processing; ROUTES[category] is genuine dict-based routing off the model's own classification, confirmed by the third test adding a brand-new \"sales\" category at runtime with no code change needed; and asyncio.gather across all tickets is the same decompose-dispatch-aggregate shape as orchestrator-workers, confirmed by the second test's timing assertion, which a correct-looking but sequential implementation could never pass in time. The last test confirms normalization genuinely happens before classification, not after.",
   }}
 />
 
