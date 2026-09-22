@@ -1,0 +1,64 @@
+---
+title: "Why a huge tool result hurts"
+lesson: "03-designing-tool-results"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="A tool result is just more input tokens" variant="a">
+
+<LiveDemo client:load code={`def list_all_agents(registry: dict) -> str:
+    return "\\n".join(f"{name}: {info}" for name, info in registry.items())
+
+huge_registry = {f"agent_{i}": {"model": "claude-sonnet"} for i in range(5000)}
+result = list_all_agents(huge_registry)
+print(f"result length: {len(result)} characters, roughly {len(result) // 4} tokens")`} />
+
+A tool's result isn't special — it's
+[the exact same input-token accounting from Module 1](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/02-the-response-shape/#usage-tokens-finally-readable-after-the-fact),
+consuming
+[the same shared context-window budget](/01-llm-foundations/06-context-windows-and-kv-cache/01-what-a-context-window-is/#the-total-token-budget-for-one-request)
+and costing
+[the same per-token rate](/01-llm-foundations/11-quantization-cost-and-operational-concerns/03-token-based-pricing/#the-basic-pricing-mechanics)
+as anything else sent to the model. A single unbounded result here is
+nearly 50,000 tokens — a real, expensive, budget-consuming cost, for a
+question that very likely only needed a handful of those 5,000 entries.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why does a tool's result count against the context window the same way any other message does?",
+      options: [
+        "It doesn't — tool results are handled separately from the rest of the conversation",
+        "A tool result is ordinary input content, following the exact same token accounting as every other part of the conversation",
+        "Only the first 100 characters of a tool result are ever counted",
+        "Tool results are compressed automatically before being sent",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A tool result becomes a message like any other, resent in full on the next request -- there's no separate, cheaper accounting for it.",
+    },
+    {
+      question: "In the demo, what's the real cost of returning all 5,000 registry entries for a question that likely needed only a few?",
+      options: [
+        "No real cost — extra tokens are free",
+        "Tens of thousands of tokens of real, billed input, consuming a large share of the shared context budget for information likely mostly unused",
+        "The result is automatically truncated by the API",
+        "This only affects response speed, never cost",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Nearly 50,000 tokens of real input cost, for a result the model almost certainly didn't need in full.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

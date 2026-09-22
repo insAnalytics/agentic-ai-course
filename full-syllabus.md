@@ -1683,6 +1683,24 @@ re-homed to a specific module — flagged for the mockup author.*
    fails only the new one, as intended. Lesson 3.2 is now fully Locked —
    Module 3 (Tool Design for Agents) has two lessons built so far.
 
+3. **Designing Tool Results** — Building
+   Working title (folder `03-designing-tool-results`), no bookends mockup
+   yet to confirm it. Concept 1 drafted: why a huge tool result hurts (a
+   tool's result is ordinary input content — the same token accounting,
+   context-window budget, and per-token cost as anything else sent to the
+   model; a `list_all_agents` demo over 5,000 registry entries makes the
+   cost concrete). **Finding:** the mockup's hand-computed demo output
+   (`210000 characters, roughly 52500 tokens`) doesn't match reality; the
+   real output (verified against real Pyodide) is `193889 characters,
+   roughly 48472 tokens` — the live demo shows the real number, but the
+   mockup's own prose claim ("over 50,000 tokens") was corrected to "nearly
+   50,000 tokens" to match. All three callbacks resolved to verified
+   anchors (Module 1's response-shape concept's `usage` subsection, its
+   context-window concept's token-budget subsection, its token-pricing
+   concept's basic-mechanics subsection). The mockup's own closing note
+   says Concept 2 (truncation and pagination) is drafted separately, not
+   yet converted.
+
 ---
 
 ## Module 4 — Evaluation & Observability
