@@ -113,7 +113,7 @@ tickets = [
 ]
 client = FakeLLMClient(scripted_responses=[TextBlock(text="billing"), TextBlock(text="technical")])
 result = asyncio.run(run_ticket_pipeline(client, tickets))
-assert result == "Routed to billing: My invoice is wrong\\nRouted to technical support: App crashes on launch"
+assert result == chr(10).join(["Routed to billing: My invoice is wrong", "Routed to technical support: App crashes on launch"])
 `,
     PRE + String.raw`
 import time
@@ -128,7 +128,7 @@ async def run_test():
 
 result, elapsed = asyncio.run(run_test())
 assert elapsed < 0.6  # concurrent (~0.3s) not sequential (~0.9s)
-assert result.count("\\n") == 2
+assert result.count(chr(10)) == 2
 `,
     PRE + String.raw`
 def handle_sales(request: str) -> str:
@@ -150,7 +150,20 @@ assert "  spaced out request  " not in client.seen[0][-1]["content"]
   ]}
   hint={"Each ticket's own routing is a two-step chain: normalize_request(ticket[\"request\"]) first, then a single client.create call classifying the normalized text, then ROUTES[category] on the result -- exactly this lesson's chaining-then-routing shape. Dispatching every ticket happens the same way run_orchestrator did: asyncio.gather(*(process_ticket(client, t) for t in tickets)), then \"\\n\".join(...)."}
   correctAnswer={{
-    code: `async def process_ticket(client, ticket: dict) -> str:
+    code: `import asyncio
+
+def handle_billing(request: str) -> str:
+    return f"Routed to billing: {request}"
+
+def handle_technical(request: str) -> str:
+    return f"Routed to technical support: {request}"
+
+ROUTES = {"billing": handle_billing, "technical": handle_technical}
+
+def normalize_request(request: str) -> str:
+    return request.strip()
+
+async def process_ticket(client, ticket: dict) -> str:
     await asyncio.sleep(0.3)
     normalized = normalize_request(ticket["request"])
     response = client.create(messages=[{"role": "user", "content": f"Classify this support request as exactly 'billing' or 'technical': {normalized}"}])

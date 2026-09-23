@@ -129,7 +129,7 @@ async def run_orchestrator(client, goal: str) -> str:
     PRE + String.raw`
 client = FakeLLMClient(scripted_responses=[PlanBlock(sub_tasks=["Task A", "Task B"])])
 result = asyncio.run(run_orchestrator(client, "some goal"))
-assert result == "completed: Task A\\ncompleted: Task B"
+assert result == chr(10).join(["completed: Task A", "completed: Task B"])
 assert client.call_count == 1
 `,
     PRE + String.raw`
@@ -143,7 +143,7 @@ async def run_test():
     return result, elapsed
 
 result, elapsed = asyncio.run(run_test())
-assert result == "completed: Task A\\ncompleted: Task B\\ncompleted: Task C"
+assert result == chr(10).join(["completed: Task A", "completed: Task B", "completed: Task C"])
 assert elapsed < 0.6  # concurrent (~0.3s) not sequential (~0.9s)
 `,
     PRE + String.raw`
@@ -154,7 +154,13 @@ assert "Register a writer agent" in client.seen[0][-1]["content"]
   ]}
   hint={"This is the demo's exact `run_orchestrator` -- one `client.create` call to get the plan, then `asyncio.gather(*(worker(task) for task in sub_tasks))` unpacks a generator of coroutines directly into gather's arguments."}
   correctAnswer={{
-    code: `async def run_orchestrator(client, goal: str) -> str:
+    code: `import asyncio
+
+async def worker(sub_task: str) -> str:
+    await asyncio.sleep(0.3)
+    return f"completed: {sub_task}"
+
+async def run_orchestrator(client, goal: str) -> str:
     response = client.create(messages=[{"role": "user", "content": f"Decompose this goal into sub-tasks: {goal}"}])
     sub_tasks = response.content[0].sub_tasks
 

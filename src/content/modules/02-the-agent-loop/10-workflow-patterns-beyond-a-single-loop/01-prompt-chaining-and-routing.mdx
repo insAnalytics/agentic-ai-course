@@ -266,7 +266,15 @@ finally:
   ]}
   hint={'This is the demo\'s exact `run_router` -- one `client.create` call to classify, then `ROUTES[category]` to get the handler and call it with `request`.'}
   correctAnswer={{
-    code: `def run_router(client, request: str) -> str:
+    code: `def handle_billing(request: str) -> str:
+    return f"Routed to billing: {request}"
+
+def handle_technical(request: str) -> str:
+    return f"Routed to technical support: {request}"
+
+ROUTES = {"billing": handle_billing, "technical": handle_technical}
+
+def run_router(client, request: str) -> str:
     response = client.create(messages=[{"role": "user", "content": f"Classify this support request as exactly 'billing' or 'technical': {request}"}])
     category = response.content[0].text
     handler = ROUTES[category]
