@@ -1,0 +1,37 @@
+---
+title: "Intro"
+lesson: "03-shaping-what-tools-return"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Explain why a tool result costs exactly what any other input costs — context budget and money — and estimate that cost for a real result",
+    "Cap a tool's result size with an explicit truncation signal, so the model never mistakes partial data for the complete picture",
+    "Implement offset/limit pagination that lets the model request more only when a task actually needs it",
+    "Return structured JSON when the model needs to act on specific fields, and know when plain prose is fine",
+    "Write error messages that tell the model what failed and what to do next, instead of inviting a blind retry",
+  ]}
+/>
+
+<WhyItMatters>
+  [Lesson 1](/03-tool-design-for-agents/01-designing-tools-a-model-can-use-well/00-intro/)
+  and
+  [Lesson 2](/03-tool-design-for-agents/02-tool-schemas-and-argument-validation/00-intro/)
+  were about what goes *into* a tool call. This lesson is about what comes
+  *out* — and the output side is where a lot of real agent failures
+  actually start. An oversized result quietly burns context and money; a
+  silently truncated one leads the model to confidently answer from half
+  the data; a vague error sends it into a retry loop that
+  [Module 2's guards](/02-the-agent-loop/06-termination-failure-and-control/00-intro/)
+  then have to catch. Each of those is a tool-design decision, made once,
+  that shapes every call the agent ever makes to that tool.
+
+  This lesson is deliberately light on strategy. Deciding what belongs in
+  the context window at all — summarizing old results, offloading them,
+  loading tools on demand — is a much bigger topic, and it's the job of
+  the later context and memory module. Here the scope is just making each
+  individual tool's output well-behaved.
+</WhyItMatters>

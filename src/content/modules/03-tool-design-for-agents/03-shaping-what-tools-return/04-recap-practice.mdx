@@ -1,0 +1,172 @@
+---
+title: "Recap & Practice"
+lesson: "03-shaping-what-tools-return"
+order: 4
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+export const REGISTRY = `import json
+registry = {
+    "a1": {"model": "claude-haiku"},
+    "a2": {"model": "claude-sonnet"},
+    "a3": {"model": "claude-haiku"},
+    "a4": {"model": "claude-haiku"},
+    "a5": {"model": "claude-opus"},
+}
+`;
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why does a tool result count against the context window the same way any other message does?",
+      options: [
+        "It doesn't — tool results are handled separately",
+        "A tool result is ordinary input content, following the exact same token accounting as everything else in the conversation",
+        "Only the first 100 characters are counted",
+        "Tool results are compressed automatically",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A tool result becomes a message like any other, resent in full on every later request, so it's charged and budgeted exactly like other input.",
+    },
+    {
+      question: "Why is the \"showing 3 of 5000\" line essential rather than cosmetic?",
+      options: [
+        "It isn't — the truncated data alone is enough",
+        "Without it, the model can't tell the result is incomplete, and may confidently answer from partial data as if it were complete",
+        "It's only needed when limit is below 10",
+        "It replaces the need to cap the result",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Three entries with no marker look identical to a complete three-entry list. The marker is the only thing that tells the model it's seeing a slice.",
+    },
+    {
+      question: "Why is \"Error: failed\" a poor error message rather than just a terse one?",
+      options: [
+        "It doesn't follow Python's exception format",
+        "It gives the model nothing to act on, making a blind retry of the same failing call its most likely next move",
+        "The model never reads error messages",
+        "It's too long",
+      ],
+      correctIndex: 1,
+      explanation:
+        "With no information about what went wrong, the model's best guess is to repeat the call, which fails the same way.",
+    },
+    {
+      question: "What does pagination let the model do that plain truncation doesn't?",
+      options: [
+        "Nothing — they're identical",
+        "Request more pages only when a task genuinely needs them, instead of being permanently limited to the first slice",
+        "Avoid all token cost",
+        "Retrieve everything in one call regardless of size",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Truncation alone leaves everything past the cap unreachable. An offset parameter gives the model a way to fetch the next page, and it only pays for that page when it asks.",
+    },
+    {
+      question: "Why is structured tool output produced as JSON text?",
+      options: [
+        "Dicts are always slower",
+        "A tool_result's content is text, so structure has to be encoded into that text",
+        "The model can only read JSON",
+        "No real reason",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Whatever the tool returns ends up as text inside a tool_result message. JSON keeps the labeled fields intact inside that text.",
+    },
+    {
+      question: "When is a prose result genuinely fine?",
+      options: [
+        "Never",
+        "When the model will mostly relay it to a user rather than act on specific fields within it",
+        "Only for error messages",
+        "Only for results over 1,000 tokens",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Structure pays off when the model has to pull out and use specific values. A summary or confirmation it just passes along doesn't need it.",
+    },
+    {
+      question: "Why does a helpful error message still cap its list of available options?",
+      options: [
+        "Python limits lists in strings to five items",
+        "The same result-size discipline applies to errors — a helpful error shouldn't itself become an enormous result",
+        "The model can only handle five options",
+        "Purely cosmetic",
+      ],
+      correctIndex: 1,
+      explanation:
+        "An error message is a tool result too, with the same token cost. Listing every name in a huge registry would recreate the problem this lesson started with.",
+    },
+    {
+      question: "In the paginated tool, why does the last page not include a continuation message?",
+      options: [
+        "It's a bug",
+        "There's genuinely no more data — a continuation message there would be false, and could send the model looking for pages that don't exist",
+        "Continuation messages are only allowed on the first page",
+        "The model can't read the last page",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The continuation message is an instruction the model will follow. On the last page it would point to a page that doesn't exist.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={'Implement search_agents_by_model(model: str, registry: dict, offset: int = 0, limit: int = 2) -> str. It returns JSON text with this exact shape: {"model": "...", "agents": ["...", "..."], "total": 5, "next_offset": 2}. agents is the page of matching agent names (in registry order), starting at offset and at most limit long. total is the number of matches across all pages. next_offset is the offset for the next page, or None (JSON null) if this is the last page. If no agents match at all, return an error string starting with "Error:" that names the model searched for and lists the distinct models that do exist in the registry.'}
+  starterCode={`import json
+
+def search_agents_by_model(model: str, registry: dict, offset: int = 0, limit: int = 2) -> str:
+    # TODO: collect the names of every agent whose model matches
+    # TODO: if nothing matches, return an "Error: ..." string naming the
+    #       model searched for and listing the distinct models in use
+    # TODO: slice out this page, work out total and next_offset
+    #       (None when this is the last page)
+    # TODO: return the result as JSON text
+    ...`}
+  hiddenTests={[
+    REGISTRY + 'assert json.loads(search_agents_by_model("claude-haiku", registry, offset=0, limit=2)) == {"model": "claude-haiku", "agents": ["a1", "a3"], "total": 3, "next_offset": 2}',
+    REGISTRY + 'assert json.loads(search_agents_by_model("claude-haiku", registry, offset=2, limit=2)) == {"model": "claude-haiku", "agents": ["a4"], "total": 3, "next_offset": None}',
+    REGISTRY + 'assert search_agents_by_model("gpt-5", registry).startswith("Error:")',
+    REGISTRY + 'assert "gpt-5" in search_agents_by_model("gpt-5", registry)',
+    REGISTRY + 'assert "claude-sonnet" in search_agents_by_model("gpt-5", registry) and "claude-opus" in search_agents_by_model("gpt-5", registry)',
+  ]}
+  hint={"Build the full list of matches first with a list comprehension over registry.items(), then slice it [offset:offset + limit] for the page — the same slicing as Concept 2's pagination. next_offset is offset + limit when that's still less than total, otherwise None — json.dumps turns None into JSON null automatically. For the error, a set comprehension over the registry's model values gives the distinct models."}
+  correctAnswer={{
+    code: `import json
+
+def search_agents_by_model(model: str, registry: dict, offset: int = 0, limit: int = 2) -> str:
+    matches = [name for name, info in registry.items() if info["model"] == model]
+
+    if not matches:
+        existing_models = sorted({info["model"] for info in registry.values()})
+        return (
+            f"Error: no agents use model '{model}'. "
+            f"Models in use: {', '.join(existing_models)}."
+        )
+
+    total = len(matches)
+    page = matches[offset:offset + limit]
+    next_offset = offset + limit if offset + limit < total else None
+
+    return json.dumps({"model": model, "agents": page, "total": total, "next_offset": next_offset})`,
+    explanation:
+      "Each part of the lesson shows up here. The page is capped by limit (Concept 1's cost concern). total and next_offset tell the model how much exists and how to get more, so partial data is never mistaken for the whole (Concept 2). The result is parseable JSON with labeled fields, including a next_offset the model can pass straight back into its next call (Concept 3). The error names the failed search and shows what would work. sorted(...) just makes the error's order stable, since sets have no guaranteed order.",
+  }}
+/>
+
+</CheckpointZone>

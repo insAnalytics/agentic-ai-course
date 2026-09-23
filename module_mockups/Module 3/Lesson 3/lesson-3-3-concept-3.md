@@ -58,7 +58,19 @@ print(get_agent_config("research_agent", registry))
 
 Every field is labeled and separated — the model reads `"model":
 "claude-sonnet"` directly, with no sentence to parse around it.
-`{"agent_name": agent_name, **info}` uses [the `**` dict-unpacking operator from Module 0](→ Module 0, the functions lesson, args and kwargs concept) to merge `info`'s keys into the new dict alongside `agent_name`.
+`{"agent_name": agent_name, **info}` is one new piece of syntax. [Module 0's `**kwargs` coverage](→ Module 0, the functions lesson, args and kwargs concept) used `**` to spread a dict out into keyword arguments at a *call site*; the same `**` also works inside a dict literal, spreading one dict's key-value pairs into a new dict:
+
+```python
+info = {"model": "claude-sonnet", "status": "active"}
+merged = {"agent_name": "research_agent", **info}
+print(merged)
+```
+```
+{'agent_name': 'research_agent', 'model': 'claude-sonnet', 'status': 'active'}
+```
+*(runs live, shows output — read-only demo snippet, not graded)*
+
+Same idea as the call-site version — "spread this dict's contents out here" — just in a new place. It's the Python equivalent of JavaScript's object spread, `{agentName, ...info}`.
 
 **When prose is actually fine:** a result the model will mostly just
 *relay* to a user — a short summary, a confirmation message — doesn't

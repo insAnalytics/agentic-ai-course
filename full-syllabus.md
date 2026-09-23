@@ -1683,9 +1683,11 @@ re-homed to a specific module — flagged for the mockup author.*
    fails only the new one, as intended. Lesson 3.2 is now fully Locked —
    Module 3 (Tool Design for Agents) has two lessons built so far.
 
-3. **Designing Tool Results** — Building
-   Working title (folder `03-designing-tool-results`), no bookends mockup
-   yet to confirm it. Concept 1 drafted: why a huge tool result hurts (a
+3. **Shaping What Tools Return** — Locked
+   Title confirmed by the bookends mockup (folder renamed from the working
+   name `03-designing-tool-results` to `03-shaping-what-tools-return`, all
+   concepts' `lesson` frontmatter and intra-lesson links updated to match).
+   Concept 1 drafted: why a huge tool result hurts (a
    tool's result is ordinary input content — the same token accounting,
    context-window budget, and per-token cost as anything else sent to the
    model; a `list_all_agents` demo over 5,000 registry entries makes the
@@ -1711,8 +1713,21 @@ re-homed to a specific module — flagged for the mockup author.*
    and point at the likely cause, not just "Error: failed"), with a graded
    `get_agent_status` exercise. Hidden tests checked to fail dumping the
    whole config, prose success output, an uncapped name list, and a bare
-   "Error: failed". All three concepts are now in; only the bookends
-   (intro, comprehensive quiz, comprehensive sandbox) remain.
+   "Error: failed". A later mockup revision added a short live demo of
+   `**` inside a dict literal (Module 0 only taught `**` at call sites),
+   with a JavaScript object-spread comparison.
+   Bookends: intro (5 outcomes; why-it-matters frames this as the output
+   side of Lessons 1–2) and Recap & Practice (an 8-question comprehensive
+   quiz, plus a comprehensive sandbox, `search_agents_by_model`, combining
+   a bounded page, `total`/`next_offset` pagination metadata as JSON, and
+   an error listing the distinct models in use). Sandbox tests checked to
+   fail an always-set `next_offset`, a page-sized `total`, a bare error,
+   and JSON returned instead of an error on zero matches. **Deviation:**
+   the mockup points to "Module 4's job (→ this course, the context and
+   memory module)", but Module 4 here is Evaluation & Observability and no
+   context/memory module exists yet — rendered as plain text ("the later
+   context and memory module") with no module number, same as Lesson 2.7's
+   unbuilt context/memory pointer. Lesson 3.3 is now fully Locked.
 
 ---
 

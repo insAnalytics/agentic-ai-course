@@ -1,6 +1,6 @@
 ---
 title: "Structured results and useful error messages"
-lesson: "03-designing-tool-results"
+lesson: "03-shaping-what-tools-return"
 order: 3
 ---
 import Subsection from "../../../../components/lesson/Subsection.astro";
@@ -20,7 +20,7 @@ registry = {
 
 <Subsection title="Two more ways a result can be the wrong shape" variant="a">
 
-[Concept 2](/03-tool-design-for-agents/03-designing-tool-results/02-truncation-and-pagination/#the-fix-for-a-result-that-could-be-huge-cap-it-and-say-so)
+[Concept 2](/03-tool-design-for-agents/03-shaping-what-tools-return/02-truncation-and-pagination/#the-fix-for-a-result-that-could-be-huge-cap-it-and-say-so)
 dealt with a result being too *big*. This concept covers two quieter
 problems: a result that's the right size but awkward for the model to
 actually *use*, and an error message that technically reports a failure
@@ -72,10 +72,19 @@ print(get_agent_config("research_agent", registry))`} />
 
 Every field is labeled and separated — the model reads
 `"model": "claude-sonnet"` directly, with no sentence to parse around it.
-`{"agent_name": agent_name, **info}` uses
-[the `**` unpacking operator from Module 0](/00-python-essentials/03-functions-and-reuse/02-args-and-kwargs/#why-this-matters-for-agent-code-forwarding-calls),
-here inside a dict literal, to merge `info`'s keys into the new dict
-alongside `agent_name`.
+`{"agent_name": agent_name, **info}` is one new piece of syntax.
+[Module 0's `**kwargs` coverage](/00-python-essentials/03-functions-and-reuse/02-args-and-kwargs/#why-this-matters-for-agent-code-forwarding-calls)
+used `**` to spread a dict out into keyword arguments at a *call site*;
+the same `**` also works inside a dict literal, spreading one dict's
+key-value pairs into a new dict:
+
+<LiveDemo client:load code={`info = {"model": "claude-sonnet", "status": "active"}
+merged = {"agent_name": "research_agent", **info}
+print(merged)`} />
+
+Same idea as the call-site version — "spread this dict's contents out
+here" — just in a new place. It's the Python equivalent of JavaScript's
+object spread, `{agentName, ...info}`.
 
 **When prose is actually fine:** a result the model will mostly just
 *relay* to a user — a short summary, a confirmation message — doesn't
@@ -123,7 +132,7 @@ would then have to catch. The better message names what failed, shows
 real valid options, and points at the likely cause (casing) — giving the
 model an obvious, correct next call to make. `[:5]` caps the list of
 names,
-[the same result-size discipline from Concept 2](/03-tool-design-for-agents/03-designing-tool-results/02-truncation-and-pagination/#the-fix-for-a-result-that-could-be-huge-cap-it-and-say-so),
+[the same result-size discipline from Concept 2](/03-tool-design-for-agents/03-shaping-what-tools-return/02-truncation-and-pagination/#the-fix-for-a-result-that-could-be-huge-cap-it-and-say-so),
 applied to an error message: a helpful error for a 5,000-agent registry
 shouldn't itself become a 50,000-token result.
 
