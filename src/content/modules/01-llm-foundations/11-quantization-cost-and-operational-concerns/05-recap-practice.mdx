@@ -58,19 +58,19 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
       ],
       correctIndex: 1,
       explanation:
-        "With MoE, per-token cost tracks the parameters actually activated, not the total.",
+        "With MoE, per-token compute tracks the parameters actually activated, not the total. Memory still tracks the total, since every expert has to be loaded.",
     },
     {
       question: "Why are output tokens typically priced higher than input tokens?",
       options: [
         "Output tokens are arbitrary and unrelated to actual cost",
-        "Generation is the actual compute-intensive part — each output token requires its own full pass through the model",
+        "Input is processed all at once, in parallel; output is produced one token at a time, each needing its own pass through the model",
         "Input tokens are never charged at all",
         "Pricing is unrelated to token type",
       ],
       correctIndex: 1,
       explanation:
-        "Autoregressive generation costs one full forward pass per output token (Lesson 4).",
+        "Input tokens are processed in one parallel batch; each output token needs its own forward pass, one after another (Lesson 4).",
     },
     {
       question: "What's the actual point of pulling language, caching, reasoning, and non-text input together in one cost concept, given none of those facts are new?",
@@ -138,9 +138,10 @@ model; route genuinely complex planning to a larger and/or
 reasoning-capable model — never the reverse, and never one tier for
 everything regardless of task. If self-hosting *were* chosen instead,
 [the quantization concept's tradeoff](/01-llm-foundations/11-quantization-cost-and-operational-concerns/01-quantization/#the-real-tradeoff)
-becomes directly relevant: INT8 as a reasonable default balancing cost
-and quality, reserving INT4 only if the budget genuinely demands it and
-some quality loss is acceptable. And regardless of which model or
+becomes directly relevant: 4-bit weight quantization is the norm for
+local deployment, with a modest quality hit on large models and a bigger
+one on small models, so INT8 is the safer choice when a small model's
+quality matters most. And regardless of which model or
 provider is chosen,
 [the rate-limits concept's exponential backoff](/01-llm-foundations/11-quantization-cost-and-operational-concerns/04-provider-side-rate-limits/#the-real-handling-pattern-exponential-backoff-not-just-send-less)
 is a necessary piece of any production system calling an external API —

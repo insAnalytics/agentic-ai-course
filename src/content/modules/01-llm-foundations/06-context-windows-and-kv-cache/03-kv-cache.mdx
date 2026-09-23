@@ -11,8 +11,9 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 <Subsection title="The redundancy hiding inside the autoregressive loop" variant="a">
 
-[Lesson 4 established that generating each new token requires a full pass through the model, over the entire sequence so far](/01-llm-foundations/04-how-llms-generate-text/02-autoregressive-generation/#why-this-matters-computationally).
-Taken completely literally, that sounds wasteful: generating token 101
+[Lesson 4 described generation as a loop](/01-llm-foundations/04-how-llms-generate-text/02-autoregressive-generation/#why-this-matters-computationally)
+that, conceptually, looks at the whole sequence so far to produce each
+new token. Implemented naively, that's wasteful: generating token 101
 would mean recomputing attention over all 100 prior tokens *plus* the
 new one, entirely from scratch — even though most of that work didn't
 actually need to change between one step and the next.

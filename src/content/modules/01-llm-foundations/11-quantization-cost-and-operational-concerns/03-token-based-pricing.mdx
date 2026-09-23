@@ -16,9 +16,10 @@ together, not one at a time.
 <Subsection title="The basic pricing mechanics" variant="a">
 
 LLM APIs typically charge per token, usually with **different rates for
-input and output tokens** — output tokens are generally priced higher,
-since generation is the actual compute-intensive part of the process,
-[one full pass per token, as established back in Lesson 4](/01-llm-foundations/04-how-llms-generate-text/02-autoregressive-generation/#why-this-matters-computationally).
+input and output tokens** — output tokens are generally priced higher.
+Input tokens go through every layer too, but they're processed all at
+once, in parallel; output tokens are produced one at a time,
+[each needing its own pass through the model, as established back in Lesson 4](/01-llm-foundations/04-how-llms-generate-text/02-autoregressive-generation/#why-this-matters-computationally).
 
 </Subsection>
 
@@ -102,13 +103,13 @@ pricing as if only one factor were ever in play at a time.
       question: "Why are output tokens typically priced higher than input tokens?",
       options: [
         "Output tokens are simply arbitrary and unrelated to actual cost",
-        "Generation is the actual compute-intensive part of the process — each output token requires its own full pass through the model",
+        "Input is processed all at once, in parallel, while output is produced one token at a time, each needing its own pass through the model",
         "Output tokens are longer on average than input tokens, so each one carries more text to bill for",
         "Pricing is unrelated to which kind of token is involved",
       ],
       correctIndex: 1,
       explanation:
-        "Output tokens are generated one at a time, each needing a full forward pass (Lesson 4), so they reflect the expensive part of the work.",
+        "Both go through every layer, but input is processed in one parallel batch, while output tokens are generated one at a time, each needing its own forward pass (Lesson 4). That sequential work is the expensive part.",
     },
     {
       question: "In the combined cost demo, what made most of the 2000 input tokens cost less than the full input rate?",

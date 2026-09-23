@@ -78,7 +78,11 @@ Anthropic's Messages API takes it under `output_config.format`, while
 OpenAI-style APIs use a `response_format` field with a slightly
 different wrapper — and many SDKs go one step further and accept the
 Pydantic class directly, doing this conversion for you. The idea is the
-same everywhere: the schema travels in the request.
+same everywhere: the schema travels in the request. One detail if you
+copy this into a real call: Anthropic's structured outputs require
+`"additionalProperties": false` on every object in the schema, which
+`model_json_schema()` doesn't add. Either add it yourself or let the
+SDK's Pydantic helper build the schema for you.
 
 `AgentConfig.model_validate_json(...)` here is
 [the exact same parsing method covered in the naive-approach concept's failure demo](/01-llm-foundations/10-structured-output-and-tool-calling/01-the-naive-approach/)

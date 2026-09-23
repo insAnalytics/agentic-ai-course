@@ -24,7 +24,8 @@ control, not another way of tuning the same thing.
 
 Top-k keeps only the `k` highest-probability tokens, discards
 everything else, and renormalizes what remains so the probabilities
-still sum to `1`:
+still sum to `1`. (The demos below reuse the previous concepts'
+hand-written, illustrative distribution.)
 
 <LiveDemo client:load code={`distribution = {"mat": 0.618, "floor": 0.207, "chair": 0.153, "moon": 0.008, "xylophone": 0.002}
 
@@ -109,8 +110,9 @@ when the model is genuinely uncertain, and less variety when it's
 genuinely confident, rather than forcing the same fixed pool size onto
 both situations.
 
-Two more controls, added to the same decoding playground from Concept
-1 — watch candidates actually drop out of the pool (shown struck
+Two more controls, added to the same decoding playground from
+[the greedy-vs-sampling concept](/01-llm-foundations/05-decoding-strategies-and-generation-controls/01-greedy-decoding-vs-sampling/#sampling-actually-drawing-from-the-distribution)
+— watch candidates actually drop out of the pool (shown struck
 through and dimmed) as each threshold tightens, on a real distribution:
 
 <DecodingPlayground client:load showTemperature showTopKTopP />

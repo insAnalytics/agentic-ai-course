@@ -15,8 +15,9 @@ uses the exact same parameters for every token that passes through it.
 **Mixture-of-experts (MoE)** changes this: instead of one feedforward
 network per layer, there are several smaller "expert" networks, and a
 small learned **router** that decides, per token, which subset of
-experts actually gets used — commonly just 2 out of 8, or a similarly
-small fraction, not all of them.
+experts actually gets used — a small fraction, not all of them. For
+example, Mixtral-style models use 2 out of 8 experts per token, and many
+newer MoE models use around 8 out of 100 or more smaller ones.
 
 <LiveDemo client:load code={`experts = ["expert_1", "expert_2", "expert_3", "expert_4"]
 router_scores = {"expert_1": 0.1, "expert_2": 0.7, "expert_3": 0.5, "expert_4": 0.2}
@@ -42,8 +43,10 @@ can be far larger than the number of parameters actually doing work to
 produce any single token's output. Two models with wildly different
 total parameter counts can end up costing roughly the same to run
 per-token, if the larger one routes each token through only a small
-slice of its total experts. This decouples "how large is this model"
-from "how expensive is it to actually run," which used to be nearly the
+slice of its total experts. That saving is in compute per token, not in memory: every expert still
+has to be loaded, so the hardware needed to serve an MoE model scales
+with its *total* parameter count. So MoE decouples "how
+large is this model" from "how much compute does each token cost," which used to be nearly the
 same question for a standard, non-MoE transformer — worth carrying
 forward explicitly toward this module's cost discussion, where it
 becomes directly relevant to understanding what you're actually paying
@@ -90,7 +93,7 @@ for.
       ],
       correctIndex: 1,
       explanation:
-        "Total parameter count and per-token compute cost decouple under MoE — a much larger model can cost about the same to run if it only activates a small slice of its experts per token.",
+        "Total parameter count and per-token compute cost decouple under MoE — a much larger model can cost about the same compute per token if it only activates a small slice of its experts. Memory doesn't decouple: every expert still has to be loaded, so serving hardware scales with the total count.",
     },
   ]}
 />

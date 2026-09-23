@@ -15,7 +15,11 @@ request is remembered anywhere on the server side. For a multi-turn
 conversation to work at all, the *client* has to resend the entire
 conversation history — every prior user message and every prior
 assistant response — with **every single new request**, not just
-whatever's newly being said.
+whatever's newly being said. (That's true of the Messages and Chat
+Completions-style APIs this course uses. Some APIs, such as OpenAI's
+Responses API with a previous-response ID, can keep the conversation on
+the server for you, but the model itself is still stateless: the
+provider is just resending the history on your behalf.)
 
 <LiveDemo client:load code={`conversation = [
     {"role": "system", "content": "You are a helpful assistant."},
@@ -58,7 +62,11 @@ single request,
 [not free just because it was already sent before](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/02-the-response-shape/#usage-tokens-finally-readable-after-the-fact),
 a long-running conversation's cost grows with every turn — not linearly
 with just the new content, but with the entire accumulated history,
-resent in full each time. This is also exactly why
+resent in full each time. In practice the growth is gentler than full
+price per turn: the resent history is exactly the stable prefix that
+[prompt caching, from Lesson 6](/01-llm-foundations/06-context-windows-and-kv-cache/04-prompt-structure-and-cache-hits/#the-cache-benefit-extends-across-separate-requests-not-just-within-one),
+bills at a discounted rate after the first time. It still counts, though,
+every turn. This is also exactly why
 [Lesson 6's shared context-window budget](/01-llm-foundations/06-context-windows-and-kv-cache/01-what-a-context-window-is/#what-happens-when-you-exceed-it)
 eventually becomes a real constraint in any sufficiently long
 conversation: the history itself keeps growing, consuming more and more

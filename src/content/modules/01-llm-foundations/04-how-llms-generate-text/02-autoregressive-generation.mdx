@@ -15,13 +15,13 @@ A full response — a sentence, a paragraph — is never generated in one
 step. The model picks one token from that distribution (exactly *how*
 it picks — always the top one, or something more varied — is a later
 lesson's job), appends that single token onto the sequence, and then
-runs the *entire* process again from scratch: a full pass through every
-transformer layer, over the whole sequence, including the token it just
-generated — to produce the distribution for the *next* token.
+runs the process again: conceptually, a pass through every transformer
+layer over the whole sequence, including the token it just generated —
+to produce the distribution for the *next* token.
 
 <LiveDemo client:load code={`def predict_next_token(sequence: list) -> str:
     # a toy stand-in for a real model's full forward pass + softmax + selection --
-    # a real model recomputes this from scratch, over the whole sequence, every call
+    # a real model runs a pass through every layer to produce each new token
     toy_rules = {
         ("The", "cat", "sat"): "on",
         ("The", "cat", "sat", "on"): "the",
@@ -48,9 +48,13 @@ in as input, over and over, one token at a time.
 
 Every single one of those calls is
 [the entire logit/softmax computation from the previous concept](/01-llm-foundations/04-how-llms-generate-text/01-logits-and-the-probability-distribution/),
-run over the whole sequence so far — not some cheaper, incremental
-shortcut. A ten-token response requires ten full passes through the
-model; a thousand-token response requires a thousand. Generation cost
+producing exactly one new token. Conceptually, each call looks at the
+whole sequence so far.
+[The KV cache, later in this module](/01-llm-foundations/06-context-windows-and-kv-cache/03-kv-cache/),
+shows how real systems avoid recomputing the work for earlier tokens,
+but each new token still costs one pass through every layer. A ten-token
+response requires ten passes through the model; a thousand-token response
+requires a thousand. Generation cost
 scales directly with how many tokens actually get produced — a fact
 that becomes directly relevant once this module reaches test-time
 compute and reasoning models: a model that "thinks" by generating more
@@ -104,14 +108,14 @@ through this exact loop, not some separate, cheaper reasoning process.
     {
       question: "Why does generating a longer response require proportionally more computation than a shorter one?",
       options: [
-        "Only the prompt goes through the full model; each later token comes from a cheap cached lookup, so length barely matters",
-        "Every generated token requires its own full pass through the entire model, over the whole sequence so far — more tokens generated means more full passes performed",
+        "Only the prompt goes through the model; each later token is read from a cache without running the model again, so length barely matters",
+        "Every generated token requires its own pass through every layer of the model — more tokens generated means more passes performed",
         "Only the first few tokens require real computation; the rest are free",
         "Longer responses use a smaller, cheaper version of the model",
       ],
       correctIndex: 1,
       explanation:
-        "There's no shortcut — each token costs one full forward pass through every layer, so total generation cost scales directly with the number of tokens produced.",
+        "Caching (covered with the KV cache later in this module) saves recomputing earlier tokens, but each new token still costs one forward pass through every layer, so total generation cost scales directly with the number of tokens produced.",
     },
   ]}
 />

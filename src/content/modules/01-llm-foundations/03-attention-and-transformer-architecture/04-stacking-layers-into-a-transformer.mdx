@@ -37,7 +37,11 @@ block in turn:
 
 <TransformerStack client:load />
 
-Each layer takes the previous layer's output and refines it further —
+Each layer takes the previous layer's output and refines it further.
+That's literal: each block *adds* its output onto its input (a
+**residual connection**) rather than replacing it, so every layer makes
+an adjustment to the representation instead of rebuilding it from
+scratch —
 attention re-weighting relevance based on the *already-contextualized*
 representations from the layer before, not the raw token embeddings
 anymore, by the time you're several layers deep. This repeated

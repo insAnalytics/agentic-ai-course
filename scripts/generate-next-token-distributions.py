@@ -47,7 +47,7 @@ PROMPTS = [
     "The opposite of hot is very",
     "The best programming language for beginners is",
     "The winner of next year's Nobel Prize in Physics will be Dr.",
-    "The current CEO of Twitter is Jack",
+    "The current CEO of Twitter is",
 ]
 
 

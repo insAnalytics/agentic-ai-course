@@ -85,16 +85,16 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
         "The model only ever emits tokens. Anything that actually runs is your code's decision.",
     },
     {
-      question: "What mechanism guarantees a model's tool-call output matches the expected arguments schema?",
+      question: "When are a model's tool-call arguments guaranteed to match the expected schema?",
       options: [
-        "Nothing — it's a hope based on prompt wording",
-        "The same constrained-decoding mechanism, applied to the tool's specific arguments schema",
-        "A completely separate mechanism specific to tool calling",
-        "The model is retrained for every individual tool",
+        "Always — training alone makes malformed arguments impossible",
+        "When strict mode is on, through the same constrained-decoding mechanism applied to the tool's arguments schema",
+        "Never — tool arguments are free text the client has to repair",
+        "Only when the tool has a small number of parameters",
       ],
       correctIndex: 1,
       explanation:
-        "Tool calling isn't a separate mechanism — it's structured output where the schema happens to describe a tool's arguments. (As covered earlier, that enforcement can be opt-in per provider, so validating client-side is still worthwhile.)",
+        "Tool calling is structured output where the schema describes a tool's arguments. With strict mode on, constrained decoding guarantees the arguments match the schema; without it, they're usually but not always well-formed, so validating client-side is still worthwhile.",
     },
     {
       question: "Why does the model need a second API call after requesting a tool call?",
@@ -132,8 +132,8 @@ to a scenario not already covered.
 
 Design a `search_flights` tool taking `origin`, `destination`, and
 `date` as arguments. Before checking below, work through: what would
-its Pydantic schema look like? Why is the model's `arguments` output
-for this tool *guaranteed* to match that schema, mechanically? What
+its Pydantic schema look like? When is the model's `arguments` output
+for this tool *guaranteed* to match that schema, and by what mechanism? What
 does your own code's responsibility look like once the model requests
 this tool? What does the second API call in the round trip actually
 contain?
@@ -143,7 +143,8 @@ contain?
 — `origin: str`, `destination: str`, `date: str` — converted via
 `.model_json_schema()`. The guarantee comes from
 [constrained decoding masking any token that would produce an invalid shape](/01-llm-foundations/10-structured-output-and-tool-calling/02-constrained-decoding/#masking-invalid-tokens-before-softmax-ever-runs),
-not from the model choosing to comply. Your code's responsibility,
+not from the model choosing to comply, and it only applies when the
+provider's strict mode is on: with strict mode on, constrained decoding guarantees the arguments match the schema; without it, they're usually but not always well-formed. Your code's responsibility,
 [per the separation between the model's request and your code's decision to run it](/01-llm-foundations/10-structured-output-and-tool-calling/04-tool-calling/#why-this-separation-matters),
 is deciding whether to actually run a real flight search with those
 parsed arguments — nothing forces execution just because the model

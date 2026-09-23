@@ -40,14 +40,14 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
     {
       question: "Why does generating a longer response require proportionally more computation than a shorter one?",
       options: [
-        "Only the prompt goes through the full model; later tokens come from a cheap cached lookup",
-        "Every generated token requires its own full pass through the entire model, over the whole sequence so far",
+        "Only the prompt goes through the model; later tokens are read from a cache without running the model again",
+        "Every generated token requires its own pass through every layer of the model",
         "Only the first few tokens require real computation",
         "Longer responses use a smaller, cheaper version of the model",
       ],
       correctIndex: 1,
       explanation:
-        "There's no shortcut — each token costs one full forward pass through every layer, so total generation cost scales directly with tokens produced.",
+        "Caching saves recomputing earlier tokens, but each new token still costs one forward pass through every layer, so total generation cost scales directly with tokens produced.",
     },
     {
       question: "Does the logit-and-softmax process include any step that checks whether a candidate token is actually true?",
@@ -141,7 +141,7 @@ cutoff relevant to this specific prompt at all?
 1. `"The opposite of hot is very ___"` — completing with a temperature word.
 2. `"The best programming language for beginners is ___"` — completing with a language name.
 3. `"The winner of next year's Nobel Prize in Physics will be Dr. ___"` — completing with a surname.
-4. `"The current CEO of Twitter is Jack ___"` — completing with a surname.
+4. `"The current CEO of Twitter is ___"` — completing with a name. (Twitter has since been renamed X.)
 
 <NextTokenDistribution client:load promptIndices={[6, 7, 8, 9]} />
 
@@ -166,11 +166,19 @@ misconception from the hallucination concept. The lesson to take from the contra
 confidence specifically needs a misleading pattern strong enough in
 training data to dominate (a popular misconception, a memorized name tied
 to a role) — a genuinely open, arbitrary unknown doesn't always produce
-one. (4) is the cleanest possible demonstration of knowledge cutoff:
-`"Dorsey"` comes out at essentially `100%` confidence — because Jack
-Dorsey really was Twitter's CEO throughout GPT-2's training data. Whether
-that's still true by the time you're reading this is exactly the point:
-the model has no way to know if it isn't.
+one. (4) is about knowledge cutoff, and the real tool gives a humbler
+answer than you might expect: no name at all. The top candidates are
+filler like `" a"` (about 9%) and `" the"`, with scattered first names
+(`"Steve"`, `"Mark"`) at around 2% each. A model as small as GPT-2 simply
+didn't store this fact well enough to recall it unprompted. (An earlier
+version of this prompt ended in `"Jack"`, and `"Dorsey"` then came out
+at over 99%, but that was mostly completing a famous name: the same model
+finishes `"The current CEO of Apple is Jack"` with `"Dorsey"` 73% of the
+time.) Cutoff is still exactly the point here. Whatever a model learned
+about a "current" fact is frozen at its training date. A larger model
+would likely name whoever ran Twitter back then, with confidence, and have no
+way to know the answer had changed, or even that the company is now
+called X.
 
 The pattern to walk away with: the *shape* of the distribution — one
 dominant token, several competing ones, or a flat spread — is often a

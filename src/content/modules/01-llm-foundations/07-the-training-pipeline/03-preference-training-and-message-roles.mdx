@@ -1,5 +1,5 @@
 ---
-title: "Preference training, and why message roles exist"
+title: "Preference training, and how message roles are learned"
 lesson: "07-the-training-pipeline"
 order: 3
 ---
@@ -36,7 +36,7 @@ using the same kind of preference data, without needing that separate
 reward-model step — a simplification of the same underlying idea, not a
 fundamentally different one.
 
-[The pipeline from Concepts 1–2](/01-llm-foundations/07-the-training-pipeline/01-pretraining/#what-actually-produces-the-parameters-behind-every-logit),
+[The pipeline so far](/01-llm-foundations/07-the-training-pipeline/01-pretraining/#what-actually-produces-the-parameters-behind-every-logit),
 now with preference training highlighted as the third stage:
 
 <TrainingPipeline client:load active={2} revealed={3} />
@@ -106,9 +106,12 @@ security boundary, and instructions and data are ultimately processed
 as the exact same kind of tokens through the exact same mechanism, a
 model can't always reliably tell a genuinely trusted instruction apart
 from untrusted text that merely *resembles* one — this is the actual
-mechanistic root of prompt injection. Real defenses against it are
-covered properly in the later Agentic AI basics module — this lesson's
-job is only explaining why the vulnerability exists at all.
+mechanistic root of prompt injection. Defenses come later:
+[Module 2's delimiters concept](/02-the-agent-loop/02-prompting-fundamentals/03-output-format-and-delimiters/#the-fix-delimiters-mark-the-boundary-explicitly)
+covers the first one (clearly marking where untrusted data begins and
+ends), and the tool-design module's later lessons on the tool threat
+model and least privilege cover the rest. This lesson's job is only
+explaining why the vulnerability exists at all.
 
 </Subsection>
 

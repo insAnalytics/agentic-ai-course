@@ -10,14 +10,14 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 <Subsection title="The model doesn't call anything — it produces structured data" variant="a">
 
-**Tool calling** is worth understanding as exactly one specific
-application of
-[the same constrained-decoding mechanism from earlier in this lesson](/01-llm-foundations/10-structured-output-and-tool-calling/02-constrained-decoding/),
-not some separate, new capability where the model somehow executes code.
-A model never literally "calls a function" — it produces structured
-output, guaranteed to match a schema (typically a tool name plus a set of
-arguments), using the exact same token-masking mechanism as any other
-structured output. Your own code is what actually reads that structured
+**Tool calling** is worth understanding as one specific kind of
+structured output, not some separate, new capability where the model
+somehow executes code. A model never literally "calls a function" — it
+produces structured output (typically a tool name plus a set of
+arguments). Models are *trained* to emit tool calls in this structured
+form, so the arguments are usually well-formed on their own.
+[The constrained-decoding mechanism from earlier in this lesson](/01-llm-foundations/10-structured-output-and-tool-calling/02-constrained-decoding/)
+is an optional layer on top: with strict mode on, constrained decoding guarantees the arguments match the schema; without it, they're usually but not always well-formed. Your own code is what actually reads that structured
 output and decides whether and how to execute anything real.
 
 </Subsection>
@@ -74,8 +74,7 @@ stays worthwhile.
 
 This is worth being explicit about as a real design point, not just a
 technical detail: the model's job is *deciding which tool to use and
-what arguments to pass*, expressed reliably as structured data thanks
-to constrained decoding. Actually *executing* that tool call is
+what arguments to pass*, expressed as structured data (with strict mode on, constrained decoding guarantees the arguments match the schema; without it, they're usually but not always well-formed). Actually *executing* that tool call is
 entirely your code's decision and responsibility — nothing forces your
 code to actually run whatever the model requested; a well-built system
 can validate, log, rate-limit, or outright refuse a requested tool call
@@ -103,16 +102,16 @@ executes itself.
         "The model emits structured data naming a tool and its arguments; executing anything is your code's job.",
     },
     {
-      question: "What mechanism guarantees a model's tool-call output actually matches the expected arguments schema?",
+      question: "When are a model's tool-call arguments actually guaranteed to match the expected schema?",
       options: [
-        "Nothing guarantees this — it's purely a hope based on the prompt's wording",
-        "The exact same constrained-decoding mechanism covered earlier in this lesson, applied to the tool's specific arguments schema",
-        "A completely separate, unrelated mechanism specific to tool calling",
-        "The model is specially retrained for every individual tool",
+        "Always — models are trained on tool calls, so malformed arguments can't happen",
+        "When strict mode is on: the same constrained-decoding mechanism from earlier in this lesson then masks any token that would break the arguments schema",
+        "Never — tool arguments are free text the client always has to parse and repair",
+        "Only when the tool has a small number of parameters",
       ],
       correctIndex: 1,
       explanation:
-        "Tool arguments are just structured output: the tool's schema constrains generation the same way any other schema does (where the provider's strict mode is on).",
+        "Models are trained to emit tool calls as structured output, so arguments are usually well-formed. But with strict mode on, constrained decoding guarantees the arguments match the schema; without it, they're usually but not always well-formed, which is why validating them client-side is still worthwhile.",
     },
     {
       question: "In the demo, what's the relationship between get_weather (the Python function) and the model itself?",

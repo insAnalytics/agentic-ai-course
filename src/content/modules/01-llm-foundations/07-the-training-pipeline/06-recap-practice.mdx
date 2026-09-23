@@ -151,12 +151,14 @@ fits each need, before checking below.
 
 *Reasoning to check against:*
 
-**(a)** is a consistent-behavior problem —
-[exactly what fine-tuning fits](/01-llm-foundations/07-the-training-pipeline/05-fine-tuning-as-a-builders-option/#three-real-options-and-when-each-one-fits),
-though careful prompting might get partway there for lower-stakes cases;
-this is fundamentally a *behavior* question, the same kind of problem
-[SFT and preference training were built to shape](/01-llm-foundations/07-the-training-pipeline/02-sft/),
-not a knowledge gap.
+**(a)** is a behavior question, not a knowledge gap, and tone is the
+textbook case a system prompt handles. Start with
+[prompting, the right default first choice](/01-llm-foundations/07-the-training-pipeline/05-fine-tuning-as-a-builders-option/#three-real-options-and-when-each-one-fits):
+describe the formal tone, perhaps with an example or two. Reach for
+fine-tuning only if prompting proves inconsistent at scale; it shapes
+behavior the same way
+[SFT and preference training do](/01-llm-foundations/07-the-training-pipeline/02-sft/),
+but it's the heavier tool.
 
 **(b)** is unmistakably a retrieval problem — pricing that changes
 monthly is structurally similar to
@@ -173,8 +175,11 @@ since instructions and cleverly-phrased user text are processed through
 the same mechanism, no single layer of training alone (prompting,
 fine-tuning, or otherwise) provides an absolute guarantee against
 persistent, adversarial attempts to route around a stated refusal —
-genuine defense-in-depth here belongs to the Agentic AI basics module's
-scope, not something this lesson's tools alone can promise.
+genuine defense-in-depth here starts with
+[Module 2's delimiters concept](/02-the-agent-loop/02-prompting-fundamentals/03-output-format-and-delimiters/#the-fix-delimiters-mark-the-boundary-explicitly)
+and continues in the tool-design module's later lessons on the tool
+threat model and least privilege, not something this lesson's tools
+alone can promise.
 
 The pattern worth taking away: correctly diagnosing *which kind* of
 problem you actually have — behavior, knowledge, or something no single

@@ -46,8 +46,8 @@ def most_frequent_pair(words: list) -> tuple:
 
 print(most_frequent_pair(words))`} />
 
-`('l', 'o')` is the most frequent adjacent pair across this tiny
-corpus — real BPE would now merge every `l` + `o` into a single new
+`('l', 'o')` is tied with `('o', 'w')` for most frequent adjacent pair
+across this tiny corpus, at 5 each (`max` picks the first) — real BPE would now merge every `l` + `o` into a single new
 piece, `lo`, and repeat the entire process again on the updated text,
 merging the next most frequent pair. After enough rounds on a large
 enough corpus, common sequences like `low` end up as a single token,
@@ -56,6 +56,13 @@ This is [the same "count occurrences with a dict, using `.get()` for a
 default"](/00-python-essentials/02-collections/03-dicts/#key-access-and-the-difference-between-and-get)
 pattern from Module 0, just applied to counting character pairs instead
 of counting words.
+
+Modern tokenizers go one level lower than characters: **byte-level
+BPE** starts from the 256 possible bytes that text is stored as, so the
+guaranteed fallback is single bytes rather than single characters. That's
+also why some scripts cost so many tokens: in the standard UTF-8
+encoding, a character outside basic Latin letters takes 2 to 3 bytes,
+so a rarely-seen character can cost several tokens on its own.
 
 </Subsection>
 
@@ -135,13 +142,13 @@ see it split into its real tokens, each one highlighted separately:
       question: "Why does BPE never need an <UNK> fallback the way a word-level vocabulary did?",
       options: [
         "BPE vocabularies are simply larger than word-level ones",
-        "Because the vocabulary's pieces go all the way down to individual characters, any possible string can always be represented by combining pieces, in the worst case falling back to single characters rather than becoming unrepresentable",
+        "Because the vocabulary's pieces go all the way down to individual characters, any possible string can always be represented by combining pieces, in the worst case falling back to single characters (single bytes, in modern byte-level tokenizers) rather than becoming unrepresentable",
         "<UNK> is still used in BPE, just less often",
         "BPE only tokenizes words that already exist in a dictionary",
       ],
       correctIndex: 1,
       explanation:
-        "Because the smallest pieces are individual characters, there's always some way to build any string out of pieces already in the vocabulary — the worst case is falling back to single characters, never an unrepresentable word.",
+        "Because the smallest pieces are individual characters (single bytes, in the byte-level BPE modern tokenizers use), there's always some way to build any string out of pieces already in the vocabulary — the worst case is falling back to those smallest pieces, never an unrepresentable word.",
     },
   ]}
 />

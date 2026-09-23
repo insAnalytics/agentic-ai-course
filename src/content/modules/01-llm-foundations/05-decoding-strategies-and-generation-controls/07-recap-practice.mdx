@@ -142,7 +142,7 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 This isn't graded — it's a chance to apply the whole lesson to a
 practical decision, extending
-[the decoding playground built across Concepts 1-3](/01-llm-foundations/05-decoding-strategies-and-generation-controls/01-greedy-decoding-vs-sampling/#sampling-actually-drawing-from-the-distribution)
+[the decoding playground built across the greedy, temperature and top-p/top-k concepts](/01-llm-foundations/05-decoding-strategies-and-generation-controls/01-greedy-decoding-vs-sampling/#sampling-actually-drawing-from-the-distribution)
 into an exercise in choosing settings.
 
 For each scenario, decide roughly what you'd set — temperature (low,
@@ -171,10 +171,17 @@ here — allowing real variety in word choice is the entire point, and a
 presence penalty helps avoid the same few taglines dominating
 repeatedly. (3) is the most interesting case: mostly low temperature,
 since exact syntax matters enormously and a wrong token can break
-working code — but not *zero*, and a mild frequency penalty can help
-avoid a model getting stuck in an actual repetition loop (like
+working code — but not *zero*. It also wants *no* repetition penalty:
+code legitimately repeats identifiers, brackets and keywords constantly,
+and a frequency penalty pushes the model away from exactly the tokens it
+needs. To contain a model stuck in an actual repetition loop (like
 re-emitting the same broken line), a real failure mode
-[the opening concept named directly](/01-llm-foundations/05-decoding-strategies-and-generation-controls/01-greedy-decoding-vs-sampling/#greedy-decoding-always-take-the-top-candidate).
+[the opening concept named directly](/01-llm-foundations/05-decoding-strategies-and-generation-controls/01-greedy-decoding-vs-sampling/#greedy-decoding-always-take-the-top-candidate),
+rely on
+[`max_tokens`](/01-llm-foundations/06-context-windows-and-kv-cache/02-max-output-length-vs-context-window/)
+and
+[stop sequences](/01-llm-foundations/05-decoding-strategies-and-generation-controls/06-stop-sequences-and-nondeterminism/#stop-sequences-controlling-when-generation-ends-not-which-token-comes-next)
+to cap how far it can run instead.
 
 The pattern worth taking away: every one of these settings is a genuine
 trade-off, not a "better" or "worse" direction in the abstract —

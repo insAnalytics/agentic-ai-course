@@ -80,12 +80,15 @@ These are [the exact three toy embeddings from the token-embeddings concept](/01
 `"cat"` and `"kitten"` produce a similarity close to `1` (≈`0.998`),
 confirming what looked true visually is also true numerically; `"cat"`
 and `"car"` produce a similarity close to `0` (≈`-0.108`), confirming
-they're essentially unrelated in direction, despite `"car"`'s vector not
-being especially far away in raw distance. This is precisely the
+they're essentially unrelated in direction. This is precisely the
 operation [a text-embedding-based search — the RAG groundwork from the previous concept — actually runs](/01-llm-foundations/02-embeddings/03-text-embeddings-a-distinct-use-case/),
 at scale: computing cosine similarity between a query's embedding and
 many candidate texts' embeddings, to find whichever ones are closest in
-meaning.
+meaning. One thing to expect with real embedding models: "unrelated"
+pairs rarely score near 0. They often land somewhere around 0.1–0.3 (the
+exact baseline varies by model), and negative scores are rare. What
+matters is the comparison: related pairs score clearly higher than
+unrelated ones.
 
 Try it directly: check a few sentences below and see both the plot
 [from the text-embeddings concept](/01-llm-foundations/02-embeddings/03-text-embeddings-a-distinct-use-case/)

@@ -13,11 +13,22 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 Attention answers [the problem from the previous concept](/01-llm-foundations/03-attention-and-transformer-architecture/01-why-a-token-needs-context/)
 directly: for each token, it computes a *new*, context-aware
-representation by combining information from *every* token in the
-sequence — including itself — weighted by how relevant each one is to
-understanding this particular token, in this particular sentence.
+representation by combining information from the tokens it can see —
+itself and every token before it — weighted by how relevant each one is
+to understanding this particular token, in this particular sentence.
 
-For `"bank"` in `"I sat by the river bank"`, attention would assign a
+That "before it" matters. In GPT-style models, which covers every LLM
+this course discusses, attention is **causal**: a *mask* blocks each
+token from attending to anything that comes after it, so a token sees
+only itself and earlier tokens. That's what lets these models generate
+text left to right: a token's representation never depends on words that
+haven't been generated yet. It's also why, as
+[the KV cache page later in this module shows](/01-llm-foundations/06-context-windows-and-kv-cache/03-kv-cache/),
+work done for earlier tokens can be kept and reused: adding a new token
+at the end never changes anything computed for the tokens before it.
+
+For `"bank"` in `"I sat by the river bank"` (the last token, so it can
+see every other word), attention would assign a
 high weight to `"river"` — genuinely relevant to figuring out which
 `"bank"` this is — and low weights to less relevant words like `"I"` or
 `"sat"`. The resulting representation for `"bank"` ends up shifted
@@ -86,7 +97,11 @@ which other tokens are actually present and how relevant they are.
 
 Below is that same idea running on a real small transformer's actual
 attention weights — not toy numbers. Click any token in a sentence to
-see how strongly every other token influences it:
+see how strongly every other token influences it. One difference to keep
+in mind: this explorer uses a small *encoder* model, the kind used for
+embeddings, which attends in both directions, so a token here can also be
+influenced by words after it. A GPT-style model would only show earlier
+tokens:
 
 <AttentionExplorer client:load />
 
@@ -101,13 +116,13 @@ see how strongly every other token influences it:
       question: "What does attention actually compute, for each token in a sequence?",
       options: [
         "The single most relevant other token's vector, copied over in place of the token's own vector",
-        "A new, context-aware representation, built as a weighted combination of every token's information — including its own — weighted by relevance",
+        "A new, context-aware representation, built as a weighted combination of the information from every token it can see — itself and, in GPT-style models, every earlier token — weighted by relevance",
         "A single number representing the token's importance",
         "The token's original dictionary definition",
       ],
       correctIndex: 1,
       explanation:
-        "Attention produces a new representation per token by combining every token's Value, weighted by how relevant each one is — not a single score, and not a copy of just the one most relevant token.",
+        "Attention produces a new representation per token by combining the Values of every token it can see (itself and earlier tokens, in a causal model), weighted by how relevant each one is — not a single score, and not a copy of just the one most relevant token.",
     },
     {
       question: "What's the difference between a token's Query and its Key, at a conceptual level?",
@@ -132,7 +147,7 @@ see how strongly every other token influences it:
       ],
       correctIndex: 1,
       explanation:
-        "The relevance scores only become weights — the actual combination happens over every token's Value vector, weighted by those scores, not the scores or embeddings alone.",
+        "The relevance scores only become weights — the actual combination happens over the visible tokens' Value vectors, weighted by those scores, not the scores or embeddings alone.",
     },
     {
       question: 'In the live demo, why does "bank"\'s resulting representation end up close to "river"\'s Value vector specifically?',

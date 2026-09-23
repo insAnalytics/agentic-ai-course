@@ -53,13 +53,13 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
       question: "Why does BPE never need an <UNK> fallback the way a word-level vocabulary did?",
       options: [
         "BPE vocabularies are simply larger than word-level ones",
-        "Because the vocabulary's pieces go all the way down to individual characters, any possible string can always be represented, in the worst case falling back to single characters",
+        "Because the vocabulary's pieces go all the way down to individual characters, any possible string can always be represented, in the worst case falling back to single characters (or bytes)",
         "<UNK> is still used in BPE, just less often",
         "BPE only tokenizes words that already exist in a dictionary",
       ],
       correctIndex: 1,
       explanation:
-        "Because the smallest pieces are individual characters, there's always some way to build any string out of pieces already in the vocabulary — the worst case is falling back to single characters, never an unrepresentable word.",
+        "Because the smallest pieces are individual characters (single bytes, in the byte-level BPE modern tokenizers use), there's always some way to build any string out of pieces already in the vocabulary — the worst case is falling back to those smallest pieces, never an unrepresentable word.",
     },
     {
       question: '"Pydantic" split into multiple tokens in this lesson\'s example, while a common word like "the" stayed as one. Why?',

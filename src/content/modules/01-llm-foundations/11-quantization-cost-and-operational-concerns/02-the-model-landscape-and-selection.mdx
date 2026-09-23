@@ -71,6 +71,10 @@ can diverge significantly — a model marketed with an enormous total
 parameter count might route each individual token through only a small
 fraction of those parameters, making it genuinely cheaper and faster
 per-token than its headline parameter count alone would suggest.
+That saving is in compute per token, not in memory: every expert still
+has to be loaded, so the hardware needed to serve an MoE model scales
+with its *total* parameter count. For deployment choices that matters most: an
+MoE model computes like a small model but needs the memory of a large one.
 Comparing models purely by parameter count, without accounting for
 whether MoE routing is involved, can be genuinely misleading when
 actually choosing between options.
@@ -128,7 +132,7 @@ actually choosing between options.
       ],
       correctIndex: 1,
       explanation:
-        "With MoE, per-token cost tracks the parameters actually activated, not the total. Two models with very different headline sizes can cost roughly the same to run.",
+        "With MoE, per-token compute tracks the parameters actually activated, not the total, so two models with very different headline sizes can cost roughly the same compute per token. Memory still tracks the total: every expert has to be loaded to serve the model.",
     },
   ]}
 />

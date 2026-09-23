@@ -46,7 +46,7 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
       ],
       correctIndex: 1,
       explanation:
-        "The relevance scores only become weights — the actual combination happens over every token's Value vector, weighted by those scores.",
+        "The relevance scores only become weights — the actual combination happens over the visible tokens' Value vectors (itself and earlier tokens, in a causal model), weighted by those scores.",
     },
     {
       question: 'Why does attention alone fail to distinguish "The dog bit the man" from "The man bit the dog"?',
@@ -118,7 +118,7 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
       ],
       correctIndex: 1,
       explanation:
-        "Total parameter count and per-token compute cost decouple under MoE — a much larger model can cost about the same to run if it only activates a small slice of its experts per token.",
+        "Total parameter count and per-token compute cost decouple under MoE — a much larger model can cost about the same compute per token if it only activates a small slice of its experts. Memory doesn't decouple: every expert still has to be loaded, so serving hardware scales with the total count.",
     },
   ]}
 />
@@ -146,9 +146,10 @@ pipeline, one step at a time:
    nothing is added here; position enters in step 3 instead.
 3. **Layer 1: multi-head attention** —
    [several attention computations run in parallel](/01-llm-foundations/03-attention-and-transformer-architecture/04-stacking-layers-into-a-transformer/),
-   each comparing `"bank"`'s Query against every other token's Key (in a
-   RoPE model, after rotating both by their positions, so the score
-   reflects how far apart the tokens are) —
+   each comparing `"bank"`'s Query against the Key of every token it can
+   see, which (since attention is causal) means itself and every earlier
+   token. In a RoPE model, both are first rotated by their positions, so
+   the score reflects how far apart the tokens are —
    `"river"` scores highly relevant, pulling `"bank"`'s representation
    toward a riverside meaning,
    [exactly as computed directly in the attention-mechanism concept's demo](/01-llm-foundations/03-attention-and-transformer-architecture/02-the-attention-mechanism/).
