@@ -10,10 +10,11 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 <Subsection title="Valid shape, nonsensical content" variant="a">
 
-[Constrained decoding](/01-llm-foundations/10-structured-output-and-tool-calling/02-constrained-decoding/#a-hard-guarantee-not-a-soft-nudge)
+[With strict mode on, constrained decoding](/01-llm-foundations/10-structured-output-and-tool-calling/02-constrained-decoding/#a-hard-guarantee-not-a-soft-nudge)
 guarantees a call matches its schema — the right field names, the right
-types. It guarantees nothing about whether those values actually make
-sense:
+types; without it, arguments are usually but not always well-formed.
+Even the guarantee says nothing about whether those values actually
+make sense:
 
 <LiveDemo client:load code={`from pydantic import BaseModel
 
@@ -95,8 +96,8 @@ problem. A model produces arguments the same way it produces any text,
 `"research_agnet"` looks like an agent name. A date range, a result
 count and a model name all look like what those fields usually hold. An
 ID the model half-remembers, or invents because it fits the pattern,
-looks exactly as confident as a real one. Constrained decoding makes sure
-the *shape* is right. Nothing in the generation process checks that the
+looks exactly as confident as a real one. At best (with strict mode on),
+constrained decoding makes sure the *shape* is right. Nothing in the generation process checks that the
 *values* are true.
 
 So the fix can't live in the schema or the model. It has to live in your

@@ -1750,7 +1750,28 @@ below describe each lesson as first converted; see the git log
 
 ---
 
-## Module 4 — Evaluation & Observability
+## Modules 4–11 — current plan
+
+*Updated 2026-09-24 from the Module 3 handover. The course now has 12
+modules (0–11). Modules 0–3 are above; the rest, in order:*
+
+4. Context & Memory
+5. RAG
+6. Reliability
+7. Evaluation & Observability
+8. Multi-Agent Systems
+9. UX
+10. Production
+11. Capstone
+
+*Write forward references against this plan. The four outlines below are
+from the earlier 8-module plan; they're kept for their scope notes, with
+headings updated to the new module numbers. The new modules (Context &
+Memory, Reliability, UX, Capstone) have no outline yet.*
+
+---
+
+## Module 7 — Evaluation & Observability (outline from the old plan, where it was Module 4)
 
 *Rough outline — deliberately sequenced before Modules 5 and 6 ("you
 cannot debug an agent you cannot measure"). Not yet broken into lessons.*
@@ -1761,7 +1782,7 @@ now expanded into its own module and moved earlier in the sequence.
 
 ---
 
-## Module 5 — Build RAG Based Systems
+## Module 5 — Build RAG Based Systems (outline from the old plan)
 
 *Original 10-lesson outline, kept as-is — this one was already strong
 relative to the comparison with an outside curriculum.*
@@ -1779,7 +1800,7 @@ relative to the comparison with an outside curriculum.*
 
 ---
 
-## Module 6 — Build Autonomous Multi-Agent Systems
+## Module 8 — Build Autonomous Multi-Agent Systems (outline from the old plan, where it was Module 6)
 
 *Original 10-lesson outline, kept as-is. Possible +1 lesson on sandboxing
 and human approval gates flagged as worth considering, not yet decided.*
@@ -1797,7 +1818,7 @@ and human approval gates flagged as worth considering, not yet decided.*
 
 ---
 
-## Module 7 — Production: Security, Compliance & Deployment
+## Module 10 — Production: Security, Compliance & Deployment (outline from the old plan, where it was Module 7)
 
 *Rough outline — not yet broken into lessons.*
 

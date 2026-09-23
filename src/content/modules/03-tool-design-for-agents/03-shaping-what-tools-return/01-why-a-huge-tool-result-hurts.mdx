@@ -85,6 +85,14 @@ made up, but the multiplication isn't. Whatever a result costs once, it
 costs again on every later request for as long as it stays in the
 conversation.
 
+One adjustment to the bill: after the first request, the resent result
+is part of the stable prefix that
+[prompt caching](/01-llm-foundations/06-context-windows-and-kv-cache/04-prompt-structure-and-cache-hits/#the-cache-benefit-extends-across-separate-requests-not-just-within-one)
+bills at a discounted rate, so the dollar cost is lower than "half a
+million tokens at full price". The tokens still fill the context window
+on every request, though, and cached input isn't free. Keeping results
+small is still the fix.
+
 Deciding what should stay in the context over a long conversation, and
 summarizing or dropping old results, is a bigger topic that a later
 module covers. This lesson has a narrower job: keep each result small
@@ -107,7 +115,7 @@ in the first place.
       ],
       correctIndex: 1,
       explanation:
-        "A tool result becomes a message like any other, resent in full on the next request -- there's no separate, cheaper accounting for it.",
+        "A tool result becomes a message like any other, resent in full on the next request -- nothing makes tool results cheaper than any other input.",
     },
     {
       question: "In the demo, what's the real cost of returning all 5,000 registry entries for a question that likely needed only a few?",

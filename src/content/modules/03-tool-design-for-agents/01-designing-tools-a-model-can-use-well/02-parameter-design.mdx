@@ -11,8 +11,9 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 <Subsection title="The schema constrains shape — not whether the shape makes sense" variant="a">
 
-[Constrained decoding, from Module 1](/01-llm-foundations/10-structured-output-and-tool-calling/02-constrained-decoding/#a-hard-guarantee-not-a-soft-nudge),
-guarantees a tool call's arguments match the declared types — but
+[With strict mode on, constrained decoding](/01-llm-foundations/10-structured-output-and-tool-calling/02-constrained-decoding/#a-hard-guarantee-not-a-soft-nudge)
+guarantees a tool call's arguments match the declared types; without it,
+they're usually but not always well-formed. Either way,
 *choosing* clear, well-typed, unambiguous parameters in the first place
 is still an authored design decision the schema itself can't make for
 you.
@@ -89,8 +90,9 @@ except ValidationError as e:
     print(e)`} />
 
 The schema turns the `Literal` into an `"enum"`: a list of the only
-allowed values. So the model sees the options up front, and constrained
-decoding can enforce them while generating. Pydantic also rejects
+allowed values. So the model sees the options up front, and, with strict
+mode on, constrained decoding enforces them while generating (without
+it, arguments are usually but not always well-formed). Pydantic also rejects
 anything else when it validates, as the
 [`ValidationError` from Module 0](/00-python-essentials/05-typed-data-models/04-pydantic-fundamentals/#validation-actually-happens-now)
 shows.
