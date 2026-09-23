@@ -4,8 +4,11 @@ lesson: "01-designing-tools-a-model-can-use-well"
 order: 3
 ---
 import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT } from "../../../../lib/fakeClient";
 
 <Subsection title="A real usability tradeoff, not a purely technical one" variant="a">
 
@@ -41,6 +44,127 @@ covered properly in a later lesson on designing for least privilege.
 
 </Subsection>
 
+<Subsection title="The middle ground: bounded, parameterized tools" variant="a">
+
+The choice isn't only between the two extremes. Take the question "which
+Haiku agents are paused?" `get_agent_config(agent_name)` can't answer it
+unless the model already knows every agent's name. `run_sql(query)` can,
+but only if the model writes a correct query. In between sits a tool
+that takes a few typed parameters and does one bounded job:
+
+<LiveDemo client:load code={`REGISTRY = {
+    "research_agent": {"model": "claude-sonnet", "status": "active"},
+    "support_agent": {"model": "claude-haiku", "status": "paused"},
+    "billing_agent": {"model": "claude-haiku", "status": "active"},
+    "triage_agent": {"model": "claude-haiku", "status": "paused"},
+}
+
+def search_agents(model: str, status: str) -> list:
+    """Find registered agents by model and status.
+
+    Returns a list of matching agent names (possibly empty).
+    Use when you need every agent matching a model and a status.
+    Not for looking up one agent's full configuration -- use get_agent_config for that.
+    """
+    return [name for name, info in REGISTRY.items() if info["model"] == model and info["status"] == status]
+
+print(search_agents("claude-haiku", "paused"))`} />
+
+`search_agents` answers a whole family of questions ("which Sonnet agents
+are active?", "which Haiku agents are retired?") with two simple
+arguments. It can't do anything outside that family, and that's the
+point: the model only has to pick a model and a status, not write a
+query. In a real tool, `status` would be a `Literal` of the allowed
+values, exactly as in
+[the parameter-design concept](/03-tool-design-for-agents/01-designing-tools-a-model-can-use-well/02-parameter-design/#allowed-values-literal-instead-of-a-free-form-string).
+
+</Subsection>
+
+<Subsection title="Composite tools: one call for a common sequence" variant="b">
+
+Granularity also decides how many loop steps a task takes. Copying an
+agent with narrow tools takes two calls: read the source agent's
+configuration, then create the new one. A **composite** tool,
+`clone_agent`, does both in one call. Below, the same loop runs each
+version. The fake client is scripted to take each design's shortest
+correct path, and a small subclass counts how many messages the loop
+actually sends:
+
+<LiveDemo client:load setupCode={REACT_FAKE_CLIENT} code={`REGISTRY = {"research_agent": {"model": "claude-sonnet", "status": "active"}}
+
+def get_agent_config(agent_name: str) -> str:
+    return str(REGISTRY[agent_name])
+
+def create_agent(agent_name: str, model: str, status: str) -> str:
+    REGISTRY[agent_name] = {"model": model, "status": status}
+    return f"created {agent_name}"
+
+def clone_agent(source_name: str, new_name: str) -> str:
+    REGISTRY[new_name] = dict(REGISTRY[source_name])
+    return f"cloned {source_name} to {new_name}"
+
+TOOLS = {"get_agent_config": get_agent_config, "create_agent": create_agent, "clone_agent": clone_agent}
+
+class CountingClient(FakeLLMClient):
+    def __init__(self, scripted_responses: list):
+        super().__init__(scripted_responses)
+        self.messages_sent = 0
+
+    def create(self, messages: list) -> FakeResponse:
+        self.messages_sent += len(messages)
+        return super().create(messages)
+
+def run_agent(client, user_message: str) -> str:
+    messages = [{"role": "user", "content": user_message}]
+    while True:
+        response = client.create(messages=messages)
+        messages.append({"role": "assistant", "content": response.content})
+        tool_calls = [block for block in response.content if block.type == "tool_use"]
+        if not tool_calls:
+            return "".join(block.text for block in response.content if block.type == "text")
+        results = [{"type": "tool_result", "tool_use_id": call.id, "content": TOOLS[call.name](**call.input)} for call in tool_calls]
+        messages.append({"role": "user", "content": results})
+
+narrow = CountingClient(scripted_responses=[
+    [ToolUseBlock(name="get_agent_config", input={"agent_name": "research_agent"})],
+    [ToolUseBlock(name="create_agent", input={"agent_name": "research_agent_v2", "model": "claude-sonnet", "status": "active"})],
+    [TextBlock(text="Created research_agent_v2 as a copy of research_agent.")],
+])
+composite = CountingClient(scripted_responses=[
+    [ToolUseBlock(name="clone_agent", input={"source_name": "research_agent", "new_name": "research_agent_v3"})],
+    [TextBlock(text="Created research_agent_v3 as a copy of research_agent.")],
+])
+
+for label, client in [("two narrow tools", narrow), ("one composite tool", composite)]:
+    run_agent(client, "Make a copy of research_agent.")
+    print(f"{label}: {client.call_count} model calls, {client.messages_sent} messages sent in total")
+print(REGISTRY)`} />
+
+Every extra tool call is another model call, and every model call resends
+the whole conversation so far. So the composite version saves more than
+one step: it sends 4 messages in total instead of 9, which means fewer
+input tokens and less latency. It also removes a chance for error, since
+the model never has to copy `"claude-sonnet"` from one result into the
+next call by hand. Composite tools make sense for sequences that are
+common and always done the same way. (`dict(REGISTRY[source_name])`
+makes a *copy* of the source's config dict, so later changes to the
+clone don't also change the original.)
+
+</Subsection>
+
+<Subsection title="The cost of going too narrow" variant="a">
+
+Narrow tools aren't free either. Every tool you add is one more name,
+description and schema in the model's input, and one more option to
+choose between on every call. A model with forty tiny, overlapping tools
+has a harder selection problem than one with eight well-bounded ones, no
+matter how good each description is. How many tools is too many, and
+what to do about it, is covered in a later lesson in this module. For
+now: prefer a few tools that each cover a clear, bounded job over
+either one do-everything tool or dozens of single-purpose ones.
+
+</Subsection>
+
 <CheckpointZone>
 
 <QuizGroup
@@ -71,18 +195,99 @@ covered properly in a later lesson on designing for least privilege.
         "Flexibility and correctness pull in opposite directions here: a broad tool covers more ground but asks more of every single call.",
     },
     {
-      question: "What aspect of the narrow-vs-broad tradeoff does this concept explicitly leave for a later lesson?",
+      question: "Why is search_agents(model, status) a useful middle ground between get_agent_config(name) and run_sql(query)?",
       options: [
-        "Nothing — this concept covers the tradeoff completely",
-        "The security dimension — what a broad tool could do if misused, covered in a later lesson on designing for least privilege",
-        "Whether tools can have more than one parameter",
-        "The Pydantic schema generation mechanism",
+        "It can answer any question run_sql can",
+        "It answers a whole family of questions with two simple typed arguments, without asking the model to write a query",
+        "It needs no description because its parameters are obvious",
+        "It's faster because it never reads the registry",
       ],
       correctIndex: 1,
       explanation:
-        "This concept is scoped to usability only; a broad tool's misuse potential is a separate, security-focused question saved for later.",
+        "It's bounded like a narrow tool (only model and status to fill in) but covers many questions, like a broader one would.",
+    },
+    {
+      question: "In the composite-tool demo, why did clone_agent send 4 messages in total instead of 9?",
+      options: [
+        "The composite tool's results are shorter",
+        "It needed one fewer tool call, and every model call resends the whole conversation so far, so each saved step saves a growing amount of input",
+        "The fake client skips messages for composite tools",
+        "Composite tools don't use the agent loop",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The counts come from the client itself: 1 + 3 + 5 messages for the narrow path versus 1 + 3 for the composite one. Fewer steps means less resent history.",
+    },
+    {
+      question: "What's the cost of splitting everything into many tiny, single-purpose tools?",
+      options: [
+        "None — more tools is always better",
+        "Every tool adds to the model's input and is one more option to choose between, so selection gets harder",
+        "Python limits a program to twenty functions",
+        "Small tools can't have descriptions",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Each tool's definition is sent to the model and competes for selection. A later lesson in this module covers how many tools is too many.",
     },
   ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={'Implement the composite tool clone_agent(source_name: str, new_name: str, registry: dict) -> str. It copies an existing agent\'s configuration to a new name and returns "cloned <source_name> to <new_name>". If source_name isn\'t in registry, return a string starting with "Error:" that names it. If new_name already exists, return a string starting with "Error:" that names it, and don\'t overwrite the existing agent. The new agent must get its own copy of the config, so changing the clone later doesn\'t change the original.'}
+  starterCode={`def clone_agent(source_name: str, new_name: str, registry: dict) -> str:
+    """Create a new agent with the same configuration as an existing one.
+
+    Returns a confirmation string, or a string starting with "Error:" if
+    source_name doesn't exist or new_name is already taken.
+    Use when you want a copy of an existing agent under a new name.
+    Not for changing an existing agent's configuration.
+    """
+    # TODO: return an "Error: ..." string if source_name isn't in registry
+    # TODO: return an "Error: ..." string if new_name is already in registry
+    # TODO: store a copy of the source's config under new_name
+    ...`}
+  hiddenTests={[
+    `registry = {"research_agent": {"model": "claude-sonnet", "status": "active"}, "support_agent": {"model": "claude-haiku", "status": "paused"}}
+assert clone_agent("research_agent", "research_agent_v2", registry) == "cloned research_agent to research_agent_v2"
+assert registry["research_agent_v2"] == {"model": "claude-sonnet", "status": "active"}`,
+    `registry = {"research_agent": {"model": "claude-sonnet", "status": "active"}, "support_agent": {"model": "claude-haiku", "status": "paused"}}
+clone_agent("research_agent", "research_agent_v2", registry)
+registry["research_agent_v2"]["status"] = "paused"
+assert registry["research_agent"]["status"] == "active"`,
+    `registry = {"research_agent": {"model": "claude-sonnet", "status": "active"}, "support_agent": {"model": "claude-haiku", "status": "paused"}}
+result = clone_agent("ghost_agent", "ghost_copy", registry)
+assert result.startswith("Error:") and "ghost_agent" in result
+assert "ghost_copy" not in registry`,
+    `registry = {"research_agent": {"model": "claude-sonnet", "status": "active"}, "support_agent": {"model": "claude-haiku", "status": "paused"}}
+result = clone_agent("research_agent", "support_agent", registry)
+assert result.startswith("Error:") and "support_agent" in result
+assert registry["support_agent"] == {"model": "claude-haiku", "status": "paused"}`,
+  ]}
+  hint={"Check both failure cases first, each with an early return: source_name not in registry, then new_name in registry. Only then copy: dict(registry[source_name]) builds a new dict with the same keys and values, which is what keeps the clone independent of the original (plain registry[source_name] would make both names point at the same dict)."}
+  correctAnswer={{
+    code: `def clone_agent(source_name: str, new_name: str, registry: dict) -> str:
+    """Create a new agent with the same configuration as an existing one.
+
+    Returns a confirmation string, or a string starting with "Error:" if
+    source_name doesn't exist or new_name is already taken.
+    Use when you want a copy of an existing agent under a new name.
+    Not for changing an existing agent's configuration.
+    """
+    if source_name not in registry:
+        return f"Error: no agent named '{source_name}' to clone"
+    if new_name in registry:
+        return f"Error: an agent named '{new_name}' already exists"
+    registry[new_name] = dict(registry[source_name])
+    return f"cloned {source_name} to {new_name}"`,
+    explanation:
+      "One call now does the read and the create that would otherwise take two loop steps. Both failure cases come back as Error: strings the model can read, not exceptions, and neither one changes the registry. dict(...) matters: without it, both names would point at the same dict, and pausing the clone would pause the original too. The second test checks exactly that.",
+  }}
 />
 
 </CheckpointZone>

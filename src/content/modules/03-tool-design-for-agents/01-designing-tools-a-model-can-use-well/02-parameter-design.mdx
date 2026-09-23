@@ -4,7 +4,9 @@ lesson: "01-designing-tools-a-model-can-use-well"
 order: 2
 ---
 import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 <Subsection title="The schema constrains shape — not whether the shape makes sense" variant="a">
@@ -39,6 +41,118 @@ living directly on the parameter.
 
 </Subsection>
 
+<Subsection title="A comment never reaches the model — a Field description does" variant="b">
+
+There's a catch in `GoodArgs`: the `# ISO 8601` comment is invisible to
+the model. Comments aren't part of the schema, and the schema is all the
+model gets. To put that information where the model will actually see
+it, use
+[`Field(description=...)`, the same tool Module 0 used to fill in FastAPI's automatic docs](/00-python-essentials/09-building-apis-with-fastapi/06-automatic-docs/#what-ends-up-in-the-docs-and-where-it-comes-from):
+
+<LiveDemo client:load code={`import json
+from pydantic import BaseModel, Field
+
+class ScheduleMaintenanceArgs(BaseModel):
+    agent_name: str = Field(description="Exact registered name of the agent, e.g. 'research_agent'.")
+    date: str = Field(description="Day to run maintenance, ISO 8601 format: YYYY-MM-DD.")
+
+print(json.dumps(ScheduleMaintenanceArgs.model_json_schema()["properties"], indent=2))`} />
+
+Each description lands inside that parameter's entry in the schema,
+right next to its type. That's the per-parameter version of the
+description checklist from the previous concept: what the value means,
+plus any format or unit it has to follow.
+
+</Subsection>
+
+<Subsection title="Allowed values: Literal instead of a free-form string" variant="a">
+
+Some parameters only have a few valid values. An agent's status might be
+`"active"`, `"paused"` or `"retired"` and nothing else. Typing it as
+`str` lets the model send `"disabled"`, `"Paused"` or `"on hold"`, all
+valid strings. `Literal` from Python's `typing` module says exactly which
+values are allowed: `Literal["active", "paused", "retired"]` means "one of
+these three strings, spelled exactly like this":
+
+<LiveDemo client:load code={`from typing import Literal
+from pydantic import BaseModel, Field, ValidationError
+
+class SetAgentStatusArgs(BaseModel):
+    agent_name: str = Field(description="Exact registered name of the agent.")
+    status: Literal["active", "paused", "retired"] = Field(description="The agent's new status.")
+
+print(SetAgentStatusArgs.model_json_schema()["properties"]["status"])
+
+try:
+    SetAgentStatusArgs(agent_name="research_agent", status="disabled")
+except ValidationError as e:
+    print(e)`} />
+
+The schema turns the `Literal` into an `"enum"`: a list of the only
+allowed values. So the model sees the options up front, and constrained
+decoding can enforce them while generating. Pydantic also rejects
+anything else when it validates, as the
+[`ValidationError` from Module 0](/00-python-essentials/05-typed-data-models/04-pydantic-fundamentals/#validation-actually-happens-now)
+shows.
+
+</Subsection>
+
+<Subsection title="Required vs. optional, and names that carry units" variant="b">
+
+A parameter with a default value is **optional**: the model can leave it
+out and the default is used. A parameter without one is **required**.
+The schema records the difference in its `"required"` list, so the model
+knows exactly what it must provide:
+
+<LiveDemo client:load code={`from pydantic import BaseModel, Field
+
+class RunHealthCheckArgs(BaseModel):
+    agent_name: str = Field(description="Exact registered name of the agent.")
+    timeout_seconds: int = Field(default=30, description="Give up after this many seconds.")
+    verbose: bool = Field(default=False, description="Include per-check details in the result.")
+    notes: str | None = Field(default=None, description="Optional free-text note to attach to the check.")
+
+schema = RunHealthCheckArgs.model_json_schema()
+print("required:", schema["required"])
+for name, prop in schema["properties"].items():
+    print(f"{name}: default={prop.get('default', '(none -- required)')}")
+
+print(RunHealthCheckArgs(agent_name="research_agent"))`} />
+
+Only `agent_name` is required. Everything else has a sensible default, so
+the model can call the tool with just a name. Two details:
+
+- `str | None` reads as "a string, or `None`". Use it when "not given" is
+  a real, meaningful state, as with `notes` here.
+- `timeout_seconds`, not `timeout`. A bare `timeout=30` could mean
+  seconds or milliseconds, and the model has to guess. When a number has
+  a unit, put the unit in the name, where the model can't miss it.
+
+</Subsection>
+
+<Subsection title="Don't hide JSON inside a string parameter" variant="a">
+
+A tempting shortcut is one catch-all parameter that takes a JSON string:
+
+<LiveDemo client:load code={`from pydantic import BaseModel, Field
+
+class SearchAgentsBadArgs(BaseModel):
+    filters: str = Field(description='JSON object of filters, e.g. {"model": "claude-haiku", "status": "paused"}')
+
+print(SearchAgentsBadArgs.model_json_schema()["properties"]["filters"]["type"])
+print(SearchAgentsBadArgs(filters='{"model": "claude-haiku", "stauts": paused}'))`} />
+
+To the schema, `filters` is just a string, so any string passes. The one
+above has a misspelled key (`stauts`) and isn't even valid JSON
+(`paused` has no quotes), and it's accepted anyway. The model also has to
+produce JSON *inside* a JSON string, with every inner quote escaped,
+which is harder to get right than plain arguments. Give each filter its
+own typed parameter instead (`model: str`, `status: Literal[...]`), so
+the schema can check each one. When parameters naturally group together,
+the next lesson shows how to use a nested model instead of a string.
+
+</Subsection>
+
 <CheckpointZone>
 
 <QuizGroup
@@ -68,7 +182,86 @@ living directly on the parameter.
       explanation:
         "A str field can be filled with any string that satisfies the type check, ambiguous values included; a bool field gives constrained decoding an actual true/false to enforce.",
     },
+    {
+      question: "Why use Field(description=...) instead of a # comment next to a parameter?",
+      options: [
+        "They're equivalent — the model reads both",
+        "Comments never reach the model; a Field description is written into the schema, which is what the model actually receives",
+        "Comments are slower to run",
+        "Field descriptions change the parameter's type",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The model only sees the generated schema. The demo shows each description sitting inside that parameter's schema entry; a comment appears nowhere in it.",
+    },
+    {
+      question: "What does typing status as Literal[\"active\", \"paused\", \"retired\"] add over status: str?",
+      options: [
+        "Nothing — both accept the same values",
+        "The schema lists the three allowed values as an enum, so the model sees them up front and Pydantic rejects anything else",
+        "It makes status optional",
+        "It converts any string into the closest allowed value",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A Literal becomes an \"enum\" in the schema. The demo shows both halves: the enum in the schema, and a ValidationError for \"disabled\".",
+    },
+    {
+      question: "Why is a single filters: str parameter holding JSON a poor design?",
+      options: [
+        "JSON can't be stored in a string",
+        "The schema only knows it's a string, so misspelled keys and invalid JSON pass, and the model has to escape JSON inside JSON",
+        "It makes the tool run slower",
+        "Pydantic rejects string parameters longer than 50 characters",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The demo's filters value has a typo'd key and unquoted value and is still accepted. Separate typed parameters let the schema check each piece.",
+    },
   ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={'Fix ListAgentsArgs. Rename the fields to status, include_archived and limit (in that order). status must accept only "active", "paused" or "retired" and is required. include_archived must be a real boolean, defaulting to False. limit must be an integer, defaulting to 20. Every field needs a Field(description=...). The tests check ListAgentsArgs.model_json_schema().'}
+  starterCode={`from typing import Literal
+from pydantic import BaseModel, Field
+
+class ListAgentsArgs(BaseModel):
+    s: str      # "active", "paused" or "retired"
+    arch: str   # "yes" to also include archived agents
+    lim: int    # max results to return, normally 20`}
+  hiddenTests={[
+    `schema = ListAgentsArgs.model_json_schema()
+assert set(schema["properties"]) == {"status", "include_archived", "limit"}`,
+    `props = ListAgentsArgs.model_json_schema()["properties"]
+assert set(props["status"].get("enum", [])) == {"active", "paused", "retired"}`,
+    `props = ListAgentsArgs.model_json_schema()["properties"]
+assert props["include_archived"].get("type") == "boolean"
+assert props["include_archived"].get("default") is False`,
+    `schema = ListAgentsArgs.model_json_schema()
+assert schema["properties"]["limit"].get("type") == "integer"
+assert schema["properties"]["limit"].get("default") == 20
+assert schema.get("required") == ["status"]`,
+    `props = ListAgentsArgs.model_json_schema()["properties"]
+assert all(p.get("description", "").strip() for p in props.values())`,
+  ]}
+  hint={"Three changes per field: a clear name, the right type, and a Field(description=...). For status, use Literal[\"active\", \"paused\", \"retired\"] with no default, so it stays required. For include_archived and limit, pass default=... inside Field alongside the description, e.g. Field(default=20, description=\"...\")."}
+  correctAnswer={{
+    code: `from typing import Literal
+from pydantic import BaseModel, Field
+
+class ListAgentsArgs(BaseModel):
+    status: Literal["active", "paused", "retired"] = Field(description="Only list agents with this status.")
+    include_archived: bool = Field(default=False, description="Also include agents that have been archived.")
+    limit: int = Field(default=20, description="Maximum number of agents to return.")`,
+    explanation:
+      "Each fix shows up in the schema the model receives: status becomes an enum of the three allowed values, include_archived a boolean instead of a \"yes\" string, and every field carries a description. Because include_archived and limit have defaults, only status is listed as required, so the model can call the tool with just a status.",
+  }}
 />
 
 </CheckpointZone>

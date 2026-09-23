@@ -72,6 +72,42 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
       explanation:
         "A broad tool covers more ground, but asks the model to correctly construct something more complex on every single call.",
     },
+    {
+      question: "What does the model actually receive for each tool?",
+      options: [
+        "The function's source code",
+        "Its name, its description and a JSON schema for its arguments",
+        "Only its name",
+        "A test suite for the tool",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Name, description and argument schema are the whole of what the model sees. The function body never reaches it.",
+    },
+    {
+      question: "Which parameter design puts the most useful information where the model can see it?",
+      options: [
+        "status: str with a # comment listing the allowed values",
+        "status: Literal[\"active\", \"paused\", \"retired\"] = Field(description=\"...\")",
+        "s: str",
+        "filters: str holding a JSON object",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The Literal becomes an enum in the schema and the Field description is written into it. A comment never reaches the model, and a JSON string hides its structure from the schema.",
+    },
+    {
+      question: "When does a composite tool like clone_agent make sense?",
+      options: [
+        "Always — fewer tools is always better",
+        "For a common sequence that's always done the same way, where one call saves loop steps and resent context",
+        "Never — every tool should do exactly one thing",
+        "Only when the model can't call two tools",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Combining a common multi-step sequence into one call means fewer model calls and less resent history, without making the model's job harder.",
+    },
   ]}
 />
 
@@ -123,6 +159,107 @@ assert any(word in _comment_text for word in ("narrow", "broad", "granular"))`,
     # for the model to call correctly than a general query tool would be`,
     explanation:
       "Every piece here composes something from this lesson: get_agent_config and its docstring are specific enough that the model knows exactly what it returns and what agent_name means; agent_name: str is a real type hint, not the original's ambiguous str-for-everything; and the trailing comment states the granularity tradeoff explicitly, the same reasoning as run_sql's broader, riskier alternative.",
+  }}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={'Comprehensive sandbox: redesign a small registry toolset. The starter has three vague tools, each with an args model: data (look up one agent), find (search by model and status) and query (a broad tool that runs any filter expression). Replace them with exactly these: get_agent_config(agent_name) with GetAgentConfigArgs; search_agents(model, status) with SearchAgentsArgs, where status only allows "active", "paused" or "retired"; and list_agents(include_archived=False, limit=20) with ListAgentsArgs, where include_archived is a boolean and limit an integer. Remove data, find and query completely (and their args models): search_agents and list_agents cover what query was used for, without a free-form expression. Every docstring needs "Returns", "Use when" and "Not for"; every field needs a Field(description=...); and each function\'s parameters must match its args model\'s fields, in the same order. Bodies can stay as `...`.'}
+  starterCode={`from typing import Literal
+from pydantic import BaseModel, Field
+
+class DataArgs(BaseModel):
+    id: str
+
+def data(id: str) -> dict:
+    """Gets data."""
+    ...
+
+class FindArgs(BaseModel):
+    m: str
+    s: str
+
+def find(m: str, s: str) -> list:
+    """Finds agents."""
+    ...
+
+class QueryArgs(BaseModel):
+    q: str
+
+def query(q: str) -> list:
+    """Runs a filter expression over the registry, e.g. "model == 'claude-haiku' and status == 'paused'"."""
+    ...`}
+  hiddenTests={[
+    `for gone in ("data", "find", "query", "DataArgs", "FindArgs", "QueryArgs"):
+    assert gone not in globals(), gone
+for name in ("get_agent_config", "search_agents", "list_agents", "GetAgentConfigArgs", "SearchAgentsArgs", "ListAgentsArgs"):
+    assert name in globals(), name`,
+    `for tool in (get_agent_config, search_agents, list_agents):
+    doc = (tool.__doc__ or "").lower()
+    assert "return" in doc and "use when" in doc and "not for" in doc, tool.__name__`,
+    `import inspect
+for tool, args in ((get_agent_config, GetAgentConfigArgs), (search_agents, SearchAgentsArgs), (list_agents, ListAgentsArgs)):
+    props = args.model_json_schema()["properties"]
+    assert list(inspect.signature(tool).parameters) == list(props), tool.__name__
+    assert all(p.get("description", "").strip() for p in props.values()), args.__name__`,
+    `schema = SearchAgentsArgs.model_json_schema()
+assert set(schema["properties"]["status"].get("enum", [])) == {"active", "paused", "retired"}
+assert sorted(schema.get("required", [])) == ["model", "status"]
+assert GetAgentConfigArgs.model_json_schema().get("required") == ["agent_name"]`,
+    `schema = ListAgentsArgs.model_json_schema()
+props = schema["properties"]
+assert props["include_archived"].get("type") == "boolean" and props["include_archived"].get("default") is False
+assert props["limit"].get("type") == "integer" and props["limit"].get("default") == 20
+assert not schema.get("required")`,
+  ]}
+  hint={"Work through the lesson in order for each tool. Name and docstring: say what it returns, when to use it, and when not to (naming the tool to use instead). Parameters: clear names, Literal for status, bool and int with defaults for list_agents, and a Field(description=...) on every field. Granularity: query goes away entirely, because search_agents and list_agents cover its real uses with bounded, typed parameters. Finally, make sure each function's parameter list matches its args model field for field."}
+  correctAnswer={{
+    code: `from typing import Literal
+from pydantic import BaseModel, Field
+
+class GetAgentConfigArgs(BaseModel):
+    agent_name: str = Field(description="Exact registered name of the agent, e.g. 'research_agent'.")
+
+def get_agent_config(agent_name: str) -> dict:
+    """Look up one registered agent by its exact name.
+
+    Returns that agent's configuration as a dict (model, status, created date).
+    Use when you already know the agent's exact name.
+    Not for finding agents by model or status -- use search_agents for that.
+    """
+    ...
+
+class SearchAgentsArgs(BaseModel):
+    model: str = Field(description="Only agents running on this model, e.g. 'claude-haiku'.")
+    status: Literal["active", "paused", "retired"] = Field(description="Only agents with this status.")
+
+def search_agents(model: str, status: str) -> list:
+    """Find registered agents by model and status.
+
+    Returns a list of matching agent names (possibly empty).
+    Use when you need every agent matching both a model and a status.
+    Not for one agent's full configuration -- use get_agent_config for that.
+    """
+    ...
+
+class ListAgentsArgs(BaseModel):
+    include_archived: bool = Field(default=False, description="Also include archived agents.")
+    limit: int = Field(default=20, description="Maximum number of agent names to return.")
+
+def list_agents(include_archived: bool = False, limit: int = 20) -> list:
+    """List registered agent names, newest first.
+
+    Returns up to limit agent names.
+    Use when you need an overview of which agents exist.
+    Not for filtering by model or status -- use search_agents for that.
+    """
+    ...`,
+    explanation:
+      "Each part of the lesson is checked through the text the model would actually receive. The docstrings (__doc__) say what each tool returns and when to use it, and they point at each other. The schemas (model_json_schema()) have clear names, a status enum, a real boolean, defaults for the optional fields and a description on every field. The broad query tool is gone, replaced by two bounded tools that cover what it was used for.",
   }}
 />
 

@@ -4,7 +4,9 @@ lesson: "01-designing-tools-a-model-can-use-well"
 order: 1
 ---
 import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 A tool's name and description aren't documentation for a future developer
@@ -15,7 +17,48 @@ same category of mistake as
 [a vague prompt from Module 2](/02-the-agent-loop/02-prompting-fundamentals/01-specificity-and-clear-instructions/#the-pain-a-vague-instruction-leaves-too-much-to-guess),
 just now shaping a tool-selection decision instead of a written response.
 
-<Subsection title="The pain: a name and description that don't actually distinguish intent" variant="a">
+<Subsection title="What the model actually receives" variant="a">
+
+When you give a model a tool, what it receives is a small bundle of text:
+the tool's **name**, its **description**, and a **JSON schema** for its
+arguments. Here's that bundle built from ordinary Python: the name comes
+from
+[the function's `__name__`](/00-python-essentials/03-functions-and-reuse/02-args-and-kwargs/#why-this-matters-for-agent-code-forwarding-calls),
+the description from
+[its docstring](/00-python-essentials/03-functions-and-reuse/01-function-fundamentals/#docstrings)
+(`__doc__`), and the schema from
+[a Pydantic model's `.model_json_schema()`](/01-llm-foundations/10-structured-output-and-tool-calling/03-from-a-pydantic-model-to-a-schema/#generating-the-schema-directly-from-a-model-you-already-know):
+
+<LiveDemo client:load code={`import json
+from pydantic import BaseModel
+
+class GetUserProfileArgs(BaseModel):
+    user_id: str
+
+def get_user_profile(user_id: str) -> dict:
+    """Retrieve a user's profile (name, email, account status) by their
+    unique user ID. Use this when you need account details for a specific,
+    already-identified user -- not for searching by name."""
+    ...
+
+tool_definition = {
+    "name": get_user_profile.__name__,
+    "description": get_user_profile.__doc__,
+    "input_schema": GetUserProfileArgs.model_json_schema(),
+}
+print(json.dumps(tool_definition, indent=2))`} />
+
+(`indent=2` only makes `json.dumps` print the JSON across several
+indented lines so it's easier to read.) This printout *is* the model's
+input. The model never sees the function's body, only this text. If the
+description is vague, there's nothing else for the model to go on. The
+`\n` characters and the spaces after them are the docstring's line breaks
+and indentation, carried along as-is; the next lesson builds a helper
+that tidies them up.
+
+</Subsection>
+
+<Subsection title="The pain: a name and description that don't actually distinguish intent" variant="b">
 
 ```python
 def get_data(id: str) -> dict:
@@ -32,7 +75,7 @@ gave it enough to reason *with*.
 
 </Subsection>
 
-<Subsection title="The fix: specific enough to actually disambiguate" variant="b">
+<Subsection title="The fix: specific enough to actually disambiguate" variant="a">
 
 ```python
 def get_user_profile(user_id: str) -> dict:
@@ -54,6 +97,77 @@ behavior.
 
 </Subsection>
 
+<Subsection title="Two tools that overlap" variant="b">
+
+The real test comes when a model has several tools to choose from.
+Here's the menu a model would see for two user tools with vague
+descriptions, next to a request it has to handle:
+
+<LiveDemo client:load code={`def get_user_profile(user_id: str) -> dict:
+    """Gets user info."""
+    ...
+
+def search_users(name: str) -> list:
+    """Finds users."""
+    ...
+
+def show_tool_menu(tools: list) -> None:
+    for tool in tools:
+        print(f"- {tool.__name__}: {tool.__doc__}")
+
+print("Request: What's Dana Reyes's email address?")
+show_tool_menu([get_user_profile, search_users])`} />
+
+Both descriptions fit the request. "Gets user info" sounds like it
+returns an email. "Finds users" sounds like it looks someone up. The
+model has a name, not an ID, so the right move is `search_users` first
+and then `get_user_profile`, but nothing in the menu says so. A
+plausible wrong move is to call `get_user_profile` with
+`user_id="Dana Reyes"`. Now the same two tools, with descriptions that
+split the job between them:
+
+<LiveDemo client:load code={`def get_user_profile(user_id: str) -> dict:
+    """Returns one user's profile (name, email, account status) as a dict.
+    Use when you already have the user's ID. Not for finding a user by name -- use search_users for that."""
+    ...
+
+def search_users(name: str) -> list:
+    """Returns a list of {user_id, name} matches for a full or partial name.
+    Use when you only know a name. Not for reading profile details -- pass a user_id to get_user_profile."""
+    ...
+
+def show_tool_menu(tools: list) -> None:
+    for tool in tools:
+        print(f"- {tool.__name__}: {tool.__doc__}")
+
+print("Request: What's Dana Reyes's email address?")
+show_tool_menu([get_user_profile, search_users])`} />
+
+Each description now says what the tool returns and when to use it, and
+its "not for" line names the other tool. The two descriptions no longer
+compete for the same request: they describe two steps of one job,
+`search_users` to get the ID, then `get_user_profile` to read the email.
+
+</Subsection>
+
+<Subsection title="What a description should say" variant="a">
+
+A checklist for every tool description:
+
+- **What it does**, in plain words: "Retrieve a user's profile", not
+  "Gets data".
+- **When to use it**: the situation it's meant for ("use when you
+  already have the user's ID").
+- **When not to use it**: the plausible misuse, ideally naming the tool
+  to use instead ("not for finding a user by name — use `search_users`").
+- **What it returns**: the shape and fields ("a dict with name, email,
+  account status"), so the model knows what it will get back before it
+  calls.
+- **Units and formats**: anything the model has to get exactly right,
+  like "seconds", "ISO 8601 date (YYYY-MM-DD)" or "case-sensitive".
+
+</Subsection>
+
 <CheckpointZone>
 
 <QuizGroup
@@ -70,6 +184,18 @@ behavior.
       correctIndex: 1,
       explanation:
         "The name and description are exactly what the model sees when choosing among tools and deciding how to call one — not comments for a reader of the code.",
+    },
+    {
+      question: "In the first demo, what does the printed tool definition contain?",
+      options: [
+        "The function's full source code, including its body",
+        "The tool's name, its description and a JSON schema for its arguments, and nothing else",
+        "Only the function's name",
+        "A compiled version of the function the model can run",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The model never sees the function body. Name, description and argument schema are all it has to decide whether and how to call the tool.",
     },
     {
       question: "Why does get_data(id)'s vague name and description create a real problem, not just a style issue?",
@@ -95,7 +221,66 @@ behavior.
       explanation:
         "Like a system prompt's always/never constraints, this rules out a specific plausible mistake in advance — a strong nudge, not a mechanical guarantee.",
     },
+    {
+      question: "In the fixed search_users / get_user_profile pair, what stops the two descriptions from competing for the same request?",
+      options: [
+        "Longer tool names",
+        "Each says what it returns and when to use it, and its \"not for\" line names the other tool, so they read as two steps of one job",
+        "Removing one of the two tools",
+        "Putting the tools in alphabetical order",
+      ],
+      correctIndex: 1,
+      explanation:
+        "With explicit use-when and not-for boundaries that point at each other, the model can see that search_users gets the ID and get_user_profile reads the details.",
+    },
   ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={'Two registry tools have vague, overlapping descriptions. Rewrite both docstrings, keeping each function\'s name and parameter unchanged. Each docstring must: say what the tool returns (use the word "Returns"), include a "Use when" sentence, and include a "Not for" sentence that names the other tool to use instead. The bodies can stay as `...`.'}
+  starterCode={`def get_agent(agent_name: str) -> dict:
+    """Gets agent info."""
+    ...
+
+def find_agents(model: str) -> list:
+    """Finds agents."""
+    ...`}
+  hiddenTests={[
+    `import inspect
+assert list(inspect.signature(get_agent).parameters) == ["agent_name"]
+assert list(inspect.signature(find_agents).parameters) == ["model"]`,
+    `assert "return" in (get_agent.__doc__ or "").lower() and "return" in (find_agents.__doc__ or "").lower()`,
+    `assert "use when" in (get_agent.__doc__ or "").lower() and "use when" in (find_agents.__doc__ or "").lower()`,
+    `assert "not for" in (get_agent.__doc__ or "").lower() and "not for" in (find_agents.__doc__ or "").lower()`,
+    `assert "find_agents" in (get_agent.__doc__ or "") and "get_agent" in (find_agents.__doc__ or "")`,
+  ]}
+  hint={"Follow the checklist above, one sentence per item. For get_agent: what it returns (one agent's configuration dict), \"Use when\" you already know the exact name, \"Not for\" finding agents by model, naming find_agents. For find_agents, mirror it: returns a list of names, use when you know the model, not for reading one agent's configuration, naming get_agent."}
+  correctAnswer={{
+    code: `def get_agent(agent_name: str) -> dict:
+    """Look up one registered agent by its exact name.
+
+    Returns that agent's configuration as a dict (model, status, created date).
+    Use when you already know the agent's exact name.
+    Not for finding agents by model -- use find_agents for that.
+    """
+    ...
+
+def find_agents(model: str) -> list:
+    """Find every registered agent that runs on a given model.
+
+    Returns a list of agent names (possibly empty), e.g. ["research_agent"].
+    Use when you know the model (e.g. "claude-haiku") but not which agents use it.
+    Not for looking up one agent's full configuration -- use get_agent for that.
+    """
+    ...`,
+    explanation:
+      "Each docstring now covers what the tool returns, when it's the right choice, and when it isn't. The \"Not for\" lines point at each other, so a model reading both sees two separate jobs instead of two ways to \"get agents\". The tests check the docstrings themselves (__doc__), which is exactly the text the model would receive.",
+  }}
 />
 
 </CheckpointZone>
