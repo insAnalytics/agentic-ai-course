@@ -1,0 +1,238 @@
+---
+title: "Structured results and useful error messages"
+lesson: "03-designing-tool-results"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+export const REGISTRY = `import json
+registry = {
+    "research_agent": {"model": "claude-sonnet", "created": "2026-03-14", "status": "active"},
+    "support_agent": {"model": "claude-haiku", "created": "2026-05-02", "status": "paused"},
+    "billing_agent": {"model": "claude-haiku", "created": "2026-06-10", "status": "active"},
+    "legacy_agent": {"model": "claude-haiku", "created": "2025-11-01", "status": "retired"},
+}
+`;
+
+<Subsection title="Two more ways a result can be the wrong shape" variant="a">
+
+[Concept 2](/03-tool-design-for-agents/03-designing-tool-results/02-truncation-and-pagination/#the-fix-for-a-result-that-could-be-huge-cap-it-and-say-so)
+dealt with a result being too *big*. This concept covers two quieter
+problems: a result that's the right size but awkward for the model to
+actually *use*, and an error message that technically reports a failure
+but gives the model nothing to act on.
+
+</Subsection>
+
+<Subsection title="Prose results make the model re-extract what you already had" variant="b">
+
+<LiveDemo client:load code={`def get_agent_config_prose(agent_name: str, registry: dict) -> str:
+    info = registry[agent_name]
+    return (
+        f"The agent called {agent_name} is currently configured to run on "
+        f"{info['model']}, and it was originally set up on {info['created']}. "
+        f"Its current status is {info['status']}."
+    )
+
+registry = {
+    "research_agent": {"model": "claude-sonnet", "created": "2026-03-14", "status": "active"},
+}
+print(get_agent_config_prose("research_agent", registry))`} />
+
+The tool *had* clean, separate fields — `model`, `created`, `status` —
+and then deliberately blended them into a sentence. If the model's next
+step needs just the `model` value (to pass into another tool call, say),
+it now has to pull it back out of the prose itself. Usually that works;
+but it's an unnecessary, avoidable extraction step, and one more place
+for a subtle misreading to creep in.
+
+</Subsection>
+
+<Subsection title="The fix: return structured data, as JSON text" variant="a">
+
+A `tool_result`'s content is text —
+[the same message format from Module 2's hand-written loop](/02-the-agent-loop/04-writing-the-loop-by-hand/02-from-round-trip-to-loop/#the-actual-loop-written-and-running-for-real)
+— so "structured" here means structured *text*: JSON, produced with
+[`json.dumps`, from Module 0](/00-python-essentials/06-files-errors-and-validation/02-working-with-json/#json-loads-json-dumps-the-string-versions).
+
+<LiveDemo client:load code={`import json
+
+def get_agent_config(agent_name: str, registry: dict) -> str:
+    info = registry[agent_name]
+    return json.dumps({"agent_name": agent_name, **info})
+
+registry = {
+    "research_agent": {"model": "claude-sonnet", "created": "2026-03-14", "status": "active"},
+}
+print(get_agent_config("research_agent", registry))`} />
+
+Every field is labeled and separated — the model reads
+`"model": "claude-sonnet"` directly, with no sentence to parse around it.
+`{"agent_name": agent_name, **info}` uses
+[the `**` unpacking operator from Module 0](/00-python-essentials/03-functions-and-reuse/02-args-and-kwargs/#why-this-matters-for-agent-code-forwarding-calls),
+here inside a dict literal, to merge `info`'s keys into the new dict
+alongside `agent_name`.
+
+**When prose is actually fine:** a result the model will mostly just
+*relay* to a user — a short summary, a confirmation message — doesn't
+need JSON. Structure earns its place when the model needs to *act on*
+specific fields, not just read them out.
+
+</Subsection>
+
+<Subsection title="Useful error messages: say what failed, and what to do next" variant="b">
+
+[Lesson 2](/03-tool-design-for-agents/02-tool-schemas-and-argument-validation/03-validate-and-return-failures-as-observations/#closing-the-gap-a-validator-plus-the-failure-as-observation-pattern)
+established *that* failures should come back as observations. This is
+about the *quality* of that observation. Compare two ways of reporting the
+same failure:
+
+<LiveDemo client:load code={`import json
+
+def get_agent_config_bad_error(agent_name: str, registry: dict) -> str:
+    if agent_name not in registry:
+        return "Error: failed"
+    return json.dumps({"agent_name": agent_name, **registry[agent_name]})
+
+def get_agent_config_good_error(agent_name: str, registry: dict) -> str:
+    if agent_name not in registry:
+        available = list(registry.keys())[:5]
+        return (
+            f"Error: no agent named '{agent_name}'. "
+            f"Available agents include: {', '.join(available)}. "
+            f"Agent names are case-sensitive."
+        )
+    return json.dumps({"agent_name": agent_name, **registry[agent_name]})
+
+registry = {
+    "research_agent": {"model": "claude-sonnet", "created": "2026-03-14", "status": "active"},
+    "support_agent": {"model": "claude-haiku", "created": "2026-05-02", "status": "active"},
+}
+
+print(get_agent_config_bad_error("Research_Agent", registry))
+print(get_agent_config_good_error("Research_Agent", registry))`} />
+
+`"Error: failed"` tells the model *that* something went wrong and nothing
+else — its most likely next move is to retry the exact same call, which
+[Module 2's repeated-action detection](/02-the-agent-loop/06-termination-failure-and-control/03-repeated-action-detection/#a-sharper-signal-than-too-many-steps)
+would then have to catch. The better message names what failed, shows
+real valid options, and points at the likely cause (casing) — giving the
+model an obvious, correct next call to make. `[:5]` caps the list of
+names,
+[the same result-size discipline from Concept 2](/03-tool-design-for-agents/03-designing-tool-results/02-truncation-and-pagination/#the-fix-for-a-result-that-could-be-huge-cap-it-and-say-so),
+applied to an error message: a helpful error for a 5,000-agent registry
+shouldn't itself become a 50,000-token result.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why is get_agent_config_prose a worse design than returning structured JSON, when the model needs the model field for a follow-up call?",
+      options: [
+        "Prose is always invalid as a tool result",
+        "The tool already had separate fields, then blended them into a sentence the model must parse back apart — an unnecessary extraction step with room for misreading",
+        "JSON results cost fewer tokens in every case",
+        "The model can't read prose results at all",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The structure existed and the tool threw it away. The model can usually recover it, but that's avoidable work and one more chance to misread a value.",
+    },
+    {
+      question: "Why is \"structured\" tool output produced as JSON text, rather than a Python dict passed directly?",
+      options: [
+        "Python dicts are always slower",
+        "A tool_result's content is text, so structure has to be encoded into that text — JSON via json.dumps is the natural way",
+        "The model can only read JSON, never plain text",
+        "There's no real reason — dicts work just as well",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Whatever the tool returns ends up as text inside a tool_result message. JSON is a way of keeping labeled fields intact inside that text.",
+    },
+    {
+      question: "When is a prose result genuinely fine?",
+      options: [
+        "Never — structured output is always required",
+        "When the model will mostly relay it to a user rather than act on specific fields within it",
+        "Only for error messages",
+        "Only when the result is longer than 1,000 tokens",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Structure pays off when the model has to pull out specific values and use them. A confirmation or summary it just passes along doesn't need it.",
+    },
+    {
+      question: "Why is \"Error: failed\" a genuinely poor error message, not just a terse one?",
+      options: [
+        "It doesn't follow Python's exception format",
+        "It gives the model no information about what went wrong or what to try instead, making a blind retry of the same failing call its most likely next move",
+        "Error messages are never actually read by the model",
+        "It's too long",
+      ],
+      correctIndex: 1,
+      explanation:
+        "With nothing to go on, the model's best guess is the same call again, and that call fails the same way.",
+    },
+    {
+      question: "Why does the good error message cap its list of available names with [:5]?",
+      options: [
+        "Python lists can't hold more than five items in a string",
+        "The same result-size discipline from truncation applies to error messages — a helpful error shouldn't itself become an enormous result",
+        "The model can only process five options at once",
+        "It's purely cosmetic",
+      ],
+      correctIndex: 1,
+      explanation:
+        "An error message is a tool result too, with the same token cost. Listing every name in a 5,000-agent registry would bring back Concept 1's problem.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={'Implement get_agent_status(agent_name: str, registry: dict) -> str. On success, return JSON text containing exactly agent_name and status. On failure, return an error string that starts with "Error:", names the agent that wasn\'t found, and lists up to 3 available agent names.'}
+  starterCode={`import json
+
+def get_agent_status(agent_name: str, registry: dict) -> str:
+    # TODO: if agent_name isn't in registry, return an "Error: ..." string
+    #       naming it and listing up to 3 available agent names
+    # TODO: otherwise, return JSON text with exactly agent_name and status
+    ...`}
+  hiddenTests={[
+    REGISTRY + 'assert json.loads(get_agent_status("support_agent", registry)) == {"agent_name": "support_agent", "status": "paused"}',
+    REGISTRY + 'assert get_agent_status("ghost_agent", registry).startswith("Error:")',
+    REGISTRY + 'assert "ghost_agent" in get_agent_status("ghost_agent", registry)',
+    REGISTRY + 'assert "research_agent" in get_agent_status("ghost_agent", registry)',
+    REGISTRY + 'assert "legacy_agent" not in get_agent_status("ghost_agent", registry)',
+  ]}
+  hint={"For success, build a new dict with just the two requested keys and pass it to json.dumps — don't dump the whole info dict, since the test checks for exactly two fields. For failure, list(registry.keys())[:3] gives a bounded list, joined with \", \"."}
+  correctAnswer={{
+    code: `import json
+
+def get_agent_status(agent_name: str, registry: dict) -> str:
+    if agent_name not in registry:
+        available = list(registry.keys())[:3]
+        return (
+            f"Error: no agent named '{agent_name}'. "
+            f"Available agents include: {', '.join(available)}."
+        )
+    return json.dumps({"agent_name": agent_name, "status": registry[agent_name]["status"]})`,
+    explanation:
+      "The success path returns parseable JSON with only the fields asked for. The test runs it through json.loads, which proves it's real structure and not prose that happens to contain the right words. The failure path gives the model something concrete to act on. The test registry has four agents, so checking that the fourth (legacy_agent) is missing confirms the list is actually capped at 3.",
+  }}
+/>
+
+</CheckpointZone>

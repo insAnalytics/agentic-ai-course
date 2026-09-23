@@ -1704,8 +1704,15 @@ re-homed to a specific module — flagged for the mockup author.*
    with a graded `list_all_agents_paginated` exercise. Its demo outputs
    match the mockup exactly; the hidden tests were checked to fail both
    an always-append and a never-append continuation message. Concept 3
-   (structured results and useful error messages) and the bookends are
-   not yet drafted.
+   drafted: structured results and useful error messages (return JSON text
+   via `json.dumps` instead of blending fields into prose, since a
+   `tool_result` is text; prose is fine only for results the model just
+   relays; an error should say what failed, list real options (capped),
+   and point at the likely cause, not just "Error: failed"), with a graded
+   `get_agent_status` exercise. Hidden tests checked to fail dumping the
+   whole config, prose success output, an uncapped name list, and a bare
+   "Error: failed". All three concepts are now in; only the bookends
+   (intro, comprehensive quiz, comprehensive sandbox) remain.
 
 ---
 
