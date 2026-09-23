@@ -14,11 +14,22 @@ Every parameter in a model —
 [the embeddings and attention weights from Lesson 3](/01-llm-foundations/03-attention-and-transformer-architecture/02-the-attention-mechanism/),
 everything learned during
 [training](/01-llm-foundations/07-the-training-pipeline/01-pretraining/#what-actually-produces-the-parameters-behind-every-logit)
-— is stored as a number, at some specific numerical precision. Models are
-commonly trained and stored in **FP16** (16-bit floating point) or
-**FP32** (32-bit) by default — more bits per number means a more precise
-representation of that weight's actual value, but also more memory to
-store it and more computation to process it.
+— is stored as a number, at some specific numerical precision. More bits
+per number means a more precise representation of that weight's actual
+value, but also more memory to store it and more computation to process
+it. Most current models are trained in **BF16** (bfloat16, a 16-bit
+floating-point format), usually with **FP32** (32-bit) kept for some
+parts of training where precision matters most, and **FP8** increasingly
+used to cut cost further.
+
+BF16 uses the same 16 bits as the older **FP16** format, split
+differently. A floating-point number has exponent bits, which set how
+large or small a value can be, and mantissa bits, which set how many
+significant digits it keeps. BF16 has 8 exponent bits and 7 mantissa
+bits, where FP16 has 5 and 10. So BF16 covers a much wider range of
+values at lower precision. That trade suits training, where values can
+swing across a huge range and overflowing is worse than losing a few
+digits.
 
 </Subsection>
 
