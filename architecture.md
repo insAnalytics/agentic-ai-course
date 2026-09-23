@@ -1387,6 +1387,36 @@ explaining that every function is an object carrying its own
 definition-time name in `.__name__`, linking to that Module 0 demo as a
 supporting (not primary) example rather than the sole citation.
 
+**Enrichment pass (Module 2 L9–11 audit, Module 3 L1–3), 2026-09-23.**
+Every exercise was checked mechanically. A scratch script extracts each
+`GradedExercise`'s props from the built HTML (`astro-island props`,
+decoded from Astro's `[type, value]` encoding) and runs the reference
+solution and the starter through the real `TEST_HARNESS` in Pyodide
+0.26.4. This also runs every `LiveDemo` (with its `setupCode`). Findings:
+(1) Three Lesson 10 reference solutions (routing, orchestrator-workers,
+recap) left out code the starter provides (`ROUTES` and its handlers,
+`import asyncio`, `worker`, `normalize_request`). A learner who pasted the
+"correct answer" got a `NameError` on every test. Every reference now
+includes the given code. (2) Fixing (1) exposed a real test bug in two of
+them. The hidden tests are `String.raw` blocks, and `"...\\n..."` inside
+`String.raw` reaches Python as a literal backslash-n. The task, starter
+and reference all join with a real newline, so a correct submission could
+never pass. Tests now build the expected string with
+`chr(10).join([...])`, which avoids backslashes in raw test strings
+entirely. **Rule:** inside `String.raw`, write `\n` for a Python newline
+escape, never `\\n`; better, avoid backslashes in raw tests. (3) MDX
+dedents the lines of a template literal inside a JSX attribute (`code={`...`}`,
+`starterCode={`...`}`) by 2 spaces, but not in an `export const`. Python
+still runs, because the indentation stays consistent, but learners see
+2-space indentation in editors and a docstring's printed indentation
+changes. If one editor's code is built from both an `export const` and an
+inline literal, the two parts show different indentation. So the new
+Lesson 3.2 loop exercise builds its starter and reference entirely from
+`export const` pieces (`PAUSE_TOOL + LOOP_STARTER`). (4) Pyodide's Pydantic
+2.7 wraps a nested model's field schema as `{"allOf": [{"$ref": ...}],
+"description": ...}`, where newer Pydantic emits a bare `$ref`. The Lesson
+3.2 prose describes the 2.7 output learners actually see.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped

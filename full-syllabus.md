@@ -1532,6 +1532,14 @@ far" list directly below it.*
     with no conflict to resolve. Lesson 11 is now fully Locked — **Module
     2 (The Agent Loop) is now fully built, all 11 lessons Locked.**
 
+*Audit pass (2026-09-23), Lessons 9–11: every reference solution now
+passes its own hidden tests in Pyodide. Three Lesson 10 references were
+missing given code, and two Lesson 10 test sets compared against a literal
+backslash-n (architecture.md §4.1). "Concept N" wording was removed from
+Lesson 9. Lesson 11's framework-provides page gained a tracing-hook demo
+and 2 quiz questions; its control-given-up page gained a max_steps vs
+recursion_limit side-by-side demo and 1 quiz question.*
+
 **Old outline (superseded):**
 
 1. Build AI Chatbot with No Code
@@ -1557,6 +1565,17 @@ same situation as Module 2's earlier rename, kept as-is until a bookends
 mockup confirms the real module title. The original "Agent Frontends"
 scope (Streamlit/Gradio UIs, a production frontend, auth) is not yet
 re-homed to a specific module — flagged for the mockup author.*
+
+*Enrichment pass (2026-09-23): Lessons 1–3 were brought up to the course's
+normal depth. Each Lesson 1–2 concept page now has live demos, 4–5 quiz
+questions and a graded exercise (Lesson 2's validation concept has two:
+the original, plus a loop exercise). Both recaps have 8-question quizzes
+and a comprehensive sandbox. Lesson 3's first concept gained the
+compounding-cost demo and a 4-question quiz. The rest of Lesson 3 already
+matched its mockups. `Literal`, `str | None`, `model_validator` and
+`ValidationError.errors()` are taught in place where first used. The entries
+below describe each lesson as first converted; see the git log
+(`Enrich Module 3 Lesson N`) for the full change list.*
 
 1. **Designing Tools a Model Can Use Well** — Locked
    Title confirmed by the bookends mockup (folder renamed from the working
