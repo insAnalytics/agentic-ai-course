@@ -27,6 +27,69 @@ as anything else sent to the model. A single unbounded result here is
 nearly 50,000 tokens — a real, expensive, budget-consuming cost, for a
 question that very likely only needed a handful of those 5,000 entries.
 
+One caveat about that number: dividing characters by 4 is only a rough
+rule of thumb. Real token counts depend on the tokenizer and on the text
+itself,
+[as Module 1 showed with the same sentence tokenized differently](/01-llm-foundations/01-tokenization/03-tokens-in-practice-and-cost/#the-same-sentence-tokenized-differently-depending-on-what-it-contains),
+and text full of names, digits and punctuation, like this registry dump,
+can come out noticeably different from plain prose. Treat `// 4` as a
+way to get the order of magnitude, not a measurement. The order of
+magnitude is the point here: tens of thousands of tokens either way.
+
+</Subsection>
+
+<Subsection title="Big results bury the relevant line" variant="b">
+
+Cost isn't the only problem. Say the question was "which model does
+`agent_2471` use?" The answer is one line out of 5,000, and it sits
+almost exactly in the middle of the result. Models don't use every part
+of a long context equally well:
+[information in the middle of a long input is the most likely to be missed](/01-llm-foundations/06-context-windows-and-kv-cache/05-uneven-use-of-long-contexts/#the-lost-in-the-middle-effect).
+So an oversized result costs more *and* makes the one line that matters
+harder to use. A smaller result that contains just the relevant entries
+helps on both counts.
+
+</Subsection>
+
+<Subsection title="The cost compounds: the result stays in the scratchpad" variant="a">
+
+A tool result isn't paid for once. It becomes part of the conversation,
+[the agent's scratchpad](/02-the-agent-loop/07-agent-state-and-the-scratchpad/01-the-scratchpad/#why-it-has-to-exist-the-model-remembers-nothing-on-its-own),
+and
+[every later request resends the whole conversation](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/03-multi-turn-conversations/#the-real-compounding-cost-consequence).
+So one oversized result is charged again on every request that follows
+it. Here's that cost over the next ten requests, compared with a result
+capped at a few hundred tokens:
+
+<LiveDemo client:load code={`def input_tokens_over_next_turns(result_tokens: int, turns: int, history_tokens: int = 1000, tokens_per_turn: int = 300) -> list:
+    # history_tokens: the conversation before the tool call
+    # tokens_per_turn: each later exchange (a user message plus a reply) adds this much
+    history = history_tokens + result_tokens   # the result joins the scratchpad
+    per_request = []
+    for turn in range(turns):
+        per_request.append(history)            # every request resends the whole history
+        history += tokens_per_turn
+    return per_request
+
+for label, result_tokens in [("unbounded result", 48472), ("capped result", 250)]:
+    requests = input_tokens_over_next_turns(result_tokens, turns=10)
+    print(f"{label}: first request {requests[0]} tokens, last {requests[-1]}, total over 10 requests {sum(requests)}")
+
+extra = sum(input_tokens_over_next_turns(48472, 10)) - sum(input_tokens_over_next_turns(250, 10))
+print("extra input tokens from the unbounded result:", extra, "=", 48472 - 250, "x 10")`} />
+
+The difference between the two results, about 48,000 tokens, is paid on
+every one of the ten requests: nearly half a million extra input tokens
+from one tool call. The numbers for the rest of the conversation are
+made up, but the multiplication isn't. Whatever a result costs once, it
+costs again on every later request for as long as it stays in the
+conversation.
+
+Deciding what should stay in the context over a long conversation, and
+summarizing or dropping old results, is a bigger topic that a later
+module covers. This lesson has a narrower job: keep each result small
+in the first place.
+
 </Subsection>
 
 <CheckpointZone>
@@ -57,6 +120,30 @@ question that very likely only needed a handful of those 5,000 entries.
       correctIndex: 1,
       explanation:
         "Nearly 50,000 tokens of real input cost, for a result the model almost certainly didn't need in full.",
+    },
+    {
+      question: "Besides cost, why is a 5,000-line result bad for answering a question about one agent?",
+      options: [
+        "The model can't read results longer than 1,000 lines",
+        "The one relevant line is buried in a long input, and information in the middle of a long context is the most likely to be missed",
+        "Long results are always rejected by the API",
+        "There's no other problem",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Models use long contexts unevenly. A small result containing just the relevant entries is cheaper and easier to use.",
+    },
+    {
+      question: "Why does one oversized tool result cost far more than its own token count?",
+      options: [
+        "The API charges double for tool results",
+        "It stays in the conversation, and every later request resends the whole conversation, so it's paid for again on each one",
+        "Tool results are sent twice per request",
+        "It doesn't — it's paid for exactly once",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The compounding demo shows the difference of roughly 48,000 tokens being paid on each of the next ten requests.",
     },
   ]}
 />

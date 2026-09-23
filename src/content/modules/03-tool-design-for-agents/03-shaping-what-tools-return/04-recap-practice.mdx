@@ -145,7 +145,7 @@ def search_agents_by_model(model: str, registry: dict, offset: int = 0, limit: i
     REGISTRY + 'assert "gpt-5" in search_agents_by_model("gpt-5", registry)',
     REGISTRY + 'assert "claude-sonnet" in search_agents_by_model("gpt-5", registry) and "claude-opus" in search_agents_by_model("gpt-5", registry)',
   ]}
-  hint={"Build the full list of matches first with a list comprehension over registry.items(), then slice it [offset:offset + limit] for the page — the same slicing as Concept 2's pagination. next_offset is offset + limit when that's still less than total, otherwise None — json.dumps turns None into JSON null automatically. For the error, a set comprehension over the registry's model values gives the distinct models."}
+  hint={"Build the full list of matches first with a list comprehension over registry.items(), then slice it [offset:offset + limit] for the page — the same slicing as the pagination concept. next_offset is offset + limit when that's still less than total, otherwise None — json.dumps turns None into JSON null automatically. For the error, a set comprehension over the registry's model values gives the distinct models."}
   correctAnswer={{
     code: `import json
 
@@ -165,7 +165,7 @@ def search_agents_by_model(model: str, registry: dict, offset: int = 0, limit: i
 
     return json.dumps({"model": model, "agents": page, "total": total, "next_offset": next_offset})`,
     explanation:
-      "Each part of the lesson shows up here. The page is capped by limit (Concept 1's cost concern). total and next_offset tell the model how much exists and how to get more, so partial data is never mistaken for the whole (Concept 2). The result is parseable JSON with labeled fields, including a next_offset the model can pass straight back into its next call (Concept 3). The error names the failed search and shows what would work. sorted(...) just makes the error's order stable, since sets have no guaranteed order.",
+      "Each part of the lesson shows up here. The page is capped by limit (the cost of oversized results). total and next_offset tell the model how much exists and how to get more, so partial data is never mistaken for the whole (truncation and pagination). The result is parseable JSON with labeled fields, including a next_offset the model can pass straight back into its next call (structured results). The error names the failed search and shows what would work. sorted(...) just makes the error's order stable, since sets have no guaranteed order.",
   }}
 />
 

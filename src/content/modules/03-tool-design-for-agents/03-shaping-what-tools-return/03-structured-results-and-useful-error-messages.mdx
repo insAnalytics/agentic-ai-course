@@ -20,7 +20,7 @@ registry = {
 
 <Subsection title="Two more ways a result can be the wrong shape" variant="a">
 
-[Concept 2](/03-tool-design-for-agents/03-shaping-what-tools-return/02-truncation-and-pagination/#the-fix-for-a-result-that-could-be-huge-cap-it-and-say-so)
+[Truncation and pagination](/03-tool-design-for-agents/03-shaping-what-tools-return/02-truncation-and-pagination/#the-fix-for-a-result-that-could-be-huge-cap-it-and-say-so)
 dealt with a result being too *big*. This concept covers two quieter
 problems: a result that's the right size but awkward for the model to
 actually *use*, and an error message that technically reports a failure
@@ -132,7 +132,7 @@ would then have to catch. The better message names what failed, shows
 real valid options, and points at the likely cause (casing) — giving the
 model an obvious, correct next call to make. `[:5]` caps the list of
 names,
-[the same result-size discipline from Concept 2](/03-tool-design-for-agents/03-shaping-what-tools-return/02-truncation-and-pagination/#the-fix-for-a-result-that-could-be-huge-cap-it-and-say-so),
+[the same result-size discipline from truncation and pagination](/03-tool-design-for-agents/03-shaping-what-tools-return/02-truncation-and-pagination/#the-fix-for-a-result-that-could-be-huge-cap-it-and-say-so),
 applied to an error message: a helpful error for a 5,000-agent registry
 shouldn't itself become a 50,000-token result.
 
@@ -201,7 +201,7 @@ shouldn't itself become a 50,000-token result.
       ],
       correctIndex: 1,
       explanation:
-        "An error message is a tool result too, with the same token cost. Listing every name in a 5,000-agent registry would bring back Concept 1's problem.",
+        "An error message is a tool result too, with the same token cost. Listing every name in a 5,000-agent registry would bring back the oversized-result problem this lesson started with.",
     },
   ]}
 />

@@ -11,7 +11,7 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 <Subsection title="The fix for a result that could be huge: cap it, and say so" variant="a">
 
-[Concept 1 showed the real cost of an unbounded result](/03-tool-design-for-agents/03-shaping-what-tools-return/01-why-a-huge-tool-result-hurts/#a-tool-result-is-just-more-input-tokens)
+[The previous concept showed the real cost of an unbounded result](/03-tool-design-for-agents/03-shaping-what-tools-return/01-why-a-huge-tool-result-hurts/#a-tool-result-is-just-more-input-tokens)
 — the fix isn't complicated, but it has to be done carefully: cap the
 result size, and make it *obvious* to the model that truncation happened,
 rather than silently dropping data and letting the model reason from an
@@ -84,7 +84,7 @@ regardless of actual need.
       options: [
         "Nothing — the two approaches are functionally identical",
         "Request additional pages only when a task genuinely needs them, rather than being permanently limited to the first slice",
-        "Bypass the token cost from Concept 1 entirely",
+        "Bypass the token cost of large results entirely",
         "Automatically retrieve every entry in a single call regardless of size",
       ],
       correctIndex: 1,
