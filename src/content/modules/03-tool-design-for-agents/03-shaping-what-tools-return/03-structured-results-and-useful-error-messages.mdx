@@ -184,7 +184,7 @@ shouldn't itself become a 50,000-token result.
       options: [
         "It doesn't follow Python's exception format",
         "It gives the model no information about what went wrong or what to try instead, making a blind retry of the same failing call its most likely next move",
-        "Error messages are never actually read by the model",
+        "It's too short for the model to recognize it as an error at all",
         "It's too long",
       ],
       correctIndex: 1,
@@ -197,7 +197,7 @@ shouldn't itself become a 50,000-token result.
         "Python lists can't hold more than five items in a string",
         "The same result-size discipline from truncation applies to error messages — a helpful error shouldn't itself become an enormous result",
         "The model can only process five options at once",
-        "It's purely cosmetic",
+        "The API rejects tool results that contain more than five list items",
       ],
       correctIndex: 1,
       explanation:

@@ -94,7 +94,7 @@ through this exact loop, not some separate, cheaper reasoning process.
       options: [
         "It doesn't — sequence stays identical across all three calls",
         "Each generated token gets appended to sequence before the next call, so every call sees the full sequence including everything generated so far",
-        "The function randomly shuffles the sequence between calls",
+        "Each call gets a fresh copy of the original prompt, trimmed to a fixed window of its last three tokens",
         "sequence resets to empty after each call",
       ],
       correctIndex: 1,
@@ -104,7 +104,7 @@ through this exact loop, not some separate, cheaper reasoning process.
     {
       question: "Why does generating a longer response require proportionally more computation than a shorter one?",
       options: [
-        "It doesn't — response length has no effect on computation",
+        "Only the prompt goes through the full model; each later token comes from a cheap cached lookup, so length barely matters",
         "Every generated token requires its own full pass through the entire model, over the whole sequence so far — more tokens generated means more full passes performed",
         "Only the first few tokens require real computation; the rest are free",
         "Longer responses use a smaller, cheaper version of the model",

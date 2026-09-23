@@ -98,7 +98,7 @@ something an actual human typed.
       options: [
         "It doesn't — the model already knows the tool's result without being told",
         "The tool's result has to be sent back as a new message in the conversation, and the model needs a new API call to actually process that updated conversation and produce its final answer",
-        "Tool calls never actually require any follow-up interaction at all",
+        "The model pauses mid-response and waits, so the tool's result is injected into the same, still-open call",
         "The original API call automatically waits for the tool to finish before responding",
       ],
       correctIndex: 1,
@@ -122,7 +122,7 @@ something an actual human typed.
       options: [
         "Yes, always",
         "No — it's a message your own code generates, containing the tool's actual output, formatted as a new turn in the conversation",
-        "Tool results can never be represented as messages at all",
+        "Yes — the API requires every user-role message to be typed by a real person",
         "Only the original question can ever come from a real human",
       ],
       correctIndex: 1,
@@ -132,7 +132,7 @@ something an actual human typed.
     {
       question: "What does this concept's full round trip actually demonstrate, mechanically?",
       options: [
-        "A completely new API mechanism, unrelated to anything covered earlier",
+        "A dedicated tool-calling endpoint that keeps the conversation's state on the provider's servers between calls",
         "Several already-covered mechanisms — statelessness, multi-turn history resending, and constrained-decoding-guaranteed structured output — composed together into one realistic flow",
         "That tool calls require a fundamentally different kind of server infrastructure",
         "That tool calling only works within a single API call, never across two",

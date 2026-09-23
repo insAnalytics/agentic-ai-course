@@ -325,8 +325,8 @@ saw exactly what went wrong and could tell the user.
       options: [
         "Returning a string is required by Pydantic",
         "It follows Module 2's tool-errors-as-observations pattern — the model needs to actually see the failure, not have the whole interaction crash",
-        "This has no real purpose",
-        "Exceptions can never be caught in Python",
+        "Exceptions raised inside a tool are silently swallowed by the loop, so a return value is the only thing anyone sees",
+        "Returning a string is faster than raising, which keeps the loop inside its step budget",
       ],
       correctIndex: 1,
       explanation:

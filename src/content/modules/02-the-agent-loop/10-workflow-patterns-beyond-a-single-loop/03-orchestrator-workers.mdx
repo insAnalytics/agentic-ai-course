@@ -90,7 +90,7 @@ open-ended decision-making anywhere in the structure.
         "It doesn't matter either way",
         "A hardcoded list would mean the orchestrator already knew the answer; getting sub_tasks from the model is what makes this a genuine decomposition step, not a disguised constant",
         "asyncio.gather requires its inputs to come from a function call",
-        "Hardcoding a list of sub-tasks is impossible in Python",
+        "A hardcoded list can't be passed to asyncio.gather, so the plan has to come from a call",
       ],
       correctIndex: 1,
       explanation:
@@ -99,7 +99,7 @@ open-ended decision-making anywhere in the structure.
     {
       question: "Why is orchestrator-workers genuinely different from a smaller agent loop, not just a simplified version of one?",
       options: [
-        "There's no real difference between the two",
+        "Orchestrator-workers is just an agent loop with max_steps set to 1",
         "Each worker has a fixed job with no open-ended decision-making; the full agent loop's defining trait -- the model deciding what to do next dynamically -- is entirely absent",
         "Orchestrator-workers always uses more tool calls than an agent loop",
         "Workers are always run sequentially, never in parallel",

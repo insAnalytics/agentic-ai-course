@@ -31,7 +31,7 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
         "A larger vocabulary always solves the problem completely",
         "The number of possible words is effectively unbounded, so no fixed list, however large, can contain all of it",
         "Dictionaries in Python can't hold more than a fixed number of keys",
-        "Vocabulary size has no relationship to this problem at all",
+        "A bigger vocabulary makes each token's embedding less precise, so quality falls faster than coverage grows",
       ],
       correctIndex: 1,
       explanation:
@@ -40,7 +40,7 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
     {
       question: "What does BPE actually do to build its vocabulary?",
       options: [
-        "It randomly selects a fixed number of words to include",
+        "It collects every complete word in the training text and keeps the most frequent ones, never splitting anything smaller than a word",
         "It starts from individual characters and repeatedly merges whichever adjacent pair appears most frequently across a large body of training text",
         "It translates every word into a numeric hash",
         "It removes all rare words from the training data before tokenizing",

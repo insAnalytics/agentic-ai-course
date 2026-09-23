@@ -64,6 +64,17 @@ A lesson is built from a repeating unit, followed by a fixed closing sequence:
   and an explanation shown after answering (why the correct answer is
   correct, ideally also why the common wrong answer is tempting).
 - Conceptual only — no code writing/execution in a quiz card.
+- Option order doesn't matter: `QuizGroup` shuffles each question's options
+  at render time (deterministically, seeded from the question text) and
+  assigns the A–D letters after shuffling. Authors can keep the correct
+  option in any position. Because of this, an explanation must never refer
+  to an option by letter or position ("option B", "the second one").
+- Wrong options should be plausible misconceptions a real learner might
+  hold about this specific concept, not throwaways ("it's required by
+  law", "purely cosmetic", "it happens randomly").
+- The correct option shouldn't reliably be the longest or the most
+  qualified one. Keep the options similar in length and hedging, so a
+  learner can't pick the answer without reading it.
 
 ### Applied sandbox exercises
 - Placed at natural checkpoints — not mandatory after every single concept

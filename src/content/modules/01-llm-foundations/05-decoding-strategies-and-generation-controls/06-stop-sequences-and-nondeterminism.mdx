@@ -107,7 +107,7 @@ guarantee of byte-for-byte identical output across every call.
     {
       question: "Why can temperature 0 fail to produce byte-for-byte identical output across identical requests, in practice?",
       options: [
-        "It always produces identical output — this never actually happens",
+        "Temperature 0 still samples, just from a very sharp distribution, so a rare token occasionally slips through",
         "Real infrastructure details, like batching multiple requests together on shared hardware, can subtly change the order floating-point operations execute in, which can occasionally flip which of two very close candidates comes out narrowly ahead",
         "Temperature 0 disables the model's logit computation entirely",
         "This only happens with sampling-based decoding, never greedy",

@@ -141,7 +141,7 @@ would reimplement something Pydantic already provides for free.
     {
       question: "Why does `serialize_messages` check `hasattr(block, \"to_dict\")` before calling it, rather than calling `.to_dict()` on every content item unconditionally?",
       options: [
-        "This check is unnecessary and has no real purpose",
+        "It skips blocks whose to_dict would lose information, such as thinking blocks",
         "Some content items — like `tool_result` entries — are already plain dicts with no `to_dict` method, so calling it unconditionally would raise an error on those",
         "`hasattr` is required syntax for any dict-related operation",
         "`to_dict` only exists on the very first item in any content list",

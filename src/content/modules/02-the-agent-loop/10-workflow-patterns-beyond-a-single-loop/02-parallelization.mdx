@@ -105,7 +105,7 @@ payoff.
       options: [
         "They use the same tool name",
         "They had no dependency on each other in the dependency graph — neither's outcome depended on the other's",
-        "They were both scheduled at the same time by coincidence",
+        "They ran on different models, so they couldn't interfere with each other",
         "Parallelization is always safe regardless of dependencies",
       ],
       correctIndex: 1,
@@ -141,7 +141,7 @@ payoff.
       options: [
         "They're unrelated mechanisms with nothing in common",
         "Both are ways of running independent work together rather than one at a time -- one is several concurrent async calls, the other is several actions requested in a single model turn",
-        "A response can only ever contain one tool_use block, so this never actually happens",
+        "They're unrelated: tool_use blocks in one response must always be executed one after another",
         "asyncio.gather is required to handle multiple tool_use blocks",
       ],
       correctIndex: 1,

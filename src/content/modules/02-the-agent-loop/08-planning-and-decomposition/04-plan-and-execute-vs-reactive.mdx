@@ -96,7 +96,7 @@ does.
         "Plan-and-execute — deciding the full sequence before starting",
         "Purely reactive — deciding one step at a time, based only on current state, with no advance structure",
         "Neither approach — those loops use a completely different strategy",
-        "A hybrid of both, decided randomly",
+        "Plan-and-execute, with the system prompt serving as the plan each loop follows",
       ],
       correctIndex: 1,
       explanation:
@@ -129,7 +129,7 @@ does.
     {
       question: "Why did Lesson 6 need real guards like `max_steps` as a defensive backstop, specifically for reactive loops?",
       options: [
-        "Reactive loops never actually need any guards",
+        "Reactive loops call tools more slowly, so max_steps is there to prevent timeouts",
         "A reactive loop has no upfront bound on its own step count, unlike plan-and-execute, which knows its step count in advance from the plan itself",
         "Plan-and-execute loops need exactly the same guards for the same reason",
         "`max_steps` was only ever relevant to Lesson 6's specific examples, not a general principle",

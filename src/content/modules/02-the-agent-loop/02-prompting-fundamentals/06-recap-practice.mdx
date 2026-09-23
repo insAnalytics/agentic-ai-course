@@ -80,7 +80,7 @@ export const T_FINAL = String.raw`assert len(_blocks) >= 2 and len(re.findall(r"
     {
       question: "Why can a narrow, non-representative few-shot example set produce worse results than no examples at all?",
       options: [
-        "This can never happen",
+        "The model skips duplicated text, so near-identical examples are simply ignored",
         "It can mislead the model into a pattern too specific to those examples, hurting generalization to genuinely different valid inputs",
         "Similar examples always improve consistency",
         "The model ignores similar-looking examples",
@@ -116,7 +116,7 @@ export const T_FINAL = String.raw`assert len(_blocks) >= 2 and len(re.findall(r"
     {
       question: "Why does asking for step-by-step reasoning tend to improve accuracy on a multi-step problem?",
       options: [
-        "It has no real effect on accuracy",
+        "Writing steps out gives the model extra time to think between tokens, regardless of what the steps say",
         "Each written-out step becomes part of the sequence the model conditions on for the next prediction, scaffolding that's absent when jumping straight to a final answer",
         "It only helps by making the response longer",
         "It only works for arithmetic specifically",

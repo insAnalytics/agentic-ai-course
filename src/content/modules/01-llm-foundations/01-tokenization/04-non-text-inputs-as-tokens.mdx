@@ -61,7 +61,7 @@ worth of context space and cost.
       options: [
         "Through a completely separate system, unrelated to how it processes text",
         "The image gets converted into tokens — some numeric, sequence-shaped representation — processed using the same underlying architecture as text",
-        "Images are stored as-is and never actually processed by the model itself",
+        "A separate captioning step first describes the image in text, and the model only ever reads that caption",
         "Only the image's filename is passed to the model, not its content",
       ],
       correctIndex: 1,
@@ -86,7 +86,7 @@ worth of context space and cost.
       options: [
         "Images are always cheaper than any amount of text",
         'A single image can cost several hundred to over a thousand tokens, which is often far more than "one image" intuitively feels like it should cost',
-        "Images never actually consume any tokens at all",
+        "An image always costs exactly one token, since the whole picture is passed to the model as a single unit",
         "Token cost for images is identical regardless of resolution",
       ],
       correctIndex: 1,

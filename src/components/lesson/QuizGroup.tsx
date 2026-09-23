@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import LinkedText from "./LinkedText";
 
 interface Question {
@@ -16,7 +16,49 @@ interface QuizGroupProps {
 
 const LETTERS = ["A", "B", "C", "D", "E", "F"];
 
-export default function QuizGroup({ questions }: QuizGroupProps) {
+/** FNV-1a hash of a string, used to seed each question's shuffle. */
+function hashString(text: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+}
+
+/** mulberry32: a small seeded PRNG returning floats in [0, 1). */
+function seededRandom(seed: number): () => number {
+  let state = seed;
+  return () => {
+    state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Shuffles a question's options, seeded from its own text, and remaps
+ * correctIndex. Deterministic, so the order is stable across reloads and
+ * server-rendered HTML matches hydration. Authors can put the correct
+ * option in any position.
+ */
+function shuffleQuestion(q: Question): Question {
+  const random = seededRandom(hashString(q.question));
+  const order = q.options.map((_, i) => i);
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return {
+    ...q,
+    options: order.map((i) => q.options[i]),
+    correctIndex: order.indexOf(q.correctIndex),
+  };
+}
+
+export default function QuizGroup({ questions: authoredQuestions }: QuizGroupProps) {
+  const questions = useMemo(() => authoredQuestions.map(shuffleQuestion), [authoredQuestions]);
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [correctCount, setCorrectCount] = useState(0);

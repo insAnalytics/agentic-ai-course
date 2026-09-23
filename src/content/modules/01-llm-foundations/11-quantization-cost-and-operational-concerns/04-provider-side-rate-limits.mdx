@@ -82,7 +82,7 @@ states directly how long to wait.
         "They're the exact same concept, just described twice",
         "Module 0's version protects your own API from client misuse; this concept is the reverse — the provider limiting how often you can call their API",
         "Provider-side rate limiting only applies to free-tier accounts",
-        "There's no real difference in how either is actually implemented",
+        "Module 0's version limits requests per second; a provider's limits only cap your total monthly spend",
       ],
       correctIndex: 1,
       explanation:
@@ -105,8 +105,8 @@ states directly how long to wait.
       options: [
         "Immediate retries always succeed, so backoff is unnecessary",
         "Retrying immediately would likely hit the exact same limit again right away, while a growing wait time gives the provider's shared capacity genuine room to recover",
-        "Exponential backoff is required by law for all APIs",
-        "There's no real difference between immediate retries and backoff",
+        "Waiting requests aren't billed, so backoff avoids paying for requests that would fail anyway",
+        "Immediate retries are blocked permanently, while backed-off requests join a queue on the provider's side",
       ],
       correctIndex: 1,
       explanation:
@@ -117,7 +117,7 @@ states directly how long to wait.
       options: [
         "This is arbitrary and unrelated to the retry logic",
         "`2 ** attempt` doubles the wait time with each consecutive attempt, the actual exponential shape backoff is named for",
-        "The wait time is fixed and never actually changes",
+        "The provider's 429 response states exactly how long to wait each time, and the demo copies that value",
         "The wait time decreases with each attempt, not increases",
       ],
       correctIndex: 1,

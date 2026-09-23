@@ -98,7 +98,7 @@ is only about the second one.
         "Two LLM calls is always too few to count as an agent",
         "The sequence — `summarize` always before `translate` — is fixed directly in the code, not decided dynamically based on either call's output",
         "`run_workflow` doesn't actually use any LLM calls",
-        "Workflows can never call an LLM more than once",
+        "It only becomes an agent once it calls a tool; plain LLM calls always make a workflow",
       ],
       correctIndex: 1,
       explanation:
@@ -110,7 +110,7 @@ is only about the second one.
         "No — an agent must always make at least two tool calls",
         "Yes — as long as whether to make that call, and what to do next, was the model's own runtime decision rather than something predetermined by the code",
         "No — a single tool call is always a chatbot, never an agent",
-        "This is impossible; agents and workflows are mutually exclusive by call count",
+        "No — an agent needs several tool calls; with only one, it's a chatbot with a tool attached",
       ],
       correctIndex: 1,
       explanation:
