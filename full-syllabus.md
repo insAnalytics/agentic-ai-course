@@ -1697,9 +1697,15 @@ re-homed to a specific module — flagged for the mockup author.*
    50,000 tokens" to match. All three callbacks resolved to verified
    anchors (Module 1's response-shape concept's `usage` subsection, its
    context-window concept's token-budget subsection, its token-pricing
-   concept's basic-mechanics subsection). The mockup's own closing note
-   says Concept 2 (truncation and pagination) is drafted separately, not
-   yet converted.
+   concept's basic-mechanics subsection). Concept 2 drafted: truncation
+   and pagination (cap the result *and say so* — an explicit "showing 3
+   of 5000" marker so the model can't mistake a slice for the whole; then
+   an `offset`/`limit` pair so it can fetch more pages only when needed),
+   with a graded `list_all_agents_paginated` exercise. Its demo outputs
+   match the mockup exactly; the hidden tests were checked to fail both
+   an always-append and a never-append continuation message. Concept 3
+   (structured results and useful error messages) and the bookends are
+   not yet drafted.
 
 ---
 
