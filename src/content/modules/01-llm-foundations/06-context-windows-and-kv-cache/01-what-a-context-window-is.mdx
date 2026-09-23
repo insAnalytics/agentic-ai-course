@@ -14,14 +14,19 @@ A **context window** is the maximum number of tokens a model can
 process in a single request — everything counted together: the prompt,
 any conversation history, documents provided, and (as
 [the next concept covers directly](/01-llm-foundations/06-context-windows-and-kv-cache/02-max-output-length-vs-context-window/)) the response itself. It isn't an arbitrary business
-limit — it comes directly from the architecture
-[covered in Lesson 3](/01-llm-foundations/03-attention-and-transformer-architecture/00-intro/).
+limit — it comes from how the model is built
+([the architecture covered in Lesson 3](/01-llm-foundations/03-attention-and-transformer-architecture/00-intro/))
+and how it was trained.
 
 </Subsection>
 
-<Subsection title="Why there's a limit at all: attention's real computational cost" variant="b">
+<Subsection title="Why there's a limit at all: three constraints" variant="b">
 
-[Attention, from Lesson 3](/01-llm-foundations/03-attention-and-transformer-architecture/02-the-attention-mechanism/#query-key-value-the-mechanism-that-produces-those-weights),
+Three separate things limit how long a context can be. Each one gets
+harder as the number of tokens grows, and a real model's window is set
+where all three are still manageable.
+
+**1. Compute.** [Attention, from Lesson 3](/01-llm-foundations/03-attention-and-transformer-architecture/02-the-attention-mechanism/#query-key-value-the-mechanism-that-produces-those-weights),
 computes a relevance score between *every pair* of tokens in the
 sequence — every token compares its Query against every other token's
 Key. That means the amount of computation required grows with the
@@ -34,11 +39,31 @@ for length in [10, 100, 1000, 10000]:
     print(f"{length} tokens -> {attention_pair_count(length):,} pairs to compute")`} />
 
 A 10× increase in sequence length produces a 100× increase in the
-number of pairwise comparisons attention actually has to compute — this
-quadratic growth is the real, mechanical reason a context window has a
-hard limit at all, not just a policy choice: processing an arbitrarily
-long sequence would require an arbitrarily, impractically large amount
-of computation.
+number of pairwise comparisons attention actually has to compute. An
+arbitrarily long sequence would need an arbitrarily, impractically large
+amount of computation.
+
+**2. Memory.** To avoid recomputing work for every new token, a model
+keeps each earlier token's Keys and Values in memory, in every layer.
+That store,
+[the KV cache this lesson covers shortly](/01-llm-foundations/06-context-windows-and-kv-cache/03-kv-cache/#what-actually-doesn-t-need-to-be-recomputed),
+grows by one entry per token for as long as the request runs. For a large
+model and a long context it can take many gigabytes of accelerator
+memory, for a single request. Efficient attention implementations such
+as FlashAttention cut attention's *own* working memory substantially,
+but they don't change the quadratic compute above, and the KV cache
+still grows with every token.
+
+**3. Training length.** A model is trained on sequences up to some
+length. Positions beyond that range are ones it has seen rarely or never
+during training, so
+[the position information it relies on](/01-llm-foundations/03-attention-and-transformer-architecture/03-positional-encoding/#how-most-current-models-do-it-rotary-position-embeddings-rope)
+stops being familiar, and the quality of its output degrades even if the
+hardware could keep going. A model's advertised window is the length it
+was actually trained (or specifically extended) to handle well.
+
+So the limit isn't a policy choice. It comes from how much compute,
+memory and trained experience a model has for long sequences.
 
 </Subsection>
 
@@ -96,16 +121,28 @@ visible or obvious from the outside.
         "Every token is compared against every other token, so n tokens means n × n pairs — 10× the length is 100× the comparisons.",
     },
     {
-      question: "What's the real, mechanical reason a context window has a hard limit at all?",
+      question: "What actually limits how long a context window can be?",
       options: [
-        "It's purely an arbitrary business decision unrelated to how the model works",
-        "Attention's quadratic computational cost means processing an arbitrarily long sequence would require an arbitrarily, impractically large amount of computation",
-        "Context windows exist only to control how much a user is billed",
-        "There's no real technical reason — it could be removed entirely with no consequence",
+        "Only attention's quadratic compute; memory use and training don't depend on how long the context is",
+        "Three things together: attention's compute grows quadratically, the KV cache's memory grows with every token, and the model was only trained on sequences up to some length",
+        "The tokenizer's vocabulary size, which caps how many distinct positions can be numbered",
+        "Only the KV cache's memory; once the cache is warm, compute no longer grows with length",
       ],
       correctIndex: 1,
       explanation:
-        "The limit follows from attention's pairwise cost: unbounded length would mean unbounded computation.",
+        "Compute, memory and training length each grow harder with more tokens. A real window sits where all three are still manageable.",
+    },
+    {
+      question: "Why can a model's output get worse past its trained length, even on hardware with memory and compute to spare?",
+      options: [
+        "The hardware silently truncates anything past the trained length before the model sees it",
+        "Positions beyond the training range are ones the model has rarely or never seen, so its position information stops being familiar and quality degrades",
+        "Longer contexts always use a lower-precision number format",
+        "The model switches to a smaller, faster version of itself for long inputs",
+      ],
+      correctIndex: 1,
+      explanation:
+        "This is the training-length constraint: enough hardware doesn't help if the model never learned to use those positions well.",
     },
   ]}
 />
