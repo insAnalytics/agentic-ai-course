@@ -33,6 +33,78 @@ shape.
 
 </Subsection>
 
+<Subsection title="Four more ways a valid call can still be wrong" variant="b">
+
+A past date is one example of a wider pattern. Here are four tool calls,
+each typed exactly right, each accepted by Pydantic, and each wrong in a
+different way:
+
+<LiveDemo client:load code={`from datetime import date
+from pydantic import BaseModel
+
+REGISTRY = {
+    "research_agent": {"model": "claude-sonnet", "status": "active"},
+    "legacy_agent": {"model": "claude-haiku", "status": "retired"},
+}
+
+class SetMaxResultsArgs(BaseModel):
+    agent_name: str
+    max_results: int
+
+class UpdateAgentModelArgs(BaseModel):
+    agent_name: str
+    model: str
+
+class PauseAgentArgs(BaseModel):
+    agent_name: str
+    start_date: date
+    end_date: date
+
+calls = [
+    ("out-of-range number", SetMaxResultsArgs(agent_name="research_agent", max_results=-5)),
+    ("agent that doesn't exist", UpdateAgentModelArgs(agent_name="research_agnet", model="claude-opus")),
+    ("start date after end date", PauseAgentArgs(agent_name="research_agent", start_date="2026-10-10", end_date="2026-10-01")),
+    ("invalid for current state", UpdateAgentModelArgs(agent_name="legacy_agent", model="claude-opus")),
+]
+for label, call in calls:
+    print(f"accepted ({label}): {call}")
+print("legacy_agent's status:", REGISTRY["legacy_agent"]["status"])`} />
+
+Every call got through. Each one breaks a different kind of rule:
+
+- **Out of range.** `max_results=-5` is an `int`, but a negative count of
+  results means nothing. The type allows it; the meaning doesn't.
+- **A reference to something that doesn't exist.** `"research_agnet"` is
+  a perfectly good string. It just isn't the name of any agent.
+- **Fields that contradict each other.** Each date is valid on its own.
+  Only together are they wrong: the pause would end before it starts. A
+  check on one field at a time can never see this.
+- **Invalid for the current state.** `legacy_agent` exists, and
+  `"claude-opus"` is a real model. But the agent is retired, so updating
+  it makes no sense *right now*. Nothing in the arguments alone can tell
+  you that. It depends on what's in the registry at the moment of the
+  call.
+
+</Subsection>
+
+<Subsection title="Why models produce calls like these" variant="a">
+
+None of these calls is random noise. They're *plausible*, and that's the
+problem. A model produces arguments the same way it produces any text,
+[predicting likely tokens rather than checking facts](/01-llm-foundations/04-how-llms-generate-text/03-the-model-predicts-it-doesnt-know/#the-same-mechanism-whether-the-answer-is-grounded-or-not).
+`"research_agnet"` looks like an agent name. A date range, a result
+count and a model name all look like what those fields usually hold. An
+ID the model half-remembers, or invents because it fits the pattern,
+looks exactly as confident as a real one. Constrained decoding makes sure
+the *shape* is right. Nothing in the generation process checks that the
+*values* are true.
+
+So the fix can't live in the schema or the model. It has to live in your
+code, which does know today's date, what's in the registry, and which
+rules connect the fields. That's the next concept.
+
+</Subsection>
+
 <CheckpointZone>
 
 <QuizGroup
@@ -61,6 +133,42 @@ shape.
       correctIndex: 1,
       explanation:
         "Constrained decoding enforces shape at generation time; it has no access to real-world facts like today's date or the actual contents of a database.",
+    },
+    {
+      question: "Why can't a check on each field separately catch start_date=2026-10-10 with end_date=2026-10-01?",
+      options: [
+        "Dates can never be validated",
+        "Each date is valid on its own; the problem only exists when the two fields are compared",
+        "Pydantic doesn't support date fields",
+        "The dates are in the wrong format",
+      ],
+      correctIndex: 1,
+      explanation:
+        "This is a cross-field rule. It needs a check that sees both fields at once, which is exactly what the next concept adds.",
+    },
+    {
+      question: "What makes updating legacy_agent's model a different kind of problem from the misspelled research_agnet?",
+      options: [
+        "They're the same problem",
+        "legacy_agent exists and the arguments are fine; the call is wrong only because of the registry's current state (the agent is retired)",
+        "legacy_agent is misspelled too",
+        "claude-opus isn't a real model",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Nothing in the arguments reveals the problem. Only a check against the registry at the moment of the call can catch it.",
+    },
+    {
+      question: "Why does a model produce a plausible-looking but nonexistent ID like research_agnet?",
+      options: [
+        "It's trying to break the tool",
+        "It generates arguments by predicting likely tokens, not by checking facts, so an invented ID that fits the pattern looks just as confident as a real one",
+        "Constrained decoding changes the letters",
+        "The schema told it to",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Same mechanism as any other generated text: the model predicts, it doesn't know. The check has to happen in your code.",
     },
   ]}
 />

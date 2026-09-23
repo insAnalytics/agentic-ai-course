@@ -72,6 +72,42 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
       explanation:
         "An unhandled exception here would crash the whole agent loop; a returned string is an observation the model can read and react to instead.",
     },
+    {
+      question: "What does a helper like to_tool_definition(func, args_model) build, and from what?",
+      options: [
+        "A new Python function, from a JSON file",
+        "The name / description / input_schema definition, from the function's __name__, its docstring and the args model's schema",
+        "Only the input schema",
+        "A test suite for the tool",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The code becomes the single source of truth for the definition the model receives, so the two can't drift apart.",
+    },
+    {
+      question: "Which of these would Pydantic accept, given only type annotations: max_results=-5, an agent name with a typo, an end date before the start date, an update to a retired agent?",
+      options: [
+        "None of them",
+        "All four — each is correctly typed, and each is wrong for a reason the types can't express",
+        "Only the typo",
+        "Only the negative number",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Out-of-range values, missing references, cross-field contradictions and invalid-for-state calls all pass a type check. They need validators and tool-body checks.",
+    },
+    {
+      question: "Why trim a ValidationError with e.errors() before returning it to the model?",
+      options: [
+        "e.errors() makes the validation stricter",
+        "The full text includes the input, type codes and a docs URL; the model only needs which field failed and why, and every extra character costs input tokens",
+        "The model can't read ValidationError text at all",
+        "It's required for the error to be returned as a string",
+      ],
+      correctIndex: 1,
+      explanation:
+        "e.errors() exposes each problem's location and message as data, so the tool can return something short and to the point.",
+    },
   ]}
 />
 
@@ -81,14 +117,15 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 <GradedExercise
   client:load
-  task={'Implement update_agent_model(agent_name: str, model: str, registry: dict) -> str, validating that agent_name exists and model is one of {"claude-sonnet", "claude-haiku", "claude-opus"} (a Pydantic validator), returning "Error: ..." strings on either failure, or a success message otherwise.'}
-  starterCode={`from pydantic import BaseModel, field_validator
+  task={'Implement update_agent_model(agent_name: str, model: str, registry: dict, fallback_model: str | None = None) -> str. Validate with a Pydantic model: model must be one of {"claude-sonnet", "claude-haiku", "claude-opus"} (a field_validator). fallback_model is optional; when it\'s given, a model_validator must check that it\'s also one of those models and that it differs from model (a message containing "must differ"). Then check agent_name exists in registry. Return "Error: ..." strings on any failure, and change nothing in registry when one happens. On success, set the agent\'s "model" (and "fallback_model", only when one was given) and return "<agent_name> updated to <model>".'}
+  starterCode={`from pydantic import BaseModel, field_validator, model_validator
 
 VALID_MODELS = {"claude-sonnet", "claude-haiku", "claude-opus"}
 
 class UpdateModelArgs(BaseModel):
     agent_name: str
     model: str
+    fallback_model: str | None = None
 
     @field_validator("model")
     @classmethod
@@ -96,7 +133,13 @@ class UpdateModelArgs(BaseModel):
         # TODO: raise ValueError if value isn't in VALID_MODELS
         ...
 
-def update_agent_model(agent_name: str, model: str, registry: dict) -> str:
+    @model_validator(mode="after")
+    def fallback_must_be_valid_and_different(self):
+        # TODO: if fallback_model was given, raise ValueError if it isn't in
+        #       VALID_MODELS, or if it's the same as model; return self
+        ...
+
+def update_agent_model(agent_name: str, model: str, registry: dict, fallback_model: str | None = None) -> str:
     # TODO: build UpdateModelArgs, catching a validation error
     # TODO: check agent_name exists in registry
     # TODO: update registry and return the success message
@@ -111,16 +154,28 @@ assert update_agent_model("research_agent", "claude-sonnet", registry) == "resea
     `registry = {"research_agent": {"model": "claude-haiku"}}
 update_agent_model("research_agent", "claude-sonnet", registry)
 assert registry["research_agent"]["model"] == "claude-sonnet"`,
+    `registry = {"research_agent": {"model": "claude-haiku"}}
+result = update_agent_model("research_agent", "claude-sonnet", registry, fallback_model="claude-sonnet")
+assert result.startswith("Error:") and "must differ" in result
+assert registry["research_agent"] == {"model": "claude-haiku"}`,
+    `registry = {"research_agent": {"model": "claude-haiku"}}
+result = update_agent_model("research_agent", "claude-sonnet", registry, fallback_model="gpt-5")
+assert result.startswith("Error:") and "not a valid model" in result`,
+    `registry = {"research_agent": {"model": "claude-haiku"}}
+result = update_agent_model("research_agent", "claude-sonnet", registry, fallback_model="claude-haiku")
+assert result == "research_agent updated to claude-sonnet"
+assert registry["research_agent"] == {"model": "claude-sonnet", "fallback_model": "claude-haiku"}`,
   ]}
-  hint={"Same two-check shape as the lesson's own schedule_maintenance: wrap UpdateModelArgs(...) construction in a try/except and return an Error: string built from the caught exception -- this is what model_must_be_valid's raise ValueError(...) surfaces as. Only once construction succeeds, check agent_name against registry and return a second Error: string if it's missing. Only after both checks pass should you actually write the new model into registry and return the success message -- don't forget that last write, a passing return string alone isn't the whole job."}
+  hint={"Same two-stage shape as the lesson's pause_agent. Stage one, Pydantic: field_validator for model on its own, and a model_validator(mode=\"after\") for the rule that involves two fields. In the model_validator, return self straight away if fallback_model is None; otherwise raise ValueError for an unknown fallback (include \"not a valid model\") or one equal to model (include \"must differ\"), and return self at the end. Wrap the UpdateModelArgs(...) construction in try/except and return an Error: string. Stage two, the tool body: check the registry, and only then write model (and fallback_model if given) into it."}
   correctAnswer={{
-    code: `from pydantic import BaseModel, field_validator
+    code: `from pydantic import BaseModel, field_validator, model_validator
 
 VALID_MODELS = {"claude-sonnet", "claude-haiku", "claude-opus"}
 
 class UpdateModelArgs(BaseModel):
     agent_name: str
     model: str
+    fallback_model: str | None = None
 
     @field_validator("model")
     @classmethod
@@ -129,17 +184,29 @@ class UpdateModelArgs(BaseModel):
             raise ValueError(f"'{value}' is not a valid model")
         return value
 
-def update_agent_model(agent_name: str, model: str, registry: dict) -> str:
+    @model_validator(mode="after")
+    def fallback_must_be_valid_and_different(self):
+        if self.fallback_model is None:
+            return self
+        if self.fallback_model not in VALID_MODELS:
+            raise ValueError(f"fallback '{self.fallback_model}' is not a valid model")
+        if self.fallback_model == self.model:
+            raise ValueError("fallback_model must differ from model")
+        return self
+
+def update_agent_model(agent_name: str, model: str, registry: dict, fallback_model: str | None = None) -> str:
     try:
-        args = UpdateModelArgs(agent_name=agent_name, model=model)
+        args = UpdateModelArgs(agent_name=agent_name, model=model, fallback_model=fallback_model)
     except Exception as e:
         return f"Error: {str(e)}"
     if args.agent_name not in registry:
         return f"Error: no agent named '{args.agent_name}' exists in the registry"
     registry[args.agent_name]["model"] = args.model
+    if args.fallback_model is not None:
+        registry[args.agent_name]["fallback_model"] = args.fallback_model
     return f"{args.agent_name} updated to {args.model}"`,
     explanation:
-      "This is the whole lesson composed a second time on a new tool: field_validator closes the semantic gap (an invalid model name is correctly-typed but still wrong), the registry check closes the existence gap, and both return an observation string instead of raising. The final registry[args.agent_name][\"model\"] = args.model line is easy to forget -- without it, the function reports success without actually updating anything.",
+      "This composes the whole lesson on one tool. field_validator handles a rule about one field (model must be real). model_validator handles the rule that needs two fields at once (a fallback must differ from the model it backs up). The registry check handles the world's current state. Every failure comes back as an observation string, and nothing is written to the registry until all three pass. The last test checks the registry itself, so a function that only returns the right string wouldn't pass.",
   }}
 />
 

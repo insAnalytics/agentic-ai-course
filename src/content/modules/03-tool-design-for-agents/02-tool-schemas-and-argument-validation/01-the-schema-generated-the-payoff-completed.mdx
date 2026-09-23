@@ -6,6 +6,7 @@ order: 1
 import Subsection from "../../../../components/lesson/Subsection.astro";
 import LiveDemo from "../../../../components/lesson/LiveDemo";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 <Subsection title="The standard, from here forward" variant="a">
@@ -26,6 +27,87 @@ Nothing new mechanically — this concept exists to make explicit that
 and this schema mechanism are two halves of the same job: good field
 names and types feed directly into a schema the model's calls are
 actually constrained against.
+
+</Subsection>
+
+<Subsection title="Richer arguments: lists and nested models" variant="b">
+
+Real tools often take more than flat strings and numbers. Two shapes come
+up constantly: a **list** of values, and a group of related fields that
+belong together. For the list, use the `list[str]` type hint from
+[Module 0's collections lesson](/00-python-essentials/02-collections/01-lists/).
+For the group, define a second `BaseModel` and use it as a field's type.
+That's a **nested model**: Pydantic validates the inner fields too, and
+the schema describes them.
+
+<LiveDemo client:load code={`import json
+from pydantic import BaseModel, Field
+
+class Owner(BaseModel):
+    team: str = Field(description="Team responsible for the agent.")
+    contact_email: str = Field(description="Where alerts about this agent are sent.")
+
+class RegisterAgentArgs(BaseModel):
+    agent_name: str = Field(description="Unique name for the new agent.")
+    model: str = Field(description="Model the agent runs on, e.g. 'claude-sonnet'.")
+    tags: list[str] = Field(description="Short labels for filtering, e.g. ['support', 'eu'].")
+    owner: Owner = Field(description="Who owns this agent.")
+
+print(json.dumps(RegisterAgentArgs.model_json_schema(), indent=2))`} />
+
+Two things to find in the output:
+
+- `tags` has `"type": "array"` with `"items": {"type": "string"}`: a list,
+  and every item must be a string.
+- `Owner` is described once under `"$defs"`, and the `owner` field points
+  to it with a `"$ref"` to `#/$defs/Owner` (wrapped here in an `"allOf"`
+  list, which just means "must match this"). The model sees `team` and
+  `contact_email`, their descriptions, and that both are required.
+
+This is the structured alternative to
+[the JSON-in-a-string parameter the previous lesson warned against](/03-tool-design-for-agents/01-designing-tools-a-model-can-use-well/02-parameter-design/#don-t-hide-json-inside-a-string-parameter):
+the grouping is still there, but now the schema can see inside it and
+check every part.
+
+</Subsection>
+
+<Subsection title="The full tool definition, built from code" variant="a">
+
+[The previous lesson](/03-tool-design-for-agents/01-designing-tools-a-model-can-use-well/01-names-and-descriptions-as-prompts/#what-the-model-actually-receives)
+assembled a tool definition by hand: name, description and input schema.
+Doing that by hand for every tool invites mistakes, so here it is as a
+helper that takes any function plus its args model:
+
+<LiveDemo client:load code={`import json
+from pydantic import BaseModel, Field
+
+class GetAgentConfigArgs(BaseModel):
+    agent_name: str = Field(description="Exact registered name of the agent.")
+
+def get_agent_config(agent_name: str) -> dict:
+    """Look up one registered agent by its exact name.
+
+    Returns that agent's configuration as a dict.
+    """
+    ...
+
+def to_tool_definition(func, args_model) -> dict:
+    return {
+        "name": func.__name__,
+        "description": func.__doc__,
+        "input_schema": args_model.model_json_schema(),
+    }
+
+print(json.dumps(to_tool_definition(get_agent_config, GetAgentConfigArgs), indent=2))`} />
+
+The code is now the single source of truth. Rename the function or
+change the docstring or a field, and the next call to
+`to_tool_definition` reflects it, with no separate JSON to keep in sync.
+Two rough edges remain, though, and both are visible above. The
+description still carries the docstring's line breaks and indentation
+(the `\n` characters and the spaces after them). And a function with *no* docstring would quietly produce
+`"description": null`, a tool the model has no description for. The
+exercise below fixes both.
 
 </Subsection>
 
@@ -58,7 +140,134 @@ actually constrained against.
       explanation:
         "The schema mechanism enforces whatever shape the Pydantic model declares — Lesson 1's discipline is what decides whether that shape is actually a good one.",
     },
+    {
+      question: "How does a nested model like Owner appear in the generated schema?",
+      options: [
+        "It doesn't — nested models are invisible to the schema",
+        "It's described once under \"$defs\", and the field points to it with a \"$ref\", so its inner fields and descriptions are all visible",
+        "As a single string field",
+        "Only its class name appears",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The schema includes Owner's own fields, types, descriptions and required list, which is exactly what a JSON-in-a-string parameter would hide.",
+    },
+    {
+      question: "Why build tool definitions with a helper like to_tool_definition instead of writing the JSON by hand?",
+      options: [
+        "Hand-written JSON is not allowed by the API",
+        "The function and its args model become the single source of truth, so the definition can't drift out of sync with the code",
+        "The helper makes tools run faster",
+        "It removes the need for docstrings",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Name, description and schema all come from the code itself. Change the code and the definition follows.",
+    },
   ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={'Implement to_tool_definition(func, args_model) -> dict, returning {"name": ..., "description": ..., "input_schema": ...}. name is the function\'s __name__, and input_schema is args_model.model_json_schema(). Improve the demo\'s description in two ways: collapse all whitespace in the docstring (line breaks, indentation, repeated spaces) into single spaces, with none at either end; and if the function has no docstring, or one that\'s only whitespace, raise ValueError instead of returning a definition.'}
+  starterCode={`def to_tool_definition(func, args_model) -> dict:
+    # TODO: build the description from func.__doc__, with all whitespace
+    #       collapsed to single spaces; raise ValueError if it's empty
+    # TODO: return the name / description / input_schema dict
+    ...`}
+  hiddenTests={[
+    `from pydantic import BaseModel, Field
+
+class PauseAgentArgs(BaseModel):
+    agent_name: str = Field(description="Exact registered name of the agent.")
+    reason: str = Field(description="Why the agent is being paused.")
+
+def pause_agent(agent_name: str, reason: str) -> str:
+    """Pause one registered agent.
+
+        Returns a confirmation string.
+    Use when an agent must stop taking work.
+    """
+    ...
+
+d = to_tool_definition(pause_agent, PauseAgentArgs)
+assert set(d) == {"name", "description", "input_schema"}
+assert d["name"] == "pause_agent"`,
+    `from pydantic import BaseModel, Field
+
+class PauseAgentArgs(BaseModel):
+    agent_name: str = Field(description="Exact registered name of the agent.")
+    reason: str = Field(description="Why the agent is being paused.")
+
+def pause_agent(agent_name: str, reason: str) -> str:
+    """Pause one registered agent.
+
+        Returns a confirmation string.
+    Use when an agent must stop taking work.
+    """
+    ...
+
+d = to_tool_definition(pause_agent, PauseAgentArgs)
+assert d["description"] == "Pause one registered agent. Returns a confirmation string. Use when an agent must stop taking work."`,
+    `from pydantic import BaseModel, Field
+
+class PauseAgentArgs(BaseModel):
+    agent_name: str = Field(description="Exact registered name of the agent.")
+    reason: str = Field(description="Why the agent is being paused.")
+
+def pause_agent(agent_name: str, reason: str) -> str:
+    """Pause one registered agent."""
+    ...
+
+assert to_tool_definition(pause_agent, PauseAgentArgs)["input_schema"] == PauseAgentArgs.model_json_schema()`,
+    `from pydantic import BaseModel
+
+class NoArgs(BaseModel):
+    pass
+
+def undocumented() -> str:
+    ...
+
+try:
+    to_tool_definition(undocumented, NoArgs)
+    raised = False
+except ValueError:
+    raised = True
+assert raised`,
+    `from pydantic import BaseModel
+
+class NoArgs(BaseModel):
+    pass
+
+def blank_doc() -> str:
+    """   """
+    ...
+
+try:
+    to_tool_definition(blank_doc, NoArgs)
+    raised = False
+except ValueError:
+    raised = True
+assert raised`,
+  ]}
+  hint={"str.split() with no arguments splits on any run of whitespace (spaces, line breaks, indentation) and drops empty pieces, so \" \".join(text.split()) collapses it all into single spaces. func.__doc__ is None when there's no docstring, so start from (func.__doc__ or \"\"). If the collapsed result is empty, raise ValueError."}
+  correctAnswer={{
+    code: `def to_tool_definition(func, args_model) -> dict:
+    description = " ".join((func.__doc__ or "").split())
+    if not description:
+        raise ValueError(f"{func.__name__} has no docstring, so the model would get no description")
+    return {
+        "name": func.__name__,
+        "description": description,
+        "input_schema": args_model.model_json_schema(),
+    }`,
+    explanation:
+      "\" \".join(text.split()) turns any mix of line breaks and indentation into clean single spaces, so the model gets one tidy paragraph. (func.__doc__ or \"\") handles a missing docstring, and the empty-string check catches both no docstring and a whitespace-only one. Raising there stops a tool with no description from ever reaching the model.",
+  }}
 />
 
 </CheckpointZone>

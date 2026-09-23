@@ -8,6 +8,92 @@ import LiveDemo from "../../../../components/lesson/LiveDemo";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import GradedExercise from "../../../../components/lesson/GradedExercise";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+
+export const PAUSE_TOOL = String.raw`from datetime import date
+from pydantic import BaseModel, ValidationError, model_validator
+
+REGISTRY = {
+    "research_agent": {"status": "active"},
+    "support_agent": {"status": "active"},
+    "legacy_agent": {"status": "retired"},
+}
+
+class PauseAgentArgs(BaseModel):
+    agent_name: str
+    start_date: date
+    end_date: date
+
+    @model_validator(mode="after")
+    def end_must_follow_start(self):
+        if self.end_date <= self.start_date:
+            raise ValueError(f"end_date {self.end_date} must be after start_date {self.start_date}")
+        return self
+
+def short_error(e: ValidationError) -> str:
+    problems = []
+    for error in e.errors():
+        field = ".".join(str(part) for part in error["loc"])
+        problems.append(f"{field}: {error['msg']}" if field else error["msg"])
+    return "; ".join(problems)
+
+def pause_agent(agent_name: str, start_date: str, end_date: str) -> str:
+    # checks that depend only on the arguments: Pydantic
+    try:
+        args = PauseAgentArgs(agent_name=agent_name, start_date=start_date, end_date=end_date)
+    except ValidationError as e:
+        return f"Error: {short_error(e)}"
+    # checks that depend on the registry's current state: the tool body
+    if args.agent_name not in REGISTRY:
+        return f"Error: no agent named '{args.agent_name}'"
+    if REGISTRY[args.agent_name]["status"] == "retired":
+        return f"Error: {args.agent_name} is retired, so it can't be paused"
+    REGISTRY[args.agent_name]["status"] = "paused"
+    return f"{args.agent_name} paused from {args.start_date} to {args.end_date}"
+
+TOOLS = {"pause_agent": pause_agent}
+`;
+
+export const PAUSE_CALLS = String.raw`
+print(pause_agent("research_agent", "2026-10-01", "2026-10-10"))
+print(pause_agent("support_agent", "2026-10-10", "2026-10-01"))
+print(pause_agent("research_agnet", "2026-10-01", "2026-10-10"))
+print(pause_agent("legacy_agent", "2026-10-01", "2026-10-10"))
+`;
+
+export const LOOP_STARTER = String.raw`
+def run_agent(client, user_message: str, max_steps: int = 10) -> str:
+    # TODO: start messages with the user's message, then loop up to max_steps:
+    #   - call client.create(messages=messages)
+    #   - append the assistant's full response.content once
+    #   - collect every tool_use block (a text block may come first)
+    #   - no tool_use blocks: return the text blocks joined together
+    #   - otherwise run each call via TOOLS[call.name](**call.input) and send
+    #     all the results back in ONE user message, each with its tool_use_id
+    ...
+`;
+
+export const LOOP_REFERENCE = String.raw`
+def run_agent(client, user_message: str, max_steps: int = 10) -> str:
+    messages = [{"role": "user", "content": user_message}]
+    for step in range(max_steps):
+        response = client.create(messages=messages)
+        messages.append({"role": "assistant", "content": response.content})
+        tool_calls = [block for block in response.content if block.type == "tool_use"]
+        if not tool_calls:
+            return "".join(block.text for block in response.content if block.type == "text")
+        results = []
+        for call in tool_calls:
+            output = TOOLS[call.name](**call.input)
+            results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+        messages.append({"role": "user", "content": results})
+    return f"stopped after {max_steps} steps without a final answer"
+`;
+
+export const LOOP_TEST_PRE = REACT_FAKE_CLIENT + RECORDING_CLIENT + String.raw`
+REGISTRY.clear()
+REGISTRY.update({"research_agent": {"status": "active"}, "support_agent": {"status": "active"}, "legacy_agent": {"status": "retired"}})
+`;
 
 <Subsection title="Closing the gap: a validator, plus the failure-as-observation pattern" variant="a">
 
@@ -46,12 +132,174 @@ catches the other gap. Both return a plain string,
 — never a crash, always something the model can actually see and react
 to.
 
-One real-Pydantic detail beyond the mockup's own hand-written output: a
-real validation error also appends a `[type=value_error, ...]` detail and
-a trailing "For further information visit..." docs link, so the live
-output above is longer than a hand-typed error message might suggest —
-the message text itself (`date 2020-01-01 is in the past`) is exactly
-what the `raise ValueError(...)` call wrote.
+A real validation error is also longer than a hand-written message would
+be. Pydantic appends a `[type=value_error, ...]` detail and a trailing
+"For further information visit..." docs link, so the live output above
+carries more than the message text itself (`date 2020-01-01 is in the
+past`, exactly what the `raise ValueError(...)` call wrote). That extra
+detail helps a developer reading a log. For a model it's noise, and the
+next sections trim it.
+
+</Subsection>
+
+<Subsection title="Two kinds of check, and where each belongs" variant="b">
+
+[The previous concept](/03-tool-design-for-agents/02-tool-schemas-and-argument-validation/02-the-gap-constrained-decoding-doesnt-close/#four-more-ways-a-valid-call-can-still-be-wrong)
+listed four ways a well-typed call can still be wrong. They split into
+two groups, and each group has its own home:
+
+- **Checks that depend only on the arguments** belong in the Pydantic
+  model: a number out of range, a date in the past, two fields that
+  contradict each other. The arguments alone are enough to decide.
+- **Checks that depend on the world's current state** belong in the tool
+  body: does this agent exist, is it retired right now. The answer can
+  change between two identical calls, so it can't be part of the
+  arguments' definition.
+
+`field_validator` looks at one field at a time, so it can't compare two.
+For a rule that involves several fields, Pydantic has `model_validator`.
+With `mode="after"`, it runs once every field has passed its own
+validation, and it receives the finished model as `self`, so it can read
+all the fields together. Like a `field_validator`, it raises `ValueError`
+to reject the input. If everything is fine it returns `self`:
+
+<LiveDemo client:load code={`from datetime import date
+from pydantic import BaseModel, ValidationError, model_validator
+
+class PauseAgentArgs(BaseModel):
+    agent_name: str
+    start_date: date
+    end_date: date
+
+    @model_validator(mode="after")
+    def end_must_follow_start(self):
+        if self.end_date <= self.start_date:
+            raise ValueError(f"end_date {self.end_date} must be after start_date {self.start_date}")
+        return self
+
+print(PauseAgentArgs(agent_name="research_agent", start_date="2026-10-01", end_date="2026-10-10"))
+try:
+    PauseAgentArgs(agent_name="research_agent", start_date="2026-10-10", end_date="2026-10-01")
+except ValidationError as e:
+    print(e)`} />
+
+The valid range passes, and the reversed one is rejected before any tool
+code runs. The state checks come next, in the complete tool.
+
+</Subsection>
+
+<Subsection title="Trim the error before the model sees it" variant="a">
+
+The full `ValidationError` text, above, includes the input dict, a type
+code and a docs URL. Every character of that goes to the model as input.
+`e.errors()` gives the same information as a list of dicts, one per
+problem, so you can keep only what the model needs: which field, and
+what's wrong with it. Each dict's `"loc"` holds the field's location (an
+empty tuple for a cross-field `model_validator` error), and `"msg"` holds
+the message:
+
+<LiveDemo client:load code={`from datetime import date
+from pydantic import BaseModel, ValidationError, model_validator
+
+class PauseAgentArgs(BaseModel):
+    agent_name: str
+    start_date: date
+    end_date: date
+
+    @model_validator(mode="after")
+    def end_must_follow_start(self):
+        if self.end_date <= self.start_date:
+            raise ValueError(f"end_date {self.end_date} must be after start_date {self.start_date}")
+        return self
+
+def short_error(e: ValidationError) -> str:
+    problems = []
+    for error in e.errors():
+        field = ".".join(str(part) for part in error["loc"])
+        problems.append(f"{field}: {error['msg']}" if field else error["msg"])
+    return "; ".join(problems)
+
+try:
+    PauseAgentArgs(agent_name="research_agent", start_date="next tuesday", end_date="2026-10-01")
+except ValidationError as e:
+    print("one entry from e.errors():", e.errors()[0])
+    print("short:", short_error(e))
+
+try:
+    PauseAgentArgs(agent_name="research_agent", start_date="2026-10-10", end_date="2026-10-01")
+except ValidationError as e:
+    print("short:", short_error(e))`} />
+
+`short_error` turns each problem into `field: message` (or just the
+message, when there's no field), joined with `"; "`. It keeps what the
+model needs to fix its call and drops the rest.
+
+</Subsection>
+
+<Subsection title="The complete tool: both kinds of check, trimmed errors" variant="b">
+
+Here's everything together. Pydantic handles the argument-only checks,
+the tool body handles the state checks, and every failure comes back as
+a short `Error:` string:
+
+<LiveDemo client:load code={PAUSE_TOOL + PAUSE_CALLS} />
+
+Four calls, four different outcomes: a success, a cross-field error
+caught by the `model_validator`, a missing agent and a retired agent
+(both caught in the tool body). None of them raises. Each failure is an
+observation the model can read and act on. Whether a message like these
+is actually *useful* to the model, and what makes one better, is the
+subject of
+[the next lesson's error-message section](/03-tool-design-for-agents/03-shaping-what-tools-return/03-structured-results-and-useful-error-messages/#useful-error-messages-say-what-failed-and-what-to-do-next).
+
+</Subsection>
+
+<Subsection title="Wired into the loop" variant="a">
+
+In a real run, the model often asks for several tool calls in one
+response, and some may fail validation while others succeed. The loop
+has to handle that without special cases:
+[the same collect-every-call loop from Module 2](/02-the-agent-loop/05-react-and-reasoning-in-the-loop/01-the-react-pattern/#the-fix-gather-every-tool-call-act-on-all-of-them-reply-once)
+runs every call and sends every result back in one user message, errors
+included. (`pause_agent` and `REGISTRY` from the previous demo are
+already defined here, along with the fake client. The `RecordingClient`
+keeps a copy of every `messages` list it was sent, so the demo can show
+exactly what went back to the model.)
+
+<LiveDemo client:load setupCode={REACT_FAKE_CLIENT + RECORDING_CLIENT + PAUSE_TOOL} code={`def run_agent(client, user_message: str, max_steps: int = 10) -> str:
+    messages = [{"role": "user", "content": user_message}]
+    for step in range(max_steps):
+        response = client.create(messages=messages)
+        messages.append({"role": "assistant", "content": response.content})
+        tool_calls = [block for block in response.content if block.type == "tool_use"]
+        if not tool_calls:
+            return "".join(block.text for block in response.content if block.type == "text")
+        results = []
+        for call in tool_calls:
+            output = TOOLS[call.name](**call.input)
+            results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+        messages.append({"role": "user", "content": results})
+    return f"stopped after {max_steps} steps without a final answer"
+
+client = RecordingClient(scripted_responses=[
+    [ToolUseBlock(name="pause_agent", input={"agent_name": "research_agent", "start_date": "2026-10-01", "end_date": "2026-10-10"}),
+     ToolUseBlock(name="pause_agent", input={"agent_name": "support_agent", "start_date": "2026-10-10", "end_date": "2026-10-01"})],
+    [TextBlock(text="Paused research_agent. support_agent's end date was before its start date; please confirm the dates.")],
+])
+print(run_agent(client, "Pause research_agent and support_agent for the first ten days of October."))
+print()
+print("model calls:", client.call_count)
+sent_back = client.seen[1][-1]
+print("second request's last message role:", sent_back["role"])
+for result in sent_back["content"]:
+    print(" ", result["tool_use_id"], "->", result["content"])
+print("REGISTRY:", REGISTRY)`} />
+
+One response, two calls: one succeeded and one failed validation. Both
+results went back together in a single user message, each matched to its
+call by `tool_use_id`, and the loop carried on to a final answer. The
+failed call changed nothing: `support_agent` is still active. The model
+saw exactly what went wrong and could tell the user.
 
 </Subsection>
 
@@ -83,6 +331,42 @@ what the `raise ValueError(...)` call wrote.
       correctIndex: 1,
       explanation:
         "An unhandled exception here would crash the whole agent loop; a returned string is an observation the model can read and react to instead.",
+    },
+    {
+      question: "Where does a check that start_date comes before end_date belong, and where does a check that the agent isn't retired belong?",
+      options: [
+        "Both in the Pydantic model",
+        "The date check in the Pydantic model (it depends only on the arguments); the retired check in the tool body (it depends on the registry's current state)",
+        "Both in the tool body",
+        "Neither — constrained decoding handles both",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Argument-only rules live with the arguments' definition. Anything that depends on the world right now has to be checked when the tool runs.",
+    },
+    {
+      question: "Why is a model_validator needed for the date-range rule instead of a field_validator?",
+      options: [
+        "field_validator doesn't work on dates",
+        "field_validator sees one field at a time; model_validator(mode=\"after\") receives the whole validated model, so it can compare fields",
+        "model_validator is faster",
+        "There's no difference",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The rule is about two fields together. Only a check that sees both at once can enforce it.",
+    },
+    {
+      question: "In the loop demo, one of two tool calls fails validation. What does the loop send back?",
+      options: [
+        "Only the successful result",
+        "One user message holding both results, each with its tool_use_id, the failed one as an Error: string",
+        "Two separate user messages",
+        "Nothing — the loop stops at the first error",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Every call gets a result, errors included, all in one reply. The RecordingClient's copy of the second request shows exactly that message.",
     },
   ]}
 />
@@ -151,3 +435,74 @@ def schedule_maintenance(agent_name: str, date: str, registry: dict) -> str:
 />
 
 </CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={'The complete pause_agent tool from above is provided, with REGISTRY and TOOLS. Implement run_agent(client, user_message, max_steps=10). Call client.create(messages=messages), append the assistant\'s full response.content once, and collect every tool_use block (a response may start with a text block before its tool calls). If there are none, return the response\'s text blocks joined together. Otherwise run every call through TOOLS and send all the results back in one user message, each as {"type": "tool_result", "tool_use_id": ..., "content": ...}, then keep looping. After max_steps model calls without a final answer, return a message saying so.'}
+  starterCode={PAUSE_TOOL + LOOP_STARTER}
+  hiddenTests={[
+    LOOP_TEST_PRE + String.raw`
+client = RecordingClient(scripted_responses=[
+    [TextBlock(text="Let me pause that agent."), ToolUseBlock(name="pause_agent", input={"agent_name": "research_agent", "start_date": "2026-10-01", "end_date": "2026-10-10"})],
+    [TextBlock(text="Done.")],
+])
+assert run_agent(client, "Pause research_agent.") == "Done."
+assert client.call_count == 2
+assert REGISTRY["research_agent"]["status"] == "paused"
+`,
+    LOOP_TEST_PRE + String.raw`
+client = RecordingClient(scripted_responses=[
+    [ToolUseBlock(name="pause_agent", input={"agent_name": "research_agent", "start_date": "2026-10-01", "end_date": "2026-10-10"}),
+     ToolUseBlock(name="pause_agent", input={"agent_name": "support_agent", "start_date": "2026-10-10", "end_date": "2026-10-01"})],
+    [TextBlock(text="One paused, one had bad dates.")],
+])
+first = client.scripted_responses[0]
+assert run_agent(client, "Pause both.") == "One paused, one had bad dates."
+sent_back = client.seen[1][-1]
+assert sent_back["role"] == "user"
+assert [r["tool_use_id"] for r in sent_back["content"]] == [first[0].id, first[1].id]
+assert not sent_back["content"][0]["content"].startswith("Error:")
+assert sent_back["content"][1]["content"].startswith("Error:")
+`,
+    LOOP_TEST_PRE + String.raw`
+client = RecordingClient(scripted_responses=[
+    [ToolUseBlock(name="pause_agent", input={"agent_name": "research_agent", "start_date": "2026-10-01", "end_date": "2026-10-10"}),
+     ToolUseBlock(name="pause_agent", input={"agent_name": "support_agent", "start_date": "2026-10-10", "end_date": "2026-10-01"})],
+    [TextBlock(text="One paused, one had bad dates.")],
+])
+run_agent(client, "Pause both.")
+assert REGISTRY["research_agent"]["status"] == "paused"
+assert REGISTRY["support_agent"]["status"] == "active"
+`,
+    LOOP_TEST_PRE + String.raw`
+client = RecordingClient(scripted_responses=[
+    [TextBlock(text="Pausing both."),
+     ToolUseBlock(name="pause_agent", input={"agent_name": "research_agent", "start_date": "2026-10-01", "end_date": "2026-10-10"}),
+     ToolUseBlock(name="pause_agent", input={"agent_name": "legacy_agent", "start_date": "2026-10-01", "end_date": "2026-10-10"})],
+    [TextBlock(text="Done.")],
+])
+run_agent(client, "Pause both.")
+second = client.seen[1]
+assistant_turns = [m for m in second if m["role"] == "assistant"]
+assert len(assistant_turns) == 1
+assert len(assistant_turns[0]["content"]) == 3
+assert len(second) == 3
+`,
+    LOOP_TEST_PRE + String.raw`
+client = RecordingClient(scripted_responses=[[TextBlock(text="Nothing to do.")]])
+assert run_agent(client, "Hello") == "Nothing to do."
+assert client.call_count == 1
+`,
+  ]}
+  hint={"Don't decide anything from response.content[0]: when a text block comes first, it would hide the tool call behind it. Build tool_calls = [block for block in response.content if block.type == \"tool_use\"] and branch on whether that list is empty. Append the assistant's full response.content once, before handling any calls. Then run every call, build one tool_result per call, and append a single user message with all of them. pause_agent already turns validation failures into Error: strings, so the loop needs no special case for them."}
+  correctAnswer={{
+    code: PAUSE_TOOL + LOOP_REFERENCE,
+    explanation:
+      "The loop never looks at a single block position. It collects every tool_use block, so a leading text block doesn't hide a call, and it answers every call in one user message, so a failed validation sits next to a success with no special handling. The tests check what was actually sent (via RecordingClient) and what actually changed in REGISTRY, not just the returned text.",
+  }}
+/>
+
+</CheckpointZone>
+
