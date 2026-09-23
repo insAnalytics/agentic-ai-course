@@ -97,7 +97,7 @@ export default function TransformerStack() {
           ))}
         </div>
         <div className="text-[0.65rem] tracking-wide text-[var(--color-ink-soft)] uppercase">
-          Input tokens (raw embeddings + positional encoding)
+          Input tokens (embeddings; older models add position here, RoPE models add it inside each block's attention)
         </div>
       </div>
 

@@ -61,16 +61,16 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
         "Query/Key comparisons only look at token content — nothing about position enters that comparison, so two orderings of the same tokens score identically.",
     },
     {
-      question: "What does positional encoding actually do?",
+      question: "How do the original transformer and most current LLMs differ in where position enters the model?",
       options: [
-        "It removes duplicate tokens from a sequence",
-        "It gives each position its own distinct vector, added onto a token's embedding, so the same token at different positions gets different starting representations",
-        "It reorders tokens alphabetically",
-        "It replaces the token embedding entirely with a position number",
+        "They don't differ: both add one position vector to each token embedding before the first layer",
+        "The original adds a position vector to the input once; most current models (RoPE) rotate each Query and Key by position inside every attention layer",
+        "The original handles position inside attention; current models moved it to a separate step after the last layer",
+        "Current models drop position entirely, since attention already sees word order",
       ],
       correctIndex: 1,
       explanation:
-        "Positional encoding augments the token embedding with a position-specific vector — it doesn't replace or reorder anything.",
+        "Both supply the position information that content-only Query·Key comparison lacks. The original adds it once at the input; RoPE applies it as a rotation inside attention, at every layer, which makes scores depend on relative position.",
     },
     {
       question: "What does multi-head attention add, compared to running attention once?",
@@ -113,7 +113,7 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
       options: [
         "Parameter count never affects computational cost",
         "If the larger model routes each token through only a small slice of its total experts, its actual per-token computation can resemble a much smaller model's",
-        "This is impossible",
+        "Both are quantized to the same size before serving, which evens out their compute",
         "Only non-MoE models have this property",
       ],
       correctIndex: 1,
@@ -137,13 +137,18 @@ pipeline, one step at a time:
    [looked up purely from its token ID](/01-llm-foundations/03-attention-and-transformer-architecture/01-why-a-token-needs-context/),
    identical to what `"bank"` would get in any other sentence at this
    stage.
-2. **Positional encoding added** — that fixed vector gets combined with
-   a vector [specific to `"bank"`'s position in this exact sentence](/01-llm-foundations/03-attention-and-transformer-architecture/03-positional-encoding/),
-   making its starting representation already slightly different than
-   an identical word at a different position would get.
+2. **Position** — this step depends on the model.
+   [In the original transformer and GPT-2](/01-llm-foundations/03-attention-and-transformer-architecture/03-positional-encoding/#the-original-fix-adding-a-position-vector-to-the-input),
+   that fixed vector gets a position-specific vector added here, once,
+   so `"bank"` starts slightly different from the same word at another
+   position.
+   [In most current models (RoPE)](/01-llm-foundations/03-attention-and-transformer-architecture/03-positional-encoding/#how-most-current-models-do-it-rotary-position-embeddings-rope),
+   nothing is added here; position enters in step 3 instead.
 3. **Layer 1: multi-head attention** —
    [several attention computations run in parallel](/01-llm-foundations/03-attention-and-transformer-architecture/04-stacking-layers-into-a-transformer/),
-   each comparing `"bank"`'s Query against every other token's Key —
+   each comparing `"bank"`'s Query against every other token's Key (in a
+   RoPE model, after rotating both by their positions, so the score
+   reflects how far apart the tokens are) —
    `"river"` scores highly relevant, pulling `"bank"`'s representation
    toward a riverside meaning,
    [exactly as computed directly in the attention-mechanism concept's demo](/01-llm-foundations/03-attention-and-transformer-architecture/02-the-attention-mechanism/).

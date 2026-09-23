@@ -31,13 +31,15 @@ either way, since neither depends on sequence position at all.
 
 </Subsection>
 
-<Subsection title="The fix: adding position directly into the representation" variant="b">
+<Subsection title="The original fix: adding a position vector to the input" variant="b">
 
-**Positional encoding** solves this by giving each *position* in the
-sequence — 1st, 2nd, 3rd, and so on — its own distinct vector, added
-directly onto a token's embedding before attention ever runs. The same
-token appearing at two different positions ends up with two different
-starting representations, purely because of where it sits:
+The original transformer, and early GPT models including GPT-2, solved
+this with **positional encoding**: each *position* in the sequence —
+1st, 2nd, 3rd, and so on — gets its own distinct vector, added onto a
+token's embedding once, before the first layer runs. The same token
+appearing at two different positions ends up with two different
+starting representations, purely because of where it sits. It's the
+easiest version of the idea to picture, so it's worth seeing first:
 
 <LiveDemo client:load code={`token_embedding = {"the": [0.10, 0.10]}   # the same vector every time "the" appears
 
@@ -59,23 +61,82 @@ print(position_aware_representation("the", 5))`} />
 
 The exact same word, `"the"`, produces two genuinely different starting
 vectors — `[0.1, 0.1]` at position `1`, `[0.07, 0.18]` at position `5`.
-Once position is baked directly into each token's representation this
-way, attention's Query/Key comparisons — computed *on top of* these
-position-aware vectors — can actually reflect order, because order is
-now part of what each token's representation encodes, not something
-attention has to separately track.
+Once position is baked into each token's representation this way,
+attention's Query/Key comparisons — computed *on top of* these
+position-aware vectors — can reflect order, because order is now part of
+what each token's representation encodes.
 
 </Subsection>
 
-<Subsection title="Where this sits in the architecture" variant="a">
+<Subsection title="How most current models do it: rotary position embeddings (RoPE)" variant="a">
 
-Positional encoding happens once, right after the token embedding
-lookup and before attention runs at all — it's a preparation step, not
-part of attention itself. This is worth being precise about, since it's
-easy to assume order is somehow built into the attention mechanism —
-it isn't; attention is fundamentally order-agnostic, and positional
-encoding is the entire reason a transformer ends up sensitive to order
-regardless.
+Most current LLMs, open and closed, use a different design called
+**rotary position embeddings**, or **RoPE**. Instead of adding a vector
+to the input once, RoPE works *inside attention*, at every layer. Right
+before a token's Query and Key are compared, each one is **rotated** by
+an angle that depends on the token's position: a token at position 10 is
+rotated further than one at position 2.
+
+Rotation has a useful consequence. When you rotate two vectors and then
+take their dot product, only the *difference* between their angles
+affects the result. So the Query·Key score ends up depending on how far
+apart two tokens are (their **relative position**), not on where each one
+sits in absolute terms. "The word three tokens back" scores the same way
+at the start of a document as it does deep inside it.
+
+Here's that property in two dimensions. Rotating a 2D vector `[x, y]` by
+an angle uses `math.cos` and `math.sin` (angles are in radians, so a full
+turn is about 6.28): the rotated vector is
+`[x·cos − y·sin, x·sin + y·cos]`. The Query and Key *content* stays the
+same in every line below; only their positions change:
+
+<LiveDemo client:load code={`import math
+
+def rotate(vector: list, angle: float) -> list:
+    x, y = vector
+    return [x * math.cos(angle) - y * math.sin(angle),
+            x * math.sin(angle) + y * math.cos(angle)]
+
+def dot(a: list, b: list) -> float:
+    return a[0] * b[0] + a[1] * b[1]
+
+query = [1.0, 0.5]   # the same Query content every time
+key = [0.8, -0.2]    # the same Key content every time
+step = 0.3           # radians of rotation per position
+
+for query_pos, key_pos in [(2, 5), (10, 13), (40, 43), (2, 3), (2, 9)]:
+    q = rotate(query, query_pos * step)
+    k = rotate(key, key_pos * step)
+    print(f"query at {query_pos}, key at {key_pos} (gap {key_pos - query_pos}): score {dot(q, k):.4f}")`} />
+
+Positions 2 and 5, 10 and 13, 40 and 43: three very different places in
+the sequence, one identical score, because the gap is 3 each time.
+Change the gap and the score changes. A real model does this across
+every pair of dimensions in its Query and Key vectors, with each pair
+rotating at its own speed, but the principle is exactly this one.
+
+</Subsection>
+
+<Subsection title="Where this sits in the architecture" variant="b">
+
+Either way, attention's core comparison is order-agnostic on its own.
+Position has to be supplied from somewhere, and the two designs put it
+in different places:
+
+- **Additive positional encoding** (the original transformer, GPT-2):
+  a position vector is added once, right after the token embedding
+  lookup, before the first layer. Every later layer works on vectors
+  that already carry position.
+- **Rotary position embeddings** (most current models): nothing is added
+  at the input. Instead, inside every attention layer, each Query and Key
+  is rotated according to its position just before they're compared.
+
+So "is position part of attention?" depends on the model. In the
+original design it isn't; it's a preparation step. In RoPE models it is,
+applied fresh in every layer. What both have in common is that neither
+Query nor Key *content* alone carries order. Without one of these
+mechanisms, a transformer couldn't tell "the dog bit the man" from "the
+man bit the dog".
 
 </Subsection>
 
@@ -98,40 +159,52 @@ regardless.
         "Query/Key comparisons only look at token content — nothing about position enters that comparison, so two orderings of the same tokens produce identical relevance scores.",
     },
     {
-      question: "What does positional encoding actually do?",
+      question: "What did the original transformer's positional encoding do?",
       options: [
-        "It removes duplicate tokens from a sequence",
-        "It gives each position in the sequence its own distinct vector, added onto a token's embedding, so the same token at different positions gets different starting representations",
-        "It reorders tokens alphabetically before processing",
-        "It replaces the token embedding entirely with a position number",
+        "It removed duplicate tokens from a sequence, so each word appeared only once",
+        "It gave each position its own distinct vector, added onto a token's embedding, so the same token at different positions got different starting representations",
+        "It reordered the tokens into a fixed canonical order before the first layer",
+        "It replaced the token embedding entirely with a position number",
       ],
       correctIndex: 1,
       explanation:
-        "Positional encoding adds a position-specific vector on top of the token embedding — it augments the representation, it doesn't replace or reorder anything.",
+        "The additive design augments the token embedding with a position-specific vector, once, at the input. It doesn't replace or reorder anything.",
     },
     {
-      question: "Where does positional encoding happen relative to attention?",
+      question: "How does RoPE, used by most current LLMs, bring position into the model?",
       options: [
-        "It's part of the attention mechanism itself, not a separate step",
-        "It happens as a preparation step, right after the token embedding lookup and before attention runs at all",
-        "It only happens after attention has already processed the sequence",
-        "It happens once per entire document, not per token",
+        "It adds a larger position vector to the input embedding than the original transformer did",
+        "Inside every attention layer, it rotates each Query and Key by an angle that depends on the token's position, just before they're compared",
+        "It sorts the tokens by position before each attention layer runs",
+        "It stores each token's position in a separate table that the feedforward network reads",
       ],
       correctIndex: 1,
       explanation:
-        "Positional encoding is a preparation step — it runs once, right after the token embedding lookup, so attention operates on already position-aware vectors from the start.",
+        "RoPE adds nothing at the input. Position enters as a rotation of Query and Key, applied in every layer.",
     },
     {
-      question: "Why is it inaccurate to assume attention is inherently sensitive to word order?",
+      question: "In the rotation demo, why do positions (2, 5), (10, 13) and (40, 43) all give the same score?",
       options: [
-        "It's actually accurate — attention does track order on its own",
-        "Attention is fundamentally order-agnostic by design; any sensitivity to order a transformer shows comes specifically from positional encoding being added beforehand",
+        "The step size is too small for the rotation to change anything",
+        "After rotation, the dot product depends only on the difference between the two angles, so any pair with the same gap scores the same",
+        "Scores are rounded to four decimals, which hides the differences",
+        "Only the Query is rotated, so the Key's position never matters",
+      ],
+      correctIndex: 1,
+      explanation:
+        "That's RoPE's key property: the Query·Key score reflects relative position (how far apart two tokens are), not where each one sits. Changing the gap, as in the last two lines, changes the score.",
+    },
+    {
+      question: "Why is it inaccurate to assume attention's core comparison is inherently sensitive to word order?",
+      options: [
+        "It's actually accurate — comparing Query and Key content already reveals order",
+        "Query·Key on content alone is order-agnostic; order sensitivity comes from position information supplied to it, added at the input in older models or applied as a rotation inside attention in RoPE models",
         "Word order doesn't actually matter to how transformers work",
         "Attention only ignores order for very short sequences",
       ],
       correctIndex: 1,
       explanation:
-        "Attention's own math is order-agnostic — a transformer's actual sensitivity to word order is entirely borrowed from positional encoding happening upstream, not from attention itself.",
+        "Either design works around the same fact: content-only comparison can't see order. The difference is only where position gets injected.",
     },
   ]}
 />
