@@ -55,7 +55,7 @@ print(result)`} />
 (The fake client is already defined for this demo, and each tool result
 carries its call's `id` as `tool_use_id`, as before.)
 
-`current_call = (block.name, block.input)` builds a tuple; `current_call
+`current_call = (call.name, call.input)` builds a tuple; `current_call
 in seen_calls` checks it against every previously-seen call — this
 works correctly on a plain list, without needing anything more exotic,
 since Python's `in` operator on a list checks equality (`==`) between
@@ -66,6 +66,14 @@ scenario from the earlier two concepts, this version stops after just **2**
 steps — the first call gets recorded, the second identical call triggers
 the detection immediately — instead of running all the way to the
 `max_steps=10` limit.
+
+One caveat before relying on this: an identical repeat isn't always a
+sign of being stuck. Polling a job's status, or re-checking after a
+write (check → create → check again to verify), legitimately repeats
+the exact same call once the world has changed in between. Real
+implementations usually loosen the rule: allow a small number of
+repeats before stopping, or only flag a repeat when its result was also
+identical to last time.
 
 </Subsection>
 

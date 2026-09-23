@@ -19,6 +19,14 @@ understanding, being asked a different question about the same content.
 If a gap in that understanding caused the original mistake, that
 identical gap is very likely present during evaluation too.
 
+The standard partial fix is to make the evaluator less "same": use a
+*different* (often stronger) model as the judge, or at least run the
+same model in a fresh context, without the generator's reasoning to
+anchor it. That genuinely helps. Its limit is that models trained on
+similar data share many blind spots, and LLM judges measurably favor
+text that resembles their own (a known *self-preference bias*). So a
+second model narrows the problem without removing it.
+
 </Subsection>
 
 <Subsection title="Grounded directly in Module 1's hallucination mechanism" variant="b">

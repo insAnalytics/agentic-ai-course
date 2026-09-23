@@ -57,6 +57,14 @@ class FakeLLMClient:
 one full response's content, potentially containing several blocks
 together.
 
+One note on `ThinkingBlock`: it stands in for the model's stated
+reasoning. A real API returns that reasoning in one of two ways. With a
+standard model, it arrives as an ordinary *text* block before the tool
+call (the "Let me check that for you." shape in the pain demo below).
+With extended thinking turned on, on a reasoning model, it arrives as a
+`thinking` block. So don't expect `thinking` blocks from every model; a
+loop should treat both the same way.
+
 </Subsection>
 
 <Subsection title="The pain: reacting to only one block silently drops the rest" variant="a">

@@ -106,7 +106,11 @@ fixed in code, never freely chosen the way
 This is exactly the workflow side of that earlier distinction: an LLM
 call genuinely happens and genuinely decides *which* path, but the
 *set of possible outcomes* was decided when the code was written, not
-at runtime.
+at runtime. One practical gap: `ROUTES[category]` trusts the model's
+raw text exactly. A reply of `"Billing"` or `"billing."` raises
+`KeyError`. In practice, constrain the classification with structured
+output (an enum of the allowed categories, as Module 3's parameter
+design does with `Literal`), and handle an unknown category explicitly.
 
 </Subsection>
 

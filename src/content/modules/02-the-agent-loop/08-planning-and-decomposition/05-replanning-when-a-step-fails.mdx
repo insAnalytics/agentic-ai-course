@@ -104,7 +104,15 @@ than either retrying the same doomed step or blindly executing a
 second step written for a world that turned out not to be true. The
 revised plan correctly drops "create" (already unnecessary) in favor of
 "update" — genuinely different from the original, because it now
-reflects what was actually learned.
+reflects what was actually learned. (`FailureBlock` is a teaching
+stand-in too: in practice a failed step arrives as a tool error, like
+the `"Error: ..."` results from Lesson 6.)
+
+One gap to close in real code: nothing here limits how many times the
+planner is called again. A step that keeps failing would loop forever —
+fail, replan, fail, replan. Cap replans the same way
+[`max_steps` caps loop iterations](/02-the-agent-loop/06-termination-failure-and-control/02-max-steps/#the-simplest-possible-guard-a-hard-cap-unconditionally),
+and stop cleanly with a message once the cap is hit.
 
 </Subsection>
 

@@ -126,6 +126,15 @@ directly from the file, and produces the correct final answer using
 exactly that resumed state, precisely as though the first session had
 simply continued uninterrupted.
 
+One failure this simple version doesn't handle: if the process dies
+*after* a tool with side effects runs but *before* the checkpoint is
+saved, resuming repeats that side effect — a second agent created, a
+second email sent. Two habits cover it. Checkpoint after every completed
+step, so the gap is as small as possible. And make side-effecting tools
+safe to run twice, like the registry's own "already exists" check, which
+[turns a repeat into an ordinary tool error the model can read](/02-the-agent-loop/06-termination-failure-and-control/05-tool-errors-as-observations/#the-fix-catch-it-and-let-the-model-see-it)
+instead of a duplicate.
+
 </Subsection>
 
 <CheckpointZone>

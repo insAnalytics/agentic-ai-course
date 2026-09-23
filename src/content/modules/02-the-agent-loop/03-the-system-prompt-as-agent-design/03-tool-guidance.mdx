@@ -26,12 +26,14 @@ export const T_RULE = String.raw`assert any(_rule.search(s) and "check_price" no
 <Subsection title="What a schema does and doesn't cover" variant="a">
 
 [A tool's schema — a Pydantic model converted to JSON Schema, from Module 1](/01-llm-foundations/10-structured-output-and-tool-calling/03-from-a-pydantic-model-to-a-schema/)
-— mechanically guarantees the *shape* of a tool call, via constrained
-decoding: the right argument names, the right types. It says nothing at
-all about *when* the model should actually decide to call that tool, or
-how it should interpret and act on whatever comes back. That's a
-separate, genuinely distinct kind of guidance — and it belongs in the
-system prompt, not the schema.
+— describes the *shape* of a tool call: the right argument names, the
+right types (with strict mode on, constrained decoding guarantees the arguments match the schema; without it, they're usually but not always well-formed). It says nothing at all about *when* the
+model should actually decide to call that tool, or how it should
+interpret and act on whatever comes back. That's a separate, genuinely
+distinct kind of guidance. It belongs in the tool's description (which
+travels with the tool definition, as the next module shows) and/or the
+system prompt — the *argument schema* is the one part that can't carry
+it.
 
 <LiveDemo client:load code={`from pydantic import BaseModel
 

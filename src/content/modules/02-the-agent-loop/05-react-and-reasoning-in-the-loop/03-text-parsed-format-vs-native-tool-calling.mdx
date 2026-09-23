@@ -65,14 +65,14 @@ Native tool calling doesn't eliminate the reasoning step —
 [`thinking` blocks, from the ReAct pattern concept](/02-the-agent-loop/05-react-and-reasoning-in-the-loop/01-the-react-pattern/#jumping-straight-from-state-to-action),
 are still plain text, still valuable, still there. What changed is the
 *action* half: a `tool_use` block already has a real, structured `.name`
-and `.input` —
-[guaranteed well-formed via constrained decoding](/01-llm-foundations/10-structured-output-and-tool-calling/02-constrained-decoding/#a-hard-guarantee-not-a-soft-nudge),
-not text requiring fragile extraction at all. This is precisely why
-native tool calling replaced the original text-parsed format: not because
-reasoning-before-acting stopped mattering, but because the *mechanism*
-for turning that reasoning into an actual, executable action became
-categorically more reliable once constrained decoding existed to
-guarantee it.
+and `.input`, not text requiring fragile extraction at all. This is
+precisely why native tool calling replaced the original text-parsed
+format, starting around 2023: not because reasoning-before-acting
+stopped mattering, but because models were *trained* to emit tool calls
+in a dedicated structured format the API parses for you, so the action
+stopped being free text the client had to parse. Strict mode came later
+(2024–2025) as an optional extra on top:
+[with strict mode on, constrained decoding guarantees the arguments match the schema; without it, they're usually but not always well-formed](/01-llm-foundations/10-structured-output-and-tool-calling/02-constrained-decoding/#a-hard-guarantee-not-a-soft-nudge).
 
 </Subsection>
 

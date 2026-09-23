@@ -29,9 +29,11 @@ the model itself remembers *nothing* between API calls. Every single
 piece of context it has about what's happened so far comes entirely from
 what's actually included in `messages`, resent in full, every single
 time. This means the scratchpad isn't just "conversation history" in some
-loose sense — it's the agent's **entire** state, full stop. If something
-isn't in `messages`, it doesn't exist as far as the model is concerned,
-no matter how recently it actually happened.
+loose sense — it's **everything the model knows about the task**. (The
+world the tools act on — the registry, files, a database — is state
+too, but it lives outside the model.) If something isn't in `messages`,
+it doesn't exist as far as the model is concerned, no matter how
+recently it actually happened.
 
 </Subsection>
 

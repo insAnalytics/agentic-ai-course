@@ -124,7 +124,10 @@ The `ValueError` still happens — the tool genuinely still fails — but
 turns it into ordinary `tool_result` content instead of letting it
 crash anything. The loop continues normally; the model receives the
 error as information and produces a sensible response about it, rather
-than the entire interaction simply ending.
+than the entire interaction simply ending. (Claude's API also has an
+`is_error: true` flag on a `tool_result` for exactly this case. The
+`"Error: ..."` string convention works, but the flag tells the model
+unambiguously that the call failed.)
 
 </Subsection>
 

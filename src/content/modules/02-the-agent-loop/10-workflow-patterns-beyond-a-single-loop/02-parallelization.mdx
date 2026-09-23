@@ -77,7 +77,13 @@ print(result)`} />
 summary depends on the other's content, so both requests genuinely
 overlap — the *combining* step (`" ".join(summaries)`) only happens
 once both are back, which is the whole shape of this pattern: dispatch
-several independent calls together, then merge what comes back.
+several independent calls together, then merge what comes back. One
+caution before copying this shape to a real SDK: `client.create` here is
+the fake client's *synchronous* method, which returns instantly. A real,
+blocking call inside `async def` stalls the event loop and gives no
+concurrency at all. Real concurrent LLM calls need the SDK's async
+client (for example `AsyncAnthropic`, whose `create` you `await`), or
+threads.
 
 </Subsection>
 
@@ -86,12 +92,13 @@ several independent calls together, then merge what comes back.
 There's a second, entirely different form of parallelism this module
 already built:
 [a single response carrying two or more `tool_use` blocks together](/02-the-agent-loop/05-react-and-reasoning-in-the-loop/01-the-react-pattern/#why-every-tool-call-needs-its-own-result-in-the-same-message),
-which Lesson 5's corrected loop dispatches *all* of before replying.
-That's not `asyncio.gather` — it's a single model turn requesting
-several independent actions at once — but it's the same underlying
-idea as this concept: independent work, recognized as independent, run
-together rather than one at a time. Two different mechanisms, the same
-payoff.
+which Lesson 5's corrected loop handles all of before replying. What's
+parallel there is the *request*: one model turn asks for several
+independent actions at once, saving round trips. Lesson 5's loop still
+*executes* them one after another, in a `for` loop; running them
+concurrently with `asyncio.gather` would be an extra step. Same
+underlying idea as this concept — independent work, recognized as
+independent — applied at a different point.
 
 </Subsection>
 
@@ -140,13 +147,13 @@ payoff.
       question: "How does several tool_use blocks in one response relate to this concept's asyncio.gather pattern?",
       options: [
         "They're unrelated mechanisms with nothing in common",
-        "Both are ways of running independent work together rather than one at a time -- one is several concurrent async calls, the other is several actions requested in a single model turn",
+        "Both recognize independent work as independent -- asyncio.gather runs several calls concurrently, while several tool_use blocks let one model turn request several actions at once",
         "They're unrelated: tool_use blocks in one response must always be executed one after another",
         "asyncio.gather is required to handle multiple tool_use blocks",
       ],
       correctIndex: 1,
       explanation:
-        "The mechanisms are genuinely different -- one is Python-level concurrency, the other is a single response's own content -- but both recognize independent work as independent and run it together instead of serializing it.",
+        "The mechanisms are genuinely different -- one is Python-level concurrency, the other is a single response's own content. For tool_use blocks, what's parallel is the request; Lesson 5's loop still executes them one after another unless you add asyncio.gather.",
     },
   ]}
 />

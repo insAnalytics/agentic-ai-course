@@ -30,12 +30,13 @@ from an unpromising path, rather than being stuck with an early choice.
 <Subsection title="The real contrast with plain chain-of-thought" variant="b">
 
 [CoT, from Lesson 2](/02-the-agent-loop/02-prompting-fundamentals/04-chain-of-thought-prompting/#the-fix-asking-for-the-reasoning-explicitly),
-commits to *one* linear chain of reasoning, with no mechanism to
-reconsider an early step once made — if step two turns out to be a poor
-choice, CoT has no way to notice and back out; it just continues linearly
-regardless. ToT's actual addition is exactly that missing capability:
-multiple candidates, evaluation, and the ability to genuinely abandon a
-path that isn't working out.
+follows *one* chain of reasoning. A single chain can revise itself —
+trained reasoning models routinely backtrack mid-chain ("wait, that's
+wrong, let me redo step 2") — but only one path at a time, and only if
+it notices the problem. ToT's actual addition is making the search
+explicit: generating several candidates, scoring them, and abandoning
+the ones that aren't working out, all driven by code rather than left to
+the chain to catch.
 
 <LiveDemo client:load setupCode={REACT_FAKE_CLIENT} code={`class CandidateBlock:
     def __init__(self, description: str, score: float):
