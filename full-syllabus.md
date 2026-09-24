@@ -1843,8 +1843,9 @@ below describe each lesson as first converted; see the git log
    architecture.md §4.1). The hint links to all four concept pages.
    Lesson 3.4 is now fully Locked.
 
-5. **The Model Context Protocol** — Building
-   *Working title.* The folder is `05-the-model-context-protocol`.
+5. **The Model Context Protocol** — Locked
+   The bookends mockup confirmed the working title, so the folder
+   `05-the-model-context-protocol` stays as it is.
    Concept 1 is drafted: the integration problem and MCP's three roles.
    Without a shared protocol, integrations grow as hosts × services; with
    one, they grow as hosts + services. A live counting demo makes this
@@ -1974,9 +1975,29 @@ below describe each lesson as first converted; see the git log
    MCP server) are plain, number-free text, since neither is built.
    Callbacks link to Concept 2's JSON-RPC intro subsection, Module 0's
    SSE wire-format subsection, and Concept 3's
-   why-stateless-is-worth-it subsection. Still to come: the bookends
-   (intro, recap, comprehensive quiz and sandbox), after which the
-   lesson is Locked.
+   why-stateless-is-worth-it subsection.
+   Bookends: an outcomes/why-it-matters intro (`00-intro.mdx`, 5
+   outcomes, one per concept) and a recap (`06-recap-practice.mdx`). The
+   recap has a 10-question comprehensive quiz spanning all five concepts
+   and a multi-file comprehensive sandbox: a `RegistryClient` in
+   `client.py` (entry file, with this lesson's `build_http_request` and
+   `to_tool_output` exercise solutions pre-filled) talking to a
+   read-only simulated Streamable HTTP `server.py`. The server supports
+   only `2025-11-25`, checks `_meta` and the headers, and records every
+   request. The learner implements `_send_once` (fresh id, `_meta`,
+   headers, send, parse), `request` (a single `-32022` fallback to the
+   first mutually supported version, remembered for later calls) and
+   `call_tool`. The hidden tests run as one script (6 numbered
+   sections), as in Lesson 3.4's recap. Verified in Pyodide 0.26.4 with
+   the project's multi-file harness flow (per-instance sandbox dir,
+   module-cache eviction, entry run then hidden tests): the reference
+   passes, the starter fails, and each single-bug variant fails at its
+   own section. No fallback fails section 1, not persisting the version
+   fails 2, a fixed id fails 3, retrying with the same version fails 6,
+   bypassing `to_tool_output` fails 5, and dropping
+   `clientCapabilities` fails 1. The hint links Concept 3's `_meta`
+   subsection and Concept 5's Streamable HTTP subsection (the transports
+   exercise itself has no anchor).
 
 ---
 

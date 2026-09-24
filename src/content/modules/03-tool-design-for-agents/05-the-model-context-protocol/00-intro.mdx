@@ -1,0 +1,32 @@
+---
+title: "Intro"
+lesson: "05-the-model-context-protocol"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Explain the integration problem MCP solves, and the roles of host, client and server",
+    "Read and write JSON-RPC requests, responses and notifications, and tell a protocol error from a tool execution error",
+    "Explain why every MCP request carries its own _meta, validate it, and negotiate a protocol version",
+    "Describe what a server can offer (tools, resources and prompts) and who decides to use each",
+    "Choose between the stdio and Streamable HTTP transports, and build a correct HTTP request for either kind of call",
+  ]}
+/>
+
+<WhyItMatters>
+  Up to now, every tool in this course was a function inside your own
+  program. That's fine for one agent, and it doesn't scale past it: every
+  application that wants the same tools has to rebuild them in its own
+  format. MCP is the shared standard that fixes this, and most agent
+  platforms and a large and growing number of services now support it.
+
+  This lesson is the protocol itself, on the wire, without an SDK hiding
+  it. That's deliberate. The next lesson uses the official SDK to build a
+  server in a few lines, and the one after connects the registry agent to
+  servers. Both go much more smoothly when you know exactly what the SDK
+  is sending for you, and what it means when something comes back as an
+  error.
+</WhyItMatters>
