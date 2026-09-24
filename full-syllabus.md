@@ -2188,6 +2188,37 @@ below describe each lesson as first converted; see the git log
    subsection, Module 2 Lesson 5's gather-every-call fix subsection,
    Lesson 3.5's JSON-RPC two-ways-to-fail and three-roles subsections,
    and Lesson 3.4's one-failure and putting-it-together subsections.
+   Concept 3 is drafted: when there are too many tools. This is the
+   lesson's last concept. It covers the token cost (a live demo: 50 toy
+   tools from 5 servers is about 4,541 tokens a request) and worse tool
+   choice, then four fixes, each its own Subsection: connect only the
+   servers the agent needs; an allowlist per server, keyed by original
+   names (a live demo with `MCP_STANDINS` as `setupCode`); tool lists
+   per stage; and distinguishable descriptions. It closes with a
+   "beyond static lists" pointer to tool search and Module 4 (plain
+   text). **Both Anthropic-docs claims were checked against the live
+   tool-search page** (platform.claude.com, tool-search-tool): about 55k
+   tokens for GitHub, Slack, Sentry, Grafana and Splunk, and selection
+   accuracy degrading past 30 to 50 tools. There are 5 quiz questions
+   and a graded `build_tool_catalog(servers, allowed)` exercise with 5
+   hidden tests. The provided `model_tool_name` is at the top of the
+   editor, and `MCP_STANDINS` plus a shared `servers` dict are prepended
+   to each test. The mockup's tests 4 and 5 shared a result, so test 5
+   rebuilds it. The task text links Concept 1's fix subsection (task
+   text renders links). Verified in Pyodide 0.26.4: both demos' output
+   matches the mockup exactly, the reference passes 5/5 and the starter
+   fails 5/5. No `"*"` support fails 2, listing a server before checking
+   the allowlist fails 3, an allowlist matched against prefixed names
+   fails 1, 3, 4 and 5, filtering only tools and not servers fails 2 to
+   4, keeping `inputSchema` fails 5, and adding routes for allowed but
+   unoffered names fails 4. The least-privilege forward reference is
+   plain text. Callbacks link to Concept 2's routed-loop and
+   three-things subsections, Lesson 3.3's tool-result-is-input-tokens
+   subsection (twice: the cost problem and the ÷4 estimate), Module 1's
+   cache-across-requests subsection, Module 2's phase-as-real-state
+   subsection, Lesson 3.1's what-a-description-should-say subsection,
+   and Concept 1's fix subsection. Still to come: the bookends, after
+   which the lesson is Locked.
 
 ---
 

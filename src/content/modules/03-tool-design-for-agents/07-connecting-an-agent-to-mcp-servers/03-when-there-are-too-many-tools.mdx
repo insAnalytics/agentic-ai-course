@@ -1,0 +1,329 @@
+---
+title: "When there are too many tools"
+lesson: "07-connecting-an-agent-to-mcp-servers"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { MCP_STANDINS } from "../../../../lib/mcpStandins";
+
+export const COST_DEMO = String.raw`import json
+
+def fake_tool(server: str, action: str) -> dict:
+    # a typical tool definition: a name, a sentence of description, and a small schema
+    return {
+        "name": f"{server}__{action}",
+        "description": f"{action.replace('_', ' ').capitalize()} in {server}. Use this when the user asks about {server} {action.split('_')[-1]}.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string", "description": "The identifier of the item to act on."},
+                "limit": {"type": "integer", "description": "Maximum number of results to return."},
+            },
+            "required": ["id"],
+        },
+    }
+
+ACTIONS = ["list_items", "get_item", "create_item", "update_item", "delete_item",
+           "search_items", "get_status", "list_users", "get_user", "list_events"]
+SERVERS = ["registry", "monitoring", "github", "slack", "calendar"]
+
+catalog = [fake_tool(server, action) for server in SERVERS for action in ACTIONS]
+tokens_per_request = len(json.dumps(catalog)) // 4
+
+print(f"{len(catalog)} tools from {len(SERVERS)} servers")
+print(f"roughly {tokens_per_request:,} tokens of tool definitions, sent with every request")
+print(f"a 10-step task resends them 10 times: roughly {tokens_per_request * 10:,} tokens")
+print("tools with the same action name on different servers:",
+      sum(1 for tool in catalog if tool["name"].endswith("__get_status")))`;
+
+export const ALLOWLIST_DEMO = String.raw`import re
+
+def model_tool_name(label: str, tool_name: str) -> str:
+    return re.sub(r"[^a-zA-Z0-9_-]", "_", f"{label}__{tool_name}")
+
+# this agent only answers questions about agents' models and health
+ALLOWED = {
+    "registry": {"get_agent_model"},
+    "monitoring": {"get_status"},
+}
+
+def build_tool_catalog(servers: dict, allowed: dict) -> tuple:
+    tools_for_model, routes = [], {}
+    for label, client in servers.items():
+        if label not in allowed:
+            continue
+        for tool in client.list_tools():
+            if tool["name"] not in allowed[label]:
+                continue
+            name = model_tool_name(label, tool["name"])
+            tools_for_model.append({"name": name, "description": tool["description"], "input_schema": tool["inputSchema"]})
+            routes[name] = (label, tool["name"])
+    return tools_for_model, routes
+
+servers = {"registry": InProcessClient(registry_server), "monitoring": InProcessClient(monitoring_server)}
+tools, routes = build_tool_catalog(servers, ALLOWED)
+print("offered to the model:", [t["name"] for t in tools])`;
+
+export const PROVIDED = String.raw`# --- provided: don't change this part ---
+import re
+
+def model_tool_name(label: str, tool_name: str) -> str:
+    return re.sub(r"[^a-zA-Z0-9_-]", "_", f"{label}__{tool_name}")
+# --- end of provided code ---
+
+`;
+
+export const STARTER = String.raw`def build_tool_catalog(servers: dict, allowed: dict) -> tuple:
+    # TODO: the first concept's catalog, limited by the allowlist
+    ...`;
+
+export const REFERENCE = String.raw`def build_tool_catalog(servers: dict, allowed: dict) -> tuple:
+    tools_for_model, routes = [], {}
+    for label, client in servers.items():
+        if label not in allowed:
+            continue
+        for tool in client.list_tools():
+            if allowed[label] != "*" and tool["name"] not in allowed[label]:
+                continue
+            name = model_tool_name(label, tool["name"])
+            if len(name) > 64:
+                continue
+            tools_for_model.append({"name": name, "description": tool["description"], "input_schema": tool["inputSchema"]})
+            routes[name] = (label, tool["name"])
+    return tools_for_model, routes`;
+
+export const TEST_SETUP = String.raw`
+servers = {"registry": InProcessClient(registry_server), "monitoring": InProcessClient(monitoring_server)}
+`;
+
+export const TESTS = [
+  String.raw`# only the listed tools from each listed server
+tools, routes = build_tool_catalog(servers, {"registry": {"get_agent_model"}, "monitoring": {"alerts.list"}})
+assert sorted(t["name"] for t in tools) == ["monitoring__alerts_list", "registry__get_agent_model"]
+assert routes["monitoring__alerts_list"] == ("monitoring", "alerts.list")`,
+  String.raw`# "*" allows every tool from that server
+tools, routes = build_tool_catalog(servers, {"monitoring": "*"})
+assert sorted(t["name"] for t in tools) == ["monitoring__alerts_list", "monitoring__get_status"]`,
+  String.raw`# a server not in the allowlist contributes nothing, and is never even asked for its tools
+class CountingClient(InProcessClient):
+    def __init__(self, server):
+        super().__init__(server)
+        self.list_calls = 0
+    def list_tools(self):
+        self.list_calls += 1
+        return super().list_tools()
+unused = CountingClient(registry_server)
+tools, routes = build_tool_catalog({"registry": unused, "monitoring": InProcessClient(monitoring_server)}, {"monitoring": {"get_status"}})
+assert [t["name"] for t in tools] == ["monitoring__get_status"] and unused.list_calls == 0`,
+  String.raw`# an allowed name the server doesn't actually offer is simply absent
+tools, routes = build_tool_catalog(servers, {"registry": {"get_agent_model", "delete_agent"}})
+assert [t["name"] for t in tools] == ["registry__get_agent_model"] and set(routes) == {"registry__get_agent_model"}`,
+  String.raw`# the conversion from the earlier concept is unchanged
+tools, routes = build_tool_catalog(servers, {"registry": {"get_agent_model", "delete_agent"}})
+t = tools[0]
+assert t["input_schema"] == AGENT_NAME_SCHEMA and "inputSchema" not in t`,
+  // each hidden test runs in its own copy of the learner's namespace, so the stand-ins and the shared servers go on every one
+].map((test) => MCP_STANDINS + TEST_SETUP + test);
+
+<Subsection title="Every server you connect adds to every request" variant="a">
+
+Connecting a server is one line of configuration, and a useful server
+might offer ten, twenty or fifty tools. So it's easy for an agent to end
+up with far more tools than any single task needs. That has two costs,
+and both grow with every server added.
+
+**Tokens, on every request.**
+[The previous concept](/03-tool-design-for-agents/07-connecting-an-agent-to-mcp-servers/02-routing-the-models-calls-inside-the-loop/#the-routed-loop)
+sent the whole catalog with every `create(...)` call. Tool definitions
+are ordinary input, so this is
+[Lesson 3's cost problem](/03-tool-design-for-agents/03-shaping-what-tools-return/01-why-a-huge-tool-result-hurts/#a-tool-result-is-just-more-input-tokens)
+again, from the other direction: not one oversized result, but a large
+block of definitions resent on every step.
+
+<LiveDemo client:load code={COST_DEMO} />
+
+*Characters ÷ 4 is
+[a rough token estimate](/03-tool-design-for-agents/03-shaping-what-tools-return/01-why-a-huge-tool-result-hurts/#a-tool-result-is-just-more-input-tokens).*
+
+These toy definitions are short, about 90 tokens each. Real ones are
+much longer, with detailed descriptions, many parameters and nested
+schemas. Anthropic's documentation gives a real example: a typical setup
+of five servers, such as GitHub, Slack, Sentry, Grafana and Splunk, uses
+around 55,000 tokens of tool definitions before the model has done any
+work at all.
+[Prompt caching](/01-llm-foundations/06-context-windows-and-kv-cache/04-prompt-structure-and-cache-hits/#the-cache-benefit-extends-across-separate-requests-not-just-within-one)
+softens the price, since the definitions are the same stable prefix on
+every request, but they still take up the context window every time,
+and caching does nothing for the second problem.
+
+**Worse choices.** The more tools a model sees, the more likely it is to
+pick the wrong one. Anthropic's documentation puts the threshold
+plainly: Claude's ability to pick the right tool degrades once it has
+more than about 30 to 50 tools available. Anthropic's engineering team
+reports that the most common failures are choosing the wrong tool and
+passing incorrect parameters, especially when tools have similar names.
+The demo's catalog has five `get_status` tools; a real multi-server
+setup has many near-duplicates like that.
+
+</Subsection>
+
+<Subsection title="Fix 1: connect only what the agent needs" variant="b">
+
+The simplest fix happens before any code: an agent that manages the
+registry doesn't need the calendar server. Each agent gets its own list
+of servers, chosen for its job, rather than every agent connecting to
+everything the organization has.
+
+</Subsection>
+
+<Subsection title="Fix 2: offer only the tools the task needs" variant="a">
+
+Even a relevant server usually offers more tools than one agent uses. An
+**allowlist** names, per server, exactly which tools this agent may see,
+and the catalog builder skips everything else. This lesson's stand-in
+servers are loaded before the demo runs:
+
+<LiveDemo client:load setupCode={MCP_STANDINS} code={ALLOWLIST_DEMO} />
+
+Two tools instead of four. The registry's `get_status` and the
+monitoring server's `alerts.list` still exist on their servers; this
+agent just isn't offered them. Two details matter here:
+
+- **The allowlist uses the servers' original tool names,**
+  `get_agent_model` rather than `registry__get_agent_model`, because
+  it's written against what each server actually offers.
+- **A tool the model isn't offered can't be called.** The route for it
+  never exists, so
+  [the routing step](/03-tool-design-for-agents/07-connecting-an-agent-to-mcp-servers/02-routing-the-models-calls-inside-the-loop/#three-things-that-can-go-wrong)
+  answers any attempt as an unknown tool, without contacting a server.
+  That makes the allowlist more than a performance fix: it's the first
+  step toward limiting what an agent is able to do, covered properly in
+  a later lesson in this module on designing for least privilege.
+
+</Subsection>
+
+<Subsection title="Fix 3: different tools for different stages" variant="b">
+
+An agent that plans, then acts, then checks its work rarely needs the
+same tools in every stage.
+[Module 2's phase-aware system prompts](/02-the-agent-loop/03-the-system-prompt-as-agent-design/04-phase-aware-prompting/#the-stronger-approach-the-code-tracks-phase-as-real-state)
+changed the instructions per stage; the same idea applies to the tool
+list. Building a catalog per stage, a read-only set while researching, a
+write set only when it's time to act, keeps each stage's list short.
+
+</Subsection>
+
+<Subsection title="Fix 4: make similar tools easy to tell apart" variant="a">
+
+When two tools really are both needed and look alike, the fix is
+[Lesson 1's](/03-tool-design-for-agents/01-designing-tools-a-model-can-use-well/01-names-and-descriptions-as-prompts/#what-a-description-should-say):
+descriptions that say when to use each one, and when *not* to. The
+server prefix from
+[the first concept](/03-tool-design-for-agents/07-connecting-an-agent-to-mcp-servers/01-discovering-tools-from-several-servers/#the-fix-prefix-clean-up-and-keep-a-route-back)
+helps too: `registry__get_status` and `monitoring__get_status` are
+already clearer than two tools both called `get_status`.
+
+</Subsection>
+
+<Subsection title="Beyond static lists" variant="b">
+
+All four fixes decide the tool list *before* the task starts. For agents
+that genuinely need access to hundreds of tools, there's a different
+approach: offer the model a small search tool, and load the definitions
+it asks for only when it needs them. Anthropic's API has this built in,
+and it's one of several techniques for managing what goes into the
+context window at all, which is Module 4's subject. For most agents, a
+well-chosen allowlist is enough.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why do more connected tools cost tokens on every request, not just once?",
+      options: [
+        "The servers charge per tool listed",
+        "The model API is stateless, so the tool definitions are part of every request's input",
+        "Each tool is called once per request to check it still works",
+        "Tool definitions are stored in the model's weights",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Like the conversation, the tool list is resent on every call. Caching can reduce the price, but the definitions still occupy the context window each time.",
+    },
+    {
+      question: "According to Anthropic's documentation, roughly when does Claude's tool selection start to degrade?",
+      options: [
+        "Beyond about 5 tools",
+        "Only beyond about 1,000 tools",
+        "Beyond about 30 to 50 tools available at once",
+        "It doesn't; more tools always help",
+      ],
+      correctIndex: 2,
+      explanation:
+        "That's the threshold Anthropic's docs give. The most common failures are choosing the wrong tool and passing incorrect parameters, especially among similarly named tools.",
+    },
+    {
+      question: "An allowlist names {\"registry\": {\"get_agent_model\"}}, and the model calls registry__get_status anyway. What happens?",
+      options: [
+        "The registry server rejects it with a protocol error",
+        "The call goes through, since the registry server is connected",
+        "The host adds the tool to the catalog and retries",
+        "The host answers it as an unknown tool, because no route exists for it, and no server is contacted",
+      ],
+      correctIndex: 3,
+      explanation:
+        "Only allowed tools get routes. That's what makes an allowlist a limit on what the agent can do, not just a shorter list.",
+    },
+    {
+      question: "Why does the allowlist use get_agent_model rather than registry__get_agent_model?",
+      options: [
+        "It's written against the names each server actually offers, keyed by server",
+        "Prefixed names are only valid inside the model API",
+        "The allowlist is sent to the servers",
+        "Prefixes are removed before the catalog is built",
+      ],
+      correctIndex: 0,
+      explanation:
+        "The allowlist is configuration about servers and their tools. The prefix is only added afterwards, when building names for the model.",
+    },
+    {
+      question: "Prompt caching makes a large, stable tool list cheaper. What problem does it leave unsolved?",
+      options: [
+        "The definitions still fill the context window, and a long list still makes tool choice harder",
+        "Cached tools can't be called",
+        "Caching only works for a single server",
+        "Caching increases the per-token price",
+      ],
+      correctIndex: 0,
+      explanation:
+        "Caching reduces what you pay for repeated input. It doesn't shorten the list the model has to choose from, or free up the space it takes.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Extend build_tool_catalog(servers, allowed) from [this lesson's first concept](/03-tool-design-for-agents/07-connecting-an-agent-to-mcp-servers/01-discovering-tools-from-several-servers/#the-fix-prefix-clean-up-and-keep-a-route-back) with an allowlist. model_tool_name is provided at the top of the editor. allowed maps a server label either to a set of the server's original tool names, or to the string \"*\" meaning every tool on that server. A server whose label isn't in allowed is skipped entirely: don't even call its list_tools(). For an allowed server, keep only the tools its entry allows (or all of them for \"*\"). Everything else is as before: prefixed, cleaned names; inputSchema stored as input_schema; a route to (label, original_name); names over 64 characters left out."}
+  starterCode={PROVIDED + STARTER}
+  hiddenTests={TESTS}
+  hint={"Two continue checks do all the new work: one at the top of the server loop (label not in allowed), and one at the top of the tool loop (allowed[label] != \"*\" and tool[\"name\"] not in allowed[label]). The rest of the loop body is the first concept's solution, unchanged."}
+  correctAnswer={{
+    code: PROVIDED + REFERENCE,
+    explanation:
+      "The grading checks that the skipped server's list_tools() is never called. That's not only tidy: listing a server's tools is a real request, and there's no reason to make it for a server this agent will never use. It also shows that allowing a tool name the server doesn't actually offer is harmless: the allowlist can only narrow what the servers offer, never add to it.",
+  }}
+/>
+
+</CheckpointZone>
