@@ -1869,28 +1869,60 @@ below describe each lesson as first converted; see the git log
    three message kinds (request, response, notification) and a live demo
    of the four shapes. The field rules are that ids are a string or
    integer, never null and never reused while pending; notifications
-   carry no id; and MCP's `resultType` means a missing value counts as
-   `"complete"`. A live demo shows out-of-order responses matched by id.
+   carry no id; and MCP requires a `resultType` on every result
+   (`"complete"` or `"input_required"`). A live demo shows out-of-order responses matched by id.
    It separates protocol errors (a JSON-RPC `error` with a code) from
    tool execution errors (a `result` with `isError: true`), and has an
    error-code table. There are 5 quiz questions and a graded
-   `to_tool_output(response)` exercise with 7 hidden tests. **Checked
+   `to_tool_output(response)` exercise with 6 hidden tests. **Checked
    against the published 2026-07-28 spec**
    (modelcontextprotocol.io/specification/2026-07-28/basic): `resultType`
-   and its missing-means-complete rule, an unrecognised value being
+   and its two values, an unrecognised value being
    invalid, the id rules, the -32020 to -32099 reserved range, the names
    of -32020, -32021 and -32022, and `-32602` for missing required
    `_meta` all match the mockup. Verified in Pyodide 0.26.4 against the
-   built page. The reference passes all 7 tests and the starter fails
-   all 7. Six single-rule violations each fail exactly one test: no
-   default `resultType`, no text-type filter, ignoring `isError`,
+   built page. The reference passes all 6 tests and the starter fails
+   all 6. Single-rule violations each fail exactly one test: no
+   text-type filter, ignoring `isError`,
    treating `input_required` as complete, treating an unknown type as
    complete, and a protocol error without its code. Callbacks link to
    Module 0's REST-methods subsection, Lesson 3.4's gather-and-pair and
    `is_error` subsections, Module 1's round-trip `tool_use_id`
    subsection, and Lesson 3.3's useful-error-messages subsection. The
    forward references to this lesson's transports and statelessness
-   concepts are plain text.
+   concepts are plain text. A later mockup revision dropped the
+   backward-compatibility rule (a missing `resultType` treated as
+   `"complete"`) from the prose, quiz Q4 (now "what does
+   `input_required` mean?"), the hint, the reference and the hidden
+   tests. The revised reference reads `result["resultType"]` directly.
+   Concept 3 is drafted: stateless by design. It opens by linking the
+   three stateless systems the course has already built (Module 0's REST
+   principles, Module 1's resend-everything multi-turn API, Module 2's
+   scratchpad). Then it shows every request carrying `_meta` with
+   `protocolVersion` and `clientCapabilities` (required) and `clientInfo`
+   (recommended), with `-32602` for a missing field and `-32022` plus a
+   `supported` list for an unsupported version. It covers
+   `server/discover` with a version-choice demo and `ttlMs` caching, the
+   operational payoff (any instance, restarts, one connection for
+   unrelated work), and server-minted handles for state that has to
+   persist (a live `create_draft`/`add_agent_to_draft` demo with
+   `structuredContent`, plus the spec's four handle-design rules). There
+   are 4 quiz questions and a graded
+   `validate_request_meta(request, supported_versions)` exercise with 6
+   hidden tests. A shared test prelude (`SUPPORTED`, `req`, `good_meta`)
+   is prepended to each test, since each test runs in its own namespace
+   copy. Verified in Pyodide 0.26.4: all three demos match the mockup's
+   output (apart from the random draft ids), the reference passes 6/6,
+   checking the version before the fields fails tests 3 and 6, indexing
+   `request["params"]` directly fails test 6, requiring `clientInfo`
+   fails tests 1 and 5, and returning a bare error object without the
+   JSON-RPC envelope fails tests 3 to 6. The do-nothing starter passes
+   tests 1 and 2 (both expect `None`) and fails the rest. Callbacks link
+   to Module 0's REST-principles subsection, Module 1's no-memory
+   subsection, Module 2's why-the-scratchpad-exists subsection, Concept
+   2's two-ways-to-fail subsection, and Lesson 3.4's retrying-a-write
+   (idempotency key) subsection. Next up is Concept 4: what a server
+   offers (tools, resources, prompts).
 
 ---
 

@@ -66,7 +66,7 @@ Field by field:
 - **`result`** or **`error`**: a response has exactly one of them, never both.
 - **Notifications have no `id`,** and that's what makes them notifications: with no id, there's nothing a response could point back to, so none is sent.
 
-MCP adds one rule of its own on top of JSON-RPC: every `result` must carry a **`resultType`**. It's almost always `"complete"`. The other value, `"input_required"`, means the server needs something more before it can finish, such as a confirmation from the user. That's an advanced pattern this lesson won't build, but a client has to recognize it. A server written for an earlier version of MCP won't send `resultType` at all, and the spec says to treat a missing one as `"complete"`.
+MCP adds one rule of its own on top of JSON-RPC: every `result` must carry a **`resultType`**. It's almost always `"complete"`. The other value, `"input_required"`, means the server needs something more before it can finish, such as a confirmation from the user. That's an advanced pattern this lesson won't build, but a client has to recognize it.
 
 ---
 
@@ -163,13 +163,13 @@ The first five come from JSON-RPC itself. MCP reserves `-32020` to `-32099` for 
 >
 > *Explanation:* The tool ran and the task failed for a reason the model can fix, which makes it a tool execution error. Protocol errors are for requests the server couldn't handle at all, like an unknown tool.
 
-> **Q4.** A result arrives with no `resultType` field. What should a 2026-07-28 client do?
-> - A) Reject it as invalid
-> - B) Treat it as `"complete"`, since it likely comes from a server on an earlier protocol version ✅
-> - C) Treat it as `"input_required"` and wait for more
-> - D) Resend the request with a different id
+> **Q4.** A `tools/call` result comes back with `"resultType": "input_required"`. What does that mean?
+> - A) The tool call failed and should be retried
+> - B) The server needs something more, such as a user's confirmation, before it can finish the call ✅
+> - C) The model must supply the tool's arguments again
+> - D) The result is complete but contains no content
 >
-> *Explanation:* Earlier protocol versions didn't have `resultType`, and the spec tells clients to treat its absence as `"complete"` for backward compatibility.
+> *Explanation:* `"complete"` means the result is final. `"input_required"` means the call isn't finished yet, and the client has to supply more before it can be.
 
 > **Q5.** How is a JSON-RPC `id` different from a `tool_use_id`?
 > - A) They're the same value, copied from one to the other
@@ -188,7 +188,7 @@ The first five come from JSON-RPC itself. MCP reserves `-32020` to `-32099` for 
 **Task shown to learner:** When a `tools/call` response comes back from an MCP server, the host has to turn it into the text of a `tool_result` for the model, plus whether that result is a failure. Implement `to_tool_output(response)`, returning a tuple `(text, is_error)`:
 
 - **An `error` response** (a protocol error): return text starting with `"Error:"` that includes the error's code and message, and `is_error` `True`.
-- **A `result`:** read its `resultType`, treating a missing one as `"complete"`.
+- **A `result`:** read its `resultType`.
   - `"complete"`: join the `text` of every content item whose `type` is `"text"` with newlines, skipping other types. `is_error` is the result's `isError`, or `False` if it's absent.
   - `"input_required"`: this client doesn't support it. Return text starting with `"Error:"` saying so, and `True`.
   - anything else: the spec says an unrecognised `resultType` is invalid. Return text starting with `"Error:"` that names it, and `True`.
@@ -216,9 +216,6 @@ protocol_error = {"jsonrpc": "2.0", "id": 4, "error": {"code": -32602, "message"
 text, is_error = to_tool_output(protocol_error)
 assert is_error is True and text.startswith("Error:") and "-32602" in text and "Unknown tool" in text
 
-legacy = {"jsonrpc": "2.0", "id": 5, "result": {"content": [{"type": "text", "text": "from an older server"}]}}
-assert to_tool_output(legacy) == ("from an older server", False)
-
 needs_input = {"jsonrpc": "2.0", "id": 6, "result": {"resultType": "input_required", "inputRequests": {}}}
 text, is_error = to_tool_output(needs_input)
 assert is_error is True and text.startswith("Error:")
@@ -228,7 +225,7 @@ text, is_error = to_tool_output(weird)
 assert is_error is True and "something_new" in text
 ```
 
-**Hint (shown on request):** Check `"error" in response` first; a response has either `error` or `result`, never both. For a result, `result.get("resultType", "complete")` covers older servers in one step, and the same `.get(..., default)` pattern works for `isError` and `content`. Build the text with a generator inside `"\n".join(...)`, keeping only items where `item["type"] == "text"`.
+**Hint (shown on request):** Check `"error" in response` first; a response has either `error` or `result`, never both. For a result, `result.get("isError", False)` and `result.get("content", [])` handle fields that may be absent. Build the text with a generator inside `"\n".join(...)`, keeping only items where `item["type"] == "text"`.
 
 **Reference solution:**
 ```python
@@ -237,8 +234,7 @@ def to_tool_output(response: dict) -> tuple:
         error = response["error"]
         return (f"Error: MCP error {error['code']}: {error['message']}", True)
     result = response["result"]
-    # results from servers on an earlier protocol version may omit resultType
-    result_type = result.get("resultType", "complete")
+    result_type = result["resultType"]
     if result_type == "complete":
         text = "\n".join(item["text"] for item in result.get("content", []) if item["type"] == "text")
         return (text, result.get("isError", False))
@@ -247,7 +243,7 @@ def to_tool_output(response: dict) -> tuple:
     return (f"Error: unrecognised resultType '{result_type}'", True)
 ```
 
-**Explanation:** The function is the seam between two layers: MCP's two kinds of failure on one side, and the model's single `is_error` flag on the other. Protocol errors and tool execution errors look different on the wire (tests 3 and 4) but both reach the model as a flagged failure. Test 5 checks backward compatibility with a server that doesn't send `resultType`, and tests 6 and 7 check that a result type the client can't handle is reported rather than silently treated as an empty success. Test 2 checks that non-text content, like an image, doesn't break the text the model receives.
+**Explanation:** The function is the seam between two layers: MCP's two kinds of failure on one side, and the model's single `is_error` flag on the other. Protocol errors and tool execution errors look different on the wire (tests 3 and 4) but both reach the model as a flagged failure. Tests 5 and 6 check that a result type the client can't handle is reported rather than silently treated as an empty success. Test 2 checks that non-text content, like an image, doesn't break the text the model receives.
 
 ---
 

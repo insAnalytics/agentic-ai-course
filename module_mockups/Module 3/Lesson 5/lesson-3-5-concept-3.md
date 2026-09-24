@@ -1,0 +1,314 @@
+# Module 3, Lesson 5 — Concept 3: Stateless by design
+
+---
+
+## You've met this idea three times already
+
+Before looking at how MCP handles state, it's worth noticing a pattern. This course has already built three systems where the receiving side remembers nothing between requests, so every request has to carry everything that's needed:
+
+- **REST:** [Module 0's FastAPI lesson](→ Module 0, the FastAPI lesson, rest api fundamentals concept) introduced statelessness as a REST principle: each request carries its own authentication and data, and the server keeps no memory of earlier requests from that client.
+- **LLM APIs:** [Module 1's multi-turn lesson](→ Module 1, calling llm apis and processing responses lesson, multi turn conversations and why the client resends everything concept) showed that the model's API remembers nothing, so the client resends the whole conversation on every call.
+- **The agent loop:** [Module 2's scratchpad](→ Module 2, agent state and the scratchpad lesson, the scratchpad concept) made that explicit: the model is stateless between calls, and everything it knows about a task lives in the `messages` list your code sends each time.
+
+As of its 2026-07-28 revision, MCP follows the same design. The spec is blunt about it: all the information needed to process a request is contained in the request itself.
+
+---
+
+## Every request carries its own `_meta`
+
+Each request carries its protocol version and capabilities in a `_meta` object inside its `params`:
+
+```python
+import json
+
+PROTOCOL_VERSION = "2026-07-28"
+CLIENT_INFO = {"name": "registry-agent", "version": "1.0.0"}
+CLIENT_CAPABILITIES = {}
+
+def build_request(request_id: int, method: str, params: dict) -> dict:
+    # every request carries everything the server needs to handle it on its own
+    meta = {
+        "io.modelcontextprotocol/protocolVersion": PROTOCOL_VERSION,
+        "io.modelcontextprotocol/clientInfo": CLIENT_INFO,
+        "io.modelcontextprotocol/clientCapabilities": CLIENT_CAPABILITIES,
+    }
+    return {"jsonrpc": "2.0", "id": request_id, "method": method, "params": {**params, "_meta": meta}}
+
+first = build_request(1, "tools/list", {})
+second = build_request(2, "tools/call", {"name": "get_agent_model", "arguments": {"agent_name": "research_agent"}})
+print(json.dumps(second, indent=2))
+print("same _meta on both:", first["params"]["_meta"] == second["params"]["_meta"])
+```
+```
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "tools/call",
+  "params": {
+    "name": "get_agent_model",
+    "arguments": {
+      "agent_name": "research_agent"
+    },
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+      "io.modelcontextprotocol/clientInfo": {
+        "name": "registry-agent",
+        "version": "1.0.0"
+      },
+      "io.modelcontextprotocol/clientCapabilities": {}
+    }
+  }
+}
+same _meta on both: True
+```
+*(runs live, shows output — read-only demo snippet, not graded)*
+
+The three fields:
+
+- **`protocolVersion`** (required): which version of MCP this request follows.
+- **`clientCapabilities`** (required): the optional MCP features this client supports. An empty object is valid, and means the client supports none of them. A server must not rely on a capability the client didn't declare in *this* request.
+- **`clientInfo`** (recommended): the client's name and version, for logging and debugging. The spec says it's self-reported and should never be used for security decisions.
+
+The long key names, like `io.modelcontextprotocol/protocolVersion`, use a reverse-domain prefix so MCP's own fields can never collide with anything else a client or server wants to put in `_meta`.
+
+A request missing a required field is malformed, and the server must reject it with `-32602`, [the invalid-params code from the previous concept](→ this lesson, json rpc as the message format concept). A request asking for a version the server doesn't support gets `-32022`, with the versions it does support in the error's `data`, so the client can pick one and retry.
+
+---
+
+## `server/discover`: asking before you start
+
+Since there's no handshake, how does a client learn what a server supports? It can just try: send a request with its preferred version and handle `-32022` if it's refused. Or it can ask up front with `server/discover`, a method every server must implement:
+
+```python
+CLIENT_PREFERS = ["2026-07-28", "2025-11-25"]
+
+discover_response = {
+    "jsonrpc": "2.0",
+    "id": "discover-1",
+    "result": {
+        "resultType": "complete",
+        "supportedVersions": ["2025-11-25"],
+        "capabilities": {"tools": {}},
+        "_meta": {"io.modelcontextprotocol/serverInfo": {"name": "registry-server", "version": "0.9.0"}},
+        "instructions": "Tools for reading and updating the agent registry.",
+        "ttlMs": 3600000,
+        "cacheScope": "public",
+    },
+}
+
+def choose_version(client_prefers: list, server_supports: list) -> str | None:
+    # the first version, in the client's order of preference, that the server also speaks
+    for version in client_prefers:
+        if version in server_supports:
+            return version
+    return None
+
+result = discover_response["result"]
+server = result["_meta"]["io.modelcontextprotocol/serverInfo"]
+print(f"server: {server['name']} {server['version']}")
+print(f"it offers: {list(result['capabilities'])}")
+print(f"version to use: {choose_version(CLIENT_PREFERS, result['supportedVersions'])}")
+print(f"cache this answer for {result['ttlMs'] // 60000} minutes")
+```
+```
+server: registry-server 0.9.0
+it offers: ['tools']
+version to use: 2025-11-25
+cache this answer for 60 minutes
+```
+*(runs live, shows output — read-only demo snippet, not graded; the response is an example in the shape the spec defines)*
+
+One call returns the server's supported versions, its capabilities, its name and version, and optional `instructions`: plain-language guidance for the model on how to use this server well. This server only supports `2025-11-25`, so the client picks that, its second choice. The `ttlMs` field says how long the answer can be cached, one hour here. That's a hint to the client, not a session: nothing breaks if the client asks again, or never asks at all.
+
+---
+
+## Why stateless is worth the repetition
+
+Sending the same `_meta` on every request looks wasteful. The payoff is operational, and it's the same payoff REST gets:
+
+- **Any server instance can answer any request.** A remote MCP server can run as many copies behind a load balancer, and a request can land on any of them. With sessions, every request from a client had to reach the same copy that held its session, which is much harder to scale.
+- **Restarts don't lose anything.** There's no session to lose when a server restarts or a connection drops. The next request carries everything it needs.
+- **One connection can serve unrelated work.** A host can interleave requests for different conversations, or different users, over the same connection. The spec says outright that a connection is not a conversation.
+
+---
+
+## When a server does need state: handles
+
+Some tools genuinely need to remember something between calls: a draft being built up over several steps, a shopping basket, an open database transaction. Stateless doesn't forbid that. It moves the state somewhere explicit.
+
+The pattern the spec recommends: a creation tool returns a **handle**, an identifier the server mints, and later calls pass that handle back as an ordinary argument. The server keeps the actual state under that key. Here's a registry server that lets an agent build up a batch of new agents before publishing them:
+
+```python
+import uuid
+
+# the server's own storage, keyed by handle -- nothing here is tied to a connection
+DRAFTS = {}
+
+def text_result(text: str, is_error: bool = False) -> dict:
+    return {"resultType": "complete", "content": [{"type": "text", "text": text}], "isError": is_error}
+
+def create_draft() -> dict:
+    draft_id = f"draft_{uuid.uuid4().hex[:12]}"
+    DRAFTS[draft_id] = []
+    result = text_result(f"Created {draft_id}. Drafts expire after 24 hours.")
+    # the same handle as data, so the client doesn't have to parse it out of the text
+    result["structuredContent"] = {"draft_id": draft_id}
+    return result
+
+def add_agent_to_draft(draft_id: str, agent_name: str, model: str) -> dict:
+    if draft_id not in DRAFTS:
+        return text_result(f"No draft called {draft_id}; it may have expired. Create a new one with create_draft.", is_error=True)
+    DRAFTS[draft_id].append((agent_name, model))
+    return text_result(f"Added {agent_name} to {draft_id} ({len(DRAFTS[draft_id])} agents so far).")
+
+# two unrelated tasks, interleaved over the same connection
+draft_a = create_draft()["structuredContent"]["draft_id"]
+draft_b = create_draft()["structuredContent"]["draft_id"]
+print(add_agent_to_draft(draft_a, "research_agent", "claude-sonnet")["content"][0]["text"])
+print(add_agent_to_draft(draft_b, "support_agent", "claude-haiku")["content"][0]["text"])
+print(add_agent_to_draft(draft_a, "billing_agent", "claude-haiku")["content"][0]["text"])
+
+result = add_agent_to_draft("draft_000000000000", "ghost_agent", "claude-opus")
+print(result["content"][0]["text"], "| isError:", result["isError"])
+```
+```
+Added research_agent to draft_a4f8d181c67e (1 agents so far).
+Added support_agent to draft_ec4236338859 (1 agents so far).
+Added billing_agent to draft_a4f8d181c67e (2 agents so far).
+No draft called draft_000000000000; it may have expired. Create a new one with create_draft. | isError: True
+```
+*(runs live, shows output — read-only demo snippet, not graded; the draft IDs are random, so they differ on every run)*
+
+Two drafts are built up at once over the same connection, and neither gets mixed up with the other, because every call names its draft. `uuid.uuid4()`, [already used for idempotency keys in Lesson 4](→ this module, tools that call the outside world lesson, which failures to retry and how concept), makes the handles unguessable. `structuredContent` returns the handle as data alongside the human-readable text, so a client never has to pick it out of a sentence.
+
+This is exactly the scratchpad idea, applied to tools: the model carries the handle forward in its conversation, just as it carries everything else. The spec's advice for designing handles:
+
+- **Make them opaque.** A handle like `draft_a4f8d181c67e` reveals nothing. One like `user42_draft3` invites guessing other people's.
+- **Check authorization on every call.** A handle is a name, not a permission. For a server with logins, check that *this* caller is allowed to use *this* draft each time.
+- **Say how long they last,** in the creation tool's description, as `create_draft` does, so the model knows before it creates one.
+- **Report an expired or unknown handle as a tool error,** like the last call above, so the model can recover by creating a new one.
+
+---
+
+## Quiz cards
+
+> **Q1.** What does MCP's 2026-07-28 revision have in common with REST APIs and the LLM messages API?
+> - A) All three require an initial handshake before any real request
+> - B) All three keep a session per connection to avoid resending data
+> - C) All three are stateless: each request carries everything the receiver needs, and nothing is remembered between requests ✅
+> - D) All three use JSON-RPC as their message format
+>
+> *Explanation:* That's the pattern across REST, the LLM API's resend-everything conversations, the agent scratchpad, and now MCP. Only MCP uses JSON-RPC, though.
+
+> **Q2.** A request arrives with `protocolVersion` in its `_meta` but no `clientCapabilities`. What must the server do?
+> - A) Assume the client supports every capability
+> - B) Process it using the capabilities from the client's previous request
+> - C) Reject it with `-32022`, unsupported protocol version
+> - D) Reject it with `-32602`, invalid params, because a required field is missing ✅
+>
+> *Explanation:* Both fields are required on every request. There is no "previous request" to fall back on, since the server keeps no state between them.
+
+> **Q3.** A server needs to let an agent build up an order over several tool calls. What's the stateless-friendly way?
+> - A) Remember the order per connection, and clear it when the connection closes
+> - B) Return a server-minted order ID from a creation tool, and accept it as an argument on every later call ✅
+> - C) Use the `clientInfo` name to look up the right order
+> - D) Store the order in the model's system prompt
+>
+> *Explanation:* Explicit handles make state visible and independent of any connection. `clientInfo` is self-reported and must not be used to identify callers or make security decisions.
+
+> **Q4.** Why is sending `_meta` on every request worth the extra bytes?
+> - A) Any server instance behind a load balancer can handle any request, and restarts or dropped connections lose nothing ✅
+> - B) It makes each request faster to process than a session lookup
+> - C) It lets servers see the full conversation history
+> - D) It's required by JSON-RPC 2.0
+>
+> *Explanation:* With no session to find, requests don't need to reach one particular server instance. JSON-RPC itself says nothing about `_meta`; that's MCP's own addition.
+
+---
+
+## Applied sandbox exercise
+
+*(graded — the stateless check every MCP server runs first)*
+
+**Task shown to learner:** Before a 2026-07-28 server handles any request, it checks the request's `_meta`. Implement `validate_request_meta(request, supported_versions)`. It returns `None` if the request is fine, or a complete JSON-RPC error response (with `jsonrpc`, the request's `id`, and `error`) if it isn't:
+
+- **Missing** `io.modelcontextprotocol/protocolVersion` or `io.modelcontextprotocol/clientCapabilities` in `params._meta`: error code `-32602`, with a message naming the missing field. Treat a request with no `params` or no `_meta` the same way.
+- **A `protocolVersion` not in `supported_versions`:** error code `-32022`, message `"Unsupported protocol version"`, and `data` of `{"supported": supported_versions, "requested": <the version asked for>}`.
+- `clientInfo` is optional and shouldn't be checked.
+
+**Starter code:**
+```python
+REQUIRED_META = ["io.modelcontextprotocol/protocolVersion", "io.modelcontextprotocol/clientCapabilities"]
+
+def validate_request_meta(request: dict, supported_versions: list) -> dict | None:
+    # TODO: return None, or a JSON-RPC error response following the rules above
+    ...
+```
+
+**Hidden tests:**
+```python
+SUPPORTED = ["2026-07-28"]
+def req(meta, request_id=1, method="tools/list"):
+    params = {} if meta is None else {"_meta": meta}
+    return {"jsonrpc": "2.0", "id": request_id, "method": method, "params": params}
+
+good_meta = {"io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.modelcontextprotocol/clientCapabilities": {}}
+
+# 1. a complete request passes
+assert validate_request_meta(req(good_meta), SUPPORTED) is None
+
+# 2. clientInfo is optional
+assert validate_request_meta(req({**good_meta, "io.modelcontextprotocol/clientInfo": {"name": "x", "version": "1"}}), SUPPORTED) is None
+
+# 3. no _meta at all: invalid params, answering the right id
+r = validate_request_meta(req(None, request_id=42), SUPPORTED)
+assert r["id"] == 42 and r["error"]["code"] == -32602 and "protocolVersion" in r["error"]["message"], r
+
+# 4. missing clientCapabilities: invalid params naming the field
+r = validate_request_meta(req({"io.modelcontextprotocol/protocolVersion": "2026-07-28"}), SUPPORTED)
+assert r["error"]["code"] == -32602 and "clientCapabilities" in r["error"]["message"], r
+
+# 5. unsupported version: -32022 with supported and requested
+r = validate_request_meta(req({**good_meta, "io.modelcontextprotocol/protocolVersion": "1900-01-01"}, request_id="abc"), SUPPORTED)
+assert r["id"] == "abc" and r["error"]["code"] == -32022, r
+assert r["error"]["data"] == {"supported": ["2026-07-28"], "requested": "1900-01-01"}, r
+
+# 6. a request with no params key at all doesn't crash
+r = validate_request_meta({"jsonrpc": "2.0", "id": 9, "method": "server/discover"}, SUPPORTED)
+assert r["error"]["code"] == -32602 and r["id"] == 9
+```
+
+**Hint (shown on request):** `request.get("params", {}).get("_meta", {})` gives an empty dict whether `params` or `_meta` is missing, so one loop over `REQUIRED_META` handles every missing-field case. Check the required fields before the version, since you can't compare a version that isn't there.
+
+**Reference solution:**
+```python
+REQUIRED_META = ["io.modelcontextprotocol/protocolVersion", "io.modelcontextprotocol/clientCapabilities"]
+
+def validate_request_meta(request: dict, supported_versions: list) -> dict | None:
+    meta = request.get("params", {}).get("_meta", {})
+    for field in REQUIRED_META:
+        if field not in meta:
+            return {
+                "jsonrpc": "2.0",
+                "id": request.get("id"),
+                "error": {"code": -32602, "message": f"Invalid params: missing _meta field {field}"},
+            }
+    requested = meta["io.modelcontextprotocol/protocolVersion"]
+    if requested not in supported_versions:
+        return {
+            "jsonrpc": "2.0",
+            "id": request.get("id"),
+            "error": {
+                "code": -32022,
+                "message": "Unsupported protocol version",
+                "data": {"supported": supported_versions, "requested": requested},
+            },
+        }
+    return None
+```
+
+**Explanation:** This is the first thing a stateless server does with every request, because it can't remember a single check from earlier. The order matters: a missing field is a malformed request (`-32602`), while a present-but-unknown version is a well-formed request the server just can't serve (`-32022`), and only the second gets the `supported` list the client needs to retry. Every error echoes the request's `id`, since [the previous concept](→ this lesson, json rpc as the message format concept) showed that's how the client matches it up. Next lesson's hand-written server starts from exactly this check.
+
+---
+
+*(End of Concept 3. This lesson continues with Concept 4 — what a server offers: tools, resources and prompts.)*
