@@ -1843,6 +1843,29 @@ below describe each lesson as first converted; see the git log
    architecture.md §4.1). The hint links to all four concept pages.
    Lesson 3.4 is now fully Locked.
 
+5. **The Model Context Protocol** — Building
+   *Working title.* The folder is `05-the-model-context-protocol`.
+   Concept 1 is drafted: the integration problem and MCP's three roles.
+   Without a shared protocol, integrations grow as hosts × services; with
+   one, they grow as hosts + services. A live counting demo makes this
+   concrete, and the page draws the LSP analogy. The three roles are
+   host (the AI application that runs the model and the loop), client (a
+   connector inside the host, one per server) and server (a separate
+   program offering tools). The model never speaks MCP: it still emits
+   `tool_use`, and the host forwards the call. A live demo with a
+   stand-in `RegistryServer` and `REACT_FAKE_CLIENT` shows that the server
+   only ever sees a tool name and its arguments, never the conversation
+   (MCP's isolation principle), while its responses still reach the
+   model. Both demos match the mockup exactly in real Pyodide 0.26.4.
+   There are 5 quiz questions and no graded exercise, per its own
+   mockup. Callbacks link to Module 2's `TOOL_REGISTRY` fix subsection
+   and Module 1's "The model doesn't call anything" subsection. The
+   mockup's forward references to "Lesson 7" (connecting an agent to MCP
+   servers) and "Lesson 10" (the tool threat model) are plain,
+   number-free text, since no Module 3 lesson list exists yet and those
+   lessons aren't built. The same goes for the pointer to Concept 2
+   (JSON-RPC).
+
 ---
 
 ## Modules 4–11 — current plan
