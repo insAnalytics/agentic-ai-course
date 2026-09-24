@@ -1527,6 +1527,30 @@ static code fence. That fence is generated from the mockup, and the
 conversion check asserts it is byte-identical to `MCP_STANDINS`. If
 either copy changes, change both.
 
+Concept 2 added two more shared constants. `fakeClient.ts` gains
+`TOOL_AWARE_CLIENT`, the mockup's `ToolAwareClient(FakeLLMClient)`: its
+`create(messages, tools=None)` records `seen` and `tools_seen`. Append it
+after `REACT_FAKE_CLIENT`. It's a subclass, so nothing earlier changes.
+`mcpStandins.ts` gains `MCP_HOST_HELPERS`, the host helpers every later
+Lesson 7 concept builds on: `model_tool_name`, `build_tool_catalog`, and
+Lesson 5's `to_tool_output` without the `input_required` branch.
+Concept 2 shows it as a static block, which must stay byte-identical to
+the constant.
+
+**Namespace finding (worth remembering for any exercise whose learner
+functions call helpers as globals):** code prepended to a hidden test
+runs in that test's *copy* of the learner namespace. Learner functions
+resolve globals through their own `__globals__`, the original
+namespace, so they can't see anything the test prelude defines.
+Concept 2's `run_agent` calls `build_tool_catalog` and `to_tool_output`
+as globals, so `MCP_HOST_HELPERS` goes in the editor's
+`# --- provided ---` block, the only way into the learner namespace.
+Objects the tests pass in as arguments (servers, the fake client) can
+stay in the test prelude. A second LiveDemo can reuse an earlier
+demo's functions by passing them as part of its `setupCode`: Concept 2
+splits its routed-loop demo into `ROUTED_FUNCS` (definitions) plus the
+run, and its second demo uses `BASE_SETUP + ROUTED_FUNCS`.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped

@@ -84,3 +84,21 @@ class FakeLLMClient:
 `;
 
 export const REACT_FAKE_CLIENT = FAKE_CLIENT + REACT_CLIENT_UPGRADE;
+
+/**
+ * Module 3 Lesson 7 extension: create() also accepts a `tools` argument, as a
+ * real API call does, and records both the messages and the tools it was
+ * given. Append after REACT_FAKE_CLIENT. Backward compatible: every earlier
+ * exercise's create(messages=...) still works on the classes it extends.
+ */
+export const TOOL_AWARE_CLIENT = String.raw`
+class ToolAwareClient(FakeLLMClient):
+    def __init__(self, scripted_responses):
+        super().__init__(scripted_responses)
+        self.seen = []
+        self.tools_seen = []
+    def create(self, messages, tools=None):
+        self.seen.append(list(messages))
+        self.tools_seen.append(tools)
+        return super().create(messages)
+`;

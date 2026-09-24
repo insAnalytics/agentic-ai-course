@@ -2161,6 +2161,33 @@ below describe each lesson as first converted; see the git log
    and `server/discover` subsections, and Lesson 3.1's
    what-the-model-receives subsection. The pointer to Concept 2 is
    plain text.
+   Concept 2 is drafted: routing the model's calls inside the loop.
+   Module 2's collect-every-call loop, with the catalog passed as
+   `tools=` on every `create` and a new `run_tool_call` that looks up
+   the route, calls the server with the original name, and converts the
+   response with `to_tool_output`. A made-up tool name is answered
+   locally and never forwarded. It ends with a short note that real
+   hosts `asyncio.gather` the calls. The mockup's "note for the site
+   build" became `TOOL_AWARE_CLIENT` in `fakeClient.ts`, and its
+   "already loaded" helpers became `MCP_HOST_HELPERS` in
+   `mcpStandins.ts` (both in architecture.md §4.1). There are two live
+   demos, the second reusing the first's functions through `setupCode`,
+   5 quiz questions (Q1's explanation links Module 1's no-memory
+   subsection, since quiz explanations render links), and a graded
+   `run_tool_call` + `run_agent` exercise with 6 hidden tests. The
+   helpers are in the editor's provided block (see the namespace
+   finding in §4.1), and the fake client, stand-ins and
+   `fresh_servers` are prepended to each test. Verified in Pyodide
+   0.26.4: the helpers block equals the constant, both demos' output
+   matches the mockup exactly, the reference passes 6/6 and the starter
+   fails 6/6. Sending the prefixed name to the server fails 1, 3 and 5,
+   forwarding an unknown tool fails 4, always including `is_error`
+   fails 5, not passing `tools` (or only on the first request) fails 2,
+   answering only the first call fails 1, dropping `is_error` fails 3,
+   and ignoring `max_steps` fails 6. Callbacks link to Concept 1's fix
+   subsection, Module 2 Lesson 5's gather-every-call fix subsection,
+   Lesson 3.5's JSON-RPC two-ways-to-fail and three-roles subsections,
+   and Lesson 3.4's one-failure and putting-it-together subsections.
 
 ---
 

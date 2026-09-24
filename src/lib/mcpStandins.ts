@@ -79,3 +79,37 @@ monitoring_server = InProcessServer({
     "alerts.list": (list_alerts, "Open alerts for an agent.", AGENT_NAME_SCHEMA),
 })
 `;
+
+/**
+ * The host-side helpers Lesson 7 builds on from Concept 2 onward:
+ * model_tool_name and build_tool_catalog (Concept 1's solution) and
+ * to_tool_output (Lesson 5's JSON-RPC exercise, without the input_required
+ * branch). Concept 2 shows this exact source as a static block, so keep them
+ * byte-identical.
+ */
+export const MCP_HOST_HELPERS = String.raw`import re
+
+def model_tool_name(label: str, tool_name: str) -> str:
+    return re.sub(r"[^a-zA-Z0-9_-]", "_", f"{label}__{tool_name}")
+
+def build_tool_catalog(servers: dict) -> tuple:
+    tools_for_model, routes = [], {}
+    for label, client in servers.items():
+        for tool in client.list_tools():
+            name = model_tool_name(label, tool["name"])
+            if len(name) > 64:
+                continue
+            tools_for_model.append({"name": name, "description": tool["description"], "input_schema": tool["inputSchema"]})
+            routes[name] = (label, tool["name"])
+    return tools_for_model, routes
+
+def to_tool_output(response: dict) -> tuple:
+    if "error" in response:
+        error = response["error"]
+        return (f"Error: MCP error {error['code']}: {error['message']}", True)
+    result = response["result"]
+    if result["resultType"] == "complete":
+        text = "\n".join(item["text"] for item in result.get("content", []) if item["type"] == "text")
+        return (text, result.get("isError", False))
+    return (f"Error: unsupported resultType '{result['resultType']}'", True)
+`;

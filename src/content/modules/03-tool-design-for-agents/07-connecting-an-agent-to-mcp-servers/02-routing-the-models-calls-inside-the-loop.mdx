@@ -1,0 +1,355 @@
+---
+title: "Routing the model's calls inside the loop"
+lesson: "07-connecting-an-agent-to-mcp-servers"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, TOOL_AWARE_CLIENT } from "../../../../lib/fakeClient";
+import { MCP_STANDINS, MCP_HOST_HELPERS } from "../../../../lib/mcpStandins";
+
+export const BASE_SETUP = REACT_FAKE_CLIENT + TOOL_AWARE_CLIENT + MCP_STANDINS + MCP_HOST_HELPERS;
+
+export const ROUTED_FUNCS = String.raw`def run_tool_call(call, servers: dict, routes: dict) -> dict:
+    if call.name not in routes:
+        # the model asked for a tool no server offered
+        return {"type": "tool_result", "tool_use_id": call.id, "content": f"Error: there is no tool called {call.name}", "is_error": True}
+    label, original_name = routes[call.name]
+    response = servers[label].call_tool(original_name, call.input)
+    text, is_error = to_tool_output(response)
+    result = {"type": "tool_result", "tool_use_id": call.id, "content": text}
+    if is_error:
+        result["is_error"] = True
+    return result
+
+def run_agent(llm, user_message: str, servers: dict, max_steps: int = 10) -> str:
+    tools, routes = build_tool_catalog(servers)
+    messages = [{"role": "user", "content": user_message}]
+    for step in range(max_steps):
+        response = llm.create(messages=messages, tools=tools)
+        messages.append({"role": "assistant", "content": response.content})
+        tool_calls = [block for block in response.content if block.type == "tool_use"]
+        if not tool_calls:
+            return "".join(block.text for block in response.content if block.type == "text")
+        messages.append({"role": "user", "content": [run_tool_call(call, servers, routes) for call in tool_calls]})
+    return f"stopped after {max_steps} steps without a final answer"
+
+`;
+
+export const ROUTED_DEMO = ROUTED_FUNCS + String.raw`servers = {"registry": InProcessClient(registry_server), "monitoring": InProcessClient(monitoring_server)}
+llm = ToolAwareClient(scripted_responses=[
+    [TextBlock(text="I'll check both."),
+     ToolUseBlock(name="registry__get_status", input={"agent_name": "research_agent"}),
+     ToolUseBlock(name="monitoring__get_status", input={"agent_name": "research_agent"})],
+    [TextBlock(text="research_agent is registered and active, with 99.9% uptime over the last day.")],
+])
+
+print(run_agent(llm, "Is research_agent healthy?", servers))
+print("tools offered to the model:", [t["name"] for t in llm.tools_seen[0]])
+print("registry server received:", servers["registry"].calls)
+print("monitoring server received:", servers["monitoring"].calls)`;
+
+export const PROVIDED = "# --- provided: don't change this part ---\n" + MCP_HOST_HELPERS + "# --- end of provided code ---\n\n";
+
+export const STARTER = String.raw`def run_tool_call(call, servers: dict, routes: dict) -> dict:
+    # TODO
+    ...
+
+def run_agent(llm, user_message: str, servers: dict, max_steps: int = 10) -> str:
+    # TODO
+    ...`;
+
+export const REFERENCE = String.raw`def run_tool_call(call, servers: dict, routes: dict) -> dict:
+    if call.name not in routes:
+        return {"type": "tool_result", "tool_use_id": call.id, "content": f"Error: there is no tool called {call.name}", "is_error": True}
+    label, original_name = routes[call.name]
+    response = servers[label].call_tool(original_name, call.input)
+    text, is_error = to_tool_output(response)
+    result = {"type": "tool_result", "tool_use_id": call.id, "content": text}
+    if is_error:
+        result["is_error"] = True
+    return result
+
+def run_agent(llm, user_message: str, servers: dict, max_steps: int = 10) -> str:
+    tools, routes = build_tool_catalog(servers)
+    messages = [{"role": "user", "content": user_message}]
+    for step in range(max_steps):
+        response = llm.create(messages=messages, tools=tools)
+        messages.append({"role": "assistant", "content": response.content})
+        tool_calls = [block for block in response.content if block.type == "tool_use"]
+        if not tool_calls:
+            return "".join(block.text for block in response.content if block.type == "text")
+        messages.append({"role": "user", "content": [run_tool_call(call, servers, routes) for call in tool_calls]})
+    return f"stopped after {max_steps} steps without a final answer"`;
+
+export const TEST_PRELUDE = REACT_FAKE_CLIENT + TOOL_AWARE_CLIENT + MCP_STANDINS + String.raw`
+def fresh_servers():
+    return {"registry": InProcessClient(registry_server), "monitoring": InProcessClient(monitoring_server)}
+`;
+
+export const SCENARIO_1 = String.raw`
+servers = fresh_servers()
+a = ToolUseBlock(name="registry__get_agent_model", input={"agent_name": "support_agent"})
+b = ToolUseBlock(name="monitoring__alerts_list", input={"agent_name": "support_agent"})
+llm = ToolAwareClient([[TextBlock(text="Checking."), a, b], [TextBlock(text="done")]])
+final = run_agent(llm, "check support_agent", servers)
+`;
+
+export const TESTS = [
+  SCENARIO_1 + String.raw`# a text block, then two calls to two different servers in one response
+assert final == "done"
+assert servers["registry"].calls == [("get_agent_model", {"agent_name": "support_agent"})]
+assert servers["monitoring"].calls == [("alerts.list", {"agent_name": "support_agent"})]
+results = llm.seen[1][-1]["content"]
+assert [r["tool_use_id"] for r in results] == [a.id, b.id]
+assert results[0]["content"] == "claude-haiku" and results[1]["content"] == "no open alerts for support_agent"`,
+  SCENARIO_1 + String.raw`# the model is offered every server's tools, with model-facing names, on every request
+names = [t["name"] for t in llm.tools_seen[0]]
+assert set(names) == {"registry__get_status", "registry__get_agent_model", "monitoring__get_status", "monitoring__alerts_list"}
+assert llm.tools_seen[1] == llm.tools_seen[0]`,
+  String.raw`
+# a tool error from a server reaches the model flagged
+servers = fresh_servers()
+llm = ToolAwareClient([[ToolUseBlock(name="registry__get_status", input={"agent_name": "ghost_agent"})], [TextBlock(text="ok")]])
+run_agent(llm, "x", servers)
+r = llm.seen[1][-1]["content"][0]
+assert r["is_error"] is True and "ghost_agent" in r["content"]`,
+  String.raw`
+# a made-up tool name is answered as an error and never sent to any server
+servers = fresh_servers()
+llm = ToolAwareClient([[ToolUseBlock(name="registry__delete_agent", input={"agent_name": "x"})], [TextBlock(text="ok")]])
+run_agent(llm, "x", servers)
+r = llm.seen[1][-1]["content"][0]
+assert r["is_error"] is True and servers["registry"].calls == [] and servers["monitoring"].calls == []`,
+  String.raw`
+# a successful result carries no is_error flag
+servers = fresh_servers()
+llm = ToolAwareClient([[ToolUseBlock(name="monitoring__get_status", input={"agent_name": "research_agent"})], [TextBlock(text="ok")]])
+run_agent(llm, "x", servers)
+assert "is_error" not in llm.seen[1][-1]["content"][0]`,
+  String.raw`
+# max_steps still bounds the loop
+servers = fresh_servers()
+loop = [[ToolUseBlock(name="monitoring__get_status", input={"agent_name": f"a{i}"})] for i in range(5)]
+llm = ToolAwareClient(loop)
+out = run_agent(llm, "x", servers, max_steps=2)
+assert llm.call_count == 2 and "2" in out`,
+  // each hidden test runs in its own copy of the learner's namespace, so the fake client, the stand-ins and fresh_servers go on every one
+].map((test) => TEST_PRELUDE + test);
+
+<Subsection title="The loop hasn't changed, only where the tools live" variant="a">
+
+With a catalog built from the servers,
+[the previous concept's](/03-tool-design-for-agents/07-connecting-an-agent-to-mcp-servers/01-discovering-tools-from-several-servers/#the-fix-prefix-clean-up-and-keep-a-route-back)
+`tools_for_model` and `routes`, the agent loop needs only two changes
+from
+[Module 2's version](/02-the-agent-loop/05-react-and-reasoning-in-the-loop/01-the-react-pattern/#the-fix-gather-every-tool-call-act-on-all-of-them-reply-once):
+
+- **Offer the tools on every request.** The model can only call tools
+  it's shown, so the catalog goes into every `create(...)` call, the same
+  list each time.
+- **Run each call through its route.** Instead of looking a function up
+  in a local `TOOL_REGISTRY`, look the model-facing name up in `routes`,
+  send `tools/call` to that server with the tool's *original* name, and
+  turn the response into a `tool_result`.
+
+Everything else is exactly as before: append the assistant's full
+content once, collect every `tool_use` block, send all the results back
+in one user message, stop when a response has no tool calls. The
+helpers from earlier concepts are already loaded:
+
+```python
+import re
+
+def model_tool_name(label: str, tool_name: str) -> str:
+    return re.sub(r"[^a-zA-Z0-9_-]", "_", f"{label}__{tool_name}")
+
+def build_tool_catalog(servers: dict) -> tuple:
+    tools_for_model, routes = [], {}
+    for label, client in servers.items():
+        for tool in client.list_tools():
+            name = model_tool_name(label, tool["name"])
+            if len(name) > 64:
+                continue
+            tools_for_model.append({"name": name, "description": tool["description"], "input_schema": tool["inputSchema"]})
+            routes[name] = (label, tool["name"])
+    return tools_for_model, routes
+
+def to_tool_output(response: dict) -> tuple:
+    if "error" in response:
+        error = response["error"]
+        return (f"Error: MCP error {error['code']}: {error['message']}", True)
+    result = response["result"]
+    if result["resultType"] == "complete":
+        text = "\n".join(item["text"] for item in result.get("content", []) if item["type"] == "text")
+        return (text, result.get("isError", False))
+    return (f"Error: unsupported resultType '{result['resultType']}'", True)
+```
+
+*`build_tool_catalog` is the previous concept's solution; `to_tool_output`
+is from
+[Lesson 5's JSON-RPC exercise](/03-tool-design-for-agents/05-the-model-context-protocol/02-json-rpc-as-the-message-format/#two-different-ways-a-tool-call-can-fail).*
+
+</Subsection>
+
+<Subsection title="The routed loop" variant="b">
+
+The fake client's classes, the stand-in servers and the helpers above
+are loaded before this demo runs. The fake client's `create()` now also
+accepts `tools=`, as a real API call does, and records what it was
+offered in `tools_seen`. The model's replies are scripted.
+
+<LiveDemo client:load setupCode={BASE_SETUP} code={ROUTED_DEMO} />
+
+One response, two tool calls, two servers. The model asked for
+`registry__get_status` and `monitoring__get_status`; each server received
+a call to its own `get_status` and nothing else. That's the routing
+table at work: the model thinks in prefixed names, and each server only
+ever hears its own.
+
+`run_tool_call` is the only genuinely new function, and it's where the
+host translates between the two sides:
+
+- **Look up the route.** If the model's name isn't in `routes`, no
+  server offers that tool.
+- **Call the right server with the original name,** using that server's
+  own client, one per server,
+  [as Lesson 5 described](/03-tool-design-for-agents/05-the-model-context-protocol/01-the-integration-problem-and-mcps-three-roles/#three-roles-host-client-server).
+- **Turn the MCP response into a `tool_result`.** `to_tool_output`
+  already handles every shape a response can take, and a failure gets
+  `is_error`,
+  [the same flag Lesson 4 used](/03-tool-design-for-agents/04-tools-that-call-the-outside-world/04-running-independent-tool-calls-concurrently/#one-failure-shouldn-t-sink-the-others).
+
+</Subsection>
+
+<Subsection title="Three things that can go wrong" variant="a">
+
+This demo reuses `run_tool_call` from the one above, loaded silently:
+
+<LiveDemo client:load setupCode={BASE_SETUP + ROUTED_FUNCS} code={`servers = {"registry": InProcessClient(registry_server), "monitoring": InProcessClient(monitoring_server)}
+tools, routes = build_tool_catalog(servers)
+
+calls = [
+    ToolUseBlock(name="monitoring__alerts_list", input={"agent_name": "support_agent"}),
+    ToolUseBlock(name="registry__get_agent_model", input={"agent_name": "ghost_agent"}),
+    ToolUseBlock(name="registry__delete_agent", input={"agent_name": "research_agent"}),
+]
+for call in calls:
+    print(run_tool_call(call, servers, routes))
+print("monitoring server received:", servers["monitoring"].calls)`} />
+
+- **A cleaned-up name** routes back to the server's real one: the model
+  called `monitoring__alerts_list`, and the monitoring server received
+  `alerts.list`.
+- **A tool error from the server** reaches the model with the server's
+  own message and the error flag, so the model can try a different agent
+  name.
+- **A tool that doesn't exist.** Models occasionally invent a plausible
+  tool name, like `registry__delete_agent`, especially for an action
+  that *sounds* like it should exist. Here the call is answered as an
+  error *without being sent to any server*, which is also a small safety
+  property: the host never forwards a call for a tool it didn't offer.
+
+</Subsection>
+
+<Subsection title="Running the calls concurrently" variant="b">
+
+This loop runs each response's tool calls one after another, to keep the
+routing easy to follow. Real MCP clients are asynchronous, and the SDK's
+`call_tool` is `async`, so in a real host the calls in one response run
+together with `asyncio.gather`, exactly as in
+[Lesson 4's concurrent loop](/03-tool-design-for-agents/04-tools-that-call-the-outside-world/04-running-independent-tool-calls-concurrently/#putting-the-lesson-together).
+Routing doesn't change that at all: `run_tool_call` becomes `async`, and
+each call still goes to its own server.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why does the host pass the tool catalog on every create(...) call, not just the first?",
+      options: [
+        "The model API is stateless, so a request only has the tools included in it",
+        "The catalog changes after every tool call",
+        "The first request is only for planning",
+        "Servers require it",
+      ],
+      correctIndex: 0,
+      explanation:
+        "Like the conversation itself, [the tools are resent every time](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/03-multi-turn-conversations/#the-api-itself-has-no-memory-between-calls). A request without them is a request where the model can't call anything.",
+    },
+    {
+      question: "The model calls registry__get_status and monitoring__get_status in one response. What does each server receive?",
+      options: [
+        "Both calls, so each can decide which is its own",
+        "A single combined call",
+        "Each receives one get_status call, sent by its own client",
+        "The prefixed names, which the servers strip themselves",
+      ],
+      correctIndex: 2,
+      explanation:
+        "The route tells the host which server and original name to use. Servers never see prefixes, or each other's calls.",
+    },
+    {
+      question: "The model calls registry__delete_agent, which no server offers. What should the host do?",
+      options: [
+        "Send it to the registry server and let it reject the call",
+        "Answer it with an error tool_result without sending it to any server",
+        "Stop the loop immediately",
+        "Ignore the call and send no result for it",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The host knows exactly which tools it offered. Answering locally avoids a pointless request and means a server never receives a call for a tool it didn't list. Sending no result would break the rule that every call gets one.",
+    },
+    {
+      question: "What changes in the loop's structure when tools move from a local registry to MCP servers?",
+      options: [
+        "The loop has to stop after every tool call",
+        "Tool results go back in separate messages, one per server",
+        "The assistant's content is appended once per server",
+        "Nothing structural: the tools come from the catalog and each call goes through its route, but the loop itself is the same",
+      ],
+      correctIndex: 3,
+      explanation:
+        "Collect every call, answer them all in one message, stop when there are none. Where a tool runs doesn't change how the loop treats it.",
+    },
+    {
+      question: "In a real host, how would calls to two servers in one response usually run?",
+      options: [
+        "Concurrently, with asyncio.gather, since the SDK's calls are asynchronous",
+        "One at a time, since MCP forbids overlapping calls",
+        "Through a single shared client",
+        "Only the first call runs; the rest are retried later",
+      ],
+      correctIndex: 0,
+      explanation:
+        "Lesson 4's concurrency applies unchanged. Each call still goes through its own route to its own server.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"build_tool_catalog and to_tool_output are provided at the top of the editor; the two in-process servers and their clients, and the fake client's tool-aware version, are provided when grading. Implement run_tool_call(call, servers, routes): return one tool_result for a tool_use block. If call.name has no route, the result is an error saying there's no such tool, with \"is_error\": True, and nothing is sent to any server. Otherwise call the routed server's call_tool with the original tool name and the call's input, convert the response with to_tool_output, and add \"is_error\": True only if it failed. Implement run_agent(llm, user_message, servers, max_steps): build the catalog once; call llm.create(messages=messages, tools=tools) each step; append the assistant's content once, and collect every tool_use block; return the text when there are none, otherwise send one user message holding every call's result; return a step-limit message if max_steps runs out."}
+  starterCode={PROVIDED + STARTER}
+  hiddenTests={TESTS}
+  hint={"run_tool_call is three steps: check call.name in routes, unpack label, original_name = routes[call.name], then servers[label].call_tool(original_name, call.input). run_agent is Module 2's collect-every-call loop, with tools=tools added to create and run_tool_call in place of the old registry lookup."}
+  correctAnswer={{
+    code: PROVIDED + REFERENCE,
+    explanation:
+      "The grading covers both loop edge cases from Module 2 (a text block before the tool calls, and two calls in one response, here to two different servers), and checks that each server received only its own call, under its original name. It checks the model was offered the full catalog on every request, and that an invented tool name is answered locally: neither server's call log gains an entry.",
+  }}
+/>
+
+</CheckpointZone>
