@@ -1748,7 +1748,7 @@ below describe each lesson as first converted; see the git log
    context and memory module") with no module number, same as Lesson 2.7's
    unbuilt context/memory pointer. Lesson 3.3 is now fully Locked.
 
-4. **Timeouts, Retries, and Concurrency** — Building
+4. **Timeouts, Retries, and Concurrency** — Building (all 4 concepts drafted; bookends pending)
    *Working title.* The folder is `04-timeouts-retries-and-concurrency`.
    The mockup's concepts point to retries (Concept 2) and concurrent tool
    calls (the last concept). Concept 1 is drafted: timeouts. A tool that
@@ -1805,6 +1805,23 @@ below describe each lesson as first converted; see the git log
    Module 0's `return_exceptions=True` subsection. The forward reference
    to Concept 4 (running independent tool calls concurrently) is plain
    text.
+   Concept 4 is drafted, the final concept per its own mockup: running
+   independent tool calls concurrently. Calls in one response are meant
+   to be independent (Anthropic's parallel tool-use guidance), so the
+   loop replaces its sequential `for` with `asyncio.gather` and pairs
+   results by position with `zip`. `return_exceptions=True` and
+   `is_error: True` keep one failure from sinking the batch. A combined
+   demo runs the full loop with a timeout per call and a shared
+   semaphore. The page also covers the timeout's placement inside the
+   semaphore, dependent calls in one batch (return the natural error),
+   and `disable_parallel_tool_use`. It has 4 live demos, 5 quiz questions
+   and a graded concurrent `run_agent` exercise with 6 hidden tests. The
+   overlap test was tightened so the starter can't pass it; see
+   architecture.md §4.1. All callbacks resolve to verified anchors:
+   Module 2's collect-every-call fix and tool-errors fix, Module 0's
+   `gather` and `return_exceptions` subsections, Module 1's round-trip
+   `tool_use_id` subsection, and this lesson's Concept 1 and Concept 3
+   fixes.
    Module 2 Lesson 6 also has a timeouts page
    (`06-timeouts-retry-and-graceful-give-up`), which the mockup doesn't
    reference. It's flagged here for the mockup author to decide whether

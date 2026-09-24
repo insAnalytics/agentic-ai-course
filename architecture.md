@@ -1457,6 +1457,32 @@ of the tests that depend on it. The demo output matches the mockup
 except for the jitter-dependent waits, which the page says vary on
 every run.
 
+**Lesson 3.4 Concept 4 (concurrent `run_agent`)** — the provided code
+(`call_with_timeout`, the `TOOLS` registry, `CALLS`) goes at the top of
+the learner's editor, not in the hidden-test prefix. The learner's
+`run_agent` looks up `TOOLS` in its own `__globals__` (the harness's
+original `_ns`), so a name defined only in a test's copied namespace
+would be invisible to it. The editor, starter and reference are built
+entirely from `export const` pieces (`PROVIDED + STARTER`,
+`PROVIDED + REFERENCE`), per finding (3) above. Every hidden test is
+prefixed with `REACT_FAKE_CLIENT + RECORDING_CLIENT` and a
+`tool_results_sent` helper. The mockup's first block of assertions is
+split into three tests that each re-run the two-call scenario
+(`TWO_CALLS`). **Change from the mockup:** its overlap test
+(`elapsed < 0.5`) passed on the empty starter, which returns `None`
+instantly. It now also asserts the answer. The mockup's explanation
+also claimed the hung-tool test catches blocking; a sequential loop
+passes it (0.4s + 0.3s is under its 1.0s bound), so that wording was
+dropped. The overlap test is what catches a sequential loop. Verified
+against real Pyodide 0.26.4, including by grading the props from the
+built HTML. The reference passes all six tests, and the starter fails
+all six. Each wrong version fails only the test aimed at it: a
+sequential `for` loop fails the overlap test; dropping
+`return_exceptions` or `is_error` fails the error test; skipping
+`call_with_timeout` fails the hung-tool test; appending the assistant
+turn twice fails the assistant-turn test. All four demos match the
+mockup exactly, including `ran 4 tool calls in 1.1s`.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped
