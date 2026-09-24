@@ -1865,6 +1865,32 @@ below describe each lesson as first converted; see the git log
    number-free text, since no Module 3 lesson list exists yet and those
    lessons aren't built. The same goes for the pointer to Concept 2
    (JSON-RPC).
+   Concept 2 is drafted: JSON-RPC as the message format. It covers the
+   three message kinds (request, response, notification) and a live demo
+   of the four shapes. The field rules are that ids are a string or
+   integer, never null and never reused while pending; notifications
+   carry no id; and MCP's `resultType` means a missing value counts as
+   `"complete"`. A live demo shows out-of-order responses matched by id.
+   It separates protocol errors (a JSON-RPC `error` with a code) from
+   tool execution errors (a `result` with `isError: true`), and has an
+   error-code table. There are 5 quiz questions and a graded
+   `to_tool_output(response)` exercise with 7 hidden tests. **Checked
+   against the published 2026-07-28 spec**
+   (modelcontextprotocol.io/specification/2026-07-28/basic): `resultType`
+   and its missing-means-complete rule, an unrecognised value being
+   invalid, the id rules, the -32020 to -32099 reserved range, the names
+   of -32020, -32021 and -32022, and `-32602` for missing required
+   `_meta` all match the mockup. Verified in Pyodide 0.26.4 against the
+   built page. The reference passes all 7 tests and the starter fails
+   all 7. Six single-rule violations each fail exactly one test: no
+   default `resultType`, no text-type filter, ignoring `isError`,
+   treating `input_required` as complete, treating an unknown type as
+   complete, and a protocol error without its code. Callbacks link to
+   Module 0's REST-methods subsection, Lesson 3.4's gather-and-pair and
+   `is_error` subsections, Module 1's round-trip `tool_use_id`
+   subsection, and Lesson 3.3's useful-error-messages subsection. The
+   forward references to this lesson's transports and statelessness
+   concepts are plain text.
 
 ---
 
