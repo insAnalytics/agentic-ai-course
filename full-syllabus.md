@@ -1999,6 +1999,40 @@ below describe each lesson as first converted; see the git log
    subsection and Concept 5's Streamable HTTP subsection (the transports
    exercise itself has no anchor).
 
+6. **Building an MCP Server** — Building
+   *Working title.* The folder is `06-building-an-mcp-server`, named from
+   Lesson 3.5's forward reference ("building an mcp server lesson").
+   Concept 1 is drafted: what a server does (one request in, one response
+   out). Statelessness makes a server's core one function,
+   `handle_request`: check `_meta`, route by `method` through a
+   `METHOD_HANDLERS` dispatch dict (unknown method gives `-32601`), and
+   wrap the answer with `result_response`. The tool table stores each
+   tool's function with its Pydantic args model, so `tools/list` uses
+   `__doc__` as the description and `model_json_schema()` as the
+   `inputSchema`. The whole hand-written server is a static code block,
+   as in the mockup (it prints nothing on its own). The request demo is
+   a live demo with that server as its hidden `setupCode`. There's a
+   static stdio loop sketch, and a note that notifications never get a
+   response. There are 4 quiz questions and a graded exercise
+   (`handle_discover`, `handle_tools_list`, `METHOD_HANDLERS`,
+   `handle_request`) with 4 hidden tests. The provided tool table,
+   helpers and `validate_request_meta` sit at the top of the editor in
+   the `# --- provided ---` block, the same pattern as Lesson 3.4
+   Concept 4. Verified in Pyodide 0.26.4 (Pydantic 2.7.0): the request
+   demo's output matches the mockup character for character, including
+   the schema key order. The reference passes 4/4 and the starter fails
+   4/4. Skipping the `_meta` check fails test 4, answering an unknown
+   method with an empty result fails 3, a hand-written schema marking
+   every field required fails 2, using the name as the description
+   fails 2, and building the result without `resultType` fails 1 and 2.
+   Callbacks link to the Lesson 3.5 intro page (lesson-level), Lesson
+   3.5 Concept 3's opening subsection and its `_meta` subsection, Module
+   2's `TOOL_REGISTRY` fix subsection, Lesson 3.2's full-tool-definition
+   subsection, Lesson 3.1's what-the-model-receives subsection (where
+   `__doc__` is introduced), Lesson 3.5 Concept 5's stdio subsection,
+   Module 0's BaseModel-request-body subsection (for a POST endpoint),
+   and Lesson 3.5 Concept 2's four-shapes subsection.
+
 ---
 
 ## Modules 4–11 — current plan

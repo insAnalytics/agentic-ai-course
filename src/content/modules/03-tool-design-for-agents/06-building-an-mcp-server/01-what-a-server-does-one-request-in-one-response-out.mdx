@@ -1,0 +1,427 @@
+---
+title: "What a server does: one request in, one response out"
+lesson: "06-building-an-mcp-server"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+export const SERVER_DEMO = String.raw`from pydantic import BaseModel, Field
+
+SUPPORTED_VERSIONS = ["2026-07-28"]
+REQUIRED_META = ["io.modelcontextprotocol/protocolVersion", "io.modelcontextprotocol/clientCapabilities"]
+
+REGISTRY = {"research_agent": "claude-sonnet", "support_agent": "claude-haiku"}
+
+class GetAgentModelArgs(BaseModel):
+    agent_name: str = Field(description="Exact registered name of the agent.")
+
+def get_agent_model(agent_name: str) -> str:
+    """Return the model one registered agent runs on, looked up by its exact name."""
+    return REGISTRY[agent_name]
+
+# the server's tool table: each tool's function and its arguments model
+TOOLS = {"get_agent_model": (get_agent_model, GetAgentModelArgs)}
+
+def error_response(request_id, code: int, message: str, data=None) -> dict:
+    error = {"code": code, "message": message}
+    if data is not None:
+        error["data"] = data
+    return {"jsonrpc": "2.0", "id": request_id, "error": error}
+
+def result_response(request_id, result: dict) -> dict:
+    return {"jsonrpc": "2.0", "id": request_id, "result": {"resultType": "complete", **result}}
+
+def handle_discover(params: dict) -> dict:
+    return {
+        "supportedVersions": SUPPORTED_VERSIONS,
+        "capabilities": {"tools": {}},
+        "_meta": {"io.modelcontextprotocol/serverInfo": {"name": "registry-server", "version": "1.0.0"}},
+        "instructions": "Read-only access to the agent registry.",
+    }
+
+def handle_tools_list(params: dict) -> dict:
+    tools = []
+    for name, (function, args_model) in TOOLS.items():
+        tools.append({
+            "name": name,
+            "description": function.__doc__,
+            "inputSchema": args_model.model_json_schema(),
+        })
+    return {"tools": tools}
+
+METHOD_HANDLERS = {"server/discover": handle_discover, "tools/list": handle_tools_list}
+
+def handle_request(request: dict) -> dict:
+    request_id = request.get("id")
+    meta = request.get("params", {}).get("_meta", {})
+    for field in REQUIRED_META:
+        if field not in meta:
+            return error_response(request_id, -32602, f"Invalid params: missing _meta field {field}")
+    requested = meta["io.modelcontextprotocol/protocolVersion"]
+    if requested not in SUPPORTED_VERSIONS:
+        return error_response(request_id, -32022, "Unsupported protocol version",
+                              {"supported": SUPPORTED_VERSIONS, "requested": requested})
+    handler = METHOD_HANDLERS.get(request["method"])
+    if handler is None:
+        return error_response(request_id, -32601, f"Method not found: {request['method']}")
+    return result_response(request_id, handler(request["params"]))`;
+
+export const PROVIDED = String.raw`# --- provided: don't change this part ---
+from pydantic import BaseModel, Field
+
+SUPPORTED_VERSIONS = ["2026-07-28"]
+REGISTRY = {"research_agent": "claude-sonnet", "support_agent": "claude-haiku", "billing_agent": "claude-haiku"}
+
+class GetAgentModelArgs(BaseModel):
+    agent_name: str = Field(description="Exact registered name of the agent.")
+
+class ListAgentsArgs(BaseModel):
+    model: str | None = Field(default=None, description="Only list agents on this model. Omit to list all.")
+
+def get_agent_model(agent_name: str) -> str:
+    """Return the model one registered agent runs on, looked up by its exact name."""
+    return REGISTRY[agent_name]
+
+def list_agents(model: str | None = None) -> str:
+    """List registered agent names, optionally only those on one model."""
+    return ", ".join(name for name, m in REGISTRY.items() if model is None or m == model)
+
+TOOLS = {"get_agent_model": (get_agent_model, GetAgentModelArgs), "list_agents": (list_agents, ListAgentsArgs)}
+
+def error_response(request_id, code: int, message: str, data=None) -> dict:
+    error = {"code": code, "message": message}
+    if data is not None:
+        error["data"] = data
+    return {"jsonrpc": "2.0", "id": request_id, "error": error}
+
+def result_response(request_id, result: dict) -> dict:
+    return {"jsonrpc": "2.0", "id": request_id, "result": {"resultType": "complete", **result}}
+
+def validate_request_meta(request: dict, supported_versions: list) -> dict | None:
+    meta = request.get("params", {}).get("_meta", {})
+    for field in ["io.modelcontextprotocol/protocolVersion", "io.modelcontextprotocol/clientCapabilities"]:
+        if field not in meta:
+            return error_response(request.get("id"), -32602, f"Invalid params: missing _meta field {field}")
+    requested = meta["io.modelcontextprotocol/protocolVersion"]
+    if requested not in supported_versions:
+        return error_response(request.get("id"), -32022, "Unsupported protocol version",
+                              {"supported": supported_versions, "requested": requested})
+    return None
+# --- end of provided code ---
+
+`;
+
+export const STARTER = String.raw`def handle_discover(params: dict) -> dict:
+    # TODO
+    ...
+
+def handle_tools_list(params: dict) -> dict:
+    # TODO
+    ...
+
+METHOD_HANDLERS = {}   # TODO
+
+def handle_request(request: dict) -> dict:
+    # TODO: check _meta, route by method, wrap the answer
+    ...`;
+
+export const REFERENCE = String.raw`def handle_discover(params: dict) -> dict:
+    return {
+        "supportedVersions": SUPPORTED_VERSIONS,
+        "capabilities": {"tools": {}},
+        "_meta": {"io.modelcontextprotocol/serverInfo": {"name": "registry-server", "version": "1.0.0"}},
+    }
+
+def handle_tools_list(params: dict) -> dict:
+    tools = []
+    for name, (function, args_model) in TOOLS.items():
+        tools.append({"name": name, "description": function.__doc__, "inputSchema": args_model.model_json_schema()})
+    return {"tools": tools}
+
+METHOD_HANDLERS = {"server/discover": handle_discover, "tools/list": handle_tools_list}
+
+def handle_request(request: dict) -> dict:
+    problem = validate_request_meta(request, SUPPORTED_VERSIONS)
+    if problem is not None:
+        return problem
+    handler = METHOD_HANDLERS.get(request["method"])
+    if handler is None:
+        return error_response(request.get("id"), -32601, f"Method not found: {request['method']}")
+    return result_response(request.get("id"), handler(request["params"]))`;
+
+export const PRELUDE = String.raw`META = {"io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.modelcontextprotocol/clientCapabilities": {}}
+def req(method, request_id=1, meta=META):
+    return {"jsonrpc": "2.0", "id": request_id, "method": method, "params": {"_meta": meta} if meta is not None else {}}
+`;
+
+export const TESTS = [
+  String.raw`# server/discover: a complete result with versions, tool capability and server identity
+r = handle_request(req("server/discover", request_id="d1"))
+assert r["id"] == "d1" and r["result"]["resultType"] == "complete"
+assert r["result"]["supportedVersions"] == ["2026-07-28"]
+assert "tools" in r["result"]["capabilities"]
+assert r["result"]["_meta"]["io.modelcontextprotocol/serverInfo"]["name"]`,
+  String.raw`# tools/list: every tool, described by its docstring, with its model's schema
+r = handle_request(req("tools/list", request_id=2))
+tools = {t["name"]: t for t in r["result"]["tools"]}
+assert set(tools) == {"get_agent_model", "list_agents"}
+assert tools["get_agent_model"]["description"] == get_agent_model.__doc__
+assert tools["get_agent_model"]["inputSchema"]["required"] == ["agent_name"]
+assert "required" not in tools["list_agents"]["inputSchema"]
+assert r["result"]["resultType"] == "complete"`,
+  String.raw`# a method the server doesn't have: -32601, echoing the id
+r = handle_request(req("prompts/list", request_id=3))
+assert r["id"] == 3 and r["error"]["code"] == -32601 and "result" not in r`,
+  String.raw`# the stateless checks still run first
+r = handle_request(req("tools/list", request_id=4, meta=None))
+assert r["error"]["code"] == -32602
+r = handle_request(req("tools/list", request_id=5, meta={**META, "io.modelcontextprotocol/protocolVersion": "2030-01-01"}))
+assert r["error"]["code"] == -32022`,
+  // each hidden test runs in its own copy of the learner's namespace, so the shared helpers go on every one
+].map((test) => PRELUDE + test);
+
+<Subsection title="A server is a function" variant="a">
+
+[Lesson 5](/03-tool-design-for-agents/05-the-model-context-protocol/00-intro/)
+described MCP from the client's side of the wire. This lesson builds the
+other side: a registry server that any MCP host can connect to. Before
+using the official SDK, which hides most of the work, it's worth writing
+one by hand, because the core turns out to be small.
+
+MCP is
+[stateless](/03-tool-design-for-agents/05-the-model-context-protocol/03-stateless-by-design/#you-ve-met-this-idea-three-times-already):
+every request carries everything needed to answer it, and the server
+remembers nothing between requests. So a server's whole job fits in one
+function: take one JSON-RPC request, return one JSON-RPC response.
+Everything else, stdin or HTTP, is just how the request arrives and the
+response leaves.
+
+That function does three things, in order:
+
+1. **Check the request's `_meta`,** exactly as
+   [Lesson 5's exercise](/03-tool-design-for-agents/05-the-model-context-protocol/03-stateless-by-design/#every-request-carries-its-own-meta)
+   did: required fields present, protocol version supported.
+2. **Route by `method`** to the code that handles it. An unknown method
+   gets `-32601`.
+3. **Build the answer** into a response with the request's `id` and a
+   `result` carrying `resultType`.
+
+</Subsection>
+
+<Subsection title="The tool table" variant="b">
+
+The server keeps its tools in a table, the same idea as
+[Module 2's `TOOL_REGISTRY`](/02-the-agent-loop/04-writing-the-loop-by-hand/03-handling-multiple-tools/#the-fix-a-dict-mapping-names-to-actual-callables),
+with one addition: each tool is stored with the Pydantic model
+describing its arguments. That model does two jobs. It produces the
+tool's schema for `tools/list`,
+[the same way Lesson 2 generated schemas](/03-tool-design-for-agents/02-tool-schemas-and-argument-validation/01-the-schema-generated-the-payoff-completed/#the-full-tool-definition-built-from-code),
+and in the next concept it validates the arguments a `tools/call`
+arrives with.
+
+Here's the whole server, handling `server/discover` and `tools/list` so
+far:
+
+```python
+from pydantic import BaseModel, Field
+
+SUPPORTED_VERSIONS = ["2026-07-28"]
+REQUIRED_META = ["io.modelcontextprotocol/protocolVersion", "io.modelcontextprotocol/clientCapabilities"]
+
+REGISTRY = {"research_agent": "claude-sonnet", "support_agent": "claude-haiku"}
+
+class GetAgentModelArgs(BaseModel):
+    agent_name: str = Field(description="Exact registered name of the agent.")
+
+def get_agent_model(agent_name: str) -> str:
+    """Return the model one registered agent runs on, looked up by its exact name."""
+    return REGISTRY[agent_name]
+
+# the server's tool table: each tool's function and its arguments model
+TOOLS = {"get_agent_model": (get_agent_model, GetAgentModelArgs)}
+
+def error_response(request_id, code: int, message: str, data=None) -> dict:
+    error = {"code": code, "message": message}
+    if data is not None:
+        error["data"] = data
+    return {"jsonrpc": "2.0", "id": request_id, "error": error}
+
+def result_response(request_id, result: dict) -> dict:
+    return {"jsonrpc": "2.0", "id": request_id, "result": {"resultType": "complete", **result}}
+
+def handle_discover(params: dict) -> dict:
+    return {
+        "supportedVersions": SUPPORTED_VERSIONS,
+        "capabilities": {"tools": {}},
+        "_meta": {"io.modelcontextprotocol/serverInfo": {"name": "registry-server", "version": "1.0.0"}},
+        "instructions": "Read-only access to the agent registry.",
+    }
+
+def handle_tools_list(params: dict) -> dict:
+    tools = []
+    for name, (function, args_model) in TOOLS.items():
+        tools.append({
+            "name": name,
+            "description": function.__doc__,
+            "inputSchema": args_model.model_json_schema(),
+        })
+    return {"tools": tools}
+
+METHOD_HANDLERS = {"server/discover": handle_discover, "tools/list": handle_tools_list}
+
+def handle_request(request: dict) -> dict:
+    request_id = request.get("id")
+    meta = request.get("params", {}).get("_meta", {})
+    for field in REQUIRED_META:
+        if field not in meta:
+            return error_response(request_id, -32602, f"Invalid params: missing _meta field {field}")
+    requested = meta["io.modelcontextprotocol/protocolVersion"]
+    if requested not in SUPPORTED_VERSIONS:
+        return error_response(request_id, -32022, "Unsupported protocol version",
+                              {"supported": SUPPORTED_VERSIONS, "requested": requested})
+    handler = METHOD_HANDLERS.get(request["method"])
+    if handler is None:
+        return error_response(request_id, -32601, f"Method not found: {request['method']}")
+    return result_response(request_id, handler(request["params"]))
+```
+
+And two requests sent to it. The server above runs first, silently, so
+this demo can call `handle_request` directly:
+
+<LiveDemo client:load setupCode={SERVER_DEMO} code={`import json
+META = {"io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.modelcontextprotocol/clientCapabilities": {}}
+
+response = handle_request({"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {"_meta": META}})
+print(json.dumps(response, indent=2))
+
+response = handle_request({"jsonrpc": "2.0", "id": 2, "method": "tools/lsit", "params": {"_meta": META}})
+print(response)`} />
+
+A few details worth noticing:
+
+- **`METHOD_HANDLERS` is a dispatch dict,** the same pattern as the tool
+  registry, one level up: it maps a method name to the function that
+  answers it. Adding `resources/list` later means adding one entry.
+- **The tool's description is its docstring,** read with
+  `function.__doc__`, the attribute
+  [Lesson 1's exercises graded](/03-tool-design-for-agents/01-designing-tools-a-model-can-use-well/01-names-and-descriptions-as-prompts/#what-the-model-actually-receives).
+  Everything that lesson said about writing descriptions as prompts
+  applies here: this string is what the model reads when it decides
+  whether to call the tool.
+- **The two helpers keep the response shapes in one place.** Every error
+  has the same shape and every result gets `resultType`, so no handler
+  can forget either.
+
+</Subsection>
+
+<Subsection title="Where the transport fits" variant="a">
+
+`handle_request` knows nothing about how the request arrived. A
+transport is a thin loop around it. For stdio,
+[following the transport rules from Lesson 5](/03-tool-design-for-agents/05-the-model-context-protocol/05-transports-how-the-messages-travel/#stdio-a-local-server-as-a-subprocess),
+the loop reads one line, answers, and writes one line:
+
+```python
+import json
+import sys
+
+for line in sys.stdin:
+    response = handle_request(json.loads(line))
+    # this print() is the protocol itself: one response, one line, on stdout
+    print(json.dumps(response), flush=True)
+```
+
+*Illustrative. It isn't run in this sandbox, which has no stdin to
+read.*
+
+This is the one place a stdio server *should* write to stdout, because
+the response is the protocol. Any other output belongs on stderr. For
+Streamable HTTP, the same function sits behind a single POST endpoint,
+[the kind of route Module 0's FastAPI lessons built](/00-python-essentials/09-building-apis-with-fastapi/04-request-bodies-and-uploads/#a-basemodel-parameter-is-the-request-body).
+The core doesn't change, and that separation is exactly what the SDK in
+the rest of this lesson relies on.
+
+This sketch handles requests only. A notification has no `id`,
+[so it never gets a response](/03-tool-design-for-agents/05-the-model-context-protocol/02-json-rpc-as-the-message-format/#the-four-shapes);
+a full server would check for that before answering.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why can an MCP server's core be written as a single function from request to response?",
+      options: [
+        "Because JSON-RPC only allows one request per connection",
+        "Because MCP is stateless: each request carries everything needed to answer it, so nothing has to be remembered between calls",
+        "Because servers can only offer one tool at a time",
+        "Because the SDK requires it",
+      ],
+      correctIndex: 1,
+      explanation:
+        "With no session to consult, answering a request needs only the request itself (and the server's own data). That makes the core a plain function, which is easy to test.",
+    },
+    {
+      question: "A request arrives with \"method\": \"tools/lsit\". What should the server return?",
+      options: [
+        "A result with an empty tools list",
+        "A tool error with isError: true",
+        "A JSON-RPC error with code -32601, method not found, echoing the request's id",
+        "Nothing, since the request is malformed",
+      ],
+      correctIndex: 2,
+      explanation:
+        "The request is well-formed but asks for a method the server doesn't have. -32601 says exactly that, and the id lets the client match the error to its request.",
+    },
+    {
+      question: "Where does a tool's inputSchema come from in the hand-written server?",
+      options: [
+        "It's written by hand as JSON for each tool",
+        "The client sends it with each request",
+        "The model generates it from the tool's name",
+        "It's generated from the tool's Pydantic arguments model with model_json_schema()",
+      ],
+      correctIndex: 3,
+      explanation:
+        "The same model that describes the arguments for tools/list also validates them on tools/call, so the schema the model reads and the checks the server runs can't drift apart.",
+    },
+    {
+      question: "In a stdio server, the transport loop writes each response with print(). Why doesn't that break the rule from Lesson 5?",
+      options: [
+        "The rule only applies to Streamable HTTP",
+        "The response is a protocol message, and stdout is exactly where protocol messages go; it's other output, like debug logs, that must stay off stdout",
+        "print() automatically writes to stderr in servers",
+        "The rule was about clients, not servers",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Stdout carries MCP messages only. A response is an MCP message; a log line isn't.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"The registry server's tool table, its two tools, the response helpers and validate_request_meta (from Lesson 5's exercise) are provided at the top of the editor. Implement handle_discover(params): return a dict with supportedVersions (the server's SUPPORTED_VERSIONS), capabilities of {\"tools\": {}}, and a _meta holding io.modelcontextprotocol/serverInfo with a name and version. Implement handle_tools_list(params): return {\"tools\": [...]}, one entry per tool in TOOLS, each with its name, its function's docstring as description, and its arguments model's model_json_schema() as inputSchema. Fill in METHOD_HANDLERS: map \"server/discover\" and \"tools/list\" to those functions. Implement handle_request(request): return validate_request_meta's error if there is one; if the method isn't in METHOD_HANDLERS, return a -32601 error; otherwise call the handler with the request's params, and wrap its answer with result_response."}
+  starterCode={PROVIDED + STARTER}
+  hiddenTests={TESTS}
+  hint={"In handle_tools_list, loop over TOOLS.items(): each value is a (function, args_model) tuple you can unpack right in the for. In handle_request, METHOD_HANDLERS.get(request[\"method\"]) returns None for an unknown method, which is your cue for -32601."}
+  correctAnswer={{
+    code: PROVIDED + REFERENCE,
+    explanation:
+      "The order in handle_request is the order a stateless server has to work in: it can't trust anything about a request until its _meta checks out, and it can't route until it knows the method exists. The grading checks that list_agents, whose only argument has a default, correctly has no required list in its schema, which is Pydantic doing the work. It also checks that the Lesson 5 checks still run before any routing.",
+  }}
+/>
+
+</CheckpointZone>
