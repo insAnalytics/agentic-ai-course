@@ -2131,9 +2131,10 @@ below describe each lesson as first converted; see the git log
    The hint links Lesson 3.5 Concept 3's `_meta` subsection and this
    lesson's tool-table and handler subsections.
 
-7. **Connecting an Agent to MCP Servers** — Building
-   *Working title.* The folder is `07-connecting-an-agent-to-mcp-servers`,
-   named from the forward references in Lessons 3.5 and 3.6.
+7. **Connecting an Agent to MCP Servers** — Locked
+   The folder `07-connecting-an-agent-to-mcp-servers` was named from the
+   forward references in Lessons 3.5 and 3.6, and the bookends mockup
+   confirmed the title.
    Concept 1 is drafted: discovering tools from several servers. The
    lesson's in-process stand-ins (`InProcessServer`, `InProcessClient`,
    and registry and monitoring servers that both offer `get_status`)
@@ -2217,8 +2218,31 @@ below describe each lesson as first converted; see the git log
    subsection (twice: the cost problem and the ÷4 estimate), Module 1's
    cache-across-requests subsection, Module 2's phase-as-real-state
    subsection, Lesson 3.1's what-a-description-should-say subsection,
-   and Concept 1's fix subsection. Still to come: the bookends, after
-   which the lesson is Locked.
+   and Concept 1's fix subsection.
+   Bookends: an outcomes/why-it-matters intro (`00-intro.mdx`, 5
+   outcomes, linking the Lesson 3.5, Lesson 3.6 and Module 2 Lesson 5
+   intros) and a recap (`04-recap-practice.mdx`). The recap has an
+   8-question comprehensive quiz and a multi-file comprehensive
+   sandbox: a read-only `servers.py` (its own three-server variant of
+   the stand-ins, with registry `get_agent_model`, `set_agent_model`
+   and `delete_agent`; monitoring `get_status` and `alerts.list`; and an
+   unused calendar server) plus `host.py` (entry file, with
+   `model_tool_name` and `to_tool_output` pre-filled). The learner writes
+   the allowlisted `build_tool_catalog`, `run_tool_call` and
+   `run_agent`. The hidden tests run as one script with 7 numbered
+   sections. The mockup's `from fake import *` became a
+   `REACT_FAKE_CLIENT + TOOL_AWARE_CLIENT` prefix, as in Lesson 3.4.
+   Verified in Pyodide 0.26.4 with the multi-file flow: the reference
+   passes, the starter fails, and each single-bug host fails at its own
+   section. Ignoring the allowlist fails 1, listing the skipped server
+   fails 2, sending the prefixed name fails 3, always including
+   `is_error` fails 3, forwarding an unknown tool fails 4, dropping
+   `is_error` fails 5, answering only the first call fails 3, and
+   ignoring `max_steps` fails 7. The explanation's forward references
+   to the tool threat model and least-privilege lessons (the mockup's
+   "Lesson 10" and "Lesson 11") are plain, number-free text, since
+   neither is built. The hint links Concept 3's allowlist subsection
+   and Concept 2's routed-loop subsection.
 
 ---
 

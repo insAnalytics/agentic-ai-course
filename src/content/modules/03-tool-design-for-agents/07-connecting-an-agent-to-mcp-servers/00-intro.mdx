@@ -1,0 +1,35 @@
+---
+title: "Intro"
+lesson: "07-connecting-an-agent-to-mcp-servers"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Build a host's tool catalog from several MCP servers, with prefixed, model-safe names that can't collide",
+    "Keep a routing table that sends each of the model's calls to the right server, under the tool's original name",
+    "Run MCP tools inside the agent loop, answering invented tool names locally and passing server failures to the model",
+    "Explain why too many tools cost tokens on every request and make tool choice worse",
+    "Limit an agent to the servers and tools its job needs with an allowlist",
+  ]}
+/>
+
+<WhyItMatters>
+  This is where the last three lessons meet.
+  [Lesson 5](/03-tool-design-for-agents/05-the-model-context-protocol/00-intro/)
+  described the protocol,
+  [Lesson 6](/03-tool-design-for-agents/06-building-an-mcp-server/00-intro/)
+  built a server, and this lesson connects the registry agent from
+  [Module 2's loop](/02-the-agent-loop/05-react-and-reasoning-in-the-loop/00-intro/)
+  to servers it didn't write and doesn't control.
+
+  That shift changes what the host is responsible for. When every tool
+  lived in your own `TOOL_REGISTRY`, you knew every name, every
+  description and every behavior. With MCP, tools arrive from outside:
+  names that clash, names the model API won't accept, more tools than any
+  task needs. The host's job is to turn all of that into a small, clean,
+  well-routed list for the model, and to be the one place that decides
+  which of those tools this agent may use at all.
+</WhyItMatters>
