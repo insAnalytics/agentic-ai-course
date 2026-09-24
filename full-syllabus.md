@@ -2079,6 +2079,35 @@ below describe each lesson as first converted; see the git log
    Field-description and Literal subsections, Lesson 3.2's trim-the-error
    subsection, Lesson 3.5 Concept 2's two-ways-to-fail subsection, and
    Module 2's explicit-becomes-implicit subsection.
+   Concept 4 is drafted: errors, running and testing with the SDK. This
+   is the lesson's last concept. It covers `ToolError`, `MCPError` and
+   crashes (the client raises on `MCPError`, and a crash's text never
+   reaches the model), tool annotations as hints rather than security,
+   `mcp.run()` for stdio vs. `transport="streamable-http"`, the
+   `__main__` guard, the MCP Inspector, logging on stdio (a separate
+   Subsection, since pages don't use H3), and pytest with an in-memory
+   `Client` fixture. It's all static code, with 5 quiz questions and no
+   graded exercise, per its own mockup. **Re-run locally against `mcp`
+   2.2.0:** the errors demo's output matches the page byte for byte, and
+   the pytest file gives "4 passed" (only the timing differs). The
+   stdio `print()`-diversion claim holds: prints inside tools, flushed
+   or not, went to stderr and every call still succeeded. **One
+   correction to the mockup:** it said a plain `POST` without the MCP
+   headers gets HTTP 400 from "the header check from Lesson 5". Running
+   it showed that a POST with no `Accept` header gets 406. One with
+   `Accept` but no `MCP-Protocol-Version` gets 400 "Missing session ID",
+   which is the SDK's legacy, session-based path, not the header check.
+   Only with the version header present does a missing or mismatched
+   `Mcp-Method` / `Mcp-Name` get 400 with `-32020`. The bullet now
+   describes that case, which is the real header check. The
+   least-privilege forward reference is plain, number-free text. This
+   concept also turned Concept 3's plain "the next concept" pointer into
+   a link to its running-the-server subsection. Callbacks link to
+   Concept 2's five-ways and raise-don't-return subsections, Lesson
+   3.4's retrying-a-write subsection, Lesson 3.5 Concept 5's Streamable
+   HTTP and stdio-bug subsections, and Module 0's TestClient subsection.
+   Still to come: the bookends (intro, recap, comprehensive quiz and
+   sandbox), after which the lesson is Locked.
 
 ---
 
