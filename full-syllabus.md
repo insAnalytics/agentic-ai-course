@@ -2267,6 +2267,23 @@ below describe each lesson as first converted; see the git log
    is plain text. Callbacks link to verified anchors in Lesson 3.1, 3.3
    and 3.4, Module 0's Docker lesson, Module 1's prompt-injection
    subsection and Module 2's tool-errors subsection.
+   **Review pass (2026-09-24):** Concept 4 overstated Pyodide's
+   isolation. This site loads Pyodide on the page's main thread, so
+   learner code has the `js` bridge (`js.document`, `js.fetch`, page
+   storage), verified in Chromium. The "no network" and "reaches nothing
+   that matters" claims were replaced by a new "What this page hands in"
+   subsection with a live `js` demo: the boundary protects the learner's
+   computer, not the page. The "no server / no backend" wording now
+   acknowledges the E2B (Firecracker micro-VM) Docker exercises, which
+   Concept 3's micro-VM bullet also names. All 14 quiz cards were
+   rebalanced (the correct option had been the longest in every one) and
+   throwaway distractors replaced. Concept 3's quiz no longer says the
+   timeout is part of the wrapper. Concept 1 gained a live demo (fixed
+   tools vs. one code tool, which also lists the filesystem root) and a
+   source link for the code-execution-efficiency claim. The multi-file
+   callback now points at Lesson 0.3's modules concept. The graded
+   exercise moved from Concept 4 to Concept 3, where the wrapper is
+   taught (still 0/6 starter, 6/6 reference in Chromium).
 
 ---
 

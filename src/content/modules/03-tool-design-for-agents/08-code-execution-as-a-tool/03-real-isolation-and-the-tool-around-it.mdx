@@ -6,6 +6,7 @@ order: 3
 import Subsection from "../../../../components/lesson/Subsection.astro";
 import LiveDemo from "../../../../components/lesson/LiveDemo";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 export const WRAPPER_DEMO = String.raw`import io
@@ -39,6 +40,64 @@ for code in [
 ]:
     print(code_execution_tool(code))`;
 
+export const PROVIDED = String.raw`# --- provided: don't change this part ---
+import io
+import contextlib
+
+MAX_OUTPUT_CHARS = 2000
+
+def run_in_sandbox(code: str, sandbox_globals: dict) -> str:
+    captured = io.StringIO()
+    with contextlib.redirect_stdout(captured):
+        exec(code, sandbox_globals)
+    return captured.getvalue()
+# --- end of provided code ---
+
+`;
+
+export const STARTER = String.raw`def code_execution_tool(code: str, allowed_names: dict) -> dict:
+    # TODO: run the code with only allowed_names available, and turn the
+    # outcome (output, nothing, error, or too much output) into an observation
+    ...`;
+
+export const REFERENCE = String.raw`def code_execution_tool(code: str, allowed_names: dict) -> dict:
+    try:
+        output = run_in_sandbox(code, {"__builtins__": {}, **allowed_names})
+    except Exception as e:
+        return {"content": f"Error: {type(e).__name__}: {e}", "is_error": True}
+    if output == "":
+        return {"content": "(the code ran but printed nothing; use print() to return a result)", "is_error": False}
+    if len(output) > MAX_OUTPUT_CHARS:
+        output = output[:MAX_OUTPUT_CHARS] + f"\n... (output truncated at {MAX_OUTPUT_CHARS} characters)"
+    return {"content": output.rstrip("\n"), "is_error": False}`;
+
+export const TEST_SETUP = String.raw`import math
+tools = {"print": print, "sum": sum, "range": range, "len": len, "math": math}
+
+`;
+
+export const TESTS = [
+  String.raw`# a computed result is captured and returned
+r = code_execution_tool("print(sum(range(101)))", tools)
+assert r == {"content": "5050", "is_error": False}, r`,
+  String.raw`# an allowed module works; a name not in allowed_names is unavailable
+assert code_execution_tool("print(math.sqrt(144))", tools)["content"] == "12.0"
+r = code_execution_tool("print(open('/etc/passwd'))", tools)
+assert r["is_error"] is True and "NameError" in r["content"]`,
+  String.raw`# code that prints nothing gets a helpful note, not an empty string
+r = code_execution_tool("x = 5 * 5", tools)
+assert r["is_error"] is False and "nothing" in r["content"]`,
+  String.raw`# an exception comes back as an observation naming the error type
+r = code_execution_tool("print(1/0)", tools)
+assert r["is_error"] is True and "ZeroDivisionError" in r["content"]`,
+  String.raw`# runaway output is truncated with a marker, not sent whole
+r = code_execution_tool("for i in range(10000): print(i)", tools)
+assert r["is_error"] is False and "truncated" in r["content"] and len(r["content"]) < 2200`,
+  String.raw`# trailing newline from print() is stripped
+assert code_execution_tool("print('done')", tools)["content"] == "done"`,
+  // each hidden test runs in its own copy of the learner's namespace, so the shared setup goes on every one
+].map((test) => TEST_SETUP + test);
+
 <Subsection title="Move the code out of your process" variant="a">
 
 [The previous concept](/03-tool-design-for-agents/08-code-execution-as-a-tool/02-why-restricted-execution-isnt-a-sandbox/)
@@ -64,7 +123,11 @@ heavier as you go down:
 - **A lightweight VM.** A micro-VM (such as the Firecracker VMs behind
   some cloud sandboxes) gives each execution its own kernel, a stronger
   boundary than a container's shared one, while still starting in a
-  fraction of a second.
+  fraction of a second. This course's
+  [Docker terminal exercises](/00-python-essentials/08-docker-for-python/04-building-running-and-lifecycle/#the-lifecycle-seeing-reading-entering-and-stopping-a-container)
+  run in exactly this kind of sandbox: each one is a disposable
+  Firecracker micro-VM in the cloud, because a real Docker daemon needs
+  a real Linux machine.
 - **WebAssembly.** Compile the language to WebAssembly and run it in a
   Wasm runtime, which is sandboxed by design: the code can touch nothing
   outside the runtime unless the host explicitly hands it in.
@@ -119,7 +182,7 @@ of them about being a good tool:
 
 The full version also truncates runaway output,
 [the same result-size discipline from Lesson 3](/03-tool-design-for-agents/03-shaping-what-tools-return/01-why-a-huge-tool-result-hurts/#a-tool-result-is-just-more-input-tokens),
-and that's this lesson's exercise. The timeout from the list above
+and that's the exercise below. The timeout from the list above
 belongs to the boundary itself: a real sandbox enforces it from outside,
 which an `exec` in your own process can't.
 
@@ -133,52 +196,69 @@ which an `exec` in your own process can't.
     {
       question: "Why is running untrusted code in a separate OS process stronger than an in-process restricted exec?",
       options: [
-        "A separate process runs faster",
-        "The operating system enforces the separation, rather than the same interpreter that runs the untrusted code",
-        "Subprocesses can't run dangerous code at all",
-        "It removes the need for a timeout",
+        "A fresh process starts without the dangerous modules loaded, so nothing can be reached",
+        "The OS enforces the split, not the interpreter the code is running in",
+        "Subprocesses are killed automatically, so there's no need for a timeout",
+        "Separate processes can't share a filesystem, so the host's files are safe",
       ],
       correctIndex: 1,
       explanation:
-        "The boundary moves from inside one shared interpreter to the OS. A bare subprocess still needs real OS-level restriction, but the enforcement is no longer the very thing being escaped.",
+        "The boundary moves from inside one shared interpreter to the OS. A bare subprocess still shares the machine's files and network, so it needs real OS-level restriction, but the enforcement is no longer the very thing being escaped.",
     },
     {
       question: "What's the general trade as you move from a subprocess to a container to a micro-VM?",
       options: [
-        "Each is cheaper and weaker than the last",
-        "Boundary strength goes up, and so do startup time and overhead",
-        "They're equivalent; the choice is style",
-        "Only the micro-VM needs a timeout",
+        "Each step down is cheaper to start, but gives up some isolation strength",
+        "Strength is the same; they differ in which languages they can run",
+        "Stronger boundaries cost more startup time and overhead per run",
+        "Only the lightest option needs a timeout, since the others enforce one",
       ],
-      correctIndex: 1,
+      correctIndex: 2,
       explanation:
-        "Stronger isolation costs more per run. The right point on the scale depends on how hostile the code might be and how fast runs must be.",
+        "Stronger isolation costs more per run. The right point on the scale depends on how hostile the code might be and how fast runs must be. Every level still needs a timeout and resource limits.",
     },
     {
       question: "Why does the wrapper report \"the code ran but printed nothing\" instead of returning an empty string?",
       options: [
-        "Empty strings crash the model API",
-        "The model only sees what the tool returns, so an empty result is a confusing non-answer; the note tells it to print its result",
-        "The code didn't actually run",
-        "It's required by MCP",
+        "An empty string means the code didn't run, so the model should retry",
+        "Otherwise the model gets a blank result and can't tell what happened",
+        "So the model can tell the sandbox apart from a normal tool call",
+        "Tools must always return text, and an empty string doesn't count",
       ],
       correctIndex: 1,
       explanation:
-        "Computing a value isn't the same as returning it. The note steers the model toward print, the only way its result reaches the tool's output.",
+        "Computing a value isn't the same as returning it. The code did run; it just didn't print. The note says so, and steers the model toward print, the only way its result reaches the tool's output.",
     },
     {
       question: "Why does moving from a container to WebAssembly change so little of the tool's code?",
       options: [
-        "They use the same isolation mechanism",
-        "The wrapper only calls run_in_sandbox, so swapping the boundary changes that one function, not the tool around it",
-        "The tool doesn't actually depend on isolation",
-        "WebAssembly and containers have identical performance",
+        "Containers and Wasm isolate code with the same underlying mechanism",
+        "The wrapper handles isolation itself, so the boundary barely matters",
+        "The wrapper only calls run_in_sandbox, so only that function changes",
+        "The model writes the same code either way, so the tool can't differ",
       ],
-      correctIndex: 1,
+      correctIndex: 2,
       explanation:
-        "Keeping the boundary behind one function is what makes it swappable. Output capture, error handling and timeouts are the same whatever runs the code.",
+        "Keeping the boundary behind one function is what makes it swappable. Output capture, error handling and truncation stay the same whatever runs the code; the timeout belongs to the boundary, so it comes with whatever you swap in.",
     },
   ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Implement code_execution_tool(code, allowed_names), the wrapper around a sandbox. run_in_sandbox(code, sandbox_globals) is provided at the top of the editor; it runs the code and returns its printed output. (In this course that's Pyodide; the wrapper is identical whatever the boundary.) Return a dict with content and is_error. Run the code with globals of {\"__builtins__\": {}, **allowed_names}, so only the names in allowed_names are available. If it raises, return is_error True and content of \"Error: <ExceptionType>: <message>\". If it produces no output, return is_error False and a note telling the model to print() its result. If the output is longer than MAX_OUTPUT_CHARS, keep that many characters and append a truncation marker. Otherwise return the output with any trailing newline stripped, is_error False."}
+  starterCode={PROVIDED + STARTER}
+  hiddenTests={TESTS}
+  hint={"Wrap the run_in_sandbox call in try/except Exception as e, and build the globals with {\"__builtins__\": {}, **allowed_names} so the allowlist is the only surface. Check the empty-output case before the length case, and strip the trailing newline last."}
+  correctAnswer={{
+    code: PROVIDED + REFERENCE,
+    explanation:
+      "This is every tool-shaping idea in the module applied to the riskiest tool. The allowlist (test 2) is the convenience filter from the earlier concept on restricted execution: a stray open() fails cleanly with a NameError the model can read, though the real safety is the sandbox run_in_sandbox stands for, not this dict. Errors come back as observations (test 4), empty output gets a useful note instead of a blank (test 3), and runaway output is truncated (test 5) so a model that prints a million lines can't bury the conversation. The wrapper is the same whether the boundary underneath is a subprocess, a container or Pyodide.",
+  }}
 />
 
 </CheckpointZone>
