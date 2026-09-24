@@ -2032,6 +2032,35 @@ below describe each lesson as first converted; see the git log
    `__doc__` is introduced), Lesson 3.5 Concept 5's stdio subsection,
    Module 0's BaseModel-request-body subsection (for a POST endpoint),
    and Lesson 3.5 Concept 2's four-shapes subsection.
+   Concept 2 is drafted: answering `tools/call` by hand. A five-row table
+   sorts every way a call can end with the "could the model fix it?"
+   rule. Only an unknown tool is a protocol error (`-32602`); invalid
+   arguments, a tool's own refusal and a crash are tool errors, and a
+   crash gets a generic message. The page covers "raise, don't return"
+   (`ToolError` / `ProtocolError`) and a handler that validates with the
+   tool's Pydantic model, calls with `model_dump()`, passes `ToolError`
+   text through and logs crashes to stderr. It closes with a static
+   sketch of wiring `ProtocolError` into `handle_request`. The handler is
+   a static block, and the five-case demo is live with the handler as
+   hidden `setupCode`, the same pattern as Concept 1. One deviation: the
+   mockup says the demo doesn't show stderr, but LiveDemo captures
+   stderr too. So the crash's log line appears just before the
+   `get_agent_owner` result, and the note under the demo explains that
+   instead. There are 5 quiz questions and a graded
+   `handle_tools_call(params)` exercise with 7 hidden tests, with
+   `# --- provided ---` code at the top. Verified in Pyodide 0.26.4
+   (Pydantic 2.7.0): the demo's stdout lines match the mockup exactly,
+   the reference passes 7/7 and the starter fails 7/7. Returning
+   instead of raising for an unknown tool fails test 2, skipping
+   validation fails 3, a generic validation message fails 3, leaking the
+   exception text fails 5, catching `Exception` before `ToolError` fails
+   4, and indexing `params["arguments"]` fails 7. Calling with the raw
+   arguments instead of `model_dump()` isn't detectable (no coercion
+   happens in these tools), which is fine since that's quiz material,
+   not a graded rule. Callbacks link to Lesson 3.5 Concept 2's
+   two-ways-to-fail subsection, Lesson 3.2 Concept 3's
+   failure-as-observation and trim-the-error subsections, and Concept
+   1's tool-table subsection.
 
 ---
 

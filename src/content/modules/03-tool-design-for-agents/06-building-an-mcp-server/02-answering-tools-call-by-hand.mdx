@@ -1,0 +1,453 @@
+---
+title: "Answering tools/call by hand"
+lesson: "06-building-an-mcp-server"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+export const HANDLER_DEMO = String.raw`import sys
+from pydantic import BaseModel, Field, ValidationError
+
+REGISTRY = {"research_agent": "claude-sonnet", "support_agent": "claude-haiku"}
+
+class ToolError(Exception):
+    """A failure the model should see and can react to."""
+
+class ProtocolError(Exception):
+    """A request the server can't handle at all; becomes a JSON-RPC error."""
+    def __init__(self, code: int, message: str):
+        super().__init__(message)
+        self.code = code
+
+class GetAgentModelArgs(BaseModel):
+    agent_name: str = Field(description="Exact registered name of the agent.")
+
+def get_agent_model(agent_name: str) -> str:
+    """Return the model one registered agent runs on, looked up by its exact name."""
+    if agent_name not in REGISTRY:
+        raise ToolError(f"No agent named '{agent_name}'. Registered agents: {', '.join(REGISTRY)}.")
+    return f"{agent_name} runs on {REGISTRY[agent_name]}"
+
+class GetAgentOwnerArgs(BaseModel):
+    agent_name: str = Field(description="Exact registered name of the agent.")
+
+def get_agent_owner(agent_name: str) -> str:
+    """Return the team that owns a registered agent."""
+    # a bug: this lookup table was never filled in
+    owners = {}
+    return owners[agent_name]
+
+TOOLS = {"get_agent_model": (get_agent_model, GetAgentModelArgs), "get_agent_owner": (get_agent_owner, GetAgentOwnerArgs)}
+
+def text_result(text: str, is_error: bool = False) -> dict:
+    return {"content": [{"type": "text", "text": text}], "isError": is_error}
+
+def handle_tools_call(params: dict) -> dict:
+    name = params.get("name")
+    if name not in TOOLS:
+        raise ProtocolError(-32602, f"Unknown tool: {name}")
+    function, args_model = TOOLS[name]
+
+    try:
+        args = args_model(**params.get("arguments", {}))
+    except ValidationError as e:
+        problems = "; ".join(f"{'.'.join(str(part) for part in err['loc'])}: {err['msg']}" for err in e.errors())
+        return text_result(f"Invalid arguments for {name}: {problems}", is_error=True)
+
+    try:
+        return text_result(str(function(**args.model_dump())))
+    except ToolError as e:
+        return text_result(str(e), is_error=True)
+    except Exception as e:
+        # an unexpected crash: log the details for yourself, tell the model only that it failed
+        print(f"tool {name} crashed: {e!r}", file=sys.stderr)
+        return text_result(f"Error executing tool {name}", is_error=True)`;
+
+export const PROVIDED = String.raw`# --- provided: don't change this part ---
+import sys
+from typing import Literal
+from pydantic import BaseModel, Field, ValidationError
+
+REGISTRY = {"research_agent": "claude-sonnet", "support_agent": "claude-haiku"}
+
+class ToolError(Exception):
+    """A failure the model should see and can react to."""
+
+class ProtocolError(Exception):
+    """A request the server can't handle at all; becomes a JSON-RPC error."""
+    def __init__(self, code: int, message: str):
+        super().__init__(message)
+        self.code = code
+
+class GetAgentModelArgs(BaseModel):
+    agent_name: str = Field(description="Exact registered name of the agent.")
+
+class SetAgentModelArgs(BaseModel):
+    agent_name: str = Field(description="Exact registered name of the agent.")
+    model: Literal["claude-sonnet", "claude-haiku", "claude-opus"] = Field(description="The model to switch to.")
+
+class AuditArgs(BaseModel):
+    agent_name: str
+
+def get_agent_model(agent_name: str) -> str:
+    """Return the model one registered agent runs on."""
+    if agent_name not in REGISTRY:
+        raise ToolError(f"No agent named '{agent_name}'.")
+    return REGISTRY[agent_name]
+
+def set_agent_model(agent_name: str, model: str) -> str:
+    """Switch a registered agent to a different model."""
+    if agent_name not in REGISTRY:
+        raise ToolError(f"No agent named '{agent_name}'.")
+    REGISTRY[agent_name] = model
+    return f"{agent_name} now runs on {model}"
+
+def audit_agent(agent_name: str) -> str:
+    """Run a configuration audit on an agent."""
+    raise ConnectionError("could not reach postgres://admin:hunter2@db.internal:5432/registry")
+
+TOOLS = {
+    "get_agent_model": (get_agent_model, GetAgentModelArgs),
+    "set_agent_model": (set_agent_model, SetAgentModelArgs),
+    "audit_agent": (audit_agent, AuditArgs),
+}
+
+def text_result(text: str, is_error: bool = False) -> dict:
+    return {"content": [{"type": "text", "text": text}], "isError": is_error}
+# --- end of provided code ---
+
+`;
+
+export const STARTER = String.raw`def handle_tools_call(params: dict) -> dict:
+    # TODO: look up the tool, validate its arguments, run it, and report the outcome
+    ...`;
+
+export const REFERENCE = String.raw`def handle_tools_call(params: dict) -> dict:
+    name = params.get("name")
+    if name not in TOOLS:
+        raise ProtocolError(-32602, f"Unknown tool: {name}")
+    function, args_model = TOOLS[name]
+
+    try:
+        args = args_model(**params.get("arguments", {}))
+    except ValidationError as e:
+        problems = "; ".join(f"{'.'.join(str(part) for part in err['loc'])}: {err['msg']}" for err in e.errors())
+        return text_result(f"Invalid arguments for {name}: {problems}", is_error=True)
+
+    try:
+        return text_result(str(function(**args.model_dump())))
+    except ToolError as e:
+        return text_result(str(e), is_error=True)
+    except Exception as e:
+        print(f"tool {name} crashed: {e!r}", file=sys.stderr)
+        return text_result(f"Error executing tool {name}", is_error=True)`;
+
+export const TESTS = [
+  String.raw`# success
+r = handle_tools_call({"name": "get_agent_model", "arguments": {"agent_name": "research_agent"}})
+assert r == {"content": [{"type": "text", "text": "claude-sonnet"}], "isError": False}, r`,
+  String.raw`# an unknown tool is a protocol error, not a result
+try:
+    handle_tools_call({"name": "delete_agent", "arguments": {}})
+    raise AssertionError("expected ProtocolError")
+except ProtocolError as e:
+    assert e.code == -32602 and "delete_agent" in str(e)`,
+  String.raw`# invalid arguments are a tool error naming the field, and the tool never runs
+r = handle_tools_call({"name": "set_agent_model", "arguments": {"agent_name": "research_agent", "model": "gpt-5"}})
+assert r["isError"] is True and "model" in r["content"][0]["text"]
+assert REGISTRY["research_agent"] == "claude-sonnet"
+r = handle_tools_call({"name": "get_agent_model", "arguments": {}})
+assert r["isError"] is True and "agent_name" in r["content"][0]["text"]`,
+  String.raw`# a ToolError reaches the model with its own message
+r = handle_tools_call({"name": "get_agent_model", "arguments": {"agent_name": "ghost_agent"}})
+assert r == {"content": [{"type": "text", "text": "No agent named 'ghost_agent'."}], "isError": True}, r`,
+  String.raw`# an unexpected crash is flagged, but its internal details never leave the server
+r = handle_tools_call({"name": "audit_agent", "arguments": {"agent_name": "research_agent"}})
+assert r["isError"] is True and "audit_agent" in r["content"][0]["text"]
+assert "hunter2" not in r["content"][0]["text"] and "postgres" not in r["content"][0]["text"]`,
+  String.raw`# valid arguments reach the tool, and the write happens
+r = handle_tools_call({"name": "set_agent_model", "arguments": {"agent_name": "support_agent", "model": "claude-opus"}})
+assert r["isError"] is False and REGISTRY["support_agent"] == "claude-opus"`,
+  String.raw`# a call with no arguments key at all is still handled
+r = handle_tools_call({"name": "get_agent_model"})
+assert r["isError"] is True`,
+];
+
+<Subsection title="Five ways a tool call can end" variant="a">
+
+`tools/call` is where the server's real work happens, and it's also
+where most of the decisions are.
+[Lesson 5](/03-tool-design-for-agents/05-the-model-context-protocol/02-json-rpc-as-the-message-format/#two-different-ways-a-tool-call-can-fail)
+showed that MCP has two ways to report a failure: a **protocol error** (a
+JSON-RPC `error`, no result) or a **tool error** (a normal result with
+`isError: true`). The spec says which to use when, and the rule of thumb
+behind it is simple: *could the model fix this by calling differently?*
+If yes, it's a tool error, because the model should see it. If no, it's
+a protocol error.
+
+Applied to every way a call can end:
+
+| What happened | How it's reported | Why |
+|---|---|---|
+| The tool ran and succeeded | a result, `isError: false` | |
+| No tool by that name | protocol error, `-32602` | the request itself is wrong for this server |
+| The arguments failed validation | tool error | the model chose the arguments, and can choose better ones |
+| The tool refused, e.g. an unknown agent | tool error | the model can pick a different agent, or tell the user |
+| The tool crashed with a bug | tool error, with a generic message | the model should know it failed, but not see your internals |
+
+Invalid arguments being a *tool* error surprises some people, since the
+request looks malformed. But the spec lists input validation errors
+explicitly as tool execution errors, for exactly the reason in the
+table: the model wrote those arguments, and a clear message like
+"agent_name: Field required" lets it fix them on the next call.
+
+</Subsection>
+
+<Subsection title="Raise, don't return" variant="b">
+
+Tools in this module have so far reported failure by *returning* a
+string starting with "Error:", as in
+[Lesson 2's validation concept](/03-tool-design-for-agents/02-tool-schemas-and-argument-validation/03-validate-and-return-failures-as-observations/#closing-the-gap-a-validator-plus-the-failure-as-observation-pattern).
+That worked because your own loop was the one reading the result. Over
+MCP, the server has to set `isError` on the wire, and a returned string
+can't do that: to the server, a returned string is just a successful
+answer that happens to start with "Error".
+
+So a tool served over MCP signals failure by **raising** an exception
+the server recognizes, and the server turns it into `isError: true`.
+Here that exception is `ToolError`. A second exception, `ProtocolError`,
+lets a handler reject a request outright with a JSON-RPC error code. The
+SDK in the next concept has the same two exceptions under the same idea.
+
+</Subsection>
+
+<Subsection title="The handler" variant="a">
+
+```python
+import sys
+from pydantic import BaseModel, Field, ValidationError
+
+REGISTRY = {"research_agent": "claude-sonnet", "support_agent": "claude-haiku"}
+
+class ToolError(Exception):
+    """A failure the model should see and can react to."""
+
+class ProtocolError(Exception):
+    """A request the server can't handle at all; becomes a JSON-RPC error."""
+    def __init__(self, code: int, message: str):
+        super().__init__(message)
+        self.code = code
+
+class GetAgentModelArgs(BaseModel):
+    agent_name: str = Field(description="Exact registered name of the agent.")
+
+def get_agent_model(agent_name: str) -> str:
+    """Return the model one registered agent runs on, looked up by its exact name."""
+    if agent_name not in REGISTRY:
+        raise ToolError(f"No agent named '{agent_name}'. Registered agents: {', '.join(REGISTRY)}.")
+    return f"{agent_name} runs on {REGISTRY[agent_name]}"
+
+class GetAgentOwnerArgs(BaseModel):
+    agent_name: str = Field(description="Exact registered name of the agent.")
+
+def get_agent_owner(agent_name: str) -> str:
+    """Return the team that owns a registered agent."""
+    # a bug: this lookup table was never filled in
+    owners = {}
+    return owners[agent_name]
+
+TOOLS = {"get_agent_model": (get_agent_model, GetAgentModelArgs), "get_agent_owner": (get_agent_owner, GetAgentOwnerArgs)}
+
+def text_result(text: str, is_error: bool = False) -> dict:
+    return {"content": [{"type": "text", "text": text}], "isError": is_error}
+
+def handle_tools_call(params: dict) -> dict:
+    name = params.get("name")
+    if name not in TOOLS:
+        raise ProtocolError(-32602, f"Unknown tool: {name}")
+    function, args_model = TOOLS[name]
+
+    try:
+        args = args_model(**params.get("arguments", {}))
+    except ValidationError as e:
+        problems = "; ".join(f"{'.'.join(str(part) for part in err['loc'])}: {err['msg']}" for err in e.errors())
+        return text_result(f"Invalid arguments for {name}: {problems}", is_error=True)
+
+    try:
+        return text_result(str(function(**args.model_dump())))
+    except ToolError as e:
+        return text_result(str(e), is_error=True)
+    except Exception as e:
+        # an unexpected crash: log the details for yourself, tell the model only that it failed
+        print(f"tool {name} crashed: {e!r}", file=sys.stderr)
+        return text_result(f"Error executing tool {name}", is_error=True)
+```
+
+Five calls, one for each row of the table. The handler above runs first,
+silently:
+
+<LiveDemo client:load setupCode={HANDLER_DEMO} code={`cases = [
+    {"name": "get_agent_model", "arguments": {"agent_name": "research_agent"}},
+    {"name": "get_agent_model", "arguments": {"agent_name": "ghost_agent"}},
+    {"name": "get_agent_model", "arguments": {"name": "research_agent"}},
+    {"name": "get_agent_owner", "arguments": {"agent_name": "research_agent"}},
+    {"name": "delete_agent", "arguments": {"agent_name": "research_agent"}},
+]
+for params in cases:
+    try:
+        result = handle_tools_call(params)
+        print(f"{params['name']}: isError={result['isError']} -> {result['content'][0]['text']}")
+    except ProtocolError as e:
+        print(f"{params['name']}: protocol error {e.code} -> {e}")`} />
+
+*This demo shows stderr alongside stdout, so the crash's logged line
+("tool get_agent_owner crashed: ...") appears too. On a real server that
+line goes to the server's own log, and the model sees only the
+`get_agent_owner` result line after it.*
+
+Step by step:
+
+- **Look up the tool first.** An unknown name raises `ProtocolError`,
+  since no argument the model could send would make `delete_agent` exist
+  on this server.
+- **Validate the arguments with the tool's model.** Constructing
+  `args_model(**arguments)` runs
+  [Pydantic's validation](/03-tool-design-for-agents/02-tool-schemas-and-argument-validation/03-validate-and-return-failures-as-observations/#trim-the-error-before-the-model-sees-it),
+  and a `ValidationError` becomes a tool error. `e.errors()` gives one
+  entry per problem, trimmed here to "field: message", the same trimming
+  Lesson 2 did, so the model gets a short, specific message instead of
+  Pydantic's full report.
+- **Call the function with the validated values.** `args.model_dump()`
+  turns the validated model back into a dict to unpack into the
+  function, so the function only ever receives arguments that passed
+  validation.
+- **Catch `ToolError` for the tool's own refusals,** and pass its
+  message through unchanged. The tool author wrote that message for the
+  model.
+- **Catch everything else as a crash.** A `KeyError` from a bug is
+  logged to stderr in full for the server's owner, and the model gets
+  only "Error executing tool get_agent_owner".
+
+That last point is a security rule, not a style choice. Exception
+messages from deep inside a server regularly contain things that should
+never leave it: database connection strings, file paths, API keys,
+internal hostnames. Anything in a tool result goes to the model, and
+from there possibly to the user or into logs elsewhere. So the details
+of an *unexpected* failure stay on the server, and only failures the
+tool author deliberately described travel to the model.
+
+</Subsection>
+
+<Subsection title="Wiring it into the server" variant="b">
+
+`tools/call` joins the dispatch table from
+[the previous concept](/03-tool-design-for-agents/06-building-an-mcp-server/01-what-a-server-does-one-request-in-one-response-out/#the-tool-table),
+and `handle_request` turns a raised `ProtocolError` into a proper error
+response:
+
+```python
+METHOD_HANDLERS["tools/call"] = handle_tools_call
+
+def handle_request(request: dict) -> dict:
+    # ... the _meta checks and method lookup from the previous concept ...
+    try:
+        return result_response(request.get("id"), handler(request["params"]))
+    except ProtocolError as e:
+        return error_response(request.get("id"), e.code, str(e))
+```
+
+*Illustrative. The full version is this lesson's comprehensive
+sandbox.*
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "A model calls a server's set_agent_model with model: \"gpt-5\", which the arguments model doesn't allow. How should the server report it?",
+      options: [
+        "As a JSON-RPC error, since the request is invalid",
+        "As a tool error with isError: true and a message naming the bad field, so the model can correct it",
+        "By ignoring the bad value and using a default model",
+        "By running the tool anyway and letting it fail",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The spec classifies input validation errors as tool execution errors. The model chose the value, so it should see the problem and get the chance to fix it.",
+    },
+    {
+      question: "Why does a tool served over MCP raise ToolError instead of returning \"Error: no such agent\"?",
+      options: [
+        "Returned strings are too long for MCP",
+        "Python functions can't return strings from inside a server",
+        "A returned string is sent as a successful result with isError: false, so the failure flag never reaches the client",
+        "Raising is faster than returning",
+      ],
+      correctIndex: 2,
+      explanation:
+        "The server only knows a call failed if the tool tells it so. Raising a recognized exception is how the tool says \"this failed\", and the server sets isError from that.",
+    },
+    {
+      question: "A tool crashes with ConnectionError: could not reach postgres://admin:secret@db.internal/registry. What should the model receive?",
+      options: [
+        "The full exception message, so it knows exactly what went wrong",
+        "A protocol error with the exception as its data",
+        "Nothing; the call should be retried silently",
+        "A tool error with a generic message like \"Error executing tool audit_agent\", while the full details are logged on the server",
+      ],
+      correctIndex: 3,
+      explanation:
+        "Unexpected exceptions can contain credentials and internal details. The model needs to know the call failed, and only the server's owner needs the specifics.",
+    },
+    {
+      question: "Which of these should be a protocol error rather than a tool error?",
+      options: [
+        "A call to a tool name the server doesn't have",
+        "An argument that fails validation",
+        "A lookup for an agent that doesn't exist",
+        "An upstream API timing out inside the tool",
+      ],
+      correctIndex: 0,
+      explanation:
+        "No change of arguments makes a nonexistent tool exist on this server. The other three are all problems the model can respond to, so the spec makes them tool errors.",
+    },
+    {
+      question: "Why does the handler call the function with args.model_dump() rather than the raw arguments dict?",
+      options: [
+        "The raw dict is in the wrong order",
+        "So the function only ever receives values that passed validation, in the types the model declares",
+        "model_dump() removes the tool's name from the arguments",
+        "It's required by JSON-RPC",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Validating and then using the validated copy means a function never has to re-check its own inputs, and never sees a value the schema didn't allow.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Implement handle_tools_call(params) for a registry server with three tools. ToolError, ProtocolError, TOOLS and text_result are provided at the top of the editor. If params[\"name\"] isn't in TOOLS, raise ProtocolError(-32602, ...) with a message naming the tool. Validate params[\"arguments\"] (treat a missing arguments as {}) with the tool's model. On a ValidationError, return a tool error whose text names each failing field. Call the function with the validated values and return its result as text. If the function raises ToolError, return a tool error with exactly that message. If it raises anything else, return a tool error that names the tool but doesn't include the exception's text, and log the details to stderr."}
+  starterCode={PROVIDED + STARTER}
+  hiddenTests={TESTS}
+  hint={"Two separate try blocks keep the cases apart: one around building the arguments model (catching ValidationError), and one around calling the function (catching ToolError first, then Exception). The order of the two except clauses in the second block matters, because ToolError is itself an Exception."}
+  correctAnswer={{
+    code: PROVIDED + REFERENCE,
+    explanation:
+      "The two try blocks map onto the table at the top of this concept: bad arguments are caught before the tool runs, which the grading confirms by checking the registry wasn't changed. ToolError passes its message through word for word, because the tool author wrote it for the model. The final except Exception is the safety net: the audit tool's crash message contains a database password, and none of it reaches the result. The unknown tool raises rather than returns, leaving handle_request to turn it into a JSON-RPC error.",
+  }}
+/>
+
+</CheckpointZone>
