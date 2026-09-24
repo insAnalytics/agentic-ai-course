@@ -2131,6 +2131,37 @@ below describe each lesson as first converted; see the git log
    The hint links Lesson 3.5 Concept 3's `_meta` subsection and this
    lesson's tool-table and handler subsections.
 
+7. **Connecting an Agent to MCP Servers** — Building
+   *Working title.* The folder is `07-connecting-an-agent-to-mcp-servers`,
+   named from the forward references in Lessons 3.5 and 3.6.
+   Concept 1 is drafted: discovering tools from several servers. The
+   lesson's in-process stand-ins (`InProcessServer`, `InProcessClient`,
+   and registry and monitoring servers that both offer `get_status`)
+   live in the new shared `src/lib/mcpStandins.ts` (`MCP_STANDINS`; see
+   architecture.md §4.1). The page shows them as a static block that
+   must stay byte-identical to that constant. The page covers the pain
+   (a naive name-keyed dict silently drops the registry's `get_status`),
+   the spec's host-side server prefix (from the host's own labels, not
+   `serverInfo`), cleaning names to `[a-zA-Z0-9_-]` with a 64-character
+   cap, and the `routes` map back to the server's original name. It
+   ends with a short note on rebuilding the catalog when `ttlMs`
+   expires. There are two live demos with `MCP_STANDINS` as
+   `setupCode`, 5 quiz questions, and a graded
+   `build_tool_catalog(servers)` exercise with 5 hidden tests. The
+   provided `model_tool_name` sits at the top of the editor, and
+   `MCP_STANDINS` plus the mockup's shared test setup are prepended to
+   every test. Verified in Pyodide 0.26.4: both demos' output matches
+   the mockup exactly, the reference passes 5/5 and the starter fails
+   5/5. Leaving out the prefix fails all 5, storing the cleaned name in
+   the route fails 3, keeping `inputSchema` fails 4, skipping the
+   length check fails 2 and 5, `break` instead of `continue` fails 5,
+   and prefixing without cleaning fails 2 and 3. Callbacks link to the
+   Lesson 3.6 intro (lesson-level), Module 2 Lesson 5's
+   gather-every-call fix subsection, Lesson 3.5's how-a-host-uses-each-one
+   and `server/discover` subsections, and Lesson 3.1's
+   what-the-model-receives subsection. The pointer to Concept 2 is
+   plain text.
+
 ---
 
 ## Modules 4–11 — current plan

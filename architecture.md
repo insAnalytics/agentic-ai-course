@@ -1511,6 +1511,22 @@ another. As the mockup itself notes, nothing forces the backoff sleep to
 happen outside the semaphore. The explanation drops the mockup's
 "test N" references, since learners never see the tests.
 
+**Module 3 Lesson 7 — shared in-process MCP stand-ins.**
+`src/lib/mcpStandins.ts` exports `MCP_STANDINS`: the Python source for
+`InProcessServer`, `InProcessClient` (one client per server, building
+real `_meta`-carrying JSON-RPC requests and recording its `tools/call`s),
+and the lesson's two example servers (`registry_server` and
+`monitoring_server`, which both deliberately offer a `get_status` tool).
+It plays the same role for this lesson that `fakeClient.ts` plays for
+Module 2. Every demo passes it as `setupCode`, and every graded
+exercise prepends it to each hidden test. That's needed because
+`GradedExercise` runs each test in its own copy of the learner's
+namespace, and `setupCode` only reaches Pyodide's globals, not that
+namespace. Concept 1 also shows the source to the learner as a
+static code fence. That fence is generated from the mockup, and the
+conversion check asserts it is byte-identical to `MCP_STANDINS`. If
+either copy changes, change both.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped
