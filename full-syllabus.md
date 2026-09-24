@@ -1921,8 +1921,35 @@ below describe each lesson as first converted; see the git log
    to Module 0's REST-principles subsection, Module 1's no-memory
    subsection, Module 2's why-the-scratchpad-exists subsection, Concept
    2's two-ways-to-fail subsection, and Lesson 3.4's retrying-a-write
-   (idempotency key) subsection. Next up is Concept 4: what a server
-   offers (tools, resources, prompts).
+   (idempotency key) subsection.
+   Concept 4 is drafted: what a server offers (tools, resources and
+   prompts). The three primitives are sorted by who decides to use them:
+   tools by the model, resources by the host application, and prompts by
+   the user. A live demo shows example `tools/list`, `resources/list` and
+   `prompts/list` results, followed by a method reference (`tools/call`,
+   `resources/read` by URI, `prompts/get` returning messages). A second
+   live demo shows a host using one of each: the tool is reshaped from
+   `inputSchema` to `input_schema`, the resource is wrapped in a
+   `<policy>` delimiter inside the user message, and the prompt's
+   messages start the conversation. The page closes on why agents mostly
+   use tools, and suggests wrapping a resource read in a tool. There are 5
+   quiz questions and a graded `resource_to_context(read_result)`
+   exercise with 4 hidden tests. Verified in Pyodide 0.26.4: both demos
+   match the mockup's output, the reference passes 4/4 and the starter
+   fails 4/4. Single-rule violations fail the right tests: no newlines
+   inside the tag, leaking the blob, dropping the URI on binary items,
+   keeping only the first item, and crashing on empty `contents`. One
+   small wording fix: the mockup says the "middle" column of the
+   four-column table matters, and the page says "second". The mockup's
+   "Lesson 7" forward reference (translating `inputSchema` for every
+   listed tool) is plain, number-free text, since that lesson isn't
+   built. Callbacks link to Module 2's actual-loop subsection, Concept
+   3's `server/discover` subsection, Lesson 3.2's full-tool-definition
+   subsection, Lesson 3.1's what-a-description-should-say subsection,
+   Module 2's delimiters-fix subsection and Module 2's who-decides
+   subsection. The graded exercise's explanation mentions Lesson 3's
+   oversized tool results as plain text, since explanations aren't
+   linked. Next up is Concept 5: transports.
 
 ---
 
