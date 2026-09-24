@@ -1,6 +1,6 @@
 ---
 title: "Running independent tool calls concurrently"
-lesson: "04-timeouts-retries-and-concurrency"
+lesson: "04-tools-that-call-the-outside-world"
 order: 4
 ---
 import Subsection from "../../../../components/lesson/Subsection.astro";
@@ -247,9 +247,9 @@ that happens to start with "Error".
 <Subsection title="Putting the lesson together" variant="a">
 
 Here's the loop with everything from this lesson combined: each call gets
-[a timeout](/03-tool-design-for-agents/04-timeouts-retries-and-concurrency/01-timeouts-a-tool-that-never-answers/#the-fix-put-a-deadline-on-the-call),
+[a timeout](/03-tool-design-for-agents/04-tools-that-call-the-outside-world/01-timeouts-a-tool-that-never-answers/#the-fix-put-a-deadline-on-the-call),
 calls to the status service share
-[one semaphore](/03-tool-design-for-agents/04-timeouts-retries-and-concurrency/03-staying-under-the-limit-client-side-throttling/#the-fix-a-semaphore-one-per-service),
+[one semaphore](/03-tool-design-for-agents/04-tools-that-call-the-outside-world/03-staying-under-the-limit-client-side-throttling/#the-fix-a-semaphore-one-per-service),
 and the whole batch runs through `gather`. The model asks about four
 models at once, and one of them hangs. Its final reply is scripted:
 
@@ -419,7 +419,7 @@ off parallel tool calls entirely with `disable_parallel_tool_use` in
 
 <GradedExercise
   client:load
-  task={"Implement async def run_agent(client, user_message, timeout_seconds=1.0, max_steps=10). call_with_timeout (from [this lesson's first concept](/03-tool-design-for-agents/04-timeouts-retries-and-concurrency/01-timeouts-a-tool-that-never-answers/#the-fix-put-a-deadline-on-the-call)) and a TOOLS registry of async tools are provided at the top of the editor. Start messages with the user's message, then loop up to max_steps times. Call client.create(messages=messages) and append the assistant's full response.content once. Collect every tool_use block; a response may start with a text block. If there are none, return the response's text blocks joined together. Otherwise run all the calls at once with asyncio.gather, each through call_with_timeout(TOOLS[call.name], timeout_seconds, **call.input), with return_exceptions=True. Build one tool_result per call, in call order, each with its tool_use_id. A call that raised gets \"content\": \"Error: <the exception>\" and \"is_error\": True. Send all the results back in one user message, and keep looping. If max_steps runs out, return a message saying so that includes the number of steps."}
+  task={"Implement async def run_agent(client, user_message, timeout_seconds=1.0, max_steps=10). call_with_timeout (from [this lesson's first concept](/03-tool-design-for-agents/04-tools-that-call-the-outside-world/01-timeouts-a-tool-that-never-answers/#the-fix-put-a-deadline-on-the-call)) and a TOOLS registry of async tools are provided at the top of the editor. Start messages with the user's message, then loop up to max_steps times. Call client.create(messages=messages) and append the assistant's full response.content once. Collect every tool_use block; a response may start with a text block. If there are none, return the response's text blocks joined together. Otherwise run all the calls at once with asyncio.gather, each through call_with_timeout(TOOLS[call.name], timeout_seconds, **call.input), with return_exceptions=True. Build one tool_result per call, in call order, each with its tool_use_id. A call that raised gets \"content\": \"Error: <the exception>\" and \"is_error\": True. Send all the results back in one user message, and keep looping. If max_steps runs out, return a message saying so that includes the number of steps."}
   starterCode={PROVIDED + STARTER}
   hiddenTests={[
     PRE + TWO_CALLS + String.raw`

@@ -1483,6 +1483,34 @@ sequential `for` loop fails the overlap test; dropping
 turn twice fails the assistant-turn test. All four demos match the
 mockup exactly, including `ran 4 tool calls in 1.1s`.
 
+**Lesson 3.4 comprehensive sandbox: async support in the multi-file
+harness.** The sandbox is multi-file (`services.py` read-only, entry
+`agent.py`), and its hidden tests end with `asyncio.run(all_tests())`.
+`MULTI_FILE_TEST_HARNESS` used a plain `exec()` inside `runPythonAsync`,
+where `asyncio.run` raises "cannot be called from a running event loop".
+It now uses the same approach as `TEST_HARNESS`: it rewrites
+`asyncio.run(` to `await (`, compiles with `PyCF_ALLOW_TOP_LEVEL_AWAIT`,
+and passes the result to `eval()`. If that returns a coroutine, the
+harness awaits it. A script with no top-level await returns `None` and
+runs exactly as before. Regression check: all five existing Module 2
+multi-file recaps (Lessons 2.4 to 2.8) were run with their built
+correct and starter files through the new harness in Pyodide 0.26.4.
+Every correct file still passes and every starter still fails. The two
+FastAPI multi-file recaps use `MultiFileFastAPIGradedExercise` and a
+different harness, so they're unaffected. The mockup's
+`from fake import *` became the usual
+`REACT_FAKE_CLIENT + RECORDING_CLIENT` prefix, since there's no `fake.py`
+in the sandbox. All four code pieces (`SERVICES_PY`, `AGENT_STARTER`,
+`AGENT_REFERENCE`, `HIDDEN_TESTS`) are `export const` blocks, per
+finding (3). Verified against the built page. The reference passes, and
+the starter fails. Each of these wrong versions fails: no semaphore;
+a semaphore per call (both give 6 rejections); retrying a 404; not
+retrying timeouts; ignoring `retry_after`; retrying every exception;
+no `is_error` on `"Error:"` strings; running the calls one after
+another. As the mockup itself notes, nothing forces the backoff sleep to
+happen outside the semaphore. The explanation drops the mockup's
+"test N" references, since learners never see the tests.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped

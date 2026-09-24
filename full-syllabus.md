@@ -1748,8 +1748,11 @@ below describe each lesson as first converted; see the git log
    context and memory module") with no module number, same as Lesson 2.7's
    unbuilt context/memory pointer. Lesson 3.3 is now fully Locked.
 
-4. **Timeouts, Retries, and Concurrency** — Building (all 4 concepts drafted; bookends pending)
-   *Working title.* The folder is `04-timeouts-retries-and-concurrency`.
+4. **Tools That Call the Outside World** — Locked
+   The bookends mockup confirmed the title. The folder was renamed from
+   the working name `04-timeouts-retries-and-concurrency` to
+   `04-tools-that-call-the-outside-world`, and every `lesson` frontmatter
+   field and intra-lesson link was updated to match.
    The mockup's concepts point to retries (Concept 2) and concurrent tool
    calls (the last concept). Concept 1 is drafted: timeouts. A tool that
    never returns can't be stopped by any of Module 2's between-step
@@ -1826,6 +1829,19 @@ below describe each lesson as first converted; see the git log
    (`06-timeouts-retry-and-graceful-give-up`), which the mockup doesn't
    reference. It's flagged here for the mockup author to decide whether
    it's worth a callback.
+
+   Bookends: an intro with 5 outcomes, where why-it-matters says every
+   earlier tool answered instantly and real services don't. The Recap &
+   Practice page has a 10-question comprehensive quiz across all four
+   concepts and a **multi-file graded comprehensive sandbox**, a
+   resilient tool executor. `services.py` (read-only) simulates two
+   services, each limited to 2 in flight and scriptable to fail, hang or
+   rate-limit. `agent.py` needs `SERVICE_SLOTS`, `execute_tool` (a
+   timeout inside a shared semaphore, status-aware retries, `Retry-After`,
+   and the sleep outside the semaphore) and a concurrent `run_agent`.
+   This needed async support in the multi-file harness (see
+   architecture.md §4.1). The hint links to all four concept pages.
+   Lesson 3.4 is now fully Locked.
 
 ---
 

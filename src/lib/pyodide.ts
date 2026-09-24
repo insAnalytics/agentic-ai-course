@@ -274,12 +274,20 @@ export async function runMultiFileCapturingOutput(
   });
 }
 
+// Same asyncio.run() shim + PyCF_ALLOW_TOP_LEVEL_AWAIT / eval() approach as
+// TEST_HARNESS above, so a multi-file exercise's hidden tests can use real
+// `asyncio.run(...)` too. A script with no top-level await still runs exactly
+// as the old plain exec() did (eval() returns None). First needed by Module 3
+// Lesson 4's comprehensive sandbox.
 const MULTI_FILE_TEST_HARNESS = `
-import json
+import json, ast
 
 _error = None
 try:
-    exec(compile(__hidden_tests, "<hidden_tests>", "exec"), {})
+    _code = compile(__hidden_tests.replace("asyncio.run(", "await ("), "<hidden_tests>", "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+    _coro = eval(_code, {})
+    if _coro is not None:
+        await _coro
 except Exception as e:
     _error = f"{type(e).__name__}: {e}"
 

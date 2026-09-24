@@ -1,0 +1,32 @@
+---
+title: "Intro"
+lesson: "04-tools-that-call-the-outside-world"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Put a hard time limit on any external tool call, and explain why none of Module 2's loop guards can stop a call that never returns",
+    "Decide which failures are worth retrying from their status codes, back off with jitter, honour Retry-After, and stop without a pointless final wait",
+    "Explain why retrying a write can do it twice, and make writes safe to retry with an idempotency key or a check first",
+    "Throttle your own traffic to a service with a shared semaphore, and tell a concurrency limit apart from a per-minute rate limit",
+    "Run a response's independent tool calls concurrently, keep every result paired with its call, and stop one failure from sinking the rest",
+  ]}
+/>
+
+<WhyItMatters>
+  Every tool this course has built so far ran inside your own process and
+  answered instantly. Real agents call other people's services, and those
+  services are slow, busy, rate-limited and sometimes down. An agent that
+  handles this badly doesn't just fail occasionally: it hangs on one slow
+  call, burns requests retrying errors that can never succeed, trips rate
+  limits with bursts of its own making, or sends the same alert twice.
+
+  None of the fixes are exotic. A timeout, a sensible retry policy, a
+  shared semaphore and `asyncio.gather` are each a few lines. What this
+  lesson adds is knowing *which* failure each one handles, and how they fit
+  together inside the agent loop, where the model, not your code, decides
+  how many calls arrive at once.
+</WhyItMatters>

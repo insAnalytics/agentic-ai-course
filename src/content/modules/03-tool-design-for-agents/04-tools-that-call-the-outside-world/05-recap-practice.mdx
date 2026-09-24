@@ -1,0 +1,383 @@
+---
+title: "Recap & Practice"
+lesson: "04-tools-that-call-the-outside-world"
+order: 5
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+
+export const SERVICES_PY = String.raw`# simulated external services for the agent registry -- read-only
+import asyncio
+
+class ServiceError(Exception):
+    def __init__(self, status_code: int, retry_after: float | None = None):
+        super().__init__(f"service returned status {status_code}")
+        self.status_code = status_code
+        self.retry_after = retry_after
+
+# an outcome that never answers
+HANG = "hang"
+
+class SimulatedService:
+    def __init__(self, max_concurrent: int, response_time: float):
+        self.max_concurrent = max_concurrent
+        self.response_time = response_time
+        self.reset()
+
+    def reset(self, scripts: dict | None = None):
+        # scripts maps an argument value to the outcomes of its first few requests
+        self.scripts = {key: list(outcomes) for key, outcomes in (scripts or {}).items()}
+        self.requests = {}
+        self.in_flight = 0
+        self.rejected = 0
+
+    async def handle(self, key: str, success: str) -> str:
+        self.requests[key] = self.requests.get(key, 0) + 1
+        if self.in_flight >= self.max_concurrent:
+            self.rejected += 1
+            raise ServiceError(429, retry_after=1.0)
+        self.in_flight += 1
+        try:
+            outcome = self.scripts[key].pop(0) if self.scripts.get(key) else success
+            if outcome == HANG:
+                await asyncio.sleep(60)
+            await asyncio.sleep(self.response_time)
+            if isinstance(outcome, Exception):
+                raise outcome
+            return outcome
+        finally:
+            self.in_flight -= 1
+
+status_service = SimulatedService(max_concurrent=2, response_time=0.1)
+catalog_service = SimulatedService(max_concurrent=2, response_time=0.1)
+
+async def get_agent_status(agent_name: str) -> str:
+    """Returns an agent's current status from the external status service."""
+    return await status_service.handle(agent_name, f"{agent_name}: active")
+
+async def get_model_info(model: str) -> str:
+    """Returns a model's availability from the external model catalog."""
+    return await catalog_service.handle(model, f"{model}: available")
+`;
+
+export const AGENT_STARTER = String.raw`import asyncio
+import random
+from services import ServiceError, get_agent_status, get_model_info
+
+RETRYABLE_STATUS = {408, 429, 500, 502, 503, 504}
+
+TOOLS = {"get_agent_status": get_agent_status, "get_model_info": get_model_info}
+
+# TODO: one asyncio.Semaphore(2) per external service, keyed by tool name
+SERVICE_SLOTS = {}
+
+async def execute_tool(call, timeout_seconds: float = 1.0, max_attempts: int = 3, base_delay: float = 0.5) -> str:
+    # TODO: run TOOLS[call.name](**call.input) inside that tool's semaphore, with a timeout.
+    # Retry timeouts and retryable ServiceErrors (honouring retry_after), up to max_attempts,
+    # sleeping between attempts outside the semaphore. A non-retryable status returns an
+    # "Error: ..." string at once. Anything else raises. Giving up returns an "Error: ..." string.
+    ...
+
+async def run_agent(client, user_message: str, timeout_seconds: float = 1.0, max_attempts: int = 3, base_delay: float = 0.5, max_steps: int = 10) -> str:
+    # TODO: the collect-every-call loop, running each response's calls concurrently through
+    # execute_tool. A call whose output is an exception, or a string starting with "Error:",
+    # gets "is_error": True on its tool_result.
+    ...
+`;
+
+export const AGENT_REFERENCE = String.raw`import asyncio
+import random
+from services import ServiceError, get_agent_status, get_model_info
+
+RETRYABLE_STATUS = {408, 429, 500, 502, 503, 504}
+
+TOOLS = {"get_agent_status": get_agent_status, "get_model_info": get_model_info}
+
+# one semaphore per external service, created once and shared by every call to it
+SERVICE_SLOTS = {"get_agent_status": asyncio.Semaphore(2), "get_model_info": asyncio.Semaphore(2)}
+
+async def execute_tool(call, timeout_seconds: float = 1.0, max_attempts: int = 3, base_delay: float = 0.5) -> str:
+    name = call.name
+    last_problem = None
+    for attempt in range(max_attempts):
+        try:
+            # hold a slot only while the request is actually in flight
+            async with SERVICE_SLOTS[name]:
+                return await asyncio.wait_for(TOOLS[name](**call.input), timeout=timeout_seconds)
+        except TimeoutError:
+            last_problem = f"no response within {timeout_seconds} seconds"
+            delay = base_delay * 2 ** attempt + random.uniform(0, base_delay)
+        except ServiceError as e:
+            if e.status_code not in RETRYABLE_STATUS:
+                return f"Error: {name} failed with status {e.status_code}; not retried, since the same request would fail the same way"
+            last_problem = f"status {e.status_code}"
+            if e.retry_after is not None:
+                delay = e.retry_after
+            else:
+                delay = base_delay * 2 ** attempt + random.uniform(0, base_delay)
+        # the wait happens outside the semaphore, so a retrying call doesn't block others
+        if attempt < max_attempts - 1:
+            await asyncio.sleep(delay)
+    return f"Error: {name} still failing after {max_attempts} attempts ({last_problem})"
+
+async def run_agent(client, user_message: str, timeout_seconds: float = 1.0, max_attempts: int = 3, base_delay: float = 0.5, max_steps: int = 10) -> str:
+    messages = [{"role": "user", "content": user_message}]
+    for step in range(max_steps):
+        response = client.create(messages=messages)
+        messages.append({"role": "assistant", "content": response.content})
+        tool_calls = [block for block in response.content if block.type == "tool_use"]
+        if not tool_calls:
+            return "".join(block.text for block in response.content if block.type == "text")
+        outputs = await asyncio.gather(
+            *(execute_tool(call, timeout_seconds, max_attempts, base_delay) for call in tool_calls),
+            return_exceptions=True,
+        )
+        results = []
+        for call, output in zip(tool_calls, outputs):
+            if isinstance(output, Exception):
+                results.append({"type": "tool_result", "tool_use_id": call.id, "content": f"Error: {output}", "is_error": True})
+            elif output.startswith("Error:"):
+                results.append({"type": "tool_result", "tool_use_id": call.id, "content": output, "is_error": True})
+            else:
+                results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+        messages.append({"role": "user", "content": results})
+    return f"stopped after {max_steps} steps without a final answer"
+`;
+
+export const HIDDEN_TESTS = REACT_FAKE_CLIENT + RECORDING_CLIENT + String.raw`
+import asyncio, time
+import services
+from services import ServiceError, HANG, status_service, catalog_service
+from agent import run_agent
+
+def results_of(client, request_index):
+    return client.seen[request_index][-1]["content"]
+
+async def all_tests():
+    fast = dict(timeout_seconds=0.3, max_attempts=3, base_delay=0.01)
+
+    # 1. transient 503s are retried until they succeed
+    status_service.reset({"research_agent": [ServiceError(503), ServiceError(503)]})
+    call = ToolUseBlock(name="get_agent_status", input={"agent_name": "research_agent"})
+    client = RecordingClient([[call], [TextBlock(text="done")]])
+    assert await run_agent(client, "status?", **fast) == "done"
+    r = results_of(client, 1)[0]
+    assert r["content"] == "research_agent: active" and not r.get("is_error"), r
+    assert status_service.requests["research_agent"] == 3
+
+    # 2. a 404 is not retried, and comes back flagged as an error
+    status_service.reset({"ghost_agent": [ServiceError(404)]})
+    call = ToolUseBlock(name="get_agent_status", input={"agent_name": "ghost_agent"})
+    client = RecordingClient([[call], [TextBlock(text="done")]])
+    await run_agent(client, "status?", **fast)
+    r = results_of(client, 1)[0]
+    assert r["is_error"] is True and "404" in r["content"], r
+    assert status_service.requests["ghost_agent"] == 1
+
+    # 3. six calls to a service that allows two at once: throttled, never rejected
+    status_service.reset()
+    calls = [ToolUseBlock(name="get_agent_status", input={"agent_name": f"agent_{i}"}) for i in range(6)]
+    client = RecordingClient([[TextBlock(text="Checking all six.")] + calls, [TextBlock(text="done")]])
+    await run_agent(client, "status of all?", **fast)
+    assert status_service.rejected == 0, status_service.rejected
+    results = results_of(client, 1)
+    assert [x["tool_use_id"] for x in results] == [c.id for c in calls]
+    assert all(x["content"] == f"agent_{i}: active" for i, x in enumerate(results))
+
+    # 4. a hung service is cut off, retried, then reported -- without holding up another service
+    catalog_service.reset({"claude-legacy": [HANG, HANG]})
+    status_service.reset()
+    hung = ToolUseBlock(name="get_model_info", input={"model": "claude-legacy"})
+    ok = ToolUseBlock(name="get_agent_status", input={"agent_name": "research_agent"})
+    client = RecordingClient([[hung, ok], [TextBlock(text="done")]])
+    start = time.perf_counter()
+    await run_agent(client, "check", timeout_seconds=0.2, max_attempts=2, base_delay=0.01)
+    elapsed = time.perf_counter() - start
+    results = results_of(client, 1)
+    assert results[0]["is_error"] is True and results[0]["content"].startswith("Error:"), results[0]
+    assert catalog_service.requests["claude-legacy"] == 2
+    assert results[1]["content"] == "research_agent: active"
+    assert elapsed < 1.0, elapsed
+
+    # 5. a retry_after from the service is honoured
+    catalog_service.reset({"claude-opus": [ServiceError(429, retry_after=0.3)]})
+    call = ToolUseBlock(name="get_model_info", input={"model": "claude-opus"})
+    client = RecordingClient([[call], [TextBlock(text="done")]])
+    start = time.perf_counter()
+    await run_agent(client, "opus?", **fast)
+    assert time.perf_counter() - start >= 0.3
+    assert results_of(client, 1)[0]["content"] == "claude-opus: available"
+
+    # 6. two calls in one response to different services run concurrently
+    status_service.reset(); catalog_service.reset()
+    a = ToolUseBlock(name="get_agent_status", input={"agent_name": "research_agent"})
+    b = ToolUseBlock(name="get_model_info", input={"model": "claude-sonnet"})
+    client = RecordingClient([[a, b], [TextBlock(text="done")]])
+    start = time.perf_counter()
+    await run_agent(client, "both", **fast)
+    assert time.perf_counter() - start < 0.18
+
+    # 7. a bug in a tool is not retried as if it were a service failure
+    status_service.reset({"broken_agent": [KeyError("unexpected field")]})
+    call = ToolUseBlock(name="get_agent_status", input={"agent_name": "broken_agent"})
+    client = RecordingClient([[call], [TextBlock(text="done")]])
+    await run_agent(client, "status?", **fast)
+    r = results_of(client, 1)[0]
+    assert r["is_error"] is True
+    assert status_service.requests["broken_agent"] == 1
+
+asyncio.run(all_tests())
+`;
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "A tool call to a status service never returns. Which of these can stop it?",
+      options: [
+        "max_steps, once the loop reaches its limit",
+        "Repeated-action detection, when the model asks again",
+        "A timeout on the call itself",
+        "A goal-state check after the call returns",
+      ],
+      correctIndex: 2,
+      explanation:
+        "The other three all run between steps, and a call that never returns means the loop never reaches the next step. Only a limit on the call itself bounds it.",
+    },
+    {
+      question: "Which of these responses is worth retrying?",
+      options: [
+        "404 Not Found",
+        "422 Unprocessable Entity",
+        "403 Forbidden",
+        "503 Service Unavailable",
+      ],
+      correctIndex: 3,
+      explanation:
+        "5xx means the server had a problem that may clear. The 4xx codes here describe a problem with the request itself, which will fail the same way every time.",
+    },
+    {
+      question: "Why does the concurrent loop still pair every result with the right tool_use_id when calls finish in a different order?",
+      options: [
+        "gather returns its outputs in the order the calls were passed in",
+        "Each tool includes its call's ID in its return value",
+        "The semaphore forces calls to finish in request order",
+        "The API reorders the results by ID before the model reads them",
+      ],
+      correctIndex: 0,
+      explanation:
+        "Completion order doesn't affect the order of gather's return value, so zip(tool_calls, outputs) stays aligned.",
+    },
+    {
+      question: "A create_agent request times out. What can you conclude?",
+      options: [
+        "The agent was not created",
+        "The agent was created, since the request was sent",
+        "Nothing certain: the request may have succeeded with only the reply delayed",
+        "The registry is down and every later call will fail",
+      ],
+      correctIndex: 2,
+      explanation:
+        "A timeout stops your side from waiting; it can't stop or undo work already done on the server. For a write, the outcome is unknown.",
+    },
+    {
+      question: "What does the idempotency-key pattern require?",
+      options: [
+        "A new key for every attempt, so the server can tell retries apart",
+        "One key per logical action, sent unchanged on every attempt of that action",
+        "One key per tool, shared by all its calls",
+        "A key only on the final attempt",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The server uses the key to recognise a repeat of an action it already handled. A new key per attempt makes each retry look like new work.",
+    },
+    {
+      question: "A developer creates asyncio.Semaphore(3) inside the function that each tool call runs. What limit does that enforce?",
+      options: [
+        "Three calls at a time, as intended",
+        "One call at a time",
+        "Three calls per minute",
+        "No limit at all, because every call has its own semaphore",
+      ],
+      correctIndex: 3,
+      explanation:
+        "A semaphore only limits calls that share it. One semaphore per service, created once, is what actually caps traffic.",
+    },
+    {
+      question: "A service allows 100 requests per minute. Why isn't a semaphore on its own enough?",
+      options: [
+        "It caps how many requests overlap, not how many start per minute",
+        "Semaphores only work with synchronous code",
+        "A semaphore can't be larger than 10",
+        "Rate limits are enforced by the SDK, not by your code",
+      ],
+      correctIndex: 0,
+      explanation:
+        "With fast calls, a few slots can still start many requests a minute. A per-minute limit needs requests spaced over time, for example with a token bucket.",
+    },
+    {
+      question: "Without return_exceptions=True, what happens when one of five concurrent tool calls raises?",
+      options: [
+        "The other four results are returned, with None for the failed one",
+        "gather raises, and the four successful results are lost",
+        "The failed call is retried automatically",
+        "The loop skips that call and continues",
+      ],
+      correctIndex: 1,
+      explanation:
+        "By default the first exception propagates out of gather. With return_exceptions=True, each failure sits in its own position and can be reported individually.",
+    },
+    {
+      question: "The Anthropic SDK already retries 429s and 5xx errors. Why does this lesson still build retry logic?",
+      options: [
+        "The SDK's retries don't honour Retry-After",
+        "The SDK only retries synchronous calls",
+        "The SDK's retries were removed in recent versions",
+        "They protect the model calls, not the calls your own tools make to other services",
+      ],
+      correctIndex: 3,
+      explanation:
+        "Model calls go through the SDK and get its retry behaviour. A tool calling some other API with a plain HTTP client gets only the retries you write.",
+    },
+    {
+      question: "In one turn the model asks to create an agent and update that same agent, and the update fails because the agent doesn't exist yet. What's the recommended handling?",
+      options: [
+        "Return the update's error with is_error: true, and the model will reissue it next turn",
+        "Stop the loop, since the model made an invalid request",
+        "Always run tool calls one at a time so this can't happen",
+        "Retry the update with backoff until the create completes",
+      ],
+      correctIndex: 0,
+      explanation:
+        "Calls in one turn are meant to be independent. When they occasionally aren't, the error observation is enough for the model to recover in its next turn.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<MultiFileGradedExercise
+  client:load
+  task={"The registry agent now calls two external services: a status service (get_agent_status) and a model catalog (get_model_info). Both are simulated in services.py, which is read-only. Each allows at most two requests in flight and answers anything beyond that with a 429, and each can be scripted to fail, hang or rate-limit. Complete agent.py. SERVICE_SLOTS: one asyncio.Semaphore(2) per tool, created once. execute_tool(call, timeout_seconds, max_attempts, base_delay): run TOOLS[call.name](**call.input) inside that tool's semaphore, with asyncio.wait_for and timeout_seconds. On a timeout, or a ServiceError whose status is in RETRYABLE_STATUS, try again, up to max_attempts attempts in total. Wait between attempts: the error's retry_after if it has one, otherwise base_delay * 2 ** attempt plus a random amount up to base_delay. Sleep outside the semaphore, and don't sleep after the last attempt. A non-retryable status returns an \"Error: ...\" string immediately, naming the tool and the status. Giving up returns an \"Error: ...\" string naming the tool and the last problem. Any other exception is not caught. run_agent(client, user_message, timeout_seconds, max_attempts, base_delay, max_steps): the collect-every-call loop, running each response's calls concurrently through execute_tool with asyncio.gather(..., return_exceptions=True). Every call gets one tool_result with its tool_use_id, in call order, all in one user message. A result that's an exception, or a string starting with \"Error:\", gets \"is_error\": True. Return the text once a response has no tool calls; return a step-limit message if max_steps runs out."}
+  entry="agent.py"
+  files={[
+    { name: "services.py", readOnly: true, code: SERVICES_PY },
+    { name: "agent.py", code: AGENT_STARTER },
+  ]}
+  hiddenTests={HIDDEN_TESTS}
+  hint={"Build it from this lesson's pieces. execute_tool is [the second concept's retry loop](/03-tool-design-for-agents/04-tools-that-call-the-outside-world/02-which-failures-to-retry-and-how/#the-fix-retry-only-what-can-succeed-and-wait-sensibly), with [the first concept's wait_for](/03-tool-design-for-agents/04-tools-that-call-the-outside-world/01-timeouts-a-tool-that-never-answers/#the-fix-put-a-deadline-on-the-call) inside and [the third concept's async with SERVICE_SLOTS[call.name]](/03-tool-design-for-agents/04-tools-that-call-the-outside-world/03-staying-under-the-limit-client-side-throttling/#the-fix-a-semaphore-one-per-service) around the request only. Catch TimeoutError and ServiceError separately: both can be retried, but only ServiceError has a status to check. run_agent is [the last concept's concurrent loop](/03-tool-design-for-agents/04-tools-that-call-the-outside-world/04-running-independent-tool-calls-concurrently/#putting-the-lesson-together), with one extra check: an output string starting with \"Error:\" also gets is_error."}
+  correctFiles={[
+    { name: "services.py", readOnly: true, code: SERVICES_PY },
+    { name: "agent.py", code: AGENT_REFERENCE },
+  ]}
+  explanation={"Each part of the grading exercises one concept against the real loop. Retries: two 503s followed by success take three requests in all, and a 404 is sent once and flagged as an error for the model to act on. Throttling: six calls fired at a service that allows two at once, and none is rejected. That's the semaphore doing its job, not retries cleaning up afterwards. Timeouts: a hung service is cut off, retried once, then reported, while a call to a different service in the same response still succeeds quickly. Retry-After: the server's requested wait is honoured. Concurrency: two calls in one response overlap. Bugs aren't retried: a tool bug surfaces once instead of being retried as if the service had failed. One design choice is easy to miss because nothing forces it: the backoff sleep happens outside the semaphore. Sleeping while holding a slot would leave that slot unused for the whole wait, throttling every other call to the service for no reason."}
+/>
+
+</CheckpointZone>
