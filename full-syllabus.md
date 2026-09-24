@@ -2061,6 +2061,24 @@ below describe each lesson as first converted; see the git log
    two-ways-to-fail subsection, Lesson 3.2 Concept 3's
    failure-as-observation and trim-the-error subsections, and Concept
    1's tool-table subsection.
+   Concept 3 is drafted: the same server with the official SDK
+   (`mcp.server.MCPServer`, `@mcp.tool()`, `Annotated[..., Field(...)]`
+   parameters, the SDK's `ToolError`, and the in-memory `mcp.Client`).
+   Everything is static code, with no live demo and no graded exercise,
+   per its own mockup, since Pyodide can't install the SDK. The page has
+   5 quiz questions. **The mockup's code and output were re-run locally**
+   in a scratch venv (CPython 3.14, `mcp` 2.2.0, Pydantic 2.13.5): the
+   printed output matches the page byte for byte, including the
+   `set_agent_modelArguments` schema title and the untrimmed Pydantic
+   message with its 2.13 docs link. A separate call confirmed that an
+   unknown tool comes back as `is_error=True` with "Unknown tool:
+   delete_agent", and that `mcp.MCPError` exists
+   (`mcp.shared.exceptions`). The forward reference to Concept 4
+   (errors, running and testing with the SDK) is plain text. Callbacks
+   link to Module 0's minimal FastAPI app subsection, Lesson 3.1's
+   Field-description and Literal subsections, Lesson 3.2's trim-the-error
+   subsection, Lesson 3.5 Concept 2's two-ways-to-fail subsection, and
+   Module 2's explicit-becomes-implicit subsection.
 
 ---
 
