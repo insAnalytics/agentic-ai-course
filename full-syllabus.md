@@ -2244,6 +2244,30 @@ below describe each lesson as first converted; see the git log
    neither is built. The hint links Concept 3's allowlist subsection
    and Concept 2's routed-loop subsection.
 
+8. **Code Execution as a Tool** — Building
+   Working title (folder `08-code-execution-as-a-tool`); no bookends
+   mockup yet, so the title, intro and recap are still owed. All four
+   concepts are drafted: (1) the most powerful tool and the most
+   dangerous, (2) why restricted `exec` isn't a sandbox, (3) real
+   isolation and the tool wrapper, (4) WebAssembly and Pyodide, with
+   the graded `code_execution_tool` exercise. Verified in Pyodide
+   0.26.4: the reference passes 6/6 and the starter fails 6/6. Dropping
+   the `__builtins__` allowlist fails test 2, skipping truncation fails
+   test 5, skipping the empty-output note fails test 3, and not
+   catching exceptions fails tests 2 and 4. **Findings:** the
+   subclasses demo's hard-coded output (162 classes, only
+   `_wrap_close`) doesn't hold in Pyodide, which reports 357 classes
+   including `Popen` too, so the static output blocks were dropped for
+   live demos with a note that the count varies by build. The first
+   demo's label said "even sum() is gone" but the error is about
+   `print`, so it now says `print()`. Concept 3's mockup said the
+   timeout is "this lesson's exercise", but the exercise only truncates
+   output, so the prose now says a real sandbox enforces the timeout
+   from outside. The mockup's "Lesson 10" tool-threat-model reference
+   is plain text. Callbacks link to verified anchors in Lesson 3.1, 3.3
+   and 3.4, Module 0's Docker lesson, Module 1's prompt-injection
+   subsection and Module 2's tool-errors subsection.
+
 ---
 
 ## Modules 4–11 — current plan

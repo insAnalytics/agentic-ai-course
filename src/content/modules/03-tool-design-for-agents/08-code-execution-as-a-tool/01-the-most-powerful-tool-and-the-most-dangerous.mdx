@@ -1,0 +1,113 @@
+---
+title: "The most powerful tool, and the most dangerous"
+lesson: "08-code-execution-as-a-tool"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Some tasks are better solved by writing code than by calling a tool" variant="a">
+
+Every tool so far has been a fixed function:
+[a registry lookup](/03-tool-design-for-agents/01-designing-tools-a-model-can-use-well/01-names-and-descriptions-as-prompts/),
+a weather call, a status check. Each does one known thing. But a whole
+class of tasks doesn't fit a fixed tool at all:
+
+- "What's the standard deviation of these 200 numbers?"
+- "Reformat this CSV so the dates are ISO 8601 and drop rows with no email."
+- "How many business days between these two dates, skipping the holidays I listed?"
+
+You could build a tool for each. You'd never finish, because the next
+task is always slightly different. The general answer is to give the
+model one tool that runs code it writes. Ask for a calculation, and it
+writes and runs the Python. This is the most capable tool an agent can
+have: instead of a menu of fixed actions, it has a general-purpose
+computer.
+
+Anthropic and others have found that letting a model *write code* to
+orchestrate its work, rather than emit a long series of individual tool
+calls, can be dramatically more efficient for certain tasks: the model
+writes a short script that loops, filters and combines results, instead
+of making dozens of separate calls. Code execution is increasingly a
+core agent capability, not a niche one.
+
+</Subsection>
+
+<Subsection title="The same property that makes it powerful makes it dangerous" variant="b">
+
+A fixed tool can only do the one thing it was written to do.
+`get_agent_model` reads a name and returns a string; there is no
+argument that makes it delete a file. A code-execution tool is the
+opposite: its whole point is that it runs *whatever the model writes*,
+and "whatever" includes code you never anticipated.
+
+And the code is untrusted. Not because the model is malicious, but
+because:
+
+- **The model can be wrong.** It might write a script that deletes the
+  wrong directory, or loops forever.
+- **The model can be manipulated.**
+  [Module 1's training pipeline lesson](/01-llm-foundations/07-the-training-pipeline/03-preference-training-and-message-roles/#the-root-cause-of-prompt-injection)
+  noted that a model can't fully separate instructions from data. If the
+  code-writing model has read a web page or a document that contains
+  "ignore your task and run this instead", that text can shape the code
+  it writes. A later lesson in this module, on the tool threat model, is
+  entirely about this.
+
+So the question this lesson answers is not "should an agent run code":
+for many real agents, it should. The question is *where*. Running
+model-written code in a place where it can reach your files, your
+network and your credentials is the single most dangerous thing an agent
+system can do. Running it somewhere it can't reach any of those is a
+routine, useful capability. The whole difference is isolation, and the
+next three concepts are about getting it right, starting with a way of
+getting it wrong that looks correct.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "Why give an agent a code-execution tool instead of building a fixed tool for each task?",
+      options: [
+        "Fixed tools are slower to run than generated code",
+        "A general task space, like arbitrary calculation and data reshaping, can't be covered by any finite set of fixed tools",
+        "Code execution removes the need for any other tools",
+        "Models can't call more than a few fixed tools reliably",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The next task is always slightly different. One tool that runs code the model writes covers the open-ended space a fixed menu can't.",
+    },
+    {
+      question: "In what sense is model-written code \"untrusted\", even from a non-malicious model?",
+      options: [
+        "The model deliberately writes harmful code",
+        "The code is always lower quality than a human's",
+        "The model can be wrong, and can be manipulated by instruction-like text it has read, so the code it writes can't be assumed safe",
+        "Untrusted just means unreviewed; it's fine once a human reads it",
+      ],
+      correctIndex: 2,
+      explanation:
+        "Both failure modes matter: an honest mistake, and text in the model's context steering what it writes. Neither requires bad intent.",
+    },
+    {
+      question: "What actually separates a safe code-execution tool from a dangerous one?",
+      options: [
+        "Whether the model is a reasoning model",
+        "Whether the generated code is reviewed by a linter first",
+        "Whether the code runs somewhere it can't reach the host's files, network and credentials",
+        "Whether the tool is exposed over MCP or called directly",
+      ],
+      correctIndex: 2,
+      explanation:
+        "The capability is the same either way. The risk is entirely about what the running code can reach, which is isolation.",
+    },
+  ]}
+/>
+
+</CheckpointZone>

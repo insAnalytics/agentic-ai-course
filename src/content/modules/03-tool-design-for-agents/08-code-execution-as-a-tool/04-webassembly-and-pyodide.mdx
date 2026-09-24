@@ -1,0 +1,211 @@
+---
+title: "WebAssembly and Pyodide"
+lesson: "08-code-execution-as-a-tool"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+export const PROVIDED = String.raw`# --- provided: don't change this part ---
+import io
+import contextlib
+
+MAX_OUTPUT_CHARS = 2000
+
+def run_in_sandbox(code: str, sandbox_globals: dict) -> str:
+    captured = io.StringIO()
+    with contextlib.redirect_stdout(captured):
+        exec(code, sandbox_globals)
+    return captured.getvalue()
+# --- end of provided code ---
+
+`;
+
+export const STARTER = String.raw`def code_execution_tool(code: str, allowed_names: dict) -> dict:
+    # TODO: run the code with only allowed_names available, and turn the
+    # outcome (output, nothing, error, or too much output) into an observation
+    ...`;
+
+export const REFERENCE = String.raw`def code_execution_tool(code: str, allowed_names: dict) -> dict:
+    try:
+        output = run_in_sandbox(code, {"__builtins__": {}, **allowed_names})
+    except Exception as e:
+        return {"content": f"Error: {type(e).__name__}: {e}", "is_error": True}
+    if output == "":
+        return {"content": "(the code ran but printed nothing; use print() to return a result)", "is_error": False}
+    if len(output) > MAX_OUTPUT_CHARS:
+        output = output[:MAX_OUTPUT_CHARS] + f"\n... (output truncated at {MAX_OUTPUT_CHARS} characters)"
+    return {"content": output.rstrip("\n"), "is_error": False}`;
+
+export const TEST_SETUP = String.raw`import math
+tools = {"print": print, "sum": sum, "range": range, "len": len, "math": math}
+
+`;
+
+export const TESTS = [
+  String.raw`# a computed result is captured and returned
+r = code_execution_tool("print(sum(range(101)))", tools)
+assert r == {"content": "5050", "is_error": False}, r`,
+  String.raw`# an allowed module works; a name not in allowed_names is unavailable
+assert code_execution_tool("print(math.sqrt(144))", tools)["content"] == "12.0"
+r = code_execution_tool("print(open('/etc/passwd'))", tools)
+assert r["is_error"] is True and "NameError" in r["content"]`,
+  String.raw`# code that prints nothing gets a helpful note, not an empty string
+r = code_execution_tool("x = 5 * 5", tools)
+assert r["is_error"] is False and "nothing" in r["content"]`,
+  String.raw`# an exception comes back as an observation naming the error type
+r = code_execution_tool("print(1/0)", tools)
+assert r["is_error"] is True and "ZeroDivisionError" in r["content"]`,
+  String.raw`# runaway output is truncated with a marker, not sent whole
+r = code_execution_tool("for i in range(10000): print(i)", tools)
+assert r["is_error"] is False and "truncated" in r["content"] and len(r["content"]) < 2200`,
+  String.raw`# trailing newline from print() is stripped
+assert code_execution_tool("print('done')", tools)["content"] == "done"`,
+  // each hidden test runs in its own copy of the learner's namespace, so the shared setup goes on every one
+].map((test) => TEST_SETUP + test);
+
+<Subsection title="You've been using a code sandbox this whole course" variant="a">
+
+Every runnable demo and graded exercise in this course executes Python
+in your browser, with no server running your code. That's **Pyodide**:
+the CPython interpreter compiled to **WebAssembly** (Wasm), a low-level
+instruction format that browsers run in a tightly sandboxed environment.
+It's the
+[WebAssembly isolation from the previous concept](/03-tool-design-for-agents/08-code-execution-as-a-tool/03-real-isolation-and-the-tool-around-it/#move-the-code-out-of-your-process),
+and it's a real, production-grade example of the approach.
+
+The reason this course can hand you a code editor that runs arbitrary
+Python, safely, on a static site with no backend, is exactly the
+property a code-execution tool needs: **Wasm code can reach nothing
+outside its runtime unless the host explicitly hands it in.**
+
+</Subsection>
+
+<Subsection title="What the Wasm boundary gives you" variant="b">
+
+A Wasm runtime starts with no ambient access at all:
+
+- **No filesystem.** Pyodide has an in-memory filesystem that exists only
+  inside the sandbox. Code can write to it, and it vanishes when the
+  sandbox is torn down. It never touches your real disk. That's why
+  [the multi-file exercises in this course](/02-the-agent-loop/04-writing-the-loop-by-hand/04-recap-practice/)
+  can have code read and write files: those files live entirely in the
+  sandbox.
+- **No network.** Wasm has no built-in way to open a socket. Any network
+  access has to be deliberately provided by the host, and this course
+  provides none, which is why exercises simulate external services
+  rather than call them.
+- **No host process.** The code runs on a Wasm virtual machine, not as a
+  process on your computer. The subclasses walk from
+  [the previous concept](/03-tool-design-for-agents/08-code-execution-as-a-tool/02-why-restricted-execution-isnt-a-sandbox/#why-it-isn-t-safe)
+  runs inside Pyodide too (you ran it there), and it reaches nothing that
+  matters, because there's no host filesystem or network on the other
+  side to reach.
+
+That last point is the whole idea. In-process restriction tried to take
+capability *away* from code running in a powerful place. Wasm starts
+from *no* capability and adds back only what the host chooses. Starting
+from nothing is a far easier thing to get right than trying to subtract
+every possible path to something.
+
+</Subsection>
+
+<Subsection title="The tradeoffs" variant="a">
+
+Wasm isolation is strong, portable and quick to start, but it isn't
+free:
+
+- **Not everything runs.** A Wasm build of a language supports most, not
+  all, of its libraries. Pyodide ports a large scientific stack, but a
+  package relying on unsupported system calls may not work.
+- **Some overhead.** Code runs somewhat slower than native, and there's
+  memory cost to the runtime.
+- **Provisioning what's needed is on you.** A task that legitimately
+  needs a file or a network result requires the host to hand it in
+  deliberately, which is more work than just letting code do anything,
+  and is exactly the point.
+
+For an agent's code-execution tool, this is often the sweet spot: a
+strong boundary, fast enough to start on every call, with the host in
+full control of what crosses it. It's not the only good answer,
+containers and micro-VMs are widely used, but it's a real one, and it's
+the one you've been running on all along.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "What runs this course's in-browser Python exercises?",
+      options: [
+        "A Python process on a course server",
+        "Pyodide: CPython compiled to WebAssembly, sandboxed in your browser",
+        "A restricted exec with builtins removed",
+        "A container started per exercise",
+      ],
+      correctIndex: 1,
+      explanation:
+        "It's the Wasm approach, running client-side. No server executes your code, which is only safe because the Wasm boundary contains it.",
+    },
+    {
+      question: "Why can a Pyodide sandbox let code read and write files safely?",
+      options: [
+        "It scans the code for dangerous file operations first",
+        "Its filesystem is in-memory inside the sandbox and never touches your real disk",
+        "It only allows reading, never writing",
+        "File access is disabled entirely",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The files are real to the code and isolated from your machine. They exist only inside the sandbox and disappear with it.",
+    },
+    {
+      question: "How is the Wasm approach fundamentally different from in-process restriction?",
+      options: [
+        "It hides more builtins",
+        "It starts from no capability and adds back only what the host grants, rather than trying to subtract capability from a powerful environment",
+        "It runs the code faster",
+        "It uses eval instead of exec",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Subtracting every path to danger is error-prone, as the previous concept showed. Starting from nothing and granting narrowly is far easier to get right.",
+    },
+    {
+      question: "The subclasses walk from the previous concept runs fine inside Pyodide. Why isn't that a problem?",
+      options: [
+        "Pyodide blocks that specific expression",
+        "There's no host filesystem, network or process on the other side for it to reach",
+        "Pyodide detects and stops the walk at runtime",
+        "It only works outside a browser",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The expression reaching a class matters only if that class can touch something real. In a sandbox with nothing behind it, reaching it accomplishes nothing.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Implement code_execution_tool(code, allowed_names), the wrapper around a sandbox. run_in_sandbox(code, sandbox_globals) is provided at the top of the editor; it runs the code and returns its printed output. (In this course that's Pyodide; the wrapper is identical whatever the boundary.) Return a dict with content and is_error. Run the code with globals of {\"__builtins__\": {}, **allowed_names}, so only the names in allowed_names are available. If it raises, return is_error True and content of \"Error: <ExceptionType>: <message>\". If it produces no output, return is_error False and a note telling the model to print() its result. If the output is longer than MAX_OUTPUT_CHARS, keep that many characters and append a truncation marker. Otherwise return the output with any trailing newline stripped, is_error False."}
+  starterCode={PROVIDED + STARTER}
+  hiddenTests={TESTS}
+  hint={"Wrap the run_in_sandbox call in try/except Exception as e, and build the globals with {\"__builtins__\": {}, **allowed_names} so the allowlist is the only surface. Check the empty-output case before the length case, and strip the trailing newline last."}
+  correctAnswer={{
+    code: PROVIDED + REFERENCE,
+    explanation:
+      "This is every tool-shaping idea in the module applied to the riskiest tool. The allowlist (test 2) is the convenience filter from the earlier concept on restricted execution: a stray open() fails cleanly with a NameError the model can read, though the real safety is the sandbox run_in_sandbox stands for, not this dict. Errors come back as observations (test 4), empty output gets a useful note instead of a blank (test 3), and runaway output is truncated (test 5) so a model that prints a million lines can't bury the conversation. The wrapper is the same whether the boundary underneath is a subprocess, a container or Pyodide.",
+  }}
+/>
+
+</CheckpointZone>
