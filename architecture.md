@@ -1417,6 +1417,28 @@ Lesson 3.2 loop exercise builds its starter and reference entirely from
 "description": ...}`, where newer Pydantic emits a bare `$ref`. The Lesson
 3.2 prose describes the 2.7 output learners actually see.
 
+**Lesson 3.4 Concept 1 (`call_with_timeout`)** — the first exercise whose
+subject is `asyncio.wait_for` cancellation. The mockup's four hidden tests
+run through the existing `asyncio.run()` shim unchanged (a `try:` block and
+a helper coroutine both compile fine under `PyCF_ALLOW_TOP_LEVEL_AWAIT`).
+`asyncio.sleep` in Pyodide's WebLoop really waits and `wait_for` really
+cancels: a 5-second `hung_service` capped at 0.2s returns in about 0.5s
+for the whole four-test run. Each test is a shared `export const
+TOOLS_SETUP` plus an inline `String.raw`. Finding (3) above applies: MDX
+dedents the inline part's indented lines by 2 spaces. This is harmless
+here because hidden tests are never shown, and each block stays
+self-consistent. Verified by grading the props extracted from the built
+HTML. **Change from the mockup:** its timing test passed on the empty
+starter (a `...` body returns `None` immediately, well under the limit).
+It now also asserts the result starts with `"Error:"`. Verified against
+real Pyodide 0.26.4. The reference passes all four tests, and the starter
+fails all four. Catching `Exception` fails only the "other errors still
+raise" test. No timeout at all fails the two hang tests. A generic "timed
+out" message fails only the names-the-tool test. Letting `TimeoutError`
+propagate fails both hang tests. `except asyncio.TimeoutError` passes,
+because it is the same class on Python 3.11+. All three demos match the
+mockup's output exactly, including `total time: 0.6s`.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped

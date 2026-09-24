@@ -1748,6 +1748,33 @@ below describe each lesson as first converted; see the git log
    context and memory module") with no module number, same as Lesson 2.7's
    unbuilt context/memory pointer. Lesson 3.3 is now fully Locked.
 
+4. **Timeouts, Retries, and Concurrency** — Building
+   *Working title.* The folder is `04-timeouts-retries-and-concurrency`.
+   The mockup's concepts point to retries (Concept 2) and concurrent tool
+   calls (the last concept). Concept 1 is drafted: timeouts. A tool that
+   never returns can't be stopped by any of Module 2's between-step
+   guards. `asyncio.wait_for` inside a `call_with_timeout` wrapper returns
+   an `"Error: <tool> did not respond within N seconds"` observation, and
+   the lesson wires it into the async version of the collect-every-call
+   loop (`REACT_FAKE_CLIENT`). It notes that a timed-out write has an
+   unknown outcome, gives per-tool rules for choosing a value, and adds
+   an illustrative httpx example. httpx timeouts apply to each stage, not
+   the whole call. Three live demos match the mockup exactly. There are
+   5 quiz questions and a graded `call_with_timeout` exercise. Its timing
+   test now also checks the result, so the empty starter can't pass it
+   (see architecture.md §4.1). Callbacks link to Module 2's termination
+   lesson intro, its tool-errors fix, its minimal-agent-class `__name__`
+   registry, and the ReAct collect-every-call fix. **Deviation:** the
+   mockup's "Module 0's FastAPI lessons" httpx callback points to
+   Lesson 0.10's parametrized-tests subsection instead. That is where
+   `httpx.AsyncClient` is introduced to the learner; Lesson 0.9 only uses
+   httpx inside hidden grading scripts. Forward references to Concept 2
+   and the concurrency concept are plain text until those pages exist.
+   Module 2 Lesson 6 also has a timeouts page
+   (`06-timeouts-retry-and-graceful-give-up`), which the mockup doesn't
+   reference. It's flagged here for the mockup author to decide whether
+   it's worth a callback.
+
 ---
 
 ## Modules 4–11 — current plan

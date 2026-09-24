@@ -1,0 +1,312 @@
+# Module 3, Lesson 4 — Concept 1: Timeouts — a tool that never answers
+
+---
+
+## The tools so far all answered instantly
+
+Every tool in this course so far has run inside your own process: a dict lookup, a string format, a registry write. They finish in microseconds, every time. Real tools often don't. They call another company's API, a database on another machine, a service that's under load or down. Those calls can take a second, a minute, or never come back at all.
+
+That last case is the dangerous one for an agent, and it's worth seeing why.
+
+---
+
+## The pain: one slow call freezes the whole agent
+
+Here's a tool that checks whether a model is available by asking an external status service. The `asyncio.sleep(2)` stands in for a service that's slow to respond:
+
+```python
+import asyncio
+import time
+
+async def check_model_status(model: str) -> str:
+    # stands in for a slow external service; a real hung connection could take minutes, or never return
+    await asyncio.sleep(2)
+    return f"{model}: available"
+
+async def main():
+    start = time.perf_counter()
+    result = await check_model_status("claude-sonnet")
+    elapsed = time.perf_counter() - start
+    print(result)
+    print(f"the agent was stuck on this one call for {elapsed:.1f}s")
+
+asyncio.run(main())
+```
+```
+claude-sonnet: available
+the agent was stuck on this one call for 2.0s
+```
+*(runs live, shows output — read-only demo snippet, not graded)*
+
+Two seconds is survivable. The problem is that nothing *limited* it to two seconds. The agent simply waited for as long as the service took. A connection that hangs waits forever.
+
+And none of [the guards from Module 2's termination lesson](→ Module 2, termination failure and control lesson) can help here:
+
+- `max_steps` counts loop iterations, but the loop never finishes this one.
+- Repeated-action detection runs when the next call arrives, but no next call arrives.
+- A goal-state check runs after a tool returns, and this tool never returns.
+
+All of them run *between* steps. A call that never returns means the loop never reaches the next step, so none of them ever get a chance to fire. The only thing that can bound a single call is a limit placed on that call itself: a **timeout**.
+
+---
+
+## The fix: put a deadline on the call
+
+`asyncio.wait_for(coroutine, timeout=seconds)` runs a coroutine but gives up once `timeout` seconds pass, raising `TimeoutError` instead of waiting any longer. Wrapping every external tool call in it, and turning the timeout into a string, gives the loop a hard upper bound on how long any single call can take:
+
+```python
+import asyncio
+import time
+
+async def check_model_status(model: str) -> str:
+    await asyncio.sleep(2)
+    return f"{model}: available"
+
+async def list_models() -> str:
+    await asyncio.sleep(0.1)
+    return "claude-sonnet, claude-haiku, claude-opus"
+
+async def call_with_timeout(tool_function, timeout_seconds: float, **kwargs) -> str:
+    try:
+        return await asyncio.wait_for(tool_function(**kwargs), timeout=timeout_seconds)
+    except TimeoutError:
+        return f"Error: {tool_function.__name__} did not respond within {timeout_seconds} seconds"
+
+async def main():
+    start = time.perf_counter()
+    print(await call_with_timeout(list_models, timeout_seconds=0.5))
+    print(await call_with_timeout(check_model_status, timeout_seconds=0.5, model="claude-sonnet"))
+    print(f"total time: {time.perf_counter() - start:.1f}s")
+
+asyncio.run(main())
+```
+```
+claude-sonnet, claude-haiku, claude-opus
+Error: check_model_status did not respond within 0.5 seconds
+total time: 0.6s
+```
+*(runs live, shows output — read-only demo snippet, not graded)*
+
+The fast tool's result passes straight through. The slow one is cut off at half a second, and the total time proves it: 0.6 seconds, not 2.1. The wrapper then does the same thing [Module 2 taught for any tool failure](→ Module 2, termination failure and control lesson, tool errors as observations not exceptions concept): instead of letting the exception escape, it returns a string the model can read.
+
+`tool_function.__name__` puts the tool's own name in the message, [the same attribute Module 2's minimal agent class used](→ Module 2, from hand-rolled to a runtime lesson, a minimal agent class concept) to build its tool registry. A timeout message that names the tool tells the model *which* call failed, which matters once a response contains several.
+
+---
+
+## Wired into the loop
+
+In a real agent this wrapper sits where the loop dispatches each tool call. The loop becomes `async def`, since it now awaits its tools, but otherwise it's [the same collect-every-call loop from Module 2](→ Module 2, react and reasoning in the loop lesson, the react pattern concept):
+
+```python
+import asyncio
+
+async def check_model_status(model: str) -> str:
+    await asyncio.sleep(2)
+    return f"{model}: available"
+
+async def call_with_timeout(tool_function, timeout_seconds: float, **kwargs) -> str:
+    try:
+        return await asyncio.wait_for(tool_function(**kwargs), timeout=timeout_seconds)
+    except TimeoutError:
+        return f"Error: {tool_function.__name__} did not respond within {timeout_seconds} seconds"
+
+TOOLS = {"check_model_status": check_model_status}
+
+async def run_agent(client, user_message: str, timeout_seconds: float, max_steps: int = 10) -> str:
+    messages = [{"role": "user", "content": user_message}]
+    for step in range(max_steps):
+        response = client.create(messages=messages)
+        messages.append({"role": "assistant", "content": response.content})
+        tool_calls = [block for block in response.content if block.type == "tool_use"]
+        if not tool_calls:
+            return "".join(block.text for block in response.content if block.type == "text")
+        results = []
+        for call in tool_calls:
+            output = await call_with_timeout(TOOLS[call.name], timeout_seconds, **call.input)
+            print(f"tool result sent to the model: {output!r}")
+            results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+        messages.append({"role": "user", "content": results})
+    return f"stopped after {max_steps} steps without a final answer"
+
+client = FakeLLMClient(scripted_responses=[
+    [ToolUseBlock(name="check_model_status", input={"model": "claude-sonnet"})],
+    [TextBlock(text="The model-status service isn't responding right now, so I can't confirm whether claude-sonnet is available. Want me to try again in a minute?")],
+])
+
+answer = asyncio.run(run_agent(client, "Is claude-sonnet available?", timeout_seconds=0.5))
+print(f"final answer: {answer}")
+```
+```
+tool result sent to the model: 'Error: check_model_status did not respond within 0.5 seconds'
+final answer: The model-status service isn't responding right now, so I can't confirm whether claude-sonnet is available. Want me to try again in a minute?
+```
+*(runs live, shows output — read-only demo snippet, not graded; the fake client's classes are already defined, and the model's second reply is scripted)*
+
+The agent didn't freeze and didn't crash. It got a clear observation, and the model turned it into an honest answer instead of an invented one. The tool calls here still run one after another; running several at once is [the last concept in this lesson](→ this lesson, running independent tool calls concurrently concept).
+
+---
+
+## A timeout doesn't mean it didn't happen
+
+One subtlety matters a great deal for agents. When `wait_for` gives up, it stops *your* side from waiting. It can't reach into the other company's server and stop the work there.
+
+For a read, like checking a status, that's harmless: nothing changed, and asking again is safe. For a call that *changes* something, like creating an agent, sending an email or charging a card, the timeout leaves you not knowing whether it happened. The request may have arrived and succeeded, and only the reply was slow.
+
+So a timeout message for a write shouldn't claim the action failed. It should say the result is unknown, so neither your code nor the model blindly repeats it. How to retry safely when you don't know is [the next concept's job](→ this lesson, which failures to retry and how concept).
+
+---
+
+## Choosing a timeout value
+
+There's no single right number, but there are wrong ones in both directions:
+
+- **Too short:** calls that would have succeeded get cut off, and the agent reports failures that weren't real.
+- **Too long:** a hung service stalls the agent, and the user, for that whole time before anything can react.
+
+Some practical rules:
+
+- **Set it per tool, not globally.** A status check that normally takes 200 milliseconds and a report generator that normally takes 20 seconds need very different limits.
+- **Start from how long the call normally takes.** A few times its usual latency catches real hangs without cutting off ordinary slow moments.
+- **Remember it multiplies.** A 10-second timeout, retried three times, on a tool the agent calls five times, can add minutes to one task. The next concept adds retries, which makes this concrete.
+
+---
+
+## In a real HTTP client
+
+The demos simulate the outside world with `asyncio.sleep`, because this course's sandbox can't make network calls. With a real HTTP client such as `httpx` (the one [Module 0's FastAPI lessons](→ Module 0, the FastAPI lesson) used), the timeout is usually set on the client itself:
+
+```python
+import httpx
+
+async def check_model_status(model: str) -> str:
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        try:
+            response = await client.get(f"https://status.example.com/models/{model}")
+            return response.text
+        except httpx.TimeoutException:
+            return f"Error: check_model_status did not respond within 5.0 seconds"
+```
+*(illustrative — checked against the httpx documentation, not executed in this sandbox)*
+
+httpx sets a 5-second default even if you don't ask for one. Its timeout limits each stage of the request separately: connecting, and each wait for the next chunk of data. It isn't one overall deadline. A server that keeps trickling bytes slowly can keep a request alive well past 5 seconds in total. When a tool needs a hard ceiling on the whole call, wrap it in `asyncio.wait_for` as well, exactly as this concept did.
+
+---
+
+## Quiz cards
+
+> **Q1.** Why can't `max_steps` or repeated-action detection stop a tool call that never returns?
+> - A) They only work in synchronous loops, not `async` ones
+> - B) They're checked between steps, and a call that never returns means the loop never reaches the next step ✅
+> - C) They only apply to calls made through the model, not to tools
+> - D) They can, but only after the call finally returns
+>
+> *Explanation:* Every Module 2 guard runs between iterations. A hung call blocks the current iteration forever, so the only protection is a limit on the call itself.
+
+> **Q2.** What does `call_with_timeout` return when the tool takes longer than `timeout_seconds`?
+> - A) It raises `TimeoutError`, so the loop's caller can handle it
+> - B) It waits for the tool to finish, then reports how late it was
+> - C) An `Error:` string naming the tool and the limit, which goes back to the model like any other result ✅
+> - D) `None`, and the loop skips that tool call
+>
+> *Explanation:* `wait_for` raises `TimeoutError`, but the wrapper catches it and returns a readable string, the same errors-as-observations pattern from Module 2.
+
+> **Q3.** A `create_agent` call to an external registry times out. What's the right conclusion?
+> - A) The agent was definitely not created, so it's safe to call again
+> - B) The agent was definitely created, because the request was sent
+> - C) The registry is down, so the agent should stop the task
+> - D) It's unknown whether the agent was created, because the timeout only stopped the waiting, not the work on the server ✅
+>
+> *Explanation:* `wait_for` stops your side from waiting. The request may have arrived and succeeded with only the reply delayed, so a write that timed out has an unknown outcome.
+
+> **Q4.** A status check normally takes 200 milliseconds and a report generator normally takes 20 seconds. What's the better timeout setup?
+> - A) One timeout for all tools, set to 20 seconds so nothing is cut off
+> - B) A separate timeout per tool, each a few times that tool's usual latency ✅
+> - C) One timeout for all tools, set to 1 second to keep the agent fast
+> - D) No timeout on the report generator, since it's expected to be slow
+>
+> *Explanation:* A single value is either too long for fast tools (hangs go unnoticed for 20 seconds) or too short for slow ones (real work gets cut off). Per-tool limits based on normal latency avoid both.
+
+> **Q5.** Why might an httpx request run well past its 5-second timeout?
+> - A) httpx ignores timeouts inside `async with` blocks
+> - B) httpx's timeout limits each stage, such as each wait for the next chunk, rather than the whole request, so a slowly trickling response can keep going ✅
+> - C) The 5-second default only applies to synchronous clients
+> - D) Timeouts only start counting after the connection closes
+>
+> *Explanation:* httpx's timeouts are per stage: connect, and each read. A server sending data slowly never trips the read timeout, so a hard ceiling on the whole call needs `asyncio.wait_for` around it.
+
+---
+
+## Applied sandbox exercise
+
+*(graded — implementing the timeout wrapper)*
+
+**Task shown to learner:** Implement `call_with_timeout(tool_function, timeout_seconds, **kwargs)`. It awaits `tool_function(**kwargs)`, but gives up after `timeout_seconds`. If the tool finishes in time, return its result unchanged. If it doesn't, return a string that starts with `"Error:"` and names both the tool (`tool_function.__name__`) and the time limit. Catch only timeouts: any other exception the tool raises should still raise, so the caller's existing error handling deals with it.
+
+**Starter code:**
+```python
+import asyncio
+
+async def call_with_timeout(tool_function, timeout_seconds: float, **kwargs) -> str:
+    # TODO: await tool_function(**kwargs) with a time limit of timeout_seconds.
+    # On a timeout, return an "Error: ..." string naming the tool and the limit.
+    # Don't catch any other kind of exception.
+    ...
+```
+
+**Hidden tests:**
+```python
+import asyncio, time
+
+async def fast_lookup(agent_name: str) -> str:
+    await asyncio.sleep(0.05)
+    return f"{agent_name}: active"
+
+async def hung_service(agent_name: str) -> str:
+    await asyncio.sleep(5)
+    return "never returned in time"
+
+async def broken_service(agent_name: str) -> str:
+    await asyncio.sleep(0.01)
+    raise ValueError("bad agent name")
+
+# 1. a fast tool's result comes back unchanged
+assert asyncio.run(call_with_timeout(fast_lookup, 1.0, agent_name="research_agent")) == "research_agent: active"
+
+# 2. a hung tool comes back as an Error: string naming the tool and the limit
+result = asyncio.run(call_with_timeout(hung_service, 0.2, agent_name="research_agent"))
+assert result.startswith("Error:"), result
+assert "hung_service" in result and "0.2" in result, result
+
+# 3. it actually stopped waiting at the limit, not after the tool finished
+async def timed():
+    start = time.perf_counter()
+    await call_with_timeout(hung_service, 0.2, agent_name="x")
+    return time.perf_counter() - start
+assert asyncio.run(timed()) < 1.0
+
+# 4. only timeouts are caught: any other error still raises
+try:
+    asyncio.run(call_with_timeout(broken_service, 1.0, agent_name="x"))
+    raise AssertionError("ValueError should not be swallowed")
+except ValueError:
+    pass
+```
+
+**Hint (shown on request):** Wrap `asyncio.wait_for(tool_function(**kwargs), timeout=timeout_seconds)` in a `try` and catch `TimeoutError` specifically, not `Exception`. Catching `Exception` would also swallow the `ValueError` the last test expects to see raised.
+
+**Reference solution:**
+```python
+import asyncio
+
+async def call_with_timeout(tool_function, timeout_seconds: float, **kwargs) -> str:
+    try:
+        return await asyncio.wait_for(tool_function(**kwargs), timeout=timeout_seconds)
+    except TimeoutError:
+        return f"Error: {tool_function.__name__} did not respond within {timeout_seconds} seconds"
+```
+
+**Explanation:** `wait_for` puts a hard ceiling on the call, and test 3 checks the ceiling is real: the function returns in about 0.2 seconds even though the tool would take 5. Catching only `TimeoutError` keeps the wrapper focused on one job. A tool that fails for another reason still raises, so it's handled by whatever error handling already surrounds the call instead of being silently reported as a timeout.
+
+---
+
+*(End of Concept 1. This lesson continues with Concept 2 — which failures to retry, and how.)*
