@@ -1785,7 +1785,26 @@ below describe each lesson as first converted; see the git log
    rate-limit handling subsection, Concept 1's "A timeout doesn't mean it
    didn't happen" subsection, and the system-prompt lesson's Recap &
    Practice page, where check-before-create is the graded task. The
-   forward reference to Concept 3 (client-side throttling) is plain text.
+   forward reference to Concept 3 (client-side throttling) was plain text
+   when this entry was written. It still is: pages built earlier aren't
+   updated with new links.
+   Concept 3 is drafted: staying under the limit, with client-side
+   throttling. Backoff reacts to a 429 and throttling prevents one. The
+   model shapes an agent's traffic, so one response can fan out into a
+   burst of calls. A shared `LimitedService` stand-in (a concurrency limit
+   of 3) is shown once and preloaded as `setupCode`. The page has three
+   live demos: a burst through `asyncio.gather` gets 3 through and 7
+   rejected; a shared `asyncio.Semaphore(3)` gets all 10 through, with a
+   peak of 3 in flight, in 0.4s; creating a semaphore per call is a bug
+   that limits nothing. It then contrasts concurrency limits with rate
+   limits (token bucket), covers several agents sharing one quota, and
+   explains why throttling doesn't replace backoff. It has 5 quiz
+   questions and no graded exercise, per its own mockup. All three demos
+   match the mockup exactly in real Pyodide 0.26.4. Callbacks link to
+   Concept 2's retry fix, Module 2's multi-block-response subsection, and
+   Module 0's `return_exceptions=True` subsection. The forward reference
+   to Concept 4 (running independent tool calls concurrently) is plain
+   text.
    Module 2 Lesson 6 also has a timeouts page
    (`06-timeouts-retry-and-graceful-give-up`), which the mockup doesn't
    reference. It's flagged here for the mockup author to decide whether
