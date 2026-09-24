@@ -1770,6 +1770,22 @@ below describe each lesson as first converted; see the git log
    `httpx.AsyncClient` is introduced to the learner; Lesson 0.9 only uses
    httpx inside hidden grading scripts. Forward references to Concept 2
    and the concurrency concept are plain text until those pages exist.
+   Concept 2 is drafted: which failures to retry, and how. Status codes
+   sort into retryable (408, 429, 5xx) and non-retryable (other 4xx, which
+   go back to the model as an observation). `call_with_retries` honors
+   `Retry-After`, otherwise uses exponential backoff with jitter, and
+   doesn't wait after the last attempt. The page notes that LLM SDKs
+   already retry model calls but not your tools. It shows that retrying a
+   write can repeat it, with idempotency keys (`uuid.uuid4()`, created
+   once per action) or check-before-retry as the fix. There are 3 live
+   demos, 5 quiz questions and a graded `call_with_retries` exercise with
+   6 hidden tests. **Fix:** the hidden tests now import `time` themselves
+   (see architecture.md §4.1). Callbacks link to Module 2's retry
+   subsection, Module 0's `status_code` subsection, Module 1's
+   rate-limit handling subsection, Concept 1's "A timeout doesn't mean it
+   didn't happen" subsection, and the system-prompt lesson's Recap &
+   Practice page, where check-before-create is the graded task. The
+   forward reference to Concept 3 (client-side throttling) is plain text.
    Module 2 Lesson 6 also has a timeouts page
    (`06-timeouts-retry-and-graceful-give-up`), which the mockup doesn't
    reference. It's flagged here for the mockup author to decide whether

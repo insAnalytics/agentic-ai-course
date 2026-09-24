@@ -1,0 +1,476 @@
+---
+title: "Which failures to retry, and how"
+lesson: "04-timeouts-retries-and-concurrency"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+export const SERVICE_SETUP = String.raw`import asyncio, random
+
+class ServiceError(Exception):
+    def __init__(self, status_code: int, retry_after: float | None = None):
+        super().__init__(f"service returned status {status_code}")
+        self.status_code = status_code
+        self.retry_after = retry_after
+
+class ScriptedService:
+    def __init__(self, outcomes: list):
+        self.outcomes = outcomes
+        self.attempts = 0
+
+    async def check_model_status(self, model: str) -> str:
+        outcome = self.outcomes[self.attempts]
+        self.attempts += 1
+        await asyncio.sleep(0.01)
+        if isinstance(outcome, ServiceError):
+            raise outcome
+        return outcome
+`;
+
+export const TEST_SETUP = String.raw`import asyncio, time
+
+class ScriptedService:
+    def __init__(self, outcomes: list):
+        self.outcomes = outcomes
+        self.attempts = 0
+    async def lookup_agent(self, agent_name: str) -> str:
+        outcome = self.outcomes[self.attempts]
+        self.attempts += 1
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+`;
+
+<Subsection title="Module 2 retried one kind of failure" variant="a">
+
+[Module 2's retry concept](/02-the-agent-loop/06-termination-failure-and-control/06-timeouts-retry-and-graceful-give-up/#retry-with-exponential-backoff-the-same-pattern-a-new-context)
+retried on `ConnectionError` and nothing else. That was enough for a
+demo, but a real external service tells you much more about *why* a call
+failed. Over HTTP, every response carries a **status code**,
+[the same codes Module 0's FastAPI lessons returned from your own endpoints](/00-python-essentials/09-building-apis-with-fastapi/05-response-models-and-errors/#status-code-the-response-isn-t-always-200),
+and those codes split cleanly into failures worth retrying and failures
+that will never succeed no matter how often you try.
+
+The demos in this concept use a small stand-in for a real service.
+`ServiceError` carries the status code, plus an optional `retry_after`
+for when the server says how long to wait, and `ScriptedService` plays
+back a fixed list of outcomes, one per request. It's defined once here
+and already loaded for every demo below:
+
+```python
+import asyncio, random
+
+class ServiceError(Exception):
+    def __init__(self, status_code: int, retry_after: float | None = None):
+        super().__init__(f"service returned status {status_code}")
+        self.status_code = status_code
+        self.retry_after = retry_after
+
+class ScriptedService:
+    def __init__(self, outcomes: list):
+        self.outcomes = outcomes
+        self.attempts = 0
+
+    async def check_model_status(self, model: str) -> str:
+        outcome = self.outcomes[self.attempts]
+        self.attempts += 1
+        await asyncio.sleep(0.01)
+        if isinstance(outcome, ServiceError):
+            raise outcome
+        return outcome
+```
+
+</Subsection>
+
+<Subsection title="The pain: retrying everything" variant="b">
+
+Here's Module 2's retry loop, adapted to status codes but still retrying
+every failure. The model has asked about `"claude-sonet"`, a typo:
+
+<LiveDemo client:load setupCode={SERVICE_SETUP} code={`# Module 2's retry, adapted to status codes: it retries every failure
+async def retry_everything(tool_function, max_attempts: int = 4, **kwargs) -> str:
+    for attempt in range(max_attempts):
+        try:
+            return await tool_function(**kwargs)
+        except ServiceError as e:
+            print(f"attempt {attempt + 1}: status {e.status_code}, retrying")
+    return f"Error: gave up after {max_attempts} attempts"
+
+service = ScriptedService([ServiceError(404)] * 4)
+print(asyncio.run(retry_everything(service.check_model_status, model="claude-sonet")))
+print(f"requests sent for a model name that doesn't exist: {service.attempts}")`} />
+
+A 404 means "that doesn't exist". Asking three more times can't change
+the answer; it only adds waiting, extra load on someone else's service,
+and a vague final message. Worse, the model learns nothing useful: "gave
+up after 4 attempts" doesn't tell it the name was wrong, so its most
+likely next move is to try the same typo again.
+
+</Subsection>
+
+<Subsection title="Sorting failures into two groups" variant="a">
+
+Status codes follow a convention, so the sorting can be done once, in
+code:
+
+| Status | Meaning | Retry? |
+|---|---|---|
+| 408 | the server timed out waiting for the request | yes |
+| 429 | too many requests, you're being rate limited | yes, after waiting |
+| 500, 502, 503, 504 | something went wrong on the server's side | yes |
+| 400, 422 | the request itself is malformed or invalid | no |
+| 401, 403 | not authenticated, or not allowed | no |
+| 404 | the thing asked for doesn't exist | no |
+
+The rule of thumb: **5xx means "the server had a problem", and might work
+next time. 4xx means "your request had a problem", and will fail the same
+way every time**, with two exceptions, 408 and 429, which are about
+timing rather than content. A timeout on your own side (the previous
+concept) belongs in the "retry" group too, with one caveat covered below.
+
+The "no" group isn't wasted, either. A 404 or 422 is exactly the kind of
+failure the *model* can fix: correct the typo, change an argument. So a
+non-retryable failure should go straight back to the model as an
+observation, with the status and a hint, instead of being retried.
+
+</Subsection>
+
+<Subsection title="The fix: retry only what can succeed, and wait sensibly" variant="b">
+
+The waits below vary slightly on every run because of the jitter.
+`base_delay=0.01` only keeps the demo fast; a real tool would use around
+1 second.
+
+<LiveDemo client:load setupCode={SERVICE_SETUP} code={`RETRYABLE_STATUS = {408, 429, 500, 502, 503, 504}
+
+async def call_with_retries(tool_function, max_attempts: int = 4, base_delay: float = 1.0, **kwargs) -> str:
+    name = tool_function.__name__
+    last_status = None
+    for attempt in range(max_attempts):
+        try:
+            return await tool_function(**kwargs)
+        except ServiceError as e:
+            last_status = e.status_code
+            if e.status_code not in RETRYABLE_STATUS:
+                return f"Error: {name} failed with status {e.status_code}; not retried, since the same request would fail the same way"
+            if attempt == max_attempts - 1:
+                break
+            # the server's own Retry-After wins; otherwise exponential backoff plus jitter
+            if e.retry_after is not None:
+                delay = e.retry_after
+            else:
+                delay = base_delay * 2 ** attempt + random.uniform(0, base_delay)
+            print(f"attempt {attempt + 1}: status {e.status_code}, waiting {delay:.2f}s")
+            await asyncio.sleep(delay)
+    return f"Error: {name} still failing after {max_attempts} attempts (last status {last_status})"
+
+print("-- a 404 is not retried")
+service = ScriptedService([ServiceError(404)])
+print(asyncio.run(call_with_retries(service.check_model_status, base_delay=0.01, model="claude-sonet")))
+print(f"requests sent: {service.attempts}")
+
+print("-- two 503s, then success")
+service = ScriptedService([ServiceError(503), ServiceError(503), "claude-sonnet: available"])
+print(asyncio.run(call_with_retries(service.check_model_status, base_delay=0.01, model="claude-sonnet")))
+print(f"requests sent: {service.attempts}")
+
+print("-- a 429 that says how long to wait")
+service = ScriptedService([ServiceError(429, retry_after=0.3), "claude-sonnet: available"])
+print(asyncio.run(call_with_retries(service.check_model_status, base_delay=0.01, model="claude-sonnet")))
+
+print("-- a service that stays down")
+service = ScriptedService([ServiceError(503)] * 4)
+print(asyncio.run(call_with_retries(service.check_model_status, base_delay=0.01, model="claude-sonnet")))
+print(f"requests sent: {service.attempts}")`} />
+
+Four things changed from Module 2's version:
+
+- **Non-retryable failures return immediately**, with a message that
+  tells the model why. One request for the typo instead of four.
+- **The server's `Retry-After` wins.** When a 429 says how long to wait,
+  waiting exactly that long beats guessing. This is the same header
+  [Module 1's rate-limit concept](/01-llm-foundations/11-quantization-cost-and-operational-concerns/04-provider-side-rate-limits/#the-real-handling-pattern-exponential-backoff-not-just-send-less)
+  pointed out.
+- **Otherwise, exponential backoff plus jitter.** `base_delay * 2 ** attempt`
+  doubles each time, and `random.uniform(0, base_delay)` adds a small
+  random amount so many clients that failed together don't all retry at
+  the same instant.
+- **No wait after the last attempt.** Sleeping before giving up would
+  only delay the give-up message.
+
+</Subsection>
+
+<Subsection title="LLM SDKs already do this for their own calls" variant="a">
+
+This logic may look familiar: the official LLM SDKs do the same thing for
+the model calls themselves. Anthropic's Python SDK, for example,
+automatically retries connection errors, 408, 429 and 5xx responses twice
+by default, with exponential backoff, and honors `Retry-After`. You get
+that for free on every `messages.create` call.
+
+Your *tools* don't get it. A tool that calls a weather API, a CRM or your
+company's registry with a plain HTTP client has whatever retry behavior
+you write. That's why this concept exists: the agent's model calls are
+usually well protected, and the tools are where unhandled flakiness
+actually shows up.
+
+One caution about 429s specifically. Most are short-lived, but not all: a
+429 caused by a monthly spending cap won't clear for days. That's another
+reason retries need a limit, and why the final message should report the
+last status: "still getting 429 after 4 attempts" tells the model, and
+eventually a person, something real.
+
+</Subsection>
+
+<Subsection title="Retrying a write can do it twice" variant="b">
+
+[The previous concept](/03-tool-design-for-agents/04-timeouts-retries-and-concurrency/01-timeouts-a-tool-that-never-answers/#a-timeout-doesn-t-mean-it-didn-t-happen)
+ended on a warning: when a call that *changes* something times out, you
+don't know whether it happened. The same is true of a 5xx on a write. The
+server may have done the work and then failed while sending the reply.
+Retrying then does the work a second time.
+
+Here a notification service sends the message, then loses the reply with
+a 504:
+
+<LiveDemo client:load setupCode={SERVICE_SETUP} code={`import uuid
+
+class NotificationService:
+    def __init__(self):
+        self.sent = []
+        self.seen_keys = {}
+        self.fail_reply_once = True
+
+    async def send_notification(self, to: str, message: str, idempotency_key: str | None = None) -> str:
+        await asyncio.sleep(0.01)
+        # a repeat of a key the service has already handled returns the original result
+        if idempotency_key is not None and idempotency_key in self.seen_keys:
+            return self.seen_keys[idempotency_key]
+        self.sent.append((to, message))
+        result = f"notification {len(self.sent)} sent to {to}"
+        if idempotency_key is not None:
+            self.seen_keys[idempotency_key] = result
+        # the work is done, but the reply is lost on the way back
+        if self.fail_reply_once:
+            self.fail_reply_once = False
+            raise ServiceError(504)
+        return result
+
+RETRYABLE_STATUS = {408, 429, 500, 502, 503, 504}
+
+async def call_with_retries(tool_function, max_attempts: int = 4, base_delay: float = 1.0, **kwargs) -> str:
+    for attempt in range(max_attempts):
+        try:
+            return await tool_function(**kwargs)
+        except ServiceError as e:
+            if e.status_code not in RETRYABLE_STATUS or attempt == max_attempts - 1:
+                return f"Error: {tool_function.__name__} failed with status {e.status_code}"
+            await asyncio.sleep(base_delay * 2 ** attempt + random.uniform(0, base_delay))
+
+print("-- retrying without a key")
+service = NotificationService()
+print(asyncio.run(call_with_retries(service.send_notification, base_delay=0.01, to="ops-team", message="research_agent is down")))
+print(f"notifications actually sent: {len(service.sent)}")
+
+print("-- retrying with one key for every attempt")
+service = NotificationService()
+key = str(uuid.uuid4())
+print(asyncio.run(call_with_retries(service.send_notification, base_delay=0.01, to="ops-team", message="research_agent is down", idempotency_key=key)))
+print(f"notifications actually sent: {len(service.sent)}")`} />
+
+Without protection, the retry "succeeds" and the on-call team gets the
+alert twice. For a notification that's annoying. For creating a record,
+placing an order or charging a card, it's a real bug.
+
+There are two standard ways to make a write safe to retry:
+
+- **An idempotency key.** Generate one unique key per *logical* action
+  and send the same key on every attempt of that action. `uuid.uuid4()`
+  generates a random, practically unique ID for exactly this. The service
+  remembers which keys it has already handled, and a repeat returns the
+  original result instead of doing the work again. Many payment and
+  messaging APIs accept one, usually as a request header.
+- **Check before retrying.** When the service has no key support, look
+  before you retry: after a failed `create_agent_entry`, call
+  `check_agent_exists` first. This is the same check-before-act
+  discipline
+  [the registry agent has used since Module 2's system-prompt lesson](/02-the-agent-loop/03-the-system-prompt-as-agent-design/05-recap-practice/),
+  now protecting a retry instead of a first attempt.
+
+The key has to be created *outside* the retry loop, once per action. A
+new key per attempt makes every retry look like a brand-new action, which
+defeats the point.
+
+Reads need none of this. Checking a status twice changes nothing, which
+is why reads are the easy case for retries and writes need a plan.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "A tool call to an external API fails with status 404. What should the retry logic do?",
+      options: [
+        "Retry with exponential backoff, since the server may recover",
+        "Retry once immediately, then give up",
+        "Return an error to the model right away, since the same request will fail the same way",
+        "Wait for the Retry-After header before trying again",
+      ],
+      correctIndex: 2,
+      explanation:
+        "A 404 means the thing asked for doesn't exist. Retrying can't change that; returning the error lets the model fix its argument instead.",
+    },
+    {
+      question: "Why are 408 and 429 in the \"retry\" group even though they're 4xx codes?",
+      options: [
+        "They're about timing, not about the request's content, so the same request can succeed later",
+        "Every 4xx code except 404 is safe to retry",
+        "They're server errors that happen to use 4xx numbers",
+        "They only occur on read requests, so retrying is always safe",
+      ],
+      correctIndex: 0,
+      explanation:
+        "408 (the server timed out) and 429 (too many requests) say \"not now\", not \"not this\". The other 4xx codes say something is wrong with the request itself.",
+    },
+    {
+      question: "A 429 response includes Retry-After: 30. What should the retry logic wait?",
+      options: [
+        "The next exponential backoff step, ignoring the header",
+        "30 seconds, as the server asked",
+        "30 seconds plus the backoff step, to be safe",
+        "Nothing; 429s should never be retried",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The server knows its own limits. Honoring Retry-After exactly avoids both retrying too early (another 429) and waiting longer than needed.",
+    },
+    {
+      question: "A send_notification call gets a 504 back. The retry succeeds, and the team receives two alerts. What went wrong?",
+      options: [
+        "504 shouldn't have been retried at all",
+        "The first request did the work but its reply was lost, and the retry did it again",
+        "The backoff was too short, so both requests overlapped",
+        "The jitter caused the second request to use a different message",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A 5xx on a write doesn't prove the write failed. Retrying without an idempotency key, or a check first, can repeat work that already happened.",
+    },
+    {
+      question: "Where should an idempotency key be generated?",
+      options: [
+        "Inside the retry loop, fresh for each attempt",
+        "By the service, and returned in the error response",
+        "Once per logical action, outside the retry loop, and reused on every attempt",
+        "Once per tool, shared by every call to it",
+      ],
+      correctIndex: 2,
+      explanation:
+        "The key identifies one action. A fresh key per attempt makes each retry look new; one key shared across all calls would make different actions look like repeats.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Implement call_with_retries(tool_function, max_attempts=4, base_delay=1.0, **kwargs). ServiceError (with .status_code and .retry_after) and RETRYABLE_STATUS are provided. If the tool succeeds, return its result. If it raises a ServiceError whose status isn't in RETRYABLE_STATUS, return an \"Error: ...\" string right away that names the tool and the status; don't retry. If the status is retryable, wait and try again: wait retry_after seconds if the error has one, otherwise base_delay * 2 ** attempt plus a random amount between 0 and base_delay. Don't wait after the final attempt. If every attempt fails, return an \"Error: ...\" string that names the tool and the last status. Don't catch anything other than ServiceError."}
+  starterCode={`import asyncio, random
+
+class ServiceError(Exception):
+    def __init__(self, status_code: int, retry_after: float | None = None):
+        super().__init__(f"service returned status {status_code}")
+        self.status_code = status_code
+        self.retry_after = retry_after
+
+RETRYABLE_STATUS = {408, 429, 500, 502, 503, 504}
+
+async def call_with_retries(tool_function, max_attempts: int = 4, base_delay: float = 1.0, **kwargs) -> str:
+    # TODO: implement the rules above
+    ...`}
+  hiddenTests={[
+    TEST_SETUP + String.raw`
+# transient failures are retried until success
+s = ScriptedService([ServiceError(503), ServiceError(502), "research_agent: active"])
+assert asyncio.run(call_with_retries(s.lookup_agent, base_delay=0.001, agent_name="research_agent")) == "research_agent: active"
+assert s.attempts == 3`,
+    TEST_SETUP + String.raw`
+# a non-retryable status is tried exactly once, and the message says why
+s = ScriptedService([ServiceError(404)])
+r = asyncio.run(call_with_retries(s.lookup_agent, base_delay=0.001, agent_name="ghost"))
+assert r.startswith("Error:") and "404" in r and "lookup_agent" in r, r
+assert s.attempts == 1`,
+    TEST_SETUP + String.raw`
+# gives up after max_attempts, with a message naming the last status
+s = ScriptedService([ServiceError(503)] * 10)
+r = asyncio.run(call_with_retries(s.lookup_agent, max_attempts=3, base_delay=0.001, agent_name="x"))
+assert r.startswith("Error:") and "503" in r, r
+assert s.attempts == 3`,
+    TEST_SETUP + String.raw`
+# retry_after overrides the backoff delay
+s = ScriptedService([ServiceError(429, retry_after=0.3), "ok"])
+start = time.perf_counter()
+assert asyncio.run(call_with_retries(s.lookup_agent, base_delay=0.001, agent_name="x")) == "ok"
+assert time.perf_counter() - start >= 0.25`,
+    TEST_SETUP + String.raw`
+# no wait after the final failed attempt
+s = ScriptedService([ServiceError(503, retry_after=0.5)] * 2)
+start = time.perf_counter()
+asyncio.run(call_with_retries(s.lookup_agent, max_attempts=2, base_delay=0.001, agent_name="x"))
+elapsed = time.perf_counter() - start
+assert 0.45 <= elapsed < 0.9, elapsed`,
+    TEST_SETUP + String.raw`
+# other exceptions are not caught
+s = ScriptedService([KeyError("bug in the tool")])
+try:
+    asyncio.run(call_with_retries(s.lookup_agent, base_delay=0.001, agent_name="x"))
+    raise AssertionError("KeyError should not be swallowed")
+except KeyError:
+    pass`,
+  ]}
+  hint={"Loop over range(max_attempts) with a try/except ServiceError. Inside the except, decide in this order: not retryable → return; last attempt → leave the loop; otherwise work out the delay and sleep. Keeping the last status in a variable lets the give-up message report it."}
+  correctAnswer={{
+    code: `import asyncio, random
+
+class ServiceError(Exception):
+    def __init__(self, status_code: int, retry_after: float | None = None):
+        super().__init__(f"service returned status {status_code}")
+        self.status_code = status_code
+        self.retry_after = retry_after
+
+RETRYABLE_STATUS = {408, 429, 500, 502, 503, 504}
+
+async def call_with_retries(tool_function, max_attempts: int = 4, base_delay: float = 1.0, **kwargs) -> str:
+    name = tool_function.__name__
+    last_status = None
+    for attempt in range(max_attempts):
+        try:
+            return await tool_function(**kwargs)
+        except ServiceError as e:
+            last_status = e.status_code
+            if e.status_code not in RETRYABLE_STATUS:
+                return f"Error: {name} failed with status {e.status_code}; not retried, since the same request would fail the same way"
+            if attempt == max_attempts - 1:
+                break
+            if e.retry_after is not None:
+                delay = e.retry_after
+            else:
+                delay = base_delay * 2 ** attempt + random.uniform(0, base_delay)
+            await asyncio.sleep(delay)
+    return f"Error: {name} still failing after {max_attempts} attempts (last status {last_status})"`,
+    explanation:
+      "The order of checks inside except is the whole design. A non-retryable status returns immediately, so only one request goes out. The last attempt breaks out without sleeping, so the total time is one wait, not two. retry_after takes priority over backoff. Catching only ServiceError means a genuine bug in the tool, like a KeyError, still surfaces instead of being retried and disguised as a service failure.",
+  }}
+/>
+
+</CheckpointZone>

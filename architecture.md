@@ -1439,6 +1439,24 @@ propagate fails both hang tests. `except asyncio.TimeoutError` passes,
 because it is the same class on Python 3.11+. All three demos match the
 mockup's output exactly, including `total time: 0.6s`.
 
+**Lesson 3.4 Concept 2 (`call_with_retries`)** — status-aware retries.
+The mockup's shared `ServiceError`/`ScriptedService` block is both a
+static code block on the page and the `setupCode` for all three demos
+(`export const SERVICE_SETUP`; keep the two identical). The six hidden
+tests share an `export const TEST_SETUP`, which adds `import asyncio,
+time`. The mockup's tests used `time.perf_counter()`, but its starter
+never imports `time`, so a correct submission would have hit a
+`NameError`. Verified against real Pyodide 0.26.4, including by grading
+the props from the built HTML. The reference passes all six tests, and
+the starter fails all six. Each wrong version fails only the test aimed
+at it: retrying every status fails the 404 test; sleeping after the
+final attempt fails the timing test (1.0s against a limit under 0.9s);
+catching `Exception` fails the `KeyError` test; leaving the tool name
+out of the message fails the 404 test. Ignoring `retry_after` fails both
+of the tests that depend on it. The demo output matches the mockup
+except for the jitter-dependent waits, which the page says vary on
+every run.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped
