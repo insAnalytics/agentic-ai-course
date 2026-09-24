@@ -1949,7 +1949,34 @@ below describe each lesson as first converted; see the git log
    Module 2's delimiters-fix subsection and Module 2's who-decides
    subsection. The graded exercise's explanation mentions Lesson 3's
    oversized tool results as plain text, since explanations aren't
-   linked. Next up is Concept 5: transports.
+   linked.
+   Concept 5 is drafted: transports (how the messages travel). This is
+   the lesson's last concept. It covers stdio (the host spawns the server
+   as a subprocess, one JSON message per line on stdin/stdout, logs on
+   stderr) and a live demo of the classic stray-`print()` bug corrupting
+   the stdout stream. It covers Streamable HTTP: one POST per message to
+   a single MCP endpoint, and the `MCP-Protocol-Version`, `Mcp-Method`
+   and `Mcp-Name` headers that mirror the body for gateways, with a
+   mismatch rejected as HTTP 400 / `-32020`. Replies come back as either
+   a single JSON response or an SSE stream. It also covers the transport
+   security rules (Origin validation, bind to localhost,
+   authentication), and ends on a stdio vs. HTTP comparison table. The
+   mockup's three `###` sub-headings became their own Subsections, since
+   no lesson page uses H3. There are 5 quiz questions and a graded
+   `build_http_request(message)` exercise with 4 hidden tests. A shared
+   `import json` / `META` prelude is prepended to each test. Verified in
+   Pyodide 0.26.4: the demo matches the mockup's output, the reference
+   passes 4/4 and the starter fails 4/4. Single-rule violations fail the
+   right tests: a hardcoded version fails test 4, always adding
+   `Mcp-Name` fails 2 and 4, ignoring `uri` fails 2, handling only
+   `tools/call` fails 2 and 3, and a `str()` body fails 1. The forward
+   references to the least-privilege lesson and "Lesson 6" (building an
+   MCP server) are plain, number-free text, since neither is built.
+   Callbacks link to Concept 2's JSON-RPC intro subsection, Module 0's
+   SSE wire-format subsection, and Concept 3's
+   why-stateless-is-worth-it subsection. Still to come: the bookends
+   (intro, recap, comprehensive quiz and sandbox), after which the
+   lesson is Locked.
 
 ---
 

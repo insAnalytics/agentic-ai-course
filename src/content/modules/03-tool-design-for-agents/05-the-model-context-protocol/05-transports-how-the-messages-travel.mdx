@@ -1,0 +1,341 @@
+---
+title: "Transports: how the messages travel"
+lesson: "05-the-model-context-protocol"
+order: 5
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+export const STDIO_DEMO = String.raw`import json
+
+def encode_for_stdio(message: dict) -> str:
+    # one message per line: json.dumps without indent never contains a newline
+    return json.dumps(message) + "\n"
+
+def read_stdout(stream: str) -> list:
+    messages = []
+    for line in stream.splitlines():
+        try:
+            messages.append(json.loads(line))
+        except json.JSONDecodeError:
+            messages.append(f"<unreadable line: {line!r}>")
+    return messages
+
+response_1 = {"jsonrpc": "2.0", "id": 1, "result": {"resultType": "complete", "content": [{"type": "text", "text": "claude-sonnet"}]}}
+response_2 = {"jsonrpc": "2.0", "id": 2, "result": {"resultType": "complete", "content": [{"type": "text", "text": "active"}]}}
+
+clean_stdout = encode_for_stdio(response_1) + encode_for_stdio(response_2)
+print("clean:", [m["id"] for m in read_stdout(clean_stdout)])
+
+# the server's author left a debug print() in a tool, and print() writes to stdout
+polluted_stdout = encode_for_stdio(response_1) + "looking up support_agent...\n" + encode_for_stdio(response_2)
+for message in read_stdout(polluted_stdout):
+    print("polluted:", message if isinstance(message, str) else f"message id {message['id']}")`;
+
+export const STARTER = String.raw`import json
+
+def build_http_request(message: dict) -> tuple:
+    # TODO: return (headers, body) following the rules above
+    ...`;
+
+export const REFERENCE = String.raw`import json
+
+NAMED_METHODS = {"tools/call": "name", "prompts/get": "name", "resources/read": "uri"}
+
+def build_http_request(message: dict) -> tuple:
+    params = message.get("params", {})
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json, text/event-stream",
+        "MCP-Protocol-Version": params["_meta"]["io.modelcontextprotocol/protocolVersion"],
+        "Mcp-Method": message["method"],
+    }
+    if message["method"] in NAMED_METHODS:
+        headers["Mcp-Name"] = params[NAMED_METHODS[message["method"]]]
+    return headers, json.dumps(message)`;
+
+export const PRELUDE = String.raw`import json
+META = {"io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.modelcontextprotocol/clientCapabilities": {}}
+`;
+
+export const TESTS = [
+  String.raw`# a tools/call gets every header, and the body round-trips
+call = {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {"name": "get_agent_model", "arguments": {"agent_name": "research_agent"}, "_meta": META}}
+headers, body = build_http_request(call)
+assert headers["MCP-Protocol-Version"] == "2026-07-28"
+assert headers["Mcp-Method"] == "tools/call"
+assert headers["Mcp-Name"] == "get_agent_model"
+assert "application/json" in headers["Accept"] and "text/event-stream" in headers["Accept"]
+assert headers["Content-Type"] == "application/json"
+assert json.loads(body) == call`,
+  String.raw`# resources/read takes Mcp-Name from the uri
+read = {"jsonrpc": "2.0", "id": 2, "method": "resources/read",
+        "params": {"uri": "registry://policies/naming", "_meta": META}}
+headers, _ = build_http_request(read)
+assert headers["Mcp-Name"] == "registry://policies/naming"`,
+  String.raw`# prompts/get takes Mcp-Name from the name
+prompt = {"jsonrpc": "2.0", "id": 3, "method": "prompts/get",
+          "params": {"name": "review_agent_config", "arguments": {"agent_name": "x"}, "_meta": META}}
+assert build_http_request(prompt)[0]["Mcp-Name"] == "review_agent_config"`,
+  String.raw`# other methods get no Mcp-Name, and the version comes from _meta
+listing = {"jsonrpc": "2.0", "id": 4, "method": "tools/list", "params": {"_meta": {**META, "io.modelcontextprotocol/protocolVersion": "2025-11-25"}}}
+headers, _ = build_http_request(listing)
+assert "Mcp-Name" not in headers
+assert headers["Mcp-Method"] == "tools/list" and headers["MCP-Protocol-Version"] == "2025-11-25"`,
+  // each hidden test runs in its own copy of the learner's namespace, so the shared helpers go on every one
+].map((test) => PRELUDE + test);
+
+<Subsection title="Same messages, two ways to deliver them" variant="a">
+
+Everything so far in this lesson has been about the *content* of MCP
+messages: JSON-RPC requests and responses, each carrying its own
+`_meta`. None of it said how a message actually gets from the client to
+the server. That's the job of a **transport**, and MCP defines two
+standard ones:
+
+- **stdio**, for a server running as a local program on the same machine
+  as the host
+- **Streamable HTTP**, for a server running as a service somewhere on a
+  network
+
+The messages themselves are identical on both. A `tools/call` request
+looks exactly the same whether it travels down a pipe or inside an HTTP
+POST, which is one of the payoffs of JSON-RPC keeping everything inside
+the message body,
+[as the JSON-RPC concept pointed out](/03-tool-design-for-agents/05-the-model-context-protocol/02-json-rpc-as-the-message-format/#a-small-old-standard-for-call-this-get-that-back).
+
+</Subsection>
+
+<Subsection title="stdio: a local server as a subprocess" variant="b">
+
+With stdio, the host starts the server itself, as a child process, and
+talks to it through that process's standard streams:
+
+- the client writes requests to the server's **stdin**
+- the server writes responses to its **stdout**
+- each message is one line of JSON, and a message may never contain a
+  newline, so a newline always means "end of this message"
+- the server may write logs to **stderr**, which the client is free to
+  show, save or ignore
+
+This is the transport for tools that live on the user's own machine:
+reading local files, running the project's tests, querying a local
+database. Nothing listens on a network port, so there's no network
+exposure to secure. The server runs with the same permissions as the
+user who started the host, which is convenient and also means it can do
+anything that user can.
+
+</Subsection>
+
+<Subsection title="The classic stdio bug: printing to stdout" variant="a">
+
+One rule in the spec is easy to break without noticing: the server must
+never write anything to stdout that isn't an MCP message. In Python, a
+stray `print()` does exactly that, because `print()` writes to stdout by
+default:
+
+<LiveDemo client:load code={STDIO_DEMO} />
+
+The debug line lands in the middle of the protocol stream, and the
+client reads it as a malformed message. Depending on the client, that
+means an error, a dropped connection, or a request that never gets its
+answer. The fix is to send diagnostic output to stderr instead, with
+`print(..., file=sys.stderr)` or Python's `logging` module, which writes
+to stderr by default. It's one of the most common reasons a new stdio
+server "doesn't work", and nothing about it is visible until a client
+tries to read the output.
+
+</Subsection>
+
+<Subsection title="Streamable HTTP: a server as a network service" variant="b">
+
+With Streamable HTTP, the server is its own long-running service with a
+single URL, its **MCP endpoint**, such as
+`https://registry.example.com/mcp`. Many clients, from many hosts, can
+use it at once. This is the transport for shared, remote tools: a
+company's agent registry, a SaaS product's MCP server, anything that
+lives on someone else's machine.
+
+Every message is its own HTTP POST to that one endpoint. Here's a
+`tools/call` request, with the headers the spec requires:
+
+```http
+POST /mcp HTTP/1.1
+Content-Type: application/json
+Accept: application/json, text/event-stream
+MCP-Protocol-Version: 2026-07-28
+Mcp-Method: tools/call
+Mcp-Name: get_agent_model
+
+{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "get_agent_model", "arguments": {"agent_name": "research_agent"}, "_meta": {"io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.modelcontextprotocol/clientCapabilities": {}}}}
+```
+
+*Illustrative. The header set is taken from the 2026-07-28
+specification.*
+
+The three `MCP-` headers repeat information that's already in the body:
+the protocol version from `_meta`, the `method`, and the tool's `name`
+(or a resource's `uri`, for `resources/read`). That looks redundant, and
+on purpose it is. Load balancers, API gateways and monitoring tools sit
+in front of real services, and they can route or rate-limit a request by
+reading its headers, without parsing its JSON body. Because they must
+match the body, a server rejects a request whose headers disagree with
+it, with HTTP 400 and MCP's header-mismatch error, `-32020`. Otherwise a
+gateway could be tricked into treating a request as something it isn't.
+
+</Subsection>
+
+<Subsection title="Two ways the answer can come back" variant="a">
+
+The `Accept` header lists two content types because the server may
+reply either way, and the client must handle both:
+
+- **A single JSON response** (`application/json`): the JSON-RPC
+  response, all at once. This suits quick calls.
+- **An SSE stream** (`text/event-stream`): the same
+  [Server-Sent Events from Module 0's real-time lesson](/00-python-essentials/11-streaming-websockets-and-grpc/03-implementing-sse/#the-actual-sse-wire-format).
+  The server can send progress notifications while it works, then the
+  final response, which ends the stream:
+
+```text
+data: {"jsonrpc": "2.0", "method": "notifications/progress", "params": {"progressToken": "tok-1", "progress": 40, "total": 100}}
+
+data: {"jsonrpc": "2.0", "id": 1, "result": {"resultType": "complete", "content": [{"type": "text", "text": "Audit complete: 3 issues found."}]}}
+```
+
+*Illustrative.*
+
+Every stream belongs to one request, so the stateless design from
+[earlier in this lesson](/03-tool-design-for-agents/05-the-model-context-protocol/03-stateless-by-design/#why-stateless-is-worth-the-repetition)
+holds here too: there's no long-lived session tying requests together,
+and any server instance behind a load balancer can answer any POST.
+
+</Subsection>
+
+<Subsection title="Security that comes with the network" variant="b">
+
+A network service can be reached by things you didn't intend, and the
+spec's transport rules include three protections:
+
+- **Validate the `Origin` header** on every request, and reject
+  unexpected origins with 403. This blocks a malicious web page in the
+  user's browser from quietly sending requests to an MCP server running
+  on their machine.
+- **Bind local servers to localhost** (`127.0.0.1`), not all network
+  interfaces, so a server meant for one machine isn't reachable from the
+  rest of the network.
+- **Require authentication**, so a remote server knows who's calling.
+
+These are rules for whoever *runs* a server. The deeper question of what
+an agent should be allowed to do with the tools it connects to belongs
+to a later lesson in this module, on designing for least privilege.
+
+</Subsection>
+
+<Subsection title="Choosing between them" variant="a">
+
+| | stdio | Streamable HTTP |
+|---|---|---|
+| Where the server runs | on the user's machine, started by the host | anywhere, as its own service |
+| Who uses it | one host | many hosts and users at once |
+| Typical tools | local files, local git, local databases | shared company systems, SaaS products |
+| Security concerns | it runs with the user's own permissions | Origin checks, authentication, network exposure |
+| Scaling | one process per host | many instances behind a load balancer |
+
+The rule of thumb: if the tool is about *this* user's machine, use
+stdio. If it's a shared system that lives elsewhere, use Streamable
+HTTP. The next lesson builds a server that can run either way, since the
+SDK handles the transport and the tool code doesn't change.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      question: "A developer's new stdio server works when tested by hand but fails when a host connects. The server's tools contain print() calls for debugging. What's the likely cause?",
+      options: [
+        "stdio servers can't run Python code",
+        "The print() output goes to stdout, corrupting the stream of protocol messages the client reads",
+        "The host's model can't read printed text",
+        "print() is too slow for real-time protocols",
+      ],
+      correctIndex: 1,
+      explanation:
+        "On stdio, stdout is reserved for MCP messages only. Logs belong on stderr, via print(..., file=sys.stderr) or the logging module.",
+    },
+    {
+      question: "Why does Streamable HTTP repeat the method and tool name in headers, when they're already in the JSON body?",
+      options: [
+        "The JSON body is optional over HTTP",
+        "HTTP servers can't parse JSON bodies",
+        "So load balancers, gateways and monitoring can route and inspect requests without parsing the body",
+        "The headers replace _meta on HTTP",
+      ],
+      correctIndex: 2,
+      explanation:
+        "The headers are for the infrastructure in front of the server. The body stays the source of truth, which is why a mismatch between them is rejected.",
+    },
+    {
+      question: "A server receives an HTTP request where Mcp-Name says get_agent_model but the body calls delete_agent. What must it do?",
+      options: [
+        "Reject it with HTTP 400 and the header-mismatch error",
+        "Trust the body and run delete_agent",
+        "Trust the header and run get_agent_model",
+        "Run both tools and return both results",
+      ],
+      correctIndex: 0,
+      explanation:
+        "Headers and body must agree. Accepting a mismatch would let a request slip past gateway rules written against its headers.",
+    },
+    {
+      question: "A team wants an MCP server for their shared agent registry, used by several agents and a few people's chat apps. Which transport fits?",
+      options: [
+        "stdio, because it's simpler",
+        "Streamable HTTP, since it's a shared service used by many hosts at once",
+        "Either; they're interchangeable for this",
+        "Neither; shared services can't use MCP",
+      ],
+      correctIndex: 1,
+      explanation:
+        "stdio runs one server process per host, on the host's machine. A shared system that many hosts reach over a network is what Streamable HTTP is for.",
+    },
+    {
+      question: "When does a Streamable HTTP server answer with an SSE stream rather than a single JSON response?",
+      options: [
+        "Always, for every request",
+        "Only for tools/list",
+        "Only when the request failed",
+        "When it's useful to send notifications, such as progress updates, before the final response",
+      ],
+      correctIndex: 3,
+      explanation:
+        "The server chooses per request. A quick call can return plain JSON; a long one can stream progress, then end the stream with the final response.",
+    },
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"A client sending a JSON-RPC message over Streamable HTTP needs the right headers alongside the body. Implement build_http_request(message), returning a tuple (headers, body). body is the message as a JSON string. headers is a dict containing: \"Content-Type\": \"application/json\"; \"Accept\": \"application/json, text/event-stream\"; \"MCP-Protocol-Version\": the value of io.modelcontextprotocol/protocolVersion in the message's params._meta; \"Mcp-Method\": the message's method; and \"Mcp-Name\", only for tools/call and prompts/get (from params.name) and resources/read (from params.uri). Leave Mcp-Name out for every other method."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  hint={"A small dict mapping each method that needs Mcp-Name to the params field it comes from, {\"tools/call\": \"name\", \"prompts/get\": \"name\", \"resources/read\": \"uri\"}, turns the three cases into one lookup. Build the four always-present headers first, then add Mcp-Name only if the method is in that dict."}
+  correctAnswer={{
+    code: REFERENCE,
+    explanation:
+      "Every header is copied from the body, never invented, which is exactly why a server can check that they match. The version comes from _meta, not from a constant in the code, so a client that falls back to an older version for one server still sends headers that agree with its body. The lookup dict keeps the rule about which methods get Mcp-Name in one place, where it's easy to check against the spec.",
+  }}
+/>
+
+</CheckpointZone>
