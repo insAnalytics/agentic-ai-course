@@ -1999,9 +1999,9 @@ below describe each lesson as first converted; see the git log
    subsection and Concept 5's Streamable HTTP subsection (the transports
    exercise itself has no anchor).
 
-6. **Building an MCP Server** — Building
-   *Working title.* The folder is `06-building-an-mcp-server`, named from
-   Lesson 3.5's forward reference ("building an mcp server lesson").
+6. **Building an MCP Server** — Locked
+   The folder `06-building-an-mcp-server` was named from Lesson 3.5's
+   forward reference, and the bookends mockup confirmed the title.
    Concept 1 is drafted: what a server does (one request in, one response
    out). Statelessness makes a server's core one function,
    `handle_request`: check `_meta`, route by `method` through a
@@ -2106,8 +2106,30 @@ below describe each lesson as first converted; see the git log
    Concept 2's five-ways and raise-don't-return subsections, Lesson
    3.4's retrying-a-write subsection, Lesson 3.5 Concept 5's Streamable
    HTTP and stdio-bug subsections, and Module 0's TestClient subsection.
-   Still to come: the bookends (intro, recap, comprehensive quiz and
-   sandbox), after which the lesson is Locked.
+   Bookends: an outcomes/why-it-matters intro (`00-intro.mdx`, 5
+   outcomes, linking the Lesson 3.5 intro; the "next lesson" pointer to
+   connecting an agent to MCP servers is plain text) and a recap
+   (`05-recap-practice.mdx`). The recap has an 8-question comprehensive
+   quiz and a multi-file comprehensive sandbox: a read-only
+   `registry_tools.py` (four tools with Pydantic arg models, `ToolError`,
+   and an `audit_agent` that crashes with a DB password) plus
+   `server.py` (entry file). In `server.py` the learner writes
+   `check_meta` (raising), the three handlers, `METHOD_HANDLERS`, and a
+   `handle_request` that turns any `ProtocolError` into an error
+   response in one `try`. The hidden tests run as one script with 10
+   numbered sections. The starter's shared head (imports, `ProtocolError`
+   and the helpers) is one `SERVER_HEAD` constant reused by the starter
+   and the reference. A check confirmed that the tools file, starter,
+   tests and reference all equal the mockup's blocks byte for byte.
+   Verified in Pyodide 0.26.4 (Pydantic 2.7.0) with the multi-file
+   flow: the reference passes, the starter fails, and each single-bug
+   server fails at its own section. Skipping `_meta` for `tools/call`
+   fails 9, an unknown tool as a result fails 7, dropping the error's
+   `data` fails 9, leaking the crash text fails 6, skipping validation
+   fails 4, a wrong error `id` fails 7, a missing `tools/call` handler
+   fails 3, and swallowing `ToolError` into the generic message fails 5.
+   The hint links Lesson 3.5 Concept 3's `_meta` subsection and this
+   lesson's tool-table and handler subsections.
 
 ---
 

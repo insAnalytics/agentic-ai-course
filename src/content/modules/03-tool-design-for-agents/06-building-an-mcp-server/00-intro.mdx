@@ -1,0 +1,33 @@
+---
+title: "Intro"
+lesson: "06-building-an-mcp-server"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Write the core of an MCP server by hand: one function that checks a request, routes it, and returns a JSON-RPC response",
+    "Answer server/discover, tools/list and tools/call, with tool schemas generated from Pydantic models",
+    "Report every way a tool call can end the way the spec intends, as a result, a tool error or a protocol error, without leaking a crashed tool's internals",
+    "Build the same server with the official Python SDK, and say exactly what the SDK now does for you",
+    "Run an SDK server over stdio or Streamable HTTP, mark tools with behavior hints, and test it with the in-memory client",
+  ]}
+/>
+
+<WhyItMatters>
+  [Lesson 5](/03-tool-design-for-agents/05-the-model-context-protocol/00-intro/)
+  looked at MCP from the client's side of the wire. This lesson crosses to
+  the other side and puts the agent registry's tools behind a real server,
+  which any MCP host can then connect to: an IDE assistant, a chat app, or
+  the registry agent itself in the next lesson.
+
+  With the SDK, a server is a handful of decorated functions, and that's
+  how you'll build real ones. The hand-written version comes first on
+  purpose. The decisions a server makes, which failures the model sees,
+  what a crash is allowed to reveal, which checks happen before any tool
+  runs, don't disappear when the SDK makes them for you. Knowing them is
+  what lets you debug a server that isn't behaving, and tell whether a
+  third-party server is one you'd trust.
+</WhyItMatters>
