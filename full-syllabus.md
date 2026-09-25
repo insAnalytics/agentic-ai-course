@@ -2378,7 +2378,7 @@ below describe each lesson as first converted; see the git log
    handles only the first call each fail. The mockup's 7 tests didn't catch
    a per-tool (not per-call) approval, so an 8th test (approving a
    different call id must not release a delete) was added. Lesson 11 is now
-   fully Locked, which completes Module 3's lessons.
+   fully Locked; it is the last Module 3 lesson built so far.
 
 ---
 
