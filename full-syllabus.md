@@ -2384,20 +2384,23 @@ below describe each lesson as first converted; see the git log
 
 ## Module 4 — Context & Memory
 
-1. **The Context Budget** — Building. Concept 1 (what fills the window:
-   system prompt, tools, scratchpad, reply room; the `count_tokens` helper;
-   two live demos; 4 quiz cards) and Concept 2 (measuring one request part
-   by part: `measure_request` breakdown demo, 4 quiz cards, graded
-   exercise with six hidden tests; the `count_tokens` helper is shown in
-   the editor's provided block; verified against real Python with the
-   reference plus four wrong variants) and Concept 3 (watching it grow
-   across the loop: `TurnTracker` and a six-tool-call log-reading demo
-   whose printed output matches the mockup exactly, 4 quiz cards, graded
-   `TurnTracker` exercise; the mockup's 6 tests became 7 with an added
-   boundary test, because a `<=` instead of `<` on the warning line passed
-   all six; verified with the reference plus six wrong variants) are built. Lesson title is a
-   placeholder (the mockup doesn't name the lesson). Forward references to later concepts and lessons (prompt caching, the
-   next lesson on context quality) are plain prose until those exist. No intro/bookends yet.
+1. **Context as a Budget** — Locked. Intro; Concept 1 (what fills the
+   window; `count_tokens`); Concept 2 (measuring one request part by part;
+   graded `measure_request`); Concept 3 (watching it grow across the loop;
+   graded `TurnTracker`, whose 6 mockup tests became 7 with a boundary
+   test: `<=` instead of `<` on the warning line passed all six); recap
+   with a 7-question comprehensive quiz and a multi-file comprehensive
+   sandbox (`tokens.py` + `budget.py` read-only, `agent.py` entry:
+   `run_instrumented_agent` and `summarize_budget`). Sandbox verified with
+   real Python imports: the reference passes, and wrong versions (record
+   after appending the reply, average including turn 1, no `tools=`
+   passed, unknown tool crashing, no step limit, wrong first-warning turn,
+   only the first call handled, recording only once) each fail. Two tests
+   were tightened: `llm.tools_seen` is checked, and the first warning must
+   fall after turn 1 (the mockup's `warn_below` warned from turn 1). The
+   lesson title comes from the bookends file. Forward references to later
+   lessons (prompt caching, context quality) are plain prose until those
+   lessons exist.
 
 ---
 

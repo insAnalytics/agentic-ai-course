@@ -1,0 +1,34 @@
+---
+title: "Intro"
+lesson: "01-the-context-budget"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Name every part of an agent's request that occupies the context window, including the room reserved for the reply",
+    "Measure a request as a breakdown by part, and calculate the headroom that's really left",
+    "Track the budget on every turn of the loop, and read from it what's growing, what it costs, and when it will run out",
+    "Explain why every technique in this module starts with measuring first",
+  ]}
+/>
+
+<WhyItMatters>
+  Modules 2 and 3 built an agent loop and filled it with tools. Every turn
+  of that loop adds to what the model is sent, and every request resends all
+  of it. On a short task nobody notices. On a long one, the context fills
+  with old tool results, costs climb far faster than the conversation, and
+  eventually a request simply doesn't fit.
+
+  This module is about managing that, and it's called **context
+  engineering**: deciding what reaches the model's window, when, in what
+  form, and what gets stored somewhere else instead. It's different from the
+  prompt writing in
+  [Module 2](/02-the-agent-loop/02-prompting-fundamentals/00-intro/). That
+  was about *what to say*. This is the architecture of what the model sees
+  at all, and it's one of the biggest levers on an agent's quality and cost
+  that doesn't involve changing the model. It starts here, with the habit
+  every later lesson relies on: measure before you change anything.
+</WhyItMatters>
