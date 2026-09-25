@@ -129,3 +129,25 @@ def count_tokens(x) -> int:
         return math.ceil(len(x) / 4)
     return math.ceil(len(json.dumps(_plain(x))) / 4)
 `;
+
+/**
+ * Module 4 Lesson 1 concept 2's `measure_request` (returns parts, input_total,
+ * reply_room, headroom). Append after COUNT_TOKENS; later Module 4 demos and
+ * exercises build on it. Concept 2's own exercise extends it with `fits` and
+ * `largest`, so it defines its own copy.
+ */
+export const MEASURE_REQUEST = String.raw`
+def measure_request(system: str, tools: list, messages: list, max_tokens: int, window: int) -> dict:
+    parts = {
+        "system": count_tokens(system),
+        "tools": count_tokens(tools),
+        "messages": count_tokens(messages),
+    }
+    input_total = sum(parts.values())
+    return {
+        "parts": parts,
+        "input_total": input_total,
+        "reply_room": max_tokens,
+        "headroom": window - input_total - max_tokens,
+    }
+`;

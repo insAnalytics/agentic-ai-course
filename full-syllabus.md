@@ -2390,10 +2390,14 @@ below describe each lesson as first converted; see the git log
    by part: `measure_request` breakdown demo, 4 quiz cards, graded
    exercise with six hidden tests; the `count_tokens` helper is shown in
    the editor's provided block; verified against real Python with the
-   reference plus four wrong variants) are built. Lesson title is a
-   placeholder (the mockup doesn't name the lesson). Concept 2's "next
-   concept" and "later lesson" references are plain prose until those
-   exist. No intro/bookends yet.
+   reference plus four wrong variants) and Concept 3 (watching it grow
+   across the loop: `TurnTracker` and a six-tool-call log-reading demo
+   whose printed output matches the mockup exactly, 4 quiz cards, graded
+   `TurnTracker` exercise; the mockup's 6 tests became 7 with an added
+   boundary test, because a `<=` instead of `<` on the warning line passed
+   all six; verified with the reference plus six wrong variants) are built. Lesson title is a
+   placeholder (the mockup doesn't name the lesson). Forward references to later concepts and lessons (prompt caching, the
+   next lesson on context quality) are plain prose until those exist. No intro/bookends yet.
 
 ---
 

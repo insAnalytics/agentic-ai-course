@@ -1,0 +1,333 @@
+---
+title: "Watching it grow across the loop"
+lesson: "01-the-context-budget"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, TOOL_AWARE_CLIENT, COUNT_TOKENS, MEASURE_REQUEST } from "../../../../lib/fakeClient";
+
+export const TRACKER_FUNC = String.raw`
+class TurnTracker:
+    def __init__(self, window: int, max_tokens: int, warn_below: int):
+        self.window = window
+        self.max_tokens = max_tokens
+        self.warn_below = warn_below
+        self.rows = []
+
+    def record(self, system: str, tools: list, messages: list) -> dict:
+        report = measure_request(system, tools, messages, self.max_tokens, self.window)
+        previous = self.rows[-1]["input_total"] if self.rows else report["input_total"]
+        row = {
+            "turn": len(self.rows) + 1,
+            "input_total": report["input_total"],
+            "growth": report["input_total"] - previous,
+            "headroom": report["headroom"],
+            "warning": report["headroom"] < self.warn_below,
+        }
+        self.rows.append(row)
+        return row
+
+    def total_sent(self) -> int:
+        return sum(row["input_total"] for row in self.rows)
+`;
+
+export const TRACKER_SETUP = REACT_FAKE_CLIENT + TOOL_AWARE_CLIENT + COUNT_TOKENS + MEASURE_REQUEST + TRACKER_FUNC;
+
+export const LOGS_DEMO = String.raw`SYSTEM_PROMPT = "You are the registry assistant. Investigate agent health using the monitoring tools, then summarise."
+TOOLS = [{"name": "monitoring__get_logs", "description": "Recent log lines for an agent.",
+          "input_schema": {"type": "object", "properties": {"agent_name": {"type": "string"}}, "required": ["agent_name"]}}]
+
+def get_logs(agent_name: str) -> str:
+    # a realistic tool result: a few hundred log lines, around 1,500 tokens
+    line = f"2026-09-25T10:00:00Z {agent_name} INFO request handled in 412ms status=200 route=/v1/answer\n"
+    return line * 70
+
+AGENTS = ["research_agent", "support_agent", "billing_agent", "triage_agent", "search_agent", "report_agent"]
+llm = ToolAwareClient(
+    [[ToolUseBlock(name="monitoring__get_logs", input={"agent_name": a})] for a in AGENTS]
+    + [[TextBlock(text="All six agents look healthy.")]]
+)
+
+# the warning line is set high so this short demo crosses it; a real one sits lower
+tracker = TurnTracker(window=200_000, max_tokens=4_000, warn_below=190_000)
+messages = [{"role": "user", "content": "Check the logs for all six agents and tell me if anything looks wrong."}]
+while True:
+    tracker.record(SYSTEM_PROMPT, TOOLS, messages)
+    response = llm.create(messages=messages, tools=TOOLS)
+    messages.append({"role": "assistant", "content": response.content})
+    calls = [b for b in response.content if b.type == "tool_use"]
+    if not calls:
+        break
+    messages.append({"role": "user", "content": [
+        {"type": "tool_result", "tool_use_id": c.id, "content": get_logs(**c.input)} for c in calls]})
+
+for row in tracker.rows:
+    flag = "  <- below warning line" if row["warning"] else ""
+    print(f"turn {row['turn']}: input {row['input_total']:>6,}  (+{row['growth']:>5,})  headroom {row['headroom']:>7,}{flag}")
+print(f"tokens sent across all {len(tracker.rows)} requests: {tracker.total_sent():,}")
+
+last = tracker.rows[-1]
+per_turn = last["growth"]
+print(f"at +{per_turn:,} tokens per turn, headroom runs out in about {last['headroom'] // per_turn} more turns")
+`;
+
+export const PROVIDED = "# --- provided: don't change this part ---\n" + COUNT_TOKENS.trimStart() + MEASURE_REQUEST + "# --- end of provided code ---\n\n";
+
+export const STARTER = String.raw`class TurnTracker:
+    def __init__(self, window: int, max_tokens: int, warn_below: int):
+        # TODO
+        ...
+
+    def record(self, system: str, tools: list, messages: list) -> dict:
+        # TODO: measure this turn, compare it with the last row, and store the new row
+        ...
+
+    def total_sent(self) -> int:
+        # TODO
+        ...
+`;
+
+export const REFERENCE = TRACKER_FUNC.trimStart();
+
+export const TESTS = [
+  String.raw`
+system = "s" * 40      # 10 tokens
+tools = []
+t = TurnTracker(window=1_000, max_tokens=100, warn_below=500)
+
+# 1. the first turn: numbered 1, growth 0, headroom from measure_request
+messages = [{"role": "user", "content": "q" * 40}]
+r1 = t.record(system, tools, messages)
+expected_input = count_tokens(system) + count_tokens(tools) + count_tokens(messages)
+assert r1["turn"] == 1 and r1["growth"] == 0 and r1["input_total"] == expected_input
+assert r1["headroom"] == 1_000 - expected_input - 100 and r1["warning"] is False`,
+  String.raw`
+system = "s" * 40
+tools = []
+t = TurnTracker(window=1_000, max_tokens=100, warn_below=500)
+messages = [{"role": "user", "content": "q" * 40}]
+r1 = t.record(system, tools, messages)
+
+# 2. a later turn reports growth since the previous turn
+messages.append({"role": "user", "content": "x" * 800})
+r2 = t.record(system, tools, messages)
+assert r2["turn"] == 2 and r2["growth"] == r2["input_total"] - r1["input_total"] and r2["growth"] > 0`,
+  String.raw`
+system = "s" * 40
+tools = []
+t = TurnTracker(window=1_000, max_tokens=100, warn_below=500)
+messages = [{"role": "user", "content": "q" * 40}]
+t.record(system, tools, messages)
+messages.append({"role": "user", "content": "x" * 800})
+t.record(system, tools, messages)
+
+# 3. the warning trips once headroom drops below warn_below, and stays on while it's below
+messages.append({"role": "user", "content": "y" * 1_600})
+r3 = t.record(system, tools, messages)
+assert r3["headroom"] < 500 and r3["warning"] is True`,
+  String.raw`
+system = "s" * 40
+tools = []
+t = TurnTracker(window=1_000, max_tokens=100, warn_below=500)
+messages = [{"role": "user", "content": "q" * 40}]
+t.record(system, tools, messages)
+messages.append({"role": "user", "content": "x" * 800})
+t.record(system, tools, messages)
+messages.append({"role": "user", "content": "y" * 1_600})
+t.record(system, tools, messages)
+
+# 4. every turn is kept, in order
+assert [row["turn"] for row in t.rows] == [1, 2, 3]`,
+  String.raw`
+system = "s" * 40
+tools = []
+t = TurnTracker(window=1_000, max_tokens=100, warn_below=500)
+messages = [{"role": "user", "content": "q" * 40}]
+r1 = t.record(system, tools, messages)
+messages.append({"role": "user", "content": "x" * 800})
+r2 = t.record(system, tools, messages)
+messages.append({"role": "user", "content": "y" * 1_600})
+r3 = t.record(system, tools, messages)
+
+# 5. total_sent sums every request's input: the whole history was resent each time
+assert t.total_sent() == r1["input_total"] + r2["input_total"] + r3["input_total"]
+assert t.total_sent() > r3["input_total"]`,
+  String.raw`
+# 6. trackers are independent
+first = TurnTracker(window=1_000, max_tokens=100, warn_below=500)
+first.record("s" * 40, [], [{"role": "user", "content": "q"}])
+other = TurnTracker(window=1_000, max_tokens=100, warn_below=500)
+assert other.rows == [] and other.total_sent() == 0`,
+  String.raw`
+# 7. the warning is strictly "below": headroom exactly at warn_below is not a warning
+system = "s" * 40
+messages = [{"role": "user", "content": "q" * 40}]
+used = count_tokens(system) + count_tokens([]) + count_tokens(messages)
+edge = TurnTracker(window=1_000, max_tokens=100, warn_below=1_000 - 100 - used)
+row = edge.record(system, [], messages)
+assert row["headroom"] == edge.warn_below and row["warning"] is False`,
+];
+
+<Subsection title="One measurement is a snapshot" variant="a">
+
+[The previous concept](/04-context-and-memory/01-the-context-budget/02-measuring-one-request-part-by-part/)
+measured the registry agent's first turn, where tool definitions were most
+of the request and the scratchpad was almost nothing. That was a snapshot of
+turn one. An agent's request changes on every iteration of
+[the loop](/02-the-agent-loop/05-react-and-reasoning-in-the-loop/01-the-react-pattern/),
+so the useful measurement is the same breakdown, taken every turn, kept as a
+history.
+
+Here's a small tracker that does exactly that. It calls `measure_request`
+from the previous concept on every turn, and records how much the input grew
+since the turn before and whether headroom has dropped below a warning line:
+
+```python
+class TurnTracker:
+    def __init__(self, window: int, max_tokens: int, warn_below: int):
+        self.window = window
+        self.max_tokens = max_tokens
+        self.warn_below = warn_below
+        self.rows = []
+
+    def record(self, system: str, tools: list, messages: list) -> dict:
+        report = measure_request(system, tools, messages, self.max_tokens, self.window)
+        previous = self.rows[-1]["input_total"] if self.rows else report["input_total"]
+        row = {
+            "turn": len(self.rows) + 1,
+            "input_total": report["input_total"],
+            "growth": report["input_total"] - previous,
+            "headroom": report["headroom"],
+            "warning": report["headroom"] < self.warn_below,
+        }
+        self.rows.append(row)
+        return row
+
+    def total_sent(self) -> int:
+        return sum(row["input_total"] for row in self.rows)
+```
+
+</Subsection>
+
+<Subsection title="An agent reading logs" variant="b">
+
+Now the registry agent on a real task: check the logs for six agents. Each
+`get_logs` call returns a few hundred log lines, around 1,700 tokens, which
+is small for real logs. The tracker records the request at the top of every
+iteration, just before it's sent:
+
+<LiveDemo client:load setupCode={TRACKER_SETUP} code={LOGS_DEMO} />
+
+Three things show up only because the budget was measured every turn:
+
+- **The growth is almost entirely tool results.** The system prompt and
+  tool definition are the same 100 or so tokens every turn. Each iteration
+  adds one `tool_use` block and one `tool_result`, and the result is nearly
+  all of the +1,700. That's the scratchpad
+  [Module 2 described](/02-the-agent-loop/07-agent-state-and-the-scratchpad/01-the-scratchpad/)
+  turning into the dominant cost, the reverse of the first-turn picture.
+- **You pay for the history again on every turn.** The last request was
+  about 10,000 tokens, but the seven requests together sent over 36,000,
+  because each one
+  [resent everything before it](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/03-multi-turn-conversations/).
+  As a task gets longer, the total grows much faster than the conversation
+  itself: double the number of turns and you roughly quadruple the tokens
+  sent. Prompt caching makes the repeated part much cheaper, which is a
+  later lesson in this module.
+- **You can project when it runs out.** At about 1,700 tokens a turn, this
+  agent has roughly 109 turns left. A task that reads a hundred log files,
+  or a few very large ones, would hit the limit, and knowing that *before*
+  it happens is the whole point of measuring.
+
+</Subsection>
+
+<Subsection title="Measure first" variant="a">
+
+Every technique in the rest of this module, trimming old tool results,
+compacting history, loading tools only when needed, storing things outside
+the window, has a cost, and each one fixes a different part of the
+breakdown. The tracker's history tells you which fix fits: a request
+dominated by tool definitions needs a different remedy from one dominated by
+old tool results. Guessing leads to optimizing the wrong part.
+
+There's also a reason to act well before the window is full, and it has
+nothing to do with running out of room. An agent's answers get worse as its
+context grows, long before the hard limit. That's the next lesson's subject
+(context that fits but still hurts), and it's why the warning line in the
+demo sits far above zero.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "In the log-reading demo, what makes up nearly all of each turn's growth?",
+    "options": [
+      "The system prompt, resent each turn",
+      "The tool definitions, which grow each turn",
+      "The new `tool_result`, the log lines the tool returned",
+      "The reply room reserved for the model"
+    ],
+    "correctIndex": 2,
+    "explanation": "The system prompt and tool definitions are the same size every turn. Each iteration adds one tool call and its result, and the result is almost all of it."
+  },
+  {
+    "question": "The last request was about 10,000 tokens, but the seven requests together sent over 36,000. Why?",
+    "options": [
+      "The tracker counts some tokens twice",
+      "Each request resent the whole history, so earlier content was paid for again every turn",
+      "The reply room is added to the total",
+      "Tool definitions grew on every turn"
+    ],
+    "correctIndex": 1,
+    "explanation": "The model API is stateless. Every turn carries everything so far, so total tokens sent grows much faster than the conversation."
+  },
+  {
+    "question": "Roughly what happens to the total tokens sent if a task takes twice as many turns, with each turn adding about the same amount?",
+    "options": [
+      "It stays the same",
+      "It roughly doubles",
+      "It roughly quadruples",
+      "It halves"
+    ],
+    "correctIndex": 2,
+    "explanation": "Each request resends all previous turns, so the requests themselves get longer as they go. Twice the turns means about four times the total."
+  },
+  {
+    "question": "Why does the warning line sit far above zero headroom?",
+    "options": [
+      "The tracker can't measure small numbers",
+      "The model API rejects requests near the limit",
+      "Agents get worse as context grows, well before it's full, so it pays to act early",
+      "Headroom is always overestimated"
+    ],
+    "correctIndex": 2,
+    "explanation": "Running out of room is only the final failure. Quality drops long before that, which is the next lesson's subject."
+  }
+]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"measure_request from the previous concept (and count_tokens) is provided at the top of the editor. Implement the TurnTracker class. __init__(window, max_tokens, warn_below) stores its settings and starts an empty rows list. record(system, tools, messages) measures the request with measure_request, and appends and returns a row with: turn, 1 for the first recorded turn, then 2, 3, ...; input_total, from the measurement; growth, this turn's input_total minus the previous turn's, 0 for the first turn; headroom, from the measurement; warning, True when headroom is below warn_below. total_sent() returns the sum of every recorded turn's input_total."}
+  starterCode={PROVIDED + STARTER}
+  hiddenTests={TESTS}
+  hint={"For growth, take the previous row's input_total if there is one (self.rows[-1]), and otherwise use this turn's own total, which makes the first turn's growth zero. The turn number is len(self.rows) + 1, read before appending."}
+  correctAnswer={{
+    code: PROVIDED + REFERENCE,
+    explanation: "The tracker is a thin layer over the previous concept's measurement: it only adds memory of earlier turns. That memory is what turns a snapshot into something you can act on: growth per turn shows what's filling the window (test 2), the warning shows when to act (test 3), and total_sent shows the real cost of resending history (test 5), which is always larger than the last request alone.",
+  }}
+/>
+
+</CheckpointZone>
