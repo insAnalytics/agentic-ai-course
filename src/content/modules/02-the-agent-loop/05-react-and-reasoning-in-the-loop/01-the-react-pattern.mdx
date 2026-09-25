@@ -147,7 +147,7 @@ def run_agent_loop(client, messages):
         for call in tool_calls:
             tool_function = TOOL_REGISTRY[call.name]
             output = tool_function(**call.input)
-            results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+            results.append({"type": "tool_result", "tool_use_id": call.id, "content": str(output)})
         messages.append({"role": "user", "content": results})
 
 # the exact same "text before the tool call" response from the pain demo
@@ -169,6 +169,15 @@ the loop only stops once a response contains *no* tool calls at all
 correctly not treated as the final answer); and when there are tool
 calls, every one of them gets executed and its result goes back
 together, in a single follow-up message.
+
+Appending the *entire* response, rather than rebuilding it from the
+parts the loop cares about, matters for one more reason with real
+reasoning models. Their responses can include `thinking` blocks, and
+[the API expects those back exactly as they arrived](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/06-reasoning-output-in-responses/#sending-thinking-back-leave-it-exactly-as-it-came),
+especially in a turn that ends in a tool call. A loop that "cleans up"
+the assistant turn to keep only the tool calls would quietly break that.
+`messages.append({"role": "assistant", "content": response.content})`
+gets it right for free.
 
 </Subsection>
 
@@ -223,7 +232,7 @@ def run_agent_loop(client, messages):
             tool_function = TOOL_REGISTRY[call.name]
             output = tool_function(**call.input)
             print(f"called {call.name}({call.input}) -> {output}")
-            results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+            results.append({"type": "tool_result", "tool_use_id": call.id, "content": str(output)})
         messages.append({"role": "user", "content": results})
 
 client = FakeLLMClient(scripted_responses=[
@@ -428,7 +437,7 @@ def run_agent_loop(client, messages):
         for call in tool_calls:
             tool_function = TOOL_REGISTRY[call.name]
             output = tool_function(**call.input)
-            results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+            results.append({"type": "tool_result", "tool_use_id": call.id, "content": str(output)})
         messages.append({"role": "user", "content": results})`,
     explanation:
       "This is the exact ReAct-extended loop from this concept, genuinely tested against the two response shapes a single-block reaction would get wrong: a text remark arriving before a tool call (still runs the tool, still doesn't return early) and two tool calls arriving together (both run, both get their own tool_result, in one follow-up message) — alongside the same reasoning-logging and dispatch checks as before.",

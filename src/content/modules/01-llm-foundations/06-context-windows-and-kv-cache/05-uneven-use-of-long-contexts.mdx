@@ -54,7 +54,35 @@ the middle is used less reliably.
 
 </Subsection>
 
-<Subsection title="Why this happens — with appropriate honesty about what's settled" variant="a">
+<Subsection title="What's changed since 2023, and what hasn't" variant="a">
+
+Those four models are from 2023, and the field has moved. Current
+long-context models do far better on the simplest version of this test,
+finding one clearly stated fact in a long input (often called a "needle
+in a haystack" test), and many score close to perfectly on it wherever
+the needle sits. So the sharp U above overstates the problem for a plain
+lookup with today's models.
+
+What hasn't gone away is the broader effect: **more context tends to
+mean worse use of it.** A 2025 study by Chroma, "Context Rot", tested 18
+current models, including frontier models from several labs, on tasks
+kept deliberately simple while only the input length changed.
+Performance still fell as inputs grew, unevenly and in model-specific
+ways, and fell further when the input held *distractors*: passages that
+look relevant but aren't, like an old tool result about a similar agent,
+or a superseded instruction. Tasks that need the model to connect
+several pieces, rather than find one, degrade more.
+
+That's exactly the situation an agent creates for itself. Every step
+adds tool calls and results to the history, much of it no longer
+relevant, some of it confusingly similar to what matters now. A context
+that *fits* the window can still be hurting the answer, which is why
+deciding what goes into the context at all is a subject of its own,
+Module 4's.
+
+</Subsection>
+
+<Subsection title="Why this happens — with appropriate honesty about what's settled" variant="b">
 
 It's worth being direct that there isn't one single, fully agreed-upon
 mechanistic explanation for exactly why this pattern occurs — plausible
@@ -70,7 +98,7 @@ remains a more open question — the same kind of honest hedge
 
 </Subsection>
 
-<Subsection title="Why this matters practically" variant="b">
+<Subsection title="Why this matters practically" variant="a">
 
 A large context window is not a guarantee that every token inside it
 gets used equally well — this is exactly the risk for an agent that
@@ -141,6 +169,18 @@ reason to care about it at all is exactly this empirical pattern.
       correctIndex: 1,
       explanation:
         "This lesson explains why position matters; the full technique for structuring prompts around it belongs to [Module 2's prompting-fundamentals lesson](/02-the-agent-loop/02-prompting-fundamentals/00-intro/).",
+    },
+    {
+      question: "Current models often score near-perfectly at finding one stated fact anywhere in a long input. What does that mean for an agent's long history?",
+      options: [
+        "Context length no longer affects quality, so a history can grow freely",
+        "Quality can still drop as the history grows, especially with similar-looking but irrelevant content in it",
+        "The effect now only applies to the start of the context, not the middle",
+        "Long histories now improve accuracy, since the model has more to go on",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Simple lookups got much better, but studies of current models still find performance falling as inputs grow, and distractors make it worse. An agent's history is full of both, which is why curating context matters.",
     },
   ]}
 />

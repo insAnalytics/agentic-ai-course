@@ -60,7 +60,29 @@ probability distribution.
 
 </Subsection>
 
-<Subsection title="What this concept does and doesn't cover" variant="a">
+<Subsection title="A second cause: training rewards a confident guess" variant="a">
+
+The mechanism explains how a wrong answer can come out. It doesn't fully
+explain why models so often answer confidently instead of saying they
+don't know. Part of that comes from how models are trained and scored.
+Research from OpenAI in 2025 ("Why Language Models Hallucinate", Kalai
+et al.) makes the point with an exam analogy: on a multiple-choice test
+that gives no credit for leaving a question blank, guessing always
+scores better than admitting uncertainty. Most benchmarks used to train
+and compare models grade the same way, right or wrong, with nothing for
+"I'm not sure". So training that pushes those scores up also teaches
+the model that a confident guess beats an honest "I don't know".
+
+This second cause matters to agent builders because it's partly in your
+hands. A system prompt that explicitly allows "I don't know" and says
+when to use it, tools that let the model check a fact instead of
+recalling it, and evaluations that penalize a confident wrong answer
+more than an admitted gap all push against it. The mechanism won't go
+away; the incentive to guess can be reduced.
+
+</Subsection>
+
+<Subsection title="What this concept does and doesn't cover" variant="b">
 
 This concept's job is explaining *why* hallucination happens
 mechanically — a direct, expected consequence of a system that
@@ -117,6 +139,18 @@ consequences.
       correctIndex: 1,
       explanation:
         "This concept stops at explaining the mechanism — measuring hallucination rates and mitigating them (e.g. via retrieval grounding) are explicitly left to later modules.",
+    },
+    {
+      question: "Why might training make a model more likely to guess confidently than to say it doesn't know?",
+      options: [
+        "Models are explicitly instructed never to express uncertainty",
+        "Benchmarks usually score answers right or wrong, so a guess can earn credit while \"I don't know\" never does",
+        "Saying \"I don't know\" costs more output tokens than a guess",
+        "Uncertainty can't be represented in a probability distribution",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Like an exam with no credit for blank answers, right-or-wrong grading rewards guessing. Training that improves those scores teaches the same habit, which is why allowing and rewarding \"I don't know\" helps.",
     },
   ]}
 />

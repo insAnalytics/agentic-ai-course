@@ -44,7 +44,7 @@ concrete rather than abstract:
             for call in tool_calls:
                 tool_function = self.tools[call.name]
                 output = tool_function(**call.input)
-                results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+                results.append({"type": "tool_result", "tool_use_id": call.id, "content": str(output)})
             messages.append({"role": "user", "content": results})
         return f"stopped after reaching the maximum of {self.max_steps} steps without a final answer"
 
@@ -216,7 +216,7 @@ assert {r["tool_use_id"] for r in results} == {first.id, second.id}
             for call in tool_calls:
                 tool_function = self.tools[call.name]
                 output = tool_function(**call.input)
-                results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+                results.append({"type": "tool_result", "tool_use_id": call.id, "content": str(output)})
             messages.append({"role": "user", "content": results})
         return f"stopped after reaching the maximum of {self.max_steps} steps without a final answer"`,
     explanation:

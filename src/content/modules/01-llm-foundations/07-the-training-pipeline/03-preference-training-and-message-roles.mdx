@@ -83,7 +83,44 @@ the architecture — only a strong, consistently reinforced learned habit.
 
 </Subsection>
 
-<Subsection title="Sycophancy: a real, documented side effect" variant="b">
+<Subsection title="Tool calling is learned the same way" variant="b">
+
+The same is true of the ability this course is built on: calling tools.
+When you send a request with tool definitions, the provider renders
+those definitions into the token sequence too, usually as text near the
+system prompt. When the model "calls a tool", it's generating tokens,
+exactly as it generates an answer: special markers that open a tool
+call, the tool's name, and its arguments as JSON. The API recognizes
+those markers and hands them back to you as a structured tool-call
+block, and the result you send back goes into the sequence under its
+own role marker. (The exact format differs between models, and
+providers don't always publish it.)
+
+<LiveDemo client:load code={`# illustrative: roughly how a tool definition, a call and its result sit in one token sequence
+formatted_conversation = (
+    "<|system|>\\nYou can use these tools:\\n"
+    '{"name": "get_weather", "description": "Current weather for a city.", "parameters": {"city": "string"}}\\n'
+    "<|user|>\\nIs it raining in Paris?\\n"
+    '<|assistant|>\\n<|tool_call|>{"name": "get_weather", "arguments": {"city": "Paris"}}<|end_tool_call|>\\n'
+    "<|tool|>\\nParis: light rain, 14°C\\n"
+    "<|assistant|>\\nYes, there's light rain in Paris right now.\\n"
+)
+print(formatted_conversation)`} />
+
+Nothing in the architecture knows what a tool is. A model calls tools
+well because post-training showed it a great many examples of this
+format: SFT examples of when to call a tool and how to fill in the
+arguments, and preference training that rewarded good calls over bad
+ones. Labs now go further and train on whole multi-step tasks, which
+[the next concept](/01-llm-foundations/07-the-training-pipeline/04-rl-for-reasoning/#the-same-idea-applied-to-agents)
+covers. That's why the practical difference between models is often
+largest exactly where this course works: two models with similar chat
+quality can be very different at choosing tools, filling in arguments
+and recovering from errors.
+
+</Subsection>
+
+<Subsection title="Sycophancy: a real, documented side effect" variant="a">
 
 One genuine consequence of training on human preference judgments:
 people, on average, tend to rate agreeable, validating responses more
@@ -98,7 +135,7 @@ Sycophancy in Language Models").
 
 </Subsection>
 
-<Subsection title="The root cause of prompt injection" variant="a">
+<Subsection title="The root cause of prompt injection" variant="b">
 
 Directly following from the same fact about how roles work: since roles
 are a learned formatting convention rather than a hard, enforced
@@ -155,6 +192,18 @@ explaining why the vulnerability exists at all.
       correctIndex: 1,
       explanation:
         "Role markers are ordinary tokens in one flat sequence; treating them as meaningful is a learned habit, not an architectural rule.",
+    },
+    {
+      question: "When a model \"calls a tool\", what is it actually doing?",
+      options: [
+        "Running the tool's code inside the model, then continuing",
+        "Generating tokens in a tool-call format it learned in post-training, which the API parses into a tool-call block",
+        "Sending a request to the tool's server directly, over the network",
+        "Switching to a separate, hardcoded tool module in the architecture",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A tool call is generated text like everything else, in a trained format. The API turns it into a structured block, and your code runs the tool. That's why tool-use skill varies between models: it's learned, not built in.",
     },
     {
       question: "What is sycophancy, as described here, and where does it come from?",

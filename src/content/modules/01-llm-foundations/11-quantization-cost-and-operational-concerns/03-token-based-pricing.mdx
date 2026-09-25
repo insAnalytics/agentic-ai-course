@@ -81,11 +81,76 @@ question is even considered.
 
 </Subsection>
 
-<Subsection title="The habit worth building" variant="a">
+<Subsection title="An agent task is many requests, and each one resends the history" variant="a">
+
+Everything above prices a *single* request. An agent task is many
+requests: one per step of the loop. And because
+[the API has no memory between calls](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/03-multi-turn-conversations/#the-api-itself-has-no-memory-between-calls),
+every step resends the whole conversation so far: the system prompt,
+every earlier tool call, every earlier tool result. Each step's input is
+bigger than the last one's.
+
+<LiveDemo client:load code={`def agent_task_cost(steps: int, cache: bool) -> float:
+    # illustrative: a 2,000-token system prompt, and each step adds the model's
+    # 150-token tool call plus a 500-token tool result to the history
+    input_price, output_price = 0.003, 0.015            # per 1k tokens
+    cache_write, cache_read = 1.25, 0.10                # multipliers on the input price
+    history, already_cached, total = 2000, 0, 0.0
+    for step in range(steps):
+        if cache:
+            new_tokens = history - already_cached      # only the part not cached yet pays the write price
+            total += (already_cached * cache_read + new_tokens * cache_write) / 1000 * input_price
+            already_cached = history
+        else:
+            total += history / 1000 * input_price      # the whole history, at full price, every step
+        total += 150 / 1000 * output_price
+        history += 150 + 500
+    return total
+
+for steps in [1, 5, 10, 20, 40]:
+    plain, cached = agent_task_cost(steps, cache=False), agent_task_cost(steps, cache=True)
+    print(f"{steps:>2} steps: \${plain:6.3f} without caching, \${cached:6.3f} with it")`} />
+
+(Illustrative prices and multipliers. Cache pricing varies by provider.)
+
+Twice as many steps costs much more than twice as much. The input sent
+at step *n* includes every step before it, so the total input across a
+task grows roughly with the **square** of the number of steps: 40 steps
+here costs about 30 times what 5 steps does, not 8 times. That's the
+most important cost fact for agents, and it's why a task that runs for
+"just a few more steps" can cost far more than expected.
+
+Caching helps a lot, because each step's history is the previous step's
+history plus a little more: a perfect stable prefix. Two details make it
+less than free:
+
+- **Writing to the cache can cost more than a normal input token.** Some
+  providers, Anthropic among them, charge a premium on the tokens that
+  go *into* the cache, and a much lower rate for reading them back. The
+  demo charges every new token the write price once, then the read price
+  on every later step. That's why a single request costs slightly *more*
+  with caching: the premium is paid and never earned back.
+- **Caches are conditional.** Depending on the provider, caching may need
+  you to mark where the cached prefix ends, may only apply above a
+  minimum prompt length, and expires after a few minutes without use. A
+  slow agent, or one waiting on a person, can find its cache gone.
+
+Even with caching, the history still grows every step, and it still has
+to fit in the context window. Keeping it short, by trimming, summarizing
+or offloading what the agent no longer needs, is
+Module 4's subject, on memory and context. For
+work that doesn't need an answer right away, many providers also offer a
+**batch API**: requests are processed within hours instead of seconds,
+at roughly half the price.
+
+</Subsection>
+
+<Subsection title="The habit worth building" variant="b">
 
 None of these four factors — language, caching, reasoning, non-text input
 — acts alone in a real system; a genuinely cost-aware agent backend is
-affected by some combination of all four on nearly every request. The
+affected by some combination of all four on nearly every request, and
+multiplied by the number of steps the agent takes. The
 actual skill this lesson has been building toward isn't memorizing any one
 of these facts individually — each was already taught where it belongs —
 but developing the habit of checking all four together when actually
@@ -146,6 +211,18 @@ pricing as if only one factor were ever in play at a time.
       correctIndex: 1,
       explanation:
         "Each driver was taught where it belongs; the new skill is checking all of them together when estimating a real workload.",
+    },
+    {
+      question: "An agent task that takes 10 steps costs a certain amount. Roughly what happens to its input cost at 20 steps, without caching?",
+      options: [
+        "It stays about the same, since the system prompt is the biggest part",
+        "It about doubles, since there are twice as many requests",
+        "It grows by roughly four times, since every step resends all the steps before it",
+        "It halves, since later steps reuse earlier results",
+      ],
+      correctIndex: 2,
+      explanation:
+        "Each request carries the whole history so far, so twice as many steps means twice as many requests, each of them longer on average. Total input grows roughly with the square of the step count. Caching lowers the price of the resent part, but the history still grows.",
     },
   ]}
 />

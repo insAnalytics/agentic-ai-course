@@ -140,7 +140,8 @@ def web_search(query: str, max_results: int = 3) -> tuple:
         return ("Error: the search query is empty. Pass a few keywords describing what to find.", True, [])
     matches = [r for r in SEARCH_INDEX if all(w in (r["title"] + " " + r["snippet"]).lower() for w in words)]
     if not matches:
-        return (f"Error: no results for '{query}'. Try fewer or more general keywords.", True, [])
+        return (json.dumps({"query": query, "results": [], "total": 0,
+                            "note": "No results. Try fewer or more general keywords."}), False, [])
     shown = matches[:max_results]
     return (json.dumps({"query": query, "results": shown, "total": len(matches)}), False, [r["url"] for r in shown])
 
@@ -224,14 +225,17 @@ page = llm.seen[2][-1]["content"][0]["content"]
 assert page.count("</web_content>") == 1
 assert page.index("any name is allowed") < page.index("</web_content>")
 
-# 5. a text block before two calls in one response; results pair by id; failures are flagged
-a = ToolUseBlock(name="web_search", input={"query": "quantum espresso"})
+# 5. a text block before three calls in one response; results pair by id; only real failures are flagged
+a = ToolUseBlock(name="web_fetch", input={"url": "https://docs.example.com/missing"})
 b = ToolUseBlock(name="web_search", input={"query": "haiku pricing"})
-llm = ToolAwareClient([[TextBlock(text="Two searches."), a, b], [TextBlock(text="ok")]])
-run_agent(llm, "x")
+c = ToolUseBlock(name="web_search", input={"query": "quantum espresso"})
+llm = ToolAwareClient([[TextBlock(text="Checking."), a, b, c], [TextBlock(text="ok")]])
+run_agent(llm, "see https://docs.example.com/missing")
 results = llm.seen[1][-1]["content"]
-assert [x["tool_use_id"] for x in results] == [a.id, b.id]
+assert [x["tool_use_id"] for x in results] == [a.id, b.id, c.id]
 assert results[0]["is_error"] is True and "is_error" not in results[1]
+# a search that finds nothing succeeded: an empty result, not an error
+assert "is_error" not in results[2] and json.loads(results[2]["content"])["total"] == 0
 
 # 6. an unknown tool is answered locally, and max_steps still bounds the loop
 llm = ToolAwareClient([[ToolUseBlock(name="browser_click", input={"ref": "e1"})], [TextBlock(text="ok")]])
@@ -344,7 +348,7 @@ assert llm.call_count == 2 and "2" in out
 
 <MultiFileGradedExercise
   client:load
-  task={"Build a research agent with two tools, web_search and web_fetch, over the canned web in web.py. Text extraction is provided in extract.py. Both files are read-only. One of the pages is the injected page from this lesson's last concept, with an extra trick: it contains its own closing web_content tag. Complete research_agent.py. web_search(query, max_results): as in Concept 1, returning (content, is_error, urls_found), where urls_found lists the URLs of the results shown. as_untrusted(url, text): as in Concept 4. web_fetch(url, allowed_urls): returns (content, is_error). Refuse any URL not in allowed_urls, with an error. An unknown page is an error. Otherwise return the page's extracted text, wrapped with as_untrusted. run_agent(llm, user_message, max_steps): start allowed_urls with any https:// words in the user's message. Offer both tools on every request, and add each search's urls_found to allowed_urls. Run each call, answering unknown tool names locally as errors. Flag failures with is_error, and send all results back in one message. Return the text once a response has no calls, or a step-limit message if max_steps runs out."}
+  task={"Build a research agent with two tools, web_search and web_fetch, over the canned web in web.py. Text extraction is provided in extract.py. Both files are read-only. One of the pages is the injected page from this lesson's last concept, with an extra trick: it contains its own closing web_content tag. Complete research_agent.py. web_search(query, max_results): as in this lesson's first exercise (an empty query is an error; no matches is an empty result, not an error), returning (content, is_error, urls_found), where urls_found lists the URLs of the results shown. as_untrusted(url, text): as in this lesson's last exercise. web_fetch(url, allowed_urls): returns (content, is_error). Refuse any URL not in allowed_urls, with an error. An unknown page is an error. Otherwise return the page's extracted text, wrapped with as_untrusted. run_agent(llm, user_message, max_steps): start allowed_urls with any https:// words in the user's message. Offer both tools on every request, and add each search's urls_found to allowed_urls. Run each call, answering unknown tool names locally as errors. Flag failures with is_error, and send all results back in one message. Return the text once a response has no calls, or a step-limit message if max_steps runs out."}
   entry="research_agent.py"
   files={[
     { name: "web.py", readOnly: true, code: WEB_PY },

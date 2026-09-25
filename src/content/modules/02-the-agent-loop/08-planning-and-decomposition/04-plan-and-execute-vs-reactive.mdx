@@ -41,11 +41,14 @@ execution_client = FakeLLMClient(scripted_responses=[
 def run_plan_and_execute(planning_client, execution_client, goal: str) -> list:
     plan_response = planning_client.create(messages=[{"role": "user", "content": goal}])
     plan = plan_response.content[0]
-    print(f"plan has {len(plan.sub_tasks)} known steps -- bounded and predictable before execution starts")
+    print(f"plan has {len(plan.sub_tasks)} known sub-tasks -- the shape of the work is known before execution starts")
 
     results = []
     for sub_task in plan.sub_tasks:
-        response = execution_client.create(messages=[{"role": "user", "content": sub_task}])
+        # the executor gets the goal and what's been done so far, not just its own step
+        done = "; ".join(results) or "nothing yet"
+        step_message = f"Goal: {goal}\\nDone so far: {done}\\nYour step: {sub_task}"
+        response = execution_client.create(messages=[{"role": "user", "content": step_message}])
         results.append(response.content[0].text)
     return results
 
@@ -55,9 +58,25 @@ print(results)`} />
 (The updated fake client is already defined for this demo, and `PlanBlock`
 is the one from the goal decomposition concept, repeated so the demo runs on its own.)
 
-Before executing a single sub-task, the exact number of execution steps
-is already known — `2`, not "however many turn out to be needed, found
-out only by actually running the loop."
+Before executing a single sub-task, the shape of the work is already
+known: `2` sub-tasks, not "however many turn out to be needed, found out
+only by actually running the loop."
+
+Two details in the executor matter more than they look:
+
+- **Each step gets context, not just its own instruction.** The message
+  carries the goal and the results so far. A sub-task on its own is
+  often ambiguous or depends on an earlier result: "Configure the new
+  agent" means nothing unless the executor knows which agent step one
+  created. Sending a sub-task alone is a common way plan-and-execute
+  agents go wrong.
+- **One call per step is a simplification.** Here each sub-task is a
+  single model call, so the step count is exactly the plan's length. In
+  real plan-and-execute systems, each sub-task usually runs as its own
+  small agent loop, with tool calls until that step is done. The plan
+  bounds the number of *sub-tasks*, but each one still needs
+  [Lesson 6's guards](/02-the-agent-loop/06-termination-failure-and-control/00-intro/)
+  on its own loop.
 
 </Subsection>
 
@@ -106,13 +125,13 @@ does.
       question: "In the plan-and-execute demo, what's known *before* a single execution step actually runs?",
       options: [
         "Nothing — the number of steps is still unknown at that point",
-        "The exact number of execution steps required — genuine foresight, derived directly from the upfront plan",
+        "The number of sub-tasks the work is split into — genuine foresight, derived directly from the upfront plan",
         "The exact final answer, before any execution happens at all",
         "Only the first step; the rest remain unknown",
       ],
       correctIndex: 1,
       explanation:
-        "The plan lists every sub-task up front, so the step count (2 here) is known before any of them runs. What each step will produce isn't known yet, only how many there are.",
+        "The plan lists every sub-task up front, so their number (2 here) is known before any of them runs. What each will produce isn't known yet, and in a real executor each sub-task may take several model calls of its own.",
     },
     {
       question: "What does plan-and-execute trade away in exchange for predictability and foresight?",
@@ -130,13 +149,13 @@ does.
       question: "Why did Lesson 6 need real guards like `max_steps` as a defensive backstop, specifically for reactive loops?",
       options: [
         "Reactive loops call tools more slowly, so max_steps is there to prevent timeouts",
-        "A reactive loop has no upfront bound on its own step count, unlike plan-and-execute, which knows its step count in advance from the plan itself",
+        "A reactive loop has no upfront bound on its own step count, unlike plan-and-execute, which knows its number of sub-tasks in advance from the plan itself",
         "Plan-and-execute loops need exactly the same guards for the same reason",
         "`max_steps` was only ever relevant to Lesson 6's specific examples, not a general principle",
       ],
       correctIndex: 1,
       explanation:
-        "A reactive loop keeps going for as long as the model keeps requesting tools, with nothing bounding it in advance. A plan-and-execute loop runs at most as many steps as the plan has sub-tasks.",
+        "A reactive loop keeps going for as long as the model keeps requesting tools, with nothing bounding it in advance. A plan-and-execute agent knows its number of sub-tasks up front, though if each sub-task runs its own small loop, those loops still need guards.",
     },
   ]}
 />

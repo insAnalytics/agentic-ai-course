@@ -297,7 +297,7 @@ def run_partial_session(client, initial_messages: list) -> list:
     for call in tool_calls:
         tool_function = TOOL_REGISTRY[call.name]
         output = tool_function(**call.input)
-        results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+        results.append({"type": "tool_result", "tool_use_id": call.id, "content": str(output)})
     messages.append({"role": "user", "content": results})
     return messages
 

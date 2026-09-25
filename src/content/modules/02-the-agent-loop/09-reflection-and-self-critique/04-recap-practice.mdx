@@ -6,7 +6,7 @@ order: 4
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import GradedExercise from "../../../../components/lesson/GradedExercise";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
-import { REACT_FAKE_CLIENT } from "../../../../lib/fakeClient";
+import { REACT_FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
 
 export const PRE = REACT_FAKE_CLIENT + String.raw`
 class EvaluationBlock:
@@ -98,8 +98,8 @@ class EvaluationBlock:
 
 <GradedExercise
   client:load
-  task={'Reuse `run_evaluator_optimizer` from [the evaluator-optimizer pattern concept](/02-the-agent-loop/09-reflection-and-self-critique/01-the-evaluator-optimizer-pattern/#the-pattern-generate-evaluate-revise-repeat) to generate and validate a one-sentence description of the registry app\'s purpose, revising on failure, giving up cleanly after `max_attempts`. Implement `run_evaluator_optimizer(generation_client, evaluation_client, prompt, max_attempts=3)` exactly as before: each attempt asks `generation_client` (a text block) for a candidate, then asks `evaluation_client` (a block with `.passed` and `.critique`) to evaluate it, sending the candidate text in the message. Return the first passing candidate\'s text. When one fails, the next generation prompt must include the original prompt, the previous attempt, and its critique. If no candidate passes within `max_attempts`, return a string starting with `"Error"`.'}
-  starterCode={`def run_evaluator_optimizer(generation_client, evaluation_client, prompt: str, max_attempts: int = 3) -> str:
+  task={'Reuse `run_evaluator_optimizer` from [the evaluator-optimizer pattern concept](/02-the-agent-loop/09-reflection-and-self-critique/01-the-evaluator-optimizer-pattern/#the-pattern-generate-evaluate-revise-repeat) to generate and validate a one-sentence description of the registry app\'s purpose, revising on failure, giving up cleanly after `max_attempts`. Implement `run_evaluator_optimizer(generation_client, evaluation_client, prompt, criteria, max_attempts=3)` exactly as before: each attempt asks `generation_client` (a text block) for a candidate, then asks `evaluation_client` (a block with `.passed` and `.critique`) to evaluate it, sending the task (`prompt`), the `criteria` and the candidate text in one message. Return the first passing candidate\'s text. When one fails, the next generation prompt must include the original prompt, the previous attempt, and its critique. If no candidate passes within `max_attempts`, return a string starting with `"Error"`.'}
+  starterCode={`def run_evaluator_optimizer(generation_client, evaluation_client, prompt: str, criteria: str, max_attempts: int = 3) -> str:
     # TODO: generate a candidate, evaluate it, and either return it or feed
     # the critique into a revised prompt and try again, up to max_attempts.
     pass`}
@@ -114,17 +114,27 @@ eval_client = FakeLLMClient(scripted_responses=[
     [EvaluationBlock(passed=True)],
 ])
 
-result = run_evaluator_optimizer(gen_client, eval_client, "Describe the registry app in one sentence.")
+result = run_evaluator_optimizer(gen_client, eval_client, "Describe the registry app in one sentence.", "Says what the registry stores: agents, by name and model.")
 assert result == "A lightweight registry for tracking agent configurations by name and model."
 assert gen_client.call_count == 2
 assert eval_client.call_count == 2
+`,
+    PRE + RECORDING_CLIENT + String.raw`
+# the evaluator judges against the task and the criteria, not the candidate alone
+gen_client = RecordingClient(scripted_responses=[[TextBlock(text="A registry of agents.")]])
+eval_client = RecordingClient(scripted_responses=[[EvaluationBlock(passed=True)]])
+run_evaluator_optimizer(gen_client, eval_client, "Describe the registry app in one sentence.", "Mentions both name and model.")
+sent = eval_client.seen[0][-1]["content"]
+assert "A registry of agents." in sent
+assert "Describe the registry app in one sentence." in sent
+assert "Mentions both name and model." in sent
 `,
     PRE + String.raw`
 # a candidate that never passes gives up cleanly after max_attempts, with no infinite loop
 gen_client = FakeLLMClient(scripted_responses=[[TextBlock(text="It's a system.")] for _ in range(3)])
 eval_client = FakeLLMClient(scripted_responses=[[EvaluationBlock(passed=False, critique="still too vague")] for _ in range(3)])
 
-result = run_evaluator_optimizer(gen_client, eval_client, "Describe the registry app in one sentence.", max_attempts=3)
+result = run_evaluator_optimizer(gen_client, eval_client, "Describe the registry app in one sentence.", "Says what the registry stores.", max_attempts=3)
 assert isinstance(result, str) and result.startswith("Error")
 assert gen_client.call_count == 3
 assert eval_client.call_count == 3
@@ -132,13 +142,15 @@ assert eval_client.call_count == 3
   ]}
   hint={"Identical structure to the evaluator-optimizer pattern's function — nothing new to implement, only a new scenario to apply it to."}
   correctAnswer={{
-    code: `def run_evaluator_optimizer(generation_client, evaluation_client, prompt: str, max_attempts: int = 3) -> str:
+    code: `def run_evaluator_optimizer(generation_client, evaluation_client, prompt: str, criteria: str, max_attempts: int = 3) -> str:
     current_prompt = prompt
     for attempt in range(max_attempts):
         gen_response = generation_client.create(messages=[{"role": "user", "content": current_prompt}])
         candidate = gen_response.content[0].text
 
-        eval_response = evaluation_client.create(messages=[{"role": "user", "content": f"Evaluate this: {candidate}"}])
+        # the evaluator gets the task and explicit criteria, not just the candidate
+        eval_message = f"Task: {prompt}\\nCriteria: {criteria}\\nCandidate: {candidate}\\nDoes the candidate meet every criterion? If not, say which it misses and why."
+        eval_response = evaluation_client.create(messages=[{"role": "user", "content": eval_message}])
         evaluation = eval_response.content[0]
 
         if evaluation.passed:

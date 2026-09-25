@@ -68,7 +68,7 @@ plus an `on_event` parameter:
         for call in tool_calls:
             output = tools[call.name](**call.input)
             on_event({"step": step, "event": "tool_result", "tool": call.name, "output": output})
-            results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+            results.append({"type": "tool_result", "tool_use_id": call.id, "content": str(output)})
         messages.append({"role": "user", "content": results})
     return f"stopped after reaching the maximum of {max_steps} steps without a final answer"
 

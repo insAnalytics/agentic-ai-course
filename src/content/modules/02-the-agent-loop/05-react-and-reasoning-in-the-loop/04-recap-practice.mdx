@@ -79,13 +79,13 @@ export const PRE = REACT_FAKE_CLIENT + RECORDING_CLIENT;
       question: "What actually changed between the original text-parsed format and native tool calling?",
       options: [
         "Reasoning became unnecessary once native tool calling existed",
-        "Reasoning still happens via thinking blocks; the action itself became structured and guaranteed via constrained decoding, instead of requiring fragile text parsing",
+        "Reasoning still happens via thinking blocks; the action became a structured block in a trained format that the API parses, instead of free text the client had to parse",
         "Native tool calling removed the need for any action",
         "The two formats are functionally identical",
       ],
       correctIndex: 1,
       explanation:
-        "Only the action half changed. The reasoning is still generated text in a `thinking` block; the action is now a structured `tool_use` block that needs no parsing.",
+        "Only the action half changed. The reasoning is still generated text in a `thinking` block; the action is now a structured `tool_use` block that needs no parsing on your side. Strict mode can additionally guarantee its arguments match the schema, but that came later and is optional.",
     },
   ]}
 />
@@ -288,7 +288,7 @@ def run_agent_loop(client, messages):
         for call in tool_calls:
             tool_function = TOOL_REGISTRY[call.name]
             output = tool_function(**call.input)
-            results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+            results.append({"type": "tool_result", "tool_use_id": call.id, "content": str(output)})
         messages.append({"role": "user", "content": results})`,
     },
   ]}

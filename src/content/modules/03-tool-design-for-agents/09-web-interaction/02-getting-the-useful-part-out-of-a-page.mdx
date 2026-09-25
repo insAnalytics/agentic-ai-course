@@ -232,6 +232,57 @@ either drops the answer or buries it.
 
 </Subsection>
 
+<Subsection title="What plain text throws away: links and structure" variant="b">
+
+Plain text has one cost that matters a lot to an agent: **it drops every
+link.** The extractor keeps a link's words and throws away its `href`,
+so the model can read "see the naming FAQ" but has no URL to fetch next.
+For an agent that researches by following links from page to page, that
+ends the trail. Structure goes too: a heading is just another line, and
+the cells of a table run together, since `td` isn't in `BLOCK_TAGS`.
+
+That's why many real fetch tools return **Markdown** rather than plain
+text: `# Heading`, `[the naming FAQ](https://…)`, list bullets and
+tables all survive, and they cost only a few extra characters. Keeping
+links is a small change to the extractor: remember the `href` when an
+`<a>` opens, and write it out when it closes.
+
+<LiveDemo client:load code={`from html.parser import HTMLParser
+
+class LinkKeepingExtractor(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.parts, self.href = [], None
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "a":
+            self.href = dict(attrs).get("href")
+        elif tag in {"p", "h1", "li"}:
+            self.parts.append("\\n")
+
+    def handle_endtag(self, tag):
+        if tag == "a" and self.href:
+            self.parts.append(f" ({self.href})")   # the URL survives, right after the link's words
+            self.href = None
+
+    def handle_data(self, data):
+        self.parts.append(data.replace("\\n", " "))
+
+page = """<main><h1>Naming conventions</h1>
+<p>Names end in <code>_agent</code>. For edge cases, see
+<a href="https://wiki.example.com/registry/naming-faq">the naming FAQ</a>.</p></main>"""
+
+extractor = LinkKeepingExtractor()
+extractor.feed(page)
+print("".join(extractor.parts).strip())`} />
+
+There's a trade-off worth naming, though. Every kept URL is a place the
+model might go next, and on an untrusted page, the author chose those
+links. Which URLs an agent should be allowed to fetch at all is part of
+[this lesson's last concept](/03-tool-design-for-agents/09-web-interaction/04-everything-from-the-web-is-untrusted-input/).
+
+</Subsection>
+
 <CheckpointZone>
 
 <QuizGroup

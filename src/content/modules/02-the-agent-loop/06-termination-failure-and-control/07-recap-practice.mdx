@@ -150,7 +150,7 @@ TOOL_REGISTRY = {
 <MultiFileGradedExercise
   client:load
   entry="agent_loop.py"
-  task={'Implement both functions, combining every guard from this lesson into one hardened loop. `tools.py` is provided read-only: it\'s the `tools.py` from [Lesson 4\'s comprehensive sandbox](/02-the-agent-loop/04-writing-the-loop-by-hand/04-recap-practice/), except that `create_agent_entry` now raises a `ValueError` if the agent already exists, as in this lesson\'s tool-errors coverage. As in this lesson\'s demos, append the assistant\'s full response to `messages` exactly once per response, collect every `tool_use` block, and send all of their results back together in one follow-up message (each carrying its call\'s `id` as `tool_use_id`). `agent_loop.py` is the entry file.'}
+  task={'Implement both functions, combining every guard from this lesson into one hardened loop. `tools.py` is provided read-only: it\'s the `tools.py` from [Lesson 4\'s comprehensive sandbox](/02-the-agent-loop/04-writing-the-loop-by-hand/04-recap-practice/), except that `create_agent_entry` now raises a `ValueError` if the agent already exists, as in this lesson\'s tool-errors coverage. As in this lesson\'s demos, append the assistant\'s full response to `messages` exactly once per response, collect every `tool_use` block, and send all of their results back together in one follow-up message (each carrying its call\'s `id` as `tool_use_id`). A repeated call isn\'t run, but still gets an error `tool_result`; the repeat check and the goal-state check both run once that response\'s results are appended, so the loop never stops with a call left unanswered. `agent_loop.py` is the entry file.'}
   files={[
     { name: "tools.py", readOnly: true, code: TOOLS_PY },
     {
@@ -171,9 +171,11 @@ def run_agent_loop(client, messages, target_agent_name: str, max_steps: int = 10
     """
     TODO: the fully hardened loop — max_steps cap, repeated-action
     detection, dispatch via execute_tool_safely, and a goal-state check
-    (target_agent_name in tools._registry) after each tool call. Handle
-    every tool_use block in a response (not just the first), sending all
-    of their results back together in a single follow-up message.
+    (target_agent_name in tools._registry). Handle every tool_use block
+    in a response (not just the first), sending all of their results
+    back together in a single follow-up message. A repeated call isn't
+    run but still gets an error result, and both stopping checks run
+    only after that response's results have been appended.
     """
     pass`,
     },
@@ -334,8 +336,32 @@ assert client_10.call_count == 1
 results = tool_results(messages_10)
 assert len(results) == 2
 assert {r["tool_use_id"] for r in results} == {first.id, second.id}
+
+# the goal is met by the FIRST call in a response: the rest of that response still runs and is answered
+tools._registry.clear()
+first = ToolUseBlock(name="create_agent_entry", input={"name": "c", "model": "claude-haiku"})
+second = ToolUseBlock(name="check_agent_exists", input={"name": "d"})
+client_11 = FakeLLMClient(scripted_responses=[[first, second], [TextBlock(text="never reached")]])
+messages_11 = [{"role": "user", "content": "..."}]
+result_11 = quiet(run_agent_loop, client_11, messages_11, target_agent_name="c")
+assert "goal reached" in result_11
+assert client_11.call_count == 1
+assert messages_11[-1]["role"] == "user"
+assert [r["tool_use_id"] for r in messages_11[-1]["content"]] == [first.id, second.id]
+
+# a repeat alongside another call: both are answered before the loop stops
+tools._registry.clear()
+x = ToolUseBlock(name="check_agent_exists", input={"name": "x"})
+x_again = ToolUseBlock(name="check_agent_exists", input={"name": "x"})
+y = ToolUseBlock(name="check_agent_exists", input={"name": "y"})
+client_12 = FakeLLMClient(scripted_responses=[[x], [x_again, y], [TextBlock(text="never reached")]])
+messages_12 = [{"role": "user", "content": "..."}]
+result_12 = quiet(run_agent_loop, client_12, messages_12, target_agent_name="never")
+assert "repeated call" in result_12
+assert client_12.call_count == 2
+assert [r["tool_use_id"] for r in messages_12[-1]["content"]] == [x_again.id, y.id]
 `}
-  hint={"`execute_tool_safely` combines [the immediate catch for a definitive error](/02-the-agent-loop/06-termination-failure-and-control/05-tool-errors-as-observations/#the-fix-catch-it-and-let-the-model-see-it) with [the retry loop for a transient one](/02-the-agent-loop/06-termination-failure-and-control/06-timeouts-retry-and-graceful-give-up/#retry-with-exponential-backoff-the-same-pattern-a-new-context) — two separate `except` clauses inside the same `for attempt in range(max_retries):` loop. `run_agent_loop` combines [the `seen_calls` check](/02-the-agent-loop/06-termination-failure-and-control/03-repeated-action-detection/#a-sharper-signal-than-too-many-steps), [the goal-state check](/02-the-agent-loop/06-termination-failure-and-control/04-goal-state-termination-checks/#a-deterministic-check-on-real-state), and dispatch through `execute_tool_safely` instead of a bare function call — collecting every `tool_use` block in a response first, exactly as this lesson's demos do, checking each one for repetition and the goal state as it runs, and sending all of that step's results back together in one follow-up message."}
+  hint={"`execute_tool_safely` combines [the immediate catch for a definitive error](/02-the-agent-loop/06-termination-failure-and-control/05-tool-errors-as-observations/#the-fix-catch-it-and-let-the-model-see-it) with [the retry loop for a transient one](/02-the-agent-loop/06-termination-failure-and-control/06-timeouts-retry-and-graceful-give-up/#retry-with-exponential-backoff-the-same-pattern-a-new-context) — two separate `except` clauses inside the same `for attempt in range(max_retries):` loop. `run_agent_loop` combines [the `seen_calls` check](/02-the-agent-loop/06-termination-failure-and-control/03-repeated-action-detection/#a-sharper-signal-than-too-many-steps), [the goal-state check](/02-the-agent-loop/06-termination-failure-and-control/04-goal-state-termination-checks/#a-deterministic-check-on-real-state), and dispatch through `execute_tool_safely` instead of a bare function call — collecting every `tool_use` block in a response first, exactly as this lesson's demos do, checking each one for repetition before it runs, sending all of that step's results back together in one follow-up message, and only then checking whether to stop."}
   correctFiles={[
     { name: "tools.py", code: TOOLS_PY },
     {
@@ -365,24 +391,28 @@ def run_agent_loop(client, messages, target_agent_name: str, max_steps: int = 10
             return "".join(block.text for block in response.content if block.type == "text")
 
         results = []
+        repeated = None
         for call in tool_calls:
             current_call = (call.name, call.input)
             if current_call in seen_calls:
-                return f"stopped after detecting a repeated call to {call.name} with the same arguments"
+                repeated = call.name
+                results.append({"type": "tool_result", "tool_use_id": call.id, "content": "Error: this exact call was already made, so it wasn't run again"})
+                continue
             seen_calls.append(current_call)
 
             tool_function = TOOL_REGISTRY[call.name]
             output = execute_tool_safely(tool_function, **call.input)
-            results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
-
-            if target_agent_name in tools._registry:
-                messages.append({"role": "user", "content": results})
-                return f"goal reached: '{target_agent_name}' now exists in the registry"
+            results.append({"type": "tool_result", "tool_use_id": call.id, "content": str(output)})
         messages.append({"role": "user", "content": results})
+
+        if repeated:
+            return f"stopped after detecting a repeated call to {repeated} with the same arguments"
+        if target_agent_name in tools._registry:
+            return f"goal reached: '{target_agent_name}' now exists in the registry"
     return f"stopped after reaching the maximum of {max_steps} steps without a final answer"`,
     },
   ]}
-  explanation="Every guard from this lesson does real, distinct work in these scenarios: goal-state detection ends scenario 1 after a single call, before two entirely avoidable ones; repeated-action detection catches scenario 2's stuck pattern on the second identical call, not the twentieth; execute_tool_safely's immediate, no-retry `except Exception` branch handles scenario 3's genuine, definitive conflict cleanly, letting the model produce a real, sensible explanation instead of crashing the whole interaction; and the last two scenarios confirm the loop handles real response shapes correctly — a text remark before a tool call doesn't end the loop early, and two different tool calls arriving together both run and both get a paired result, with the goal check still firing the moment it's satisfied, whichever call in the batch satisfied it. This is the fully hardened version of the loop this entire lesson has been building toward."
+  explanation="Every guard from this lesson does real, distinct work in these scenarios: goal-state detection ends scenario 1 after a single call, before two entirely avoidable ones; repeated-action detection catches scenario 2's stuck pattern on the second identical call, not the twentieth; execute_tool_safely's immediate, no-retry `except Exception` branch handles scenario 3's genuine, definitive conflict cleanly, letting the model produce a real, sensible explanation instead of crashing the whole interaction; and the last two scenarios confirm the loop handles real response shapes correctly — a text remark before a tool call doesn't end the loop early, and two different tool calls arriving together both run and both get a paired result, with the goal check firing as soon as that response is fully answered, whichever call in it satisfied the goal. The last two scenarios check that no stop, goal or repeat, ever leaves a call in the conversation without its result. This is the fully hardened version of the loop this entire lesson has been building toward."
 />
 
 </CheckpointZone>

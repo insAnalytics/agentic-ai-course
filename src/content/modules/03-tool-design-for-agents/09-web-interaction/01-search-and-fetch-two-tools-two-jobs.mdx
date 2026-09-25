@@ -46,7 +46,9 @@ def web_search(query: str, max_results: int = 3) -> str:
     matches = [r for r in SEARCH_INDEX
                if all(w in (r["title"] + " " + r["snippet"]).lower() for w in words)]
     if not matches:
-        return f"Error: no results for '{query}'. Try fewer or more general keywords."
+        # finding nothing is a successful search: an empty result, with a hint for the next try
+        return json.dumps({"query": query, "results": [], "total": 0,
+                           "note": "No results. Try fewer or more general keywords."})
     return json.dumps({"query": query, "results": matches[:max_results], "total": len(matches)})
 `;
 
@@ -65,8 +67,12 @@ assert json.loads(web_search("agent"))["total"] == 3
 out = json.loads(web_search("agent", max_results=2))
 assert len(out["results"]) == 2 and out["total"] == 3
 
-# 4. no match, or an empty query, gives an actionable error instead of an empty list
-assert web_search("quantum espresso").startswith("Error:") and "quantum espresso" in web_search("quantum espresso")
+# 4. no match is a normal, empty result with a hint -- not an error
+out = json.loads(web_search("quantum espresso"))
+assert out["query"] == "quantum espresso" and out["results"] == [] and out["total"] == 0
+assert "general" in out["note"] or "fewer" in out["note"]
+
+# 5. an empty query is a genuinely invalid call, so it's an error
 assert web_search("   ").startswith("Error:")
 `;
 
@@ -165,8 +171,13 @@ applies. A few choices matter especially for web tools:
 - **Bound the results.** A search tool should return a handful of
   results, not fifty. More results means more tokens, and more
   near-duplicates for the model to choose between.
-- **Make "nothing found" useful.** An empty list gives the model nothing
-  to do next. "No results for X; try fewer or more general keywords" does.
+- **Make "nothing found" useful, but don't call it an error.** A search
+  that finds nothing worked; its answer is "nothing".
+  [As Lesson 3 put it](/03-tool-design-for-agents/03-shaping-what-tools-return/03-structured-results-and-useful-error-messages/#useful-error-messages-say-what-failed-and-what-to-do-next),
+  flagging it as an error tells the model its call was wrong. Return an
+  empty result with `"total": 0` and a note like "try fewer or more
+  general keywords", so the model has a next move. Save errors for calls
+  that really are invalid, like an empty query.
 - **Report fetch failures clearly.** A page can be missing, blocked or
   slow. Each should come back as a tool error the model can react to, with
   [the timeouts and retries from Lesson 4](/03-tool-design-for-agents/04-tools-that-call-the-outside-world/00-intro/)
@@ -211,13 +222,13 @@ bring web content into the model's context.
   {
     "question": "A search tool finds nothing. What should it return?",
     "options": [
-      "An empty list, so the model knows there were no results",
+      "A bare empty list, with nothing else",
       "The top results for a broader query, without saying so",
-      "A protocol error",
-      "A message saying nothing matched, with a suggestion like using fewer or more general keywords"
+      "An error saying the search failed, with a suggestion to try other keywords",
+      "An empty result with a total of 0 and a note suggesting fewer or more general keywords"
     ],
     "correctIndex": 3,
-    "explanation": "An empty list leaves the model nothing to act on. A useful error, as in Lesson 3, points at the next thing to try."
+    "explanation": "The search worked, so it isn't an error: flagging it as one tells the model its call was wrong. But a bare empty list gives it nothing to do next. An empty result plus a hint is both honest and actionable."
   },
   {
     "question": "What's a \"server tool\", like Anthropic's `web_search`?",
@@ -250,7 +261,7 @@ bring web content into the model's context.
 
 <MultiFileGradedExercise
   client:load
-  task={"Implement web_search(query, max_results=3) in search.py over the canned SEARCH_INDEX in web.py, which is read-only. Return a JSON string with query, results and total. A result matches if every word of the query appears, case-insensitively, in its title or snippet. results holds at most max_results matches, each with title, url and snippet, in index order. total is the number of matches before capping. An empty query (or one that's only spaces) returns an \"Error: ...\" string asking for keywords. No matches returns an \"Error: ...\" string that repeats the query and suggests broader keywords."}
+  task={"Implement web_search(query, max_results=3) in search.py over the canned SEARCH_INDEX in web.py, which is read-only. Return a JSON string with query, results and total. A result matches if every word of the query appears, case-insensitively, in its title or snippet. results holds at most max_results matches, each with title, url and snippet, in index order. total is the number of matches before capping. An empty query (or one that's only spaces) returns an \"Error: ...\" string asking for keywords. No matches is not an error: return the same JSON shape with an empty results list, total 0, and a note field suggesting fewer or more general keywords."}
   entry="search.py"
   files={[
     { name: "web.py", readOnly: true, code: WEB_STANDINS },
@@ -262,7 +273,7 @@ bring web content into the model's context.
     { name: "web.py", readOnly: true, code: WEB_STANDINS },
     { name: "search.py", code: SEARCH_REFERENCE },
   ]}
-  explanation={"Each rule is one of this module's tool-design habits: structured, bounded output with an honest total (tests 1 and 3), and errors that give the model a next step instead of an empty list (test 4). Real search APIs rank by relevance rather than requiring every word; the design of the tool around them is the same."}
+  explanation={"Each rule is one of this module's tool-design habits: structured, bounded output with an honest total (tests 1 and 3), an empty result that still gives the model a next step, without pretending the search failed (test 4), and a real error only for a call that's actually invalid (test 5). Real search APIs rank by relevance rather than requiring every word; the design of the tool around them is the same."}
 />
 
 </CheckpointZone>

@@ -97,7 +97,7 @@ def run_agent_loop_with_error_handling(client, messages, max_steps=10):
                 output = tool_function(**call.input)
             except Exception as e:
                 output = f"Error: {str(e)}"
-            results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+            results.append({"type": "tool_result", "tool_use_id": call.id, "content": str(output)})
         messages.append({"role": "user", "content": results})
     return f"stopped after reaching the maximum of {max_steps} steps without a final answer"
 

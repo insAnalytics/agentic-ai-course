@@ -41,8 +41,8 @@ announcing it's done?
 
 If the task's success condition is something the code can check
 directly — did a specific entry actually get created, does a specific
-file now exist — that check can run after any state-changing tool call,
-terminating the loop the *moment* the real goal is satisfied, rather
+file now exist — that check can run after each step's tool calls,
+terminating the loop as soon as the real goal is satisfied, rather
 than waiting for the model to eventually produce a `text` block saying
 so:
 
@@ -69,19 +69,24 @@ def run_agent_loop_with_goal_check(client, messages, target_agent_name: str, max
             return "".join(block.text for block in response.content if block.type == "text")
 
         results = []
+        repeated = None
         for call in tool_calls:
             current_call = (call.name, call.input)
             if current_call in seen_calls:
-                return f"stopped after detecting a repeated call to {call.name} with the same arguments"
+                repeated = call.name
+                results.append({"type": "tool_result", "tool_use_id": call.id, "content": "Error: this exact call was already made, so it wasn't run again"})
+                continue
             seen_calls.append(current_call)
             tool_function = TOOL_REGISTRY[call.name]
             output = tool_function(**call.input)
-            results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
-
-            if target_agent_name in tools._registry:
-                messages.append({"role": "user", "content": results})
-                return f"goal reached: '{target_agent_name}' now exists in the registry"
+            results.append({"type": "tool_result", "tool_use_id": call.id, "content": str(output)})
         messages.append({"role": "user", "content": results})
+
+        # both checks run once every call in this response has its result
+        if repeated:
+            return f"stopped after detecting a repeated call to {repeated} with the same arguments"
+        if target_agent_name in tools._registry:
+            return f"goal reached: '{target_agent_name}' now exists in the registry"
     return f"stopped after reaching the maximum of {max_steps} steps without a final answer"
 
 client = FakeLLMClient(scripted_responses=[
@@ -108,6 +113,20 @@ since `target_agent_name in tools._registry` already becomes true
 immediately after the very first tool call. Two entirely avoidable
 calls never happen at all: a real efficiency gain, not just a
 correctness one.
+
+The check runs once per response, after every call in that response has
+its result, for the same reason as
+[the repeat check](/02-the-agent-loop/06-termination-failure-and-control/03-repeated-action-detection/#a-sharper-signal-than-too-many-steps):
+stopping halfway through a response would leave its remaining calls
+unanswered. The cost is small, since at most the rest of one response's
+calls run after the goal is met.
+
+One trade-off to be aware of: when the goal check ends the run, the
+user gets the code's own message, not a reply written by the model.
+That's usually what you want for an automated task. If a person is
+waiting for an answer, a common variation is to let the model take one
+more turn to write the final reply, with the goal check deciding only
+that no further tools should run.
 
 </Subsection>
 

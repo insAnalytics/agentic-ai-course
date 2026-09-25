@@ -53,13 +53,15 @@ evaluation_client = FakeLLMClient(scripted_responses=[
     [EvaluationBlock(passed=True)],
 ])
 
-def run_evaluator_optimizer(generation_client, evaluation_client, prompt: str, max_attempts: int = 3) -> str:
+def run_evaluator_optimizer(generation_client, evaluation_client, prompt: str, criteria: str, max_attempts: int = 3) -> str:
     current_prompt = prompt
     for attempt in range(max_attempts):
         gen_response = generation_client.create(messages=[{"role": "user", "content": current_prompt}])
         candidate = gen_response.content[0].text
 
-        eval_response = evaluation_client.create(messages=[{"role": "user", "content": f"Evaluate this: {candidate}"}])
+        # the evaluator gets the task and explicit criteria, not just the candidate
+        eval_message = f"Task: {prompt}\\nCriteria: {criteria}\\nCandidate: {candidate}\\nDoes the candidate meet every criterion? If not, say which it misses and why."
+        eval_response = evaluation_client.create(messages=[{"role": "user", "content": eval_message}])
         evaluation = eval_response.content[0]
 
         if evaluation.passed:
@@ -68,7 +70,11 @@ def run_evaluator_optimizer(generation_client, evaluation_client, prompt: str, m
         current_prompt = f"{prompt}\\n\\nPrevious attempt: {candidate}\\nCritique: {evaluation.critique}\\nPlease revise."
     return f"Error: no passing candidate produced after {max_attempts} attempts"
 
-result = run_evaluator_optimizer(generation_client, evaluation_client, "What did Einstein win the Nobel Prize for?")
+result = run_evaluator_optimizer(
+    generation_client, evaluation_client,
+    "What did Einstein win the Nobel Prize for?",
+    criteria="Factually accurate, and answers the question directly.",
+)
 print(result)`} />
 
 *(This demo's scripted output is fixed by design — it illustrates the
@@ -99,6 +105,72 @@ tool-checked facts — is a genuinely different, more robust defense
 against that specific category of problem, covered properly in later
 modules (the RAG Systems module), not something reflection alone was
 ever going to solve.
+
+</Subsection>
+
+<Subsection title="The strongest check an agent has: feedback from the world" variant="b">
+
+There's a kind of second pass that doesn't share the model's blind
+spots at all, because it doesn't ask a model anything: **check the work
+by doing something with it.** Run the code's tests. Execute the query
+and look at what comes back. Call the API and see whether the booking
+exists. The result comes from the world, not from the model's opinion of
+its own output, so a gap in the model's knowledge can't quietly approve
+it.
+
+This is exactly what an agent can do and a plain chat model can't,
+because an agent has tools. The loop has the same shape as the
+evaluator-optimizer pattern; only the evaluator changes:
+
+<LiveDemo client:load setupCode={REACT_FAKE_CLIENT} code={`def run_tests(code: str) -> str | None:
+    """Run the candidate for real. Returns None if every check passes, or the failure."""
+    namespace = {}
+    try:
+        exec(code, namespace)
+        assert namespace["price_with_tax"](100) == 120, "price_with_tax(100) should be 120"
+        assert namespace["price_with_tax"](0) == 0, "price_with_tax(0) should be 0"
+    except Exception as e:
+        return f"{type(e).__name__}: {e}"
+    return None
+
+def generate_and_test(generation_client, prompt: str, max_attempts: int = 3) -> str:
+    current_prompt = prompt
+    for attempt in range(max_attempts):
+        candidate = generation_client.create(messages=[{"role": "user", "content": current_prompt}]).content[0].text
+        failure = run_tests(candidate)      # the world is the evaluator
+        if failure is None:
+            return candidate
+        print(f"attempt {attempt + 1} failed its tests: {failure}")
+        current_prompt = f"{prompt}\\n\\nPrevious attempt:\\n{candidate}\\nTest failure: {failure}\\nPlease fix it."
+    return f"Error: no candidate passed the tests after {max_attempts} attempts"
+
+generation_client = FakeLLMClient(scripted_responses=[
+    [TextBlock(text="def price_with_tax(price):\\n    return price * 0.2")],
+    [TextBlock(text="def price_with_tax(price):\\n    return price * 1.2")],
+])
+print(generate_and_test(generation_client, "Write price_with_tax(price), adding 20% tax."))`} />
+
+*(Scripted, as before. `exec` here stands in for a proper sandbox,
+which [Module 3's code execution lesson](/03-tool-design-for-agents/08-code-execution-as-a-tool/00-intro/)
+covers.)*
+
+The first attempt returned the tax instead of the price with tax. A
+model judging its own code might well have read it and approved it. The
+test didn't need to understand anything: 100 went in, 20 came out, and
+the failure message says precisely what was expected. That specific,
+factual critique is also a much better thing to revise from than a
+model's general impression.
+
+Research backs up how much this matters. Huang et al. (2023), "Large
+Language Models Cannot Self-Correct Reasoning Yet", found that asking a
+model to review and correct its own reasoning, *without* any feedback
+from outside, often didn't improve its answers and sometimes made them
+worse. The self-correction results that hold up tend to have an external
+signal behind them: tests, a tool's output, a checkable fact. So when an
+agent's work can be checked by doing, prefer that to asking. Keep model
+judges for the qualities nothing can execute, like whether a summary
+reads well. And remember that the world is only as good a judge as the
+checks you write: code that passes weak tests is still wrong.
 
 </Subsection>
 
@@ -154,6 +226,18 @@ ever going to solve.
       correctIndex: 1,
       explanation:
         "Running the same loop more times doesn't introduce any new information — the shared blind spot persists. Retrieval and tool-checking bring in a source of truth outside the model's own learned patterns.",
+    },
+    {
+      question: "An agent writes a function. Which second pass is least likely to share the model's own blind spots?",
+      options: [
+        "Asking the same model to review the code carefully",
+        "Running the function's tests and feeding any failure back",
+        "Asking a different model to review the code",
+        "Asking the model to rate its confidence in the code",
+      ],
+      correctIndex: 1,
+      explanation:
+        "A different model helps but shares many blind spots, and a confidence rating is still the model's opinion. Running the tests gets its answer from the world, so a gap in the model's knowledge can't approve the mistake.",
     },
   ]}
 />
