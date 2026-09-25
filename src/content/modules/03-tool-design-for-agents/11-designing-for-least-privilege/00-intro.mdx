@@ -1,0 +1,32 @@
+---
+title: "Intro"
+lesson: "11-designing-for-least-privilege"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Reduce an agent's blast radius by choosing narrow, purpose-built tools over broad ones",
+    "Separate read tools from write tools, and put an approval gate in front of destructive or outbound actions",
+    "Bound a tool's reach with an allowlist, and give each tool only the scoped credential its job needs",
+    "State the principle of least privilege and apply it to a real agent's toolset",
+  ]}
+/>
+
+<WhyItMatters>
+  [The last lesson](/03-tool-design-for-agents/10-the-tool-threat-model/00-intro/)
+  reached an uncomfortable conclusion: prompt injection can't be reliably
+  prevented at the model, so an agent has to stay safe even when the model
+  is fooled. This lesson is how. Every technique here is a way to make an
+  agent's worst case smaller, and every one lives in your code, not in a
+  prompt, so it holds whatever the model is talked into trying.
+
+  None of them is exotic. Narrow tools, split reads and writes, approval
+  gates, allowlists and scoped credentials are the same ideas that have
+  secured ordinary software for decades, applied to a system whose "user"
+  can now be steered by any text it reads. Put together, they turn "the
+  model might be tricked" from a catastrophe into a contained, survivable
+  event, which is the whole goal of the module's security arc.
+</WhyItMatters>

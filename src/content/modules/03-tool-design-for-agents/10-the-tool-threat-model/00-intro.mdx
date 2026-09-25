@@ -1,0 +1,31 @@
+---
+title: "Intro"
+lesson: "10-the-tool-threat-model"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Explain prompt injection, and why indirect injection through tool results is the one that matters for agents",
+    "Explain why a model can't be relied on as a security boundary, and why mitigations lower the odds without setting a limit",
+    "Identify the lethal trifecta in an agent's toolset, and explain why cutting one leg is the structural fix",
+    "Reason about an agent's blast radius, and treat tool design as a security decision, not only a usability one",
+  ]}
+/>
+
+<WhyItMatters>
+  Every tool in this module gave an agent a new capability. This lesson is
+  the other side of that: every capability an agent has is also a
+  capability an attacker can try to borrow, using nothing but text the
+  agent reads. That's not a rare edge case. Any agent that reads a web
+  page, an email, a ticket or a document is exposed to it, which is nearly
+  every useful agent.
+
+  The uncomfortable core of the lesson is that this can't be fully
+  prevented at the model. A well-built agent assumes the model can be
+  fooled and is built so that it stays safe anyway. That mindset, thinking
+  about what a compromised agent could do and limiting it in advance, is
+  what the whole next lesson turns into concrete technique.
+</WhyItMatters>

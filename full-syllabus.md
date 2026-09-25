@@ -2244,10 +2244,12 @@ below describe each lesson as first converted; see the git log
    neither is built. The hint links Concept 3's allowlist subsection
    and Concept 2's routed-loop subsection.
 
-8. **Code Execution as a Tool** — Building
-   Working title (folder `08-code-execution-as-a-tool`); no bookends
-   mockup yet, so the title, intro and recap are still owed. All four
-   concepts are drafted: (1) the most powerful tool and the most
+8. **Code Execution as a Tool** — Locked
+   Title confirmed by the bookends mockup; intro and recap
+   (`05-recap-practice`, 8-question quiz plus a two-file `sandbox.py` /
+   `agent.py` comprehensive exercise with a `sys.settrace` step-budget
+   timeout, verified in Pyodide 0.26.4: reference passes 7/7, starter
+   fails) added. All four concepts are drafted: (1) the most powerful tool and the most
    dangerous, (2) why restricted `exec` isn't a sandbox, (3) real
    isolation and the tool wrapper, (4) WebAssembly and Pyodide, with
    the graded `code_execution_tool` exercise. Verified in Pyodide
@@ -2284,6 +2286,116 @@ below describe each lesson as first converted; see the git log
    callback now points at Lesson 0.3's modules concept. The graded
    exercise moved from Concept 4 to Concept 3, where the wrapper is
    taught (still 0/6 starter, 6/6 reference in Chromium).
+
+9. **Web Interaction** — Locked
+   Title confirmed by the bookends mockup (folder renamed from the working
+   name `09-web-access-for-agents` to `09-web-interaction`). Four concepts
+   plus intro and recap: (1) search and fetch as two tools with two jobs,
+   with a graded `web_search` exercise; (2) getting the useful part out of a
+   page with an `HTMLParser` extractor, with a graded `<main>`-preferring
+   extractor exercise; (3) browsers and computer use (accessibility
+   snapshots vs screenshots, and the API > fetch > browser > computer-use
+   ladder), quiz only; (4) everything from the web is untrusted input, with
+   a live injection demo and a graded `as_untrusted` wrapper exercise.
+   The recap has an 8-question quiz and a three-file research-agent
+   exercise (search, fetch, URL allowlist, labeling). The concept 1-2
+   canned web lives in `src/lib/webStandins.ts`. Verified in Pyodide
+   0.26.4: every reference passes and every starter fails; dropping the
+   allowlist, the user-URL seeding, the `.update(found)` step, or the
+   closing-tag neutralising each fail the right test. **Finding:** in the
+   comprehensive exercise's injected page, the mockup wrote the page's own
+   `</web_content>` as a literal tag, but `HTMLParser` treats that as an
+   end tag and `extract_text` silently drops it, so test 4 passed even
+   without neutralising. The page now writes it as `&lt;/web_content&gt;`
+   (which `HTMLParser` decodes back into text), so the test really needs
+   the fix. The mockup's demo imported a nonexistent `c2core`; the
+   extractor is inlined. References to the tool-threat-model and
+   least-privilege lessons (the mockup's "Lesson 10" and "Lesson 11") are
+   plain text. Callbacks link to verified anchors.
+
+10. **The Tool Threat Model** — Locked
+   Working title (folder `10-the-tool-threat-model`), taken from Lessons
+   3.8 and 3.9's forward references, all four concepts and the bookends
+   now drafted. Concept 1 drafted: prompt injection
+   through tool results (direct vs indirect injection, and a live
+   scripted-model ticket demo where an injected postscript changes the
+   registry), with a 4-question quiz and no graded exercise, per its
+   mockup. The demo's output matches the mockup exactly when run in
+   Pyodide 0.26.4. Callbacks link to verified pages in Lessons 3.9 and
+   3.8 and Module 2's ReAct concept.
+   Concept 2 drafted: why the model can't be the security boundary
+   (parameterized SQL queries as the structural fix LLMs lack, the request
+   shown as one token sequence, mitigations that lower but never zero the
+   rate, and the shift to "how much harm can a fooled model do"). Three live
+   read-only demos, all matching the mockup's output in Pyodide 0.26.4
+   (the `sqlite3` one loads through `loadPackagesFromImports`), a 5-question
+   quiz, no graded exercise. The next concept and the least-privilege
+   lesson are plain text, as neither is built; other callbacks link to
+   verified anchors.
+   Concept 3 drafted: the dangerous combination (the lethal trifecta of private data,
+   untrusted content and an external channel, a scripted inbox-triage demo where
+   an injected newsletter line exfiltrates a confidential email, and cutting a leg
+   as the structural fix). One live read-only demo matching the mockup's output in
+   Pyodide 0.26.4, a 5-question quiz, and a graded `has_lethal_trifecta` audit exercise
+   (5 hidden tests; the reference passes all, and an always-true and an
+   `or`-instead-of-`and` version each fail the right tests). The least-privilege
+   lesson is plain text; other callbacks link to verified anchors.
+   Concept 4 drafted: thinking in terms of the blast radius (the worst case of a
+   fully compromised agent, set by its tools and each tool's reach; the same
+   injected "delete everything" against a read-only and an admin agent; matching
+   the radius to the agent's exposure to untrusted content). One live read-only
+   demo matching the mockup's output in Pyodide 0.26.4, a 5-question quiz, no
+   graded exercise. The least-privilege lesson is plain text; other
+   callbacks link to verified anchors.
+   Bookends drafted: intro (4 outcomes, why it matters), an 8-question
+   comprehensive quiz, and a graded two-file (`catalog.py` read-only,
+   `audit.py` entry) pre-ship toolset audit with 5 hidden tests. Verified in
+   Pyodide 0.26.4: the reference passes; the starter and four wrong versions
+   (no destructive list, no cut, `any` instead of `all`, counts instead of
+   names) each fail. Lesson 10 is now fully Locked.
+
+11. **Designing for Least Privilege** — Locked
+   Working title (folder `11-designing-for-least-privilege`), taken from
+   Lesson 3.10's forward references, all three concepts and the bookends
+   now drafted. Concept 1 drafted: narrow tools shrink
+   the blast radius (a broad `run_query` dumping the whole registry versus
+   purpose-built `get_agent_model`/`list_agent_names`, and the flexibility
+   cost of narrowing). Two live read-only demos matching the mockup's output
+   in Pyodide 0.26.4, a 4-question quiz, and a graded exercise replacing the
+   broad tool with two narrow ones (4 hidden tests; the reference passes all,
+   and versions that leak the row, add a field parameter, crash on a missing
+   agent or leak the list each fail the right tests; the starter only passes
+   the signature test, as in the mockup). Callbacks link to verified anchors.
+   Concept 2 drafted: separate reads from writes, and gate the writes (the
+   read/write split, and a code-level approval gate keyed to the specific
+   call id). Two live read-only demos matching the mockup's output in
+   Pyodide 0.26.4, a 5-question quiz, and a graded `execute_tool` approval-gate
+   exercise. The mockup's 5 hidden tests never exercised the "a tool that
+   raises is caught" case its task promises, so a 6th test was added for it
+   (without it a submission with no try/except passed). The reference passes
+   all 6; per-tool approval, no gate and no try/except each fail the right
+   tests. Callbacks link to verified pages in Module 2 and Lessons 3.10/3.11.
+   Concept 3 drafted: allowlists and per-tool credentials (an allowlisted
+   send-email tool, scoped credentials one layer below the tool, and the
+   principle of least privilege named). Two live read-only demos matching the
+   mockup's output in Pyodide 0.26.4, a 5-question quiz, and a graded
+   `make_send_email` allowlist exercise (4 hidden tests, each rebuilding its
+   own outbox; the reference passes all, and no-check, sends-anyway,
+   no-list-in-error and shared-global-list versions each fail the right
+   tests). The mockup's forward reference to the production-security module
+   is plain text, as that module isn't built.
+   Bookends drafted: intro (4 outcomes, why it matters), an 8-question
+   comprehensive quiz, and a graded two-file (`backend.py` read-only,
+   `agent.py` entry) least-privilege registry agent combining narrow tools,
+   the approval gate, the recipient allowlist and scoped access objects
+   inside the collect-every-call loop. The hidden tests use the fake
+   client and ToolAwareClient. Verified in Pyodide 0.26.4 as multi-file:
+   the reference passes; the starter and versions with no gate, no
+   allowlist, a leaking read tool, a missing is_error flag, and a loop that
+   handles only the first call each fail. The mockup's 7 tests didn't catch
+   a per-tool (not per-call) approval, so an 8th test (approving a
+   different call id must not release a delete) was added. Lesson 11 is now
+   fully Locked; it is the last Module 3 lesson built so far.
 
 ---
 
