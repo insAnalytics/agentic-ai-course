@@ -2315,6 +2315,14 @@ below describe each lesson as first converted; see the git log
    quiz, no graded exercise. The next concept and the least-privilege
    lesson are plain text, as neither is built; other callbacks link to
    verified anchors.
+   Concept 3 drafted: the dangerous combination (the lethal trifecta of private data,
+   untrusted content and an external channel, a scripted inbox-triage demo where
+   an injected newsletter line exfiltrates a confidential email, and cutting a leg
+   as the structural fix). One live read-only demo matching the mockup's output in
+   Pyodide 0.26.4, a 5-question quiz, and a graded `has_lethal_trifecta` audit exercise
+   (5 hidden tests; the reference passes all, and an always-true and an
+   `or`-instead-of-`and` version each fail the right tests). The least-privilege
+   lesson is plain text; other callbacks link to verified anchors.
 
 ---
 
