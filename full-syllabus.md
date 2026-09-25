@@ -2270,21 +2270,31 @@ below describe each lesson as first converted; see the git log
    and 3.4, Module 0's Docker lesson, Module 1's prompt-injection
    subsection and Module 2's tool-errors subsection.
 
-9. **Web Access for Agents** — Building
-   Working title (folder `09-web-access-for-agents`); no bookends mockup
-   yet, so the title, intro and recap are still owed. Concepts 1-2 are
-   drafted: (1) search and fetch as two tools with two jobs, with a graded
-   `web_search` exercise; (2) getting the useful part out of a page with an
-   `HTMLParser` text extractor, with a graded `<main>`-preferring
-   extractor exercise. The lesson's canned "web" (`SEARCH_INDEX`, `PAGES`)
-   lives in `src/lib/webStandins.ts`, loaded as `setupCode` for demos and as
-   a read-only `web.py` tab for the exercises. Verified in Pyodide 0.26.4:
-   both references pass and both starters fail; capping `total`, matching
-   any word instead of every word, ignoring `<main>` and skipping
-   truncation each fail the right test. Keeping newlines inside paragraph text also fails test 4. **Finding:** the mockup's demo imported
-   `c2core`, which doesn't exist here; the extractor is inlined in the demo.
-   Callbacks link to verified anchors in Lessons 3.3, 3.4, 3.1, Module 1's
-   knowledge-cutoff concept, and Concept 1's server-tools subsection.
+9. **Web Interaction** — Locked
+   Title confirmed by the bookends mockup (folder renamed from the working
+   name `09-web-access-for-agents` to `09-web-interaction`). Four concepts
+   plus intro and recap: (1) search and fetch as two tools with two jobs,
+   with a graded `web_search` exercise; (2) getting the useful part out of a
+   page with an `HTMLParser` extractor, with a graded `<main>`-preferring
+   extractor exercise; (3) browsers and computer use (accessibility
+   snapshots vs screenshots, and the API > fetch > browser > computer-use
+   ladder), quiz only; (4) everything from the web is untrusted input, with
+   a live injection demo and a graded `as_untrusted` wrapper exercise.
+   The recap has an 8-question quiz and a three-file research-agent
+   exercise (search, fetch, URL allowlist, labeling). The concept 1-2
+   canned web lives in `src/lib/webStandins.ts`. Verified in Pyodide
+   0.26.4: every reference passes and every starter fails; dropping the
+   allowlist, the user-URL seeding, the `.update(found)` step, or the
+   closing-tag neutralising each fail the right test. **Finding:** in the
+   comprehensive exercise's injected page, the mockup wrote the page's own
+   `</web_content>` as a literal tag, but `HTMLParser` treats that as an
+   end tag and `extract_text` silently drops it, so test 4 passed even
+   without neutralising. The page now writes it as `&lt;/web_content&gt;`
+   (which `HTMLParser` decodes back into text), so the test really needs
+   the fix. The mockup's demo imported a nonexistent `c2core`; the
+   extractor is inlined. References to the tool-threat-model and
+   least-privilege lessons (the mockup's "Lesson 10" and "Lesson 11") are
+   plain text. Callbacks link to verified anchors.
 
 ---
 

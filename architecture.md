@@ -1511,7 +1511,7 @@ another. As the mockup itself notes, nothing forces the backoff sleep to
 happen outside the semaphore. The explanation drops the mockup's
 "test N" references, since learners never see the tests.
 
-**Module 3 Lesson 9 — canned web and multi-file graded exercises.**
+**Module 3 Lesson 9 (Web Interaction) — canned web and multi-file graded exercises.**
 `src/lib/webStandins.ts` exports `WEB_STANDINS`: `SEARCH_INDEX` and `PAGES`,
 a small fake slice of the web (the sandbox can't make network requests).
 Demos load it as `setupCode`; the graded exercises ship it as a read-only
