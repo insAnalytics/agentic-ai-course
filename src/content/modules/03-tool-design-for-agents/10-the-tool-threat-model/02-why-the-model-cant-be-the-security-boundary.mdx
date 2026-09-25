@@ -109,10 +109,10 @@ attacker who fails can simply try again, rephrased:
 simplification that makes the point.*
 
 A filter that stops 95% of attempts sounds strong, and against an
-attacker who keeps trying, it's a matter of time. This is the reason
-Simon Willison describes a guardrail that stops 95% of attacks as a
-failing grade: in most of security, "usually" isn't the standard. A
-parameterized query stops 100% of SQL injections, not 95%.
+attacker who keeps trying, it's a matter of time. Simon Willison puts it
+bluntly: in application security, 99% is a failing grade. In most of
+security, "usually" isn't the standard. A parameterized query stops 100%
+of SQL injections, not 95%, or even 99%.
 
 </Subsection>
 
@@ -146,54 +146,54 @@ attacks rarer. They're just not the thing to rely on.
   {
     "question": "Why does a parameterized SQL query fully prevent SQL injection?",
     "options": [
-      "It filters out dangerous characters from the typed text",
-      "The command and the data travel separately, so the data can never be treated as part of the command",
-      "It limits how long the typed text can be",
-      "It runs the query in a sandbox"
+      "It escapes quote characters in the typed text before running it",
+      "Command and data travel separately, so data never runs as a command",
+      "It rejects typed text containing SQL keywords such as OR or SELECT",
+      "It runs the query as a database user that's only allowed to read rows"
     ],
     "correctIndex": 1,
-    "explanation": "The fix is structural. No wording of the data can move it to the command side, which is exactly what LLMs lack."
+    "explanation": "The fix is structural, not a filter. No wording of the data can move it to the command side, which is exactly what LLMs lack. Escaping and keyword checks are filters, and filters can be worked around."
   },
   {
     "question": "What's the equivalent of a parameterized query for a language model?",
     "options": [
-      "Putting untrusted content in a `tool_result` message",
-      "Wrapping untrusted content in labeled tags",
-      "A system prompt telling the model to ignore instructions in data",
-      "There isn't one today: everything reaches the model as one sequence of tokens, and roles are learned tendencies, not enforced boundaries"
+      "Putting untrusted content in a tool_result message instead of a user one",
+      "Wrapping untrusted content in labeled tags the model is told not to obey",
+      "A system prompt that tells the model to ignore instructions in data",
+      "Nothing yet: all of it reaches the model as one sequence of tokens"
     ],
     "correctIndex": 3,
-    "explanation": "The other three are useful mitigations. None separates data from instructions the way a `?` placeholder does."
+    "explanation": "The other three are useful mitigations, and roles are learned tendencies, not enforced boundaries. None separates data from instructions the way a `?` placeholder does."
   },
   {
     "question": "A filter blocks 95% of injection attempts. Why is that weak protection against a determined attacker?",
     "options": [
-      "The attacker can retry with rephrased attempts, and the chance that at least one gets through climbs quickly",
-      "Filters slow the agent down too much",
-      "95% is below the legal requirement",
-      "Filters only work on web pages"
+      "Each retry is another chance, so one getting through becomes likely",
+      "A 5% miss rate means 5% of the agent's actions are attacker-controlled",
+      "Attackers can encode the text, and filters only read plain language",
+      "Attackers can read the filter's rules and write around them every time"
     ],
     "correctIndex": 0,
-    "explanation": "Security is judged by the worst case. Against repeated attempts, \"usually blocked\" becomes \"eventually gets through\"."
+    "explanation": "Security is judged by the worst case. Against repeated attempts, \"usually blocked\" becomes \"eventually gets through\", which is what the demo's numbers show."
   },
   {
     "question": "Given that injection can't be reliably prevented, what should an agent's safety be designed around?",
     "options": [
-      "Finding a better system prompt",
-      "Using only one model provider",
-      "Limiting how much harm a fooled model can do, through its tools and permissions",
-      "Hiding tool results from the model"
+      "Finding a system prompt wording that the model reliably obeys",
+      "Limiting what a fooled model can do, through tools and permissions",
+      "Picking the model provider with the best injection resistance",
+      "Hiding tool results from the model until a filter has cleared them"
     ],
-    "correctIndex": 2,
+    "correctIndex": 1,
     "explanation": "Tools and permissions are ordinary code you control, so limits on them hold regardless of what the model is persuaded to try."
   },
   {
     "question": "Are system prompts, labeling, injection-resistant models and detection filters worth using, then?",
     "options": [
-      "No, since none of them fully works",
-      "Only detection filters are worth using",
-      "Yes, as long as you use all four, since together they reach 100%",
-      "Yes: they make attacks rarer, but shouldn't be relied on as the thing that keeps the agent safe"
+      "No: since none of them fully works, they only add false confidence",
+      "Only detection filters, since the others depend on the model itself",
+      "Yes, and using all four together closes the gap to a real boundary",
+      "Yes: they make attacks rarer, but can't be what keeps the agent safe"
     ],
     "correctIndex": 3,
     "explanation": "Layering mitigations lowers the rate. It still doesn't create a hard boundary, so the structural limits from Lesson 11 are what bound the harm."

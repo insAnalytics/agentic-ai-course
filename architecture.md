@@ -1562,6 +1562,39 @@ demo's functions by passing them as part of its `setupCode`: Concept 2
 splits its routed-loop demo into `ROUTED_FUNCS` (definitions) plus the
 run, and its second demo uses `BASE_SETUP + ROUTED_FUNCS`.
 
+**Lessons 3.8, 3.10 and 3.11 review pass (findings):**
+
+- **Pyodide runs on the page's main thread** (`window.loadPyodide` in
+  `src/lib/pyodide.ts`), so learner code has the `js` bridge: page
+  DOM, page storage and the browser's `fetch`. Lesson 3.8 Concept 4
+  teaches this as "what this page hands in". Never describe the
+  in-browser sandbox as having "no network" or reaching nothing. If the
+  site ever holds anything sensitive, move Pyodide into a Web Worker
+  first.
+- **`sqlite3` works in LiveDemos**. `loadPackagesFromImports` fetches
+  Pyodide's `sqlite3` package on first import. Lessons 3.10 and 3.11
+  use it for real queries, and `file:...?mode=ro` with `uri=True` gives
+  a genuinely read-only connection (verified in Chromium: "attempt to
+  write a readonly database"). Pyodide's shared interpreter keeps the
+  file between runs, so demos use `CREATE TABLE IF NOT EXISTS` /
+  `INSERT OR REPLACE` to stay re-runnable.
+- **Approval gates pause; they never answer early.** The API needs
+  exactly one `tool_result` for every `tool_use`, in the next message.
+  So a gated call can't be answered "awaiting approval" and run later.
+  Lesson 3.11's `run_agent(llm, messages, tools, gated, decisions)`
+  returns `{"status": "paused", "waiting": [...]}` *before* answering
+  anything in the turn, and calling it again on the same `messages`
+  resumes the turn (it only calls the model when the last message isn't
+  an assistant message). `decisions` maps call id to `True`/`False`, and
+  a declined call gets an error `tool_result`. The hidden tests check
+  that nothing in a paused turn runs, that a resume doesn't re-ask the
+  model, and that approval is per call id.
+- **Scratch verification without the CDN**: when `cdn.jsdelivr.net` is
+  unreachable from a session, Playwright can serve Pyodide from the
+  local `pyodide` npm package through `page.route`. Packages that aren't
+  in the npm package, like `sqlite3`, can be extracted from the GitHub
+  release tarball (`pyodide-0.26.4.tar.bz2`).
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped
