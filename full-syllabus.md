@@ -2270,6 +2270,22 @@ below describe each lesson as first converted; see the git log
    and 3.4, Module 0's Docker lesson, Module 1's prompt-injection
    subsection and Module 2's tool-errors subsection.
 
+9. **Web Access for Agents** — Building
+   Working title (folder `09-web-access-for-agents`); no bookends mockup
+   yet, so the title, intro and recap are still owed. Concepts 1-2 are
+   drafted: (1) search and fetch as two tools with two jobs, with a graded
+   `web_search` exercise; (2) getting the useful part out of a page with an
+   `HTMLParser` text extractor, with a graded `<main>`-preferring
+   extractor exercise. The lesson's canned "web" (`SEARCH_INDEX`, `PAGES`)
+   lives in `src/lib/webStandins.ts`, loaded as `setupCode` for demos and as
+   a read-only `web.py` tab for the exercises. Verified in Pyodide 0.26.4:
+   both references pass and both starters fail; capping `total`, matching
+   any word instead of every word, ignoring `<main>` and skipping
+   truncation each fail the right test. Keeping newlines inside paragraph text also fails test 4. **Finding:** the mockup's demo imported
+   `c2core`, which doesn't exist here; the extractor is inlined in the demo.
+   Callbacks link to verified anchors in Lessons 3.3, 3.4, 3.1, Module 1's
+   knowledge-cutoff concept, and Concept 1's server-tools subsection.
+
 ---
 
 ## Modules 4–11 — current plan

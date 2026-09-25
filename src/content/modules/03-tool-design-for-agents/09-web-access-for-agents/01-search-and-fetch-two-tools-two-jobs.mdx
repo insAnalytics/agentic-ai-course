@@ -1,0 +1,268 @@
+---
+title: "Search and fetch: two tools, two jobs"
+lesson: "09-web-access-for-agents"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { WEB_STANDINS } from "../../../../lib/webStandins";
+
+export const SEARCH_DEMO = String.raw`import json
+
+def web_search(query: str, max_results: int = 3) -> str:
+    words = query.lower().split()
+    matches = [r for r in SEARCH_INDEX
+               if all(w in (r["title"] + " " + r["snippet"]).lower() for w in words)]
+    return json.dumps({"query": query, "results": matches[:max_results], "total": len(matches)}, indent=2)
+
+def web_fetch(url: str) -> str:
+    if url not in PAGES:
+        return f"Error: could not fetch {url}"
+    return PAGES[url]
+
+print(web_search("registry naming"))
+page = web_fetch("https://wiki.example.com/registry/naming")
+print(f"\nfetched page: {len(page)} characters, of which the useful answer is about 150")
+`;
+
+export const SEARCH_STARTER = String.raw`import json
+from web import SEARCH_INDEX
+
+def web_search(query: str, max_results: int = 3) -> str:
+    # TODO: match every query word against title + snippet, cap the results, report the total
+    ...
+`;
+
+export const SEARCH_REFERENCE = String.raw`import json
+from web import SEARCH_INDEX
+
+def web_search(query: str, max_results: int = 3) -> str:
+    words = query.lower().split()
+    if not words:
+        return "Error: the search query is empty. Pass a few keywords describing what to find."
+    matches = [r for r in SEARCH_INDEX
+               if all(w in (r["title"] + " " + r["snippet"]).lower() for w in words)]
+    if not matches:
+        return f"Error: no results for '{query}'. Try fewer or more general keywords."
+    return json.dumps({"query": query, "results": matches[:max_results], "total": len(matches)})
+`;
+
+export const SEARCH_TESTS = String.raw`import json
+from search import web_search
+# 1. results are structured, with every field the model needs to choose what to read
+out = json.loads(web_search("haiku pricing"))
+assert out["total"] == 1 and out["results"][0]["url"] == "https://docs.example.com/models/haiku-pricing"
+assert set(out["results"][0]) == {"title", "url", "snippet"}
+
+# 2. matching is case-insensitive and needs every word
+assert json.loads(web_search("CLAUDE Haiku"))["total"] == 2
+assert json.loads(web_search("agent"))["total"] == 3
+
+# 3. results are capped, while total reports how many matched
+out = json.loads(web_search("agent", max_results=2))
+assert len(out["results"]) == 2 and out["total"] == 3
+
+# 4. no match, or an empty query, gives an actionable error instead of an empty list
+assert web_search("quantum espresso").startswith("Error:") and "quantum espresso" in web_search("quantum espresso")
+assert web_search("   ").startswith("Error:")
+`;
+
+<Subsection title="What an agent needs from the web" variant="a">
+
+A model's knowledge stops at
+[its training cutoff](/01-llm-foundations/04-how-llms-generate-text/05-knowledge-cutoff/),
+and it has never seen your company's internal pages at all. For anything
+current, or anything it was never trained on, an agent has to go and read
+it. Almost every web-capable agent does that with the same pair of tools:
+
+- **Search** takes a query and returns a short list of candidates: a
+  title, a URL and a snippet for each.
+- **Fetch** takes one URL and returns that page's content.
+
+They're separate on purpose. Search results are small and cheap: a few
+lines per result, enough for the model to judge which page is worth
+reading. Fetching a page is expensive: a full page is thousands of
+tokens. Splitting the two lets the model look at many candidates cheaply
+and then spend tokens only on the one or two pages that actually answer
+the question. It's
+[Lesson 3's result-size discipline](/03-tool-design-for-agents/03-shaping-what-tools-return/01-why-a-huge-tool-result-hurts/)
+built into the shape of the tools.
+
+The demos in this lesson use a small, canned slice of "the web", since
+the course's sandbox can't make network requests:
+
+```python
+# a small, canned slice of "the web", shared by every demo in this lesson
+SEARCH_INDEX = [
+    {"title": "Choosing a Claude model for agents", "url": "https://docs.example.com/models/choosing",
+     "snippet": "Guidance on picking between Opus, Sonnet and Haiku for agent workloads, by cost and latency."},
+    {"title": "Claude Haiku pricing and rate limits", "url": "https://docs.example.com/models/haiku-pricing",
+     "snippet": "Per-token pricing, rate limits and batch discounts for Claude Haiku."},
+    {"title": "Agent registry: naming conventions", "url": "https://wiki.example.com/registry/naming",
+     "snippet": "Agent names are lowercase, end in _agent, and use underscores."},
+    {"title": "Ten tips for faster agents", "url": "https://blog.example.com/faster-agents",
+     "snippet": "Caching, smaller models and parallel tool calls: practical ways to cut agent latency."},
+]
+
+PAGES = {
+    "https://wiki.example.com/registry/naming": """<!DOCTYPE html>
+<html><head><title>Agent registry: naming conventions</title>
+<style>body { font-family: sans-serif; } nav a { color: #336; } .banner { padding: 20px; }</style>
+<script>window.analytics = { track: function(e) { console.log(e); } }; analytics.track("pageview");</script>
+</head><body>
+<nav><a href="/">Home</a> | <a href="/registry">Registry</a> | <a href="/help">Help</a> | <a href="/login">Log in</a></nav>
+<div class="banner">We use cookies to improve your experience. <a href="/cookies">Manage preferences</a></div>
+<main>
+<h1>Naming conventions</h1>
+<p>Agent names are lowercase, end in <code>_agent</code>, and use underscores between words.</p>
+<p>Names must be unique across the whole registry, and can't be reused after an agent is deleted.</p>
+</main>
+<footer>&copy; 2026 Example Corp. <a href="/privacy">Privacy</a> | <a href="/terms">Terms</a></footer>
+<script>document.querySelectorAll("a").forEach(function(a) { a.addEventListener("click", function() { analytics.track("click"); }); });</script>
+</body></html>""",
+}
+```
+
+*(Defined once here, and already loaded for every demo in this lesson.)*
+
+</Subsection>
+
+<Subsection title="Search, then fetch" variant="b">
+
+<LiveDemo client:load setupCode={WEB_STANDINS} code={SEARCH_DEMO} />
+
+*A real search tool calls a search API, and real fetching makes an HTTP
+request, as in
+[Lesson 4](/03-tool-design-for-agents/04-tools-that-call-the-outside-world/00-intro/).*
+
+The search result is
+[structured JSON](/03-tool-design-for-agents/03-shaping-what-tools-return/03-structured-results-and-useful-error-messages/),
+with a URL the model can pass straight to fetch, and a `total` so it
+knows whether it's seeing everything. Sometimes the snippet alone answers
+the question, and no fetch is needed at all.
+
+The fetch result is the problem. Of its roughly 1,000 characters, the
+actual answer is about 150. The rest is styling, scripts, a navigation
+bar, a cookie banner and a footer, all of which the model would pay for
+and have to read around. Getting the useful part out of a page is
+[the next concept](/03-tool-design-for-agents/09-web-access-for-agents/02-getting-the-useful-part-out-of-a-page/).
+
+</Subsection>
+
+<Subsection title="Designing the two tools" variant="a">
+
+Everything from
+[Lesson 1](/03-tool-design-for-agents/01-designing-tools-a-model-can-use-well/00-intro/)
+applies. A few choices matter especially for web tools:
+
+- **Say what each tool is for, and when not to use it.** "Search the web
+  for pages about a topic. Use fetch, not search, when you already have
+  the URL." Models otherwise tend to re-search for pages they've already
+  found.
+- **Bound the results.** A search tool should return a handful of
+  results, not fifty. More results means more tokens, and more
+  near-duplicates for the model to choose between.
+- **Make "nothing found" useful.** An empty list gives the model nothing
+  to do next. "No results for X; try fewer or more general keywords" does.
+- **Report fetch failures clearly.** A page can be missing, blocked or
+  slow. Each should come back as a tool error the model can react to, with
+  [the timeouts and retries from Lesson 4](/03-tool-design-for-agents/04-tools-that-call-the-outside-world/00-intro/)
+  behind it.
+
+</Subsection>
+
+<Subsection title="You don't always have to build them" variant="b">
+
+Some model providers offer search and fetch as **server tools**: tools
+that run on the provider's own infrastructure rather than yours.
+Anthropic's API has both. You include `web_search` or `web_fetch` in the
+request's tool list, the API performs the search or fetch itself during
+the request, and the results appear in the conversation. Your code never
+runs the tool or returns a `tool_result` for it.
+
+That saves real work, and the provider handles fetching, text
+extraction, rate limits and sometimes citations. You'd still build your
+own tools when you need a particular search provider, access to internal
+pages the provider can't reach, or control over exactly what's fetched
+and how. Either way, the rest of this lesson applies, because both kinds
+bring web content into the model's context.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "Why are search and fetch usually two separate tools?",
+    "options": [
+      "Search APIs and HTTP requests can't be combined in one function",
+      "Search results are cheap to show, so the model can compare many candidates and then spend tokens fetching only the pages worth reading",
+      "Models can only call one tool per step",
+      "Fetching is only allowed for URLs returned by the same tool call"
+    ],
+    "correctIndex": 1,
+    "explanation": "The split puts the expensive step, reading a whole page, behind a cheap decision about which page to read."
+  },
+  {
+    "question": "A search tool finds nothing. What should it return?",
+    "options": [
+      "An empty list, so the model knows there were no results",
+      "The top results for a broader query, without saying so",
+      "A protocol error",
+      "A message saying nothing matched, with a suggestion like using fewer or more general keywords"
+    ],
+    "correctIndex": 3,
+    "explanation": "An empty list leaves the model nothing to act on. A useful error, as in Lesson 3, points at the next thing to try."
+  },
+  {
+    "question": "What's a \"server tool\", like Anthropic's `web_search`?",
+    "options": [
+      "A tool your code must run on a separate server",
+      "A tool the model provider runs itself during the request, so your code never executes it or returns its result",
+      "Any tool exposed through an MCP server",
+      "A tool that only works with server-rendered pages"
+    ],
+    "correctIndex": 1,
+    "explanation": "The provider performs the search or fetch and places the result in the conversation directly."
+  },
+  {
+    "question": "A fetched page is about 1,000 characters, of which about 150 answer the question. What's the problem with sending it all to the model?",
+    "options": [
+      "The model can't read HTML at all",
+      "Pages over 1,000 characters are rejected by the API",
+      "The model pays for, and has to read around, markup, scripts, navigation and banners that carry no answer",
+      "There's no problem, since more context is always better"
+    ],
+    "correctIndex": 2,
+    "explanation": "It's Lesson 3's point about oversized results. Real pages are usually far larger than this example, with the same ratio of noise to answer or worse."
+  }
+]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<MultiFileGradedExercise
+  client:load
+  task={"Implement web_search(query, max_results=3) in search.py over the canned SEARCH_INDEX in web.py, which is read-only. Return a JSON string with query, results and total. A result matches if every word of the query appears, case-insensitively, in its title or snippet. results holds at most max_results matches, each with title, url and snippet, in index order. total is the number of matches before capping. An empty query (or one that's only spaces) returns an \"Error: ...\" string asking for keywords. No matches returns an \"Error: ...\" string that repeats the query and suggests broader keywords."}
+  entry="search.py"
+  files={[
+    { name: "web.py", readOnly: true, code: WEB_STANDINS },
+    { name: "search.py", code: SEARCH_STARTER },
+  ]}
+  hiddenTests={SEARCH_TESTS}
+  hint={"query.lower().split() gives the words, and an empty result from it means the query was blank. A list comprehension with all(...) inside keeps only results where every word appears in (title + \" \" + snippet).lower(). Slice with [:max_results] for the page, but count the full list for total."}
+  correctFiles={[
+    { name: "web.py", readOnly: true, code: WEB_STANDINS },
+    { name: "search.py", code: SEARCH_REFERENCE },
+  ]}
+  explanation={"Each rule is one of this module's tool-design habits: structured, bounded output with an honest total (tests 1 and 3), and errors that give the model a next step instead of an empty list (test 4). Real search APIs rank by relevance rather than requiring every word; the design of the tool around them is the same."}
+/>
+
+</CheckpointZone>

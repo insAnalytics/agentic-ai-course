@@ -1511,6 +1511,17 @@ another. As the mockup itself notes, nothing forces the backoff sleep to
 happen outside the semaphore. The explanation drops the mockup's
 "test N" references, since learners never see the tests.
 
+**Module 3 Lesson 9 — canned web and multi-file graded exercises.**
+`src/lib/webStandins.ts` exports `WEB_STANDINS`: `SEARCH_INDEX` and `PAGES`,
+a small fake slice of the web (the sandbox can't make network requests).
+Demos load it as `setupCode`; the graded exercises ship it as a read-only
+`web.py` tab in a `MultiFileGradedExercise`, so the learner's file does a
+real `from web import ...`. Verified in Pyodide 0.26.4, including wrong
+solutions: capping `total`, matching any word, ignoring `<main>` and
+skipping truncation each fail. Gotcha when generating `.mdx`: a JSX
+attribute like `task={"..."}` with a missing closing brace surfaces as a
+misleading "Unexpected character after `<`" error at the *tag's* line.
+
 **Module 3 Lesson 7 — shared in-process MCP stand-ins.**
 `src/lib/mcpStandins.ts` exports `MCP_STANDINS`: the Python source for
 `InProcessServer`, `InProcessClient` (one client per server, building
