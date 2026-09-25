@@ -2407,7 +2407,15 @@ below describe each lesson as first converted; see the git log
    name the lesson). Concept 1 (agents get worse before the window is
    full: Chroma "Context Rot" and Anthropic context-engineering evidence,
    a position-drift demo whose printed output matches the mockup exactly,
-   5 quiz cards; no exercise) is built. No intro/bookends yet.
+   5 quiz cards; no exercise) and Concept 2 (what goes stale in a
+   scratchpad: `prune_superseded` demo matching the mockup's output
+   exactly, 5 quiz cards, graded exercise with six hidden tests; verified
+   against real Python: the reference passes, and versions that delete
+   stale results, mutate the input, ignore arguments, prune errors, keep
+   the first instead of the latest result, or omit the tool name each
+   fail) are built. The mockup's dict-spread callback pointed at Module 3
+   but that isn't where it's taught; it links to Module 0's `*args` and
+   `**kwargs` concept instead. No intro/bookends yet.
 
 ---
 
