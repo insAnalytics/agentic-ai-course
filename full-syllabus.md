@@ -2415,7 +2415,15 @@ below describe each lesson as first converted; see the git log
    the first instead of the latest result, or omit the tool name each
    fail) are built. The mockup's dict-spread callback pointed at Module 3
    but that isn't where it's taught; it links to Module 0's `*args` and
-   `**kwargs` concept instead. No intro/bookends yet.
+   `**kwargs` concept instead. Concept 3 (instructions that pile up and
+   contradict: `set_rule` history and `<current_rules>` block demo
+   matching the mockup exactly, 4 quiz cards, graded exercise with four
+   hidden tests, verified against real Python: the reference passes;
+   using the first value, counting non-`set_rule` calls, reporting every
+   rule as changed, sorting rules, and overwriting history each fail) is
+   built. The mockup referred to a `changed_rules` function "below" that
+   it never shows; the page says it's written in the exercise. No
+   intro/bookends yet.
 
 ---
 
