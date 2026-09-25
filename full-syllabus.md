@@ -2296,6 +2296,17 @@ below describe each lesson as first converted; see the git log
    least-privilege lessons (the mockup's "Lesson 10" and "Lesson 11") are
    plain text. Callbacks link to verified anchors.
 
+10. **The Tool Threat Model** — Building
+   Working title (folder `10-the-tool-threat-model`), taken from Lessons
+   3.8 and 3.9's forward references; no bookends mockup yet, so the title,
+   intro and recap are still owed. Concept 1 drafted: prompt injection
+   through tool results (direct vs indirect injection, and a live
+   scripted-model ticket demo where an injected postscript changes the
+   registry), with a 4-question quiz and no graded exercise, per its
+   mockup. The demo's output matches the mockup exactly when run in
+   Pyodide 0.26.4. Callbacks link to verified pages in Lessons 3.9 and
+   3.8 and Module 2's ReAct concept.
+
 ---
 
 ## Modules 4–11 — current plan
