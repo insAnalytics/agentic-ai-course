@@ -2386,8 +2386,14 @@ below describe each lesson as first converted; see the git log
 
 1. **The Context Budget** — Building. Concept 1 (what fills the window:
    system prompt, tools, scratchpad, reply room; the `count_tokens` helper;
-   two live demos; 4 quiz cards) is built. Lesson title is a placeholder
-   (the mockup doesn't name the lesson). No intro/bookends yet.
+   two live demos; 4 quiz cards) and Concept 2 (measuring one request part
+   by part: `measure_request` breakdown demo, 4 quiz cards, graded
+   exercise with six hidden tests; the `count_tokens` helper is shown in
+   the editor's provided block; verified against real Python with the
+   reference plus four wrong variants) are built. Lesson title is a
+   placeholder (the mockup doesn't name the lesson). Concept 2's "next
+   concept" and "later lesson" references are plain prose until those
+   exist. No intro/bookends yet.
 
 ---
 
