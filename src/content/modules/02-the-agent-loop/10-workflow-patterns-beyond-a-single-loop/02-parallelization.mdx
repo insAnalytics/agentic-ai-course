@@ -87,7 +87,50 @@ threads.
 
 </Subsection>
 
-<Subsection title="The other kind of parallel: several tool calls in one response" variant="a">
+<Subsection title="Parallel for confidence: the same task, several times" variant="a">
+
+Everything above splits work into *different* pieces, often called
+**sectioning**. Parallelization has a second standard form that runs the
+*same* task several times and compares the answers, often called
+**voting**. Because sampling is random, independent attempts at a hard
+question can disagree; the answer most of them agree on is more likely
+to be right than any single attempt.
+
+<LiveDemo client:load setupCode={FAKE_CLIENT} code={`from collections import Counter
+
+def classify(client, ticket: str) -> str:
+    response = client.create(messages=[{"role": "user", "content": f"Classify as billing or technical: {ticket}"}])
+    return response.content[0].text
+
+def classify_by_vote(client, ticket: str, votes: int = 5) -> tuple:
+    answers = [classify(client, ticket) for _ in range(votes)]   # would run concurrently, as above
+    winner, count = Counter(answers).most_common(1)[0]
+    return winner, count / votes
+
+# five independent samples of the same question; one of them disagrees
+client = FakeLLMClient(scripted_responses=[
+    TextBlock(text="billing"), TextBlock(text="billing"), TextBlock(text="technical"),
+    TextBlock(text="billing"), TextBlock(text="billing"),
+])
+answer, agreement = classify_by_vote(client, "I was charged twice after the app crashed.")
+print(f"{answer} ({agreement:.0%} of votes)")`} />
+
+(`Counter`, from Python's standard library, counts how often each
+answer appears; `most_common(1)` returns the top one with its count.)
+
+Voting costs one full call per vote, so it's for decisions where being
+wrong is expensive: a classification that triggers an action, a
+security check, a judgment call. The agreement rate is useful on its
+own, too: 5 out of 5 and 3 out of 5 are the same answer with very
+different confidence, and a low agreement is a good signal to hand the
+case to a person. It works best when answers can be compared directly,
+like labels, numbers or yes/no; for free text, a model or a check has to
+decide which answers "agree". This is the workflow version of
+[the "several answers, then choose" idea from Module 1](/01-llm-foundations/08-scaling-laws-and-emergent-behavior/04-test-time-compute/#the-practical-tradeoffs-as-a-real-design-decision).
+
+</Subsection>
+
+<Subsection title="The other kind of parallel: several tool calls in one response" variant="b">
 
 There's a second, entirely different form of parallelism this module
 already built:
@@ -154,6 +197,18 @@ independent — applied at a different point.
       correctIndex: 1,
       explanation:
         "The mechanisms are genuinely different -- one is Python-level concurrency, the other is a single response's own content. For tool_use blocks, what's parallel is the request; Lesson 5's loop still executes them one after another unless you add asyncio.gather.",
+    },
+    {
+      question: "An agent's refund decision is occasionally wrong. Which use of parallelization targets that?",
+      options: [
+        "Splitting the refund check into independent sub-tasks run concurrently",
+        "Running the same decision several times and taking the answer most runs agree on",
+        "Running the tool calls in the refund response concurrently",
+        "Sending the refund request to two different tools at once",
+      ],
+      correctIndex: 1,
+      explanation:
+        "Sectioning speeds up independent work; it doesn't make one decision more reliable. Voting samples the same decision several times, so a one-off wrong answer gets outvoted, and low agreement flags a case for a person.",
     },
   ]}
 />

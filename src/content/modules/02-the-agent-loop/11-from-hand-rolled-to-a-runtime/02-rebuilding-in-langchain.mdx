@@ -96,6 +96,33 @@ print(result["messages"][-1].content)
 
 </Subsection>
 
+<Subsection title="LangChain is one option among several" variant="a">
+
+This lesson uses LangChain because it's widely used and shows the
+mapping clearly, but "framework" doesn't mean LangChain. The options
+you'll meet fall into a few groups:
+
+- **The model provider's own SDK, with a loop you write.** The plain
+  `anthropic` or `openai` Python package, and the loop from this module.
+  Some provider SDKs now include a small helper that runs the tool loop
+  for you, while you keep writing the tools.
+- **Provider agent SDKs.** Packages such as the Claude Agent SDK and the
+  OpenAI Agents SDK package a whole agent: the loop, built-in tools,
+  context management and hooks, shaped around one provider's models.
+- **General frameworks.** LangChain and LangGraph, LlamaIndex (strongest
+  around retrieval), and lighter type-driven libraries such as Pydantic
+  AI, which lean on the same Pydantic models this course uses for tool
+  schemas.
+
+The lens from the first concept works on all of them: which of the four
+things (the loop, state handling, tracing, a deployment path) does it
+package, how
+does it cap a run, and what happens when that cap is hit? Two libraries
+can both say "agent" and answer those questions very differently, as
+`recursion_limit` just showed.
+
+</Subsection>
+
 <CheckpointZone>
 
 <QuizGroup

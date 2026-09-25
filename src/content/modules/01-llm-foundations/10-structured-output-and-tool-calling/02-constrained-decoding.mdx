@@ -70,6 +70,17 @@ nothing about whether the values inside are *true*; a model constrained
 to produce `{"name": str, "age": int}` can still confidently produce a
 wrong age, for exactly the reasons Lesson 4 covered.
 
+There's a quieter cost too: **forcing a shape can take away room to
+think.** The model still generates one token at a time, in the order the
+schema lays out. If the schema starts with the answer, say
+`{"verdict": ..., "reason": ...}`, the model must commit to a verdict
+before it has written a word of reasoning, and the reason that follows
+can only justify a choice already made. Two common fixes: put a
+reasoning field *first* (`{"reason": ..., "verdict": ...}`), so the
+answer is generated after the thinking that should lead to it, or let
+a reasoning model think before its structured output, where its
+thinking isn't constrained at all.
+
 </Subsection>
 
 <CheckpointZone>
