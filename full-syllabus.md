@@ -2402,6 +2402,13 @@ below describe each lesson as first converted; see the git log
    lessons (prompt caching, context quality) are plain prose until those
    lessons exist.
 
+2. **Context That Fits But Still Hurts** — Building (title is a
+   placeholder taken from Lesson 1's forward reference; the mockup doesn't
+   name the lesson). Concept 1 (agents get worse before the window is
+   full: Chroma "Context Rot" and Anthropic context-engineering evidence,
+   a position-drift demo whose printed output matches the mockup exactly,
+   5 quiz cards; no exercise) is built. No intro/bookends yet.
+
 ---
 
 ## Modules 4–11 — current plan
