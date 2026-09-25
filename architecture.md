@@ -1569,6 +1569,10 @@ counted by their JSON form, with content-block objects flattened via
 `setupCode = FAKE_CLIENT + COUNT_TOKENS`; hidden tests append it to
 whatever client they build. Verified against real Python: the mockup's
 printed counts (10 / 50 / 82 / 195 / 20 / 101) match exactly.
+`MEASURE_REQUEST` (same file) holds the shared `measure_request`; graded
+exercises that need it put `COUNT_TOKENS + MEASURE_REQUEST` in the editor's
+provided block, and the learner's namespace is copied into every hidden
+test, so tests can call `count_tokens` without redefining it.
 
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
