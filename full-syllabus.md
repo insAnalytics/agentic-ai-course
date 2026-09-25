@@ -2244,10 +2244,12 @@ below describe each lesson as first converted; see the git log
    neither is built. The hint links Concept 3's allowlist subsection
    and Concept 2's routed-loop subsection.
 
-8. **Code Execution as a Tool** — Building
-   Working title (folder `08-code-execution-as-a-tool`); no bookends
-   mockup yet, so the title, intro and recap are still owed. All four
-   concepts are drafted: (1) the most powerful tool and the most
+8. **Code Execution as a Tool** — Locked
+   Title confirmed by the bookends mockup; intro and recap
+   (`05-recap-practice`, 8-question quiz plus a two-file `sandbox.py` /
+   `agent.py` comprehensive exercise with a `sys.settrace` step-budget
+   timeout, verified in Pyodide 0.26.4: reference passes 7/7, starter
+   fails) added. All four concepts are drafted: (1) the most powerful tool and the most
    dangerous, (2) why restricted `exec` isn't a sandbox, (3) real
    isolation and the tool wrapper, (4) WebAssembly and Pyodide, with
    the graded `code_execution_tool` exercise. Verified in Pyodide

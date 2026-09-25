@@ -1,0 +1,33 @@
+---
+title: "Intro"
+lesson: "08-code-execution-as-a-tool"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Explain why a code-execution tool is the most capable tool an agent can have, and why the code it runs must be treated as untrusted",
+    "Explain why hiding names from `exec()` is not a sandbox, using the one well-known example",
+    "Compare the real isolation boundaries (a separate process, a container, a micro-VM, WebAssembly) by strength and cost",
+    "Explain how WebAssembly, and Pyodide in particular, contains code by starting from no capability at all",
+    "Build the tool around a sandbox: output capture, errors as observations, output limits, a time limit, and wiring it into the agent loop",
+  ]}
+/>
+
+<WhyItMatters>
+  Every other tool in this module does one fixed thing, so its worst case
+  is known in advance. A code-execution tool's worst case is whatever the
+  model writes, and the model can be wrong, or steered by text it has
+  read. That makes this the tool where getting isolation right matters
+  most, and where the most tempting shortcut, restricting `exec()` in your
+  own process, is quietly unsafe.
+
+  The good news is that the safe version is routine. Real isolation is a
+  solved, well-understood problem, and you've been using one form of it
+  throughout this course without noticing: every exercise has run your
+  code inside Pyodide's WebAssembly sandbox. This lesson makes that
+  boundary visible, and shows that the tool you write around it is the
+  same small, careful wrapper whatever sits underneath.
+</WhyItMatters>
