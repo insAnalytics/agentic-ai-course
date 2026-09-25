@@ -22,6 +22,13 @@ interface GradedExerciseProps {
    * in. Same idea as LiveDemo's `setupCode`.
    */
   setupCode?: string;
+  /**
+   * Optional self-check rubric, shown once the hidden tests pass. For
+   * exercises whose real quality can't be graded by code (e.g. a prompt:
+   * the hidden tests check its structure, and the rubric asks the learner
+   * to judge what a regex can't). Checkboxes are local UI state only.
+   */
+  selfCheck?: string[];
 }
 
 type Reveal = "none" | "hint" | "answer";
@@ -33,12 +40,14 @@ export default function GradedExercise({
   hint,
   correctAnswer,
   setupCode,
+  selfCheck,
 }: GradedExerciseProps) {
   const [code, setCode] = useState(starterCode);
   const [pyodide, setPyodide] = useState<PyodideInterface | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "grading">("loading");
   const [results, setResults] = useState<{ error: string | null; results: boolean[] } | null>(null);
   const [reveal, setReveal] = useState<Reveal>("none");
+  const [checked, setChecked] = useState<boolean[]>(() => (selfCheck ?? []).map(() => false));
 
   useEffect(() => {
     let cancelled = false;
@@ -118,11 +127,51 @@ export default function GradedExercise({
             {results.error ? (
               <>Your code raised an error before any tests ran: {results.error}</>
             ) : passed ? (
-              <>All {results.results.length} tests passed.</>
+              selfCheck ? (
+                <>All {results.results.length} structure checks passed. Now check the parts code can't grade:</>
+              ) : (
+                <>All {results.results.length} tests passed.</>
+              )
             ) : (
               <>
                 {passCount}/{results.results.length} tests passed. Try again, or ask for a hint.
               </>
+            )}
+          </div>
+        )}
+
+        {passed && selfCheck && (
+          <div className="mt-3 rounded-md bg-[var(--color-bg-subtle)] p-3 text-sm text-[var(--color-ink)]">
+            <p className="mt-0 mb-2 font-medium">Self-check</p>
+            <ul className="m-0 list-none space-y-1.5 p-0">
+              {selfCheck.map((item, i) => (
+                <li key={i}>
+                  <label className="flex cursor-pointer items-start gap-2">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={checked[i] ?? false}
+                      onChange={() => setChecked((c) => c.map((v, j) => (j === i ? !v : v)))}
+                    />
+                    <span>
+                      <LinkedText text={item} />
+                    </span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+            {checked.length > 0 && checked.every(Boolean) ? (
+              <p className="mt-2 mb-0">Done. Compare with the sample answer if you'd like a second opinion.</p>
+            ) : (
+              <p className="mt-2 mb-0">If any item doesn't hold, revise your prompt and submit again.</p>
+            )}
+            {reveal !== "answer" && (
+              <button
+                onClick={() => setReveal("answer")}
+                className="mt-2 rounded-md bg-[var(--color-bg)] px-3 py-1 text-sm font-medium text-[var(--color-ink)] ring-1 ring-[var(--color-border)]"
+              >
+                Show sample answer
+              </button>
             )}
           </div>
         )}

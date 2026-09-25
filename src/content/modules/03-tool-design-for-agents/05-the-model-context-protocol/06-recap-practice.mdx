@@ -10,7 +10,7 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 export const SERVER_PY = String.raw`# a simulated Streamable HTTP MCP server for the agent registry -- read-only
 import json
 
-SUPPORTED_VERSIONS = ["2025-11-25"]
+SUPPORTED_VERSIONS = ["2026-07-28"]
 AGENTS = {"research_agent": "claude-sonnet", "support_agent": "claude-haiku"}
 REQUIRED_META = ["io.modelcontextprotocol/protocolVersion", "io.modelcontextprotocol/clientCapabilities"]
 
@@ -147,13 +147,13 @@ export const HIDDEN_TESTS = String.raw`import server
 from client import RegistryClient
 
 server.received.clear()
-client = RegistryClient(server.handle_http, ["2026-07-28", "2025-11-25"])
+client = RegistryClient(server.handle_http, ["2027-07-01", "2026-07-28"])
 
 # 1. the first call is refused for its version, falls back, and succeeds
 assert client.call_tool("get_agent_model", {"agent_name": "research_agent"}) == ("research_agent runs on claude-sonnet", False)
 assert len(server.received) == 2
-assert server.received[0][1]["params"]["_meta"]["io.modelcontextprotocol/protocolVersion"] == "2026-07-28"
-assert server.received[1][1]["params"]["_meta"]["io.modelcontextprotocol/protocolVersion"] == "2025-11-25"
+assert server.received[0][1]["params"]["_meta"]["io.modelcontextprotocol/protocolVersion"] == "2027-07-01"
+assert server.received[1][1]["params"]["_meta"]["io.modelcontextprotocol/protocolVersion"] == "2026-07-28"
 
 # 2. later calls use the fallback straight away: one request, not two
 assert client.call_tool("get_agent_model", {"agent_name": "support_agent"}) == ("support_agent runs on claude-haiku", False)
@@ -179,7 +179,7 @@ assert is_error is True and text.startswith("Error:") and "-32602" in text
 
 # 6. a server with no version in common: the client gives up after one fallback attempt, flagged as an error
 server.received.clear()
-stuck = RegistryClient(server.handle_http, ["2026-07-28"])
+stuck = RegistryClient(server.handle_http, ["2027-07-01"])
 text, is_error = stuck.call_tool("get_agent_model", {"agent_name": "research_agent"})
 assert is_error is True and "-32022" in text
 assert len(server.received) == 1
@@ -227,7 +227,7 @@ assert len(server.received) == 1
         "MCP is stateless, like the REST and LLM APIs earlier in the course. JSON-RPC itself doesn't define _meta, and clientInfo must never be used for security decisions.",
     },
     {
-      question: "A client's request fails with -32022 and \"supported\": [\"2025-11-25\"]. What should it do?",
+      question: "A client's request fails with -32022 and \"supported\": [\"2026-07-28\"]. What should it do?",
       options: [
         "Give up, because the server is too old",
         "Resend the same request unchanged",
@@ -319,7 +319,7 @@ assert len(server.received) == 1
 
 <MultiFileGradedExercise
   client:load
-  task={"server.py simulates the agent registry's MCP server over Streamable HTTP, and is read-only. handle_http(headers, body) takes the request headers and JSON body and returns (status, response_body), just as an HTTP call would. It supports one protocol version, 2025-11-25, and one tool, get_agent_model. Complete RegistryClient in client.py. build_http_request and to_tool_output, from this lesson's exercises, are already in the file. _send_once(method, params): build a JSON-RPC message with a fresh, increasing id; give it a _meta with self.version, a clientInfo and empty clientCapabilities; build its headers with build_http_request, send it with self.send, and return the parsed response body. request(method, params): send once. If the response is a -32022 error, switch self.version to the first of self.preferred_versions that appears in the error's supported list, and send once more. If there's no version in common, return the error as it is. Return the response. call_tool(name, arguments): make a tools/call request and return to_tool_output(response)."}
+  task={"server.py simulates the agent registry's MCP server over Streamable HTTP, and is read-only. handle_http(headers, body) takes the request headers and JSON body and returns (status, response_body), just as an HTTP call would. It supports one protocol version, 2026-07-28, and one tool, get_agent_model. The tests' client prefers 2027-07-01, which stands in for a newer revision the server doesn't speak yet. Complete RegistryClient in client.py. build_http_request and to_tool_output, from this lesson's exercises, are already in the file. _send_once(method, params): build a JSON-RPC message with a fresh, increasing id; give it a _meta with self.version, a clientInfo and empty clientCapabilities; build its headers with build_http_request, send it with self.send, and return the parsed response body. request(method, params): send once. If the response is a -32022 error, switch self.version to the first of self.preferred_versions that appears in the error's supported list, and send once more. If there's no version in common, return the error as it is. Return the response. call_tool(name, arguments): make a tools/call request and return to_tool_output(response)."}
   entry="client.py"
   files={[
     { name: "server.py", readOnly: true, code: SERVER_PY },

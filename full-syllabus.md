@@ -1983,7 +1983,8 @@ below describe each lesson as first converted; see the git log
    `client.py` (entry file, with this lesson's `build_http_request` and
    `to_tool_output` exercise solutions pre-filled) talking to a
    read-only simulated Streamable HTTP `server.py`. The server supports
-   only `2025-11-25`, checks `_meta` and the headers, and records every
+   only `2026-07-28` (the client prefers a stand-in future revision,
+   `2027-07-01`, so there is something to negotiate), checks `_meta` and the headers, and records every
    request. The learner implements `_send_once` (fresh id, `_meta`,
    headers, send, parse), `request` (a single `-32022` fallback to the
    first mutually supported version, remembered for later calls) and

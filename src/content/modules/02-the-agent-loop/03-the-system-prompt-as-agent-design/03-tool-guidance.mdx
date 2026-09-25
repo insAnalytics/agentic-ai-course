@@ -10,18 +10,11 @@ import GradedExercise from "../../../../components/lesson/GradedExercise";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 export const PARSE = String.raw`import re
-_t = " ".join(system_prompt.lower().split())
 _norm = re.sub(r"[ \t]*\n(?![ \t]*(?:\n|[-*]|\d+[.)]))", " ", system_prompt.lower())
-_sents = [s.strip() for s in re.split(r"(?<=[.!?])\s+|\n+", _norm) if s.strip()]
-_tool = [i for i, s in enumerate(_sents) if "check_price" in s]
-_rule = re.compile(r"\b(?:always|never|must not|do not|don't)\b")
-_when = re.compile(r"\b(?:whenever|when|if|before|any ?time|each time|every time|for)\b")
-_result = re.compile(r"\b(?:returns?|returned|results?|responses?|output)\b")
-_act = re.compile(r"\b(?:state|report|tell|say|quote|give|provide|present|share|mention|tell|inform|relay|use|respond|answer|show|cite|always|never|should|must|do not|don't)\b")
+_sents = [s.strip() for s in re.split(r"(?<=[.!?])\s+|\n+", _norm) if len(s.split()) >= 3]
+_tool = [s for s in _sents if "check_price" in s]
+_other = [s for s in _sents if "check_price" not in s]
 `;
-
-export const T_ROLE = String.raw`assert re.search(r"\byou are (?:a|an|the|our)\b", _t)`;
-export const T_RULE = String.raw`assert any(_rule.search(s) and "check_price" not in s and not re.search(r"\b(?:returns?|returned|results?)\b", s) for s in _sents)`;
 
 <Subsection title="What a schema does and doesn't cover" variant="a">
 
@@ -139,11 +132,16 @@ and guidance on when to call check_price and
 what to do with what it returns.
 """`}
   hiddenTests={[
-    PARSE + T_ROLE,
-    PARSE + T_RULE,
-    PARSE + "assert _tool",
-    PARSE + "assert any(_when.search(_sents[i]) for i in _tool)",
-    PARSE + "assert _tool and any(_result.search(s) and _act.search(s) for s in _sents[_tool[0]:])",
+    PARSE + "assert _tool, 'name the check_price tool'",
+    PARSE + "assert len(_sents) >= 4, 'a role, a constraint, and guidance on both when and how: at least four sentences'",
+    PARSE + "assert len(_other) >= 2, 'a role and a general constraint, in sentences of their own'",
+  ]}
+  selfCheck={[
+    "A role: the prompt says who the agent is and who it serves.",
+    "At least one always/never rule that isn't about the tool, ideally with the reason behind it, so the model can apply it to cases you didn't list.",
+    "When to call check_price: the situations that should trigger it, and ideally when not to.",
+    "What to do with its result: for example, state the exact price it returns rather than estimating, and what to say if it finds nothing.",
+    "Where you wrote a \"never\", you also said what to do instead.",
   ]}
   hint={'Follow the same three-part shape as this concept\'s demo — a role sentence, one or more always/never constraints, then a section specifically about `check_price`: when to call it (e.g., "whenever asked about a specific book\'s price"), and what to do with what it returns (e.g., "always state the exact price returned; never estimate or round"). Keep the closing triple quotes on their own line.'}
   correctAnswer={{
@@ -156,7 +154,7 @@ price. Always state the exact price the tool returns — never estimate
 or provide a rounded figure instead.
 """`,
     explanation:
-      "This is the full composition this concept builds toward: a role framing who the agent is, an explicit behavioral constraint against guessing, and tool guidance covering both *when* check_price should actually be called and *how* its result should be used — none of which the tool's own schema could have specified on its own. Note that this exercise grades your prompt text directly, not a model's output, since no live model is available here.",
+      "This is the full composition this concept builds toward: a role framing who the agent is, an explicit behavioral constraint against guessing, and tool guidance covering both *when* check_price should actually be called and *how* its result should be used — none of which the tool's own schema could have specified on its own. The automatic checks only confirm the prompt has those parts; whether each part says the right thing is what the self-check is for, since it can be phrased well in many ways and no live model is available here.",
   }}
 />
 

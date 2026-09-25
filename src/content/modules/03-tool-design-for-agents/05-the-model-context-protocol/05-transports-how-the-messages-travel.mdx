@@ -82,10 +82,10 @@ prompt = {"jsonrpc": "2.0", "id": 3, "method": "prompts/get",
           "params": {"name": "review_agent_config", "arguments": {"agent_name": "x"}, "_meta": META}}
 assert build_http_request(prompt)[0]["Mcp-Name"] == "review_agent_config"`,
   String.raw`# other methods get no Mcp-Name, and the version comes from _meta
-listing = {"jsonrpc": "2.0", "id": 4, "method": "tools/list", "params": {"_meta": {**META, "io.modelcontextprotocol/protocolVersion": "2025-11-25"}}}
+listing = {"jsonrpc": "2.0", "id": 4, "method": "tools/list", "params": {"_meta": {**META, "io.modelcontextprotocol/protocolVersion": "2027-07-01"}}}
 headers, _ = build_http_request(listing)
 assert "Mcp-Name" not in headers
-assert headers["Mcp-Method"] == "tools/list" and headers["MCP-Protocol-Version"] == "2025-11-25"`,
+assert headers["Mcp-Method"] == "tools/list" and headers["MCP-Protocol-Version"] == "2027-07-01"`,
   // each hidden test runs in its own copy of the learner's namespace, so the shared helpers go on every one
 ].map((test) => PRELUDE + test);
 

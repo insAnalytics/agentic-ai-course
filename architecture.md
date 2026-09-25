@@ -102,7 +102,7 @@ sidebar navigation, not one very long scroll.
       CodeEditor.tsx               # shared CodeMirror 6 editor (VS Code dark theme, Python highlighting)
       LiveDemo.tsx               # editable, ungraded code demo (Pyodide, manual run)
       QuizGroup.tsx                # cycles one multiple-choice question at a time
-      GradedExercise.tsx          # editable code, graded against hidden tests
+      GradedExercise.tsx          # editable code, graded against hidden tests; optional `selfCheck` rubric shown after passing (prompt-writing exercises)
       MultiFileEditor.tsx          # shared file-tab strip + CodeEditor, used by both multi-file components below
       MultiFileLiveDemo.tsx        # multi-file LiveDemo — real cross-file imports, editable or readOnly per file
       MultiFileGradedExercise.tsx  # multi-file GradedExercise — real imports, graded via a real Pyodide FS + sys.modules
@@ -1594,6 +1594,44 @@ run, and its second demo uses `BASE_SETUP + ROUTED_FUNCS`.
   local `pyodide` npm package through `page.route`. Packages that aren't
   in the npm package, like `sqlite3`, can be extracted from the GitHub
   release tarball (`pyodide-0.26.4.tar.bz2`).
+- **Prompt-writing exercises: structure in code, wording in a self-check**
+  (Module 2 QC). Lessons 2.2 and 2.3 used to grade a learner's prompt
+  text with keyword regexes ("step by step", "you are a", "always"),
+  which failed good prompts written in other words and passed
+  keyword-stuffed bad ones. Their hidden tests now check only structure
+  a regex can judge fairly: the problem is present plus added
+  instruction words; delimited receipts with a worked example whose
+  `Total: $X.XX` equals that receipt's item prices (discount/tax lines
+  skipped) and a final receipt left unanswered; the tool names present
+  with enough separate sentences for each required part. What the
+  wording should do moves to `GradedExercise`'s `selfCheck` prop, a
+  checklist shown once the tests pass. Each conversion was run in
+  Pyodide with the reference, a good prompt in unusual wording (passes)
+  and structurally incomplete prompts (fail).
+- **Early exits must still answer the whole response** (Module 2 QC).
+  Lesson 2.6's repeat check and goal check used to `return` in the
+  middle of a response's tool calls, leaving `tool_use` blocks with no
+  `tool_result`. Both now run after the response's results are
+  appended; a repeated call is answered with an error result instead of
+  run. The hidden tests include a repeat and a goal hit that come
+  *before* another call in the same response.
+- **MCP versions: 2026-07-28 is the only "modern" revision** (checked
+  against the spec repo's `schema/2026-07-28/schema.ts` and
+  `docs/specification/2026-07-28/basic/versioning.mdx`). `2025-11-25`
+  and earlier are *legacy*: they open with an `initialize` handshake and
+  keep a session, so a client can't fall back to them by changing the
+  version string in `_meta`. Lesson 3.5's negotiation demos and recap
+  now negotiate between a stand-in future revision, `2027-07-01`, and
+  `2026-07-28`, and a new subsection covers legacy servers and the
+  spec's dual-era detection. Lesson 3.6's `mcp` 2.2.0 code was re-run
+  outside the sandbox: imports resolve, the printed output and the 4
+  pytest tests match the page.
+- **Tool-name rules** (Claude API docs, checked 2026-09): names must
+  match `^[a-zA-Z0-9_-]{1,128}$`. Lesson 3.7 keeps its 64-character cap
+  as the cross-provider safe limit (OpenAI's is 64) and says so.
+- **Pydantic in scratch verification**: the local `pyodide` npm package
+  has no `pydantic` wheel. Exercises that need it were checked in CPython
+  with `pydantic==2.7.0`, the version Pyodide 0.26.4 ships.
 
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 

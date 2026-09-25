@@ -153,14 +153,14 @@ supports? It can just try: send a request with its preferred version and
 handle `-32022` if it's refused. Or it can ask up front with
 `server/discover`, a method every server must implement:
 
-<LiveDemo client:load code={`CLIENT_PREFERS = ["2026-07-28", "2025-11-25"]
+<LiveDemo client:load code={`CLIENT_PREFERS = ["2027-07-01", "2026-07-28"]   # 2027-07-01: a stand-in for a future revision
 
 discover_response = {
     "jsonrpc": "2.0",
     "id": "discover-1",
     "result": {
         "resultType": "complete",
-        "supportedVersions": ["2025-11-25"],
+        "supportedVersions": ["2026-07-28"],
         "capabilities": {"tools": {}},
         "_meta": {"io.modelcontextprotocol/serverInfo": {"name": "registry-server", "version": "0.9.0"}},
         "instructions": "Tools for reading and updating the agent registry.",
@@ -188,14 +188,74 @@ print(f"cache this answer for {result['ttlMs'] // 60000} minutes")`} />
 One call returns the server's supported versions, its capabilities, its
 name and version, and optional `instructions`: plain-language guidance
 for the model on how to use this server well. This server only supports
-`2025-11-25`, so the client picks that, its second choice. The `ttlMs`
+`2026-07-28`, so the client picks that, its second choice. (`2027-07-01`
+stands in for a newer revision than any published so far, so the demo
+has something to negotiate between; at the time of writing, 2026-07-28
+is the only revision that works this way.) The `ttlMs`
 field says how long the answer can be cached, one hour here. That's a
 hint to the client, not a session: nothing breaks if the client asks
 again, or never asks at all.
 
 </Subsection>
 
-<Subsection title="Why stateless is worth the repetition" variant="b">
+<Subsection title="Older servers: the initialize handshake" variant="b">
+
+2026-07-28 is a recent revision, and you'll still meet many servers and
+SDKs that speak an earlier one. The spec calls those revisions,
+`2025-11-25` and before, **legacy**, and they work differently in one
+important way: instead of carrying everything on every request, a
+legacy connection starts with a **handshake**.
+
+```
+client → {"jsonrpc": "2.0", "id": 1, "method": "initialize",
+          "params": {"protocolVersion": "2025-11-25", "capabilities": {},
+                     "clientInfo": {"name": "registry-agent", "version": "1.0.0"}}}
+server → {"jsonrpc": "2.0", "id": 1,
+          "result": {"protocolVersion": "2025-11-25", "capabilities": {"tools": {}},
+                     "serverInfo": {"name": "registry-server", "version": "0.9.0"}}}
+client → {"jsonrpc": "2.0", "method": "notifications/initialized"}
+
+... then ordinary requests, such as tools/list and tools/call, with no _meta at all
+```
+
+*Illustrative, in the shape the 2025-11-25 schema defines.*
+
+The version, capabilities and client info are sent **once**, in
+`initialize`, and the server remembers them for the rest of the
+connection: a session. Over HTTP the server can also hand back an
+`MCP-Session-Id` header, which the client must then send on every
+request. That's exactly the state this lesson's revision removed, and
+the reason for everything in the next subsection.
+
+What this means in practice:
+
+- **A 2026-07-28 client and a legacy server can't talk as-is.** The
+  legacy server doesn't know `_meta` or `server/discover`, and it
+  expects `initialize` first. Switching the version string in `_meta`
+  to `2025-11-25` doesn't help; the whole opening is different.
+- **A client that must work with both is called "dual-era".** It
+  detects which kind of server it's facing and then speaks that
+  kind's protocol. The spec gives the detection per transport: on
+  stdio, send `server/discover` first, and treat any error that isn't a
+  recognized modern error as "legacy, fall back to `initialize`"; on
+  HTTP, send a modern request, and a `400` without a recognized modern
+  error in its body means the same. A recognized modern error, such as
+  `-32022`, means the server *is* modern, so the client retries with a
+  supported version instead of falling back.
+- **Remember the answer.** Which kind a server is doesn't change from
+  one request to the next, so a client caches it for that server.
+- **Servers can be dual-era too.** A server may answer `initialize`
+  under legacy rules and per-request `_meta` under the new ones, on the
+  same endpoint.
+
+The official SDKs handle this detection for you, which is one more
+reason to build on them. What you need to recognize is the symptom: a
+client and server that each work fine elsewhere, failing against each
+other at the very first message, usually means one side is legacy.
+
+</Subsection>
+
+<Subsection title="Why stateless is worth the repetition" variant="a">
 
 Sending the same `_meta` on every request looks wasteful. The payoff is
 operational, and it's the same payoff REST gets:
@@ -215,7 +275,7 @@ operational, and it's the same payoff REST gets:
 
 </Subsection>
 
-<Subsection title="When a server does need state: handles" variant="a">
+<Subsection title="When a server does need state: handles" variant="b">
 
 Some tools genuinely need to remember something between calls: a draft
 being built up over several steps, a shopping basket, an open database
@@ -338,6 +398,18 @@ else. The spec's advice for designing handles:
       correctIndex: 0,
       explanation:
         "With no session to find, requests don't need to reach one particular server instance. JSON-RPC itself says nothing about _meta; that's MCP's own addition.",
+    },
+    {
+      question: "A 2026-07-28 client gets a 400 with no recognized MCP error from an older server's HTTP endpoint. What's the likely cause, and the fix?",
+      options: [
+        "The server is legacy; a dual-era client falls back to the initialize handshake",
+        "The server is overloaded; retry the same request after a delay",
+        "The version is wrong; resend with 2025-11-25 in _meta instead",
+        "The tool name is wrong; call server/discover to list tools",
+      ],
+      correctIndex: 0,
+      explanation:
+        "A legacy server expects initialize first and doesn't know per-request _meta, so changing the version string alone doesn't help. A recognized modern error like -32022 would mean the opposite: a modern server that just wants a different version.",
     },
   ]}
 />
