@@ -2358,6 +2358,16 @@ below describe each lesson as first converted; see the git log
    (without it a submission with no try/except passed). The reference passes
    all 6; per-tool approval, no gate and no try/except each fail the right
    tests. Callbacks link to verified pages in Module 2 and Lessons 3.10/3.11.
+   Concept 3 drafted: allowlists and per-tool credentials (an allowlisted
+   send-email tool, scoped credentials one layer below the tool, and the
+   principle of least privilege named). Two live read-only demos matching the
+   mockup's output in Pyodide 0.26.4, a 5-question quiz, and a graded
+   `make_send_email` allowlist exercise (4 hidden tests, each rebuilding its
+   own outbox; the reference passes all, and no-check, sends-anyway,
+   no-list-in-error and shared-global-list versions each fail the right
+   tests). The mockup's forward reference to the production-security module
+   is plain text, as that module isn't built. This was the last concept
+   mockup so far; the bookends are still owed.
 
 ---
 
