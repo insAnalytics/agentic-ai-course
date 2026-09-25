@@ -2296,10 +2296,10 @@ below describe each lesson as first converted; see the git log
    least-privilege lessons (the mockup's "Lesson 10" and "Lesson 11") are
    plain text. Callbacks link to verified anchors.
 
-10. **The Tool Threat Model** — Building
+10. **The Tool Threat Model** — Locked
    Working title (folder `10-the-tool-threat-model`), taken from Lessons
-   3.8 and 3.9's forward references; no bookends mockup yet, so the title,
-   intro and recap are still owed. Concept 1 drafted: prompt injection
+   3.8 and 3.9's forward references, all four concepts and the bookends
+   now drafted. Concept 1 drafted: prompt injection
    through tool results (direct vs indirect injection, and a live
    scripted-model ticket demo where an injected postscript changes the
    registry), with a 4-question quiz and no graded exercise, per its
@@ -2328,9 +2328,14 @@ below describe each lesson as first converted; see the git log
    injected "delete everything" against a read-only and an admin agent; matching
    the radius to the agent's exposure to untrusted content). One live read-only
    demo matching the mockup's output in Pyodide 0.26.4, a 5-question quiz, no
-   graded exercise. This was the last concept mockup so far; the bookends (title,
-   intro, recap, comprehensive quiz and sandbox) are still owed. The least-privilege
-   lesson is plain text; other callbacks link to verified anchors.
+   graded exercise. The least-privilege lesson is plain text; other
+   callbacks link to verified anchors.
+   Bookends drafted: intro (4 outcomes, why it matters), an 8-question
+   comprehensive quiz, and a graded two-file (`catalog.py` read-only,
+   `audit.py` entry) pre-ship toolset audit with 5 hidden tests. Verified in
+   Pyodide 0.26.4: the reference passes; the starter and four wrong versions
+   (no destructive list, no cut, `any` instead of `all`, counts instead of
+   names) each fail. Lesson 10 is now fully Locked.
 
 ---
 
