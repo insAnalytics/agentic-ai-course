@@ -1562,6 +1562,14 @@ demo's functions by passing them as part of its `setupCode`: Concept 2
 splits its routed-loop demo into `ROUTED_FUNCS` (definitions) plus the
 run, and its second demo uses `BASE_SETUP + ROUTED_FUNCS`.
 
+**Module 4 token counting (`COUNT_TOKENS` in `src/lib/fakeClient.ts`).**
+`count_tokens(x)` (about 4 characters per token, `math.ceil`; non-strings
+counted by their JSON form, with content-block objects flattened via
+`vars()`) is independent of the client classes. Demos pass
+`setupCode = FAKE_CLIENT + COUNT_TOKENS`; hidden tests append it to
+whatever client they build. Verified against real Python: the mockup's
+printed counts (10 / 50 / 82 / 195 / 20 / 101) match exactly.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped

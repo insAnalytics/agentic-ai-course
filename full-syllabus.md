@@ -2382,6 +2382,15 @@ below describe each lesson as first converted; see the git log
 
 ---
 
+## Module 4 — Context & Memory
+
+1. **The Context Budget** — Building. Concept 1 (what fills the window:
+   system prompt, tools, scratchpad, reply room; the `count_tokens` helper;
+   two live demos; 4 quiz cards) is built. Lesson title is a placeholder
+   (the mockup doesn't name the lesson). No intro/bookends yet.
+
+---
+
 ## Modules 4–11 — current plan
 
 *Updated 2026-09-24 from the Module 3 handover. The course now has 12
