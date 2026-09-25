@@ -2306,6 +2306,15 @@ below describe each lesson as first converted; see the git log
    mockup. The demo's output matches the mockup exactly when run in
    Pyodide 0.26.4. Callbacks link to verified pages in Lessons 3.9 and
    3.8 and Module 2's ReAct concept.
+   Concept 2 drafted: why the model can't be the security boundary
+   (parameterized SQL queries as the structural fix LLMs lack, the request
+   shown as one token sequence, mitigations that lower but never zero the
+   rate, and the shift to "how much harm can a fooled model do"). Three live
+   read-only demos, all matching the mockup's output in Pyodide 0.26.4
+   (the `sqlite3` one loads through `loadPackagesFromImports`), a 5-question
+   quiz, no graded exercise. The next concept and the least-privilege
+   lesson are plain text, as neither is built; other callbacks link to
+   verified anchors.
 
 ---
 
