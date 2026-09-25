@@ -2337,6 +2337,19 @@ below describe each lesson as first converted; see the git log
    (no destructive list, no cut, `any` instead of `all`, counts instead of
    names) each fail. Lesson 10 is now fully Locked.
 
+11. **Designing for Least Privilege** — Building
+   Working title (folder `11-designing-for-least-privilege`), taken from
+   Lesson 3.10's forward references; no bookends mockup yet, so the title,
+   intro and recap are still owed. Concept 1 drafted: narrow tools shrink
+   the blast radius (a broad `run_query` dumping the whole registry versus
+   purpose-built `get_agent_model`/`list_agent_names`, and the flexibility
+   cost of narrowing). Two live read-only demos matching the mockup's output
+   in Pyodide 0.26.4, a 4-question quiz, and a graded exercise replacing the
+   broad tool with two narrow ones (4 hidden tests; the reference passes all,
+   and versions that leak the row, add a field parameter, crash on a missing
+   agent or leak the list each fail the right tests; the starter only passes
+   the signature test, as in the mockup). Callbacks link to verified anchors.
+
 ---
 
 ## Modules 4–11 — current plan
