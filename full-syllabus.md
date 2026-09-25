@@ -2337,10 +2337,10 @@ below describe each lesson as first converted; see the git log
    (no destructive list, no cut, `any` instead of `all`, counts instead of
    names) each fail. Lesson 10 is now fully Locked.
 
-11. **Designing for Least Privilege** — Building
+11. **Designing for Least Privilege** — Locked
    Working title (folder `11-designing-for-least-privilege`), taken from
-   Lesson 3.10's forward references; no bookends mockup yet, so the title,
-   intro and recap are still owed. Concept 1 drafted: narrow tools shrink
+   Lesson 3.10's forward references, all three concepts and the bookends
+   now drafted. Concept 1 drafted: narrow tools shrink
    the blast radius (a broad `run_query` dumping the whole registry versus
    purpose-built `get_agent_model`/`list_agent_names`, and the flexibility
    cost of narrowing). Two live read-only demos matching the mockup's output
@@ -2366,8 +2366,19 @@ below describe each lesson as first converted; see the git log
    own outbox; the reference passes all, and no-check, sends-anyway,
    no-list-in-error and shared-global-list versions each fail the right
    tests). The mockup's forward reference to the production-security module
-   is plain text, as that module isn't built. This was the last concept
-   mockup so far; the bookends are still owed.
+   is plain text, as that module isn't built.
+   Bookends drafted: intro (4 outcomes, why it matters), an 8-question
+   comprehensive quiz, and a graded two-file (`backend.py` read-only,
+   `agent.py` entry) least-privilege registry agent combining narrow tools,
+   the approval gate, the recipient allowlist and scoped access objects
+   inside the collect-every-call loop. The hidden tests use the fake
+   client and ToolAwareClient. Verified in Pyodide 0.26.4 as multi-file:
+   the reference passes; the starter and versions with no gate, no
+   allowlist, a leaking read tool, a missing is_error flag, and a loop that
+   handles only the first call each fail. The mockup's 7 tests didn't catch
+   a per-tool (not per-call) approval, so an 8th test (approving a
+   different call id must not release a delete) was added. Lesson 11 is now
+   fully Locked, which completes Module 3's lessons.
 
 ---
 
