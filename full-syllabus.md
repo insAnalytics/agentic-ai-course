@@ -2323,6 +2323,14 @@ below describe each lesson as first converted; see the git log
    (5 hidden tests; the reference passes all, and an always-true and an
    `or`-instead-of-`and` version each fail the right tests). The least-privilege
    lesson is plain text; other callbacks link to verified anchors.
+   Concept 4 drafted: thinking in terms of the blast radius (the worst case of a
+   fully compromised agent, set by its tools and each tool's reach; the same
+   injected "delete everything" against a read-only and an admin agent; matching
+   the radius to the agent's exposure to untrusted content). One live read-only
+   demo matching the mockup's output in Pyodide 0.26.4, a 5-question quiz, no
+   graded exercise. This was the last concept mockup so far; the bookends (title,
+   intro, recap, comprehensive quiz and sandbox) are still owed. The least-privilege
+   lesson is plain text; other callbacks link to verified anchors.
 
 ---
 
