@@ -2349,6 +2349,15 @@ below describe each lesson as first converted; see the git log
    and versions that leak the row, add a field parameter, crash on a missing
    agent or leak the list each fail the right tests; the starter only passes
    the signature test, as in the mockup). Callbacks link to verified anchors.
+   Concept 2 drafted: separate reads from writes, and gate the writes (the
+   read/write split, and a code-level approval gate keyed to the specific
+   call id). Two live read-only demos matching the mockup's output in
+   Pyodide 0.26.4, a 5-question quiz, and a graded `execute_tool` approval-gate
+   exercise. The mockup's 5 hidden tests never exercised the "a tool that
+   raises is caught" case its task promises, so a 6th test was added for it
+   (without it a submission with no try/except passed). The reference passes
+   all 6; per-tool approval, no gate and no try/except each fail the right
+   tests. Callbacks link to verified pages in Module 2 and Lessons 3.10/3.11.
 
 ---
 
