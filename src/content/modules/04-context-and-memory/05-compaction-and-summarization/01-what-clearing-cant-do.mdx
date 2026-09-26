@@ -35,7 +35,7 @@ def trim_to_fit(messages: list, budget: int) -> list:
 
 export const CLEAR_FUNCS = String.raw`
 def clear_old_results(messages: list, keep_last: int) -> list:
-    """Replace the content of all but the newest \`keep_last\` successful tool results with a placeholder.
+    """Replace the content of all but the newest keep_last successful tool results with a placeholder.
     Tool calls, failed results, and every message stay where they are."""
     names = {}
     for message in messages:
@@ -103,7 +103,7 @@ def serialize(x) -> str:
     return json.dumps(_plain(x))
 
 def first_divergence(previous: dict, current: dict) -> dict:
-    """Where does \`current\` stop matching \`previous\`, and how much of it could be read from the cache?"""
+    """Where does current stop matching previous, and how much of it could be read from the cache?"""
     reusable = 0
     if serialize(current["tools"]) != serialize(previous["tools"]):
         return {"diverges_at": "tools", "reusable_tokens": 0}

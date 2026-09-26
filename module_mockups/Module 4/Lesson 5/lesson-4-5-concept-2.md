@@ -48,6 +48,7 @@ Include:
 - facts established, with exact values: names, ids, numbers, paths
 - what is finished, and what was tried and failed, with why
 - open questions and the next steps
+If an earlier summary appears above, don't repeat it: cover only the work after it.
 Leave out raw tool output that can be fetched again. Plain text, under 300 words."""
 
 def summary_request(messages: list, keep_recent: int):
@@ -293,6 +294,7 @@ Include:
 - facts established, with exact values: names, ids, numbers, paths
 - what is finished, and what was tried and failed, with why
 - open questions and the next steps
+If an earlier summary appears above, don't repeat it: cover only the work after it.
 Leave out raw tool output that can be fetched again. Plain text, under 300 words."""
 
 def summary_request(messages: list, keep_recent: int):

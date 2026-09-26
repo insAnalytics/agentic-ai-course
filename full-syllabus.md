@@ -2647,6 +2647,31 @@ below describe each lesson as first converted; see the git log
    message fails 1, 2 and 5 (and the alternation check), summary in its
    own message fails 3-5, mutating the task fails 3 and 6, `>` instead of
    `>=` fails 2. Forward references to later concepts are plain prose.
+   **Update:** the mockup's `SUMMARY_INSTRUCTIONS` gained the line "If an
+   earlier summary appears above, don't repeat it: cover only the work
+   after it." (used by Concept 3's append-summaries design); both the
+   constant and the displayed block in Concept 2 were updated and the
+   demo and six tests re-run unchanged.
+   Concept 3 (when a summary loses something) is built: `changes_ledger`
+   and `anchor_from_history` (plan, rules and every write-tool call read
+   from the full history, restated at the end of the compacted copy), a
+   shared rollout scenario loaded into every demo, and three demos (an
+   omission demo, a ledger demo, an append-vs-fold demo) all matching the
+   mockup's printed output exactly when re-run; 5 quiz cards; graded
+   exercise with six hidden tests. Mutations confirmed: reading the plan,
+   rules or ledger from `messages` instead of `history` fails test 3,
+   listing unanswered write calls fails 2, listing reads fails 1, 2, 3
+   and 5, dropping the FAILED marker fails 1 and 3, keeping the whole
+   result instead of its first line fails 1-3, appending in place fails
+   6, adding an empty anchor fails 5. The "What to Keep, What to Forget"
+   arXiv citation is as written in the mockup. **Escaped-backtick
+   cleanup:** Python constants written in `String.raw` with `\`` (used
+   in docstrings) keep the backslash, so the code shown in the editor had
+   stray backslashes and Python warned about an invalid escape. All 34
+   occurrences in Module 4 were removed (the executed code only; the
+   displayed markdown blocks keep their backticks) and every Module 4 demo
+   and hidden test was re-run afterwards. Earlier modules (0 and 3) still
+   have the same pattern in a few docstrings and were left alone.
    No intro/bookends yet.
 
 ---

@@ -17,7 +17,7 @@ def serialize(x) -> str:
     return json.dumps(_plain(x))
 
 def first_divergence(previous: dict, current: dict) -> dict:
-    """Where does \`current\` stop matching \`previous\`, and how much of it could be read from the cache?"""
+    """Where does current stop matching previous, and how much of it could be read from the cache?"""
     reusable = 0
     if serialize(current["tools"]) != serialize(previous["tools"]):
         return {"diverges_at": "tools", "reusable_tokens": 0}

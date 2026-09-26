@@ -52,7 +52,7 @@ def serialize(x) -> str:
     return json.dumps(_plain(x))
 
 def first_divergence(previous: dict, current: dict) -> dict:
-    """Where does \`current\` stop matching \`previous\`, and how much of it could be read from the cache?"""
+    """Where does current stop matching previous, and how much of it could be read from the cache?"""
     reusable = 0
     if serialize(current["tools"]) != serialize(previous["tools"]):
         return {"diverges_at": "tools", "reusable_tokens": 0}
@@ -74,6 +74,7 @@ Include:
 - facts established, with exact values: names, ids, numbers, paths
 - what is finished, and what was tried and failed, with why
 - open questions and the next steps
+If an earlier summary appears above, don't repeat it: cover only the work after it.
 Leave out raw tool output that can be fetched again. Plain text, under 300 words."""
 `;
 
@@ -313,6 +314,7 @@ Include:
 - facts established, with exact values: names, ids, numbers, paths
 - what is finished, and what was tried and failed, with why
 - open questions and the next steps
+If an earlier summary appears above, don't repeat it: cover only the work after it.
 Leave out raw tool output that can be fetched again. Plain text, under 300 words."""
 
 def summary_request(messages: list, keep_recent: int):
