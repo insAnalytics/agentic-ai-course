@@ -2672,7 +2672,23 @@ below describe each lesson as first converted; see the git log
    displayed markdown blocks keep their backticks) and every Module 4 demo
    and hidden test was re-run afterwards. Earlier modules (0 and 3) still
    have the same pattern in a few docstrings and were left alone.
-   No intro/bookends yet.
+   Concept 4 (when to compact, and what it costs) is built: a
+   `Compactor` (strip and clear first, compact only if still over the
+   low-water mark) and a 120-round cost demo run three ways, matching the
+   mockup's printed output exactly when re-run (clear first 209,210 with 1
+   compaction; compact first 189,556 with 7; separate summary call
+   273,996, about 45% more; the output-cost table at 300, 1,000 and 3,000
+   tokens per summary); 5 quiz cards; graded exercise `next_step` ("send"
+   / "clear" / "compact" / "trim") with six hidden tests. Mutations
+   confirmed: comparing with the budget instead of the low-water mark
+   fails 3 and 5, not stripping old thinking before clearing fails 2 and
+   4. The demo setup reuses Lesson 3's `cost_of_run`; nothing new added
+   to `fakeClient.ts`. The Claude compaction-API details (150,000 default
+   trigger, `compact_20260112`, `pause_after_compaction`) are prose from
+   the mockup as written. Module 8 is a plain-prose forward reference.
+   All four concepts exist; the lesson still needs intro/bookends (intro
+   outcomes, comprehensive quiz, comprehensive sandbox) before it can be
+   Locked.
 
 ---
 
