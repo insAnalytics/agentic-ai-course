@@ -79,11 +79,14 @@ class ResultStore:
     """Large tool results, kept outside the conversation under handles the store mints."""
     def __init__(self):
         self.items = {}
+        self.minted = 0
 
     def put(self, content: str) -> str:
-        handle = f"res_{len(self.items) + 1}"
+        self.minted += 1
+        handle = f"res_{self.minted}"
         self.items[handle] = content
         return handle
+
 
     def get(self, handle: str):
         return self.items.get(handle)

@@ -2723,7 +2723,27 @@ below describe each lesson as first converted; see the git log
    literal); the displayed block keeps them. Callbacks link to Module 3's
    truncation/pagination page, MCP handles subsection, validation
    concept and threat-model lesson, and Lessons 1 and 4; Lesson 8 is plain
-   prose (unbuilt). No intro/bookends yet.
+   prose (unbuilt). **Update:** the mockup changed `ResultStore` to mint
+   handles from a `minted` counter instead of `len(self.items) + 1`, so a
+   number is never reused once something is removed; both the executed
+   class and the displayed block were updated and the demos and seven
+   tests re-run unchanged.
+   Concept 2 (clearing and compaction that can be undone) is built:
+   `clear_to_store` (Lesson 4's clearing, storing each cleared result and
+   skipping placeholders so clearing twice changes nothing),
+   `transcript` + `compact_with_archive`, and `BoundedStore` (size cap,
+   removed handles answer with a note), with three demos matching the
+   mockup's printed output exactly when re-run (1,066 -> 495 tokens, 2
+   items stored after the second clearing; the archive summary with the
+   4.8s figure one search away; kept res_2/res_3, removed res_1); 5 quiz
+   cards; graded exercise `clear_to_store` with seven hidden tests (made
+   self-contained, as the mockup's shared `out`/`store`). Mutations
+   confirmed: no already-cleared skip fails 5 and 6, clearing the newest
+   results too fails 2, 5 and 6, clearing errors fails 2 and 5, not
+   storing fails 1, 4 and 5. Callbacks link to Lesson 4's clearing
+   concept, Lesson 5's order subsection and summary-loss concept, this
+   lesson's Concept 1 subsections and Module 3's least-privilege lesson;
+   Lesson 9 is plain prose (unbuilt). No intro/bookends yet.
 
 ---
 
