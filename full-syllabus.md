@@ -2703,10 +2703,11 @@ below describe each lesson as first converted; see the git log
    clearing on the compaction turn itself, both still pass. The forward
    reference to Lesson 12 is plain prose (unbuilt).
 
-6. **Offloading Context to Storage** — Building (title is a placeholder:
-   the mockup names no lesson; folder `06-offloading-context-to-storage`,
-   named from Lesson 5's forward reference "offloading context to
-   storage, and note taking"). Concept 1 (keep the reference, not the
+6. **Offloading Context to Storage** — **Locked** (folder
+   `06-offloading-context-to-storage`, named from Lesson 5's forward
+   reference "offloading context to storage, and note taking"; the
+   bookends' own heading is "Offloading Context to Storage, and
+   Note-Taking"). Concept 1 (keep the reference, not the
    result) is built: `ResultStore`, `offload`, `read_result` and
    `find_in_result` in the shared demo setup, a four-way comparison demo
    (7,326 / 490 tokens, page 2 repeating 5 lines, 159 offloaded) and an
@@ -2760,8 +2761,23 @@ below describe each lesson as first converted; see the git log
    harness article is cited as written in the mockup. Callbacks link to
    Lesson 2's re-anchoring concept, Lesson 5's ledger-anchor subsection
    and summary concepts and Module 3's granularity concept; Lessons 7
-   and 8 are plain prose (unbuilt). All three concepts exist; no
-   intro/bookends yet.
+   and 8 are plain prose (unbuilt).
+   Intro and bookends are built: 4 outcomes and why-it-matters linking
+   Lessons 4 and 5, an 8-question comprehensive quiz, and a multi-file
+   comprehensive sandbox (`tokens.py` and `lib.py` read-only, `agent.py`
+   entry) implementing `offloading`, `make_tools`, `RestorableContext`
+   (Lesson 5's `CompactingContext` with `clear_to_store`,
+   `compact_with_archive` and the notes index in the anchor) and
+   `run_agent`, with eleven hidden tests. Built like Lessons 4 and 5: the
+   fake client and `count_tokens` are prepended to the tests instead of a
+   `fake` module, and backticks were removed from `lib.py` docstrings and
+   the starter's TODO comment (they'd end the template literal). Verified
+   natively: the reference passes and the starter fails; mutations
+   confirmed: plain clearing, plain compaction, not reserving room for
+   the notes index, not sending the index, not offloading service tools,
+   not sending the anchor, and a late-binding lambda in `make_tools` each
+   fail. The recap is `04-recap-practice.mdx` (the lesson has three
+   concepts).
 
 ---
 

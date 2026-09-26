@@ -1,0 +1,33 @@
+---
+title: "Intro"
+lesson: "06-offloading-context-to-storage"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Keep a large tool result out of the context while keeping it reachable: store it, send a preview and a handle, and give the agent tools to read it back",
+    "Make clearing and compaction restorable, so nothing the agent saw is lost for good",
+    "Keep a store safe to use: one per task, a size cap that says what it removed, and handles the store mints itself",
+    "Give an agent notes it keeps for itself, through tools that can't scramble them, and that survive compaction",
+  ]}
+/>
+
+<WhyItMatters>
+  Every technique in
+  [Lessons 4](/04-context-and-memory/04-when-the-window-fills/00-intro/) and
+  [5](/04-context-and-memory/05-compaction-and-summarization/00-intro/)
+  makes the context smaller by throwing something away: a result's content,
+  a whole round, the exact words behind a summary. That's fine for data the
+  agent can fetch again. It isn't fine for a snapshot that will never be the
+  same twice, or for a detail whose importance only shows up ten steps
+  later.
+
+  This lesson moves what the agent has seen out of the context instead of
+  out of existence. Large results go to a store the moment they arrive.
+  Cleared results and compacted rounds go there too. What the agent learns
+  along the way goes into notes of its own. The context stays small, and
+  everything in it stays one call away from the full detail.
+</WhyItMatters>
