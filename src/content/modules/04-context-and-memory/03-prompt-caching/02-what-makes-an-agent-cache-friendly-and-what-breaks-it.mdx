@@ -1,0 +1,364 @@
+---
+title: "What makes an agent cache-friendly, and what breaks it"
+lesson: "03-prompt-caching"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { FAKE_CLIENT, COUNT_TOKENS } from "../../../../lib/fakeClient";
+
+export const DIVERGENCE_FUNC = String.raw`import json
+
+def serialize(x) -> str:
+    # byte-for-byte form, as a cache sees it: key order matters, exactly as sent
+    return json.dumps(_plain(x))
+
+def first_divergence(previous: dict, current: dict) -> dict:
+    """Where does \`current\` stop matching \`previous\`, and how much of it could be read from the cache?"""
+    reusable = 0
+    if serialize(current["tools"]) != serialize(previous["tools"]):
+        return {"diverges_at": "tools", "reusable_tokens": 0}
+    reusable += count_tokens(current["tools"])
+    if serialize(current["system"]) != serialize(previous["system"]):
+        return {"diverges_at": "system", "reusable_tokens": reusable}
+    reusable += count_tokens(current["system"])
+    for i, old in enumerate(previous["messages"]):
+        if i >= len(current["messages"]) or serialize(current["messages"][i]) != serialize(old):
+            return {"diverges_at": f"messages[{i}]", "reusable_tokens": reusable}
+        reusable += count_tokens(old)
+    return {"diverges_at": None, "reusable_tokens": reusable}
+`;
+
+export const DEMO_SETUP = FAKE_CLIENT + COUNT_TOKENS + DIVERGENCE_FUNC;
+
+export const FOUR_REQUESTS_DEMO = String.raw`TOOLS = [{"name": "get_status", "description": "An agent's health.",
+          "input_schema": {"type": "object", "properties": {"agent_name": {"type": "string"}}}}]
+SYSTEM = "You are the registry assistant. Check agent health and report problems clearly."
+call = ToolUseBlock(name="get_status", input={"agent_name": "research_agent"})
+turn_1 = [{"role": "user", "content": "Is research_agent healthy?"},
+          {"role": "assistant", "content": [call]},
+          {"role": "user", "content": [{"type": "tool_result", "tool_use_id": call.id, "content": "healthy " * 200}]}]
+next_call = ToolUseBlock(name="get_status", input={"agent_name": "support_agent"})
+turn_2 = turn_1 + [{"role": "assistant", "content": [next_call]},
+                   {"role": "user", "content": [{"type": "tool_result", "tool_use_id": next_call.id, "content": "ok"}]}]
+
+previous = {"tools": TOOLS, "system": SYSTEM, "messages": turn_1}
+cases = {
+    "append only": {"tools": TOOLS, "system": SYSTEM, "messages": turn_2},
+    "time in the system prompt": {"tools": TOOLS, "system": SYSTEM + " The time is 10:42:07.", "messages": turn_2},
+    "an early result edited": {"tools": TOOLS, "system": SYSTEM,
+        "messages": turn_2[:2] + [{"role": "user", "content": [{"type": "tool_result", "tool_use_id": call.id, "content": "[superseded]"}]}] + turn_2[3:]},
+    "a tool added": {"tools": TOOLS + [{"name": "list_agents", "description": "All names.", "input_schema": {"type": "object", "properties": {}}}],
+        "system": SYSTEM, "messages": turn_2},
+}
+full = first_divergence(previous, cases["append only"])["reusable_tokens"]
+for label, current in cases.items():
+    result = first_divergence(previous, current)
+    print(f"{label:26} diverges at {str(result['diverges_at']):12} reusable {result['reusable_tokens']:>4} of {full} tokens")
+`;
+
+export const KEY_ORDER_DEMO = String.raw`SYSTEM = "You are the registry assistant."
+call = ToolUseBlock(name="set_agent_model", input={"agent_name": "research_agent", "model": "claude-opus"})
+history = [{"role": "user", "content": "Move research_agent to opus."},
+           {"role": "assistant", "content": [call]},
+           {"role": "user", "content": [{"type": "tool_result", "tool_use_id": call.id, "content": "done"}]}]
+
+# the same call, rebuilt with its arguments in a different key order (say, after being reloaded from storage)
+rebuilt = ToolUseBlock(name="set_agent_model", input={"model": "claude-opus", "agent_name": "research_agent"})
+rebuilt.id = call.id
+reloaded = [history[0], {"role": "assistant", "content": [rebuilt]}, history[2]]
+
+print("same meaning:", call.input == rebuilt.input)
+print(first_divergence({"tools": [], "system": SYSTEM, "messages": history},
+                       {"tools": [], "system": SYSTEM, "messages": reloaded}))
+`;
+
+export const STARTER = String.raw`def first_divergence(previous: dict, current: dict) -> dict:
+    # TODO: compare tools, then system, then each previous message, adding up what's reusable
+    ...
+`;
+
+export const REFERENCE = String.raw`def first_divergence(previous: dict, current: dict) -> dict:
+    """Where does current stop matching previous, and how much of it could be read from the cache?"""
+    reusable = 0
+    if serialize(current["tools"]) != serialize(previous["tools"]):
+        return {"diverges_at": "tools", "reusable_tokens": 0}
+    reusable += count_tokens(current["tools"])
+    if serialize(current["system"]) != serialize(previous["system"]):
+        return {"diverges_at": "system", "reusable_tokens": reusable}
+    reusable += count_tokens(current["system"])
+    for i, old in enumerate(previous["messages"]):
+        if i >= len(current["messages"]) or serialize(current["messages"][i]) != serialize(old):
+            return {"diverges_at": f"messages[{i}]", "reusable_tokens": reusable}
+        reusable += count_tokens(old)
+    return {"diverges_at": None, "reusable_tokens": reusable}
+`;
+
+export const PROVIDED = "# --- provided: don't change this part ---\n" + COUNT_TOKENS.trimStart() + String.raw`
+import json
+
+def serialize(x) -> str:
+    # byte-for-byte form, as a cache sees it: key order matters, exactly as sent
+    return json.dumps(_plain(x))
+` + "\n# --- end of provided code ---\n\n";
+
+export const TESTS = [
+  FAKE_CLIENT + String.raw`
+T = [{"name": "a", "description": "x", "input_schema": {"type": "object", "properties": {}}}]
+S = "system prompt text"
+m = [{"role": "user", "content": "q1"}, {"role": "assistant", "content": [TextBlock(text="a1")]}, {"role": "user", "content": "q2"}]
+prev = {"tools": T, "system": S, "messages": m}
+
+# 1. a pure append: no divergence, and the whole previous request is reusable
+cur = {"tools": T, "system": S, "messages": m + [{"role": "assistant", "content": [TextBlock(text="a2")]}]}
+r = first_divergence(prev, cur)
+assert r == {"diverges_at": None, "reusable_tokens": count_tokens(T) + count_tokens(S) + count_tokens(m)}`,
+  FAKE_CLIENT + String.raw`
+T = [{"name": "a", "description": "x", "input_schema": {"type": "object", "properties": {}}}]
+S = "system prompt text"
+m = [{"role": "user", "content": "q1"}, {"role": "assistant", "content": [TextBlock(text="a1")]}, {"role": "user", "content": "q2"}]
+prev = {"tools": T, "system": S, "messages": m}
+
+# 2. a changed tool list: nothing is reusable
+r = first_divergence(prev, {"tools": T + T, "system": S, "messages": m})
+assert r == {"diverges_at": "tools", "reusable_tokens": 0}`,
+  FAKE_CLIENT + String.raw`
+T = [{"name": "a", "description": "x", "input_schema": {"type": "object", "properties": {}}}]
+S = "system prompt text"
+m = [{"role": "user", "content": "q1"}, {"role": "assistant", "content": [TextBlock(text="a1")]}, {"role": "user", "content": "q2"}]
+prev = {"tools": T, "system": S, "messages": m}
+
+# 3. a changed system prompt: only the tools are reusable
+r = first_divergence(prev, {"tools": T, "system": S + " now 10:42", "messages": m})
+assert r == {"diverges_at": "system", "reusable_tokens": count_tokens(T)}`,
+  FAKE_CLIENT + String.raw`
+T = [{"name": "a", "description": "x", "input_schema": {"type": "object", "properties": {}}}]
+S = "system prompt text"
+m = [{"role": "user", "content": "q1"}, {"role": "assistant", "content": [TextBlock(text="a1")]}, {"role": "user", "content": "q2"}]
+prev = {"tools": T, "system": S, "messages": m}
+
+# 4. an edited middle message: reusable up to it, and it names the index
+edited = [m[0], {"role": "assistant", "content": [TextBlock(text="a1 EDITED")]}, m[2]]
+r = first_divergence(prev, {"tools": T, "system": S, "messages": edited})
+assert r == {"diverges_at": "messages[1]", "reusable_tokens": count_tokens(T) + count_tokens(S) + count_tokens(m[0])}`,
+  FAKE_CLIENT + String.raw`
+T = [{"name": "a", "description": "x", "input_schema": {"type": "object", "properties": {}}}]
+S = "system prompt text"
+m = [{"role": "user", "content": "q1"}, {"role": "assistant", "content": [TextBlock(text="a1")]}, {"role": "user", "content": "q2"}]
+prev = {"tools": T, "system": S, "messages": m}
+
+# 5. messages removed from the end: diverges at the first one that's missing
+r = first_divergence(prev, {"tools": T, "system": S, "messages": m[:2]})
+assert r["diverges_at"] == "messages[2]"`,
+  String.raw`
+# 6. same content, different key order: a plain == would call these equal, but a cache
+# compares exact bytes, so this must still be reported as a divergence
+old_block = {"type": "tool_use", "id": "call_1", "name": "set", "input": {"x": 1, "y": 2}}
+new_block = {"type": "tool_use", "id": "call_1", "name": "set", "input": {"y": 2, "x": 1}}
+assert old_block == new_block
+r = first_divergence({"tools": [], "system": "", "messages": [{"role": "assistant", "content": [old_block]}]},
+                     {"tools": [], "system": "", "messages": [{"role": "assistant", "content": [new_block]}]})
+assert r["diverges_at"] == "messages[0]"`,
+];
+
+<Subsection title="Everything after a change is paid for again" variant="a">
+
+[The previous concept](/04-context-and-memory/03-prompt-caching/01-what-a-prefix-cache-is-worth-to-an-agent/)
+assumed an append-only history, where each request begins with the whole
+previous request. A prefix cache reuses the longest *exactly identical*
+beginning, so the question for any request is: where does it first
+differ from the one before? Everything before that point can be read
+from the cache. Everything from that point on, however much of it is
+unchanged, has to be processed again, because the cache only matches
+from the start.
+
+The order of the parts matters too. A request is laid out as the tool
+definitions, then the system prompt, then the messages, and a change
+anywhere invalidates that point and everything after it. A change to the
+tools invalidates the lot.
+
+Here's a function that finds that point, by comparing two consecutive
+requests part by part:
+
+```python
+import json
+from tokens import count_tokens, _plain   # _plain turns content blocks into dicts, as in count_tokens
+
+def serialize(x) -> str:
+    # byte-for-byte form, as a cache sees it: key order matters, exactly as sent
+    return json.dumps(_plain(x))
+
+def first_divergence(previous: dict, current: dict) -> dict:
+    """Where does `current` stop matching `previous`, and how much of it could be read from the cache?"""
+    reusable = 0
+    if serialize(current["tools"]) != serialize(previous["tools"]):
+        return {"diverges_at": "tools", "reusable_tokens": 0}
+    reusable += count_tokens(current["tools"])
+    if serialize(current["system"]) != serialize(previous["system"]):
+        return {"diverges_at": "system", "reusable_tokens": reusable}
+    reusable += count_tokens(current["system"])
+    for i, old in enumerate(previous["messages"]):
+        if i >= len(current["messages"]) or serialize(current["messages"][i]) != serialize(old):
+            return {"diverges_at": f"messages[{i}]", "reusable_tokens": reusable}
+        reusable += count_tokens(old)
+    return {"diverges_at": None, "reusable_tokens": reusable}
+```
+
+`serialize` turns each part into the exact text that would be sent. The
+comparison is on that text, not on the Python values, for a reason the
+last case below shows.
+
+</Subsection>
+
+<Subsection title="Four requests, one healthy" variant="b">
+
+The registry agent's second request, sent four ways:
+
+<LiveDemo client:load setupCode={DEMO_SETUP} code={FOUR_REQUESTS_DEMO} />
+
+- **Append only:** the healthy case. Nothing earlier changed, so all 534
+  tokens of the previous request can be reused, and only the new turn is
+  processed.
+- **The time in the system prompt:** this is the classic mistake, and
+  it's easy to make, since "tell the agent what time it is" sounds
+  harmless. But the system prompt comes before the whole conversation, so
+  a value that changes every request means only the tool definitions are
+  ever reused. Every request pays again for every message. If the agent
+  needs the time, put it at the end, in the latest message, where it
+  breaks nothing.
+- **An early result edited:** the previous lesson's
+  [pruning](/04-context-and-memory/02-context-that-fits-but-still-hurts/02-what-goes-stale-in-a-scratchpad/#the-rule-for-removing-it-replace-the-content-never-the-pair)
+  did exactly this, replacing an old tool result with a placeholder.
+  Everything before the edit is still reused; everything after it isn't.
+  The earlier the edit, the more it costs. The next concept deals with
+  this directly.
+- **A tool added:** the tool definitions come first, so changing them in
+  any way (adding one, removing one, rewording a description) reuses
+  nothing. This is why an agent's tool list should be settled before the
+  loop starts, and it's a tension a later lesson has to resolve.
+
+</Subsection>
+
+<Subsection title="The same meaning isn't the same bytes" variant="a">
+
+One more cache breaker is invisible when you read the code. Here, the
+same tool call is rebuilt with its arguments in a different order, as can
+happen when a history is saved and reloaded:
+
+<LiveDemo client:load setupCode={DEMO_SETUP} code={KEY_ORDER_DEMO} />
+
+To Python the two inputs are equal, since dict comparison ignores order.
+To a cache they're different text, and the request diverges at the
+rebuilt message. Anything that rebuilds history,
+[saving and reloading a checkpoint](/02-the-agent-loop/07-agent-state-and-the-scratchpad/03-checkpoint-and-resume/#saving-and-loading),
+converting between formats, or a language whose JSON library doesn't
+keep key order, can quietly break the cache this way. The fix is to keep
+what's sent exactly stable: store the messages as they were sent, or
+write JSON with a fixed key order,
+[the `sort_keys=True` from the previous lesson](/04-context-and-memory/02-context-that-fits-but-still-hurts/02-what-goes-stale-in-a-scratchpad/#the-rule-for-removing-it-replace-the-content-never-the-pair).
+
+</Subsection>
+
+<Subsection title="The rules, collected" variant="b">
+
+A cache-friendly agent:
+
+- keeps the tool definitions and system prompt **identical** for the
+  whole run
+- puts anything that changes per request (the time, the current plan,
+  per-request context) **at the end**
+- only **appends** to the history, never edits earlier messages as a
+  routine step
+- sends the history **exactly** as it was sent before, byte for byte
+
+That's also exactly the shape
+[the previous lesson's re-anchoring](/04-context-and-memory/02-context-that-fits-but-still-hurts/04-re-anchoring-the-goal/)
+already has: the plan is added at the end of each request and never
+saved into the history, so it changes every turn without disturbing
+anything before it.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "A request differs from the previous one only in its third message. What can be read from the cache?",
+    "options": [
+      "Everything except the third message",
+      "Nothing, since the requests differ",
+      "Only the new messages at the end",
+      "The tools, the system prompt and the first two messages; everything from the third message on is processed again"
+    ],
+    "correctIndex": 3,
+    "explanation": "A prefix cache matches from the start. Once the request differs, everything after that point is new to the cache, even if it's unchanged."
+  },
+  {
+    "question": "Why is putting the current time in the system prompt so costly?",
+    "options": [
+      "Timestamps are long",
+      "The system prompt comes before every message, so a value that changes each request means no message is ever reused",
+      "Models can't read timestamps",
+      "It changes the tool definitions"
+    ],
+    "correctIndex": 1,
+    "explanation": "A change early in the request invalidates everything after it. Put changing values at the end instead."
+  },
+  {
+    "question": "What does changing an agent's tool list mid-run do to the cache?",
+    "options": [
+      "Nothing, since tools are separate from messages",
+      "Only the changed tool is reprocessed",
+      "Nothing can be reused, because tool definitions come first",
+      "Only the system prompt is reprocessed"
+    ],
+    "correctIndex": 2,
+    "explanation": "The request is laid out as tools, then system, then messages, so a change to the tools invalidates everything."
+  },
+  {
+    "question": "Two tool calls have the same arguments in a different key order. Why can they break a cache?",
+    "options": [
+      "The model treats them as different tools",
+      "The cache compares the exact text sent, and the two serialize differently even though they mean the same thing",
+      "Key order changes the tool's schema",
+      "They can't; dicts with the same keys are equal"
+    ],
+    "correctIndex": 1,
+    "explanation": "Python compares dicts by content; a cache compares bytes. Keeping what's sent exactly stable avoids the miss."
+  },
+  {
+    "question": "Where should a value that changes every request, like the time or the current plan, go?",
+    "options": [
+      "In the system prompt, where the model sees it first",
+      "In the tool descriptions",
+      "At the end of the request, where changing it disturbs nothing before it",
+      "In the first user message"
+    ],
+    "correctIndex": 2,
+    "explanation": "The end is the only position where a change costs nothing in reuse. It's also where Lesson 2 already put the plan."
+  }
+]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Implement first_divergence(previous, current). Each request is a dict with tools, system and messages. serialize and count_tokens are provided. Compare the parts in order, using serialize for every comparison: if the tools differ, return {\"diverges_at\": \"tools\", \"reusable_tokens\": 0}. If the system prompts differ, return \"system\", with the tools' tokens as reusable. Otherwise walk the previous request's messages in order. At the first index i where the current request has no message, or a different one, return f\"messages[{i}]\", with the tokens of the tools, the system prompt and every matching message before i. If every previous message matches, return None with everything reusable."}
+  starterCode={PROVIDED + STARTER}
+  hiddenTests={TESTS}
+  hint={"Keep a running reusable total and return as soon as something differs. enumerate(previous[\"messages\"]) gives each index with its message; check i >= len(current[\"messages\"]) before comparing, so a shorter request doesn't cause an index error."}
+  correctAnswer={{
+    code: PROVIDED + REFERENCE,
+    explanation: "The function is a small version of the cache-diagnostics tools some providers now offer, which report where two requests diverged. The tests cover each cache breaker from this concept: a changed tool list reuses nothing (test 2), a changed system prompt reuses only the tools (test 3), an edited message reuses only what came before it (test 4), and the key-order case (test 6) diverges even though the two blocks are equal by Python's own == comparison. Test 1 is the healthy pattern the whole lesson is aiming for.",
+  }}
+/>
+
+</CheckpointZone>

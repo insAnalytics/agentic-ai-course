@@ -2468,10 +2468,33 @@ below describe each lesson as first converted; see the git log
    Callbacks link to Lesson 1's watching-it-grow-across-the-loop page and
    to Module 1's KV-cache and prompt-structure-and-cache-hits concepts
    (both already built, confirmed real destinations rather than
-   hand-slugified guesses). The mockup's own forward reference to
-   Concept 2 ("what makes an agent cache-friendly and what breaks it") is
-   plain prose, since that concept doesn't exist yet. No intro/bookends
-   yet.
+   hand-slugified guesses). Concept 2 (what makes an agent cache-friendly,
+   and what breaks it: a `first_divergence` function locating where two
+   consecutive requests stop matching byte-for-byte, a four-case demo
+   (append-only, time in the system prompt, an early result edited, a
+   tool added) and a key-order demo, both matching the mockup's printed
+   output exactly, 5 quiz cards, graded exercise with six hidden tests)
+   is built. **Test-coverage bug found and fixed:** the mockup's own
+   hidden test 6 (meant to prove that same-content-different-key-order
+   still counts as a cache miss) built its fixture from `ToolUseBlock`
+   instances, which have no `__eq__`, so two *different* instances are
+   never `==` regardless of content — a learner who wrote the naive
+   `previous == current` instead of `serialize(previous) !=
+   serialize(current)` would still pass all 6 hidden tests, verified by
+   actually running that exact wrong implementation in Pyodide under the
+   real grading harness. Fixed by rebuilding test 6's fixture from plain
+   dict blocks (`{"type": "tool_use", ...}`) with the same key/value pairs
+   in a different order — those genuinely are `==` in Python, so the
+   naive version now fails test 6 specifically (confirmed), while the
+   reference (using `serialize`) still passes all 6. Callbacks link to
+   Concept 1, to Lesson 2's pruning subsection (used twice — once for the
+   "early result edited" case and once for its `sort_keys=True` mention),
+   to Lesson 2's re-anchoring concept, and to Module 2's
+   checkpoint-and-resume concept's "Saving and loading" subsection — all
+   confirmed against the built HTML. The mockup's forward references to
+   Concept 3 ("where Lesson 2's techniques stand") and to a later
+   just-in-time-context lesson are plain prose, since neither exists yet.
+   No intro/bookends yet.
 
 ---
 
