@@ -2814,7 +2814,24 @@ below describe each lesson as first converted; see the git log
    skipping validation fails 5, skipping the found check fails 3 and 5.
    Module 5 (semantic search) is a plain-prose forward reference. Callbacks
    link to the previous concept and Module 3's names-and-descriptions and
-   validate-failures concepts. No intro/bookends yet.
+   validate-failures concepts.
+   Concept 3 (instructions and reference material on demand) is built:
+   `GuideLibrary` (index in the system prompt, `read_guide` for a body or
+   a section, errors that list what exists, names only ever looked up in
+   the library) and a six-guide, ten-turn cost demo matching the mockup's
+   printed output exactly when re-run (system prompt 3,074 vs 106 tokens;
+   sent 37,265 vs 11,946; cost 8,690 vs 3,307; the path-like name refused);
+   5 quiz cards; graded exercise `GuideLibrary` with five hidden tests
+   (already self-contained). Verified natively: the reference passes and
+   the starter fails; mutations confirmed: an always-present sections
+   pointer fails 2, dropping the "none" fallback fails 4, returning the
+   body for a section fails 3, no unknown-guide check fails 4 and 5. The
+   Agent Skills post and open-standard links are as written in the
+   mockup. Callbacks link to Lesson 2's evidence concept, this lesson's
+   rule subsection, Lesson 4's clearing concept, Module 3's
+   prompt-injection concept and Lesson 6's store-bounds subsection
+   (anchors verified); Lesson 10 is plain prose (unbuilt). All three
+   concepts exist; no intro/bookends yet.
 
 ---
 
