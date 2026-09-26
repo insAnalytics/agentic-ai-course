@@ -1,0 +1,495 @@
+---
+title: "Where Lesson 2's techniques stand, and the fights ahead"
+lesson: "03-prompt-caching"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { FAKE_CLIENT, COUNT_TOKENS } from "../../../../lib/fakeClient";
+
+export const PRUNE_FUNC = String.raw`import json
+
+def prune_superseded(messages: list) -> list:
+    # which tool call each tool_use_id belongs to: (name, arguments)
+    calls = {}
+    for message in messages:
+        if message["role"] == "assistant" and isinstance(message["content"], list):
+            for block in message["content"]:
+                if block.type == "tool_use":
+                    calls[block.id] = (block.name, json.dumps(block.input, sort_keys=True))
+
+    # the id of the LATEST successful result for each distinct call
+    latest = {}
+    for message in messages:
+        if message["role"] == "user" and isinstance(message["content"], list):
+            for block in message["content"]:
+                if block.get("type") == "tool_result" and not block.get("is_error"):
+                    latest[calls[block["tool_use_id"]]] = block["tool_use_id"]
+
+    pruned = []
+    for message in messages:
+        if message["role"] == "user" and isinstance(message["content"], list):
+            new_content = []
+            for block in message["content"]:
+                key = calls.get(block.get("tool_use_id"))
+                stale = (block.get("type") == "tool_result" and not block.get("is_error")
+                         and latest.get(key) != block["tool_use_id"])
+                if stale:
+                    name = key[0]
+                    block = {**block, "content": f"[superseded: a later {name} call with the same arguments returned newer data]"}
+                new_content.append(block)
+            pruned.append({**message, "content": new_content})
+        else:
+            pruned.append(message)
+    return pruned
+`;
+
+export const ANCHOR_FUNCS = String.raw`
+def rule_history(messages: list) -> dict:
+    history = {}
+    for message in messages:
+        if message["role"] == "assistant" and isinstance(message["content"], list):
+            for block in message["content"]:
+                if block.type == "tool_use" and block.name == "set_rule":
+                    history.setdefault(block.input["name"], []).append(block.input["value"])
+    return history
+
+def current_rules_block(messages: list) -> str:
+    history = rule_history(messages)
+    if not history:
+        return ""
+    lines = [f"- {name}: {values[-1]}" for name, values in history.items()]
+    return "<current_rules>\n" + "\n".join(lines) + "\n</current_rules>"
+
+def latest_plan(messages: list) -> str:
+    plan = ""
+    for message in messages:
+        if message["role"] == "assistant" and isinstance(message["content"], list):
+            for block in message["content"]:
+                if block.type == "tool_use" and block.name == "update_plan":
+                    plan = block.input["plan"]
+    return plan
+
+def assemble_context(messages: list) -> list:
+    """Return the messages to send, with the current plan and rules restated at the very end."""
+    parts = []
+    plan = latest_plan(messages)
+    if plan:
+        parts.append(f"<current_plan>\n{plan}\n</current_plan>")
+    rules = current_rules_block(messages)
+    if rules:
+        parts.append(rules)
+    if not parts:
+        return messages
+    anchor = "\n".join(parts)
+
+    last = messages[-1]
+    if isinstance(last["content"], str):
+        new_last = {**last, "content": last["content"] + "\n\n" + anchor}
+    else:
+        # tool_result blocks must come first in a user message, so the anchor goes after them
+        new_last = {**last, "content": last["content"] + [{"type": "text", "text": anchor}]}
+    return messages[:-1] + [new_last]
+`;
+
+export const DIVERGENCE_FUNC = String.raw`
+def serialize(x) -> str:
+    # byte-for-byte form, as a cache sees it: key order matters, exactly as sent
+    return json.dumps(_plain(x))
+
+def first_divergence(previous: dict, current: dict) -> dict:
+    """Where does \`current\` stop matching \`previous\`, and how much of it could be read from the cache?"""
+    reusable = 0
+    if serialize(current["tools"]) != serialize(previous["tools"]):
+        return {"diverges_at": "tools", "reusable_tokens": 0}
+    reusable += count_tokens(current["tools"])
+    if serialize(current["system"]) != serialize(previous["system"]):
+        return {"diverges_at": "system", "reusable_tokens": reusable}
+    reusable += count_tokens(current["system"])
+    for i, old in enumerate(previous["messages"]):
+        if i >= len(current["messages"]) or serialize(current["messages"][i]) != serialize(old):
+            return {"diverges_at": f"messages[{i}]", "reusable_tokens": reusable}
+        reusable += count_tokens(old)
+    return {"diverges_at": None, "reusable_tokens": reusable}
+`;
+
+export const COST_FUNCS = String.raw`
+def cost_of_run(requests: list, read_multiplier: float, write_multiplier: float) -> int:
+    """Cost of the requests actually sent, using first_divergence to see what each could reuse."""
+    total = 0.0
+    previous = None
+    for request in requests:
+        size = count_tokens(request["tools"]) + count_tokens(request["system"]) + count_tokens(request["messages"])
+        reused = first_divergence(previous, request)["reusable_tokens"] if previous else 0
+        total += reused * read_multiplier + (size - reused) * write_multiplier
+        previous = request
+    return round(total)
+
+def stale_tokens(messages: list) -> int:
+    return count_tokens(messages) - count_tokens(prune_superseded(messages))
+
+class BatchPruner:
+    """Sends the history append-only, and prunes only once enough stale content has built up."""
+    def __init__(self, threshold: int):
+        self.threshold = threshold
+        self.view = []
+
+    def prepare(self, history: list) -> list:
+        view = self.view + history[len(self.view):]
+        if stale_tokens(view) >= self.threshold:
+            view = prune_superseded(view)
+        self.view = view
+        return view
+`;
+
+export const ANCHOR_SETUP = FAKE_CLIENT + COUNT_TOKENS + PRUNE_FUNC + ANCHOR_FUNCS + DIVERGENCE_FUNC;
+export const COST_SETUP = ANCHOR_SETUP + COST_FUNCS;
+
+export const ANCHOR_DEMO = String.raw`SYSTEM = "You are the registry assistant."
+plan = ToolUseBlock(name="update_plan", input={"plan": "[ ] check research_agent\n[ ] report"})
+history = [{"role": "user", "content": "Check research_agent."},
+           {"role": "assistant", "content": [plan]},
+           {"role": "user", "content": [{"type": "tool_result", "tool_use_id": plan.id, "content": "plan saved"}]}]
+turn_1 = assemble_context(history)
+
+call = ToolUseBlock(name="get_status", input={"agent_name": "research_agent"})
+history = history + [{"role": "assistant", "content": [call]},
+                     {"role": "user", "content": [{"type": "tool_result", "tool_use_id": call.id, "content": "healthy"}]}]
+turn_2 = assemble_context(history)
+
+result = first_divergence({"tools": [], "system": SYSTEM, "messages": turn_1},
+                          {"tools": [], "system": SYSTEM, "messages": turn_2})
+print(result, f"-- turn 1 sent {len(turn_1)} messages")
+`;
+
+export const ROLLOUT_DEMO = String.raw`TOOLS = [{"name": "get_status", "description": "An agent's health.", "input_schema": {"type": "object", "properties": {"agent_name": {"type": "string"}}}}]
+SYSTEM = "You are the registry assistant, watching agents during a rollout."
+
+# a long watch: the same three agents' status checked round after round, each result superseding the last
+history = [{"role": "user", "content": "Watch research_agent, support_agent and billing_agent through the rollout."}]
+snapshots = []
+for round_number in range(1, 9):
+    for agent in ["research_agent", "support_agent", "billing_agent"]:
+        call = ToolUseBlock(name="get_status", input={"agent_name": agent})
+        report = f"{agent} round {round_number}: " + "p50 410ms p99 1.2s errors 0.1% " * 12
+        history = history + [{"role": "assistant", "content": [call]},
+                             {"role": "user", "content": [{"type": "tool_result", "tool_use_id": call.id, "content": report}]}]
+        snapshots.append(history)
+
+def run(policy) -> tuple:
+    requests = [{"tools": TOOLS, "system": SYSTEM, "messages": policy(h)} for h in snapshots]
+    final_stale = stale_tokens(requests[-1]["messages"])
+    return cost_of_run(requests, read_multiplier=0.1, write_multiplier=1.25), final_stale
+
+batcher = BatchPruner(threshold=1_000)
+for label, policy in [("never prune", lambda h: h),
+                      ("prune every turn", prune_superseded),
+                      ("prune in batches", batcher.prepare)]:
+    cost, stale = run(policy)
+    print(f"{label:17} cost {cost:>7,} token-units   stale tokens still sent at the end: {stale:>5,}")
+`;
+
+export const STARTER = String.raw`def stale_tokens(messages: list) -> int:
+    # TODO
+    ...
+
+class BatchPruner:
+    def __init__(self, threshold: int):
+        # TODO
+        ...
+
+    def prepare(self, history: list) -> list:
+        # TODO: append new messages to the last view; prune only once enough is stale
+        ...
+`;
+
+export const REFERENCE = String.raw`def stale_tokens(messages: list) -> int:
+    return count_tokens(messages) - count_tokens(prune_superseded(messages))
+
+class BatchPruner:
+    """Sends the history append-only, and prunes only once enough stale content has built up."""
+    def __init__(self, threshold: int):
+        self.threshold = threshold
+        self.view = []
+
+    def prepare(self, history: list) -> list:
+        view = self.view + history[len(self.view):]
+        if stale_tokens(view) >= self.threshold:
+            view = prune_superseded(view)
+        self.view = view
+        return view
+`;
+
+export const PROVIDED = "# --- provided: prune_superseded from Lesson 2, and count_tokens and first_divergence, don't change this part ---\n"
+  + COUNT_TOKENS.trimStart() + PRUNE_FUNC + DIVERGENCE_FUNC + "# --- end of provided code ---\n\n";
+
+export const TEST_SETUP = FAKE_CLIENT + String.raw`
+def turn(agent, text):
+    call = ToolUseBlock(name="get_status", input={"agent_name": agent})
+    return [{"role": "assistant", "content": [call]},
+            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": call.id, "content": text}]}]
+
+def req(msgs):
+    return {"tools": [], "system": "s", "messages": msgs}
+
+h1 = [{"role": "user", "content": "watch"}] + turn("a", "a v1 " + "x" * 400)
+h2 = h1 + turn("b", "b v1")
+h3 = h2 + turn("a", "a v2 " + "y" * 400)     # supersedes a v1 (about 80 stale tokens)
+h4 = h3 + turn("a", "a v3 " + "z" * 400)     # supersedes a v2 as well (about 160)
+`;
+
+export const TESTS = [
+  TEST_SETUP + String.raw`
+# 1. stale_tokens: zero until something is superseded, then the tokens pruning would save
+assert stale_tokens(h2) == 0
+assert stale_tokens(h3) == count_tokens(h3) - count_tokens(prune_superseded(h3)) > 0`,
+  TEST_SETUP + String.raw`
+# 2. below the threshold, the view is the history, appended as-is: a pure append for the cache
+p = BatchPruner(threshold=10_000)
+v1, v2, v3 = p.prepare(h1), p.prepare(h2), p.prepare(h3)
+assert v3 == h3
+assert first_divergence(req(v1), req(v2))["diverges_at"] is None
+assert first_divergence(req(v2), req(v3))["diverges_at"] is None`,
+  TEST_SETUP + String.raw`
+# 3. once stale content reaches the threshold, the view is pruned, in one go
+p = BatchPruner(threshold=150)
+p.prepare(h1); p.prepare(h2); p.prepare(h3)          # about 80 stale: not yet
+v4 = p.prepare(h4)                                    # about 160 stale: prune now
+assert stale_tokens(v4) == 0
+assert v4[2]["content"][0]["content"].startswith("[superseded") and v4[6]["content"][0]["content"].startswith("[superseded")
+
+# "reached" means >=: a threshold exactly equal to the stale tokens prunes too
+p = BatchPruner(threshold=stale_tokens(h4))
+assert stale_tokens(p.prepare(h4)) == 0`,
+  TEST_SETUP + String.raw`
+# 4. after a prune, later turns append to the PRUNED view, so the next request is a pure append again
+p = BatchPruner(threshold=150)
+p.prepare(h1); p.prepare(h2); p.prepare(h3)
+v4 = p.prepare(h4)
+h5 = h4 + turn("b", "b still fine")
+v5 = p.prepare(h5)
+assert first_divergence(req(v4), req(v5))["diverges_at"] is None
+assert v5[:len(v4)] == v4`,
+  TEST_SETUP + String.raw`
+# 5. the history itself is never changed, and every pair survives in the view
+p = BatchPruner(threshold=150)
+p.prepare(h1); p.prepare(h2); p.prepare(h3); p.prepare(h4)
+h5 = h4 + turn("b", "b still fine")
+v5 = p.prepare(h5)
+assert h4[2]["content"][0]["content"].startswith("a v1")
+ids = [b.id for m in v5 if m["role"] == "assistant" for b in m["content"]]
+res = [b["tool_use_id"] for m in v5 if m["role"] == "user" and isinstance(m["content"], list) for b in m["content"]]
+assert ids == res and len(v5) == len(h5)`,
+];
+
+<Subsection title="Re-anchoring: nearly free" variant="a">
+
+[Lesson 2](/04-context-and-memory/02-context-that-fits-but-still-hurts/00-intro/)
+added two things to what the agent sends: a re-anchored plan at the end,
+and pruning of superseded tool results. Both improve what the model sees.
+[The previous concept](/04-context-and-memory/03-prompt-caching/02-what-makes-an-agent-cache-friendly-and-what-breaks-it/)
+gave a way to check what each costs in cache reuse. Here are both checked,
+starting with re-anchoring.
+
+The anchor is added to the last message of each request and never saved
+into the history. So on the next turn, that message is sent again
+*without* the anchor:
+
+<LiveDemo client:load setupCode={ANCHOR_SETUP} code={ANCHOR_DEMO} />
+
+(`assemble_context` is Lesson 2's.) Turn 2's request diverges at
+`messages[2]`, the message that carried turn 1's anchor. Everything before
+it is reused; that one message, and what's new, is processed again. That's
+the whole cost: one message per turn, however long the history grows. For
+the benefit of keeping the current plan right beside the next decision,
+that's a good trade, and it's the best available one. Saving the anchor
+into the history instead would avoid the miss, but every turn would then
+leave an old copy of the plan behind, bringing back exactly the stale
+content Lesson 2 removed.
+
+</Subsection>
+
+<Subsection title="Pruning: expensive if done every turn" variant="b">
+
+Pruning is different. It edits a tool result *in the middle* of the
+history, and
+[everything after an edit is processed again](/04-context-and-memory/03-prompt-caching/02-what-makes-an-agent-cache-friendly-and-what-breaks-it/#everything-after-a-change-is-paid-for-again).
+Done every turn, every new supersession means another edit, and another
+large reprocessing.
+
+Here's the registry agent watching three agents through a rollout,
+checking each one's status round after round, with each new result
+superseding the previous one for that agent. The same run is sent three
+ways: never pruned, pruned every turn, and pruned in batches, only once
+enough stale content has built up. Three helpers do the measuring and the
+batching:
+
+```python
+def cost_of_run(requests: list, read_multiplier: float, write_multiplier: float) -> int:
+    """Cost of the requests actually sent, using first_divergence to see what each could reuse."""
+    total = 0.0
+    previous = None
+    for request in requests:
+        size = count_tokens(request["tools"]) + count_tokens(request["system"]) + count_tokens(request["messages"])
+        reused = first_divergence(previous, request)["reusable_tokens"] if previous else 0
+        total += reused * read_multiplier + (size - reused) * write_multiplier
+        previous = request
+    return round(total)
+
+def stale_tokens(messages: list) -> int:
+    return count_tokens(messages) - count_tokens(prune_superseded(messages))
+
+class BatchPruner:
+    """Sends the history append-only, and prunes only once enough stale content has built up."""
+    def __init__(self, threshold: int):
+        self.threshold = threshold
+        self.view = []
+
+    def prepare(self, history: list) -> list:
+        view = self.view + history[len(self.view):]
+        if stale_tokens(view) >= self.threshold:
+            view = prune_superseded(view)
+        self.view = view
+        return view
+```
+
+Now the three runs (cost uses the same example multipliers as
+[Concept 1](/04-context-and-memory/03-prompt-caching/01-what-a-prefix-cache-is-worth-to-an-agent/),
+and `prune_superseded` is Lesson 2's):
+
+<LiveDemo client:load setupCode={COST_SETUP} code={ROLLOUT_DEMO} />
+
+Pruning every turn removes all the stale content, and costs **72% more**
+than never pruning, because nearly every request edits something in the
+middle. Never pruning is cheapest and leaves the most misleading content
+in front of the model. Batching sits between them: about 6% more than
+never pruning, while cutting the stale content still sent by more than
+half.
+
+`BatchPruner` keeps its own `view`, the version of the history it last
+sent. Between batches, new messages are simply appended to that view, so
+each request is a pure append for the cache. When stale content reaches
+the threshold, the view is pruned all at once, costing one reprocessing
+instead of many, and after that new messages append to the *pruned* view,
+so the saving holds.
+
+There's no universally right threshold. It's the trade this whole module
+keeps making:
+[quality](/04-context-and-memory/02-context-that-fits-but-still-hurts/01-agents-get-worse-before-the-window-is-full/)
+(less stale content in front of the model) against cost (more
+reprocessing), and the right setting depends on how misleading the stale
+content is and how much the cache is worth in your setup. What's
+universal is the shape of the answer: **edits to the history should be
+occasional and batched, never routine.**
+
+</Subsection>
+
+<Subsection title="Two fights ahead" variant="a">
+
+Two techniques later in this module run straight into this lesson, and
+it's better to name them now than to meet them by surprise:
+
+- **Compaction** (Lesson 5, on compaction and summarization) replaces a
+  long run of old turns with a short summary. That's an edit near the
+  *start* of the history, so the cache is lost from that point on. It has
+  to be an occasional, deliberate operation, exactly like batched pruning,
+  never something done every turn.
+- **Loading tools only when needed** (Lesson 7, on just-in-time context
+  and dynamic tool exposure) wants the tool list to change during a run,
+  and tool definitions come first in every request, so changing them
+  invalidates everything. The workable approaches add new definitions
+  without rewriting the ones already sent. Some providers now support
+  exactly this, letting a tool definition be added partway through a
+  conversation instead of by editing the tool list. Lesson 7 comes back
+  to it.
+
+Both come down to the same tension this lesson has been about: the most
+useful thing to send and the cheapest thing to send are not always the
+same, and the design job is to choose deliberately, with the cost
+measured, rather than by accident.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "What does re-anchoring cost in cache reuse each turn?",
+    "options": [
+      "The whole history is reprocessed every turn",
+      "Nothing at all",
+      "One message: the one that carried last turn's anchor is sent without it, so it and everything new are processed again",
+      "The tool definitions are reprocessed"
+    ],
+    "correctIndex": 2,
+    "explanation": "The anchor lives only in the last message and is never saved. That message differs next turn, but everything before it is still reused."
+  },
+  {
+    "question": "Why not save the anchor into the history to avoid that one-message miss?",
+    "options": [
+      "Every turn would leave an old copy of the plan behind, bringing back the stale content Lesson 2 removed",
+      "The API rejects anchors in the history",
+      "Saved anchors can't be read by the model",
+      "It would change the tool definitions"
+    ],
+    "correctIndex": 0,
+    "explanation": "The small cache cost buys a single, current plan. Saving it would trade that for a pile of outdated plans."
+  },
+  {
+    "question": "In the rollout demo, why does pruning every turn cost 72% more than never pruning?",
+    "options": [
+      "Pruning adds tokens to the history",
+      "Nearly every request edits a result in the middle, so everything after that edit has to be processed again",
+      "Pruned results can't be cached",
+      "Pruning changes the system prompt"
+    ],
+    "correctIndex": 1,
+    "explanation": "A cache only reuses up to the first change. Frequent edits in the middle keep resetting that point."
+  },
+  {
+    "question": "Why does BatchPruner append new messages to its pruned view after a batch, rather than to the raw history?",
+    "options": [
+      "The raw history is deleted after pruning",
+      "So the next request is a pure append of what was just sent, keeping the cache valid until the next batch",
+      "So pruned results are restored",
+      "To make the history shorter"
+    ],
+    "correctIndex": 1,
+    "explanation": "The cache compares against what was actually sent. Building on the pruned view keeps each later request an exact extension of it."
+  },
+  {
+    "question": "Why must compaction be an occasional operation rather than a per-turn one?",
+    "options": [
+      "Summaries are expensive to write",
+      "It edits the history near its start, which invalidates the cache from that point on, so doing it every turn would lose the cache every turn",
+      "Models can only read one summary",
+      "It changes the tool definitions"
+    ],
+    "correctIndex": 1,
+    "explanation": "It's the same rule as pruning, applied to a bigger edit: changes to the history should be deliberate and batched, not routine."
+  }
+]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"prune_superseded from Lesson 2, count_tokens and first_divergence are provided. Implement stale_tokens(messages): how many tokens pruning would save, meaning the tokens in messages minus the tokens in prune_superseded(messages). Then BatchPruner(threshold) with a prepare(history) method that returns the messages to send. Keep self.view, the messages last sent, starting empty. Build this turn's view by taking self.view and appending every message of history beyond its length, unchanged. If that view's stale_tokens has reached threshold, prune it with prune_superseded. Store the result as self.view and return it. Never modify history."}
+  starterCode={PROVIDED + STARTER}
+  hiddenTests={TESTS}
+  hint={"history[len(self.view):] is exactly the messages added since the last call, so self.view + history[len(self.view):] extends the previous view without touching what was already sent. prune_superseded returns a new list, so the history stays untouched."}
+  correctAnswer={{
+    code: PROVIDED + REFERENCE,
+    explanation: "Tests 2 and 4 are the reason the class exists: between batches, and after one, each request is a pure append of the last, which first_divergence confirms. Test 3 shows the batch itself: nothing happens while stale content is under the threshold, then two superseded results are replaced in one go, costing one reprocessing instead of two. Test 5 checks the two guarantees every technique in this module keeps: the history is never changed, and every tool call keeps its result.",
+  }}
+/>
+
+</CheckpointZone>

@@ -2452,11 +2452,9 @@ below describe each lesson as first converted; see the git log
    convention instead (`REACT_FAKE_CLIENT` + `TOOL_AWARE_CLIENT` prefixed
    onto the hidden-tests string, as Lesson 1's recap does).
 
-3. **Prompt Caching** — Building (title is a placeholder: the mockup
-   doesn't name the lesson, and unlike Lesson 2 there's no literal quoted
-   title to inherit from an earlier forward reference, only the generic
-   "prompt caching" and "context quality" pointers from Lesson 1; picked
-   from the former since this lesson is squarely about prefix caching).
+3. **Prompt Structure and Cache Hits** — Locked (title from the bookends
+   file; the folder is still `03-prompt-caching`, named before the
+   bookends existed, and its links are unchanged).
    Concept 1 (what a prefix cache is worth to an agent: a provider-neutral
    `estimate_cost` cost model — reused prefix tokens read at a discount,
    new tokens written at a surcharge — applied to Lesson 1's own
@@ -2494,7 +2492,31 @@ below describe each lesson as first converted; see the git log
    confirmed against the built HTML. The mockup's forward references to
    Concept 3 ("where Lesson 2's techniques stand") and to a later
    just-in-time-context lesson are plain prose, since neither exists yet.
-   No intro/bookends yet.
+   Concept 3 (where Lesson 2's techniques stand, and the fights ahead:
+   an anchor demo showing re-anchoring costs one message per turn
+   (`messages[2]`, 63 reusable tokens), and a rollout demo comparing
+   never-prune / prune-every-turn / `BatchPruner` (9,741 / 16,721 /
+   10,345 token-units, +72% and +6%), both matching the mockup's printed
+   output exactly when re-run; 5 quiz cards; graded exercise `stale_tokens`
+   + `BatchPruner` with five hidden tests) is built. **Test-coverage gap
+   fixed:** the mockup's tests never checked the threshold boundary, so a
+   strict `>` instead of `>=` passed all five; test 3 now also asserts a
+   threshold exactly equal to the stale tokens prunes (the `>` variant
+   fails it). Mutations also confirmed: pruning every turn fails tests 2
+   and 4, building from the raw history each turn fails test 4, never
+   storing the view fails all five. The mockup's test 3-5 built on one
+   `BatchPruner`'s state across tests; each hidden test is now
+   self-contained (shared `TEST_SETUP`), since the harness runs them
+   separately. Intro and Recap & Practice (8-card comprehensive quiz; the
+   multi-file "cache-aware context builder" sandbox with read-only
+   `tokens.py` and `lib.py` and `agent.py` to complete: `add_to_end`,
+   `CacheAwareContext`, a collect-every-call `run_agent` recording every
+   request sent; six hidden tests, incl. aware cost < half the naive
+   builder's, 15,433 vs 44,413 with the reference) are built. Verified
+   against real CPython by extracting the strings from the built lesson
+   files; not re-run in Pyodide since no new harness or component is
+   involved. Forward references to Lessons 5, 7 and 12 are plain prose
+   (unbuilt).
 
 ---
 

@@ -1,0 +1,35 @@
+---
+title: "Intro"
+lesson: "03-prompt-caching"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Explain what a prefix cache reuses, why an agent loop is close to the ideal case for it, and estimate what it saves",
+    "Find where one request stops matching the previous one, and recognize the common ways agents break their own cache",
+    "Decide how often to edit an agent's history, trading the quality benefit of pruning against its cache cost",
+    "Build a context step that keeps the prefix fixed, puts everything that changes at the end, and prunes in batches",
+  ]}
+/>
+
+<WhyItMatters>
+  [Lesson 1](/04-context-and-memory/01-the-context-budget/00-intro/) showed
+  that an agent resends its whole history every turn, so what it processes
+  grows much faster than the conversation. A prefix cache turns most of that
+  repetition back into savings, whether the saving is money on a hosted API
+  or compute and latency on a model you run yourself. For long agent runs,
+  it's routinely the difference between a practical cost and an impractical
+  one.
+
+  But the saving only exists while the beginning of each request stays
+  exactly the same, and agents are good at breaking that by accident: a
+  timestamp in the system prompt, a tool list that changes mid-run, an edit
+  to an early message. This lesson is about structuring context so the cache
+  keeps working, and about the trade that shows up whenever a quality
+  technique needs to change the history, which it will again in Lesson 5
+  (compaction and summarization) and Lesson 7 (just-in-time context and
+  dynamic tool exposure).
+</WhyItMatters>

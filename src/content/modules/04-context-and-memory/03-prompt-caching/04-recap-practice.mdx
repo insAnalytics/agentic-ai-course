@@ -1,0 +1,402 @@
+---
+title: "Recap & Practice"
+lesson: "03-prompt-caching"
+order: 4
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, TOOL_AWARE_CLIENT, COUNT_TOKENS } from "../../../../lib/fakeClient";
+
+export const TOKENS_PY = "# the token estimate used throughout this module -- read-only\n" + COUNT_TOKENS.trimStart();
+
+export const LIB_PY = String.raw`# the techniques from Lessons 2 and 3 -- read-only
+import json
+from tokens import count_tokens, _plain
+
+def prune_superseded(messages: list) -> list:
+    # which tool call each tool_use_id belongs to: (name, arguments)
+    calls = {}
+    for message in messages:
+        if message["role"] == "assistant" and isinstance(message["content"], list):
+            for block in message["content"]:
+                if block.type == "tool_use":
+                    calls[block.id] = (block.name, json.dumps(block.input, sort_keys=True))
+
+    # the id of the LATEST successful result for each distinct call
+    latest = {}
+    for message in messages:
+        if message["role"] == "user" and isinstance(message["content"], list):
+            for block in message["content"]:
+                if block.get("type") == "tool_result" and not block.get("is_error"):
+                    latest[calls[block["tool_use_id"]]] = block["tool_use_id"]
+
+    pruned = []
+    for message in messages:
+        if message["role"] == "user" and isinstance(message["content"], list):
+            new_content = []
+            for block in message["content"]:
+                key = calls.get(block.get("tool_use_id"))
+                stale = (block.get("type") == "tool_result" and not block.get("is_error")
+                         and latest.get(key) != block["tool_use_id"])
+                if stale:
+                    name = key[0]
+                    block = {**block, "content": f"[superseded: a later {name} call with the same arguments returned newer data]"}
+                new_content.append(block)
+            pruned.append({**message, "content": new_content})
+        else:
+            pruned.append(message)
+    return pruned
+
+def rule_history(messages: list) -> dict:
+    """Every value each rule has been set to, in order, from the agent's set_rule calls."""
+    history = {}
+    for message in messages:
+        if message["role"] == "assistant" and isinstance(message["content"], list):
+            for block in message["content"]:
+                if block.type == "tool_use" and block.name == "set_rule":
+                    history.setdefault(block.input["name"], []).append(block.input["value"])
+    return history
+
+def current_rules_block(messages: list) -> str:
+    history = rule_history(messages)
+    if not history:
+        return ""
+    lines = [f"- {name}: {values[-1]}" for name, values in history.items()]
+    return "<current_rules>\n" + "\n".join(lines) + "\n</current_rules>"
+
+def latest_plan(messages: list) -> str:
+    plan = ""
+    for message in messages:
+        if message["role"] == "assistant" and isinstance(message["content"], list):
+            for block in message["content"]:
+                if block.type == "tool_use" and block.name == "update_plan":
+                    plan = block.input["plan"]
+    return plan
+
+def assemble_context(messages: list) -> list:
+    """Return the messages to send, with the current plan and rules restated at the very end."""
+    parts = []
+    plan = latest_plan(messages)
+    if plan:
+        parts.append(f"<current_plan>\n{plan}\n</current_plan>")
+    rules = current_rules_block(messages)
+    if rules:
+        parts.append(rules)
+    if not parts:
+        return messages
+    anchor = "\n".join(parts)
+
+    last = messages[-1]
+    if isinstance(last["content"], str):
+        new_last = {**last, "content": last["content"] + "\n\n" + anchor}
+    else:
+        # tool_result blocks must come first in a user message, so the anchor goes after them
+        new_last = {**last, "content": last["content"] + [{"type": "text", "text": anchor}]}
+    return messages[:-1] + [new_last]
+
+
+def serialize(x) -> str:
+    # byte-for-byte form, as a cache sees it: key order matters, exactly as sent
+    return json.dumps(_plain(x))
+
+def first_divergence(previous: dict, current: dict) -> dict:
+    """Where does \`current\` stop matching \`previous\`, and how much of it could be read from the cache?"""
+    reusable = 0
+    if serialize(current["tools"]) != serialize(previous["tools"]):
+        return {"diverges_at": "tools", "reusable_tokens": 0}
+    reusable += count_tokens(current["tools"])
+    if serialize(current["system"]) != serialize(previous["system"]):
+        return {"diverges_at": "system", "reusable_tokens": reusable}
+    reusable += count_tokens(current["system"])
+    for i, old in enumerate(previous["messages"]):
+        if i >= len(current["messages"]) or serialize(current["messages"][i]) != serialize(old):
+            return {"diverges_at": f"messages[{i}]", "reusable_tokens": reusable}
+        reusable += count_tokens(old)
+    return {"diverges_at": None, "reusable_tokens": reusable}
+
+def cost_of_run(requests: list, read_multiplier: float, write_multiplier: float) -> int:
+    """Cost of the requests actually sent, using first_divergence to see what each could reuse."""
+    total = 0.0
+    previous = None
+    for request in requests:
+        size = count_tokens(request["tools"]) + count_tokens(request["system"]) + count_tokens(request["messages"])
+        reused = first_divergence(previous, request)["reusable_tokens"] if previous else 0
+        total += reused * read_multiplier + (size - reused) * write_multiplier
+        previous = request
+    return round(total)
+
+def stale_tokens(messages: list) -> int:
+    return count_tokens(messages) - count_tokens(prune_superseded(messages))
+
+class BatchPruner:
+    """Sends the history append-only, and prunes only once enough stale content has built up."""
+    def __init__(self, threshold: int):
+        self.threshold = threshold
+        self.view = []
+
+    def prepare(self, history: list) -> list:
+        view = self.view + history[len(self.view):]
+        if stale_tokens(view) >= self.threshold:
+            view = prune_superseded(view)
+        self.view = view
+        return view
+`;
+
+export const AGENT_STARTER = String.raw`from lib import BatchPruner, assemble_context
+
+def add_to_end(messages: list, text: str) -> list:
+    # TODO
+    ...
+
+class CacheAwareContext:
+    def __init__(self, tools: list, system: str, prune_threshold: int):
+        # TODO
+        ...
+
+    def build(self, history: list, now: str) -> dict:
+        # TODO: batch-prune, anchor, then the time last; the prefix never changes
+        ...
+
+def run_agent(llm, user_message, context, tool_impls, clock, max_steps=40):
+    # TODO: the collect-every-call loop, recording every request sent
+    ...
+`;
+
+export const AGENT_REFERENCE = String.raw`from lib import BatchPruner, assemble_context
+
+def add_to_end(messages: list, text: str) -> list:
+    last = messages[-1]
+    if isinstance(last["content"], str):
+        new_last = {**last, "content": last["content"] + "\n\n" + text}
+    else:
+        new_last = {**last, "content": last["content"] + [{"type": "text", "text": text}]}
+    return messages[:-1] + [new_last]
+
+class CacheAwareContext:
+    def __init__(self, tools: list, system: str, prune_threshold: int):
+        # the prefix: fixed for the whole run
+        self.tools = tools
+        self.system = system
+        self.pruner = BatchPruner(prune_threshold)
+
+    def build(self, history: list, now: str) -> dict:
+        messages = self.pruner.prepare(history)               # append-only, pruned in batches
+        messages = assemble_context(messages)                 # plan and rules, at the end
+        messages = add_to_end(messages, f"<current_time>{now}</current_time>")   # anything changing goes last
+        return {"tools": self.tools, "system": self.system, "messages": messages}
+
+def run_agent(llm, user_message, context, tool_impls, clock, max_steps=40):
+    history = [{"role": "user", "content": user_message}]
+    sent = []
+    for step in range(max_steps):
+        request = context.build(history, clock(step))
+        sent.append(request)
+        response = llm.create(messages=request["messages"], tools=request["tools"])
+        history.append({"role": "assistant", "content": response.content})
+        calls = [b for b in response.content if b.type == "tool_use"]
+        if not calls:
+            return "".join(b.text for b in response.content if b.type == "text"), history, sent
+        results = []
+        for call in calls:
+            if call.name not in tool_impls:
+                results.append({"type": "tool_result", "tool_use_id": call.id,
+                                "content": f"Error: there is no tool called {call.name}", "is_error": True})
+            else:
+                results.append({"type": "tool_result", "tool_use_id": call.id, "content": tool_impls[call.name](**call.input)})
+        history.append({"role": "user", "content": results})
+    return f"stopped after {max_steps} steps without a final answer", history, sent
+`;
+
+export const HIDDEN_TESTS = REACT_FAKE_CLIENT + TOOL_AWARE_CLIENT + String.raw`
+from lib import prune_superseded, assemble_context, first_divergence, cost_of_run, count_tokens
+from agent import CacheAwareContext, run_agent, add_to_end
+
+TOOLS = [{"name": n, "description": f"{n} tool", "input_schema": {"type": "object", "properties": {}}}
+         for n in ["get_status", "update_plan", "set_rule"]]
+SYSTEM = "You are the registry assistant, watching agents during a rollout. " * 3
+ROUND = {"n": 0}
+def get_status(agent_name):
+    ROUND["n"] += 1
+    return f"{agent_name} check {ROUND['n']}: " + "p50 410ms p99 1.2s errors 0.1% " * 12
+IMPLS = {"get_status": get_status, "update_plan": lambda plan: "plan saved", "set_rule": lambda name, value: "rule set"}
+def clock(step): return f"2026-09-26T10:{step:02d}:00Z"
+
+def script():
+    steps = [[TextBlock(text="Planning."), ToolUseBlock(name="update_plan", input={"plan": "[ ] watch three agents"}),
+              ToolUseBlock(name="set_rule", input={"name": "rollback", "value": "only with approval"})]]
+    for r in range(6):
+        for a in ["research_agent", "support_agent", "billing_agent"]:
+            steps.append([ToolUseBlock(name="get_status", input={"agent_name": a})])
+        steps.append([ToolUseBlock(name="update_plan", input={"plan": f"[x] round {r + 1} done\n[ ] keep watching"})])
+    steps.append([TextBlock(text="All three agents stayed healthy.")])
+    return steps
+
+ROUND["n"] = 0
+llm = ToolAwareClient(script())
+answer, history, sent = run_agent(llm, "Watch the rollout.", CacheAwareContext(TOOLS, SYSTEM, 1_000), IMPLS, clock)
+assert answer == "All three agents stayed healthy."
+
+# 1. the prefix never changes: identical tools and system prompt on every request, with no time in them
+assert all(r["tools"] == TOOLS and r["system"] == SYSTEM for r in sent)
+assert all("2026-09-26" not in r["system"] for r in sent)
+
+# 2. the time is only at the very end of each request
+for step, r in enumerate(sent):
+    assert r["messages"][-1]["content"][-1]["text"] == f"<current_time>{clock(step)}</current_time>" \
+        if isinstance(r["messages"][-1]["content"], list) else r["messages"][-1]["content"].endswith(f"<current_time>{clock(step)}</current_time>")
+
+# 3. nearly every request extends the one before: only the last-sent message (which carried the
+#    anchor and time) differs, except on the few turns where a batch was pruned
+early_edits = 0
+for prev, cur in zip(sent, sent[1:]):
+    d = first_divergence(prev, cur)["diverges_at"]
+    if d is not None and d != f"messages[{len(prev['messages']) - 1}]":
+        early_edits += 1
+assert 1 <= early_edits <= 3, early_edits
+
+# 4. against the naive builder (time in the system prompt, pruning every turn) it costs far less
+ROUND["n"] = 0
+llm2 = ToolAwareClient(script())
+class Naive:
+    def build(self, history, now):
+        return {"tools": TOOLS, "system": SYSTEM + f" The time is {now}.", "messages": assemble_context(prune_superseded(history))}
+_, _, naive_sent = run_agent(llm2, "Watch the rollout.", Naive(), IMPLS, clock)
+aware_cost = cost_of_run(sent, 0.1, 1.25)
+naive_cost = cost_of_run(naive_sent, 0.1, 1.25)
+assert aware_cost < 0.5 * naive_cost, (aware_cost, naive_cost)
+
+# 5. the history is untouched, and every tool call in the final request keeps its result
+first_status = [m for m in history if m["role"] == "user" and isinstance(m["content"], list)][1]["content"][0]["content"]
+assert not first_status.startswith("[superseded")
+final = sent[-1]["messages"]
+ids = [b.id for m in final if m["role"] == "assistant" for b in m["content"] if b.type == "tool_use"]
+res = [b["tool_use_id"] for m in final if m["role"] == "user" and isinstance(m["content"], list)
+       for b in m["content"] if b.get("type") == "tool_result"]
+assert ids == res
+
+# 6. add_to_end works on both shapes of last message
+assert add_to_end([{"role": "user", "content": "hi"}], "T")[-1]["content"] == "hi\n\nT"
+assert add_to_end([{"role": "user", "content": [{"type": "tool_result", "tool_use_id": "x", "content": "r"}]}], "T")[-1]["content"][-1] == {"type": "text", "text": "T"}
+`;
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "Why is an agent loop close to the ideal case for a prefix cache?",
+    "options": [
+      "Agents send shorter prompts",
+      "The loop only appends, so each request begins with the whole previous request",
+      "Tool results are never cached",
+      "Agents make fewer requests than chatbots"
+    ],
+    "correctIndex": 1,
+    "explanation": "A prefix cache reuses an identical beginning, and an append-only history gives it the longest possible one each turn."
+  },
+  {
+    "question": "In the cost model, how does the share saved change as a run gets longer?",
+    "options": [
+      "It grows, because more of each request is repeated history",
+      "It shrinks",
+      "It stays constant",
+      "It falls to zero after ten turns"
+    ],
+    "correctIndex": 0,
+    "explanation": "Each turn adds a little new content on top of a growing reused prefix."
+  },
+  {
+    "question": "A request differs from the previous one in its system prompt. What can be reused?",
+    "options": [
+      "Everything except the system prompt",
+      "Only the tool definitions, which come before it",
+      "Nothing",
+      "Only the newest message"
+    ],
+    "correctIndex": 1,
+    "explanation": "The request is laid out as tools, then system, then messages. A change invalidates that point and everything after it."
+  },
+  {
+    "question": "Where should a value that changes every request, like the current time, go?",
+    "options": [
+      "At the start of the system prompt",
+      "In the tool descriptions",
+      "At the end of the request",
+      "In the first user message"
+    ],
+    "correctIndex": 2,
+    "explanation": "The end is the only place a change disturbs nothing before it."
+  },
+  {
+    "question": "Why can two tool calls with the same arguments in a different key order break a cache?",
+    "options": [
+      "The cache compares the exact text sent, and they serialize differently",
+      "The model treats them as different tools",
+      "Key order changes the schema",
+      "They can't; equal dicts always match"
+    ],
+    "correctIndex": 0,
+    "explanation": "Python compares dict content; a cache compares bytes. Send the history exactly as before."
+  },
+  {
+    "question": "What does re-anchoring cost the cache each turn?",
+    "options": [
+      "The whole history",
+      "Nothing",
+      "The tool definitions",
+      "One message, the one that carried last turn's anchor"
+    ],
+    "correctIndex": 3,
+    "explanation": "That message is resent without the old anchor. Everything before it is still reused."
+  },
+  {
+    "question": "Why prune superseded results in batches rather than every turn?",
+    "options": [
+      "Batches remove more stale content",
+      "Each prune edits the middle of the history and forces everything after it to be reprocessed, so fewer, larger prunes cost far less",
+      "Pruning every turn breaks tool pairs",
+      "The API limits how often you can prune"
+    ],
+    "correctIndex": 1,
+    "explanation": "In the demo, pruning every turn cost 72% more than never pruning; batching cost about 6% more while removing most of the stale content."
+  },
+  {
+    "question": "Which later technique fights caching because it changes the part of the request that comes first?",
+    "options": [
+      "Re-anchoring the plan",
+      "Batched pruning",
+      "Loading tool definitions only when needed",
+      "Recording rules with set_rule"
+    ],
+    "correctIndex": 2,
+    "explanation": "Tool definitions come first, so changing them invalidates everything. Lesson 7 has to add definitions without rewriting the ones already sent."
+  }
+]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<MultiFileGradedExercise
+  client:load
+  task={"The registry agent watches three agents through a rollout, checking each one's status round after round and updating its plan as it goes. lib.py, which is read-only, contains everything from Lessons 2 and 3: prune_superseded, the rules and plan anchoring (assemble_context), first_divergence, cost_of_run and BatchPruner. Complete agent.py. add_to_end(messages, text): return a new list with text added at the very end of the last message. For string content, append \"\\n\\n\" and the text; for a list, append a {\"type\": \"text\", \"text\": ...} block after the existing blocks. CacheAwareContext(tools, system, prune_threshold) with build(history, now): send the history through a BatchPruner, then assemble_context, then add_to_end with <current_time>{now}</current_time>, and return {\"tools\": ..., \"system\": ..., \"messages\": ...}, where the tools and system are always exactly what was passed in. run_agent(llm, user_message, context, tool_impls, clock, max_steps): the collect-every-call loop. Build each request with context.build(history, clock(step)), and pass its messages and tools to llm.create. Record every request sent. Answer unknown tools locally as errors. Return (final_text, history, sent_requests). The tests also run a naive builder, which puts the time in the system prompt and prunes every turn, and compare costs."}
+  entry="agent.py"
+  files={[
+    { name: "tokens.py", readOnly: true, code: TOKENS_PY },
+    { name: "lib.py", readOnly: true, code: LIB_PY },
+    { name: "agent.py", code: AGENT_STARTER },
+  ]}
+  hiddenTests={HIDDEN_TESTS}
+  hint={"build is three steps in a fixed order, each taking the previous step's output: self.pruner.prepare(history), then assemble_context(...), then add_to_end(...). The order matters: anything that changes every turn has to be added last, after the pruning decision. Keep one BatchPruner for the whole run, created in __init__, since it remembers what it last sent."}
+  correctFiles={[
+    { name: "tokens.py", readOnly: true, code: TOKENS_PY },
+    { name: "lib.py", readOnly: true, code: LIB_PY },
+    { name: "agent.py", code: AGENT_REFERENCE },
+  ]}
+  explanation={"Each test checks one rule from the lesson. The prefix never changes: identical tools and system prompt on every request, with no time in them (test 1). Changing values go last: the time is only ever the final block (test 2). Requests extend each other: each request extends the previous one, except for the one message that carried the last anchor and time, and the rare turn where a batch was pruned (test 3). And the payoff: the naive builder, which puts the time in the system prompt and prunes every turn, costs more than twice as much for the same run (test 4). The cache-aware version keeps nearly all of Lesson 2's quality benefits at a fraction of the cost. CacheAwareContext is the first version of the context-assembly step that the module's final lesson completes: one place in the loop that decides exactly what the model is sent, and in what order. The lessons in between add to what it does without changing that shape."}
+/>
+
+</CheckpointZone>
