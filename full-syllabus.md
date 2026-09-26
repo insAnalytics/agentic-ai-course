@@ -2605,6 +2605,22 @@ below describe each lesson as first converted; see the git log
    Forward references to Lessons 5 and 12 are plain prose (unbuilt).
    Lesson 4 is now fully Locked.
 
+5. **Compaction and Summarization** — Building (title is a placeholder:
+   the mockup names no lesson; folder `05-compaction-and-summarization`).
+   Concept 1 (what clearing can't do) is built: a 200-round growth demo
+   (raw 142,249 vs cleared 21,712 tokens, about 100 tokens per round) and
+   a dropped-round demo (the 4.8s figure and the billing call disappearing
+   across three budgets), both matching the mockup's printed output
+   exactly when re-run, and the prose figures (about 710 to about 100
+   tokens per round, under a sixth) checked against them; the JetBrains
+   "Complexity Trap" and Anthropic context-engineering evidence are
+   prose and links from the mockup as written; 5 quiz cards; no exercise
+   (per the mockup). The demo setup is Lesson 4's full stack, as the
+   mockup's build note says; nothing new was added to `fakeClient.ts`.
+   Callbacks link to Lesson 4's intro and clearing concept, Lesson 2's
+   stale-results concept and Lesson 3's batching concept. No
+   intro/bookends yet.
+
 ---
 
 ## Modules 4–11 — current plan

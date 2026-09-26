@@ -1,0 +1,368 @@
+---
+title: "What clearing can't do"
+lesson: "05-compaction-and-summarization"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, COUNT_TOKENS, WINDOWED_CLIENT, CHECK_PAIRING, CHECK_OPEN_ROUND } from "../../../../lib/fakeClient";
+
+export const ROUND_FUNCS = String.raw`
+def split_rounds(messages: list) -> list:
+    """Group everything after the first message into rounds that can be removed safely."""
+    rounds = []
+    for message in messages[1:]:
+        if is_tool_results(message) and rounds:
+            rounds[-1].append(message)
+        else:
+            rounds.append([message])
+    return rounds
+
+def trim_to_fit(messages: list, budget: int) -> list:
+    """Keep the task and the newest rounds; drop the oldest whole rounds until the messages fit."""
+    task = messages[0]
+    rounds = split_rounds(messages)
+    while True:
+        kept = [task]
+        for r in rounds:
+            kept += r
+        if count_tokens(kept) <= budget or len(rounds) <= 1:
+            return kept
+        rounds = rounds[1:]
+`;
+
+export const CLEAR_FUNCS = String.raw`
+def clear_old_results(messages: list, keep_last: int) -> list:
+    """Replace the content of all but the newest \`keep_last\` successful tool results with a placeholder.
+    Tool calls, failed results, and every message stay where they are."""
+    names = {}
+    for message in messages:
+        if message["role"] == "assistant" and isinstance(message["content"], list):
+            for block in message["content"]:
+                if _plain(block)["type"] == "tool_use":
+                    names[block.id] = block.name
+
+    successful = []
+    for message in messages:
+        if is_tool_results(message):
+            for block in message["content"]:
+                if not block.get("is_error"):
+                    successful.append(block["tool_use_id"])
+    to_keep = successful[len(successful) - keep_last:]
+
+    cleared = []
+    for message in messages:
+        if is_tool_results(message):
+            new_content = []
+            for block in message["content"]:
+                if not block.get("is_error") and block["tool_use_id"] not in to_keep:
+                    name = names[block["tool_use_id"]]
+                    block = {**block, "content": f"[cleared: an earlier {name} result, removed to save space. Call {name} again if you need it.]"}
+                new_content.append(block)
+            cleared.append({**message, "content": new_content})
+        else:
+            cleared.append(message)
+    return cleared
+
+def fit(messages: list, budget: int, keep_last: int) -> list:
+    """Clear old results first; drop whole rounds only if that still isn't enough."""
+    if count_tokens(messages) <= budget:
+        return list(messages)
+    return trim_to_fit(clear_old_results(messages, keep_last), budget)
+`;
+
+export const THINKING_FUNCS = String.raw`
+def strip_old_thinking(messages: list) -> list:
+    """Remove thinking blocks from every assistant message except the newest one."""
+    last = -1
+    for i in range(len(messages)):
+        if messages[i]["role"] == "assistant":
+            last = i
+    stripped = []
+    for i in range(len(messages)):
+        message = messages[i]
+        if message["role"] == "assistant" and i != last:
+            kept = [b for b in message["content"] if _plain(b)["type"] != "thinking"]
+            if kept:
+                message = {**message, "content": kept}
+        stripped.append(message)
+    return stripped
+
+def fit_history(messages: list, budget: int, keep_last: int) -> list:
+    """Old reasoning goes first, then old results, then whole rounds."""
+    if count_tokens(messages) <= budget:
+        return list(messages)
+    return fit(strip_old_thinking(messages), budget, keep_last)
+`;
+
+export const CACHE_FUNCS = String.raw`
+def serialize(x) -> str:
+    # byte-for-byte form, as a cache sees it: key order matters, exactly as sent
+    return json.dumps(_plain(x))
+
+def first_divergence(previous: dict, current: dict) -> dict:
+    """Where does \`current\` stop matching \`previous\`, and how much of it could be read from the cache?"""
+    reusable = 0
+    if serialize(current["tools"]) != serialize(previous["tools"]):
+        return {"diverges_at": "tools", "reusable_tokens": 0}
+    reusable += count_tokens(current["tools"])
+    if serialize(current["system"]) != serialize(previous["system"]):
+        return {"diverges_at": "system", "reusable_tokens": reusable}
+    reusable += count_tokens(current["system"])
+    for i, old in enumerate(previous["messages"]):
+        if i >= len(current["messages"]) or serialize(current["messages"][i]) != serialize(old):
+            return {"diverges_at": f"messages[{i}]", "reusable_tokens": reusable}
+        reusable += count_tokens(old)
+    return {"diverges_at": None, "reusable_tokens": reusable}
+
+def cost_of_run(requests: list, read_multiplier: float, write_multiplier: float) -> int:
+    """Cost of the requests actually sent, using first_divergence to see what each could reuse."""
+    total = 0.0
+    previous = None
+    for request in requests:
+        size = count_tokens(request["tools"]) + count_tokens(request["system"]) + count_tokens(request["messages"])
+        reused = first_divergence(previous, request)["reusable_tokens"] if previous else 0
+        total += reused * read_multiplier + (size - reused) * write_multiplier
+        previous = request
+    return round(total)
+`;
+
+export const SETUP = REACT_FAKE_CLIENT + COUNT_TOKENS + WINDOWED_CLIENT + CHECK_PAIRING + CHECK_OPEN_ROUND + ROUND_FUNCS + CLEAR_FUNCS + THINKING_FUNCS + CACHE_FUNCS;
+
+export const GROWTH_DEMO = String.raw`def logs(agent, n):
+    return f"{agent} check {n}\n" + f"{agent} INFO request handled in 412ms status=200\n" * 45
+
+history = [{"role": "user", "content": "Watch every agent through the migration and report anything unusual."}]
+agents = ["research_agent", "support_agent", "billing_agent", "triage_agent"]
+print(f"{'rounds':>6}  {'raw':>8}  {'cleared':>8}  {'cleared per round':>17}")
+previous = None
+for n in range(1, 201):
+    call = ToolUseBlock(name="get_logs", input={"agent_name": agents[n % 4]})
+    history = history + [{"role": "assistant", "content": [TextBlock(text=f"Checking {agents[n % 4]}."), call]},
+                         {"role": "user", "content": [{"type": "tool_result", "tool_use_id": call.id, "content": logs(agents[n % 4], n)}]}]
+    if n in (25, 50, 100, 200):
+        cleared = count_tokens(clear_old_results(history, keep_last=3))
+        per_round = "" if previous is None else f"{(cleared - previous[1]) / (n - previous[0]):.0f}"
+        print(f"{n:>6}  {count_tokens(history):>8,}  {cleared:>8,}  {per_round:>17}")
+        previous = (n, cleared)
+`;
+
+export const DROPPED_DEMO = String.raw`def step(thought, name, agent, result):
+    call = ToolUseBlock(name=name, input={"agent_name": agent})
+    return [{"role": "assistant", "content": [ThinkingBlock(thinking=thought), call]},
+            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": call.id, "content": result}]}]
+
+def filler(agent):
+    return f"{agent} INFO request handled in 412ms status=200\n" * 30
+
+history = [{"role": "user", "content": "Find out why the support queue is slow, then propose a fix."}]
+history += step("Start with the metrics for the agents on the ticket path.", "get_metrics", "support_agent",
+                "support_agent: p99 0.9s, queue depth 340")
+history += step("support_agent itself looks fine; its dependencies next.", "get_metrics", "billing_agent",
+                "billing_agent: p99 4.8s on /lookup, called once per ticket")
+history += step("billing_agent's 4.8s lookup, once per ticket, explains the queue. Confirm the others are fine.",
+                "get_logs", "search_agent", filler("search_agent"))
+for agent in ["triage_agent", "report_agent", "auth_agent", "research_agent", "search_agent", "triage_agent"]:
+    history += step(f"Ruling out {agent}.", "get_logs", agent, filler(agent))
+
+def mentions(messages, text):
+    # search everything that would be sent, as text
+    return text in json.dumps(_plain(messages))
+
+print(f"full history: {count_tokens(history):,} tokens")
+print(f"{'budget':>7}  {'sent':>6}  {'the 4.8s figure':>15}  {'the billing call':>16}")
+for budget in [10_000, 2_500, 1_200]:
+    sent = fit_history(history, budget, keep_last=2)
+    print(f"{budget:>7,}  {count_tokens(sent):>6,}  {str(mentions(sent, '4.8s')):>15}  {str(mentions(sent, 'billing_agent')):>16}")
+`;
+
+<Subsection title="Where the last lesson left off" variant="a">
+
+[Lesson 4](/04-context-and-memory/04-when-the-window-fills/00-intro/) gave
+the context step a fixed order for making a history fit: strip reasoning
+from finished steps, then clear old tool results, then drop whole rounds,
+and never touch the task or the step in progress. Each stage gives up more
+than the one before.
+
+This lesson adds one more stage, at the end of that order:
+**compaction**, replacing a span of old rounds with a written summary of
+them. Before building it, it's worth being precise about what the existing
+stages can't do, because that's the only job compaction should be given.
+
+</Subsection>
+
+<Subsection title="Clearing slows growth; it doesn't stop it" variant="b">
+
+[Clearing](/04-context-and-memory/04-when-the-window-fills/03-clear-before-you-cut-and-cut-in-batches/)
+removes the bulk of each old round, but not the round itself. The call,
+the placeholder and any text the model wrote all stay, so every round
+still leaves something behind. Here's a watch that runs for 200 rounds,
+measured raw and with every result but the last three cleared:
+
+<LiveDemo client:load setupCode={SETUP} code={GROWTH_DEMO} />
+
+Clearing cuts the growth per round from about 710 tokens to about 100,
+roughly sevenfold, and the saving grows with the run: by round 200 the
+cleared history is under a sixth of the raw one. But it still grows by
+about 100 tokens a round, with no end. A long enough run fills any window,
+and then the only remaining stage is dropping rounds.
+
+</Subsection>
+
+<Subsection title="What a dropped round takes with it" variant="a">
+
+Growth is the cost problem. The quality problem is what gets lost on the
+way. Here's a short investigation where the key finding arrives early:
+`billing_agent`'s 4.8-second lookup, called once per ticket, explains the
+slow queue. The rest of the run rules other agents out. The same history
+is sent at three budgets, the way `fit_history` would squeeze it:
+
+<LiveDemo client:load setupCode={SETUP} code={DROPPED_DEMO} />
+
+The finding disappears in two steps:
+
+- **Squeezed moderately, the value goes but the call stays.** Stripping
+  old reasoning removed the model's own conclusion, and clearing removed
+  the result with the number in it. The model can still see it checked
+  `billing_agent`'s metrics, so it could fetch them again, if it realizes
+  they matter.
+- **Squeezed hard, the round goes entirely.** Nothing says
+  `billing_agent` was ever looked at. The model has lost the answer to the
+  task and doesn't know it.
+
+That second case is what compaction is for. Clearing and dropping both
+work at the level of messages: they can remove text, but they can't pull
+out the one conclusion worth keeping. A summary can. It condenses a
+stretch of work into what was learned, so that "billing_agent's lookup is
+4.8s per ticket, the likely cause" survives after the rounds that
+established it are gone.
+
+</Subsection>
+
+<Subsection title="What the evidence says about summarizing" variant="b">
+
+It's tempting to go further and make summarization the main technique,
+since it seems to keep more. The best direct comparison so far says
+otherwise.
+
+JetBrains Research compared the two approaches on coding agents solving
+real software-engineering tasks, across five model configurations, in
+["The Complexity Trap"](https://arxiv.org/abs/2508.21433) (a NeurIPS 2025
+workshop paper). One approach replaced old tool outputs with placeholders,
+which is this module's clearing. The other had a model summarize older
+turns. They found:
+
+- **Clearing was as good, for less.** Replacing old tool outputs roughly
+  halved the cost of an unmanaged agent, and matched the summarizing
+  agent's success rate, sometimes slightly exceeding it.
+- **Summaries cost twice.** The summarization calls themselves came to as
+  much as about 7% of a run's cost. Agents that were summarizing also ran
+  13–15% more turns. The authors suggest the summaries hid failure signals
+  that would otherwise have made the agent stop sooner, which echoes
+  [Lesson 2's point](/04-context-and-memory/02-context-that-fits-but-still-hurts/02-what-goes-stale-in-a-scratchpad/)
+  about keeping failures visible.
+- **The best result combined them.** Clearing first, with summarization
+  held back as a last resort, cost 7% less than clearing alone and 11%
+  less than summarizing alone.
+
+One limit matters: the study covers coding agents, whose tool outputs are
+long and noisy, and the authors say the result may not hold where tool
+outputs are short.
+
+Anthropic's
+[guide to context engineering](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
+points the same way. It calls clearing old tool results one of the safest,
+lightest forms of compaction. And it warns that the hard part of
+summarizing is choosing what to keep: compress too aggressively and you
+can lose details whose importance only becomes clear later.
+
+</Subsection>
+
+<Subsection title="Where compaction fits" variant="a">
+
+So compaction goes at the end of the order, not the start:
+
+- **Strip old reasoning, then clear old results.** These are cheap and
+  lose nothing that can't be fetched again.
+- **Compact** only when those aren't enough, and replace a span of old
+  rounds with a summary of what they established.
+- **Drop rounds without a summary** only as a last resort, if even that
+  won't fit.
+
+Compaction is also the most expensive edit in this module. It rewrites the
+history near its start, so, as
+[Lesson 3 warned](/04-context-and-memory/03-prompt-caching/03-where-lesson-2s-techniques-stand-and-the-fights-ahead/),
+the cached prefix is lost from that point. It needs an extra model call,
+and the summary it produces can be wrong. The rest of this lesson builds
+it with those three costs in view: how to compact (next concept), how to
+catch a summary that lost something, and when compaction is worth doing at
+all.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "In the 200-round demo, what does clearing old results do to the history's growth?",
+    "options": [
+      "It stops the growth once the window is half full",
+      "It slows the growth by about seven times, but the history still grows every round",
+      "It makes the history shrink as old results are cleared",
+      "It has no effect once the run passes 100 rounds"
+    ],
+    "correctIndex": 1,
+    "explanation": "Each round still leaves its call, its placeholder and any text behind, about 100 tokens here. Clearing changes the slope, not the shape, so a long enough run still fills any window."
+  },
+  {
+    "question": "At the middle budget, the 4.8-second figure was gone but the billing_agent call was still visible. What does that leave the model able to do?",
+    "options": [
+      "Nothing, because a cleared call can't be repeated",
+      "Read the figure from the placeholder",
+      "See that it checked those metrics, and fetch them again if it realizes they matter",
+      "Recover the figure from its old reasoning, which clearing keeps"
+    ],
+    "correctIndex": 2,
+    "explanation": "Clearing keeps the record of the step, not its content, and the old reasoning was stripped first. Re-fetching works when the data is still available and the model knows to look."
+  },
+  {
+    "question": "What can a summary do that clearing and dropping can't?",
+    "options": [
+      "Keep the cached prefix intact",
+      "Pull out the conclusion a stretch of work established and keep it after the rounds are gone",
+      "Keep every tool result in full at a lower token cost",
+      "Avoid any extra model call"
+    ],
+    "correctIndex": 1,
+    "explanation": "Clearing and dropping remove whole pieces of the history. Only a summary can condense what was learned into something small enough to keep."
+  },
+  {
+    "question": "In the JetBrains comparison, why did summarizing agents end up costing more than clearing ones, despite keeping their context bounded?",
+    "options": [
+      "The summaries were longer than the original history",
+      "Summaries broke tool pairing and forced retries",
+      "Clearing used a cheaper model",
+      "The summarization calls cost extra, and summarizing agents also ran more turns, possibly because summaries hid failure signals"
+    ],
+    "correctIndex": 3,
+    "explanation": "The summary calls came to as much as about 7% of a run's cost, and trajectories were 13–15% longer. The authors' explanation for the extra turns is a hypothesis: failures a model would have seen in full are smoothed over in a summary."
+  },
+  {
+    "question": "Where does compaction belong in the context step's order?",
+    "options": [
+      "After stripping old reasoning and clearing old results, and before dropping rounds without a trace",
+      "First, since it keeps the most information",
+      "After dropping rounds, to summarize what's left",
+      "On every turn, so the summary stays current"
+    ],
+    "correctIndex": 0,
+    "explanation": "The cheap stages lose nothing that can't be fetched again, so they go first. Compaction replaces a span that would otherwise have been dropped with nothing. And since it rewrites the start of the history, doing it every turn would lose the cache every turn."
+  }
+]}
+/>
+
+</CheckpointZone>
