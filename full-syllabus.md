@@ -2402,9 +2402,7 @@ below describe each lesson as first converted; see the git log
    lessons (prompt caching, context quality) are plain prose until those
    lessons exist.
 
-2. **Context That Fits But Still Hurts** — Building (title is a
-   placeholder taken from Lesson 1's forward reference; the mockup doesn't
-   name the lesson). Concept 1 (agents get worse before the window is
+2. **Context That Fits But Still Hurts** — Locked. Concept 1 (agents get worse before the window is
    full: Chroma "Context Rot" and Anthropic context-engineering evidence,
    a position-drift demo whose printed output matches the mockup exactly,
    5 quiz cards; no exercise) and Concept 2 (what goes stale in a
@@ -2437,8 +2435,22 @@ below describe each lesson as first converted; see the git log
    overflowing/compacting history are plain prose, per Lesson 1's
    precedent, since no such lesson exists yet in Module 4 (a same-titled
    page exists in Module 1, but that's LLM-foundations content, not the
-   Module-4 lesson the mockup is pointing at). No intro/bookends yet —
-   added once the lesson's bookends mockup exists.
+   Module-4 lesson the mockup is pointing at). Intro (5 outcomes, why-it-
+   matters linking back to Lesson 1) and recap are now built: a 7-question
+   comprehensive quiz spanning all four concepts, and a multi-file
+   comprehensive sandbox (`tokens.py` + `rules.py` — the latter carrying
+   `current_rules_block` forward from Concept 3 — read-only, `agent.py`
+   entry: `prune_superseded`, `latest_plan`, `assemble_context`,
+   `prepare_context`, `run_agent`) combining every concept: a rollout task
+   whose scratchpad has a superseded status check, a failed check, a
+   rule, and two plan updates. Verified against real Python with actual
+   multi-file imports (not a flattened script): the reference passes all
+   7 hidden tests, and a version whose `prepare_context` assembles
+   without pruning first fails on the superseded-result check (test 1).
+   The mockup's hidden tests import a `fake` module that was never a real
+   file anywhere in this codebase; converted to this project's existing
+   convention instead (`REACT_FAKE_CLIENT` + `TOOL_AWARE_CLIENT` prefixed
+   onto the hidden-tests string, as Lesson 1's recap does).
 
 ---
 

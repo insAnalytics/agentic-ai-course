@@ -1,0 +1,33 @@
+---
+title: "Intro"
+lesson: "02-context-that-fits-but-still-hurts"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Explain why an agent's answers get worse as its context grows, long before the window is full, and cite the evidence",
+    "Tell stale content from useful content in a scratchpad: prune superseded results, but keep failures and their errors",
+    "Keep instructions from piling up and contradicting, with one current set of rules the agent maintains",
+    "Re-anchor the current plan at the end of the context each turn, in a way the API accepts",
+    "Build a context-preparation step that sends a cleaned copy of the history while keeping the full history intact",
+  ]}
+/>
+
+<WhyItMatters>
+  [Lesson 1](/04-context-and-memory/01-the-context-budget/00-intro/) measured
+  context as a budget of tokens. This lesson is the reason that budget
+  matters long before it runs out: a model's reliability drops as its input
+  grows, and an agent's scratchpad is close to the worst kind of long input,
+  full of similar-looking results, old answers that have since changed, and
+  instructions that no longer agree.
+
+  That makes context management a quality problem first and a capacity
+  problem second, and it's the idea the rest of this module keeps returning
+  to. The responses in this lesson are cheap and work at any size: stop
+  sending what's stale, keep one current version of the rules, and restate
+  the plan where the model makes its next decision. The later lessons handle
+  what happens when the history is genuinely too long to keep at all.
+</WhyItMatters>
