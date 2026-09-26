@@ -2799,7 +2799,22 @@ below describe each lesson as first converted; see the git log
    phase-aware prompting concept and Module 3's too-many-tools concept
    (fix 2 and fix 3 subsections, anchors verified). The provider details
    (Claude tool search, OpenAI `allowed_tools`, Manus masking) are prose
-   and links from the mockup as written. No intro/bookends yet.
+   and links from the mockup as written.
+   Concept 2 (tools on demand) is built: `check_arguments` (required
+   fields, known fields, simple types, with the bool-is-not-an-integer
+   guard) and `ToolIndex` (keyword `find_tools`, `call_tool` refusing
+   unknown, not-yet-found and invalid calls), with a three-refusals demo
+   and an index-vs-all-40-tools loop demo, both matching the mockup's
+   printed output exactly when re-run (6,406 tokens over 6 requests vs
+   18,930 over 3); 5 quiz cards; graded exercise `ToolIndex` with seven
+   hidden tests (made self-contained: the mockup's tests built on one
+   shared index). Verified natively: the reference passes and the starter
+   fails; mutations confirmed: no result limit fails 1, 2, 3 and 5,
+   case-sensitive search fails 7, duplicate `found` entries fail 3,
+   skipping validation fails 5, skipping the found check fails 3 and 5.
+   Module 5 (semantic search) is a plain-prose forward reference. Callbacks
+   link to the previous concept and Module 3's names-and-descriptions and
+   validate-failures concepts. No intro/bookends yet.
 
 ---
 
