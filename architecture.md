@@ -1574,6 +1574,26 @@ exercises that need it put `COUNT_TOKENS + MEASURE_REQUEST` in the editor's
 provided block, and the learner's namespace is copied into every hidden
 test, so tests can call `count_tokens` without redefining it.
 
+**Module 4 Lesson 4 helpers (`WINDOWED_CLIENT`, `CHECK_PAIRING` in
+`src/lib/fakeClient.ts`).** `WindowedClient` (a stand-in provider front
+door that raises `ContextWindowExceeded`, or silently drops the oldest
+messages with `on_overflow="drop_front"`) subclasses whichever
+`FakeLLMClient` is in scope; `CHECK_PAIRING` (`is_tool_results`,
+`check_pairing`) depends only on `_plain`. Both append after
+`COUNT_TOKENS`.
+
+**Hang-safe hidden tests (Lesson 4.2 `trim_to_fit`).** The Pyodide
+harness has no execution timeout, and a natural learner bug (a `while`
+loop that drops the newest round too, so `rounds[1:]` of `[]` never
+shrinks) loops forever and freezes the page. The exercise's test prelude
+therefore shadows the learner's `trim_to_fit` with a wrapper that runs it
+under `sys.settrace` and raises `RuntimeError` after 100,000 traced
+steps, so a hang becomes an ordinary failing test with a message.
+Verified against real Python: the "drop the newest round too" mutation
+fails tests 7 and 9 in about a second instead of hanging. Use the same
+pattern for any exercise whose natural wrong answer is a non-terminating
+loop.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped

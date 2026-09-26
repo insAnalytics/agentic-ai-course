@@ -2532,7 +2532,23 @@ below describe each lesson as first converted; see the git log
    Lesson 1's tracker and measuring concepts, Module 1's "what happens
    when you exceed it" subsection (anchor confirmed in built HTML) and
    max-output-length concept, Module 2's tool-errors and retry concepts,
-   and Lessons 2 and 3. No intro/bookends yet.
+   and Lessons 2 and 3. Concept 2 (cutting whole rounds, not messages) is
+   built: `CHECK_PAIRING` added to `fakeClient.ts` per the mockup's build
+   note; a two-careless-cuts demo and a trim-in-the-loop demo, both
+   matching the mockup's printed output exactly when re-run; 4 quiz cards;
+   graded exercise `split_rounds` + `trim_to_fit` with nine hidden tests.
+   **Bugs found and fixed:** (1) the mockup's `trim_to_fit` reference used
+   `len(rounds) == 1`, which loops forever on a task-only history (no
+   rounds), so the built version uses `<= 1`; (2) a learner version that
+   also drops the newest round hangs the browser (no harness timeout), so
+   the tests run `trim_to_fit` under a `sys.settrace` step limit (see
+   architecture.md §4.1); (3) a strict `<` instead of `<=` at the budget
+   passed all eight mockup tests, so a new test 8 checks a budget exactly
+   equal to the history's size drops nothing. The mockup's shared-state
+   tests are now self-contained. Mutations confirmed: no round grouping
+   fails 1, 6, 7; dropping the task fails 3-7; mutating the input fails
+   4, 6, 7, 9. Forward references to the next concept and Lesson 5 are
+   plain prose (unbuilt). No intro/bookends yet.
 
 ---
 

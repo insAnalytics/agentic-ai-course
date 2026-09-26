@@ -189,3 +189,39 @@ class WindowedClient(FakeLLMClient):
         self.seen.append(kept)
         return super().create(kept)
 `;
+
+/**
+ * Module 4 Lesson 4 concept 2: the two tool_use / tool_result pairing rules the
+ * API enforces, as a checker returning a list of problems (empty = valid).
+ * Depends only on _plain (from COUNT_TOKENS); append after it. A stand-in for
+ * the API's check, not the API itself.
+ */
+export const CHECK_PAIRING = String.raw`
+def is_tool_results(message: dict) -> bool:
+    return (message["role"] == "user" and isinstance(message["content"], list)
+            and all(_plain(b)["type"] == "tool_result" for b in message["content"]))
+
+def check_pairing(messages: list) -> list:
+    """The two pairing rules the API enforces, as a list of problems. Empty means the history is valid."""
+    problems = []
+    for i in range(len(messages)):
+        message = messages[i]
+        blocks = [_plain(b) for b in message["content"]] if isinstance(message["content"], list) else []
+        if message["role"] == "assistant":
+            call_ids = [b["id"] for b in blocks if b["type"] == "tool_use"]
+            answered = []
+            if i + 1 < len(messages) and is_tool_results(messages[i + 1]):
+                answered = [b["tool_use_id"] for b in messages[i + 1]["content"]]
+            missing = [c for c in call_ids if c not in answered]
+            if missing:
+                problems.append(f"messages.{i}: tool_use without a tool_result immediately after: {missing}")
+        if message["role"] == "user":
+            result_ids = [b["tool_use_id"] for b in blocks if b["type"] == "tool_result"]
+            called = []
+            if i > 0 and messages[i - 1]["role"] == "assistant":
+                called = [_plain(b)["id"] for b in messages[i - 1]["content"] if _plain(b)["type"] == "tool_use"]
+            unknown = [r for r in result_ids if r not in called]
+            if unknown:
+                problems.append(f"messages.{i}: tool_result with no tool_use in the previous message: {unknown}")
+    return problems
+`;
