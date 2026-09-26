@@ -1,0 +1,447 @@
+# When the History Won't Fit
+
+> **Note for the site build:** the comprehensive sandbox is multi-file, in the same shape as Lesson 3's. The tests import `fake` and `tokens` as site-provided modules: `tokens` exports `count_tokens` and `_plain`, and `fake` must now also export `ThinkingBlock`, `WindowedClient` and `ContextWindowExceeded` (Concept 1's code), alongside `ToolUseBlock`, `TextBlock`, `FakeResponse` and `FakeLLMClient`. `lib.py` is read-only and shown in full below. `agent.py` is the entry file.
+
+## Intro
+
+> **You'll be able to**
+> - Explain the three ways a provider handles a request that's too large, and why the loop has to measure before it sends
+> - Shrink an agent's history without breaking it: strip old reasoning, clear old tool results, drop whole rounds, and never touch the task or the open round
+> - Fit a history in batches to a low-water mark, and recognize when a provider's server-side trimming is the better choice
+
+**Why it matters**
+
+[Lesson 1](→ this module, context as a budget lesson) showed that an agent's context grows every turn, mostly with tool results, and forecast when it would run out. Any agent that runs long enough reaches that point. When it does, it either stops with an error, or, on some local servers, carries on after quietly losing its task.
+
+The obvious fix, leaving out old messages, is where agents most often break themselves. An agent's history is a chain of tool calls, their results and the reasoning around them, and cutting it carelessly produces a history the API refuses on every later request. This lesson is how to make a long run fit while keeping that chain intact, and without paying for it in cache misses. What it drops without a trace, [Lesson 5](→ this module, compaction and summarization lesson) will replace with a summary.
+
+---
+
+## Recap & Practice
+
+### Comprehensive quiz
+
+*(spans all four concepts, mixed order)*
+
+> **Q1.** A request's input is under the context window, but input plus `max_tokens` is over it. On Claude 4.5 models and newer, what happens?
+> - A) The request is rejected with "prompt is too long"
+> - B) It's accepted, and the reply may stop early with `stop_reason: "model_context_window_exceeded"` ✅
+> - C) The API shortens the oldest messages to make room
+> - D) The API lowers `max_tokens` and warns in the response
+>
+> *Explanation:* Only an input that's too large on its own is rejected outright. The reply-room case is caught by headroom, which is why Lesson 1 subtracted `max_tokens` from the window.
+
+> **Q2.** Which cut produces a `tool_result` whose `tool_use` is missing?
+> - A) Dropping the oldest whole round
+> - B) Clearing an old result's content
+> - C) Keeping only the last few messages, when the cut falls inside a round ✅
+> - D) Stripping reasoning from finished steps
+>
+> *Explanation:* A count of messages doesn't know that a results message depends on the assistant message before it. The other three never separate a call from its result.
+
+> **Q3.** Why is the task message pinned when rounds are dropped?
+> - A) It's the original request, it sits where models use context well, and a front-trimming cut removes it first ✅
+> - B) The API rejects a request whose first message is an assistant message
+> - C) It's always the largest message
+> - D) Tool definitions are attached to it
+>
+> *Explanation:* Without the task, the model keeps working with no statement of what it's working on. [The silent trimmer](→ this lesson, hitting the wall concept, the silent version is worse) lost it exactly that way.
+
+> **Q4.** In what order does `fit_history` give things up, and what does it never give up?
+> - A) Newest rounds first; never the system prompt
+> - B) Tool results first, then reasoning; never failed results
+> - C) Whole rounds first, then results; never reasoning
+> - D) Old reasoning, then old results, then whole rounds; never the task or the open round ✅
+>
+> *Explanation:* Each step loses more than the one before. The task and the open round are what the model needs to take its next step at all.
+
+> **Q5.** An agent's context step fits the history every turn once it's over budget. What does changing to batched fitting with a low-water mark buy?
+> - A) A smaller request on every turn
+> - B) Fewer prefix breaks, so much more of each request is read from the cache ✅
+> - C) Nothing ever has to be dropped
+> - D) The window grows to fit the history
+>
+> *Explanation:* Fitting down to a mark below the budget leaves room for several turns of pure appends. In the lesson's 30-check demo, the prefix broke 3 times instead of 17.
+
+> **Q6.** Why can't a "prompt is too long" error be fed back to the model like a tool error?
+> - A) The model can't read error messages
+> - B) Tool errors are always shorter
+> - C) The request itself failed, so there's no model call to send it to, and adding it would only make the next request larger ✅
+> - D) The error contains the whole prompt
+>
+> *Explanation:* The only fix is a smaller request, which is the context step's job, not the model's.
+
+> **Q7.** Why does clearing an old result keep the call and the result block in place?
+> - A) The pairing stays valid, and the model can still see which steps it took and call a tool again ✅
+> - B) The API requires every result to keep its original length
+> - C) Cleared blocks are restored automatically on the next turn
+> - D) Placeholders are free and don't count toward the window
+>
+> *Explanation:* Only the bulky content goes. The placeholder names the tool so the model can re-fetch the data if it needs it.
+
+> **Q8.** On a provider that binds each thinking block to everything sent before it, which of these doesn't invalidate the kept reasoning?
+> - A) Clearing an old tool result on the client
+> - B) Dropping the oldest round on the client
+> - C) Server-side context editing, which trims the provider's copy while you send the history unchanged ✅
+> - D) Rewriting the system prompt with the current time
+>
+> *Explanation:* The check compares what you sent with what you sent before. Client-side edits change that; server-side trimming doesn't.
+
+---
+
+### Comprehensive sandbox
+
+*(applied, multi-file — a context step that makes a long run fit)*
+
+**Task shown to learner:** The registry agent investigates a slow support queue: 18 steps of reasoning and log reading, including parallel calls and one call to a tool that doesn't exist. Sent whole, the history overflows a 5,000-token window partway through the run. `lib.py`, which is read-only, contains everything from this lesson (`check_pairing`, `check_open_round`, `trim_to_fit`, `clear_old_results`, `fit`, `strip_old_thinking`, `fit_history`) and Lesson 3's `first_divergence` and `cost_of_run`. Complete `agent.py`:
+
+- **`FittingContext(tools, system, window, max_tokens, keep_last, low_water=0.6)`** with `build(history)`:
+  - Compute the budget for messages once: the window minus the tokens in the system prompt, the tools and `max_tokens`. The low-water target is `int(budget * low_water)`.
+  - Keep the view last sent and how much of the history it has taken in. Each call appends the history's new messages to that view.
+  - Only if the view is over the budget, fit it with `fit_history`, down to the low-water target, keeping the `keep_last` newest results.
+  - Return `{"tools": ..., "system": ..., "messages": ...}`, with the tools and system prompt exactly as passed in.
+  - Never change the history.
+- **`run_agent(llm, user_message, context, tool_impls, max_steps=40)`:** the collect-every-call loop.
+  - Build each request with `context.build(history)` and send it with `llm.create(messages=..., tools=..., system=...)`.
+  - Record every request sent.
+  - Answer unknown tools locally as errors.
+  - Don't catch `ContextWindowExceeded`: a request that's too large is the context step's bug, not something the loop can fix.
+  - Return `(final_text, history, sent_requests)`.
+
+The tests run the same script three ways: sending the whole history, your `FittingContext`, and a context that fits on every turn.
+
+**Tab: `lib.py`** (read-only)
+```python
+# everything from this lesson, plus Lesson 3's cache measurement -- read-only
+import json
+from tokens import count_tokens, _plain
+
+def is_tool_results(message: dict) -> bool:
+    return (message["role"] == "user" and isinstance(message["content"], list)
+            and all(_plain(b)["type"] == "tool_result" for b in message["content"]))
+
+def check_pairing(messages: list) -> list:
+    """The two pairing rules the API enforces, as a list of problems. Empty means the history is valid."""
+    problems = []
+    for i in range(len(messages)):
+        message = messages[i]
+        blocks = [_plain(b) for b in message["content"]] if isinstance(message["content"], list) else []
+        if message["role"] == "assistant":
+            call_ids = [b["id"] for b in blocks if b["type"] == "tool_use"]
+            answered = []
+            if i + 1 < len(messages) and is_tool_results(messages[i + 1]):
+                answered = [b["tool_use_id"] for b in messages[i + 1]["content"]]
+            missing = [c for c in call_ids if c not in answered]
+            if missing:
+                problems.append(f"messages.{i}: tool_use without a tool_result immediately after: {missing}")
+        if message["role"] == "user":
+            result_ids = [b["tool_use_id"] for b in blocks if b["type"] == "tool_result"]
+            called = []
+            if i > 0 and messages[i - 1]["role"] == "assistant":
+                called = [_plain(b)["id"] for b in messages[i - 1]["content"] if _plain(b)["type"] == "tool_use"]
+            unknown = [r for r in result_ids if r not in called]
+            if unknown:
+                problems.append(f"messages.{i}: tool_result with no tool_use in the previous message: {unknown}")
+    return problems
+
+def check_open_round(history: list, sent: list) -> list:
+    """The assistant message whose tool results are being sent must go back exactly as it was returned."""
+    def last_assistant(messages):
+        found = None
+        for message in messages:
+            if message["role"] == "assistant":
+                found = message
+        return found
+    returned, resent = last_assistant(history), last_assistant(sent)
+    if returned is None:
+        return []
+    if resent is None or _plain(resent["content"]) != _plain(returned["content"]):
+        return ["the newest assistant message was not sent back exactly as returned"]
+    return []
+
+def split_rounds(messages: list) -> list:
+    """Group everything after the first message into rounds that can be removed safely."""
+    rounds = []
+    for message in messages[1:]:
+        if is_tool_results(message) and rounds:
+            rounds[-1].append(message)
+        else:
+            rounds.append([message])
+    return rounds
+
+def trim_to_fit(messages: list, budget: int) -> list:
+    """Keep the task and the newest rounds; drop the oldest whole rounds until the messages fit."""
+    task = messages[0]
+    rounds = split_rounds(messages)
+    while True:
+        kept = [task]
+        for r in rounds:
+            kept += r
+        if count_tokens(kept) <= budget or len(rounds) == 1:
+            return kept
+        rounds = rounds[1:]
+
+def clear_old_results(messages: list, keep_last: int) -> list:
+    """Replace the content of all but the newest `keep_last` successful tool results with a placeholder.
+    Tool calls, failed results, and every message stay where they are."""
+    names = {}
+    for message in messages:
+        if message["role"] == "assistant" and isinstance(message["content"], list):
+            for block in message["content"]:
+                if _plain(block)["type"] == "tool_use":
+                    names[block.id] = block.name
+
+    successful = []
+    for message in messages:
+        if is_tool_results(message):
+            for block in message["content"]:
+                if not block.get("is_error"):
+                    successful.append(block["tool_use_id"])
+    to_keep = successful[len(successful) - keep_last:]
+
+    cleared = []
+    for message in messages:
+        if is_tool_results(message):
+            new_content = []
+            for block in message["content"]:
+                if not block.get("is_error") and block["tool_use_id"] not in to_keep:
+                    name = names[block["tool_use_id"]]
+                    block = {**block, "content": f"[cleared: an earlier {name} result, removed to save space. Call {name} again if you need it.]"}
+                new_content.append(block)
+            cleared.append({**message, "content": new_content})
+        else:
+            cleared.append(message)
+    return cleared
+
+def fit(messages: list, budget: int, keep_last: int) -> list:
+    """Clear old results first; drop whole rounds only if that still isn't enough."""
+    if count_tokens(messages) <= budget:
+        return list(messages)
+    return trim_to_fit(clear_old_results(messages, keep_last), budget)
+
+def strip_old_thinking(messages: list) -> list:
+    """Remove thinking blocks from every assistant message except the newest one."""
+    last = -1
+    for i in range(len(messages)):
+        if messages[i]["role"] == "assistant":
+            last = i
+    stripped = []
+    for i in range(len(messages)):
+        message = messages[i]
+        if message["role"] == "assistant" and i != last:
+            kept = [b for b in message["content"] if _plain(b)["type"] != "thinking"]
+            if kept:
+                message = {**message, "content": kept}
+        stripped.append(message)
+    return stripped
+
+def fit_history(messages: list, budget: int, keep_last: int) -> list:
+    """Old reasoning goes first, then old results, then whole rounds."""
+    if count_tokens(messages) <= budget:
+        return list(messages)
+    return fit(strip_old_thinking(messages), budget, keep_last)
+
+
+def serialize(x) -> str:
+    # byte-for-byte form, as a cache sees it: key order matters, exactly as sent
+    return json.dumps(_plain(x))
+
+def first_divergence(previous: dict, current: dict) -> dict:
+    """Where does `current` stop matching `previous`, and how much of it could be read from the cache?"""
+    reusable = 0
+    if serialize(current["tools"]) != serialize(previous["tools"]):
+        return {"diverges_at": "tools", "reusable_tokens": 0}
+    reusable += count_tokens(current["tools"])
+    if serialize(current["system"]) != serialize(previous["system"]):
+        return {"diverges_at": "system", "reusable_tokens": reusable}
+    reusable += count_tokens(current["system"])
+    for i, old in enumerate(previous["messages"]):
+        if i >= len(current["messages"]) or serialize(current["messages"][i]) != serialize(old):
+            return {"diverges_at": f"messages[{i}]", "reusable_tokens": reusable}
+        reusable += count_tokens(old)
+    return {"diverges_at": None, "reusable_tokens": reusable}
+
+def cost_of_run(requests: list, read_multiplier: float, write_multiplier: float) -> int:
+    """Cost of the requests actually sent, using first_divergence to see what each could reuse."""
+    total = 0.0
+    previous = None
+    for request in requests:
+        size = count_tokens(request["tools"]) + count_tokens(request["system"]) + count_tokens(request["messages"])
+        reused = first_divergence(previous, request)["reusable_tokens"] if previous else 0
+        total += reused * read_multiplier + (size - reused) * write_multiplier
+        previous = request
+    return round(total)
+```
+
+**Tab: `agent.py`** (starter, entry file)
+```python
+from tokens import count_tokens
+from lib import fit_history
+
+class FittingContext:
+    def __init__(self, tools: list, system: str, window: int, max_tokens: int, keep_last: int, low_water: float = 0.6):
+        # TODO: keep the prefix, work out the message budget and the low-water target, start with an empty view
+        ...
+
+    def build(self, history: list) -> dict:
+        # TODO: append what's new to the last view; fit only when it's over budget
+        ...
+
+def run_agent(llm, user_message, context, tool_impls, max_steps=40):
+    # TODO: the collect-every-call loop, recording every request sent
+    ...
+```
+
+**Hidden tests:**
+```python
+from fake import *
+from tokens import count_tokens, _plain
+from lib import check_pairing, check_open_round, fit_history, first_divergence, cost_of_run
+from agent import FittingContext, run_agent
+
+TOOLS = [{"name": n, "description": f"{n} tool", "input_schema": {"type": "object", "properties": {}}}
+         for n in ["get_logs", "get_status"]]
+SYSTEM = "You are the registry assistant. Find out why the support queue is slow, then report. " * 2
+AGENTS = ["support_agent", "search_agent", "billing_agent", "triage_agent", "report_agent", "auth_agent"]
+IMPLS = {"get_logs": lambda agent_name: f"{agent_name} logs\n" + f"{agent_name} INFO handled in 412ms status=200\n" * 45,
+         "get_status": lambda agent_name: f"{agent_name}: healthy, p99 1.2s"}
+
+def script():
+    steps = []
+    for i in range(18):
+        agent = AGENTS[i % 6]
+        thought = ThinkingBlock(thinking=f"Step {i + 1}: next, {agent}. " + "Weighing what the last result showed. " * 8)
+        if i == 4:
+            steps.append([thought, ToolUseBlock(name="get_metrics", input={"agent_name": agent})])
+        elif i % 5 == 2:
+            steps.append([thought, ToolUseBlock(name="get_logs", input={"agent_name": agent}),
+                          ToolUseBlock(name="get_status", input={"agent_name": agent})])
+        else:
+            steps.append([thought, TextBlock(text=f"Checking {agent}."), ToolUseBlock(name="get_logs", input={"agent_name": agent})])
+    steps.append([ThinkingBlock(thinking="Enough evidence."), TextBlock(text="billing_agent's per-ticket lookups are the bottleneck.")])
+    return steps
+
+class Watch:
+    """Records how long the history was each time a request was built."""
+    def __init__(self, inner):
+        self.inner = inner
+        self.lengths = []
+    def build(self, history):
+        self.lengths.append(len(history))
+        return self.inner.build(history)
+
+class SendEverything:
+    def build(self, history):
+        return {"tools": TOOLS, "system": SYSTEM, "messages": list(history)}
+
+WINDOW, MAX_TOKENS = 5_000, 1_000
+TASK = "Find out why the support queue is slow."
+
+# 1. before: sending the whole history overflows the window partway through the run
+try:
+    run_agent(WindowedClient(script(), window=WINDOW), TASK, SendEverything(), IMPLS)
+    assert False, "the unfitted run should have overflowed"
+except ContextWindowExceeded:
+    pass
+
+# ... after: the fitted run completes
+llm = WindowedClient(script(), window=WINDOW)
+watch = Watch(FittingContext(TOOLS, SYSTEM, WINDOW, MAX_TOKENS, keep_last=2))
+answer, history, sent = run_agent(llm, TASK, watch, IMPLS)
+assert answer == "billing_agent's per-ticket lookups are the bottleneck."
+
+# 2. every request leaves room for the reply, and the prefix is always exactly what was passed in
+for r in sent:
+    assert count_tokens(r["system"]) + count_tokens(r["tools"]) + count_tokens(r["messages"]) + MAX_TOKENS <= WINDOW
+    assert r["tools"] is TOOLS and r["system"] is SYSTEM
+
+# 3. every request is valid: the task first, tool calls paired, and the open round sent back as returned
+for n, r in zip(watch.lengths, sent):
+    assert r["messages"][0]["content"] == TASK
+    assert check_pairing(r["messages"]) == []
+    assert check_open_round(history[:n], r["messages"]) == []
+
+# 4. requests are sent in batches: the prefix breaks on only a few turns
+breaks = 0
+for previous, current in zip(sent, sent[1:]):
+    if first_divergence(previous, current)["diverges_at"] is not None:
+        breaks += 1
+assert 1 <= breaks <= 4, breaks
+
+# 5. and that costs clearly less than fitting on every turn
+class EveryTurn:
+    def __init__(self):
+        self.budget = WINDOW - count_tokens(SYSTEM) - count_tokens(TOOLS) - MAX_TOKENS
+    def build(self, history):
+        return {"tools": TOOLS, "system": SYSTEM, "messages": fit_history(history, self.budget, 2)}
+_, _, every_turn = run_agent(WindowedClient(script(), window=WINDOW), TASK, EveryTurn(), IMPLS)
+assert cost_of_run(sent, 0.1, 1.25) < 0.9 * cost_of_run(every_turn, 0.1, 1.25)
+
+# 6. the history keeps everything: all results in full, all reasoning, and the failed call's error
+results = [b for m in history if m["role"] == "user" and isinstance(m["content"], list) for b in m["content"]]
+assert not any(b["content"].startswith("[cleared") for b in results)
+assert all(_plain(m["content"][0])["type"] == "thinking" for m in history if m["role"] == "assistant")
+assert any(b.get("is_error") for b in results)
+
+# 7. the context step can be reused: a new one starts empty
+fresh = FittingContext(TOOLS, SYSTEM, WINDOW, MAX_TOKENS, keep_last=2)
+assert fresh.build([{"role": "user", "content": TASK}])["messages"] == [{"role": "user", "content": TASK}]
+```
+
+**Hint (shown on request):** `build` has the same shape as [`HistoryFitter.prepare`](→ this lesson, clear before you cut and cut in batches concept, fit in batches not every turn), with `fit_history` in place of `fit` and a request dict around the result. Keep `self.seen` rather than using `len(self.view)`: once rounds are dropped, the view is shorter than the history. The loop is Lesson 3's `run_agent` with the clock removed and `system=` passed to `llm.create`.
+
+**Reference solution — `agent.py`:**
+```python
+from tokens import count_tokens
+from lib import fit_history
+
+class FittingContext:
+    def __init__(self, tools: list, system: str, window: int, max_tokens: int, keep_last: int, low_water: float = 0.6):
+        # the prefix is fixed for the run, so the room left for messages is too
+        self.tools = tools
+        self.system = system
+        self.budget = window - count_tokens(system) - count_tokens(tools) - max_tokens
+        self.low_water = int(self.budget * low_water)
+        self.keep_last = keep_last
+        self.view = []
+        self.seen = 0
+
+    def build(self, history: list) -> dict:
+        view = self.view + history[self.seen:]
+        if count_tokens(view) > self.budget:
+            view = fit_history(view, self.low_water, self.keep_last)
+        self.view = view
+        self.seen = len(history)
+        return {"tools": self.tools, "system": self.system, "messages": view}
+
+def run_agent(llm, user_message, context, tool_impls, max_steps=40):
+    history = [{"role": "user", "content": user_message}]
+    sent = []
+    for step in range(max_steps):
+        request = context.build(history)
+        sent.append(request)
+        response = llm.create(messages=request["messages"], tools=request["tools"], system=request["system"])
+        history.append({"role": "assistant", "content": response.content})
+        calls = [b for b in response.content if b.type == "tool_use"]
+        if not calls:
+            return "".join(b.text for b in response.content if b.type == "text"), history, sent
+        results = []
+        for call in calls:
+            if call.name not in tool_impls:
+                results.append({"type": "tool_result", "tool_use_id": call.id,
+                                "content": f"Error: there is no tool called {call.name}", "is_error": True})
+            else:
+                results.append({"type": "tool_result", "tool_use_id": call.id, "content": tool_impls[call.name](**call.input)})
+        history.append({"role": "user", "content": results})
+    return f"stopped after {max_steps} steps without a final answer", history, sent
+```
+
+**Explanation:** Each test checks one idea from the lesson:
+
+- **Before and after:** sending the whole history is rejected partway through the run. The fitted run completes (test 1).
+- **Every request fits, with room for the reply,** and the prefix never changes (test 2).
+- **Every request is valid:** the task comes first, every call is paired with its result, and the step in progress goes back exactly as it was returned, reasoning included (test 3).
+- **Fitting happens in batches:** the prefix breaks on at most four turns (test 4), and the run costs clearly less than fitting on every turn (test 5). With this small window, batches come often, so the saving is about 16%. A roomier window leaves more turns between batches.
+- **The history keeps everything:** full results, all reasoning and the failed call's error. Only the copy sent is fitted (test 6).
+
+`FittingContext` works alongside Lesson 3's `CacheAwareContext`: one decides what fits, the other decides the order and what goes last. [Lesson 12](→ this module, putting it together a context managed agent lesson) combines them into one context step.

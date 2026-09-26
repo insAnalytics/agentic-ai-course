@@ -1,0 +1,31 @@
+---
+title: "Intro"
+lesson: "04-when-the-window-fills"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Explain the three ways a provider handles a request that's too large, and why the loop has to measure before it sends",
+    "Shrink an agent's history without breaking it: strip old reasoning, clear old tool results, drop whole rounds, and never touch the task or the open round",
+    "Fit a history in batches to a low-water mark, and recognize when a provider's server-side trimming is the better choice",
+  ]}
+/>
+
+<WhyItMatters>
+  [Lesson 1](/04-context-and-memory/01-the-context-budget/00-intro/) showed
+  that an agent's context grows every turn, mostly with tool results, and
+  forecast when it would run out. Any agent that runs long enough reaches
+  that point. When it does, it either stops with an error, or, on some local
+  servers, carries on after quietly losing its task.
+
+  The obvious fix, leaving out old messages, is where agents most often
+  break themselves. An agent's history is a chain of tool calls, their
+  results and the reasoning around them, and cutting it carelessly produces
+  a history the API refuses on every later request. This lesson is how to
+  make a long run fit while keeping that chain intact, and without paying
+  for it in cache misses. What it drops without a trace, Lesson 5
+  (compaction and summarization) will replace with a summary.
+</WhyItMatters>

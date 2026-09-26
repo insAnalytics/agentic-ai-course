@@ -2518,8 +2518,9 @@ below describe each lesson as first converted; see the git log
    involved. Forward references to Lessons 5, 7 and 12 are plain prose
    (unbuilt).
 
-4. **When the Window Fills** — Building (title is a placeholder: the
-   mockup names no lesson; folder `04-when-the-window-fills`). Concept 1
+4. **When the History Won't Fit** — Locked (title from the bookends file;
+   the folder is still `04-when-the-window-fills`, named before the
+   bookends existed). Concept 1
    (hitting the wall) is built: a new `WINDOWED_CLIENT` in `fakeClient.ts`
    (`WindowedClient` raising `ContextWindowExceeded`, or silently dropping
    the oldest messages with `on_overflow="drop_front"`, as the mockup's
@@ -2585,6 +2586,24 @@ below describe each lesson as first converted; see the git log
    6. Forward reference to Lesson 5 is plain prose (unbuilt). All four
    concepts now exist; the intro and Recap & Practice (bookends mockup)
    are still to come, so the lesson stays Building.
+   Intro and Recap & Practice are built: 8-card comprehensive quiz, and
+   the multi-file "context step that makes a long run fit" sandbox
+   (read-only `tokens.py` and `lib.py`, `agent.py` to complete:
+   `FittingContext` with a budget, low-water target and `seen` counter,
+   and a collect-every-call `run_agent` that records every request and
+   doesn't catch `ContextWindowExceeded`; seven hidden tests). The
+   mockup's `fake` module became a concatenated prefix
+   (`REACT_FAKE_CLIENT + COUNT_TOKENS + WINDOWED_CLIENT`), as in earlier
+   Module 4 recaps. **Bug fixed:** the mockup's `lib.py` still had
+   `trim_to_fit`'s `len(rounds) == 1` (infinite loop on a task-only
+   history), so it uses `<= 1` like the concept. Verified against real
+   CPython: the reference passes (4 prefix breaks, 23,819 vs 28,490
+   token-units, a 16% saving, matching the mockup's stated figure);
+   mutations (fitting every turn, low-water = budget, ignoring
+   `max_tokens`, `len(view)` instead of `seen`, never fitting, catching
+   the overflow, not updating `seen`, copying the prefix) all fail.
+   Forward references to Lessons 5 and 12 are plain prose (unbuilt).
+   Lesson 4 is now fully Locked.
 
 ---
 
