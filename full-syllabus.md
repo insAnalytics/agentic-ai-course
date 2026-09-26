@@ -2452,6 +2452,27 @@ below describe each lesson as first converted; see the git log
    convention instead (`REACT_FAKE_CLIENT` + `TOOL_AWARE_CLIENT` prefixed
    onto the hidden-tests string, as Lesson 1's recap does).
 
+3. **Prompt Caching** — Building (title is a placeholder: the mockup
+   doesn't name the lesson, and unlike Lesson 2 there's no literal quoted
+   title to inherit from an earlier forward reference, only the generic
+   "prompt caching" and "context quality" pointers from Lesson 1; picked
+   from the former since this lesson is squarely about prefix caching).
+   Concept 1 (what a prefix cache is worth to an agent: a provider-neutral
+   `estimate_cost` cost model — reused prefix tokens read at a discount,
+   new tokens written at a surcharge — applied to Lesson 1's own
+   log-reading run (`[101, 1_828, 3_538, 5_247, 6_939, 8_631, 10_323]`,
+   confirmed by re-running that lesson's exact demo in Pyodide before
+   reusing the numbers), 5 quiz cards, graded exercise with five hidden
+   tests; verified against real Python: the reference passes, output
+   matches the mockup's demo exactly (58%/74% savings)) is built.
+   Callbacks link to Lesson 1's watching-it-grow-across-the-loop page and
+   to Module 1's KV-cache and prompt-structure-and-cache-hits concepts
+   (both already built, confirmed real destinations rather than
+   hand-slugified guesses). The mockup's own forward reference to
+   Concept 2 ("what makes an agent cache-friendly and what breaks it") is
+   plain prose, since that concept doesn't exist yet. No intro/bookends
+   yet.
+
 ---
 
 ## Modules 4–11 — current plan
