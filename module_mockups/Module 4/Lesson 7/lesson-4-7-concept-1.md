@@ -1,0 +1,346 @@
+# Module 4, Lesson 7 — Concept 1: What you load, and where it goes
+
+> **Note for the site build:** this concept's demos need Lesson 3's `serialize`, `first_divergence`, `cost_of_run` and `add_to_end`. Add `SERVERS`, `ACTIONS`, `make_tool` and `CATALOG` (the first code block) and `stage_line` and `gated_dispatch` to this lesson's setup.
+
+---
+
+## Everything, every time
+
+[Lesson 1](→ this module, context as a budget lesson, measuring one request part by part concept) measured a request part by part, and on the first turn the tool definitions were 83% of it. [Module 3](→ Module 3, connecting an agent to mcp servers lesson, when there are too many tools concept) gave the scale for real setups: tens of thousands of tokens of definitions from a few connected servers, and worse tool choices once a model has more than a few dozen tools to pick from.
+
+The same is true of instructions and reference material. A system prompt that covers every procedure the agent might ever need is paid for on every request, and most of it is noise for any one step. The answer is to load what's needed when it's needed. This lesson is about how to do that without paying for it somewhere else, and the first question is where loaded things go.
+
+## Three places a definition can go
+
+Here's a catalog of 40 tools, each about as detailed as a real definition:
+
+```python
+SERVERS = {"registry": "agent records", "monitoring": "health checks and alerts", "billing": "usage and invoices",
+           "deploy": "releases and rollbacks", "tickets": "support tickets", "github": "code and pull requests",
+           "slack": "team messages", "calendar": "schedules"}
+ACTIONS = ["list", "get", "search", "update", "delete"]
+
+def make_tool(server: str, action: str) -> dict:
+    """A tool definition about as detailed as a real one."""
+    what = SERVERS[server]
+    return {
+        "name": f"{server}__{action}",
+        "description": (f"{action.capitalize()} {what} in the {server} service. Use this when the task needs to "
+                        f"{action} {what}; for other services use their own tools. Returns JSON. "
+                        f"Fails with a clear error if the item doesn't exist or you lack permission."),
+        "input_schema": {"type": "object",
+                         "properties": {"id": {"type": "string", "description": f"The {server} item id."},
+                                        "fields": {"type": "array", "items": {"type": "string"},
+                                                   "description": "Which fields to return or change."},
+                                        "limit": {"type": "integer", "description": "Maximum items to return."}},
+                         "required": ["id"]},
+    }
+
+CATALOG = [make_tool(server, action) for server in SERVERS for action in ACTIONS]
+```
+
+An agent works through a task in four areas, three turns each, and each area needs three tools. Here are four ways to give it those tools, over twelve turns, with [Lesson 3's cost model](→ this module, prompt caching lesson):
+
+```python
+SYSTEM = "You are the operations assistant. Use the tools to investigate and act, one step at a time."
+FIND_TOOLS = {"name": "find_tools", "description": "Search the tool catalog by keyword. Returns matching tool definitions.",
+              "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}
+CALL_TOOL = {"name": "call_tool", "description": "Call a tool found with find_tools, by name, with its arguments.",
+             "input_schema": {"type": "object", "properties": {"name": {"type": "string"}, "arguments": {"type": "object"}},
+                              "required": ["name", "arguments"]}}
+
+# the task moves through four areas, three turns each, and each area needs three tools
+AREAS = [["monitoring__get", "monitoring__search", "monitoring__list"],
+         ["registry__get", "registry__update", "registry__list"],
+         ["billing__get", "billing__search", "billing__list"],
+         ["deploy__get", "deploy__update", "deploy__list"]]
+by_name = {t["name"]: t for t in CATALOG}
+
+def step(name, through_call_tool=False):
+    if through_call_tool:
+        call = ToolUseBlock(name="call_tool", input={"name": name, "arguments": {"id": "support_agent"}})
+    else:
+        call = ToolUseBlock(name=name, input={"id": "support_agent"})
+    return [{"role": "assistant", "content": [call]},
+            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": call.id, "content": f"{name} for support_agent:\n" + "field: value, updated 10:04, status ok\n" * 40}]}]
+
+def run(policy):
+    history = [{"role": "user", "content": "Find out why support_agent is slow, and fix it."}]
+    requests, loaded = [], []
+    for turn in range(12):
+        area = AREAS[turn // 3]
+        new_area = turn % 3 == 0
+        if policy == "all, always":
+            tools = CATALOG
+        elif policy == "chosen per area":
+            tools = [by_name[n] for n in area]
+        elif policy == "appended to the list":
+            if new_area:
+                loaded += [by_name[n] for n in area]
+            tools = list(loaded)
+        else:
+            tools = [FIND_TOOLS, CALL_TOOL]
+            if new_area:
+                # the definitions arrive as a tool result, at the end of the conversation
+                call = ToolUseBlock(name="find_tools", input={"query": area[0].split("__")[0]})
+                history = history + [{"role": "assistant", "content": [call]},
+                                     {"role": "user", "content": [{"type": "tool_result", "tool_use_id": call.id,
+                                                                   "content": json.dumps([by_name[n] for n in area])}]}]
+        requests.append({"tools": tools, "system": SYSTEM, "messages": history})
+        history = history + step(area[turn % 3], through_call_tool=(policy == "loaded into the conversation"))
+    return requests
+
+print(f"{'':29} {'cost':>7} {'sent':>8} {'orphans':>8}   where each request first differs from the one before")
+for policy in ["all, always", "chosen per area", "appended to the list", "loaded into the conversation"]:
+    requests = run(policy)
+    where = [first_divergence(a, b)["diverges_at"] or "-" for a, b in zip(requests, requests[1:])]
+    starts = ["tools" if w == "tools" else "msgs" for w in where]
+    sent = sum(count_tokens(r["tools"]) + count_tokens(r["system"]) + count_tokens(r["messages"]) for r in requests)
+    # calls in the history that name a tool the current request doesn't offer
+    last = requests[-1]
+    offered = [t["name"] for t in last["tools"]]
+    named = [b.name for m in last["messages"] if m["role"] == "assistant" for b in m["content"]]
+    orphans = len([n for n in named if n not in offered])
+    print(f"{policy:29} {cost_of_run(requests, 0.1, 1.25):>7,} {sent:>8,} {orphans:>8}   {' '.join(starts)}")
+```
+```
+                                 cost     sent  orphans   where each request first differs from the one before
+all, always                    23,276  103,601        0   msgs msgs msgs msgs msgs msgs msgs msgs msgs msgs msgs
+chosen per area                20,057   36,998        9   msgs msgs tools msgs msgs tools msgs msgs tools msgs msgs
+appended to the list           24,028   45,212        0   msgs msgs tools msgs msgs tools msgs msgs tools msgs msgs
+loaded into the conversation   13,854   50,263        0   msgs msgs msgs msgs msgs msgs msgs msgs msgs msgs msgs
+```
+*(runs live, shows output — read-only demo snippet, not graded; costs are in Lesson 3's token-units with its example multipliers, and the calls are scripted)*
+
+"Orphans" counts calls in the final request's history that name a tool the request no longer offers. The last column shows where each request first differs from the one before: `msgs` means somewhere in the messages, the cheap case, and `tools` means at the very start.
+
+- **All tools, always,** never breaks the cache, but it sends the most by far: about 6,000 tokens of definitions on every turn, mostly for tools the task never touches.
+- **Choosing tools per area** sends the least, but every time the area changes, the tool list changes. The tool list comes first in the prefix, so the whole history after it is processed again. It also leaves nine orphans: calls in the history to tools the model can no longer see. The team behind the Manus agent [reports what that does](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus): when earlier actions refer to tools that are no longer defined, the model gets confused, and makes invalid calls.
+- **Appending to the tool list** seems like the careful version: nothing is ever removed, so there are no orphans. But the list still comes first. Adding to its end changes everything after it, the system prompt and the whole history included. In this run it cost more than sending all 40 tools every time.
+- **Loading into the conversation** keeps the tool list fixed at two small tools. New definitions arrive as a tool result, at the end of the conversation, where anything new goes anyway. The prefix never changes, nothing is orphaned, and it cost about 40% less than sending everything. How the agent finds and calls those tools is the next concept.
+
+## The rule
+
+**The prefix is fixed for the run. Anything loaded later goes into the conversation.**
+
+The prefix is the tool list and the system prompt. That covers tool definitions, instructions and reference material alike. It's the same shape as everything else in this module: the loop appends, and changes to what's already been sent are rare and deliberate.
+
+Providers that load tools on demand follow the same rule. Claude's tool search, for example, [keeps deferred tools out of the prefix](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-reference): when a tool is found, its full definition is inserted at that point in the conversation, not added to the tool list, which is what keeps the cache intact.
+
+## Stages without changing the list
+
+[Module 3](→ Module 3, connecting an agent to mcp servers lesson, when there are too many tools concept, fix 3 different tools for different stages) suggested a shorter tool list for each stage of a task: read-only tools while researching, write tools only when it's time to act. The goal is right, and the rule above says how to get it without breaking the prefix. Keep the list fixed, and enforce the stage where calls are dispatched:
+
+```python
+def stage_line(stage: str, stage_tools: dict) -> str:
+    return f"Stage: {stage}. Tools you can use now: {', '.join(stage_tools[stage])}."
+
+def gated_dispatch(call, stage: str, stage_tools: dict, impls: dict) -> dict:
+    """Run a call the current stage allows; answer anything else with an error the model can act on."""
+    allowed = stage_tools[stage]
+    if call.name not in impls:
+        content, failed = f"Error: there is no tool called {call.name}.", True
+    elif call.name not in allowed:
+        content, failed = f"Error: {call.name} isn't available during {stage}. Tools you can use now: {', '.join(allowed)}.", True
+    else:
+        content, failed = impls[call.name](**call.input), False
+    result = {"type": "tool_result", "tool_use_id": call.id, "content": content}
+    if failed:
+        result["is_error"] = True
+    return result
+```
+
+The stage is the code's state, as in [Module 2's phase-aware prompting](→ Module 2, the system prompt as agent design lesson, phase aware prompting concept). The model hears about it in one line at the end of each request, the same place [Lesson 2 restated the plan](→ this module, context that fits but still hurts lesson, re-anchoring the goal concept), so the system prompt never has to change:
+
+```python
+TOOLS = [{"name": n, "description": f"{n} tool", "input_schema": {"type": "object", "properties": {}}}
+         for n in ["registry__get", "registry__update", "registry__delete"]]
+SYSTEM = "You are the operations assistant. Investigate first; change things only in the act stage."
+impls = {"registry__get": lambda agent_name: f"{agent_name}: model claude-haiku, p99 4.1s",
+         "registry__update": lambda agent_name, model: f"{agent_name} now runs on {model}",
+         "registry__delete": lambda agent_name: f"{agent_name} deleted"}
+STAGE_TOOLS = {"research": ["registry__get"], "act": ["registry__get", "registry__update"]}
+
+llm = FakeLLMClient([
+    [ToolUseBlock(name="registry__update", input={"agent_name": "support_agent", "model": "claude-sonnet"})],
+    [ToolUseBlock(name="registry__get", input={"agent_name": "support_agent"})],
+    [ToolUseBlock(name="registry__update", input={"agent_name": "support_agent", "model": "claude-sonnet"})],
+    [ToolUseBlock(name="registry__delete", input={"agent_name": "old_agent"})],
+    [TextBlock(text="support_agent moved to claude-sonnet.")],
+])
+history = [{"role": "user", "content": "support_agent is slow. Look into it and fix it."}]
+stage = "research"
+requests = []
+while True:
+    # the stage is the code's state; the model hears about it at the end of each request, never in the prefix
+    request = {"tools": TOOLS, "system": SYSTEM, "messages": add_to_end(history, stage_line(stage, STAGE_TOOLS))}
+    requests.append(request)
+    response = llm.create(messages=request["messages"])
+    history.append({"role": "assistant", "content": response.content})
+    calls = [b for b in response.content if b.type == "tool_use"]
+    if not calls:
+        break
+    results = [gated_dispatch(c, stage, STAGE_TOOLS, impls) for c in calls]
+    history.append({"role": "user", "content": results})
+    for c, r in zip(calls, results):
+        print(f"[{stage}] {c.name}: {r['content']}")
+    # the code moves to the act stage once the investigation has read the registry
+    if stage == "research" and any(c.name == "registry__get" for c in calls):
+        stage = "act"
+
+print("\ntool list the same in every request:", all(r["tools"] is TOOLS for r in requests))
+print("prefix never broken:", all(first_divergence(a, b)["diverges_at"] not in ("tools", "system")
+                                  for a, b in zip(requests, requests[1:])))
+```
+```
+[research] registry__update: Error: registry__update isn't available during research. Tools you can use now: registry__get.
+[research] registry__get: support_agent: model claude-haiku, p99 4.1s
+[act] registry__update: support_agent now runs on claude-sonnet
+[act] registry__delete: Error: registry__delete isn't available during act. Tools you can use now: registry__get, registry__update.
+
+tool list the same in every request: True
+prefix never broken: True
+```
+*(runs live, shows output — read-only demo snippet, not graded; the model's calls are scripted)*
+
+The update was refused during research, then allowed once the code moved to the act stage, and the tool list was identical in every request. The delete tool is offered but never allowed, only to show a refusal. A tool that no stage ever allows shouldn't be offered at all: that's [Module 3's allowlist](→ Module 3, connecting an agent to mcp servers lesson, when there are too many tools concept, fix 2 offer only the tools the task needs).
+
+Gating like this is what keeps a stage honest, but it doesn't make the list shorter, so every definition is still sent. Some providers let you limit the callable tools without touching the list. OpenAI's API, for example, accepts an [`allowed_tools` setting](https://developers.openai.com/api/docs/guides/function-calling) naming a subset of the tools passed in, and its documentation gives protecting the prompt cache as the reason. With a self-hosted model and constrained decoding, the Manus team masks the tokens that would start a disallowed tool's name, which has the same effect.
+
+---
+
+## Quiz cards
+
+> **Q1.** Why did appending new tool definitions to the end of the tool list cost more than sending all 40 tools every turn?
+> - A) Appended tools are billed at a higher rate
+> - B) The tool list comes first in the prefix, so each append changed everything after it, and the whole history was processed again ✅
+> - C) Appending duplicates the earlier definitions
+> - D) Appended tools can't be cached at all
+>
+> *Explanation:* Nothing was removed, but the prefix still changed at the tool list. With a long history, reprocessing it on every append outweighed sending fewer definitions.
+
+> **Q2.** What is an "orphan" in the per-area run, and why does it matter?
+> - A) A tool that's offered but never called, which wastes tokens
+> - B) A tool result without its call
+> - C) A call in the history to a tool the current request no longer offers, which the Manus team found confuses the model ✅
+> - D) A tool definition with no description
+>
+> *Explanation:* The history still shows the model calling that tool, but it can no longer see its definition. The Manus team reports this leads to invalid calls.
+
+> **Q3.** Why doesn't loading definitions into the conversation break the cache?
+> - A) Definitions in messages are free
+> - B) The provider caches every tool result separately
+> - C) The tool list is shorter, so it's always cached
+> - D) They arrive at the end of the conversation, where new content goes anyway, so the prefix never changes ✅
+>
+> *Explanation:* The rule is a fixed prefix, with anything loaded later going into the conversation. Claude's tool search follows the same rule, inserting a found tool's definition in the conversation rather than the tool list.
+
+> **Q4.** How does `gated_dispatch` give each stage its own tools without changing the tool list?
+> - A) It refuses calls the current stage doesn't allow, with a message listing what is allowed ✅
+> - B) It removes disallowed tools from the list before each request
+> - C) It rewrites the system prompt for each stage
+> - D) It asks the model which stage it's in
+>
+> *Explanation:* The list stays fixed, so the prefix never breaks. The code owns the stage, and a refused call comes back as an error observation the model can act on.
+
+> **Q5.** What does stage gating not do, and what do some providers offer for it?
+> - A) It doesn't stop disallowed calls; providers stop them instead
+> - B) It doesn't work with parallel calls
+> - C) It doesn't shorten what's sent, since every definition still goes out; OpenAI's `allowed_tools`, for example, limits the callable tools without changing the list ✅
+> - D) It doesn't work with local models
+>
+> *Explanation:* Gating keeps stages honest and the prefix stable, but the definitions are still there. Making the list itself small is the next concept's job.
+
+---
+
+## Applied sandbox exercise
+
+*(graded — gating calls by stage)*
+
+**Task shown to learner:** Implement:
+
+- **`stage_line(stage, stage_tools)`:** return `Stage: STAGE. Tools you can use now: A, B.`, listing the stage's tools in order, joined by `", "`.
+- **`gated_dispatch(call, stage, stage_tools, impls)`:** return a tool result for `call` (a `ToolUseBlock`).
+  - If `call.name` isn't in `impls`, the content is `Error: there is no tool called NAME.`. This applies even if a stage lists the tool.
+  - Otherwise, if it isn't in `stage_tools[stage]`, the content is `Error: NAME isn't available during STAGE. Tools you can use now: A, B.`, and the tool must not run.
+  - Otherwise run `impls[call.name](**call.input)`, and the content is its result.
+  - The result is `{"type": "tool_result", "tool_use_id": call.id, "content": ...}`, with `"is_error": True` added for the two errors.
+
+**Provided code:** the fake client's `ToolUseBlock`.
+
+**Starter code:**
+```python
+def stage_line(stage: str, stage_tools: dict) -> str:
+    # TODO: "Stage: STAGE. Tools you can use now: A, B."
+    ...
+
+def gated_dispatch(call, stage: str, stage_tools: dict, impls: dict) -> dict:
+    # TODO: unknown tool -> error; not allowed in this stage -> error; otherwise run it
+    ...
+```
+
+**Hidden tests:**
+```python
+ran = []
+def get_agent(agent_name):
+    ran.append(("get", agent_name))
+    return f"{agent_name}: healthy"
+def update_agent(agent_name, model):
+    ran.append(("update", agent_name))
+    return f"{agent_name} now on {model}"
+
+impls = {"registry__get": get_agent, "registry__update": update_agent}
+stages = {"research": ["registry__get"], "act": ["registry__get", "registry__update"], "review": ["registry__get", "report__send"]}
+
+# 1. a call the stage allows runs, and its result carries the call's id
+call = ToolUseBlock(name="registry__get", input={"agent_name": "support_agent"})
+assert gated_dispatch(call, "research", stages, impls) == {"type": "tool_result", "tool_use_id": call.id, "content": "support_agent: healthy"}
+
+# 2. a call the stage doesn't allow is refused with a message listing what is allowed, and never runs
+ran.clear()
+call = ToolUseBlock(name="registry__update", input={"agent_name": "support_agent", "model": "claude-sonnet"})
+result = gated_dispatch(call, "research", stages, impls)
+assert result == {"type": "tool_result", "tool_use_id": call.id, "is_error": True,
+                  "content": "Error: registry__update isn't available during research. Tools you can use now: registry__get."}
+assert ran == []
+
+# 3. the same call is fine once the stage allows it
+assert gated_dispatch(call, "act", stages, impls)["content"] == "support_agent now on claude-sonnet"
+assert ran == [("update", "support_agent")]
+
+# 4. a tool that doesn't exist is reported as such, even if a stage lists it
+for name in ["registry__delete", "report__send"]:
+    result = gated_dispatch(ToolUseBlock(name=name, input={}), "review", stages, impls)
+    assert result["content"] == f"Error: there is no tool called {name}." and result["is_error"] is True
+
+# 5. the stage line tells the model where it is and what it can use
+assert stage_line("act", stages) == "Stage: act. Tools you can use now: registry__get, registry__update."
+```
+
+**Hint (shown on request):** Check in this order: does the tool exist, then does the stage allow it, and only then call it. Building the content and a `failed` flag first, then the result dict once at the end, keeps the three cases short.
+
+**Reference solution:**
+```python
+def stage_line(stage: str, stage_tools: dict) -> str:
+    return f"Stage: {stage}. Tools you can use now: {', '.join(stage_tools[stage])}."
+
+def gated_dispatch(call, stage: str, stage_tools: dict, impls: dict) -> dict:
+    """Run a call the current stage allows; answer anything else with an error the model can act on."""
+    allowed = stage_tools[stage]
+    if call.name not in impls:
+        content, failed = f"Error: there is no tool called {call.name}.", True
+    elif call.name not in allowed:
+        content, failed = f"Error: {call.name} isn't available during {stage}. Tools you can use now: {', '.join(allowed)}.", True
+    else:
+        content, failed = impls[call.name](**call.input), False
+    result = {"type": "tool_result", "tool_use_id": call.id, "content": content}
+    if failed:
+        result["is_error"] = True
+    return result
+```
+
+**Explanation:** Test 2 is the one that matters most: a refused call must not run at all, which the test checks by recording every call the tools receive. A version that runs the tool first and decides afterwards has already made the change. Test 4 checks the order of the two checks: a name a stage lists but no implementation provides is still "no tool called". Tests 1 and 2 also pin the result's shape, including `is_error` on refusals, so the loop's history carries them like any other failed tool call.
+
+---
+
+*(End of Concept 1.)*

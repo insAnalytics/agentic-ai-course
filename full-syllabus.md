@@ -2779,6 +2779,28 @@ below describe each lesson as first converted; see the git log
    fail. The recap is `04-recap-practice.mdx` (the lesson has three
    concepts).
 
+7. **Just-in-Time Context and Dynamic Tool Exposure** — Building (title is
+   a placeholder: the mockup names no lesson; folder
+   `07-just-in-time-context-and-dynamic-tool-exposure`, named from
+   Lesson 6's forward reference). Concept 1 (what you load, and where it
+   goes) is built: a 40-tool catalog and a four-policy cost demo (all
+   tools 23,276 / per area 20,057 with 9 orphans / appended 24,028 /
+   loaded into the conversation 13,854), and a stage-gating demo (tool
+   list identical in every request, prefix never broken), both matching
+   the mockup's printed output exactly when re-run; 5 quiz cards; graded
+   exercise `stage_line` + `gated_dispatch` with five hidden tests (made
+   self-contained: the mockup's tests shared `ran` and `call` state).
+   Verified natively (no new Pyodide harness): the reference passes and
+   the starter fails; mutations confirmed: no stage gate fails 2, checking
+   the stage before the tool's existence fails 4, dropping `is_error` fails
+   2 and 4, reversing the stage line fails 5. Backticks appear only in
+   displayed markdown. Callbacks link to Lesson 1's request-measuring
+   concept, Lesson 3's intro, Lesson 2's re-anchoring concept, Module 2's
+   phase-aware prompting concept and Module 3's too-many-tools concept
+   (fix 2 and fix 3 subsections, anchors verified). The provider details
+   (Claude tool search, OpenAI `allowed_tools`, Manus masking) are prose
+   and links from the mockup as written. No intro/bookends yet.
+
 ---
 
 ## Modules 4–11 — current plan
