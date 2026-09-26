@@ -2548,7 +2548,25 @@ below describe each lesson as first converted; see the git log
    tests are now self-contained. Mutations confirmed: no round grouping
    fails 1, 6, 7; dropping the task fails 3-7; mutating the input fails
    4, 6, 7, 9. Forward references to the next concept and Lesson 5 are
-   plain prose (unbuilt). No intro/bookends yet.
+   plain prose (unbuilt). Concept 3 (clear before you cut, and cut in
+   batches) is built: `clear_old_results`, `fit` and `HistoryFitter`, with
+   Lesson 3's `serialize` / `first_divergence` / `cost_of_run` and
+   Concept 2's round functions in the demo setup; a clearing-in-the-loop
+   demo (last request 6 of 6 calls visible, 2 results in full, about
+   3,800 tokens against trimming's 5,100) and a 30-check batching demo
+   (67,393 / 27,456 / 19,002 token-units, 17 / 17 / 3 prefix breaks), both
+   matching the mockup's printed output exactly when re-run; 5 quiz cards;
+   graded exercise `clear_old_results` + `fit` with nine hidden tests.
+   **Test-coverage gap fixed:** a strict `<` instead of `<=` in `fit`
+   passed all nine mockup tests, so test 7 now also checks a budget
+   exactly equal to the history's size returns it unchanged. Mutations
+   confirmed: `successful[-keep_last:]` fails test 5, clearing errors
+   fails 3 and 5, errors counting toward `keep_last` fails 1 and 3,
+   per-message counting fails 1-4, writing the placeholder into the
+   original block fails 6, trimming before clearing fails 8, always
+   clearing fails 7. The mockup's shared-state tests are self-contained.
+   Forward reference to Lesson 6 is plain prose (unbuilt). No
+   intro/bookends yet.
 
 ---
 
