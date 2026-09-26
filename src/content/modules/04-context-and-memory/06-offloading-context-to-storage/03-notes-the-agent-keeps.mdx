@@ -1,0 +1,461 @@
+---
+title: "Notes the agent keeps"
+lesson: "06-offloading-context-to-storage"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, COUNT_TOKENS, CHECK_PAIRING } from "../../../../lib/fakeClient";
+
+export const SPLIT_FUNC = String.raw`
+def split_rounds(messages: list) -> list:
+    """Group everything after the first message into rounds that can be removed safely."""
+    rounds = []
+    for message in messages[1:]:
+        if is_tool_results(message) and rounds:
+            rounds[-1].append(message)
+        else:
+            rounds.append([message])
+    return rounds
+`;
+
+export const ADD_TO_END_FUNC = String.raw`
+def add_to_end(messages: list, text: str) -> list:
+    last = messages[-1]
+    if isinstance(last["content"], str):
+        new_last = {**last, "content": last["content"] + "\n\n" + text}
+    else:
+        new_last = {**last, "content": last["content"] + [{"type": "text", "text": text}]}
+    return messages[:-1] + [new_last]
+`;
+
+export const COMPACT_FUNC = String.raw`
+def compact(messages: list, summary: str, keep_recent: int) -> list:
+    """Replace every round but the newest keep_recent with a summary, placed after the task in the first message."""
+    rounds = split_rounds(messages)
+    first = {"role": "user",
+             "content": messages[0]["content"] + "\n\n<summary_of_earlier_work>\n" + summary + "\n</summary_of_earlier_work>"}
+    compacted = [first]
+    for r in rounds[len(rounds) - keep_recent:]:
+        compacted += r
+    return compacted
+`;
+
+export const NOTES_CLASS = String.raw`SECTIONS = ["facts", "decisions", "open"]
+
+class Notes:
+    """The agent's own notes for one task. It can add items and mark open ones done, but never rewrite them."""
+    def __init__(self, max_items: int = 40):
+        self.items = []
+        self.max_items = max_items
+
+    def add(self, section: str, text: str) -> str:
+        if section not in SECTIONS:
+            return f"Error: no section called {section}. Use one of: {', '.join(SECTIONS)}."
+        if len(self.items) >= self.max_items:
+            return f"Error: notes are full ({self.max_items} items). Keep notes to what the rest of the task needs."
+        item_id = f"n{len(self.items) + 1}"
+        self.items.append({"id": item_id, "section": section, "text": text, "done": False})
+        return f"Noted as {item_id} under {section}."
+
+    def mark_done(self, item_id: str) -> str:
+        for item in self.items:
+            if item["id"] == item_id:
+                if item["section"] != "open":
+                    return f"Error: {item_id} is not an open item, so it can't be marked done."
+                item["done"] = True
+                return f"Marked {item_id} done."
+        return f"Error: no note called {item_id}."
+
+    def render(self) -> str:
+        if not self.items:
+            return "No notes yet."
+        lines = []
+        for section in SECTIONS:
+            entries = [item for item in self.items if item["section"] == section]
+            if not entries:
+                continue
+            lines.append(f"{section}:")
+            for item in entries:
+                box = ("[x] " if item["done"] else "[ ] ") if section == "open" else ""
+                lines.append(f"- {box}{item['id']}: {item['text']}")
+        return "\n".join(lines)
+
+    def index_line(self) -> str:
+        if not self.items:
+            return ""
+        facts = len([i for i in self.items if i["section"] == "facts"])
+        decisions = len([i for i in self.items if i["section"] == "decisions"])
+        still_open = len([i for i in self.items if i["section"] == "open" and not i["done"]])
+        return f"Your notes: {facts} facts, {decisions} decisions, {still_open} open items. Read them with read_notes()."
+`;
+
+export const SETUP = REACT_FAKE_CLIENT + COUNT_TOKENS + CHECK_PAIRING + SPLIT_FUNC + ADD_TO_END_FUNC + COMPACT_FUNC + "\n" + NOTES_CLASS;
+
+export const NOTES_DEMO = String.raw`notes = Notes()
+tools = {
+    "add_note": lambda section, text: notes.add(section, text),
+    "mark_done": lambda item_id: notes.mark_done(item_id),
+    "read_notes": lambda: notes.render(),
+}
+
+def call(name, result, **arguments):
+    block = ToolUseBlock(name=name, input=arguments)
+    return [{"role": "assistant", "content": [block]},
+            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]}]
+
+def note_call(name, **arguments):
+    # the agent's note tools run for real; their results go into the history like any other
+    return call(name, tools[name](**arguments), **arguments)
+
+history = [{"role": "user", "content": "Find out why the support queue is slow, then fix it."}]
+history += call("get_metrics", "billing_agent: p99 4.8s on /lookup. Lookups go to the legacy pricing API, "
+                               "which allows 50 requests per minute.", agent_name="billing_agent")
+history += note_call("add_note", section="facts", text="billing_agent /lookup p99 4.8s, once per ticket")
+history += note_call("add_note", section="facts", text="the legacy pricing API allows 50 requests/min")
+history += note_call("add_note", section="open", text="cache billing lookups without exceeding 50/min")
+for agent in ["research_agent", "triage_agent", "search_agent"]:
+    history += call("get_logs", f"{agent} INFO request handled in 412ms\n" * 30, agent_name=agent)
+
+# a summary that reads well and drops the rate limit (scripted)
+compacted = compact(history, "billing_agent's lookup (p99 4.8s) is the likely cause; three agents ruled out.", keep_recent=1)
+sent = add_to_end(compacted, notes.index_line())
+text = json.dumps(_plain(sent))
+print("rate limit in what's sent:", "50 requests" in text or "50/min" in text)
+print("notes index in what's sent:", notes.index_line() in text)
+print("\nread_notes() ->")
+print(tools["read_notes"]())
+print("\nmark_done('n1') ->", tools["mark_done"](item_id="n1"))
+`;
+
+export const STARTER = String.raw`SECTIONS = ["facts", "decisions", "open"]
+
+class Notes:
+    def __init__(self, max_items: int = 40):
+        # TODO: an empty list of items, and the cap
+        ...
+
+    def add(self, section: str, text: str) -> str:
+        # TODO: check the section, then the cap; then add an item with the next id
+        ...
+
+    def mark_done(self, item_id: str) -> str:
+        # TODO: only an existing item in "open" can be marked done
+        ...
+
+    def render(self) -> str:
+        # TODO: "No notes yet.", or each non-empty section in order, with boxes for open items
+        ...
+
+    def index_line(self) -> str:
+        # TODO: "" for no notes; otherwise the one-line count
+        ...
+`;
+
+export const REFERENCE = NOTES_CLASS;
+
+export const BUILD_HELPER = String.raw`
+def build():
+    # the notes after the steps of tests 2-4: four items, n2 done
+    notes = Notes(max_items=4)
+    notes.add("facts", "billing /lookup p99 4.8s")
+    notes.add("open", "cache billing lookups")
+    notes.add("decisions", "no restarts in production")
+    notes.mark_done("n2")
+    notes.add("open", "report to the team")
+    return notes
+`;
+
+export const TESTS = [
+  String.raw`
+# 1. empty notes
+notes = Notes(max_items=4)
+assert notes.render() == "No notes yet." and notes.index_line() == ""`,
+  String.raw`
+# 2. adding: numbered ids, one of the three sections only
+notes = Notes(max_items=4)
+assert notes.add("facts", "billing /lookup p99 4.8s") == "Noted as n1 under facts."
+assert notes.add("open", "cache billing lookups") == "Noted as n2 under open."
+assert notes.add("todo", "anything") == "Error: no section called todo. Use one of: facts, decisions, open."
+assert notes.render() == "facts:\n- n1: billing /lookup p99 4.8s\nopen:\n- [ ] n2: cache billing lookups"
+assert notes.add("decisions", "no restarts in production") == "Noted as n3 under decisions."`,
+  String.raw`
+# 3. only open items can be marked done, and only ones that exist
+notes = Notes(max_items=4)
+notes.add("facts", "billing /lookup p99 4.8s")
+notes.add("open", "cache billing lookups")
+assert notes.mark_done("n1") == "Error: n1 is not an open item, so it can't be marked done."
+assert notes.mark_done("n9") == "Error: no note called n9."
+assert notes.mark_done("n2") == "Marked n2 done."`,
+  BUILD_HELPER + String.raw`
+# 4. rendering: sections in a fixed order, empty ones left out, open items with a box
+notes = build()
+assert notes.render() == ("facts:\n- n1: billing /lookup p99 4.8s\n"
+                          "decisions:\n- n3: no restarts in production\n"
+                          "open:\n- [x] n2: cache billing lookups\n- [ ] n4: report to the team")`,
+  BUILD_HELPER + String.raw`
+# 5. the index counts facts, decisions, and open items not yet done
+notes = build()
+assert notes.index_line() == "Your notes: 1 facts, 1 decisions, 1 open items. Read them with read_notes()."`,
+  BUILD_HELPER + String.raw`
+# 6. the cap: once full, nothing more is added, and the message says why
+notes = build()
+assert notes.add("facts", "one more") == "Error: notes are full (4 items). Keep notes to what the rest of the task needs."
+assert len(notes.items) == 4`,
+  BUILD_HELPER + String.raw`
+# 7. an error never changes the notes
+notes = build()
+before = notes.render()
+notes.add("todo", "x"); notes.mark_done("n1"); notes.mark_done("n9"); notes.add("facts", "over the cap")
+assert notes.render() == before`,
+  String.raw`
+# 8. two tasks, two notes objects: nothing is shared
+first = Notes()
+first.add("facts", "kept by the first task")
+other = Notes()
+assert other.render() == "No notes yet." and other.add("facts", "x") == "Noted as n1 under facts."`,
+];
+
+<Subsection title="What compaction doesn't carry" variant="a">
+
+The last two concepts kept *results* restorable. An agent also builds up
+something else as it works: what it has learned, what it decided, and
+what's still left to do. Some of that lives in its reasoning, and some in
+its reading of a tool result. None of it has a home of its own, so it
+survives only as long as the messages it's in.
+
+Anthropic's engineers ran into exactly this while building
+[agents that work across many context windows](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents).
+Compaction alone wasn't enough: it doesn't always pass perfectly clear
+instructions to the next context. What worked was having the agent keep a
+progress file, and read it back (along with the project's git history) at
+the start of each new context window, so it could quickly understand the
+state of the work.
+
+This concept builds the in-task version of that: notes the agent writes as
+it goes, which live outside the conversation, so no compaction can touch
+them.
+
+</Subsection>
+
+<Subsection title="Four places a fact can live" variant="b">
+
+This module now has four places to put something the agent must not lose.
+They differ in who writes them and when they're seen:
+
+- **The plan**
+  ([Lesson 2](/04-context-and-memory/02-context-that-fits-but-still-hurts/04-re-anchoring-the-goal/)).
+  The agent writes it with a tool, and it's restated at the end of every
+  request. It's the Manus team's todo-list recitation, in this course's
+  form.
+- **The change ledger**
+  ([Lesson 5](/04-context-and-memory/05-compaction-and-summarization/03-when-a-summary-loses-something/)).
+  Code derives it from the history, and it's restated every turn. It can't
+  be wrong, but it only covers changes.
+- **The summary**
+  ([Lesson 5](/04-context-and-memory/05-compaction-and-summarization/02-compacting-a-summary-in-rounds-out/)).
+  The model writes it once, at compaction time, and it's lossy.
+- **Notes**, this concept. The agent writes them whenever it learns
+  something worth keeping, and reads them when it needs them.
+
+</Subsection>
+
+<Subsection title="Notes the agent can't scramble" variant="a">
+
+Anthropic's harness also found that *how* notes can change matters. For
+their list of features to build, they switched from Markdown to JSON,
+because the model was less likely to inappropriately change or overwrite
+JSON. They also told agents to change only each feature's pass/fail status,
+never its description.
+
+With tools, that constraint doesn't have to depend on a file format. Give
+the agent
+[narrow tools](/03-tool-design-for-agents/01-designing-tools-a-model-can-use-well/03-granularity-narrow-vs-broad-tools/)
+that can only add an item or mark an open item done, and never a tool that
+rewrites the notes. Then the agent can't drop an old fact while writing up
+a new one:
+
+```python
+SECTIONS = ["facts", "decisions", "open"]
+
+class Notes:
+    """The agent's own notes for one task. It can add items and mark open ones done, but never rewrite them."""
+    def __init__(self, max_items: int = 40):
+        self.items = []
+        self.max_items = max_items
+
+    def add(self, section: str, text: str) -> str:
+        if section not in SECTIONS:
+            return f"Error: no section called {section}. Use one of: {', '.join(SECTIONS)}."
+        if len(self.items) >= self.max_items:
+            return f"Error: notes are full ({self.max_items} items). Keep notes to what the rest of the task needs."
+        item_id = f"n{len(self.items) + 1}"
+        self.items.append({"id": item_id, "section": section, "text": text, "done": False})
+        return f"Noted as {item_id} under {section}."
+
+    def mark_done(self, item_id: str) -> str:
+        for item in self.items:
+            if item["id"] == item_id:
+                if item["section"] != "open":
+                    return f"Error: {item_id} is not an open item, so it can't be marked done."
+                item["done"] = True
+                return f"Marked {item_id} done."
+        return f"Error: no note called {item_id}."
+
+    def render(self) -> str:
+        if not self.items:
+            return "No notes yet."
+        lines = []
+        for section in SECTIONS:
+            entries = [item for item in self.items if item["section"] == section]
+            if not entries:
+                continue
+            lines.append(f"{section}:")
+            for item in entries:
+                box = ("[x] " if item["done"] else "[ ] ") if section == "open" else ""
+                lines.append(f"- {box}{item['id']}: {item['text']}")
+        return "\n".join(lines)
+
+    def index_line(self) -> str:
+        if not self.items:
+            return ""
+        facts = len([i for i in self.items if i["section"] == "facts"])
+        decisions = len([i for i in self.items if i["section"] == "decisions"])
+        still_open = len([i for i in self.items if i["section"] == "open" and not i["done"]])
+        return f"Your notes: {facts} facts, {decisions} decisions, {still_open} open items. Read them with read_notes()."
+```
+
+A few choices here are deliberate:
+
+- **Three fixed sections.** Facts, decisions and open items cover what the
+  agent needs to pick up where it left off. The fixed set keeps the notes
+  easy to scan.
+- **Numbered ids.** A done item can be named exactly, and ids never change,
+  because nothing is ever removed.
+- **Errors as messages.** A wrong section, an unknown id or a full notebook
+  comes back as text the model can act on, and changes nothing.
+- **A cap.** Notes are for what the rest of the task needs. An agent that
+  notes everything has rebuilt its context somewhere else.
+
+</Subsection>
+
+<Subsection title="Notes across a compaction" variant="b">
+
+Here the agent learns two facts early, including a rate limit its fix will
+have to respect, and notes them. Later, the rounds holding those notes are
+compacted away by a summary that leaves the rate limit out. The setup is
+the lesson's code so far, plus `Notes`,
+[Lesson 5's `compact`](/04-context-and-memory/05-compaction-and-summarization/02-compacting-a-summary-in-rounds-out/#two-functions)
+and `add_to_end`:
+
+<LiveDemo client:load setupCode={SETUP} code={NOTES_DEMO} />
+
+The rate limit is gone from what's sent, but it isn't lost. The notes live
+in the `Notes` object, not in the messages, so compaction never touched
+them. The one thing that is sent every turn is the **index line**, added at
+the end of the request like
+[Lesson 5's anchor](/04-context-and-memory/05-compaction-and-summarization/03-when-a-summary-loses-something/#don-t-make-the-summary-carry-what-code-can-derive).
+Like that anchor, it's never saved into the history. It tells the agent its
+notes exist and what's in them, without the cost of restating them every
+turn. Reading them in full is one call. Loading detail only when it's
+needed is Lesson 7's subject (just-in-time context and dynamic tool
+exposure).
+
+</Subsection>
+
+<Subsection title="What notes are, and aren't" variant="a">
+
+- **Notes are the agent's claims.** The model writes them, so they can be
+  wrong, just as a summary can. The ledger stays code-derived for exactly
+  that reason.
+- **Notes belong to one task.** Like the result store, they're created with
+  the task and end with it. What should outlast a task is long-term memory,
+  which Lesson 8 (short-term and long-term memory) starts on.
+- **Notes don't replace the plan.** The plan says what happens next. Notes
+  hold what was learned and decided on the way there.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "Why did the rate limit survive compaction in the demo, when the summary left it out?",
+    "options": [
+      "The summary was rewritten to include it",
+      "Compaction skips messages that contain numbers",
+      "The note lives in the Notes object outside the conversation, so compaction never touched it",
+      "The rate limit was pinned in the task message"
+    ],
+    "correctIndex": 2,
+    "explanation": "Compaction rewrites messages. Notes aren't messages: the calls that wrote them were summarized away, but what they wrote is still there, one read_notes() call away."
+  },
+  {
+    "question": "Why do the note tools only add items and mark open items done, instead of letting the agent rewrite its notes?",
+    "options": [
+      "Rewriting notes costs more tokens",
+      "The API doesn't allow tools that edit text",
+      "Numbered ids only work for new items",
+      "A rewrite can drop an old fact while writing a new one, and narrow tools make that impossible"
+    ],
+    "correctIndex": 3,
+    "explanation": "Anthropic's harness found the model was less likely to wrongly overwrite structured notes, and limited edits to a status field. Narrow tools enforce the same thing in code, whatever the file format."
+  },
+  {
+    "question": "Why is only an index line sent every turn, instead of the full notes?",
+    "options": [
+      "The full notes can't be serialized",
+      "The index tells the agent its notes exist and what's in them, without paying to restate them every turn",
+      "Notes are private to the agent",
+      "The index is required for the cache"
+    ],
+    "correctIndex": 1,
+    "explanation": "Notes can grow to dozens of items. A one-line index is cheap to anchor, and reading the full notes is one call when they're needed."
+  },
+  {
+    "question": "How do notes differ from Lesson 5's change ledger?",
+    "options": [
+      "Notes are restated every turn; the ledger is read on demand",
+      "The ledger survives compaction; notes don't",
+      "Notes are written by the model, so they can be wrong; the ledger is derived by code from the history",
+      "They're the same thing with different names"
+    ],
+    "correctIndex": 2,
+    "explanation": "Both survive compaction, but for different reasons, and with different reliability. Anything code can derive belongs in the ledger. Notes hold what only the agent knows: its conclusions and decisions."
+  },
+  {
+    "question": "What does Notes do when it's full?",
+    "options": [
+      "Removes the oldest note to make room",
+      "Compacts the notes into a summary",
+      "Raises an exception that stops the loop",
+      "Refuses the new note and returns a message saying so, changing nothing"
+    ],
+    "correctIndex": 3,
+    "explanation": "The cap keeps notes to what the rest of the task needs. Returning a message, as with every error here, lets the model adjust instead of crashing the run."
+  }
+]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Implement the Notes class, with SECTIONS = [\"facts\", \"decisions\", \"open\"]. Notes(max_items=40) starts with no items, and each instance has its own. add(section, text): a section not in SECTIONS returns \"Error: no section called SECTION. Use one of: facts, decisions, open.\"; if there are already max_items items, it returns \"Error: notes are full (MAX items). Keep notes to what the rest of the task needs.\"; otherwise it adds an item with id n1, n2, ... in order, not done, and returns \"Noted as ID under SECTION.\" mark_done(item_id): an unknown id returns \"Error: no note called ID.\"; an item outside \"open\" returns \"Error: ID is not an open item, so it can't be marked done.\"; otherwise it marks the item done and returns \"Marked ID done.\" render(): \"No notes yet.\" when there are none; otherwise, for each section in SECTIONS order that has items, a line \"SECTION:\" and then one line per item, \"- ID: TEXT\", where in open the text is prefixed with \"[x] \" or \"[ ] \" for done or not. Lines are joined by \"\\n\". index_line(): \"\" when there are none; otherwise \"Your notes: F facts, D decisions, O open items. Read them with read_notes().\", where O counts open items not yet done. An error never changes the notes."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  hint={"Keep each item as a dict with id, section, text and done. render loops over SECTIONS and collects that section's items with a list comprehension, skipping the section if there are none. Create the item list in __init__ as self.items = []. A list written on the class itself would be shared by every Notes instance."}
+  correctAnswer={{
+    code: REFERENCE,
+    explanation: "Tests 2 and 4 pin down the format, including leaving out a section that has no items yet. Test 3 is the narrow-tools rule: only open items can be marked done, and only ones that exist. Test 5 checks that the index counts only open items still to do. Test 7 checks that every error leaves the notes exactly as they were. Test 8 catches keeping the list on the class instead of the instance, which would let one task's notes leak into another's.",
+  }}
+/>
+
+</CheckpointZone>

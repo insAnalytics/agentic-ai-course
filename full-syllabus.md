@@ -2743,7 +2743,25 @@ below describe each lesson as first converted; see the git log
    storing fails 1, 4 and 5. Callbacks link to Lesson 4's clearing
    concept, Lesson 5's order subsection and summary-loss concept, this
    lesson's Concept 1 subsections and Module 3's least-privilege lesson;
-   Lesson 9 is plain prose (unbuilt). No intro/bookends yet.
+   Lesson 9 is plain prose (unbuilt).
+   Concept 3 (notes the agent keeps) is built: a `Notes` class (three
+   fixed sections, add and mark-done only, numbered ids, a cap, errors as
+   messages, `render` and `index_line`) and a notes-across-a-compaction
+   demo matching the mockup's printed output exactly when re-run (rate
+   limit absent from what's sent, index line present, `mark_done('n1')`
+   refused); 5 quiz cards; graded exercise `Notes` from scratch with eight
+   hidden tests (the mockup's tests were one sequential script; each is
+   now self-contained, sharing a `build()` helper for the later ones).
+   Mutations confirmed: a class-level shared list fails 6 and 8, allowing
+   any item to be marked done fails 3, counting done items in the index
+   fails 5, a `>` cap fails 6 and 7, no section check fails 2. Known weak
+   spot inherited from the mockup: test 7 (an error never changes the
+   notes) passes for the empty starter. The Anthropic long-running-agents
+   harness article is cited as written in the mockup. Callbacks link to
+   Lesson 2's re-anchoring concept, Lesson 5's ledger-anchor subsection
+   and summary concepts and Module 3's granularity concept; Lessons 7
+   and 8 are plain prose (unbuilt). All three concepts exist; no
+   intro/bookends yet.
 
 ---
 
