@@ -225,3 +225,26 @@ def check_pairing(messages: list) -> list:
                 problems.append(f"messages.{i}: tool_result with no tool_use in the previous message: {unknown}")
     return problems
 `;
+
+/**
+ * Module 4 Lesson 4 concept 4: the open-round rule -- the assistant message whose
+ * tool results are being sent must go back exactly as returned (reasoning
+ * included). Depends only on _plain; append after CHECK_PAIRING. Structural
+ * check only: real thinking blocks carry a signature the API verifies.
+ */
+export const CHECK_OPEN_ROUND = String.raw`
+def check_open_round(history: list, sent: list) -> list:
+    """The assistant message whose tool results are being sent must go back exactly as it was returned."""
+    def last_assistant(messages):
+        found = None
+        for message in messages:
+            if message["role"] == "assistant":
+                found = message
+        return found
+    returned, resent = last_assistant(history), last_assistant(sent)
+    if returned is None:
+        return []
+    if resent is None or _plain(resent["content"]) != _plain(returned["content"]):
+        return ["the newest assistant message was not sent back exactly as returned"]
+    return []
+`;

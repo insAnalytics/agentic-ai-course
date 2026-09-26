@@ -2567,6 +2567,24 @@ below describe each lesson as first converted; see the git log
    clearing fails 7. The mockup's shared-state tests are self-contained.
    Forward reference to Lesson 6 is plain prose (unbuilt). No
    intro/bookends yet.
+   Concept 4 (reasoning travels with its tool call) is built:
+   `CHECK_OPEN_ROUND` added to `fakeClient.ts`; a strip-all-vs-trim-by-rounds
+   demo (2,537 tokens / 636 of reasoning; 1,873 with an open-round
+   problem vs 910 clean) and an old-reasoning-first demo at three budgets
+   (2,143 / 1,082 / 996 tokens), both matching the mockup's printed output
+   exactly when re-run; the provider-binding section (Claude's
+   newest-model rule, dated September 2026) and the context-editing
+   section are prose from the mockup as written; 5 quiz cards; graded
+   exercise `strip_old_thinking` + `fit_history` with seven hidden tests.
+   **Test-coverage gap fixed:** a strict `<` in `fit_history` (and an
+   unconditional strip) passed all seven mockup tests, so test 5 now also
+   checks a budget exactly equal to the history's size returns it
+   unchanged. Mutations confirmed: stripping the newest message fails
+   1, 2 and 7, emptying a thinking-only message fails 4, mutating the
+   original fails 3 and 4, never stripping or stripping after `fit` fails
+   6. Forward reference to Lesson 5 is plain prose (unbuilt). All four
+   concepts now exist; the intro and Recap & Practice (bookends mockup)
+   are still to come, so the lesson stays Building.
 
 ---
 
