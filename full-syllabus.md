@@ -2605,8 +2605,9 @@ below describe each lesson as first converted; see the git log
    Forward references to Lessons 5 and 12 are plain prose (unbuilt).
    Lesson 4 is now fully Locked.
 
-5. **Compaction and Summarization** — Building (title is a placeholder:
-   the mockup names no lesson; folder `05-compaction-and-summarization`).
+5. **Compaction and Summarization** — **Locked** (folder
+   `05-compaction-and-summarization`; the mockup names no lesson title, so
+   this one is the mockup's own heading).
    Concept 1 (what clearing can't do) is built: a 200-round growth demo
    (raw 142,249 vs cleared 21,712 tokens, about 100 tokens per round) and
    a dropped-round demo (the 4.8s figure and the billing call disappearing
@@ -2686,9 +2687,21 @@ below describe each lesson as first converted; see the git log
    to `fakeClient.ts`. The Claude compaction-API details (150,000 default
    trigger, `compact_20260112`, `pause_after_compaction`) are prose from
    the mockup as written. Module 8 is a plain-prose forward reference.
-   All four concepts exist; the lesson still needs intro/bookends (intro
-   outcomes, comprehensive quiz, comprehensive sandbox) before it can be
-   Locked.
+   Intro and bookends are built: 4 outcomes and why-it-matters, an
+   8-question comprehensive quiz, and a multi-file comprehensive sandbox
+   (`tokens.py` and `lib.py` read-only, `agent.py` entry) implementing
+   `CompactingContext` and `run_agent`, with ten hidden tests. Built like
+   Lesson 4's sandbox: the fake client, `count_tokens` and
+   `WindowedClient` are prepended to the tests rather than imported as a
+   `fake` module, and backticks in `lib.py`'s docstrings were removed
+   (they'd end the template literal). Verified natively: the reference
+   passes; the starter fails; mutations confirmed: no anchor reservation,
+   anchor saved into the view, summary sent as a separate call, and
+   rebuilding the view from the history all fail. Known gaps in the
+   mockup's tests (left as authored): a context that skips the trim
+   fallback when a summary comes back empty, and one that compacts without
+   clearing on the compaction turn itself, both still pass. The forward
+   reference to Lesson 12 is plain prose (unbuilt).
 
 ---
 

@@ -1,0 +1,30 @@
+---
+title: "Intro"
+lesson: "05-compaction-and-summarization"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Explain what compaction is for, and why it comes after clearing, not before",
+    "Compact a history safely: summarize whole rounds, keep the task and the round in progress, and ask for the summary in a way that reuses the cache",
+    "Keep what matters out of the summary's hands, by restating the rules, the plan and every change from the full history",
+    "Decide when to compact by measuring tokens, and say what compaction costs and loses",
+  ]}
+/>
+
+<WhyItMatters>
+  [Lesson 4](/04-context-and-memory/04-when-the-window-fills/00-intro/) made
+  long runs fit, but at the end of its order it drops whole rounds, and what
+  they established goes with them. Compaction replaces those rounds with a
+  summary, so a finding from early in a run can still shape its end.
+
+  A summary is also the least reliable thing in an agent's context: a
+  model's paraphrase, written once and trusted afterwards. The evidence says
+  to use it sparingly, and after cheaper stages that lose nothing. This
+  lesson builds compaction with that in view: when to do it, how to do it
+  without breaking the history or the cache, and how to keep the facts that
+  matter from depending on it at all.
+</WhyItMatters>
