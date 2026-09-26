@@ -151,3 +151,41 @@ def measure_request(system: str, tools: list, messages: list, max_tokens: int, w
         "headroom": window - input_total - max_tokens,
     }
 `;
+
+/**
+ * Module 4 Lesson 4: a stand-in for a provider with a context window. Its
+ * create() measures each request with count_tokens and either raises
+ * ContextWindowExceeded (on_overflow="error") or silently drops the oldest
+ * whole messages, keeping the latest one (on_overflow="drop_front", as Ollama's
+ * chat endpoint does). Replies stay scripted. Append after COUNT_TOKENS;
+ * subclasses whichever FakeLLMClient is in scope.
+ */
+export const WINDOWED_CLIENT = String.raw`
+class ContextWindowExceeded(Exception):
+    pass
+
+class WindowedClient(FakeLLMClient):
+    """A stand-in for a provider with a context window. It checks each request's size
+    before answering; the replies themselves are still scripted."""
+    def __init__(self, scripted_responses: list, window: int, on_overflow: str = "error"):
+        super().__init__(scripted_responses)
+        self.window = window
+        self.on_overflow = on_overflow
+        self.seen = []
+        self.dropped = []
+
+    def create(self, messages: list, tools=None, system: str = "") -> FakeResponse:
+        fixed = count_tokens(system) + count_tokens(tools or [])
+        size = fixed + count_tokens(messages)
+        if size > self.window and self.on_overflow == "error":
+            raise ContextWindowExceeded(f"prompt is too long: {size:,} tokens > {self.window:,} maximum")
+        kept = list(messages)
+        dropped_now = 0
+        # silent mode: drop the oldest whole messages, always keeping the latest one
+        while fixed + count_tokens(kept) > self.window and len(kept) > 1:
+            kept.pop(0)
+            dropped_now += 1
+        self.dropped.append(dropped_now)
+        self.seen.append(kept)
+        return super().create(kept)
+`;

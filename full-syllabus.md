@@ -2518,6 +2518,22 @@ below describe each lesson as first converted; see the git log
    involved. Forward references to Lessons 5, 7 and 12 are plain prose
    (unbuilt).
 
+4. **When the Window Fills** — Building (title is a placeholder: the
+   mockup names no lesson; folder `04-when-the-window-fills`). Concept 1
+   (hitting the wall) is built: a new `WINDOWED_CLIENT` in `fakeClient.ts`
+   (`WindowedClient` raising `ContextWindowExceeded`, or silently dropping
+   the oldest messages with `on_overflow="drop_front"`, as the mockup's
+   build note specifies), Lesson 1's `TurnTracker` reused via a local
+   `TRACKER_FUNC` copy, a wall demo (turn 5 fits but not the reply room,
+   turn 6 rejected, retry rejected identically) and a silent-trim demo
+   (`dropped` = `[0, 0, 0, 0, 0, 3, 5]`, original task lost, 4 of 6
+   results seen), both matching the mockup's printed output exactly when
+   re-run; 4 quiz cards; no exercise (per the mockup). Callbacks link to
+   Lesson 1's tracker and measuring concepts, Module 1's "what happens
+   when you exceed it" subsection (anchor confirmed in built HTML) and
+   max-output-length concept, Module 2's tool-errors and retry concepts,
+   and Lessons 2 and 3. No intro/bookends yet.
+
 ---
 
 ## Modules 4–11 — current plan
