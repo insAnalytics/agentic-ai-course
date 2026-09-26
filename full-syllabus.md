@@ -2620,6 +2620,34 @@ below describe each lesson as first converted; see the git log
    Callbacks link to Lesson 4's intro and clearing concept, Lesson 2's
    stale-results concept and Lesson 3's batching concept. No
    intro/bookends yet.
+   Concept 2 (compacting: a summary in, rounds out) is built: a
+   `summary_request` / `compact` pair (whole rounds only, newest
+   `keep_recent` kept verbatim, summary placed inside the task message in
+   `<summary_of_earlier_work>` tags so roles keep alternating), with a
+   scripted-summary demo matching the mockup's printed output exactly
+   when re-run (19 messages / 3,662 tokens down to 5 / 1,107; the summary
+   request first differs from the normal request at `messages[14]`; the
+   4.8s figure survives); 5 quiz cards; graded exercise `summary_request`
+   + `compact` with six hidden tests. **Lesson 4 correction applied, as
+   the mockup's build note requires:** `is_tool_results` and
+   `check_pairing` now accept a results message that also carries text
+   (they look for `tool_result` blocks with `any`, and `check_pairing`
+   only reads the `tool_result` blocks of the next message). Updated in
+   all three places they live (`CHECK_PAIRING` in `fakeClient.ts`, Lesson
+   4 concept 2's displayed code, Lesson 4's recap `lib.py`); every Lesson
+   4 demo and hidden test was re-run afterwards and still passes, and the
+   old `all(...)` version was confirmed to fail this concept's test 1.
+   `clear_old_results` was left as the mockup has it and still assumes
+   results messages without text (history never contains one, since
+   anchors and summary instructions are added to sent copies only).
+   **Test-coverage gap fixed:** `rounds[-keep_recent:]` at
+   `keep_recent=0` (which keeps every round) passed all six mockup tests,
+   so test 4 now also checks `compact(..., keep_recent=0)` returns just
+   the task-with-summary message. Mutations confirmed: separate summary
+   message fails 1, 2 and 5 (and the alternation check), summary in its
+   own message fails 3-5, mutating the task fails 3 and 6, `>` instead of
+   `>=` fails 2. Forward references to later concepts are plain prose.
+   No intro/bookends yet.
 
 ---
 

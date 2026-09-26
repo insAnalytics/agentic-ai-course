@@ -198,8 +198,9 @@ class WindowedClient(FakeLLMClient):
  */
 export const CHECK_PAIRING = String.raw`
 def is_tool_results(message: dict) -> bool:
+    # a results message may also carry text (tool_result blocks first, then text), so look for results, not only results
     return (message["role"] == "user" and isinstance(message["content"], list)
-            and all(_plain(b)["type"] == "tool_result" for b in message["content"]))
+            and any(_plain(b)["type"] == "tool_result" for b in message["content"]))
 
 def check_pairing(messages: list) -> list:
     """The two pairing rules the API enforces, as a list of problems. Empty means the history is valid."""
@@ -211,7 +212,7 @@ def check_pairing(messages: list) -> list:
             call_ids = [b["id"] for b in blocks if b["type"] == "tool_use"]
             answered = []
             if i + 1 < len(messages) and is_tool_results(messages[i + 1]):
-                answered = [b["tool_use_id"] for b in messages[i + 1]["content"]]
+                answered = [b["tool_use_id"] for b in messages[i + 1]["content"] if _plain(b)["type"] == "tool_result"]
             missing = [c for c in call_ids if c not in answered]
             if missing:
                 problems.append(f"messages.{i}: tool_use without a tool_result immediately after: {missing}")
