@@ -2703,6 +2703,28 @@ below describe each lesson as first converted; see the git log
    clearing on the compaction turn itself, both still pass. The forward
    reference to Lesson 12 is plain prose (unbuilt).
 
+6. **Offloading Context to Storage** — Building (title is a placeholder:
+   the mockup names no lesson; folder `06-offloading-context-to-storage`,
+   named from Lesson 5's forward reference "offloading context to
+   storage, and note taking"). Concept 1 (keep the reference, not the
+   result) is built: `ResultStore`, `offload`, `read_result` and
+   `find_in_result` in the shared demo setup, a four-way comparison demo
+   (7,326 / 490 tokens, page 2 repeating 5 lines, 159 offloaded) and an
+   in-the-loop demo (30,656 vs 3,030 tokens sent, 5 vs 7 requests), both
+   matching the mockup's printed output exactly when re-run; 5 quiz
+   cards; graded exercise `offload` + `read_result` with seven hidden
+   tests (the mockup's tests shared one store across steps; each is now
+   self-contained, so the res_N handles are asserted per test). Verified
+   natively (no new Pyodide harness): the reference passes and the starter
+   fails; mutations confirmed: storing only the preview fails 2, sizing in
+   lines instead of tokens fails 3b, `<` instead of `<=` at the threshold
+   fails 3, `<=` for the continuation note fails 5. Backticks removed from
+   `find_in_result`'s executed docstring (they'd end the template
+   literal); the displayed block keeps them. Callbacks link to Module 3's
+   truncation/pagination page, MCP handles subsection, validation
+   concept and threat-model lesson, and Lessons 1 and 4; Lesson 8 is plain
+   prose (unbuilt). No intro/bookends yet.
+
 ---
 
 ## Modules 4–11 — current plan
