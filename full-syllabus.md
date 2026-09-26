@@ -2422,8 +2422,23 @@ below describe each lesson as first converted; see the git log
    using the first value, counting non-`set_rule` calls, reporting every
    rule as changed, sorting rules, and overwriting history each fail) is
    built. The mockup referred to a `changed_rules` function "below" that
-   it never shows; the page says it's written in the exercise. No
-   intro/bookends yet.
+   it never shows; the page says it's written in the exercise. Concept 4
+   (re-anchoring the goal: Manus-style recitation, an `update_plan` tool
+   and `assemble_context` restating the current plan and rules at the end
+   of the context, demo matching the mockup's output exactly, 5 quiz
+   cards, graded exercise with six hidden tests — starter code provides
+   `current_rules_block` from Concept 3, learner implements `latest_plan`
+   and `assemble_context`; verified against real Python under the actual
+   grading harness semantics, not just a flat script: the reference
+   passes, and versions that mutate messages in place, put the anchor
+   before the tool_result blocks, or skip the no-plan-no-rules early
+   return each fail) is built — this is the last concept of the lesson.
+   The mockup's forward references to a caching lesson and to lessons on
+   overflowing/compacting history are plain prose, per Lesson 1's
+   precedent, since no such lesson exists yet in Module 4 (a same-titled
+   page exists in Module 1, but that's LLM-foundations content, not the
+   Module-4 lesson the mockup is pointing at). No intro/bookends yet —
+   added once the lesson's bookends mockup exists.
 
 ---
 
