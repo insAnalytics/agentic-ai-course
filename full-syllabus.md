@@ -2972,7 +2972,23 @@ below describe each lesson as first converted; see the git log
    carry none), as authored. Callbacks link to Lesson 9's pipeline
    subsection (anchor verified) and concept 1, and Module 3's
    prompt-injection concept; the later concepts are plain prose
-   (unbuilt).
+   (unbuilt). Concept 2 (duplicates and contradictions) is also built:
+   `MemoryRecord`, `VersionedStore`, `find_duplicate` and
+   `apply_decision`, redefining Lesson 9's `keywords`/`Memory`/
+   `MemoryStore` locally (this file's own consts, same pattern as every
+   other lesson page) rather than importing them. Live demo reproduces
+   the mockup's naive-vs-ruled batch exactly (verified natively,
+   `python -c` with real `pydantic` 2.12.5); 5 quiz cards; graded
+   exercise with seven hidden tests. Verified natively: the reference
+   passes all seven and the starter (`...` stubs) fails everything;
+   three targeted mutations (skipping the duplicate check, dropping the
+   only-the-user's-word rule, and having `find_duplicate` search
+   superseded memories too) each fail exactly the test that checks the
+   violated requirement (2, 5, and 2 respectively). The one callback
+   (to the previous concept) links to its page (anchor verified); the
+   other (Lesson 11's forgetting rules) stays plain prose since Lesson
+   11 isn't built yet, matching how concept 1 left its own forward
+   references to concept 3.
 
 ---
 
