@@ -3407,9 +3407,9 @@ that changed is the one intended (L10 C1's extraction demo). Changes:
   - Authoring-history text removed from L6 and L12.
   - Plain-prose forward references in L1 and L2 are now links.
 - **Not done here:** quiz option-length balancing (deferred until every
-  module is drafted), and the L11 year demos that save "learned early"
-  memories before their dates (fixing that changes demo numbers the prose
-  quotes).
+  module is drafted). (The L11 year demos that saved memories before the
+  week they were learned were fixed afterwards: only C1's weeks 1-2 rows
+  and one sentence changed; C2 and C3 print the same output.)
 
 **Module 4 content additions (2026-09-27, same session).** These were
 written straight into the `.mdx` files (no mockups) and verified the same

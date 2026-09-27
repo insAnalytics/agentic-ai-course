@@ -231,12 +231,16 @@ def remember(content, created, importance, kind="episodic", source="agent", matt
         useful.add(content)
 
 remember("Never restart support_agent during business hours.", week_start(0) + "T09:00:00", 9, "procedural", "user")
-remember("support_agent's bottleneck is billing_agent's per-ticket lookup.", week_start(1) + "T09:00:00", 8, matters=True)
-remember("Tom owns support_agent.", week_start(4) + "T09:00:00", 7, "semantic", "user", matters=True)
-remember("support_agent's queue doubles on the first Monday of each month.", week_start(6) + "T09:00:00", 7, matters=True)
 task = "Draft the support_agent status update."
 archived = 0
 for week in range(1, 53):
+    # what matters is saved in the week it was learned, never before
+    if week == 1:
+        remember("support_agent's bottleneck is billing_agent's per-ticket lookup.", week_start(1) + "T09:00:00", 8, matters=True)
+    if week == 4:
+        remember("Tom owns support_agent.", week_start(4) + "T09:00:00", 7, "semantic", "user", matters=True)
+    if week == 6:
+        remember("support_agent's queue doubles on the first Monday of each month.", week_start(6) + "T09:00:00", 7, matters=True)
     remember(f"Week {week}: support_agent review done, nothing unusual.", week_start(week) + "T17:00:00", 2)
     if week % 4 == 0:
         remember(f"support_agent p99 was {3 + week % 3}.{week % 10}s in week {week}.", week_start(week) + "T17:05:00", 3)
