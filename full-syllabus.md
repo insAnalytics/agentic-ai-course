@@ -3085,6 +3085,29 @@ below describe each lesson as first converted; see the git log
    so no page-level explanation was added beyond the mockup's own
    comment.
 
+   Concept 2 (scoring what to recall) is also built: `ScoredMemory`,
+   `ScoredStore`, `days_between`, `min_max`, `score_memories` and
+   `recall_scored`, on top of Lesson 10's classes, redefined locally as
+   usual. The Generative Agents-style three-signal score (recency since
+   last use, importance, keyword relevance, each min-max scaled then
+   weighted) is verified natively (`python`, real `pydantic` and
+   `datetime.fromisoformat`/subtraction) against the mockup's own
+   hand-worked numbers in the hidden tests, and the "a year again" demo
+   (three signals vs. keyword-only, and scored-without-refresh vs.
+   scored-with-refresh) reproduces the mockup's exact 0-of-3/1-of-3/3-of-3
+   result and recalled-memory list. 5 quiz cards; graded exercise with
+   seven hidden tests. Verified natively: the reference passes all
+   seven and the starter fails; three targeted mutations (recency always
+   counting from `created`, ignoring `last_used`; `recall_scored` not
+   excluding procedural memories; and `recall_scored` never marking
+   `last_used`) each fail the tests that check exactly those things
+   (1+2, 5+6, and 6 respectively) — a second **Module 0 gap** from the
+   mockup (`datetime.fromisoformat`, and subtracting two datetimes for a
+   `timedelta`) is glossed the same way, in the code comment only.
+   Callbacks: the previous concept (page link, no single subsection
+   named), Lesson 8's "procedures are always loaded" rule (subsection
+   anchor verified), and the same Xiong et al. citation concept 1 used.
+
 ---
 
 ## Modules 4–11 — current plan
