@@ -2951,6 +2951,29 @@ below describe each lesson as first converted; see the git log
    in the mockup to `Saved as KIND memory.` and the page, exercise and
    tests were updated to match. Title confirmed by the bookends heading.
 
+10. **Deciding What to Remember** — Building (title is a placeholder: the
+   mockup names no lesson; folder `10-deciding-what-to-remember`, named
+   from Lessons 8 and 9's forward references). Concept 1 (extraction,
+   with evidence) is built: `entries`, `numbered_transcript`,
+   `EXTRACTION_INSTRUCTIONS`, `parse_candidates` and `derive_source`,
+   with a labels-vs-quote-check demo matching the mockup's printed output
+   exactly when re-run; 5 quiz cards; graded exercise with seven hidden
+   tests (split into self-contained snippets; the fake client and
+   `entries`/`numbered_transcript` are provided in the starter, as in
+   Lesson 7). Code fences inside code are written as an interpolated
+   backtick-repeat expression in the template literals (a raw backtick
+   can't appear in `String.raw`; a separate `FENCE` constant isn't in
+   scope inside MDX exports), and shown with four-backtick fences in the
+   page. Verified natively: the reference passes and the starter
+   fails; mutations confirmed: not stripping fences fails 2, searching
+   all entries fails 6, allowing negative entries fails 7, accepting an
+   empty quote fails 6, accepting a string entry fails 4. Trusting a
+   candidate's own `source` label is not caught (the tests' candidates
+   carry none), as authored. Callbacks link to Lesson 9's pipeline
+   subsection (anchor verified) and concept 1, and Module 3's
+   prompt-injection concept; the later concepts are plain prose
+   (unbuilt).
+
 ---
 
 ## Modules 4–11 — current plan
