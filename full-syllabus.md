@@ -2842,6 +2842,16 @@ below describe each lesson as first converted; see the git log
    concept, Lesson 2's re-anchoring concept, Lesson 3's intro and this
    lesson's concepts 1 and 3.
 
+8. **Long-Term Memory** — Building (title is a placeholder: the mockup
+   names no lesson; folder `08-long-term-memory`, chosen from the
+   concept's own subject and its forward references to Lessons 9-11).
+   Concept 1 (what dies with the session, and what shouldn't) is built:
+   a three-way session-start demo (nothing 20 tokens / whole transcript
+   2,748 / three memories 79), matching the mockup's printed output
+   exactly when re-run; 5 quiz cards; no graded exercise, per the
+   mockup. Callbacks link to Lessons 1, 2, 6 and 7 and Module 2's
+   checkpoint-and-resume concept; Lessons 9-11 are plain prose (unbuilt).
+
 ---
 
 ## Modules 4–11 — current plan
