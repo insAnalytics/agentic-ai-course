@@ -2864,6 +2864,17 @@ below describe each lesson as first converted; see the git log
    link to concept 1, Lesson 7's concept 3 and its `the-rule` subsection
    (anchor verified) and Lesson 2's re-anchoring concept; the next
    concept and Lessons 9-10 are plain prose (unbuilt).
+   Concept 3 (episodic, semantic, procedural) is built: 
+   and  on top of concept 2's final  (which also
+   drops one-letter words) and , a one-rule-vs-per-type demo
+   matching the mockup's printed output exactly when re-run; 5 quiz
+   cards; graded exercise with six hidden tests (split into
+   self-contained snippets). Verified natively: the reference passes and
+   the starter fails; mutations confirmed: no relevance check fails 3,
+   oldest-first fails 3 and 5, no empty-section skip fails 5, unlimited
+   facts fails 4. Concept 2 now links forward to it. The CoALA paper link
+   is as written in the mockup; Lesson 10 is plain prose (unbuilt). No
+   recap/bookends yet.
 
 ---
 
