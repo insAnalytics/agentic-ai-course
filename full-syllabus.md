@@ -2851,6 +2851,19 @@ below describe each lesson as first converted; see the git log
    exactly when re-run; 5 quiz cards; no graded exercise, per the
    mockup. Callbacks link to Lessons 1, 2, 6 and 7 and Module 2's
    checkpoint-and-resume concept; Lessons 9-11 are plain prose (unbuilt).
+   Concept 2 (storage, retrieval, injection) is built: `keywords`,
+   `recall`, `session_prompt` and `recall_for` on plain strings, with a
+   raw-words-vs-keywords demo and a two-user scoped-recall demo (prefix
+   stable across a session, checked with Lesson 3's `first_divergence`),
+   both matching the mockup's printed output exactly when re-run; 5 quiz
+   cards; graded exercise with five hidden tests (split into
+   self-contained snippets; docstring/comment backticks removed).
+   Verified natively: the reference passes and the starter fails;
+   mutations confirmed: sorting the pairs directly fails 2, recalling from
+   the whole store fails 3, keeping one-letter words fails 1. Callbacks
+   link to concept 1, Lesson 7's concept 3 and its `the-rule` subsection
+   (anchor verified) and Lesson 2's re-anchoring concept; the next
+   concept and Lessons 9-10 are plain prose (unbuilt).
 
 ---
 

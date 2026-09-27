@@ -1,0 +1,396 @@
+---
+title: "Storage, retrieval, injection"
+lesson: "08-long-term-memory"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, COUNT_TOKENS } from "../../../../lib/fakeClient";
+
+export const COST_FUNCS = String.raw`
+def serialize(x) -> str:
+    # byte-for-byte form, as a cache sees it: key order matters, exactly as sent
+    return json.dumps(_plain(x))
+
+def first_divergence(previous: dict, current: dict) -> dict:
+    """Where does current stop matching previous, and how much of it could be read from the cache?"""
+    reusable = 0
+    if serialize(current["tools"]) != serialize(previous["tools"]):
+        return {"diverges_at": "tools", "reusable_tokens": 0}
+    reusable += count_tokens(current["tools"])
+    if serialize(current["system"]) != serialize(previous["system"]):
+        return {"diverges_at": "system", "reusable_tokens": reusable}
+    reusable += count_tokens(current["system"])
+    for i, old in enumerate(previous["messages"]):
+        if i >= len(current["messages"]) or serialize(current["messages"][i]) != serialize(old):
+            return {"diverges_at": f"messages[{i}]", "reusable_tokens": reusable}
+        reusable += count_tokens(old)
+    return {"diverges_at": None, "reusable_tokens": reusable}
+`;
+
+export const MEMORY_FUNCS = String.raw`
+STOPWORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "is", "was", "it", "this", "that",
+             "with", "as", "at", "by", "be", "i", "you", "my", "me", "we", "our", "please", "about", "from", "last"}
+
+def keywords(text: str) -> set:
+    """The words in text worth matching on: lowercased, punctuation removed, common and one-letter words dropped."""
+    text = text.lower()
+    for mark in ".,;:!?()'\"":
+        text = text.replace(mark, " ")
+    # single letters, like the "s" a possessive leaves behind, carry no meaning either
+    return {word for word in text.split() if len(word) > 1} - STOPWORDS
+
+def recall(memories: list, task: str, limit: int = 3) -> list:
+    """The memories sharing the most keywords with the task, best first, at most limit."""
+    wanted = keywords(task)
+    scored = []
+    for memory in memories:
+        score = len(wanted & keywords(memory))
+        if score:
+            scored.append((score, memory))
+    return [memory for score, memory in sorted(scored, key=lambda pair: pair[0], reverse=True)[:limit]]
+
+def session_prompt(base: str, recalled: list) -> str:
+    """The session's system prompt: fixed from its first request to its last."""
+    if not recalled:
+        return base
+    return base + "\n\nFrom earlier sessions with this user:\n- " + "\n- ".join(recalled)
+
+def recall_for(store: dict, user_id: str, task: str, limit: int = 3) -> list:
+    """Recall only from this user's memories. An unknown user has none."""
+    return recall(store.get(user_id, []), task, limit)
+`;
+
+export const SETUP = REACT_FAKE_CLIENT + COUNT_TOKENS + COST_FUNCS + MEMORY_FUNCS;
+
+export const NAIVE_DEMO = String.raw`memories = ["The user wants summaries as bullet points.",
+            "cc Priya on anything about support_agent; she owns it.",
+            "The user is on call the last week of each month.",
+            "The user's team uses the billing dashboard daily."]
+task = "Write the weekly status note on support_agent."
+
+def naive_recall(memories, task):
+    words = set(task.lower().split())
+    return [m for m in memories if words & set(m.lower().split())]
+
+print("matching raw words:  ", naive_recall(memories, task))
+print("matching keywords:   ", recall(memories, task))
+print("keywords of the task:", sorted(keywords(task)))
+`;
+
+export const CYCLE_DEMO = String.raw`# storage: memories kept outside the model, one list per user
+store = {
+    "u_simar": ["cc Priya on anything about support_agent; she owns it.",
+                "support_agent's bottleneck was billing_agent's per-ticket lookup (found 2026-09-21)."],
+    "u_ravi": ["Ravi's team is migrating search_agent to a new index.",
+               "Send Ravi's status notes to #search-team, not by email."],
+}
+BASE = "You are the operations assistant."
+task = "Write the weekly status note on support_agent."
+
+for user in ["u_simar", "u_ravi", "u_new"]:
+    # retrieval: once, when the session starts, from this user's memories only
+    recalled = recall_for(store, user, task)
+    # injection: into the session's system prompt, which then stays fixed for the whole session
+    system = session_prompt(BASE, recalled)
+    print(f"{user}: {len(recalled)} recalled")
+    print("   " + system.replace("\n", "\n   "))
+
+# the mistake scoping prevents: recalling from everyone's memories at once
+everyone = store["u_simar"] + store["u_ravi"]
+print("\nunscoped recall for u_simar:", recall(everyone, task))
+
+# over a three-turn session, the prefix never changes
+system = session_prompt(BASE, recall_for(store, "u_simar", task))
+history = [{"role": "user", "content": task}]
+requests = []
+for turn in range(3):
+    requests.append({"tools": [], "system": system, "messages": history})
+    history = history + [{"role": "assistant", "content": [TextBlock(text=f"Working, step {turn + 1}.")]},
+                         {"role": "user", "content": "Go on."}]
+print("\nprefix stable all session:",
+      all(first_divergence(a, b)["diverges_at"] not in ("tools", "system") for a, b in zip(requests, requests[1:])))
+`;
+
+export const STARTER = String.raw`STOPWORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "is", "was", "it", "this", "that",
+             "with", "as", "at", "by", "be", "i", "you", "my", "me", "we", "our", "please", "about", "from", "last"}
+# (provided)
+
+def keywords(text: str) -> set:
+    # TODO: lowercase, replace each punctuation mark with a space, split, drop one-letter words and STOPWORDS
+    ...
+
+def recall(memories: list, task: str, limit: int = 3) -> list:
+    # TODO: score by shared keywords; best first, ties in stored order; skip zero scores
+    ...
+
+def session_prompt(base: str, recalled: list) -> str:
+    # TODO: the base alone, or the base plus the header and one "- " line per memory
+    ...
+
+def recall_for(store: dict, user_id: str, task: str, limit: int = 3) -> list:
+    # TODO: recall from this user's memories only
+    ...
+`;
+
+export const REFERENCE = String.raw`STOPWORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "is", "was", "it", "this", "that",
+             "with", "as", "at", "by", "be", "i", "you", "my", "me", "we", "our", "please", "about", "from", "last"}
+
+def keywords(text: str) -> set:
+    """The words in text worth matching on: lowercased, punctuation removed, common and one-letter words dropped."""
+    text = text.lower()
+    for mark in ".,;:!?()'\"":
+        text = text.replace(mark, " ")
+    # single letters, like the "s" a possessive leaves behind, carry no meaning either
+    return {word for word in text.split() if len(word) > 1} - STOPWORDS
+
+def recall(memories: list, task: str, limit: int = 3) -> list:
+    """The memories sharing the most keywords with the task, best first, at most limit."""
+    wanted = keywords(task)
+    scored = []
+    for memory in memories:
+        score = len(wanted & keywords(memory))
+        if score:
+            scored.append((score, memory))
+    return [memory for score, memory in sorted(scored, key=lambda pair: pair[0], reverse=True)[:limit]]
+
+def session_prompt(base: str, recalled: list) -> str:
+    """The session's system prompt: fixed from its first request to its last."""
+    if not recalled:
+        return base
+    return base + "\n\nFrom earlier sessions with this user:\n- " + "\n- ".join(recalled)
+
+def recall_for(store: dict, user_id: str, task: str, limit: int = 3) -> list:
+    """Recall only from this user's memories. An unknown user has none."""
+    return recall(store.get(user_id, []), task, limit)
+`;
+
+export const TESTS = [
+  String.raw`
+# 1. keywords: lowercase, punctuation gone, common words dropped
+assert keywords("The weekly Status note, on support_agent!") == {"weekly", "status", "note", "support_agent"}
+assert keywords("(Priya's) team: \"billing\"; dashboard?") == {"priya", "team", "billing", "dashboard"}
+assert keywords("the and of") == set()
+
+memories = ["Priya owns support_agent.",
+            "The billing dashboard is checked daily.",
+            "support_agent status notes go to Priya weekly.",
+            "Status of search_agent: migrating."]`,
+  String.raw`
+memories = ["Priya owns support_agent.",
+            "The billing dashboard is checked daily.",
+            "support_agent status notes go to Priya weekly.",
+            "Status of search_agent: migrating."]
+
+# 2. recall: best matches first, ties in stored order, nothing that shares no keyword, at most limit
+assert recall(memories, "weekly status note on support_agent") == [
+    "support_agent status notes go to Priya weekly.", "Priya owns support_agent.", "Status of search_agent: migrating."]
+assert recall(memories, "weekly status note on support_agent", limit=1) == ["support_agent status notes go to Priya weekly."]
+assert recall(memories, "the and of it") == []
+assert recall([], "anything") == []`,
+  String.raw`
+# 3. recall_for: only this user's memories; an unknown user has none
+store = {"u_a": ["Priya owns support_agent."], "u_b": ["support_agent notes go to #search-team."]}
+assert recall_for(store, "u_a", "support_agent note") == ["Priya owns support_agent."]
+assert recall_for(store, "u_zzz", "support_agent note") == []`,
+  String.raw`
+# 4. session_prompt: the base alone, or the base with the recalled memories under a header
+assert session_prompt("Base.", []) == "Base."
+assert session_prompt("Base.", ["one", "two"]) == "Base.\n\nFrom earlier sessions with this user:\n- one\n- two"`,
+  String.raw`
+memories = ["Priya owns support_agent.",
+            "The billing dashboard is checked daily.",
+            "support_agent status notes go to Priya weekly.",
+            "Status of search_agent: migrating."]
+
+# 5. nothing passed in is changed
+kept = list(memories)
+recall(memories, "status")
+assert memories == kept`,
+];
+
+<Subsection title="Three decisions" variant="a">
+
+[The previous concept](/04-context-and-memory/08-long-term-memory/01-what-dies-with-the-session/)
+ended with three hand-picked memories at the start of a new session. Every
+long-term memory system, however it's built, has to make three decisions to
+get there:
+
+- **Storage:** what a memory is, where it's kept, and whose it is.
+- **Retrieval:** when to look memories up, and how to find the right ones.
+- **Injection:** where the memories that are found go in the request.
+
+This concept builds the smallest system that makes all three, on plain
+strings. Lesson 9 builds a real store on the same three decisions.
+
+</Subsection>
+
+<Subsection title="Storage: what, where, whose" variant="b">
+
+- **What:** one memory is one self-contained statement, readable on its own
+  weeks later without the conversation it came from. "cc Priya on anything
+  about support_agent" works; "yes, do that from now on" doesn't. A memory
+  that can go stale says when it was true: "found 2026-09-21".
+- **Where:** outside the model and outside the conversation, somewhere that
+  outlives the session. Here it's a dict; in Lesson 9 it's a store with a
+  record for each memory, carrying its type, source, time and tags.
+- **Whose:** every memory belongs to one user, and the store is keyed by user
+  from the start. Looking up memories means looking up *this user's*
+  memories, never everyone's.
+
+</Subsection>
+
+<Subsection title="Retrieval: when, and how" variant="a">
+
+**When** is a design choice with three common answers:
+
+- **At session start,** from the task. That's cheap, and it happens once.
+- **Each turn,** as the task shifts. It's more responsive, and it costs more.
+- **On demand,** with a tool the agent calls when it thinks memory would
+  help, the same way
+  [Lesson 7's agent read guides](/04-context-and-memory/07-just-in-time-context-and-dynamic-tool-exposure/03-instructions-and-reference-material-on-demand/).
+
+**How** here is keyword matching: a memory scores one point for each keyword
+it shares with the task. Searching by meaning rather than words is Module 5's
+subject. Even keyword matching has a trap, though. `recall` and `keywords`
+are shown in the next section; they're already loaded:
+
+<LiveDemo client:load setupCode={SETUP} code={NAIVE_DEMO} />
+
+Matching raw words recalled every memory, because every one of them contains
+"the". Dropping common words, one-letter words and punctuation fixes that.
+The fixed version recalled only the memory about `support_agent`.
+
+It also missed one it should have kept: the user wants summaries as bullet
+points. That applies to *every* note this user asks for, whatever its words.
+A standing instruction like that shouldn't depend on matching the task at
+all. It should always be loaded. That difference, between facts to look up
+and instructions to always follow, is where the next concept's taxonomy
+starts.
+
+</Subsection>
+
+<Subsection title="Injection: where the memories go" variant="b">
+
+[The rule from Lesson 7](/04-context-and-memory/07-just-in-time-context-and-dynamic-tool-exposure/01-what-you-load-and-where-it-goes/#the-rule)
+decides this: the prefix is fixed for the run, and anything loaded later goes
+into the conversation. For memory, that gives each "when" its natural place:
+
+- **Recalled at session start →** the system prompt, built once and then
+  fixed for the whole session.
+- **Recalled each turn →** the end of the request, restated and never saved,
+  like
+  [Lesson 2's plan](/04-context-and-memory/02-context-that-fits-but-still-hurts/04-re-anchoring-the-goal/).
+- **Recalled on demand →** a tool result, like a guide.
+
+Whichever place is used, the memories go under a header that says what they
+are: things from earlier sessions, not the user speaking now. What the agent
+should trust in its memories, and what should never become one, is Lesson
+10's subject. Lesson 9 measures what each placement costs the cache.
+
+</Subsection>
+
+<Subsection title="Storage, retrieval, injection, in code" variant="a">
+
+The three functions from the last demo, plus `session_prompt` and
+`recall_for`, are the whole system. Here are two users' memories in one
+store, recalled at session start and injected into the system prompt.
+Lesson 3's `first_divergence` is loaded too:
+
+<LiveDemo client:load setupCode={SETUP} code={CYCLE_DEMO} />
+
+- **Retrieval was scoped.** Each user got only their own memories, and a new
+  user got none.
+- **Scoping is what kept the sessions apart.** Without it, the note Simar
+  asked for would come with Ravi's instruction to post status notes to
+  #search-team. It matched the task as well as anything of Simar's did.
+- **The prefix was fixed from first request to last,** because the memories
+  went in once, when the session began.
+
+The memories are written by hand here.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "What are the three decisions every long-term memory system makes?",
+      "options": [
+        "Storage, retrieval and injection",
+        "Summarizing, clearing and trimming",
+        "Episodic, semantic and procedural",
+        "Tools, system prompt and messages"
+      ],
+      "correctIndex": 0,
+      "explanation": "What a memory is and where it's kept, how the right ones are found, and where they go in the request. The types in C are the next concept's subject."
+    },
+    {
+      "question": "Why did matching raw words recall every memory?",
+      "options": [
+        "The memories were too short",
+        "Every memory contains common words like \"the\", which also appear in the task",
+        "Raw matching ignores capital letters",
+        "The limit was set too high"
+      ],
+      "correctIndex": 1,
+      "explanation": "Common words match everything and mean nothing. Dropping them, along with punctuation and case, leaves the words that carry meaning."
+    },
+    {
+      "question": "Keyword recall missed \"the user wants summaries as bullet points\". Why, and what does it suggest?",
+      "options": [
+        "The memory was misspelled",
+        "The limit cut it off",
+        "It shares no keywords with the task, yet it applies to every note, so standing instructions like it should always be loaded rather than looked up",
+        "Bullet points aren't a valid memory"
+      ],
+      "correctIndex": 2,
+      "explanation": "Some memories are facts to look up when they're relevant. Others are instructions to always follow. The next concept separates them."
+    },
+    {
+      "question": "Memories recalled once at session start go into the system prompt. Why is that safe for the cache?",
+      "options": [
+        "System prompts are never cached",
+        "The memories are short",
+        "The cache ignores memories",
+        "The prompt is built once and stays fixed for the whole session, so the prefix never changes"
+      ],
+      "correctIndex": 3,
+      "explanation": "That follows Lesson 7's rule. Memories recalled partway through a session belong at the end of the request, or in a tool result."
+    },
+    {
+      "question": "What would unscoped recall have done in the demo?",
+      "options": [
+        "Returned nothing for Simar",
+        "Brought Ravi's instruction to post status notes to #search-team into Simar's session",
+        "Returned Simar's memories twice",
+        "Broken the cache"
+      ],
+      "correctIndex": 1,
+      "explanation": "Ravi's memory matched the task as well as Simar's did. Only scoping recall to the user whose session it is keeps it out."
+    }
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"STOPWORDS is provided. keywords(text): lowercase the text, replace each of .,;:!?()'\" with a space, split it, and return the set of words that are longer than one letter and aren't in STOPWORDS. recall(memories, task, limit=3): score each memory by the number of keywords it shares with the task, and drop memories that score zero. Return up to limit memories, highest score first, with ties kept in stored order. Don't change memories. session_prompt(base, recalled): return base if nothing was recalled. Otherwise return base, then \"\\n\\nFrom earlier sessions with this user:\\n- \", then the memories joined by \"\\n- \". recall_for(store, user_id, task, limit=3): recall from store[user_id] only. A user who isn't in the store has no memories."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  hint={"a & b gives the keywords two sets share, and len of that is the score. Sort the (score, memory) pairs with key=lambda pair: pair[0], reverse=True, so equal scores keep their order. Sorting the pairs directly would also compare the memories' text, which changes that order. store.get(user_id, []) gives an unknown user an empty list."}
+  correctAnswer={{
+    code: REFERENCE,
+    explanation: "Test 1 checks the cleanups in keywords, including the stray \"s\" that removing an apostrophe leaves behind. A version that skips any one of them misses matches or makes false ones. Test 2 checks the ranking, including ties kept in stored order, which sorting the pairs directly breaks. Test 3 is the scoping rule: only this user's memories, and none for a stranger. A version that searches the whole store passes a quick look and leaks between users.",
+  }}
+/>
+
+</CheckpointZone>
