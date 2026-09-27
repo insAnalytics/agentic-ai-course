@@ -2923,6 +2923,23 @@ below describe each lesson as first converted; see the git log
    validate-failures concepts, Lesson 6's store-bounds subsection
    (anchor verified) and Module 0's decorators concept; Lesson 10 and
    the next concept are plain prose.
+   Concept 3 (where recalled memories go, and what it costs) is built:
+   a four-placement, twelve-turn cost demo plus a block-edit placement
+   comparison (8,077 / 11,231 / 9,990 / 8,693; 9,148 vs 8,077), matching
+   the mockup's printed output exactly when re-run, and every quoted
+   percentage (39%, 24%, 8%, 13%) re-derived from it; `MemoryContext`;
+   the Claude memory-tool section as written in the mockup (not
+   re-checked against the docs); 5 quiz cards; graded exercise
+   `MemoryContext` with six hidden tests (split into self-contained
+   snippets, each rebuilding its own store and block). Verified natively:
+   the reference passes and the starter fails all six; mutations
+   confirmed: rebuilding the system prompt on edit fails 4, mutating the
+   history fails 4, returning the same list fails 3, ignoring the limit
+   fails 6, never comparing with the start text fails 3 and 5, keeping
+   the block by reference instead of its text fails 3 and 5. Callbacks
+   link to Lesson 8's injection subsection, concept 2's block subsection
+   and Lesson 2's re-anchoring concept (anchors verified). No
+   recap/bookends yet.
 
 ---
 

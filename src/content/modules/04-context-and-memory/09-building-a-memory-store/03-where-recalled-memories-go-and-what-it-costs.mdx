@@ -1,0 +1,713 @@
+---
+title: "Where recalled memories go, and what it costs"
+lesson: "09-building-a-memory-store"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, COUNT_TOKENS } from "../../../../lib/fakeClient";
+
+export const PREVIOUS = String.raw`
+STOPWORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "is", "was", "it", "this", "that",
+             "with", "as", "at", "by", "be", "i", "you", "my", "me", "we", "our", "please", "about", "from", "last"}
+
+def keywords(text: str) -> set:
+    """The words in text worth matching on: lowercased, punctuation removed, common and one-letter words dropped."""
+    text = text.lower()
+    for mark in ".,;:!?()'\"":
+        text = text.replace(mark, " ")
+    # single letters, like the "s" a possessive leaves behind, carry no meaning either
+    return {word for word in text.split() if len(word) > 1} - STOPWORDS
+
+from typing import Literal
+from pydantic import BaseModel, Field
+
+class Memory(BaseModel):
+    # min_length=1 makes Pydantic reject an empty string
+    content: str = Field(min_length=1)
+    type: Literal["episodic", "semantic", "procedural"]
+    # who the memory came from: the user, the agent's own conclusion, or a tool result
+    source: Literal["user", "agent", "tool"]
+    # an ISO timestamp such as "2026-09-21T10:04:00", which sorts correctly as text
+    created: str
+    tags: list[str] = []
+
+class MemoryStore:
+    """Every user's memories, kept apart. Every method takes the user it acts for."""
+    def __init__(self):
+        self._by_user = {}
+
+    def save(self, user_id: str, memory: Memory) -> None:
+        # a copy, so the caller changing their object later can't change what's stored
+        self._by_user.setdefault(user_id, []).append(Memory(**memory.model_dump()))
+
+    def search(self, user_id: str, query: str = "", tags: list = None, kind: str = None, limit: int = 5) -> list:
+        """This user's memories that match, best first; with no query, newest first."""
+        candidates = []
+        for memory in self._by_user.get(user_id, []):
+            if kind is not None and memory.type != kind:
+                continue
+            if tags and not set(tags) & set(memory.tags):
+                continue
+            candidates.append(memory)
+        newest_first = sorted(candidates, key=lambda m: m.created, reverse=True)
+        if not query:
+            return newest_first[:limit]
+        wanted = keywords(query)
+        scored = [(len(wanted & keywords(m.content + " " + " ".join(m.tags))), m) for m in newest_first]
+        # sorting is stable, so memories with equal scores stay newest first
+        ranked = sorted([pair for pair in scored if pair[0] > 0], key=lambda pair: pair[0], reverse=True)
+        return [m for score, m in ranked[:limit]]
+
+from pydantic import ValidationError
+
+class CoreBlock:
+    """A short memory the agent edits itself and sees in every session. It has a hard size limit."""
+    def __init__(self, text: str = "", max_chars: int = 400):
+        self.text = text
+        self.max_chars = max_chars
+
+    def _fits(self, candidate: str) -> str:
+        if len(candidate) > self.max_chars:
+            return (f"Error: that would make the block {len(candidate)} characters, over its limit of {self.max_chars}. "
+                    f"Shorten or replace something first.")
+        return ""
+
+    def append(self, line: str) -> str:
+        candidate = self.text + ("\n" if self.text else "") + line
+        problem = self._fits(candidate)
+        if problem:
+            return problem
+        self.text = candidate
+        return "Added."
+
+    def replace(self, old: str, new: str) -> str:
+        if old not in self.text:
+            return f"Error: the block doesn't contain {old!r}. Replace text exactly as it appears."
+        # the 1 means only the first occurrence is replaced
+        candidate = self.text.replace(old, new, 1)
+        problem = self._fits(candidate)
+        if problem:
+            return problem
+        self.text = candidate
+        return "Replaced."
+
+def add_to_end(messages: list, text: str) -> list:
+    last = messages[-1]
+    if isinstance(last["content"], str):
+        new_last = {**last, "content": last["content"] + "\n\n" + text}
+    else:
+        new_last = {**last, "content": last["content"] + [{"type": "text", "text": text}]}
+    return messages[:-1] + [new_last]
+`;
+
+export const COST_FUNCS = String.raw`
+def serialize(x) -> str:
+    # byte-for-byte form, as a cache sees it: key order matters, exactly as sent
+    return json.dumps(_plain(x))
+
+def first_divergence(previous: dict, current: dict) -> dict:
+    """Where does current stop matching previous, and how much of it could be read from the cache?"""
+    reusable = 0
+    if serialize(current["tools"]) != serialize(previous["tools"]):
+        return {"diverges_at": "tools", "reusable_tokens": 0}
+    reusable += count_tokens(current["tools"])
+    if serialize(current["system"]) != serialize(previous["system"]):
+        return {"diverges_at": "system", "reusable_tokens": reusable}
+    reusable += count_tokens(current["system"])
+    for i, old in enumerate(previous["messages"]):
+        if i >= len(current["messages"]) or serialize(current["messages"][i]) != serialize(old):
+            return {"diverges_at": f"messages[{i}]", "reusable_tokens": reusable}
+        reusable += count_tokens(old)
+    return {"diverges_at": None, "reusable_tokens": reusable}
+
+def cost_of_run(requests: list, read_multiplier: float, write_multiplier: float) -> int:
+    """Cost of the requests actually sent, using first_divergence to see what each could reuse."""
+    total = 0.0
+    previous = None
+    for request in requests:
+        size = count_tokens(request["tools"]) + count_tokens(request["system"]) + count_tokens(request["messages"])
+        reused = first_divergence(previous, request)["reusable_tokens"] if previous else 0
+        total += reused * read_multiplier + (size - reused) * write_multiplier
+        previous = request
+    return round(total)
+`;
+
+export const CONTEXT_CLASS = String.raw`
+class MemoryContext:
+    """One session's use of memory: fixed in the prefix at the start, anything newer at the end of each request."""
+    def __init__(self, base: str, store: MemoryStore, user_id: str, block: CoreBlock, task: str, limit: int = 3):
+        self.block = block
+        self.block_at_start = block.text
+        recalled = store.search(user_id, task, limit=limit)
+        system = base
+        if block.text:
+            system += "\n\n<memory_block>\n" + block.text + "\n</memory_block>"
+        if recalled:
+            system += "\n\nFrom earlier sessions:\n" + "\n".join(f"- [{m.type}] {m.content}" for m in recalled)
+        # built once: the prefix never changes during the session
+        self.system = system
+
+    def messages(self, history: list) -> list:
+        """What to send: the history, plus the block's current text at the end if it has changed this session."""
+        if self.block.text == self.block_at_start:
+            return list(history)
+        return add_to_end(history, "Your memory block has changed this session. It now reads:\n" + self.block.text)
+`;
+
+export const SETUP = REACT_FAKE_CLIENT + COUNT_TOKENS + PREVIOUS + COST_FUNCS;
+
+export const PLACEMENT_DEMO = String.raw`BASE = "You are the operations assistant."
+TOOLS = [{"name": "search_memory", "description": "Search this user's memories.",
+          "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}]
+store = MemoryStore()
+topics = ["support_agent", "billing_agent", "search_agent", "deploys", "on-call"]
+for n in range(20):
+    topic = topics[n % 5]
+    store.save("u_simar", Memory(content=f"Note {n} about {topic}: something learned in an earlier session.", type="semantic",
+                                 source="user", created=f"2026-09-{10 + n}T09:00:00", tags=[topic]))
+
+def lines(memories):
+    return "\n".join(f"- [{m.type}] {m.content}" for m in memories)
+
+def run(recall, block_edits):
+    """One 12-turn session; the task moves across topics, and the agent edits its block twice."""
+    block = CoreBlock("User: Simar, operations lead.\nPrefers: bullet points.", max_chars=400)
+    at_start = block.text
+    first = lines(store.search("u_simar", "support_agent", limit=3))
+    history = [{"role": "user", "content": "Review support_agent, then billing_agent, then search_agent."}]
+    requests = []
+    for turn in range(12):
+        topic = topics[turn // 4]
+        if turn in (4, 8):
+            block.append(f"Reviewed {topics[turn // 4 - 1]} this week.")
+        system = BASE
+        shown_block = block.text if block_edits == "in the prefix" else at_start
+        system += "\n\n<memory_block>\n" + shown_block + "\n</memory_block>"
+        if recall in ("at session start", "each turn, at the end"):
+            system += "\n\nFrom earlier sessions:\n" + first
+        if recall == "each turn, in the prefix":
+            system += "\n\nFrom earlier sessions:\n" + lines(store.search("u_simar", topic, limit=3))
+        end = []
+        if block_edits == "at the end" and block.text != at_start:
+            end.append("Your memory block has changed this session. It now reads:\n" + block.text)
+        if recall == "each turn, at the end":
+            end.append("Recalled for this step:\n" + lines(store.search("u_simar", topic, limit=3)))
+        messages = add_to_end(history, "\n\n".join(end)) if end else list(history)
+        requests.append({"tools": TOOLS, "system": system, "messages": messages})
+        # the turn itself: a status check of realistic size; on demand, the agent also searches memory when the topic changes
+        calls = [ToolUseBlock(name="get_status", input={"agent_name": topic})]
+        results = [f"{topic} status:\n" + "field: value, updated 10:04, ok\n" * 25]
+        if recall == "on demand" and turn % 4 == 0:
+            calls.append(ToolUseBlock(name="search_memory", input={"query": topic}))
+            results.append(lines(store.search("u_simar", topic, limit=3)))
+        history = history + [{"role": "assistant", "content": calls},
+                             {"role": "user", "content": [{"type": "tool_result", "tool_use_id": calls[i].id, "content": results[i]}
+                                                          for i in range(len(calls))]}]
+    breaks = len([i for i in range(1, len(requests))
+                  if first_divergence(requests[i - 1], requests[i])["diverges_at"] in ("tools", "system")])
+    return cost_of_run(requests, 0.1, 1.25), breaks
+
+print("where recalled memories go (block edits shown at the end):")
+for recall in ["at session start", "each turn, in the prefix", "each turn, at the end", "on demand"]:
+    cost, breaks = run(recall, "at the end")
+    print(f"   {recall:26} cost {cost:>6,}   prefix broken on {breaks} turns")
+print("where the block's edits go (memories recalled at session start):")
+for edits in ["in the prefix", "at the end"]:
+    cost, breaks = run("at session start", edits)
+    print(f"   {edits:26} cost {cost:>6,}   prefix broken on {breaks} turns")
+`;
+
+export const STARTER = String.raw`STOPWORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "is", "was", "it", "this", "that",
+             "with", "as", "at", "by", "be", "i", "you", "my", "me", "we", "our", "please", "about", "from", "last"}
+
+def keywords(text: str) -> set:
+    """The words in text worth matching on: lowercased, punctuation removed, common and one-letter words dropped."""
+    text = text.lower()
+    for mark in ".,;:!?()'\"":
+        text = text.replace(mark, " ")
+    # single letters, like the "s" a possessive leaves behind, carry no meaning either
+    return {word for word in text.split() if len(word) > 1} - STOPWORDS
+
+from typing import Literal
+from pydantic import BaseModel, Field
+
+class Memory(BaseModel):
+    # min_length=1 makes Pydantic reject an empty string
+    content: str = Field(min_length=1)
+    type: Literal["episodic", "semantic", "procedural"]
+    # who the memory came from: the user, the agent's own conclusion, or a tool result
+    source: Literal["user", "agent", "tool"]
+    # an ISO timestamp such as "2026-09-21T10:04:00", which sorts correctly as text
+    created: str
+    tags: list[str] = []
+
+class MemoryStore:
+    """Every user's memories, kept apart. Every method takes the user it acts for."""
+    def __init__(self):
+        self._by_user = {}
+
+    def save(self, user_id: str, memory: Memory) -> None:
+        # a copy, so the caller changing their object later can't change what's stored
+        self._by_user.setdefault(user_id, []).append(Memory(**memory.model_dump()))
+
+    def search(self, user_id: str, query: str = "", tags: list = None, kind: str = None, limit: int = 5) -> list:
+        """This user's memories that match, best first; with no query, newest first."""
+        candidates = []
+        for memory in self._by_user.get(user_id, []):
+            if kind is not None and memory.type != kind:
+                continue
+            if tags and not set(tags) & set(memory.tags):
+                continue
+            candidates.append(memory)
+        newest_first = sorted(candidates, key=lambda m: m.created, reverse=True)
+        if not query:
+            return newest_first[:limit]
+        wanted = keywords(query)
+        scored = [(len(wanted & keywords(m.content + " " + " ".join(m.tags))), m) for m in newest_first]
+        # sorting is stable, so memories with equal scores stay newest first
+        ranked = sorted([pair for pair in scored if pair[0] > 0], key=lambda pair: pair[0], reverse=True)
+        return [m for score, m in ranked[:limit]]
+
+from pydantic import ValidationError
+
+class CoreBlock:
+    """A short memory the agent edits itself and sees in every session. It has a hard size limit."""
+    def __init__(self, text: str = "", max_chars: int = 400):
+        self.text = text
+        self.max_chars = max_chars
+
+    def _fits(self, candidate: str) -> str:
+        if len(candidate) > self.max_chars:
+            return (f"Error: that would make the block {len(candidate)} characters, over its limit of {self.max_chars}. "
+                    f"Shorten or replace something first.")
+        return ""
+
+    def append(self, line: str) -> str:
+        candidate = self.text + ("\n" if self.text else "") + line
+        problem = self._fits(candidate)
+        if problem:
+            return problem
+        self.text = candidate
+        return "Added."
+
+    def replace(self, old: str, new: str) -> str:
+        if old not in self.text:
+            return f"Error: the block doesn't contain {old!r}. Replace text exactly as it appears."
+        # the 1 means only the first occurrence is replaced
+        candidate = self.text.replace(old, new, 1)
+        problem = self._fits(candidate)
+        if problem:
+            return problem
+        self.text = candidate
+        return "Replaced."
+
+def add_to_end(messages: list, text: str) -> list:
+    last = messages[-1]
+    if isinstance(last["content"], str):
+        new_last = {**last, "content": last["content"] + "\n\n" + text}
+    else:
+        new_last = {**last, "content": last["content"] + [{"type": "text", "text": text}]}
+    return messages[:-1] + [new_last]
+# (provided above: Memory, MemoryStore, CoreBlock and add_to_end)
+
+class MemoryContext:
+    def __init__(self, base: str, store: MemoryStore, user_id: str, block: CoreBlock, task: str, limit: int = 3):
+        # TODO: remember the block and its text right now; build self.system once:
+        #       the base, then the block (if any), then this user's recalled memories (if any)
+        ...
+
+    def messages(self, history: list) -> list:
+        # TODO: a copy of the history, with the block's current text added at the end if it changed
+        ...
+`;
+
+export const REFERENCE = String.raw`STOPWORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "is", "was", "it", "this", "that",
+             "with", "as", "at", "by", "be", "i", "you", "my", "me", "we", "our", "please", "about", "from", "last"}
+
+def keywords(text: str) -> set:
+    """The words in text worth matching on: lowercased, punctuation removed, common and one-letter words dropped."""
+    text = text.lower()
+    for mark in ".,;:!?()'\"":
+        text = text.replace(mark, " ")
+    # single letters, like the "s" a possessive leaves behind, carry no meaning either
+    return {word for word in text.split() if len(word) > 1} - STOPWORDS
+
+from typing import Literal
+from pydantic import BaseModel, Field
+
+class Memory(BaseModel):
+    # min_length=1 makes Pydantic reject an empty string
+    content: str = Field(min_length=1)
+    type: Literal["episodic", "semantic", "procedural"]
+    # who the memory came from: the user, the agent's own conclusion, or a tool result
+    source: Literal["user", "agent", "tool"]
+    # an ISO timestamp such as "2026-09-21T10:04:00", which sorts correctly as text
+    created: str
+    tags: list[str] = []
+
+class MemoryStore:
+    """Every user's memories, kept apart. Every method takes the user it acts for."""
+    def __init__(self):
+        self._by_user = {}
+
+    def save(self, user_id: str, memory: Memory) -> None:
+        # a copy, so the caller changing their object later can't change what's stored
+        self._by_user.setdefault(user_id, []).append(Memory(**memory.model_dump()))
+
+    def search(self, user_id: str, query: str = "", tags: list = None, kind: str = None, limit: int = 5) -> list:
+        """This user's memories that match, best first; with no query, newest first."""
+        candidates = []
+        for memory in self._by_user.get(user_id, []):
+            if kind is not None and memory.type != kind:
+                continue
+            if tags and not set(tags) & set(memory.tags):
+                continue
+            candidates.append(memory)
+        newest_first = sorted(candidates, key=lambda m: m.created, reverse=True)
+        if not query:
+            return newest_first[:limit]
+        wanted = keywords(query)
+        scored = [(len(wanted & keywords(m.content + " " + " ".join(m.tags))), m) for m in newest_first]
+        # sorting is stable, so memories with equal scores stay newest first
+        ranked = sorted([pair for pair in scored if pair[0] > 0], key=lambda pair: pair[0], reverse=True)
+        return [m for score, m in ranked[:limit]]
+
+from pydantic import ValidationError
+
+class CoreBlock:
+    """A short memory the agent edits itself and sees in every session. It has a hard size limit."""
+    def __init__(self, text: str = "", max_chars: int = 400):
+        self.text = text
+        self.max_chars = max_chars
+
+    def _fits(self, candidate: str) -> str:
+        if len(candidate) > self.max_chars:
+            return (f"Error: that would make the block {len(candidate)} characters, over its limit of {self.max_chars}. "
+                    f"Shorten or replace something first.")
+        return ""
+
+    def append(self, line: str) -> str:
+        candidate = self.text + ("\n" if self.text else "") + line
+        problem = self._fits(candidate)
+        if problem:
+            return problem
+        self.text = candidate
+        return "Added."
+
+    def replace(self, old: str, new: str) -> str:
+        if old not in self.text:
+            return f"Error: the block doesn't contain {old!r}. Replace text exactly as it appears."
+        # the 1 means only the first occurrence is replaced
+        candidate = self.text.replace(old, new, 1)
+        problem = self._fits(candidate)
+        if problem:
+            return problem
+        self.text = candidate
+        return "Replaced."
+
+def add_to_end(messages: list, text: str) -> list:
+    last = messages[-1]
+    if isinstance(last["content"], str):
+        new_last = {**last, "content": last["content"] + "\n\n" + text}
+    else:
+        new_last = {**last, "content": last["content"] + [{"type": "text", "text": text}]}
+    return messages[:-1] + [new_last]
+
+class MemoryContext:
+    """One session's use of memory: fixed in the prefix at the start, anything newer at the end of each request."""
+    def __init__(self, base: str, store: MemoryStore, user_id: str, block: CoreBlock, task: str, limit: int = 3):
+        self.block = block
+        self.block_at_start = block.text
+        recalled = store.search(user_id, task, limit=limit)
+        system = base
+        if block.text:
+            system += "\n\n<memory_block>\n" + block.text + "\n</memory_block>"
+        if recalled:
+            system += "\n\nFrom earlier sessions:\n" + "\n".join(f"- [{m.type}] {m.content}" for m in recalled)
+        # built once: the prefix never changes during the session
+        self.system = system
+
+    def messages(self, history: list) -> list:
+        """What to send: the history, plus the block's current text at the end if it has changed this session."""
+        if self.block.text == self.block_at_start:
+            return list(history)
+        return add_to_end(history, "Your memory block has changed this session. It now reads:\n" + self.block.text)
+`;
+
+export const TESTS = [
+  String.raw`
+# 1. the prefix: the base, the block as it was at the start, then this user's recalled memories
+store = MemoryStore()
+store.save("u_a", Memory(content="Priya owns support_agent.", type="semantic", source="user", created="2026-09-21T10:00:00"))
+store.save("u_a", Memory(content="support_agent moved to claude-sonnet.", type="episodic", source="agent", created="2026-09-22T10:00:00"))
+store.save("u_b", Memory(content="support_agent notes go to #search-team.", type="procedural", source="user", created="2026-09-19T10:00:00"))
+block = CoreBlock("User: A.\nPrefers: bullets.", max_chars=200)
+history = [{"role": "user", "content": "Review support_agent."}]
+context = MemoryContext("Base.", store, "u_a", block, "support_agent review")
+assert context.system == ("Base.\n\n<memory_block>\nUser: A.\nPrefers: bullets.\n</memory_block>\n\n"
+                          "From earlier sessions:\n- [episodic] support_agent moved to claude-sonnet.\n- [semantic] Priya owns support_agent.")
+assert "#search-team" not in context.system`,
+  String.raw`
+# 2. with no block text and nothing recalled, it's just the base
+store = MemoryStore()
+store.save("u_a", Memory(content="Priya owns support_agent.", type="semantic", source="user", created="2026-09-21T10:00:00"))
+store.save("u_a", Memory(content="support_agent moved to claude-sonnet.", type="episodic", source="agent", created="2026-09-22T10:00:00"))
+store.save("u_b", Memory(content="support_agent notes go to #search-team.", type="procedural", source="user", created="2026-09-19T10:00:00"))
+block = CoreBlock("User: A.\nPrefers: bullets.", max_chars=200)
+history = [{"role": "user", "content": "Review support_agent."}]
+context = MemoryContext("Base.", store, "u_a", block, "support_agent review")
+assert MemoryContext("Base.", store, "u_new", CoreBlock(""), "anything").system == "Base."`,
+  String.raw`
+# 3. until the block changes, the history is sent as it is, as a new list
+store = MemoryStore()
+store.save("u_a", Memory(content="Priya owns support_agent.", type="semantic", source="user", created="2026-09-21T10:00:00"))
+store.save("u_a", Memory(content="support_agent moved to claude-sonnet.", type="episodic", source="agent", created="2026-09-22T10:00:00"))
+store.save("u_b", Memory(content="support_agent notes go to #search-team.", type="procedural", source="user", created="2026-09-19T10:00:00"))
+block = CoreBlock("User: A.\nPrefers: bullets.", max_chars=200)
+history = [{"role": "user", "content": "Review support_agent."}]
+context = MemoryContext("Base.", store, "u_a", block, "support_agent review")
+sent = context.messages(history)
+assert sent == history and sent is not history`,
+  String.raw`
+# 4. after an edit: the prefix is unchanged, and the block's new text rides at the end of every request
+store = MemoryStore()
+store.save("u_a", Memory(content="Priya owns support_agent.", type="semantic", source="user", created="2026-09-21T10:00:00"))
+store.save("u_a", Memory(content="support_agent moved to claude-sonnet.", type="episodic", source="agent", created="2026-09-22T10:00:00"))
+store.save("u_b", Memory(content="support_agent notes go to #search-team.", type="procedural", source="user", created="2026-09-19T10:00:00"))
+block = CoreBlock("User: A.\nPrefers: bullets.", max_chars=200)
+history = [{"role": "user", "content": "Review support_agent."}]
+context = MemoryContext("Base.", store, "u_a", block, "support_agent review")
+block.append("Reviewed support_agent on 2026-09-28.")
+assert context.system.count("Reviewed support_agent") == 0
+sent = context.messages(history)
+assert sent[-1]["content"] == ("Review support_agent.\n\nYour memory block has changed this session. It now reads:\n"
+                               "User: A.\nPrefers: bullets.\nReviewed support_agent on 2026-09-28.")
+assert history == [{"role": "user", "content": "Review support_agent."}]`,
+  String.raw`
+# 5. the next session starts with the edited block in its prefix, and nothing at the end
+store = MemoryStore()
+store.save("u_a", Memory(content="Priya owns support_agent.", type="semantic", source="user", created="2026-09-21T10:00:00"))
+store.save("u_a", Memory(content="support_agent moved to claude-sonnet.", type="episodic", source="agent", created="2026-09-22T10:00:00"))
+store.save("u_b", Memory(content="support_agent notes go to #search-team.", type="procedural", source="user", created="2026-09-19T10:00:00"))
+block = CoreBlock("User: A.\nPrefers: bullets.", max_chars=200)
+history = [{"role": "user", "content": "Review support_agent."}]
+context = MemoryContext("Base.", store, "u_a", block, "support_agent review")
+block.append("Reviewed support_agent on 2026-09-28.")
+next_session = MemoryContext("Base.", store, "u_a", block, "support_agent review")
+assert "Reviewed support_agent on 2026-09-28.\n</memory_block>" in next_session.system
+assert next_session.messages(history) == history`,
+  String.raw`
+# 6. the limit on recalled memories applies
+store = MemoryStore()
+store.save("u_a", Memory(content="Priya owns support_agent.", type="semantic", source="user", created="2026-09-21T10:00:00"))
+store.save("u_a", Memory(content="support_agent moved to claude-sonnet.", type="episodic", source="agent", created="2026-09-22T10:00:00"))
+store.save("u_b", Memory(content="support_agent notes go to #search-team.", type="procedural", source="user", created="2026-09-19T10:00:00"))
+block = CoreBlock("User: A.\nPrefers: bullets.", max_chars=200)
+history = [{"role": "user", "content": "Review support_agent."}]
+context = MemoryContext("Base.", store, "u_a", block, "support_agent review")
+assert MemoryContext("Base.", store, "u_a", CoreBlock(""), "support_agent", limit=1).system.count("\n- ") == 1`,
+];
+
+<Subsection title="The question" variant="a">
+
+[Lesson 8](/04-context-and-memory/08-long-term-memory/02-storage-retrieval-injection/#injection-where-the-memories-go)
+set out the rule: memories recalled when a session starts go in the prefix,
+which then stays fixed, and anything later goes at the end of the request or in
+a tool result. This concept measures the choices, including the tempting one
+that breaks the rule. It also settles a question
+[the previous concept](/04-context-and-memory/09-building-a-memory-store/02-three-ways-an-agent-uses-the-store/#a-block-the-agent-edits)
+left open: where the agent's editable block goes when it changes mid-session.
+
+</Subsection>
+
+<Subsection title="Four places for recalled memories" variant="b">
+
+Here's one twelve-turn session. The task moves across three agents, the user
+has twenty memories spread over five topics, and the agent edits its block
+twice. Each placement is run over the same work. Lesson 3's `serialize`,
+`first_divergence` and `cost_of_run` are loaded, along with `MemoryStore` and
+`CoreBlock`:
+
+<LiveDemo client:load setupCode={SETUP} code={PLACEMENT_DEMO} />
+
+Costs are in Lesson 3's token-units with its example multipliers, and the
+memories and calls are made up.
+
+- **At session start** is the cheapest, and it never breaks the prefix. Its
+  limit is that the memories were chosen for the opening topic. When the task
+  moved on to billing_agent and search_agent, nothing was recalled for them.
+- **Each turn, in the prefix** keeps memories current by putting each turn's
+  recall in the system prompt. That changed the prefix whenever the topic
+  changed, so everything after it was processed again. It was the most
+  expensive: about 39% more than recalling at session start.
+- **Each turn, at the end** keeps memories just as current, and never breaks
+  the prefix, the way
+  [Lesson 2's plan](/04-context-and-memory/02-context-that-fits-but-still-hurts/04-re-anchoring-the-goal/)
+  is restated. It still costs about 24% more than session start: the recalled
+  lines are new text on every turn, and they're never cached.
+- **On demand** lets the agent search when it thinks memory will help. Here it
+  did so at each topic change, alongside its normal work. It cost about 8%
+  more than session start, because each search result joins the history and is
+  cached from then on.
+
+So the rule holds, and it's a trade rather than a winner. Recall at session
+start is cheapest when a session stays on one subject. Recall at the end or on
+demand costs more, but follows the task. Recalling into the prefix is never
+the right choice.
+
+</Subsection>
+
+<Subsection title="Where the block's edits go" variant="a">
+
+The editable block raises the same question in a sharper form. It's meant to
+be always present, so the obvious home is the system prompt, rebuilt whenever
+the agent edits it. That's the design Letta uses. In this session, keeping
+edits in the prefix cost about 13% more than the alternative, and broke the
+prefix at each edit.
+
+The alternative follows the rule. The block goes into the prefix as it was
+when the session started. When the agent edits it, the new text rides at the
+end of each request, where the agent sees it immediately, until the session
+ends. The next session starts with the edited block in its prefix. The agent
+loses nothing, since every edit is visible at once, and the prefix changes
+only between sessions.
+
+</Subsection>
+
+<Subsection title="Putting it together" variant="b">
+
+```python
+class MemoryContext:
+    """One session's use of memory: fixed in the prefix at the start, anything newer at the end of each request."""
+    def __init__(self, base: str, store: MemoryStore, user_id: str, block: CoreBlock, task: str, limit: int = 3):
+        self.block = block
+        self.block_at_start = block.text
+        recalled = store.search(user_id, task, limit=limit)
+        system = base
+        if block.text:
+            system += "\n\n<memory_block>\n" + block.text + "\n</memory_block>"
+        if recalled:
+            system += "\n\nFrom earlier sessions:\n" + "\n".join(f"- [{m.type}] {m.content}" for m in recalled)
+        # built once: the prefix never changes during the session
+        self.system = system
+
+    def messages(self, history: list) -> list:
+        """What to send: the history, plus the block's current text at the end if it has changed this session."""
+        if self.block.text == self.block_at_start:
+            return list(history)
+        return add_to_end(history, "Your memory block has changed this session. It now reads:\n" + self.block.text)
+```
+
+`MemoryContext` builds the prefix once, from the block as it stands and this
+user's recalled memories, and never touches it again. `messages` sends the
+history as it is until the block changes, and from then on with the block's
+current text at the end, never saved into the history. A new `MemoryContext`
+at the next session starts from the edited block.
+
+</Subsection>
+
+<Subsection title="Claude's memory tool" variant="a">
+
+[Claude's memory tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool)
+is generally available, with no beta header. Checked against its docs, it maps
+onto this lesson like this:
+
+- **It works on files.** The model asks to view, create or edit files under a
+  `/memories` path.
+- **It runs client-side.** Your application carries out each operation against
+  storage you control.
+- **Scoping is your handler's job.** The docs describe mapping the
+  `/memories` prefix onto storage such as a per-user directory, and rejecting
+  any path outside it. That's the binding from the previous concept, done by
+  your code.
+- **Memories arrive on demand.** When the tool is enabled, the model checks
+  its memory directory before starting a task, and what it reads arrives as
+  tool results. That's the on-demand placement measured above, and it leaves
+  the prefix alone.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "Recalling memories each turn into the system prompt cost the most. Why?",
+      "options": [
+        "The recalled memories were longer",
+        "Recalling is slow",
+        "Each time the topic changed, the recalled memories changed, so the prefix changed, and everything after it was processed again",
+        "The system prompt isn't cached"
+      ],
+      "correctIndex": 2,
+      "explanation": "The system prompt is part of the prefix. Anything that changes during a session belongs at the end of the request, or in a tool result."
+    },
+    {
+      "question": "Recalling at session start was the cheapest. What does it give up?",
+      "options": [
+        "Memories for later topics: they were chosen for the opening task, and nothing was recalled when the task moved on",
+        "The cache",
+        "Per-user scoping",
+        "The ability to use the block"
+      ],
+      "correctIndex": 0,
+      "explanation": "It's the right choice for a session that stays on one subject, and a poor one for a session that wanders."
+    },
+    {
+      "question": "Why did recalling each turn at the end cost more than recalling at session start, even though it never broke the prefix?",
+      "options": [
+        "The end of the request isn't allowed to be cached",
+        "The recalled lines are new text on every turn, restated and never saved, so they're never read from the cache",
+        "It recalled more memories per turn",
+        "It broke tool pairing"
+      ],
+      "correctIndex": 1,
+      "explanation": "Restating something at the end is cheap per turn, but not free. The price buys memories that follow the task."
+    },
+    {
+      "question": "How does `MemoryContext` let the agent see its block edits immediately without changing the prefix?",
+      "options": [
+        "It rebuilds the system prompt after each edit",
+        "It saves the edits into the history",
+        "It keeps the block's start-of-session text in the prefix, adds its current text at the end of each request, and folds edits into the prefix at the next session",
+        "It hides the edits until the next session"
+      ],
+      "correctIndex": 2,
+      "explanation": "Every edit is visible at once, and the prefix changes only between sessions."
+    },
+    {
+      "question": "Which placement does Claude's memory tool use for memories it reads?",
+      "options": [
+        "The system prompt, rebuilt each turn",
+        "A separate cached block",
+        "The first user message",
+        "Tool results, since the model reads its memory files on demand"
+      ],
+      "correctIndex": 3,
+      "explanation": "That leaves the prefix alone. Mapping `/memories` onto each user's own storage is left to your handler, which is the same binding as the previous concept's tools."
+    }
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"MemoryStore, CoreBlock and add_to_end are provided. Implement MemoryContext. __init__(base, store, user_id, block, task, limit=3): keep block and a copy of its text right now, block_at_start. Build self.system once. Start with base. If the block has text, add \"\\n\\n<memory_block>\\n\" + text + \"\\n</memory_block>\". If store.search(user_id, task, limit=limit) returns anything, add \"\\n\\nFrom earlier sessions:\\n\" and one line per memory, \"- [TYPE] CONTENT\", joined by \"\\n\". messages(history): if the block's text hasn't changed since the start, return a copy of history. Otherwise return add_to_end(history, \"Your memory block has changed this session. It now reads:\\n\" + current_text). Never change history, and never change self.system."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  hint={"Strings can't be changed in place, so self.block_at_start = block.text keeps the text as it was, even after the block is edited. Comparing self.block.text with it tells you whether anything changed."}
+  correctAnswer={{
+    code: REFERENCE,
+    explanation: "Test 4 is the design in one check: after an edit, the prefix is unchanged, and the block's new text arrives at the end of the request. A version that rebuilds the system prompt on each edit fails it. Test 5 checks the other half: the next session starts with the edited block in its prefix and nothing at the end. Test 3 checks that a copy of the history is sent, and test 4 that the history itself is never changed.",
+  }}
+/>
+
+</CheckpointZone>
