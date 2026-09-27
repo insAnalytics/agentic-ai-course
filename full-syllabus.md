@@ -2842,9 +2842,10 @@ below describe each lesson as first converted; see the git log
    concept, Lesson 2's re-anchoring concept, Lesson 3's intro and this
    lesson's concepts 1 and 3.
 
-8. **Long-Term Memory** — **Locked** (title is a placeholder: the mockup
-   names no lesson; folder `08-long-term-memory`, chosen from the
-   concept's own subject and its forward references to Lessons 9-11).
+8. **Short-Term and Long-Term Memory** — **Locked** (title from the
+   bookends mockup's heading; folder `08-long-term-memory`, chosen before
+   the bookends existed, from the concepts' subject and their forward
+   references to Lessons 9-11).
    Concept 1 (what dies with the session, and what shouldn't) is built:
    a three-way session-start demo (nothing 20 tokens / whole transcript
    2,748 / three memories 79), matching the mockup's printed output
