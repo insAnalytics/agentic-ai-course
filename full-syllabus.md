@@ -3057,7 +3057,7 @@ below describe each lesson as first converted; see the git log
    pattern as concept 1's revised demo. Lesson 10 is now **Locked**:
    all three concepts plus both bookends exist and build cleanly.
 
-11. **Forgetting, Aging, and Retrieval Quality** — Building (working
+11. **Forgetting, Aging, and Retrieval Quality** — Locked (working
    title, taken from Lesson 10 concept 2's own forward reference —
    "this module, forgetting aging and retrieval quality lesson" — folder
    `11-forgetting-aging-and-retrieval-quality`). Concept 1 (why a store
@@ -3127,10 +3127,28 @@ below describe each lesson as first converted; see the git log
    each fail multiple tests that check exactly those rules (2+4, and
    1+2+3 respectively). Callbacks: the previous concept (page link),
    Lesson 10's "supersede, don't delete" (subsection anchor verified),
-   and Lesson 10's source rule (subsection anchor verified). Lesson 11
-   now has all three concepts built; no bookends mockup exists yet, so
-   it stays **Building** until one arrives, matching how Lesson 10 was
-   left after its own concept 3.
+   and Lesson 10's source rule (subsection anchor verified).
+
+   Bookends are now built too, from the mockup's `lesson-4-11-bookends.md`:
+   an intro (learning outcomes + why-it-matters, with a whole-lesson
+   callback to Lesson 10's intro) and a comprehensive `recap-practice`
+   page. 8-question comprehensive quiz spanning all three concepts. The
+   comprehensive sandbox is a `MultiFileGradedExercise` (`lib.py`
+   read-only — Lessons 8-11's memory code in full, needing a `tokens.py`
+   companion file for `count_tokens`/`_plain` the same way Lesson 10's
+   did — plus an `agent.py` entry file implementing `run_week`: save the
+   week's new memories, pull the user's standing instructions, recall
+   for the task with `recall_scored` (refreshing what it returns), render
+   instructions + recalled with `render_memories`, then run `forget`,
+   returning `(block, report)`). Verified against a real Pyodide instance
+   (`pyodide@0.26.4`, real `pydantic`): the reference solution passes all
+   seven hidden-test assertions (a full year of `run_week` calls with an
+   owner change at week 30), and two targeted mutations — swapping the
+   recall/forget order, and dropping the initial save of new
+   memories — each fail, confirming the tests actually catch the two
+   things the lesson is about (recall-before-forget, and the store
+   actually growing). Lesson 11 is now **Locked**: all three concepts
+   plus both bookends exist and build cleanly.
 
 ---
 
