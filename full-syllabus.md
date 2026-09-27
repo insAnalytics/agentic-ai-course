@@ -2864,9 +2864,10 @@ below describe each lesson as first converted; see the git log
    link to concept 1, Lesson 7's concept 3 and its `the-rule` subsection
    (anchor verified) and Lesson 2's re-anchoring concept; the next
    concept and Lessons 9-10 are plain prose (unbuilt).
-   Concept 3 (episodic, semantic, procedural) is built: 
-   and  on top of concept 2's final  (which also
-   drops one-letter words) and , a one-rule-vs-per-type demo
+   Concept 3 (episodic, semantic, procedural) is built:
+   `assemble_memory` and `memory_block` on top of concept 2's final
+   `keywords` (which also drops one-letter words) and `recall`, a
+   one-rule-vs-per-type demo
    matching the mockup's printed output exactly when re-run; 5 quiz
    cards; graded exercise with six hidden tests (split into
    self-contained snippets). Verified natively: the reference passes and
