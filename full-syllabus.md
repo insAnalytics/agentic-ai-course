@@ -3411,6 +3411,37 @@ that changed is the one intended (L10 C1's extraction demo). Changes:
   memories before their dates (fixing that changes demo numbers the prose
   quotes).
 
+**Module 4 content additions (2026-09-27, same session).** These were
+written straight into the `.mdx` files (no mockups) and verified the same
+way. The only existing demo whose output changed is L10 C1's (intended).
+- **New concepts:**
+  - **L7 C4 "Data on demand: letting the agent explore".** A bounded
+    `Workspace` (list/grep/read slices), an explore-vs-preload measurement,
+    the map-plus-explore hybrid, and what exploring can miss, with a
+    `require_reading` dispatcher gate. It has an exercise and five quiz
+    cards. The recap moved to `05-recap-practice` and its sandbox gained
+    required reading (test 9).
+  - **L12 C3 "Seeing inside each request".** A per-request manifest via an
+    `Inspected` wrapper (`ContextManager` unchanged), per-section limits
+    with `over_budget`, the fixed order of what gives first, and latency as
+    extra calls per turn. It has an exercise. "What to leave out" is now
+    `04-` and has an ablation demo; the recap is now `05-`.
+- **Additions to existing concepts:**
+  - L10 C3 `looks_secret` in `admit`, with a demo and test 6, carried into
+    the L10/L11/L12 recap libs.
+  - L11 C2 "Measuring recall": recall@k/precision@k, a relevance floor, and
+    a demo. The exercise is now `ranked` + `evaluate_recall`, so it no
+    longer re-types code shown on the page.
+  - L9 C1 "Scope is a design decision", with a namespaces demo.
+  - L8 C1: framework vocabulary, transcript search, "The user's side".
+  - L5 C3 "Testing a summary by asking it questions", a probe demo with
+    exact grading.
+  - L2 C1 "Four ways a context goes wrong" (Breunig's taxonomy mapped to
+    the module).
+  - L11 C3 "Merging instead of archiving" (consolidation/reflection).
+- **Intros and recaps:** L7, L11 and L12 intro outcomes updated to match,
+  with new quiz cards and recap questions throughout.
+
 ---
 
 ## Modules 4–11 — current plan
