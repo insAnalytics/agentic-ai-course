@@ -2887,6 +2887,27 @@ below describe each lesson as first converted; see the git log
    empty-block fallback each fail. Docstring backticks in `lib.py`
    removed. Lesson 9 is plain prose (unbuilt).
 
+9. **Building a Memory Store** — Building (title is a placeholder: the
+   mockup names no lesson; folder `09-building-a-memory-store`, named
+   from Lesson 8's forward reference). Concept 1 (a memory record, and a
+   store scoped by design) is built: a Pydantic `Memory` record (content,
+   type, source, created, tags) and `MemoryStore` (every method takes
+   the user; `save` stores a copy; `search` filters by kind and tags,
+   ranks by shared keywords over content and tags, newest first on ties),
+   with a record demo and a store demo, both matching the mockup's
+   printed output exactly when re-run, and the record demo's Pydantic
+   error messages confirmed under real Pyodide 0.26.4 (pydantic 2.7.0);
+   5 quiz cards; graded exercise `MemoryStore` with five hidden tests
+   (split into self-contained snippets). Verified natively: the
+   reference passes and the starter fails; mutations confirmed: no copy
+   fails 5, searching all users fails 1, 2 and 4, matching all tags fails
+   3, ignoring tags in the score fails 2, skipping the newest-first sort
+   fails 1, 3 and 5. Module 0's Pydantic and Module 3's `Literal` are
+   linked (anchor verified); the mockup's `Field(min_length=...)` gap
+   (Module 0 teaches `Field` only through Module 3's `description=`) is
+   covered by the code comment as authored. Lessons 10-11 are plain prose
+   (unbuilt).
+
 ---
 
 ## Modules 4–11 — current plan

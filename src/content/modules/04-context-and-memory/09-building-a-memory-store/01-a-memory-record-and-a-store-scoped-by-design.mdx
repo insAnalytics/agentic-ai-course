@@ -1,0 +1,498 @@
+---
+title: "A memory record, and a store scoped by design"
+lesson: "09-building-a-memory-store"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, COUNT_TOKENS } from "../../../../lib/fakeClient";
+
+export const KEYWORDS = String.raw`
+STOPWORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "is", "was", "it", "this", "that",
+             "with", "as", "at", "by", "be", "i", "you", "my", "me", "we", "our", "please", "about", "from", "last"}
+
+def keywords(text: str) -> set:
+    """The words in text worth matching on: lowercased, punctuation removed, common and one-letter words dropped."""
+    text = text.lower()
+    for mark in ".,;:!?()'\"":
+        text = text.replace(mark, " ")
+    # single letters, like the "s" a possessive leaves behind, carry no meaning either
+    return {word for word in text.split() if len(word) > 1} - STOPWORDS
+`;
+
+export const MEMORY_MODEL = String.raw`
+from typing import Literal
+from pydantic import BaseModel, Field
+
+class Memory(BaseModel):
+    # min_length=1 makes Pydantic reject an empty string
+    content: str = Field(min_length=1)
+    type: Literal["episodic", "semantic", "procedural"]
+    # who the memory came from: the user, the agent's own conclusion, or a tool result
+    source: Literal["user", "agent", "tool"]
+    # an ISO timestamp such as "2026-09-21T10:04:00", which sorts correctly as text
+    created: str
+    tags: list[str] = []
+`;
+
+export const STORE_CLASS = String.raw`
+class MemoryStore:
+    """Every user's memories, kept apart. Every method takes the user it acts for."""
+    def __init__(self):
+        self._by_user = {}
+
+    def save(self, user_id: str, memory: Memory) -> None:
+        # a copy, so the caller changing their object later can't change what's stored
+        self._by_user.setdefault(user_id, []).append(Memory(**memory.model_dump()))
+
+    def search(self, user_id: str, query: str = "", tags: list = None, kind: str = None, limit: int = 5) -> list:
+        """This user's memories that match, best first; with no query, newest first."""
+        candidates = []
+        for memory in self._by_user.get(user_id, []):
+            if kind is not None and memory.type != kind:
+                continue
+            if tags and not set(tags) & set(memory.tags):
+                continue
+            candidates.append(memory)
+        newest_first = sorted(candidates, key=lambda m: m.created, reverse=True)
+        if not query:
+            return newest_first[:limit]
+        wanted = keywords(query)
+        scored = [(len(wanted & keywords(m.content + " " + " ".join(m.tags))), m) for m in newest_first]
+        # sorting is stable, so memories with equal scores stay newest first
+        ranked = sorted([pair for pair in scored if pair[0] > 0], key=lambda pair: pair[0], reverse=True)
+        return [m for score, m in ranked[:limit]]
+`;
+
+export const RECORD_SETUP = REACT_FAKE_CLIENT + COUNT_TOKENS + KEYWORDS + MEMORY_MODEL;
+export const STORE_SETUP = RECORD_SETUP + STORE_CLASS;
+
+export const RECORD_DEMO = String.raw`from pydantic import ValidationError
+
+# a memory as a plain string: all you can do is read it
+plain = "Post status notes to #search-team, not by email."
+
+# the same memory as a record: who it came from, when, and what it's about
+record = Memory(content="Post status notes to #search-team, not by email.", type="procedural",
+                source="user", created="2026-09-19T15:20:00", tags=["status-notes", "search_agent"])
+print(record.model_dump())
+
+# a record that's missing something, or has a value outside the allowed set, is refused
+for bad in [dict(content="", type="semantic", source="user", created="2026-09-21T10:00:00"),
+            dict(content="Priya owns support_agent.", type="preference", source="user", created="2026-09-21T10:00:00"),
+            dict(content="Priya owns support_agent.", type="semantic", source="a web page", created="2026-09-21T10:00:00")]:
+    try:
+        Memory(**bad)
+    except ValidationError as error:
+        first = error.errors()[0]
+        print(f"refused, {first['loc'][0]}: {first['msg']}")
+`;
+
+export const STORE_DEMO = String.raw`store = MemoryStore()
+simar = [
+    Memory(content="Write summaries as bullet points.", type="procedural", source="user", created="2026-09-14T09:00:00", tags=["summaries"]),
+    Memory(content="Priya owns support_agent.", type="semantic", source="user", created="2026-09-21T10:04:00", tags=["support_agent", "people"]),
+    Memory(content="billing_agent's per-ticket lookup was support_agent's bottleneck.", type="episodic", source="agent",
+           created="2026-09-21T11:30:00", tags=["support_agent", "billing_agent"]),
+    Memory(content="support_agent had an outage after a bad deploy.", type="episodic", source="tool", created="2026-07-03T08:00:00", tags=["support_agent"]),
+]
+for memory in simar:
+    store.save("u_simar", memory)
+store.save("u_ravi", Memory(content="Post status notes to #search-team, not by email.", type="procedural", source="user",
+                            created="2026-09-19T15:20:00", tags=["status-notes"]))
+
+def show(label, results):
+    print(label)
+    for m in results:
+        print(f"   {m.created[:10]}  {m.type:10} {m.source:5}  {m.content}")
+
+show("simar, query 'support_agent status':", store.search("u_simar", "support_agent status"))
+show("simar, tag 'people':", store.search("u_simar", tags=["people"]))
+show("simar, episodic only, newest first:", store.search("u_simar", kind="episodic"))
+show("ravi, query 'support_agent status':", store.search("u_ravi", "support_agent status"))
+show("someone new:", store.search("u_new", "support_agent"))
+`;
+
+export const STARTER = String.raw`STOPWORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "is", "was", "it", "this", "that",
+             "with", "as", "at", "by", "be", "i", "you", "my", "me", "we", "our", "please", "about", "from", "last"}
+
+def keywords(text: str) -> set:
+    """The words in text worth matching on: lowercased, punctuation removed, common and one-letter words dropped."""
+    text = text.lower()
+    for mark in ".,;:!?()'\"":
+        text = text.replace(mark, " ")
+    # single letters, like the "s" a possessive leaves behind, carry no meaning either
+    return {word for word in text.split() if len(word) > 1} - STOPWORDS
+# (provided above: STOPWORDS and keywords)
+
+from typing import Literal
+from pydantic import BaseModel, Field
+
+class Memory(BaseModel):
+    # min_length=1 makes Pydantic reject an empty string
+    content: str = Field(min_length=1)
+    type: Literal["episodic", "semantic", "procedural"]
+    # who the memory came from: the user, the agent's own conclusion, or a tool result
+    source: Literal["user", "agent", "tool"]
+    # an ISO timestamp such as "2026-09-21T10:04:00", which sorts correctly as text
+    created: str
+    tags: list[str] = []
+
+class MemoryStore:
+    """Every user's memories, kept apart. Every method takes the user it acts for."""
+    def __init__(self):
+        self._by_user = {}
+
+    def save(self, user_id: str, memory: Memory) -> None:
+        # TODO: add a copy of the memory to this user's list
+        ...
+
+    def search(self, user_id: str, query: str = "", tags: list = None, kind: str = None, limit: int = 5) -> list:
+        # TODO: this user's memories only; filter by kind and tags; newest first;
+        #       with a query, keep those sharing a keyword and rank by how many
+        ...
+`;
+
+export const REFERENCE = String.raw`STOPWORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "is", "was", "it", "this", "that",
+             "with", "as", "at", "by", "be", "i", "you", "my", "me", "we", "our", "please", "about", "from", "last"}
+
+def keywords(text: str) -> set:
+    """The words in text worth matching on: lowercased, punctuation removed, common and one-letter words dropped."""
+    text = text.lower()
+    for mark in ".,;:!?()'\"":
+        text = text.replace(mark, " ")
+    # single letters, like the "s" a possessive leaves behind, carry no meaning either
+    return {word for word in text.split() if len(word) > 1} - STOPWORDS
+
+from typing import Literal
+from pydantic import BaseModel, Field
+
+class Memory(BaseModel):
+    # min_length=1 makes Pydantic reject an empty string
+    content: str = Field(min_length=1)
+    type: Literal["episodic", "semantic", "procedural"]
+    # who the memory came from: the user, the agent's own conclusion, or a tool result
+    source: Literal["user", "agent", "tool"]
+    # an ISO timestamp such as "2026-09-21T10:04:00", which sorts correctly as text
+    created: str
+    tags: list[str] = []
+
+class MemoryStore:
+    """Every user's memories, kept apart. Every method takes the user it acts for."""
+    def __init__(self):
+        self._by_user = {}
+
+    def save(self, user_id: str, memory: Memory) -> None:
+        # a copy, so the caller changing their object later can't change what's stored
+        self._by_user.setdefault(user_id, []).append(Memory(**memory.model_dump()))
+
+    def search(self, user_id: str, query: str = "", tags: list = None, kind: str = None, limit: int = 5) -> list:
+        """This user's memories that match, best first; with no query, newest first."""
+        candidates = []
+        for memory in self._by_user.get(user_id, []):
+            if kind is not None and memory.type != kind:
+                continue
+            if tags and not set(tags) & set(memory.tags):
+                continue
+            candidates.append(memory)
+        newest_first = sorted(candidates, key=lambda m: m.created, reverse=True)
+        if not query:
+            return newest_first[:limit]
+        wanted = keywords(query)
+        scored = [(len(wanted & keywords(m.content + " " + " ".join(m.tags))), m) for m in newest_first]
+        # sorting is stable, so memories with equal scores stay newest first
+        ranked = sorted([pair for pair in scored if pair[0] > 0], key=lambda pair: pair[0], reverse=True)
+        return [m for score, m in ranked[:limit]]
+`;
+
+export const TESTS = [
+  String.raw`
+def mem(content, kind="semantic", source="user", created="2026-09-21T10:00:00", tags=None):
+    return Memory(content=content, type=kind, source=source, created=created, tags=tags or [])
+
+store = MemoryStore()
+store.save("u_a", mem("Priya owns support_agent.", tags=["people", "support_agent"], created="2026-09-21T10:00:00"))
+store.save("u_a", mem("support_agent latency spiked.", kind="episodic", source="tool", created="2026-08-20T09:00:00", tags=["support_agent"]))
+store.save("u_a", mem("support_agent moved to claude-sonnet.", kind="episodic", source="agent", created="2026-09-21T11:00:00"))
+store.save("u_a", mem("Write summaries as bullet points.", kind="procedural", created="2026-09-14T09:00:00"))
+store.save("u_b", mem("support_agent notes go to #search-team.", kind="procedural", created="2026-09-19T15:00:00"))
+
+contents = lambda results: [m.content for m in results]
+
+# 1. no query: this user's memories, newest first, at most limit
+assert contents(store.search("u_a")) == ["support_agent moved to claude-sonnet.", "Priya owns support_agent.",
+                                          "Write summaries as bullet points.", "support_agent latency spiked."]
+assert len(store.search("u_a", limit=2)) == 2`,
+  String.raw`
+def mem(content, kind="semantic", source="user", created="2026-09-21T10:00:00", tags=None):
+    return Memory(content=content, type=kind, source=source, created=created, tags=tags or [])
+
+store = MemoryStore()
+store.save("u_a", mem("Priya owns support_agent.", tags=["people", "support_agent"], created="2026-09-21T10:00:00"))
+store.save("u_a", mem("support_agent latency spiked.", kind="episodic", source="tool", created="2026-08-20T09:00:00", tags=["support_agent"]))
+store.save("u_a", mem("support_agent moved to claude-sonnet.", kind="episodic", source="agent", created="2026-09-21T11:00:00"))
+store.save("u_a", mem("Write summaries as bullet points.", kind="procedural", created="2026-09-14T09:00:00"))
+store.save("u_b", mem("support_agent notes go to #search-team.", kind="procedural", created="2026-09-19T15:00:00"))
+
+contents = lambda results: [m.content for m in results]
+
+# 2. a query: only memories that share a keyword with it (content or tags), best first, equal scores newest first
+assert contents(store.search("u_a", "support_agent claude-sonnet")) == [
+    "support_agent moved to claude-sonnet.", "Priya owns support_agent.", "support_agent latency spiked."]
+assert contents(store.search("u_a", "people")) == ["Priya owns support_agent."]
+assert store.search("u_a", "kubernetes") == []`,
+  String.raw`
+def mem(content, kind="semantic", source="user", created="2026-09-21T10:00:00", tags=None):
+    return Memory(content=content, type=kind, source=source, created=created, tags=tags or [])
+
+store = MemoryStore()
+store.save("u_a", mem("Priya owns support_agent.", tags=["people", "support_agent"], created="2026-09-21T10:00:00"))
+store.save("u_a", mem("support_agent latency spiked.", kind="episodic", source="tool", created="2026-08-20T09:00:00", tags=["support_agent"]))
+store.save("u_a", mem("support_agent moved to claude-sonnet.", kind="episodic", source="agent", created="2026-09-21T11:00:00"))
+store.save("u_a", mem("Write summaries as bullet points.", kind="procedural", created="2026-09-14T09:00:00"))
+store.save("u_b", mem("support_agent notes go to #search-team.", kind="procedural", created="2026-09-19T15:00:00"))
+
+contents = lambda results: [m.content for m in results]
+
+# 3. filters: by tag (any of those given) and by type, combined with a query or not
+assert contents(store.search("u_a", tags=["people", "nothing"])) == ["Priya owns support_agent."]
+assert contents(store.search("u_a", kind="episodic")) == ["support_agent moved to claude-sonnet.", "support_agent latency spiked."]
+assert contents(store.search("u_a", "support_agent", kind="episodic", tags=["support_agent"])) == ["support_agent latency spiked."]`,
+  String.raw`
+def mem(content, kind="semantic", source="user", created="2026-09-21T10:00:00", tags=None):
+    return Memory(content=content, type=kind, source=source, created=created, tags=tags or [])
+
+store = MemoryStore()
+store.save("u_a", mem("Priya owns support_agent.", tags=["people", "support_agent"], created="2026-09-21T10:00:00"))
+store.save("u_a", mem("support_agent latency spiked.", kind="episodic", source="tool", created="2026-08-20T09:00:00", tags=["support_agent"]))
+store.save("u_a", mem("support_agent moved to claude-sonnet.", kind="episodic", source="agent", created="2026-09-21T11:00:00"))
+store.save("u_a", mem("Write summaries as bullet points.", kind="procedural", created="2026-09-14T09:00:00"))
+store.save("u_b", mem("support_agent notes go to #search-team.", kind="procedural", created="2026-09-19T15:00:00"))
+
+contents = lambda results: [m.content for m in results]
+
+# 4. scoping: a user only ever sees their own memories; an unknown user sees none
+assert contents(store.search("u_b", "support_agent")) == ["support_agent notes go to #search-team."]
+assert "support_agent notes go to #search-team." not in contents(store.search("u_a", "support_agent notes"))
+assert store.search("u_zzz") == []`,
+  String.raw`
+def mem(content, kind="semantic", source="user", created="2026-09-21T10:00:00", tags=None):
+    return Memory(content=content, type=kind, source=source, created=created, tags=tags or [])
+
+store = MemoryStore()
+store.save("u_a", mem("Priya owns support_agent.", tags=["people", "support_agent"], created="2026-09-21T10:00:00"))
+store.save("u_a", mem("support_agent latency spiked.", kind="episodic", source="tool", created="2026-08-20T09:00:00", tags=["support_agent"]))
+store.save("u_a", mem("support_agent moved to claude-sonnet.", kind="episodic", source="agent", created="2026-09-21T11:00:00"))
+store.save("u_a", mem("Write summaries as bullet points.", kind="procedural", created="2026-09-14T09:00:00"))
+store.save("u_b", mem("support_agent notes go to #search-team.", kind="procedural", created="2026-09-19T15:00:00"))
+
+contents = lambda results: [m.content for m in results]
+
+# 5. what's stored is a copy: changing the caller's object afterwards changes nothing
+original = mem("The on-call rota changes on Mondays.", created="2026-09-22T08:00:00")
+store.save("u_a", original)
+original.content = "changed afterwards"
+assert store.search("u_a", limit=1)[0].content == "The on-call rota changes on Mondays."`,
+];
+
+<Subsection title="What a string can't tell you" variant="a">
+
+[Lesson 8](/04-context-and-memory/08-long-term-memory/00-intro/) kept
+memories as plain strings, then as small dicts with a type and a date. That
+was enough to show the architecture. A real store has to answer more
+questions about each memory:
+
+- **Where did it come from?** "Post status notes to #search-team" reads the
+  same whether the user said it, the agent concluded it, or a web page said
+  it. Lesson 10 treats those three very differently.
+- **When was it made?** Episodes are recalled newest first, and Lesson 11
+  ages memories out.
+- **What is it about?** Tags let a search find "everything about
+  support_agent" even when the words differ.
+
+A string can't answer any of them. A record can.
+
+</Subsection>
+
+<Subsection title="A memory record" variant="b">
+
+[Module 0's Pydantic model](/00-python-essentials/05-typed-data-models/04-pydantic-fundamentals/)
+is the natural fit: fixed fields, checked when a memory is created, and
+[`Literal`](/03-tool-design-for-agents/01-designing-tools-a-model-can-use-well/02-parameter-design/#allowed-values-literal-instead-of-a-free-form-string)
+for fields with a fixed set of allowed values:
+
+```python
+from typing import Literal
+from pydantic import BaseModel, Field
+
+class Memory(BaseModel):
+    # min_length=1 makes Pydantic reject an empty string
+    content: str = Field(min_length=1)
+    type: Literal["episodic", "semantic", "procedural"]
+    # who the memory came from: the user, the agent's own conclusion, or a tool result
+    source: Literal["user", "agent", "tool"]
+    # an ISO timestamp such as "2026-09-21T10:04:00", which sorts correctly as text
+    created: str
+    tags: list[str] = []
+```
+
+- **`content`** is one self-contained statement, as
+  [Lesson 8 described](/04-context-and-memory/08-long-term-memory/02-storage-retrieval-injection/#storage-what-where-whose).
+- **`type`** is one of
+  [Lesson 8's three kinds](/04-context-and-memory/08-long-term-memory/03-episodic-semantic-procedural/).
+- **`source`** records who the memory came from: `"user"` (the user said it),
+  `"agent"` (the agent concluded it) or `"tool"` (it came from a tool result,
+  a fetched page or a document). What each source is allowed to become is
+  Lesson 10's rule. The record just has to carry it.
+- **`created`** is an ISO timestamp, kept as a string. ISO timestamps sort
+  correctly as text, which is all the store needs from them.
+- **`tags`** are short labels for finding related memories.
+
+`Memory` is already loaded:
+
+<LiveDemo client:load setupCode={RECORD_SETUP} code={RECORD_DEMO} />
+
+Pydantic refuses a record with no content, an unknown type, or a source
+outside the three, before it ever reaches the store. "a web page" isn't a
+source; it's a `"tool"` source, and the difference matters in Lesson 10.
+
+</Subsection>
+
+<Subsection title="A store scoped by design" variant="a">
+
+Per-user separation isn't a filter applied after the fact. It's built into
+the shape of the store's interface: **every method takes the user it acts
+for, and no method can return another user's memories.** There's no "search
+everything" call to misuse.
+
+```python
+class MemoryStore:
+    """Every user's memories, kept apart. Every method takes the user it acts for."""
+    def __init__(self):
+        self._by_user = {}
+
+    def save(self, user_id: str, memory: Memory) -> None:
+        # a copy, so the caller changing their object later can't change what's stored
+        self._by_user.setdefault(user_id, []).append(Memory(**memory.model_dump()))
+
+    def search(self, user_id: str, query: str = "", tags: list = None, kind: str = None, limit: int = 5) -> list:
+        """This user's memories that match, best first; with no query, newest first."""
+        candidates = []
+        for memory in self._by_user.get(user_id, []):
+            if kind is not None and memory.type != kind:
+                continue
+            if tags and not set(tags) & set(memory.tags):
+                continue
+            candidates.append(memory)
+        newest_first = sorted(candidates, key=lambda m: m.created, reverse=True)
+        if not query:
+            return newest_first[:limit]
+        wanted = keywords(query)
+        scored = [(len(wanted & keywords(m.content + " " + " ".join(m.tags))), m) for m in newest_first]
+        # sorting is stable, so memories with equal scores stay newest first
+        ranked = sorted([pair for pair in scored if pair[0] > 0], key=lambda pair: pair[0], reverse=True)
+        return [m for score, m in ranked[:limit]]
+```
+
+Search applies the filters first, type and then tags, where any matching tag
+counts. Then, if there's a query, it keeps the memories that share a keyword
+with it, in content or tags, and ranks them by how many. With no query, it
+returns the newest first. Keywords are
+[Lesson 8's](/04-context-and-memory/08-long-term-memory/02-storage-retrieval-injection/#retrieval-when-and-how);
+searching by meaning is Module 5's subject.
+
+<LiveDemo client:load setupCode={STORE_SETUP} code={STORE_DEMO} />
+
+The three results for Simar share a score of one each, so they come back
+newest first, the order that usually matters most for memories. Ravi's search
+finds only his own note, and a new user finds nothing at all.
+
+In a production system the dict would be a database table, and the same rule
+becomes: every query includes the user's id, and there's no code path that
+runs one without it.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "Why does every memory record carry a `source`?",
+      "options": [
+        "To make search faster",
+        "Because the same sentence can come from the user, the agent or a web page, and later rules treat those very differently",
+        "So memories can be sorted",
+        "Pydantic requires at least four fields"
+      ],
+      "correctIndex": 1,
+      "explanation": "\"Post status notes to #search-team\" is a legitimate standing instruction if the user said it, and a warning sign if a fetched page said it. Lesson 10's rules depend on knowing which."
+    },
+    {
+      "question": "Why can `created` be a plain string and still be sorted by time?",
+      "options": [
+        "Pydantic converts it to a date automatically",
+        "The store sorts by insertion order instead",
+        "ISO timestamps such as \"2026-09-21T10:04:00\" sort correctly as text",
+        "Strings can't be sorted, so it isn't sorted"
+      ],
+      "correctIndex": 2,
+      "explanation": "The fields run from largest unit to smallest, each at a fixed width, so text order and time order agree."
+    },
+    {
+      "question": "How does `MemoryStore` make per-user separation part of its design, rather than something callers must remember?",
+      "options": [
+        "Every method takes the user it acts for, and no method can return another user's memories",
+        "It encrypts each user's memories",
+        "It checks the user's name inside each memory",
+        "It deletes other users' memories before searching"
+      ],
+      "correctIndex": 0,
+      "explanation": "There's no \"search everything\" call to misuse. In a database, the same rule is that every query includes the user's id."
+    },
+    {
+      "question": "Why does `save` store a copy of the memory?",
+      "options": [
+        "Pydantic models can't be stored directly",
+        "Copies take less space",
+        "So search can return them in order",
+        "So a caller changing their object afterwards can't change what's stored"
+      ],
+      "correctIndex": 3,
+      "explanation": "Pydantic models can be changed after they're created. Without the copy, the stored memory and the caller's variable are the same object."
+    },
+    {
+      "question": "Three memories matched a query with the same score. In what order did they come back, and why?",
+      "options": [
+        "Alphabetical, so results are stable",
+        "Newest first: the store sorts by time before ranking, and a stable sort keeps that order for equal scores",
+        "Oldest first, because they were stored first",
+        "At random"
+      ],
+      "correctIndex": 1,
+      "explanation": "Recent memories usually matter most. Ranking by score while keeping time order among ties gets both."
+    }
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"STOPWORDS and keywords from Lesson 8 and the Memory model are provided. Complete MemoryStore. save(user_id, memory): add a copy of memory, made with Memory(**memory.model_dump()), to that user's list. search(user_id, query=\"\", tags=None, kind=None, limit=5): consider only this user's memories; an unknown user has none. If kind is given, keep only memories of that type. If tags is given, keep only memories with at least one of those tags. Sort what's left newest first, by created. With no query, return the first limit. With a query, score each memory by the number of keywords it shares with the query, counting its content and its tags. Drop zero scores, and return the first limit, highest score first, with equal scores still newest first."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  hint={"Filter into a list, then sort it once by created with reverse=True. Sort the (score, memory) pairs by score with reverse=True. Python's sort is stable, so ties keep the newest-first order they came in with. For the tags, \" \".join(m.tags) turns the list into text that keywords can read."}
+  correctAnswer={{
+    code: REFERENCE,
+    explanation: "Test 4 is the scoping rule: a search for one user never returns another's memory, even when the other memory matches the query better. Test 2 checks that tags count toward the score and that ties come back newest first. A version that ranks without sorting by time first returns ties in the order they were saved. Test 3 checks that tags matches any of the given tags, not all of them. Test 5 catches storing the caller's object instead of a copy.",
+  }}
+/>
+
+</CheckpointZone>
