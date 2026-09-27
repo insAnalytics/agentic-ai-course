@@ -75,7 +75,7 @@ def make_memory_tools(store: MemoryStore, user_id: str, now) -> dict:
             first = error.errors()[0]
             return f"Error: {first['loc'][0]}: {first['msg']}"
         store.save(user_id, memory)
-        return f"Saved as a {kind} memory."
+        return f"Saved as {kind} memory."
 
     def search_memory(query: str, kind: str = None) -> str:
         results = store.search(user_id, query, kind=kind)
@@ -314,7 +314,7 @@ def make_memory_tools(store: MemoryStore, user_id: str, now) -> dict:
             first = error.errors()[0]
             return f"Error: {first['loc'][0]}: {first['msg']}"
         store.save(user_id, memory)
-        return f"Saved as a {kind} memory."
+        return f"Saved as {kind} memory."
 
     def search_memory(query: str, kind: str = None) -> str:
         results = store.search(user_id, query, kind=kind)
@@ -361,7 +361,7 @@ export const TESTS = [
 # 1. save_memory stores a memory for this session's user, written by the agent, at the current time
 store = MemoryStore()
 simar = make_memory_tools(store, "u_simar", now=lambda: "2026-09-28T09:00:00")
-assert simar["save_memory"](content="Priya owns support_agent.", kind="semantic", tags=["people"]) == "Saved as a semantic memory."
+assert simar["save_memory"](content="Priya owns support_agent.", kind="semantic", tags=["people"]) == "Saved as semantic memory."
 saved = store.search("u_simar")[0]
 assert (saved.source, saved.created, saved.tags) == ("agent", "2026-09-28T09:00:00", ["people"])`,
   String.raw`
@@ -469,7 +469,7 @@ def make_memory_tools(store: MemoryStore, user_id: str, now) -> dict:
             first = error.errors()[0]
             return f"Error: {first['loc'][0]}: {first['msg']}"
         store.save(user_id, memory)
-        return f"Saved as a {kind} memory."
+        return f"Saved as {kind} memory."
 
     def search_memory(query: str, kind: str = None) -> str:
         results = store.search(user_id, query, kind=kind)
@@ -664,7 +664,7 @@ it missed.
 
 <GradedExercise
   client:load
-  task={"Memory, MemoryStore and ValidationError are provided. Implement make_memory_tools(store, user_id, now): return {\"save_memory\": ..., \"search_memory\": ...}. Both functions use user_id and neither takes it as an argument. now() returns the current ISO timestamp. save_memory(content, kind, tags=None): build a Memory with source=\"agent\", created=now() and tags (or []), save it for this user, and return \"Saved as a KIND memory.\". If Pydantic refuses it, save nothing and return \"Error: FIELD: MESSAGE\", using the first error's loc[0] and msg. search_memory(query, kind=None): search this user's memories. Return \"No matching memories.\" if there are none, or one line per result, \"- [TYPE, DATE] CONTENT\", where DATE is the first ten characters of created, joined by \"\\n\". Then CoreBlock(text=\"\", max_chars=400). append(line): add the line, after a newline unless the block is empty, and return \"Added.\". replace(old, new): replace the first exact occurrence of old and return \"Replaced.\". If old isn't there, return \"Error: the block doesn't contain OLD. Replace text exactly as it appears.\", with OLD written using !r. Either edit that would make the block longer than max_chars is refused with \"Error: that would make the block N characters, over its limit of MAX. Shorten or replace something first.\". A refused edit changes nothing."}
+  task={"Memory, MemoryStore and ValidationError are provided. Implement make_memory_tools(store, user_id, now): return {\"save_memory\": ..., \"search_memory\": ...}. Both functions use user_id and neither takes it as an argument. now() returns the current ISO timestamp. save_memory(content, kind, tags=None): build a Memory with source=\"agent\", created=now() and tags (or []), save it for this user, and return \"Saved as KIND memory.\". If Pydantic refuses it, save nothing and return \"Error: FIELD: MESSAGE\", using the first error's loc[0] and msg. search_memory(query, kind=None): search this user's memories. Return \"No matching memories.\" if there are none, or one line per result, \"- [TYPE, DATE] CONTENT\", where DATE is the first ten characters of created, joined by \"\\n\". Then CoreBlock(text=\"\", max_chars=400). append(line): add the line, after a newline unless the block is empty, and return \"Added.\". replace(old, new): replace the first exact occurrence of old and return \"Replaced.\". If old isn't there, return \"Error: the block doesn't contain OLD. Replace text exactly as it appears.\", with OLD written using !r. Either edit that would make the block longer than max_chars is refused with \"Error: that would make the block N characters, over its limit of MAX. Shorten or replace something first.\". A refused edit changes nothing."}
   starterCode={STARTER}
   hiddenTests={TESTS}
   hint={"Define the two tool functions inside make_memory_tools, so they can use store, user_id and now without taking them as arguments. That's a closure, as in [Module 0's decorators](/00-python-essentials/04-object-oriented-programming/03-decorators-static-classmethods/). In CoreBlock, build the candidate text first, check its length, and only then assign it to self.text."}

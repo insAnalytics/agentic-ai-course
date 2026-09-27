@@ -58,7 +58,7 @@ def make_memory_tools(store: MemoryStore, user_id: str, now) -> dict:
             first = error.errors()[0]
             return f"Error: {first['loc'][0]}: {first['msg']}"
         store.save(user_id, memory)
-        return f"Saved as a {kind} memory."
+        return f"Saved as {kind} memory."
 
     def search_memory(query: str, kind: str = None) -> str:
         results = store.search(user_id, query, kind=kind)
@@ -236,7 +236,7 @@ Real systems often combine them: a block for the few things always needed, tools
 **Task shown to learner:** `Memory`, `MemoryStore` and `ValidationError` are provided. Implement:
 
 - **`make_memory_tools(store, user_id, now)`:** return `{"save_memory": ..., "search_memory": ...}`. Both functions use `user_id` and neither takes it as an argument. `now()` returns the current ISO timestamp.
-  - **`save_memory(content, kind, tags=None)`:** build a `Memory` with `source="agent"`, `created=now()` and `tags` (or `[]`), save it for this user, and return `Saved as a KIND memory.`. If Pydantic refuses it, save nothing and return `Error: FIELD: MESSAGE`, using the first error's `loc[0]` and `msg`.
+  - **`save_memory(content, kind, tags=None)`:** build a `Memory` with `source="agent"`, `created=now()` and `tags` (or `[]`), save it for this user, and return `Saved as KIND memory.`. If Pydantic refuses it, save nothing and return `Error: FIELD: MESSAGE`, using the first error's `loc[0]` and `msg`.
   - **`search_memory(query, kind=None)`:** search this user's memories. Return `No matching memories.` if there are none, or one line per result, `- [TYPE, DATE] CONTENT`, where DATE is the first ten characters of `created`, joined by `"\n"`.
 - **`CoreBlock(text="", max_chars=400)`:**
   - **`append(line)`:** add the line, after a newline unless the block is empty, and return `Added.`.
@@ -275,7 +275,7 @@ simar = make_memory_tools(store, "u_simar", now=lambda: next(times))
 ravi = make_memory_tools(store, "u_ravi", now=lambda: "2026-09-28T10:00:00")
 
 # 1. save_memory stores a memory for this session's user, written by the agent, at the current time
-assert simar["save_memory"](content="Priya owns support_agent.", kind="semantic", tags=["people"]) == "Saved as a semantic memory."
+assert simar["save_memory"](content="Priya owns support_agent.", kind="semantic", tags=["people"]) == "Saved as semantic memory."
 saved = store.search("u_simar")[0]
 assert (saved.source, saved.created, saved.tags) == ("agent", "2026-09-28T09:00:00", ["people"])
 
@@ -336,7 +336,7 @@ def make_memory_tools(store: MemoryStore, user_id: str, now) -> dict:
             first = error.errors()[0]
             return f"Error: {first['loc'][0]}: {first['msg']}"
         store.save(user_id, memory)
-        return f"Saved as a {kind} memory."
+        return f"Saved as {kind} memory."
 
     def search_memory(query: str, kind: str = None) -> str:
         results = store.search(user_id, query, kind=kind)

@@ -1,0 +1,26 @@
+---
+title: "Intro"
+lesson: "09-building-a-memory-store"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Model a memory as a validated record that says what it is, who it came from, when, and what it's about",
+    "Build a store where per-user separation is part of the interface, not a filter someone might forget",
+    "Give an agent memory in three ways (tools it calls, a pipeline after the session, and a block it edits) and choose between them",
+    "Place recalled memories and block edits so that memory never breaks the cached prefix, and explain what each placement costs",
+  ]}
+/>
+
+<WhyItMatters>
+  [Lesson 8](/04-context-and-memory/08-long-term-memory/00-intro/) drew the
+  architecture: storage, retrieval and injection, over three kinds of memory.
+  This lesson builds it. Two things decide whether that build is safe and
+  affordable. The first is scoping: one user's memories must never reach
+  another user's session, however the model is steered. The second is
+  placement: memory arrives in every session, so where it goes in each request
+  decides how much every session costs.
+</WhyItMatters>

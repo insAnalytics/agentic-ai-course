@@ -2887,9 +2887,8 @@ below describe each lesson as first converted; see the git log
    empty-block fallback each fail. Docstring backticks in `lib.py`
    removed. Lesson 9 is plain prose (unbuilt).
 
-9. **Building a Memory Store** — Building (title is a placeholder: the
-   mockup names no lesson; folder `09-building-a-memory-store`, named
-   from Lesson 8's forward reference). Concept 1 (a memory record, and a
+9. **Building a Memory Store** — **Locked** (folder
+   `09-building-a-memory-store`, named from Lesson 8's forward reference). Concept 1 (a memory record, and a
    store scoped by design) is built: a Pydantic `Memory` record (content,
    type, source, created, tags) and `MemoryStore` (every method takes
    the user; `save` stores a copy; `search` filters by kind and tags,
@@ -2939,7 +2938,18 @@ below describe each lesson as first converted; see the git log
    the block by reference instead of its text fails 3 and 5. Callbacks
    link to Lesson 8's injection subsection, concept 2's block subsection
    and Lesson 2's re-anchoring concept (anchors verified). No
-   recap/bookends yet.
+   bookends built: `00-intro.mdx` and `04-recap-practice.mdx` (8-question
+   comprehensive quiz; multi-file comprehensive sandbox with read-only
+   `lib.py`, entry `agent.py`: `make_session_tools` and
+   `run_memory_session`, seven hidden test groups run as one script;
+   the lib needs Pydantic, loaded from its import). Verified natively:
+   the reference passes and the starter fails; mutations confirmed: a
+   block not kept in `blocks`, no `TypeError` catch, no post-session
+   pipeline, sending the raw history, no block tools, rebuilding the
+   prefix, and an unbound `user_id` parameter each fail. Docstring and
+   comment backticks removed. Concept 2's `save_memory` message changed
+   in the mockup to `Saved as KIND memory.` and the page, exercise and
+   tests were updated to match. Title confirmed by the bookends heading.
 
 ---
 

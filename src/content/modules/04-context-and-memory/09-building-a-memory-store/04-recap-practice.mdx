@@ -1,0 +1,473 @@
+---
+title: "Recap & Practice"
+lesson: "09-building-a-memory-store"
+order: 4
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, COUNT_TOKENS, WINDOWED_CLIENT } from "../../../../lib/fakeClient";
+
+export const TOKENS_PY = "# the token estimate used throughout this module -- read-only\n" + COUNT_TOKENS.trimStart();
+
+export const LIB_PY = String.raw`# this lesson's code, plus the Lesson 3 and 8 helpers it uses -- read-only
+import json
+from tokens import count_tokens, _plain
+from pydantic import ValidationError
+
+STOPWORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "is", "was", "it", "this", "that",
+             "with", "as", "at", "by", "be", "i", "you", "my", "me", "we", "our", "please", "about", "from", "last"}
+
+def keywords(text: str) -> set:
+    """The words in text worth matching on: lowercased, punctuation removed, common and one-letter words dropped."""
+    text = text.lower()
+    for mark in ".,;:!?()'\"":
+        text = text.replace(mark, " ")
+    # single letters, like the "s" a possessive leaves behind, carry no meaning either
+    return {word for word in text.split() if len(word) > 1} - STOPWORDS
+
+def recall(memories: list, task: str, limit: int = 3) -> list:
+    """The memories sharing the most keywords with the task, best first, at most limit."""
+    wanted = keywords(task)
+    scored = []
+    for memory in memories:
+        score = len(wanted & keywords(memory))
+        if score:
+            scored.append((score, memory))
+    return [memory for score, memory in sorted(scored, key=lambda pair: pair[0], reverse=True)[:limit]]
+
+def session_prompt(base: str, recalled: list) -> str:
+    """The session's system prompt: fixed from its first request to its last."""
+    if not recalled:
+        return base
+    return base + "\n\nFrom earlier sessions with this user:\n- " + "\n- ".join(recalled)
+
+def recall_for(store: dict, user_id: str, task: str, limit: int = 3) -> list:
+    """Recall only from this user's memories. An unknown user has none."""
+    return recall(store.get(user_id, []), task, limit)
+
+from typing import Literal
+from pydantic import BaseModel, Field
+
+class Memory(BaseModel):
+    # min_length=1 makes Pydantic reject an empty string
+    content: str = Field(min_length=1)
+    type: Literal["episodic", "semantic", "procedural"]
+    # who the memory came from: the user, the agent's own conclusion, or a tool result
+    source: Literal["user", "agent", "tool"]
+    # an ISO timestamp such as "2026-09-21T10:04:00", which sorts correctly as text
+    created: str
+    tags: list[str] = []
+
+class MemoryStore:
+    """Every user's memories, kept apart. Every method takes the user it acts for."""
+    def __init__(self):
+        self._by_user = {}
+
+    def save(self, user_id: str, memory: Memory) -> None:
+        # a copy, so the caller changing their object later can't change what's stored
+        self._by_user.setdefault(user_id, []).append(Memory(**memory.model_dump()))
+
+    def search(self, user_id: str, query: str = "", tags: list = None, kind: str = None, limit: int = 5) -> list:
+        """This user's memories that match, best first; with no query, newest first."""
+        candidates = []
+        for memory in self._by_user.get(user_id, []):
+            if kind is not None and memory.type != kind:
+                continue
+            if tags and not set(tags) & set(memory.tags):
+                continue
+            candidates.append(memory)
+        newest_first = sorted(candidates, key=lambda m: m.created, reverse=True)
+        if not query:
+            return newest_first[:limit]
+        wanted = keywords(query)
+        scored = [(len(wanted & keywords(m.content + " " + " ".join(m.tags))), m) for m in newest_first]
+        # sorting is stable, so memories with equal scores stay newest first
+        ranked = sorted([pair for pair in scored if pair[0] > 0], key=lambda pair: pair[0], reverse=True)
+        return [m for score, m in ranked[:limit]]
+
+def add_to_end(messages: list, text: str) -> list:
+    last = messages[-1]
+    if isinstance(last["content"], str):
+        new_last = {**last, "content": last["content"] + "\n\n" + text}
+    else:
+        new_last = {**last, "content": last["content"] + [{"type": "text", "text": text}]}
+    return messages[:-1] + [new_last]
+
+def make_memory_tools(store: MemoryStore, user_id: str, now) -> dict:
+    """save_memory and search_memory for one session, bound to its user. now() returns an ISO timestamp."""
+    def save_memory(content: str, kind: str, tags: list = None) -> str:
+        try:
+            memory = Memory(content=content, type=kind, source="agent", created=now(), tags=tags or [])
+        except ValidationError as error:
+            first = error.errors()[0]
+            return f"Error: {first['loc'][0]}: {first['msg']}"
+        store.save(user_id, memory)
+        return f"Saved as {kind} memory."
+
+    def search_memory(query: str, kind: str = None) -> str:
+        results = store.search(user_id, query, kind=kind)
+        if not results:
+            return "No matching memories."
+        return "\n".join(f"- [{m.type}, {m.created[:10]}] {m.content}" for m in results)
+
+    return {"save_memory": save_memory, "search_memory": search_memory}
+
+def write_after_session(store: MemoryStore, user_id: str, extracted: list, now) -> list:
+    """Save what an extraction step found after a session. Returns one line per item: saved, or why not."""
+    report = []
+    for item in extracted:
+        try:
+            memory = Memory(created=now(), **item)
+        except ValidationError as error:
+            first = error.errors()[0]
+            report.append(f"skipped ({first['loc'][0]}: {first['msg']}): {item.get('content', '')}")
+            continue
+        store.save(user_id, memory)
+        report.append(f"saved {memory.type}: {memory.content}")
+    return report
+
+class CoreBlock:
+    """A short memory the agent edits itself and sees in every session. It has a hard size limit."""
+    def __init__(self, text: str = "", max_chars: int = 400):
+        self.text = text
+        self.max_chars = max_chars
+
+    def _fits(self, candidate: str) -> str:
+        if len(candidate) > self.max_chars:
+            return (f"Error: that would make the block {len(candidate)} characters, over its limit of {self.max_chars}. "
+                    f"Shorten or replace something first.")
+        return ""
+
+    def append(self, line: str) -> str:
+        candidate = self.text + ("\n" if self.text else "") + line
+        problem = self._fits(candidate)
+        if problem:
+            return problem
+        self.text = candidate
+        return "Added."
+
+    def replace(self, old: str, new: str) -> str:
+        if old not in self.text:
+            return f"Error: the block doesn't contain {old!r}. Replace text exactly as it appears."
+        # the 1 means only the first occurrence is replaced
+        candidate = self.text.replace(old, new, 1)
+        problem = self._fits(candidate)
+        if problem:
+            return problem
+        self.text = candidate
+        return "Replaced."
+
+class MemoryContext:
+    """One session's use of memory: fixed in the prefix at the start, anything newer at the end of each request."""
+    def __init__(self, base: str, store: MemoryStore, user_id: str, block: CoreBlock, task: str, limit: int = 3):
+        self.block = block
+        self.block_at_start = block.text
+        recalled = store.search(user_id, task, limit=limit)
+        system = base
+        if block.text:
+            system += "\n\n<memory_block>\n" + block.text + "\n</memory_block>"
+        if recalled:
+            system += "\n\nFrom earlier sessions:\n" + "\n".join(f"- [{m.type}] {m.content}" for m in recalled)
+        # built once: the prefix never changes during the session
+        self.system = system
+
+    def messages(self, history: list) -> list:
+        """What to send: the history, plus the block's current text at the end if it has changed this session."""
+        if self.block.text == self.block_at_start:
+            return list(history)
+        return add_to_end(history, "Your memory block has changed this session. It now reads:\n" + self.block.text)
+
+
+def serialize(x) -> str:
+    # byte-for-byte form, as a cache sees it: key order matters, exactly as sent
+    return json.dumps(_plain(x))
+
+def first_divergence(previous: dict, current: dict) -> dict:
+    """Where does current stop matching previous, and how much of it could be read from the cache?"""
+    reusable = 0
+    if serialize(current["tools"]) != serialize(previous["tools"]):
+        return {"diverges_at": "tools", "reusable_tokens": 0}
+    reusable += count_tokens(current["tools"])
+    if serialize(current["system"]) != serialize(previous["system"]):
+        return {"diverges_at": "system", "reusable_tokens": reusable}
+    reusable += count_tokens(current["system"])
+    for i, old in enumerate(previous["messages"]):
+        if i >= len(current["messages"]) or serialize(current["messages"][i]) != serialize(old):
+            return {"diverges_at": f"messages[{i}]", "reusable_tokens": reusable}
+        reusable += count_tokens(old)
+    return {"diverges_at": None, "reusable_tokens": reusable}
+
+def cost_of_run(requests: list, read_multiplier: float, write_multiplier: float) -> int:
+    """Cost of the requests actually sent, using first_divergence to see what each could reuse."""
+    total = 0.0
+    previous = None
+    for request in requests:
+        size = count_tokens(request["tools"]) + count_tokens(request["system"]) + count_tokens(request["messages"])
+        reused = first_divergence(previous, request)["reusable_tokens"] if previous else 0
+        total += reused * read_multiplier + (size - reused) * write_multiplier
+        previous = request
+    return round(total)
+`;
+
+export const AGENT_STARTER = String.raw`from lib import CoreBlock, MemoryContext, make_memory_tools, write_after_session
+
+def make_session_tools(store, block, user_id: str, now) -> dict:
+    # TODO: the bound memory tools, plus block_append(line) and block_replace(old, new) on this block
+    ...
+
+def run_memory_session(llm, store, blocks: dict, user_id: str, base: str, task: str, tool_defs: list,
+                       tool_impls: dict, extracted_after: list, now, max_steps: int = 20):
+    # TODO: this user's block (kept in blocks); a MemoryContext; the tools; the canonical loop,
+    #       with wrong arguments returned as errors; then the pipeline. Return answer, history, sent, report.
+    ...
+`;
+
+export const AGENT_REFERENCE = String.raw`from lib import CoreBlock, MemoryContext, make_memory_tools, write_after_session
+
+def make_session_tools(store, block, user_id: str, now) -> dict:
+    """Everything memory-related the model can call in one session, all bound to this session's user."""
+    tools = make_memory_tools(store, user_id, now)
+    tools["block_append"] = lambda line: block.append(line)
+    tools["block_replace"] = lambda old, new: block.replace(old, new)
+    return tools
+
+def run_memory_session(llm, store, blocks: dict, user_id: str, base: str, task: str, tool_defs: list,
+                       tool_impls: dict, extracted_after: list, now, max_steps: int = 20):
+    """One session with memory: recall at the start, tools during it, the pipeline after it."""
+    block = blocks.setdefault(user_id, CoreBlock(""))
+    context = MemoryContext(base, store, user_id, block, task)
+    tools = {**tool_impls, **make_session_tools(store, block, user_id, now)}
+    history = [{"role": "user", "content": task}]
+    sent = []
+    answer = f"stopped after {max_steps} steps without a final answer"
+    for step in range(max_steps):
+        request = {"tools": tool_defs, "system": context.system, "messages": context.messages(history)}
+        sent.append(request)
+        response = llm.create(messages=request["messages"], tools=request["tools"], system=request["system"])
+        history.append({"role": "assistant", "content": response.content})
+        calls = [b for b in response.content if b.type == "tool_use"]
+        if not calls:
+            answer = "".join(b.text for b in response.content if b.type == "text")
+            break
+        results = []
+        for call in calls:
+            try:
+                content = tools[call.name](**call.input)
+            except TypeError as error:
+                # wrong or extra arguments come back as an observation, as Module 3 taught
+                content = f"Error: invalid arguments for {call.name}: {error}"
+            results.append({"type": "tool_result", "tool_use_id": call.id, "content": content})
+        history.append({"role": "user", "content": results})
+    report = write_after_session(store, user_id, extracted_after, now)
+    return answer, history, sent, report
+`;
+
+export const HIDDEN_TESTS = REACT_FAKE_CLIENT + COUNT_TOKENS + WINDOWED_CLIENT + String.raw`
+from lib import MemoryStore, Memory, first_divergence
+from agent import make_session_tools, run_memory_session
+import json
+
+BASE = "You are the operations assistant."
+TOOL_DEFS = [{"name": n, "description": n, "input_schema": {"type": "object", "properties": {}}}
+             for n in ["get_status", "save_memory", "search_memory", "block_append", "block_replace"]]
+IMPLS = {"get_status": lambda agent_name: f"{agent_name}: p99 4.1s, model claude-haiku"}
+text = lambda x: json.dumps(_plain(x))
+
+def last_text(request):
+    content = request["messages"][-1]["content"]
+    return content if isinstance(content, str) else _plain(content[-1]).get("text", "")
+clock = lambda: "2026-09-21T11:00:00"
+
+store, blocks = MemoryStore(), {}
+store.save("u_ravi", Memory(content="Ravi's on-call phone is +44 7700 900123.", type="semantic", source="user",
+                            created="2026-09-19T15:20:00", tags=["on-call"]))
+
+# session 1: the model searches memory, saves a finding, edits its block, and tries to read another user's memory
+session_1 = [
+    [ToolUseBlock(name="search_memory", input={"query": "support_agent"})],
+    [ToolUseBlock(name="get_status", input={"agent_name": "support_agent"})],
+    [ToolUseBlock(name="save_memory", input={"content": "support_agent's p99 was 4.1s on claude-haiku.", "kind": "episodic",
+                                             "tags": ["support_agent"]})],
+    [ToolUseBlock(name="block_append", input={"line": "User: Simar, owns support_agent."})],
+    [ToolUseBlock(name="search_memory", input={"query": "on-call phone", "user_id": "u_ravi"})],
+    [TextBlock(text="- support_agent p99 4.1s\n- noted for next time")],
+]
+extracted = [{"content": "Write summaries as bullet points.", "type": "procedural", "source": "user", "tags": ["summaries"]},
+             {"content": "The user likes short answers.", "type": "preference", "source": "agent"}]
+answer, history, sent, report = run_memory_session(
+    WindowedClient(session_1, window=100_000), store, blocks, "u_simar", BASE, "Check support_agent's latency.",
+    TOOL_DEFS, IMPLS, extracted, clock)
+results = [b["content"] for m in history if m["role"] == "user" and isinstance(m["content"], list) for b in m["content"]]
+
+# 1. the session ran: nothing to recall at first, a memory saved by the agent, the block edited
+assert answer.startswith("- support_agent p99 4.1s")
+assert results[0] == "No matching memories." and results[2] == "Saved as episodic memory."
+assert "u_simar" in blocks, "each user's block must be kept in blocks, under their user id"
+assert results[3] == "Added." and blocks["u_simar"].text == "User: Simar, owns support_agent."
+
+# 2. naming another user is refused as an observation, and nothing of theirs appears
+assert results[4].startswith("Error: invalid arguments for search_memory:")
+assert "+44 7700" not in text(history)
+
+# 3. the prefix never changed during the session; after the block edit, its new text rode at the end, never saved
+assert all(r["system"] == sent[0]["system"] for r in sent)
+assert all(first_divergence(a, b)["diverges_at"] not in ("tools", "system") for a, b in zip(sent, sent[1:]))
+assert "It now reads" not in last_text(sent[3])
+assert last_text(sent[4]).endswith("It now reads:\nUser: Simar, owns support_agent.")
+assert "It now reads" not in text(history)
+
+# 4. after the session, the pipeline saved what was valid and said why it skipped the rest
+assert len(report) == 2, "the post-session pipeline should report on both extracted items"
+assert report[0] == "saved procedural: Write summaries as bullet points."
+assert report[1].startswith("skipped (type:")
+sources = {m.content: m.source for m in store.search("u_simar")}
+assert sources == {"support_agent's p99 was 4.1s on claude-haiku.": "agent", "Write summaries as bullet points.": "user"}
+
+# 5. session 2 starts with the edited block and the recalled memories in its prefix, and nothing at the end
+session_2 = [[TextBlock(text="- support_agent: last p99 was 4.1s")]]
+_, history_2, sent_2, _ = run_memory_session(
+    WindowedClient(session_2, window=100_000), store, blocks, "u_simar", BASE, "support_agent latency summaries",
+    TOOL_DEFS, IMPLS, [], clock)
+assert "<memory_block>\nUser: Simar, owns support_agent.\n</memory_block>" in sent_2[0]["system"]
+assert "- [episodic] support_agent's p99 was 4.1s on claude-haiku." in sent_2[0]["system"]
+assert "- [procedural] Write summaries as bullet points." in sent_2[0]["system"]
+assert sent_2[0]["messages"] == [{"role": "user", "content": "support_agent latency summaries"}]
+
+# 6. another user's session sees none of it, and has its own (empty) block
+_, _, sent_ravi, _ = run_memory_session(
+    WindowedClient([[TextBlock(text="ok")]], window=100_000), store, blocks, "u_ravi", BASE, "support_agent on-call",
+    TOOL_DEFS, IMPLS, [], clock)
+assert "Simar" not in sent_ravi[0]["system"] and "bullet points" not in sent_ravi[0]["system"]
+assert "+44 7700 900123" in sent_ravi[0]["system"] and blocks["u_ravi"].text == ""
+
+# 7. the session tools are bound: none of them takes a user
+tools = make_session_tools(store, blocks["u_simar"], "u_simar", clock)
+assert sorted(tools) == ["block_append", "block_replace", "save_memory", "search_memory"]
+try:
+    tools["save_memory"](content="x", kind="semantic", user_id="u_ravi")
+    assert False, "accepted a user_id"
+except TypeError:
+    pass
+`;
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "Why does every memory record carry a `source` of `\"user\"`, `\"agent\"` or `\"tool\"`?",
+      "options": [
+        "The same sentence can come from the user, the agent's own conclusion or a fetched page, and later rules treat those very differently",
+        "So the store can be sorted",
+        "Pydantic requires it",
+        "To track how often each memory is used"
+      ],
+      "correctIndex": 0,
+      "explanation": "Lesson 10's rules depend on it. A record that doesn't carry its source can't be judged later."
+    },
+    {
+      "question": "What makes `MemoryStore` scoped by design?",
+      "options": [
+        "It encrypts each user's memories",
+        "Every method takes the user it acts for, and no method can return another user's memories",
+        "It deletes old memories",
+        "It checks each memory's content for names"
+      ],
+      "correctIndex": 1,
+      "explanation": "There's no \"search everything\" call to misuse. In a database, every query carries the user's id."
+    },
+    {
+      "question": "Why don't the memory tools take a `user_id` argument?",
+      "options": [
+        "The model doesn't know user ids",
+        "It makes the schema shorter",
+        "Anything that can steer the model could then steer it into another user's memories, so the loop binds the tools to the session's user",
+        "The store ignores it anyway"
+      ],
+      "correctIndex": 2,
+      "explanation": "In the demo, an unbound tool returned another user's phone number. Bound tools can't name anyone else."
+    },
+    {
+      "question": "What does the post-session pipeline offer that tools called during the session don't?",
+      "options": [
+        "It saves memories immediately",
+        "It's free",
+        "It needs no validation",
+        "It judges the whole finished session, so it can see what turned out to matter"
+      ],
+      "correctIndex": 3,
+      "explanation": "It costs one extra model call per session, and what it saves is available from the next session."
+    },
+    {
+      "question": "Why does the core block refuse an edit that would take it over its limit?",
+      "options": [
+        "It's in every request, so it can't be allowed to grow; refusing, with a message, lets the agent choose what to shorten",
+        "Long blocks can't be saved",
+        "The limit speeds up search",
+        "Pydantic enforces it"
+      ],
+      "correctIndex": 0,
+      "explanation": "Trimming silently would lose text the agent chose to keep."
+    },
+    {
+      "question": "Recalling memories into the system prompt each turn cost the most. Why?",
+      "options": [
+        "It recalled more memories",
+        "Each change of topic changed the recalled memories and so the prefix, and everything after it was processed again",
+        "The system prompt is never cached",
+        "It broke tool pairing"
+      ],
+      "correctIndex": 1,
+      "explanation": "The system prompt is part of the prefix. Per-turn recall belongs at the end of the request, or in a tool result."
+    },
+    {
+      "question": "How do block edits reach the agent immediately without changing the prefix?",
+      "options": [
+        "The system prompt is rebuilt after each edit",
+        "Edits are saved into the history",
+        "The prefix keeps the block as it was at the session's start; its current text rides at the end of each request, and joins the prefix at the next session",
+        "Edits are hidden until the next session"
+      ],
+      "correctIndex": 2,
+      "explanation": "That's `MemoryContext`. Keeping edits in the prefix, as Letta does, cost about 13% more in the demo."
+    },
+    {
+      "question": "How does Claude's memory tool relate to this lesson?",
+      "options": [
+        "It stores memories in the system prompt",
+        "It does per-user scoping automatically on Anthropic's servers",
+        "It replaces the need for a store",
+        "It runs client-side on files under `/memories`; your handler maps that onto each user's storage, and what the model reads arrives as tool results"
+      ],
+      "correctIndex": 3,
+      "explanation": "Binding to the right user is your code's job, as with the tools in this lesson, and reading on demand leaves the prefix alone."
+    }
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<MultiFileGradedExercise
+  client:load
+  task={"Complete one session with long-term memory, run for two users over two sessions. lib.py, which is read-only, has Memory, MemoryStore, make_memory_tools, write_after_session, CoreBlock and MemoryContext. Complete agent.py. make_session_tools(store, block, user_id, now): the bound save_memory and search_memory from make_memory_tools, plus block_append(line) and block_replace(old, new), which call the block's append and replace. None of them takes a user. run_memory_session(llm, store, blocks, user_id, base, task, tool_defs, tool_impls, extracted_after, now, max_steps=20): get this user's block from blocks, creating an empty CoreBlock(\"\") under their id if they don't have one yet. Build a MemoryContext for the session, and combine tool_impls with the session's memory tools. Run the canonical loop. Every request uses tool_defs, context.system and context.messages(history). If a tool call raises TypeError (wrong or extra arguments), its result is \"Error: invalid arguments for NAME: \" followed by the error. When the loop ends, run write_after_session(store, user_id, extracted_after, now). Return (final_text, history, sent_requests, report)."}
+  entry="agent.py"
+  files={[
+    { name: "tokens.py", readOnly: true, code: TOKENS_PY },
+    { name: "lib.py", readOnly: true, code: LIB_PY },
+    { name: "agent.py", code: AGENT_STARTER },
+  ]}
+  hiddenTests={HIDDEN_TESTS}
+  hint={"blocks.setdefault(user_id, CoreBlock(\"\")) gets or creates the user's block, and keeping it in blocks is what carries edits into the next session. {**tool_impls, **session_tools} combines two dicts of tools. Build the MemoryContext once, before the loop: it's the session's fixed prefix."}
+  correctFiles={[
+    { name: "tokens.py", readOnly: true, code: TOKENS_PY },
+    { name: "lib.py", readOnly: true, code: LIB_PY },
+    { name: "agent.py", code: AGENT_REFERENCE },
+  ]}
+  explanation={"Each test checks one idea from the lesson. The three ways work together: the model searches, saves a finding and edits its block, and afterwards the pipeline saves what's valid and says why it skipped the rest. Each memory keeps an honest source (tests 1 and 4). Scoping holds everywhere: a scripted call naming another user comes back as an error observation, and nothing of theirs appears. Another user's session sees nothing of this one, and has its own block (tests 2, 6 and 7). Memory never breaks the prefix: the system prompt is identical for the whole session, the block's edit rides at the end of each later request, and nothing restated is saved into the history (test 3). Everything carries over: session 2 starts with the edited block and the recalled memories in its prefix, and nothing at the end (test 5). Everything saved here was either stated by the user or concluded by the agent, and the extraction was scripted. What an agent should save, and what it must never save, whatever it reads, is Lesson 10's subject."}
+/>
+
+</CheckpointZone>
