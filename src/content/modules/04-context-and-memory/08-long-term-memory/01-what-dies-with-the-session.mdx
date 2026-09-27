@@ -80,6 +80,15 @@ longer true. What the new session needs is a few selected things that outlast
 any one task. Checkpointing keeps a session; long-term memory keeps what was
 worth keeping from it.
 
+Agent frameworks draw the same line, under their own names. LangGraph, for
+example, has a *checkpointer*, which saves one conversation thread's state so
+it can resume, and a separate *store*, which holds memories across threads,
+filed under namespaces such as a user's id. Letta (the successor to the
+MemGPT research project) splits memory into *core* memory, always in the
+prompt, and *recall* and *archival* memory, searched when needed. The names
+differ, but each maps onto the split this lesson makes: what keeps one task
+going, and what outlasts it.
+
 </Subsection>
 
 <Subsection title="Starting the next session" variant="a">
@@ -108,6 +117,15 @@ Lesson 10's subject.
 - **Starting with a few memories** keeps what matters in a fraction of the
   space, and leaves the stale state behind.
 
+There's a middle way worth knowing about: keep the old transcripts, but out
+of the context, and give the agent a tool to search them when a task calls
+for it. Several assistants do this for past conversations. It keeps the
+details that selected memories leave out, at the cost of a search and of
+reading raw history, stale facts included, when it's found. It complements
+selected memories rather than replacing them: a standing request like "cc
+Priya" has to be there from the start, not found by a search the agent may
+not think to run.
+
 </Subsection>
 
 <Subsection title="What long-term memory is for" variant="b">
@@ -130,6 +148,36 @@ stale honest is Lesson 11's subject.
 These memories also belong to one user. Starting someone else's session with
 them would leak one person's preferences and work into another person's
 session. Lesson 9 treats that separation as a requirement from the start.
+
+</Subsection>
+
+<Subsection title="The user's side" variant="a">
+
+Memory is something an agent keeps *about a person*, and that person has a
+stake in it. Products that remember well give the user a view into it:
+
+- **Tell them when something is saved.** A short note, "I'll remember that
+  you want summaries as bullet points", lets the user correct a wrong
+  memory the moment it's made.
+- **Let them see, correct and delete what's kept,** one memory or all of
+  them. A memory the user can't inspect is one they can't fix.
+- **Let them switch it off,** for a conversation or entirely.
+- **Keep sensitive details only on purpose.** Health, finances and precise
+  location are kept only if the product needs them and the user knows.
+
+These shape the design from the start. A memory can only be shown to its
+user, or deleted for them, if it's stored with who it belongs to and where
+it came from. That's why Lesson 9's record carries both.
+[Lesson 10](/04-context-and-memory/10-deciding-what-to-remember/03-memory-poisoning-and-the-source-rule/)
+covers what shouldn't be stored at all, and
+[Lesson 11](/04-context-and-memory/11-forgetting-aging-and-retrieval-quality/03-forgetting-on-purpose/)
+the difference between forgetting and deleting. Building the screens users
+see is Module 9's subject, and the legal side of retention and deletion is
+Module 10's.
+
+</Subsection>
+
+<Subsection title="What comes next" variant="b">
 
 The next concept breaks long-term memory into the three decisions every
 design has to make: how memories are stored, how the right ones are found, and
@@ -196,6 +244,17 @@ where they go in the request.
       ],
       "correctIndex": 2,
       "explanation": "Memories are personal by default. Lesson 9 builds the store with per-user separation as a requirement, not an extra."
+    },
+    {
+      "question": "Why should an agent tell the user when it saves a memory about them?",
+      "options": [
+        "So the user can correct a wrong memory at the moment it's made",
+        "Because saving a memory takes an extra model call the user pays for",
+        "So the memory is stored in the user's own words",
+        "Because the store rejects memories the user hasn't seen"
+      ],
+      "correctIndex": 0,
+      "explanation": "A memory is replayed into every later session. A wrong one noticed when it's written costs a sentence to fix; one noticed weeks later has already shaped many sessions."
     }
   ]}
 />

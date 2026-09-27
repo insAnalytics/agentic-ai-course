@@ -298,6 +298,44 @@ original.content = "changed afterwards"
 assert store.search("u_a", limit=1)[0].content == "The on-call rota changes on Mondays."`,
 ];
 
+export const SCOPE_DEMO = String.raw`# every memory lives in a namespace: (organization, scope, owner)
+store = {}
+
+def save(namespace: tuple, text: str) -> None:
+    store.setdefault(namespace, []).append(text)
+
+def readable(session: dict) -> list:
+    """The namespaces a session may read: its user's own, its team's, and its organization's."""
+    org = session["org"]
+    return [(org, "user", session["user_id"]), (org, "team", session["team"]), (org, "org", "")]
+
+def writable(session: dict) -> list:
+    """Anyone may write their own memories; shared ones need someone allowed to speak for the group."""
+    own = [(session["org"], "user", session["user_id"])]
+    return own + readable(session)[1:] if session["role"] == "admin" else own
+
+def recall(session: dict, word: str) -> list:
+    return [f"[{ns[1]}] {text}" for ns in readable(session) for text in store.get(ns, []) if word in text]
+
+save(("acme", "user", "u_simar"), "Simar wants support_agent notes as bullet points.")
+save(("acme", "team", "support"), "Priya owns support_agent.")
+save(("acme", "org", ""), "No deploys to support_agent during the June 10 offsite.")
+save(("acme", "user", "u_ravi"), "Ravi wants support_agent notes in one paragraph.")
+save(("globex", "team", "support"), "Globex's support_agent is owned by Lena.")
+
+# the session comes from the login, never from anything the model wrote
+simar = {"org": "acme", "user_id": "u_simar", "team": "support", "role": "member"}
+lead = {"org": "acme", "user_id": "u_priya", "team": "support", "role": "admin"}
+outsider = {"org": "globex", "user_id": "u_lena", "team": "support", "role": "member"}
+
+for name, session in [("simar", simar), ("outsider", outsider)]:
+    print(f"{name} recalls:")
+    for line in recall(session, "support_agent"):
+        print("   ", line)
+print("simar may write to:", [ns[1] for ns in writable(simar)])
+print("team lead may write to:", [ns[1] for ns in writable(lead)])
+`;
+
 <Subsection title="What a string can't tell you" variant="a">
 
 [Lesson 8](/04-context-and-memory/08-long-term-memory/00-intro/) kept
@@ -416,6 +454,48 @@ runs one without it.
 
 </Subsection>
 
+<Subsection title="Scope is a design decision" variant="b">
+
+This lesson scopes every memory to one user, and for an assistant that
+works for one person that's the right default: nothing one user tells it
+can reach another. But "per user" is a choice, not a law. Real systems
+scope memory in several ways at once:
+
+- **Per user:** preferences, standing instructions, what this person has
+  been working on.
+- **Per team or project:** who owns a system, how the team deploys. "Priya
+  owns support_agent" is the team's knowledge, not Simar's, and every
+  teammate should get it without having to teach the agent separately.
+- **Per organization:** policies that apply to everyone.
+- **Per agent:** what the agent itself has learned about doing its job,
+  whoever it works for.
+
+The usual way to hold several scopes is a **namespace** on every memory,
+such as `(organization, scope, owner)`, with a rule for which namespaces a
+session may read and which it may write:
+
+<LiveDemo client:load code={SCOPE_DEMO} />
+
+Two rules carry the design:
+
+- **Who the session is comes from the login, never from the model.** The
+  user, team and role are set by the application when the session starts.
+  Nothing the model writes, no tool argument and no text in the
+  conversation, can change them.
+  [The next concept](/04-context-and-memory/09-building-a-memory-store/02-three-ways-an-agent-uses-the-store/)
+  shows what goes wrong when a memory tool takes a `user_id` argument.
+- **Shared scopes need stricter writes.** A memory written to a team's
+  namespace is replayed to everyone on the team, so a mistake, or an
+  injected instruction, spreads further. Here anyone can write their own
+  memories, and only someone allowed to speak for the group can write
+  shared ones. In a real system that's the same access control the rest of
+  the application uses, enforced by the database, not by the prompt.
+
+The rest of this module keeps to one scope per user, to keep the code
+short. Everything in it applies to a namespace just as well.
+
+</Subsection>
+
 <CheckpointZone>
 
 <QuizGroup
@@ -475,6 +555,17 @@ runs one without it.
       ],
       "correctIndex": 1,
       "explanation": "Recent memories usually matter most. Ranking by score while keeping time order among ties gets both."
+    },
+    {
+      "question": "A team shares one agent. Why should memories written to the team's namespace need stricter permission than a user's own?",
+      "options": [
+        "Team memories are replayed to everyone on the team, so one bad write reaches all of them",
+        "Team memories are larger, so they cost more tokens to store",
+        "A team namespace can't be searched by keyword",
+        "The model can only read one namespace per session"
+      ],
+      "correctIndex": 0,
+      "explanation": "A wrong or planted memory in a user's own scope affects one person. In a shared scope it affects everyone who reads it, so writing there should take someone allowed to speak for the group."
     }
   ]}
 />

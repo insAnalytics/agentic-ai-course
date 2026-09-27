@@ -685,8 +685,23 @@ def apply_decision(store: VersionedStore, user_id: str, candidate: MemoryRecord,
         return f"superseded: {old[0].content} -> {candidate.content}"
     return f"refused, unknown action: {decision['action']}"
 
+import re
+
+def looks_secret(text: str) -> bool:
+    """A rough check for credentials and card numbers. It catches the obvious cases, not every secret."""
+    patterns = [
+        r"\b(?:sk|pk|rk|ghp|gho|xoxb|xoxp)[-_][A-Za-z0-9_-]{16,}",          # common API key and token formats
+        r"(?i)\b(?:password|passwd|api[ _-]?key|secret|token)\s*(?:is|:|=)\s*\S+",  # "password: ...", "token = ..."
+        r"-----BEGIN [A-Z ]*PRIVATE KEY-----",
+        r"\b(?:\d[ -]?){12,15}\d\b",                                         # a card-number-length run of digits
+    ]
+    return any(re.search(pattern, text) for pattern in patterns)
+
 def admit(candidate: MemoryRecord):
     """None if the candidate may be stored; otherwise the reason it may not."""
+    # a secret is never stored, whoever said it: memories are replayed into every future request
+    if looks_secret(candidate.content):
+        return "it looks like a secret, and secrets are never stored"
     # anything that changes what the agent does in future sessions needs a source the user controls
     if candidate.type == "procedural" and candidate.source != "user":
         return f"only the user can give a standing instruction; this came from the {candidate.source}"
