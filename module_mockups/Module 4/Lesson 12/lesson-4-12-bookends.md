@@ -1,0 +1,1425 @@
+# Putting It Together: A Context-Managed Agent
+
+> **Note for the site build:** the comprehensive sandbox is multi-file, in the same shape as the earlier lessons. The tests import `fake` and `tokens` as site-provided modules, with the same exports as before. `lib.py` is read-only and shown in full below: the whole module's code, in the order it was built, with this lesson's `ContextManager` (including `fold`) and `run_report`, Lesson 10's `decide`, and two additions this sandbox needed, `transcript_chunks` and `remember_long_session`. It needs Pydantic. `agent.py` is the entry file.
+
+## Intro
+
+> **You'll be able to**
+> - Assemble the module into one context step, with a fixed prefix at session start, a fitted view and an anchor each turn, and the write path after the session
+> - State the integration rules that make the pieces work together, and where each came from
+> - Measure an agent before and after, in tokens per turn, cost, and what stays available, and say honestly when the machinery pays and when it doesn't
+> - Choose which pieces an agent actually needs
+
+**Why it matters**
+
+Each lesson in this module solved one problem on its own page. A real agent has several of those problems at once, in one loop: a history that won't fit, facts that have to survive compaction, tools that shouldn't all be sent, and a user who comes back next week. This lesson puts the pieces in one place and measures the result. As it turned out, assembling them surfaced problems that no single lesson could show.
+
+---
+
+## Recap & Practice
+
+### Comprehensive quiz
+
+*(spans all three concepts, mixed order)*
+
+> **Q1.** What does the context step decide once, at session start?
+> - A) The fitted view
+> - B) Which rounds to compact
+> - C) The prefix: the tools, the system prompt with the guide index, the memory block as it stood, and the recalled memories ✅
+> - D) The anchor
+>
+> *Explanation:* Fixing the prefix for the session is what keeps the cache intact. Anything newer goes at the end of each request.
+
+> **Q2.** Why does the anchor read from the full history instead of the fitted view?
+> - A) After compaction, the calls that set the plan and the rules are gone from the view ✅
+> - B) The full history is smaller
+> - C) The view doesn't include the task
+> - D) Anchors must be saved into the history
+>
+> *Explanation:* Code can derive the plan, the rules and the changes exactly, from a history that is never changed.
+
+> **Q3.** What did measuring the context step find about appended summaries?
+> - A) They broke tool pairing
+> - B) They were never recalled
+> - C) Over long runs they piled up until they crowded the window, forcing rounds to be dropped without a trace, until they were folded into one ✅
+> - D) They made the prefix change every turn
+>
+> *Explanation:* Lesson 5 appended summaries so old ones wouldn't drift, and predicted rewriting them would eventually be needed. Folding stores the old ones first, so nothing is lost.
+
+> **Q4.** On a short task that fits, how did the full context step compare with a naive loop on cost?
+> - A) It cost less
+> - B) It cost the same
+> - C) It couldn't be measured
+> - D) It cost more, because the naive history was almost all cached, while the context step paid for rewrites, anchors and summaries ✅
+>
+> *Explanation:* The context step broke even between 20 and 40 checks, and cost about a third of the naive loop at 160.
+
+> **Q5.** Why does the post-session write path read a long session in chunks?
+> - A) Chunks are cheaper to store
+> - B) The whole transcript of a long session doesn't fit in one request, and the write path is held to the window like everything else ✅
+> - C) Extraction only works on short text
+> - D) Chunks make quotes easier to invent
+>
+> *Explanation:* This surfaced in the sandbox: a 40-check session's transcript came to about three times the window. Entry numbers stay global, so every quote can still be checked.
+
+> **Q6.** With a fake model, what does "the agent completed a task it previously failed" mean here?
+> - A) The fake model reported success
+> - B) Every request fit the window to the end, with the task, the rules and the key finding still available, where the naive loop was refused partway through ✅
+> - C) The final answer was longer
+> - D) The agent used fewer tools
+>
+> *Explanation:* What's sent can be measured exactly. What a real model does with a cleaner context is the research's claim, cited, not demoed.
+
+> **Q7.** Which piece belongs in almost every agent?
+> - A) Compaction
+> - B) Tool search
+> - C) Long-term memory
+> - D) A stable prefix ✅
+>
+> *Explanation:* It costs nothing but care. The rest earn their place only when measurement shows the problem they solve.
+
+> **Q8.** An agent will remember things across sessions. Which rule can't wait for a later version?
+> - A) Forgetting on a schedule
+> - B) The source rule: only the user can create a standing instruction ✅
+> - C) Scoring by importance
+> - D) Folding summaries
+>
+> *Explanation:* Scoring and forgetting matter once the store has grown. Without the source rule, one planted instruction replays in every future session.
+
+---
+
+### Comprehensive sandbox
+
+*(applied, multi-file — the whole module in one agent)*
+
+**Task shown to learner:** The registry agent works a long investigation. A user rule, a plan and a note come early; then a large log, forty detailed status checks, a memory-block edit, and a fix. It all runs in a 3,500-token window. Next week, the same user starts a new session. Without a context step, the first session is refused partway through. `lib.py`, which is read-only, has the whole module, including `ContextManager`, `remember_long_session` and `forget`. Complete `agent.py`:
+
+- **`run_session(llm, memory, blocks, user_id, task, now, base, tools, make_impls, window, max_tokens=1000, write_tools=(), max_steps=200)`:**
+  - Create a fresh `Notes()` and `ResultStore()` for this task, and get this user's `CoreBlock` from `blocks`, creating an empty one if needed.
+  - Build a `ContextManager` for the session, and the tools with `make_impls(notes, results, block)`.
+  - Run the canonical loop. Every request comes from `context.build(history)` and is sent with its tools and system prompt.
+  - After the loop, run `remember_long_session` with a budget of `window - max_tokens - count_tokens(EXTRACTION_INSTRUCTIONS) - 100`, then `forget(memory, user_id, now)`.
+  - Return `(answer, history, sent, after)`, where `after` is the write path's report followed by `forget`'s.
+
+**Tab: `lib.py`** (read-only)
+```python
+# the whole module's code, in the order it was built -- read-only
+import json
+from fake import *
+from tokens import count_tokens, _plain
+def is_tool_results(message: dict) -> bool:
+    """A user message that answers tool calls. It may also carry text added after the results."""
+    return (message["role"] == "user" and isinstance(message["content"], list)
+            and any(_plain(b)["type"] == "tool_result" for b in message["content"]))
+
+
+def check_pairing(messages: list) -> list:
+    """The two pairing rules the API enforces, as a list of problems. Empty means the history is valid."""
+    problems = []
+    for i in range(len(messages)):
+        message = messages[i]
+        blocks = [_plain(b) for b in message["content"]] if isinstance(message["content"], list) else []
+        if message["role"] == "assistant":
+            call_ids = [b["id"] for b in blocks if b["type"] == "tool_use"]
+            answered = []
+            if i + 1 < len(messages) and is_tool_results(messages[i + 1]):
+                answered = [_plain(b)["tool_use_id"] for b in messages[i + 1]["content"] if _plain(b)["type"] == "tool_result"]
+            missing = [c for c in call_ids if c not in answered]
+            if missing:
+                problems.append(f"messages.{i}: tool_use without a tool_result immediately after: {missing}")
+        if message["role"] == "user":
+            result_ids = [b["tool_use_id"] for b in blocks if b["type"] == "tool_result"]
+            called = []
+            if i > 0 and messages[i - 1]["role"] == "assistant":
+                called = [_plain(b)["id"] for b in messages[i - 1]["content"] if _plain(b)["type"] == "tool_use"]
+            unknown = [r for r in result_ids if r not in called]
+            if unknown:
+                problems.append(f"messages.{i}: tool_result with no tool_use in the previous message: {unknown}")
+    return problems
+
+
+def check_open_round(history: list, sent: list) -> list:
+    """The assistant message whose tool results are being sent must go back exactly as it was returned."""
+    def last_assistant(messages):
+        found = None
+        for message in messages:
+            if message["role"] == "assistant":
+                found = message
+        return found
+    returned, resent = last_assistant(history), last_assistant(sent)
+    if returned is None:
+        return []
+    if resent is None or _plain(resent["content"]) != _plain(returned["content"]):
+        return ["the newest assistant message was not sent back exactly as returned"]
+    return []
+
+
+def split_rounds(messages: list) -> list:
+    """Group everything after the first message into rounds that can be removed safely."""
+    rounds = []
+    for message in messages[1:]:
+        if is_tool_results(message) and rounds:
+            rounds[-1].append(message)
+        else:
+            rounds.append([message])
+    return rounds
+
+def trim_to_fit(messages: list, budget: int) -> list:
+    """Keep the task and the newest rounds; drop the oldest whole rounds until the messages fit."""
+    task = messages[0]
+    rounds = split_rounds(messages)
+    while True:
+        kept = [task]
+        for r in rounds:
+            kept += r
+        if count_tokens(kept) <= budget or len(rounds) == 1:
+            return kept
+        rounds = rounds[1:]
+
+
+def clear_old_results(messages: list, keep_last: int) -> list:
+    """Replace the content of all but the newest `keep_last` successful tool results with a placeholder.
+    Tool calls, failed results, and every message stay where they are."""
+    names = {}
+    for message in messages:
+        if message["role"] == "assistant" and isinstance(message["content"], list):
+            for block in message["content"]:
+                if _plain(block)["type"] == "tool_use":
+                    names[block.id] = block.name
+
+    successful = []
+    for message in messages:
+        if is_tool_results(message):
+            for block in message["content"]:
+                if block.get("type") == "tool_result" and not block.get("is_error"):
+                    successful.append(block["tool_use_id"])
+    to_keep = successful[len(successful) - keep_last:]
+
+    cleared = []
+    for message in messages:
+        if is_tool_results(message):
+            new_content = []
+            for block in message["content"]:
+                if block.get("type") == "tool_result" and not block.get("is_error") and block["tool_use_id"] not in to_keep:
+                    name = names[block["tool_use_id"]]
+                    block = {**block, "content": f"[cleared: an earlier {name} result, removed to save space. Call {name} again if you need it.]"}
+                new_content.append(block)
+            cleared.append({**message, "content": new_content})
+        else:
+            cleared.append(message)
+    return cleared
+
+def fit(messages: list, budget: int, keep_last: int) -> list:
+    """Clear old results first; drop whole rounds only if that still isn't enough."""
+    if count_tokens(messages) <= budget:
+        return list(messages)
+    return trim_to_fit(clear_old_results(messages, keep_last), budget)
+
+
+def strip_old_thinking(messages: list) -> list:
+    """Remove thinking blocks from every assistant message except the newest one."""
+    last = -1
+    for i in range(len(messages)):
+        if messages[i]["role"] == "assistant":
+            last = i
+    stripped = []
+    for i in range(len(messages)):
+        message = messages[i]
+        if message["role"] == "assistant" and i != last:
+            kept = [b for b in message["content"] if _plain(b)["type"] != "thinking"]
+            if kept:
+                message = {**message, "content": kept}
+        stripped.append(message)
+    return stripped
+
+def fit_history(messages: list, budget: int, keep_last: int) -> list:
+    """Old reasoning goes first, then old results, then whole rounds."""
+    if count_tokens(messages) <= budget:
+        return list(messages)
+    return fit(strip_old_thinking(messages), budget, keep_last)
+
+
+import json
+def serialize(x) -> str:
+    # byte-for-byte form, as a cache sees it: key order matters, exactly as sent
+    return json.dumps(_plain(x))
+
+def first_divergence(previous: dict, current: dict) -> dict:
+    """Where does `current` stop matching `previous`, and how much of it could be read from the cache?"""
+    reusable = 0
+    if serialize(current["tools"]) != serialize(previous["tools"]):
+        return {"diverges_at": "tools", "reusable_tokens": 0}
+    reusable += count_tokens(current["tools"])
+    if serialize(current["system"]) != serialize(previous["system"]):
+        return {"diverges_at": "system", "reusable_tokens": reusable}
+    reusable += count_tokens(current["system"])
+    for i, old in enumerate(previous["messages"]):
+        if i >= len(current["messages"]) or serialize(current["messages"][i]) != serialize(old):
+            return {"diverges_at": f"messages[{i}]", "reusable_tokens": reusable}
+        reusable += count_tokens(old)
+    return {"diverges_at": None, "reusable_tokens": reusable}
+
+def cost_of_run(requests: list, read_multiplier: float, write_multiplier: float) -> int:
+    """Cost of the requests actually sent, using first_divergence to see what each could reuse."""
+    total = 0.0
+    previous = None
+    for request in requests:
+        size = count_tokens(request["tools"]) + count_tokens(request["system"]) + count_tokens(request["messages"])
+        reused = first_divergence(previous, request)["reusable_tokens"] if previous else 0
+        total += reused * read_multiplier + (size - reused) * write_multiplier
+        previous = request
+    return round(total)
+
+
+
+def add_to_end(messages: list, text: str) -> list:
+    last = messages[-1]
+    if isinstance(last["content"], str):
+        new_last = {**last, "content": last["content"] + "\n\n" + text}
+    else:
+        new_last = {**last, "content": last["content"] + [{"type": "text", "text": text}]}
+    return messages[:-1] + [new_last]
+
+
+def rule_history(messages: list) -> dict:
+    """Every value each rule has been set to, in order, from the agent's set_rule calls."""
+    history = {}
+    for message in messages:
+        if message["role"] == "assistant" and isinstance(message["content"], list):
+            for block in message["content"]:
+                if block.type == "tool_use" and block.name == "set_rule":
+                    history.setdefault(block.input["name"], []).append(block.input["value"])
+    return history
+
+def current_rules_block(messages: list) -> str:
+    history = rule_history(messages)
+    if not history:
+        return ""
+    lines = [f"- {name}: {values[-1]}" for name, values in history.items()]
+    return "<current_rules>\n" + "\n".join(lines) + "\n</current_rules>"
+
+def latest_plan(messages: list) -> str:
+    plan = ""
+    for message in messages:
+        if message["role"] == "assistant" and isinstance(message["content"], list):
+            for block in message["content"]:
+                if block.type == "tool_use" and block.name == "update_plan":
+                    plan = block.input["plan"]
+    return plan
+
+def assemble_context(messages: list) -> list:
+    """Return the messages to send, with the current plan and rules restated at the very end."""
+    parts = []
+    plan = latest_plan(messages)
+    if plan:
+        parts.append(f"<current_plan>\n{plan}\n</current_plan>")
+    rules = current_rules_block(messages)
+    if rules:
+        parts.append(rules)
+    if not parts:
+        return messages
+    anchor = "\n".join(parts)
+
+    last = messages[-1]
+    if isinstance(last["content"], str):
+        new_last = {**last, "content": last["content"] + "\n\n" + anchor}
+    else:
+        # tool_result blocks must come first in a user message, so the anchor goes after them
+        new_last = {**last, "content": last["content"] + [{"type": "text", "text": anchor}]}
+    return messages[:-1] + [new_last]
+
+
+SUMMARY_INSTRUCTIONS = """Write a summary of the work above. The messages it covers will be removed, and you will continue the task from this summary alone.
+Include:
+- the task, and every constraint or preference the user stated
+- decisions made, and the reason for each
+- facts established, with exact values: names, ids, numbers, paths
+- what is finished, and what was tried and failed, with why
+- open questions and the next steps
+If an earlier summary appears above, don't repeat it: cover only the work after it.
+Leave out raw tool output that can be fetched again. Plain text, under 300 words."""
+
+def summary_request(messages: list, keep_recent: int):
+    """The messages to send to get a summary of everything except the newest keep_recent rounds, or None."""
+    rounds = split_rounds(messages)
+    if keep_recent >= len(rounds):
+        return None
+    older = [messages[0]]
+    for r in rounds[:len(rounds) - keep_recent]:
+        older += r
+    return add_to_end(older, SUMMARY_INSTRUCTIONS)
+
+def compact(messages: list, summary: str, keep_recent: int) -> list:
+    """Replace every round but the newest keep_recent with a summary, placed after the task in the first message."""
+    rounds = split_rounds(messages)
+    first = {"role": "user",
+             "content": messages[0]["content"] + "\n\n<summary_of_earlier_work>\n" + summary + "\n</summary_of_earlier_work>"}
+    compacted = [first]
+    for r in rounds[len(rounds) - keep_recent:]:
+        compacted += r
+    return compacted
+
+
+def changes_ledger(messages: list, write_tools: list) -> list:
+    """One line per call to a write tool, with its arguments and the first line of its result."""
+    results = {}
+    for message in messages:
+        if is_tool_results(message):
+            for block in message["content"]:
+                if block.get("type") == "tool_result":
+                    results[block["tool_use_id"]] = block
+    lines = []
+    for message in messages:
+        if message["role"] == "assistant" and isinstance(message["content"], list):
+            for block in message["content"]:
+                if _plain(block)["type"] == "tool_use" and block.name in write_tools and block.id in results:
+                    result = results[block.id]
+                    arguments = ", ".join([f"{key}={value}" for key, value in block.input.items()])
+                    outcome = "FAILED: " if result.get("is_error") else ""
+                    first_line = str(result["content"]).split("\n")[0]
+                    lines.append(f"- {block.name}({arguments}) -> {outcome}{first_line}")
+    return lines
+
+def anchor_from_history(history: list, messages: list, write_tools: list) -> list:
+    """Restate the plan, the rules and every change made, all read from the full history, at the end of `messages`."""
+    parts = []
+    plan = latest_plan(history)
+    if plan:
+        parts.append(f"<current_plan>\n{plan}\n</current_plan>")
+    rules = current_rules_block(history)
+    if rules:
+        parts.append(rules)
+    changes = changes_ledger(history, write_tools)
+    if changes:
+        parts.append("<changes_made>\n" + "\n".join(changes) + "\n</changes_made>")
+    if not parts:
+        return messages
+    return add_to_end(messages, "\n".join(parts))
+
+
+def next_step(view: list, budget: int, low_water: int, keep_last: int, keep_recent: int) -> str:
+    """What the context step should do with this view: "send", "clear", "compact", or "trim"."""
+    if count_tokens(view) <= budget:
+        return "send"
+    cleared = clear_old_results(strip_old_thinking(view), keep_last)
+    if count_tokens(cleared) <= low_water:
+        return "clear"
+    if summary_request(cleared, keep_recent) is None:
+        return "trim"
+    return "compact"
+
+
+class ResultStore:
+    """Large tool results, kept outside the conversation under handles the store mints."""
+    def __init__(self):
+        self.items = {}
+        self.minted = 0
+
+    def put(self, content: str) -> str:
+        self.minted += 1
+        handle = f"res_{self.minted}"
+        self.items[handle] = content
+        return handle
+
+    def get(self, handle: str):
+        return self.items.get(handle)
+
+
+def offload(content: str, store: ResultStore, threshold: int, preview_lines: int = 10) -> str:
+    """Small results pass through. Large ones are stored, and a preview with the handle goes into the context."""
+    if count_tokens(content) <= threshold:
+        return content
+    handle = store.put(content)
+    lines = content.split("\n")
+    preview = "\n".join(lines[:preview_lines])
+    return (f"[Stored as {handle}: {len(lines)} lines, about {count_tokens(content):,} tokens. "
+            f"The first {preview_lines} lines are below. "
+            f"Read more with read_result(handle=\"{handle}\", offset=..., limit=...).]\n{preview}")
+
+def read_result(store: ResultStore, handle: str, offset: int = 0, limit: int = 50) -> str:
+    content = store.get(handle)
+    if content is None:
+        return f"Error: no stored result called {handle}. Use a handle exactly as it appears in an earlier result."
+    lines = content.split("\n")
+    page = lines[offset:offset + limit]
+    text = "\n".join(page)
+    if offset + limit < len(lines):
+        text += f"\n\n... lines {offset}-{offset + len(page)} of {len(lines)}. Call again with offset={offset + limit} for more."
+    return text
+
+
+def find_in_result(store: ResultStore, handle: str, text: str, max_matches: int = 20) -> str:
+    """The lines of a stored result that contain `text`, with their line numbers."""
+    content = store.get(handle)
+    if content is None:
+        return f"Error: no stored result called {handle}. Use a handle exactly as it appears in an earlier result."
+    lines = content.split("\n")
+    matches = [f"{i}: {lines[i]}" for i in range(len(lines)) if text in lines[i]]
+    if not matches:
+        return f"No lines in {handle} contain {text}."
+    shown = "\n".join(matches[:max_matches])
+    if len(matches) > max_matches:
+        shown += f"\n... {len(matches) - max_matches} more matches not shown."
+    return shown
+
+
+def clear_to_store(messages: list, keep_last: int, store: ResultStore) -> list:
+    """Like clear_old_results, but each cleared result is stored first, and its placeholder says how to read it back."""
+    names = {}
+    for message in messages:
+        if message["role"] == "assistant" and isinstance(message["content"], list):
+            for block in message["content"]:
+                if _plain(block)["type"] == "tool_use":
+                    names[block.id] = block.name
+
+    successful = []
+    for message in messages:
+        if is_tool_results(message):
+            for block in message["content"]:
+                if block.get("type") == "tool_result" and not block.get("is_error"):
+                    successful.append(block["tool_use_id"])
+    to_keep = successful[len(successful) - keep_last:]
+
+    cleared = []
+    for message in messages:
+        if is_tool_results(message):
+            new_content = []
+            for block in message["content"]:
+                old = block.get("type") == "tool_result" and not block.get("is_error") and block["tool_use_id"] not in to_keep
+                # a result that's already a placeholder is left alone, so clearing twice changes nothing
+                if old and not str(block["content"]).startswith("[cleared:"):
+                    handle = store.put(str(block["content"]))
+                    name = names[block["tool_use_id"]]
+                    block = {**block, "content": f"[cleared: an earlier {name} result, stored as {handle}. "
+                                                 f"Read it with read_result(handle=\"{handle}\", offset=..., limit=...).]"}
+                new_content.append(block)
+            cleared.append({**message, "content": new_content})
+        else:
+            cleared.append(message)
+    return cleared
+
+
+def transcript(messages: list) -> str:
+    """A plain-text record of messages: what was said, what was called, what came back."""
+    lines = []
+    for message in messages:
+        if isinstance(message["content"], str):
+            lines.append(f"{message['role']}: {message['content']}")
+            continue
+        for block in message["content"]:
+            block = _plain(block)
+            if block["type"] == "text":
+                lines.append(f"{message['role']}: {block['text']}")
+            elif block["type"] == "tool_use":
+                lines.append(f"called {block['name']}({json.dumps(block['input'])})")
+            elif block["type"] == "tool_result":
+                lines.append(f"result: {block['content']}")
+    return "\n".join(lines)
+
+def compact_with_archive(messages: list, summary: str, keep_recent: int, store: ResultStore) -> list:
+    """compact, but the rounds being replaced are stored first, and the summary says where."""
+    rounds = split_rounds(messages)
+    replaced = []
+    for r in rounds[:len(rounds) - keep_recent]:
+        replaced += r
+    handle = store.put(transcript(replaced))
+    note = f"\nThe full record of this work is stored as {handle}; read it with read_result(handle=\"{handle}\", offset=..., limit=...)."
+    return compact(messages, summary + note, keep_recent)
+
+
+SECTIONS = ["facts", "decisions", "open"]
+
+class Notes:
+    """The agent's own notes for one task. It can add items and mark open ones done, but never rewrite them."""
+    def __init__(self, max_items: int = 40):
+        self.items = []
+        self.max_items = max_items
+
+    def add(self, section: str, text: str) -> str:
+        if section not in SECTIONS:
+            return f"Error: no section called {section}. Use one of: {', '.join(SECTIONS)}."
+        if len(self.items) >= self.max_items:
+            return f"Error: notes are full ({self.max_items} items). Keep notes to what the rest of the task needs."
+        item_id = f"n{len(self.items) + 1}"
+        self.items.append({"id": item_id, "section": section, "text": text, "done": False})
+        return f"Noted as {item_id} under {section}."
+
+    def mark_done(self, item_id: str) -> str:
+        for item in self.items:
+            if item["id"] == item_id:
+                if item["section"] != "open":
+                    return f"Error: {item_id} is not an open item, so it can't be marked done."
+                item["done"] = True
+                return f"Marked {item_id} done."
+        return f"Error: no note called {item_id}."
+
+    def render(self) -> str:
+        if not self.items:
+            return "No notes yet."
+        lines = []
+        for section in SECTIONS:
+            entries = [item for item in self.items if item["section"] == section]
+            if not entries:
+                continue
+            lines.append(f"{section}:")
+            for item in entries:
+                box = ("[x] " if item["done"] else "[ ] ") if section == "open" else ""
+                lines.append(f"- {box}{item['id']}: {item['text']}")
+        return "\n".join(lines)
+
+    def index_line(self) -> str:
+        if not self.items:
+            return ""
+        facts = len([i for i in self.items if i["section"] == "facts"])
+        decisions = len([i for i in self.items if i["section"] == "decisions"])
+        still_open = len([i for i in self.items if i["section"] == "open" and not i["done"]])
+        return f"Your notes: {facts} facts, {decisions} decisions, {still_open} open items. Read them with read_notes()."
+
+
+from pydantic import ValidationError
+STOPWORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "is", "was", "it", "this", "that",
+             "with", "as", "at", "by", "be", "i", "you", "my", "me", "we", "our", "please", "about", "from", "last"}
+
+def keywords(text: str) -> set:
+    """The words in `text` worth matching on: lowercased, punctuation removed, common and one-letter words dropped."""
+    text = text.lower()
+    for mark in ".,;:!?()'\"":
+        text = text.replace(mark, " ")
+    # single letters, like the "s" a possessive leaves behind, carry no meaning either
+    return {word for word in text.split() if len(word) > 1} - STOPWORDS
+
+def recall(memories: list, task: str, limit: int = 3) -> list:
+    """The memories sharing the most keywords with the task, best first, at most `limit`."""
+    wanted = keywords(task)
+    scored = []
+    for memory in memories:
+        score = len(wanted & keywords(memory))
+        if score:
+            scored.append((score, memory))
+    return [memory for score, memory in sorted(scored, key=lambda pair: pair[0], reverse=True)[:limit]]
+
+def session_prompt(base: str, recalled: list) -> str:
+    """The session's system prompt: fixed from its first request to its last."""
+    if not recalled:
+        return base
+    return base + "\n\nFrom earlier sessions with this user:\n- " + "\n- ".join(recalled)
+
+def recall_for(store: dict, user_id: str, task: str, limit: int = 3) -> list:
+    """Recall only from this user's memories. An unknown user has none."""
+    return recall(store.get(user_id, []), task, limit)
+from typing import Literal
+from pydantic import BaseModel, Field
+
+class Memory(BaseModel):
+    # min_length=1 makes Pydantic reject an empty string
+    content: str = Field(min_length=1)
+    type: Literal["episodic", "semantic", "procedural"]
+    # who the memory came from: the user, the agent's own conclusion, or a tool result
+    source: Literal["user", "agent", "tool"]
+    # an ISO timestamp such as "2026-09-21T10:04:00", which sorts correctly as text
+    created: str
+    tags: list[str] = []
+
+class MemoryStore:
+    """Every user's memories, kept apart. Every method takes the user it acts for."""
+    def __init__(self):
+        self._by_user = {}
+
+    def save(self, user_id: str, memory: Memory) -> None:
+        # a copy, so the caller changing their object later can't change what's stored
+        self._by_user.setdefault(user_id, []).append(Memory(**memory.model_dump()))
+
+    def search(self, user_id: str, query: str = "", tags: list = None, kind: str = None, limit: int = 5) -> list:
+        """This user's memories that match, best first; with no query, newest first."""
+        candidates = []
+        for memory in self._by_user.get(user_id, []):
+            if kind is not None and memory.type != kind:
+                continue
+            if tags and not set(tags) & set(memory.tags):
+                continue
+            candidates.append(memory)
+        newest_first = sorted(candidates, key=lambda m: m.created, reverse=True)
+        if not query:
+            return newest_first[:limit]
+        wanted = keywords(query)
+        scored = [(len(wanted & keywords(m.content + " " + " ".join(m.tags))), m) for m in newest_first]
+        # sorting is stable, so memories with equal scores stay newest first
+        ranked = sorted([pair for pair in scored if pair[0] > 0], key=lambda pair: pair[0], reverse=True)
+        return [m for score, m in ranked[:limit]]
+
+def entries(history: list) -> list:
+    """A session as numbered pieces, each marked with whose words it is: the user's, the agent's, or a tool's."""
+    found = []
+    for message in history:
+        if isinstance(message["content"], str):
+            found.append({"kind": "user" if message["role"] == "user" else "agent", "text": message["content"]})
+            continue
+        for block in message["content"]:
+            block = _plain(block)
+            if block["type"] == "tool_result":
+                found.append({"kind": "tool", "text": str(block["content"])})
+            elif block["type"] == "text":
+                found.append({"kind": "user" if message["role"] == "user" else "agent", "text": block["text"]})
+    return found
+
+def numbered_transcript(history: list) -> str:
+    found = entries(history)
+    return "\n".join(f"[{i}] {found[i]['kind']}: {found[i]['text']}" for i in range(len(found)))
+
+EXTRACTION_INSTRUCTIONS = """From the numbered transcript above, list what is worth remembering for future sessions with this user:
+standing instructions, facts about the user and their systems, and conclusions that took work to reach.
+Skip raw tool output that can be fetched again. For each memory, give its type (episodic, semantic or procedural),
+the exact words it rests on as "quote", copied character for character, and the number of the entry they come from as "entry".
+Reply with only a JSON list of objects with the keys content, type, quote and entry."""
+
+def parse_candidates(reply: str) -> tuple:
+    """The candidate memories in an extraction reply, and a note for each item that had to be skipped."""
+    # models sometimes wrap JSON in a code fence despite being asked not to, so drop fence lines
+    lines = [line for line in reply.strip().split("\n") if not line.startswith("```")]
+    text = "\n".join(lines)
+    try:
+        items = json.loads(text)
+    except json.JSONDecodeError:
+        return [], ["the reply was not valid JSON"]
+    if not isinstance(items, list):
+        return [], ["the reply was not a JSON list"]
+    candidates, problems = [], []
+    for item in items:
+        if not isinstance(item, dict) or not all(key in item for key in ["content", "type", "quote", "entry"]):
+            problems.append(f"missing content, type, quote or entry: {item}")
+        elif not isinstance(item["entry"], int):
+            problems.append(f"entry is not a number: {item}")
+        else:
+            candidates.append(item)
+    return candidates, problems
+
+def derive_source(candidate: dict, history: list):
+    """Whose words a candidate rests on, checked against the entry it cites; None if the quote isn't there."""
+    found = entries(history)
+    if not 0 <= candidate["entry"] < len(found):
+        return None
+    cited = found[candidate["entry"]]
+    if not candidate["quote"] or candidate["quote"] not in cited["text"]:
+        return None
+    return cited["kind"]
+
+class MemoryRecord(Memory):
+    # where a memory from a tool came from: a URL, a document, a system
+    origin: str = ""
+    # a memory that a newer one replaced; kept for the record, left out of search
+    superseded: bool = False
+
+class VersionedStore(MemoryStore):
+    """A MemoryStore that keeps superseded memories instead of deleting them."""
+    def save(self, user_id: str, memory: MemoryRecord) -> None:
+        self._by_user.setdefault(user_id, []).append(MemoryRecord(**memory.model_dump()))
+
+    def search(self, user_id: str, query: str = "", tags: list = None, kind: str = None, limit: int = 5,
+               include_superseded: bool = False) -> list:
+        everything = super().search(user_id, query, tags, kind, limit=len(self._by_user.get(user_id, [])))
+        if not include_superseded:
+            everything = [m for m in everything if not m.superseded]
+        return everything[:limit]
+
+    def supersede(self, user_id: str, old_content: str, new: MemoryRecord) -> None:
+        """Mark the active memory with this content as superseded, and save the new one."""
+        for memory in self._by_user.get(user_id, []):
+            if memory.content == old_content and not memory.superseded:
+                memory.superseded = True
+        self.save(user_id, new)
+
+def find_duplicate(store: VersionedStore, user_id: str, candidate: MemoryRecord, threshold: float = 0.8):
+    """An active memory of the same type whose keywords nearly match the candidate's, or None."""
+    wanted = keywords(candidate.content)
+    for memory in store.search(user_id, kind=candidate.type, limit=1000):
+        existing = keywords(memory.content)
+        union = wanted | existing
+        if union and len(wanted & existing) / len(union) >= threshold:
+            return memory
+    return None
+
+def apply_decision(store: VersionedStore, user_id: str, candidate: MemoryRecord, decision: dict) -> str:
+    """Carry out a model's decision about one checked candidate: add it, supersede an old memory, or skip it."""
+    duplicate = find_duplicate(store, user_id, candidate)
+    if duplicate is not None:
+        return f"skipped, already known: {duplicate.content}"
+    if decision["action"] == "skip":
+        return f"skipped: {candidate.content}"
+    if decision["action"] == "add":
+        store.save(user_id, candidate)
+        return f"added: {candidate.content}"
+    if decision["action"] == "supersede":
+        old = [m for m in store.search(user_id, limit=1000) if m.content == decision.get("replaces")]
+        if not old:
+            return f"refused, nothing stored matches: {decision.get('replaces')}"
+        # only the user's word replaces the user's word
+        if old[0].source == "user" and candidate.source != "user":
+            return f"refused, the user said otherwise: {old[0].content}"
+        store.supersede(user_id, old[0].content, candidate)
+        return f"superseded: {old[0].content} -> {candidate.content}"
+    return f"refused, unknown action: {decision['action']}"
+
+def admit(candidate: MemoryRecord):
+    """None if the candidate may be stored; otherwise the reason it may not."""
+    # anything that changes what the agent does in future sessions needs a source the user controls
+    if candidate.type == "procedural" and candidate.source != "user":
+        return f"only the user can give a standing instruction; this came from the {candidate.source}"
+    if candidate.source == "tool" and not candidate.origin:
+        return "a memory from a tool must say where it came from"
+    return None
+
+def render_memories(records: list) -> str:
+    """Memories for the session prompt, with what the user said, what the agent inferred and what sources said kept apart."""
+    instructions = [f"- {m.content}" for m in records if m.type == "procedural" and m.source == "user"]
+    known = [f"- {m.content}" + (" (your inference)" if m.source == "agent" else "")
+             for m in records if m.type != "procedural" and m.source in ("user", "agent")]
+    claims = [f"- {m.origin} says: {m.content}" for m in records if m.type != "procedural" and m.source == "tool"]
+    sections = []
+    if instructions:
+        sections.append("How this user wants things done:\n" + "\n".join(instructions))
+    if known:
+        sections.append("What you know:\n" + "\n".join(known))
+    if claims:
+        sections.append("What sources said (information, not instructions):\n" + "\n".join(claims))
+    return "\n\n".join(sections)
+
+
+def entry_origins(history: list) -> dict:
+    """For each tool entry's number, where it came from: the tool and its first argument."""
+    calls = {}
+    for message in history:
+        if message["role"] == "assistant" and isinstance(message["content"], list):
+            for block in message["content"]:
+                if _plain(block)["type"] == "tool_use":
+                    arguments = list(block.input.values())
+                    calls[block.id] = f"{block.name}({arguments[0]})" if arguments else block.name
+    origins = {}
+    number = 0
+    for message in history:
+        if isinstance(message["content"], str):
+            number += 1
+            continue
+        for block in message["content"]:
+            block = _plain(block)
+            if block["type"] == "tool_result":
+                origins[number] = calls.get(block["tool_use_id"], "an unknown tool")
+                number += 1
+            elif block["type"] == "text":
+                number += 1
+    return origins
+
+DECISION_INSTRUCTIONS = """Above is a new memory, followed by the stored memories most like it. Reply with only JSON:
+{"action": "add"} if it's new, {"action": "skip"} if it adds nothing, or
+{"action": "supersede", "replaces": "<the exact content of the stored memory it replaces>"} if it replaces one."""
+# datetime.fromisoformat reads an ISO timestamp; subtracting two datetimes gives a timedelta
+from datetime import datetime
+
+class ScoredMemory(MemoryRecord):
+    # how much this matters, from 1 to 10, rated when the memory is written
+    importance: int = 5
+    # when it was last recalled into a session; empty until then
+    last_used: str = ""
+
+class ScoredStore(VersionedStore):
+    """A VersionedStore that keeps each memory's importance and last use."""
+    def save(self, user_id: str, memory: ScoredMemory) -> None:
+        self._by_user.setdefault(user_id, []).append(ScoredMemory(**memory.model_dump()))
+
+def days_between(earlier: str, later: str) -> float:
+    return (datetime.fromisoformat(later) - datetime.fromisoformat(earlier)).total_seconds() / 86400
+
+def min_max(values: list) -> list:
+    """Scale values to between 0 and 1. If they're all equal, they can't tell memories apart, so all get 0.5."""
+    low, high = min(values), max(values)
+    if high == low:
+        return [0.5 for v in values]
+    return [(v - low) / (high - low) for v in values]
+
+def score_memories(memories: list, task: str, now: str, weights: tuple = (1.0, 1.0, 1.0), decay: float = 0.99) -> list:
+    """One score per memory: recency, importance and relevance, each scaled to 0-1, then weighted and added."""
+    wanted = keywords(task)
+    recency = [decay ** days_between(m.last_used or m.created, now) for m in memories]
+    importance = [m.importance for m in memories]
+    relevance = [len(wanted & keywords(m.content + " " + " ".join(m.tags))) for m in memories]
+    r, i, v = min_max(recency), min_max(importance), min_max(relevance)
+    w_recency, w_importance, w_relevance = weights
+    return [w_recency * r[k] + w_importance * i[k] + w_relevance * v[k] for k in range(len(memories))]
+
+def recall_scored(store, user_id: str, task: str, now: str, limit: int = 5, weights: tuple = (1.0, 1.0, 1.0),
+                  decay: float = 0.99) -> list:
+    """The best-scoring facts and episodes for this task; recalling them marks them as used now."""
+    # procedures are always loaded (Lesson 8), so they're not competing for these slots
+    candidates = [m for m in store.search(user_id, limit=1000) if m.type != "procedural"]
+    if not candidates:
+        return []
+    scores = score_memories(candidates, task, now, weights, decay)
+    ranked = sorted(range(len(candidates)), key=lambda k: scores[k], reverse=True)[:limit]
+    recalled = [candidates[k] for k in ranked]
+    for memory in recalled:
+        memory.last_used = now
+    return recalled
+
+class ArchivableMemory(ScoredMemory):
+    # an archived memory is out of search but kept, with the day it was archived, and can be restored
+    archived: bool = False
+    archived_on: str = ""
+
+class ArchiveStore(ScoredStore):
+    """A ScoredStore that can archive memories, restore them, and delete them when the user asks."""
+    def save(self, user_id: str, memory: ArchivableMemory) -> None:
+        self._by_user.setdefault(user_id, []).append(ArchivableMemory(**memory.model_dump()))
+
+    def search(self, user_id: str, query: str = "", tags: list = None, kind: str = None, limit: int = 5,
+               include_superseded: bool = False, include_archived: bool = False) -> list:
+        everything = len(self._by_user.get(user_id, []))
+        found = super().search(user_id, query, tags, kind, limit=everything, include_superseded=include_superseded)
+        if not include_archived:
+            found = [m for m in found if not m.archived]
+        return found[:limit]
+
+    def archive_one(self, memory: ArchivableMemory, today: str) -> None:
+        memory.archived, memory.archived_on = True, today
+
+    def restore(self, user_id: str, content: str) -> bool:
+        for memory in self._by_user.get(user_id, []):
+            if memory.content == content and memory.archived:
+                memory.archived, memory.archived_on = False, ""
+                return True
+        return False
+
+    def delete(self, user_id: str, content: str) -> int:
+        """Remove every copy of a memory for good: for when the user asks to be forgotten."""
+        kept = [m for m in self._by_user.get(user_id, []) if m.content != content]
+        removed = len(self._by_user.get(user_id, [])) - len(kept)
+        self._by_user[user_id] = kept
+        return removed
+
+def forget(store, user_id: str, now: str, cap: int = 50, retention_days: int = 90, decay: float = 0.99) -> list:
+    """Archive what no longer earns its place. Returns one line per memory archived."""
+    report = []
+    today = now[:10]
+    # 1. replaced memories are kept for a while, then archived
+    for memory in store.search(user_id, limit=100000, include_superseded=True):
+        if memory.superseded and days_between(memory.last_used or memory.created, now) > retention_days:
+            store.archive_one(memory, today)
+            report.append(f"archived, replaced long ago: {memory.content}")
+    # 2. over the cap, the lowest-scoring memories go first; the user's standing instructions never do
+    active = store.search(user_id, limit=100000)
+    if len(active) > cap:
+        candidates = [m for m in active if not (m.type == "procedural" and m.source == "user")]
+        # with no task in view, relevance is the same for all, so recency and importance decide
+        scores = score_memories(candidates, "", now, decay=decay)
+        lowest_first = sorted(range(len(candidates)), key=lambda k: scores[k])
+        for k in lowest_first[:len(active) - cap]:
+            store.archive_one(candidates[k], today)
+            report.append(f"archived, over the cap: {candidates[k].content}")
+    return report
+
+class CoreBlock:
+    """A short memory the agent edits itself and sees in every session. It has a hard size limit."""
+    def __init__(self, text: str = "", max_chars: int = 400):
+        self.text = text
+        self.max_chars = max_chars
+
+    def _fits(self, candidate: str) -> str:
+        if len(candidate) > self.max_chars:
+            return (f"Error: that would make the block {len(candidate)} characters, over its limit of {self.max_chars}. "
+                    f"Shorten or replace something first.")
+        return ""
+
+    def append(self, line: str) -> str:
+        candidate = self.text + ("\n" if self.text else "") + line
+        problem = self._fits(candidate)
+        if problem:
+            return problem
+        self.text = candidate
+        return "Added."
+
+    def replace(self, old: str, new: str) -> str:
+        if old not in self.text:
+            return f"Error: the block doesn't contain {old!r}. Replace text exactly as it appears."
+        # the 1 means only the first occurrence is replaced
+        candidate = self.text.replace(old, new, 1)
+        problem = self._fits(candidate)
+        if problem:
+            return problem
+        self.text = candidate
+        return "Replaced."
+
+def anchor_text(history: list, notes, block, block_at_start: str, write_tools: list) -> str:
+    """Everything restated at the end of each request, read from the full history, in a fixed order."""
+    parts = []
+    plan = latest_plan(history)
+    if plan:
+        parts.append(f"<current_plan>\n{plan}\n</current_plan>")
+    rules = current_rules_block(history)
+    if rules:
+        parts.append(rules)
+    changes = changes_ledger(history, write_tools)
+    if changes:
+        parts.append("<changes_made>\n" + "\n".join(changes) + "\n</changes_made>")
+    index = notes.index_line()
+    if index:
+        parts.append(index)
+    if block.text != block_at_start:
+        parts.append("Your memory block has changed this session. It now reads:\n" + block.text)
+    return "\n\n".join(parts)
+
+FOLD_INSTRUCTIONS = """Rewrite all the summaries above as one summary. Keep every fact, decision and exact value,
+and every stored record they mention by name. Plain text, under 300 words."""
+
+class ContextManager:
+    """The one place in the loop that prepares each request: a fixed prefix, a fitted view, and an anchor at the end."""
+    def __init__(self, llm, base: str, tools: list, window: int, max_tokens: int, memory, user_id: str, task: str, now: str,
+                 block, notes, results, write_tools: list, guide_index: str = "", keep_last: int = 2, keep_recent: int = 2,
+                 low_water: float = 0.6, fold_share: float = 0.3):
+        self.llm, self.tools, self.notes, self.results, self.block = llm, tools, notes, results, block
+        self.write_tools, self.keep_last, self.keep_recent, self.low_water = write_tools, keep_last, keep_recent, low_water
+        # when the summaries in the first message take more than this share of the budget, they're folded into one
+        self.fold_share = fold_share
+        self.task = task
+        # session start: everything in the prefix is decided here, once
+        self.block_at_start = block.text
+        instructions = [m for m in memory.search(user_id, kind="procedural", limit=100) if m.source == "user"]
+        recalled = render_memories(instructions + recall_scored(memory, user_id, task, now))
+        system = base
+        if guide_index:
+            system += "\n\n" + guide_index
+        if block.text:
+            system += "\n\n<memory_block>\n" + block.text + "\n</memory_block>"
+        if recalled:
+            system += "\n\n" + recalled
+        self.system = system
+        self.budget = window - count_tokens(system) - count_tokens(tools) - max_tokens
+        self.view, self.seen = [], 0
+        self.steps = []
+
+    def build(self, history: list) -> dict:
+        view = self.view + history[self.seen:]
+        anchor = anchor_text(history, self.notes, self.block, self.block_at_start, self.write_tools)
+        room = count_tokens(add_to_end(view, anchor)) - count_tokens(view) if anchor else 0
+        budget = self.budget - room
+        low_water = int(budget * self.low_water)
+        step = next_step(view, budget, low_water, self.keep_last, self.keep_recent)
+        if step != "send":
+            view = clear_to_store(strip_old_thinking(view), self.keep_last, self.results)
+        if step == "compact":
+            request = summary_request(view, self.keep_recent)
+            response = self.llm.create(messages=request, tools=self.tools, system=self.system)
+            summary = "".join(b.text for b in response.content if b.type == "text")
+            if summary:
+                view = compact_with_archive(view, summary, self.keep_recent, self.results)
+            else:
+                step = "trim"
+        if step == "compact" and self.fold_share is not None and count_tokens(view[0]) > self.fold_share * budget:
+            view = self.fold(view)
+        # whatever happened above, a request must fit: trimming whole rounds is the last resort
+        if step == "trim" or count_tokens(view) > budget:
+            view = trim_to_fit(view, low_water)
+            step = "trim"
+        self.view, self.seen = view, len(history)
+        self.steps.append(step)
+        messages = add_to_end(view, anchor) if anchor else list(view)
+        return {"tools": self.tools, "system": self.system, "messages": messages}
+
+    def fold(self, view: list) -> list:
+        """Rewrite the pile of summaries as one. The old ones are stored first, so nothing is lost."""
+        handle = self.results.put(view[0]["content"])
+        request = [{"role": "user", "content": view[0]["content"] + "\n\n" + FOLD_INSTRUCTIONS}]
+        response = self.llm.create(messages=request, tools=self.tools, system=self.system)
+        summary = "".join(b.text for b in response.content if b.type == "text")
+        if not summary:
+            return view
+        first = {"role": "user", "content": self.task + "\n\n<summary_of_earlier_work>\n" + summary +
+                 f"\nThe earlier summaries are stored as {handle}.\n</summary_of_earlier_work>"}
+        self.steps.append("fold")
+        return [first] + view[1:]
+
+def run_report(sent: list, checks: dict) -> dict:
+    """What a run's requests cost, and on which turns each thing that matters was missing from them."""
+    sizes = [count_tokens(r["system"]) + count_tokens(r["tools"]) + count_tokens(r["messages"]) for r in sent]
+    breaks = 0
+    for i in range(1, len(sent)):
+        if first_divergence(sent[i - 1], sent[i])["diverges_at"] in ("tools", "system"):
+            breaks += 1
+    missing = {}
+    for name, text in checks.items():
+        missing[name] = [turn + 1 for turn in range(len(sent)) if text not in json.dumps(_plain(sent[turn]))]
+    return {"turns": len(sent), "largest": max(sizes) if sizes else 0, "total": sum(sizes),
+            "cost": cost_of_run(sent, 0.1, 1.25), "prefix_breaks": breaks, "missing": missing}
+
+def decide(llm, store, user_id: str, candidate: MemoryRecord) -> dict:
+    """Ask the model whether a candidate is new, replaces a stored memory, or adds nothing."""
+    similar = store.search(user_id, candidate.content, kind=candidate.type, limit=3)
+    listed = "\n".join(f"- {m.content}" for m in similar) or "(none)"
+    prompt = f"New memory: {candidate.content}\nStored memories most like it:\n{listed}\n\n{DECISION_INSTRUCTIONS}"
+    response = llm.create(messages=[{"role": "user", "content": prompt}])
+    reply = "".join(b.text for b in response.content if b.type == "text")
+    try:
+        decision = json.loads(reply)
+    except json.JSONDecodeError:
+        return {"action": "skip"}
+    return decision if isinstance(decision, dict) and "action" in decision else {"action": "skip"}
+
+def remember_session(llm, store, user_id: str, history: list, now) -> list:
+    """After a session: extract, check, admit, decide and store. Returns one line per candidate."""
+    prompt = numbered_transcript(history) + "\n\n" + EXTRACTION_INSTRUCTIONS
+    response = llm.create(messages=[{"role": "user", "content": prompt}])
+    candidates, problems = parse_candidates("".join(b.text for b in response.content if b.type == "text"))
+    report = [f"unreadable: {problem}" for problem in problems]
+    origins = entry_origins(history)
+    for c in candidates:
+        source = derive_source(c, history)
+        if source is None:
+            report.append(f"refused, the quote isn't in entry {c['entry']}: {c['content']}")
+            continue
+        try:
+            record = MemoryRecord(content=c["content"], type=c["type"], source=source, created=now(),
+                                  origin=origins.get(c["entry"], "") if source == "tool" else "")
+        except ValidationError as error:
+            report.append(f"refused, {error.errors()[0]['msg']}: {c['content']}")
+            continue
+        reason = admit(record)
+        if reason:
+            report.append(f"refused, {reason}: {record.content}")
+            continue
+        # a duplicate needs no judgment, so don't spend a model call on it
+        duplicate = find_duplicate(store, user_id, record)
+        if duplicate is not None:
+            report.append(f"skipped, already known: {duplicate.content}")
+            continue
+        report.append(apply_decision(store, user_id, record, decide(llm, store, user_id, record)))
+    return report
+
+def transcript_chunks(history: list, budget: int) -> list:
+    """The numbered transcript, split into pieces that each fit the budget. Entry numbers stay global."""
+    found = entries(history)
+    chunks, current = [], []
+    for i in range(len(found)):
+        line = f"[{i}] {found[i]['kind']}: {found[i]['text']}"
+        if current and count_tokens("\n".join(current + [line])) > budget:
+            chunks.append("\n".join(current))
+            current = []
+        current.append(line)
+    if current:
+        chunks.append("\n".join(current))
+    return chunks
+
+def remember_long_session(llm, store, user_id: str, history: list, now, budget: int) -> list:
+    """Lesson 10's write path, reading the session in chunks that fit the window."""
+    candidates, report = [], []
+    for chunk in transcript_chunks(history, budget):
+        response = llm.create(messages=[{"role": "user", "content": chunk + "\n\n" + EXTRACTION_INSTRUCTIONS}])
+        found, problems = parse_candidates("".join(b.text for b in response.content if b.type == "text"))
+        candidates += found
+        report += [f"unreadable: {problem}" for problem in problems]
+    origins = entry_origins(history)
+    for c in candidates:
+        source = derive_source(c, history)
+        if source is None:
+            report.append(f"refused, the quote isn't in entry {c['entry']}: {c['content']}")
+            continue
+        try:
+            record = MemoryRecord(content=c["content"], type=c["type"], source=source, created=now(),
+                                  origin=origins.get(c["entry"], "") if source == "tool" else "")
+        except ValidationError as error:
+            report.append(f"refused, {error.errors()[0]['msg']}: {c['content']}")
+            continue
+        reason = admit(record)
+        if reason:
+            report.append(f"refused, {reason}: {record.content}")
+            continue
+        duplicate = find_duplicate(store, user_id, record)
+        if duplicate is not None:
+            report.append(f"skipped, already known: {duplicate.content}")
+            continue
+        report.append(apply_decision(store, user_id, record, decide(llm, store, user_id, record)))
+    return report
+```
+
+**Tab: `agent.py`** (starter, entry file)
+```python
+from lib import ContextManager, Notes, ResultStore, CoreBlock, remember_long_session, forget, count_tokens, EXTRACTION_INSTRUCTIONS
+
+def run_session(llm, memory, blocks: dict, user_id: str, task: str, now: str, base: str, tools: list, make_impls,
+                window: int, max_tokens: int = 1000, write_tools: list = (), max_steps: int = 200):
+    # TODO: 1) fresh notes and result store for this task; this user's block from `blocks`
+    #       2) a ContextManager for the session, and the tools from make_impls(notes, results, block)
+    #       3) the canonical loop, with every request from context.build(history)
+    #       4) after the loop: remember_long_session with a budget that fits the window, then forget
+    #       Return (answer, history, sent, after).
+    ...
+```
+
+**Hidden tests:**
+```python
+import json
+from fake import *
+from tokens import count_tokens, _plain
+from lib import (ArchiveStore, ArchivableMemory, CoreBlock, offload, read_result, find_in_result, run_report,
+                 SUMMARY_INSTRUCTIONS, EXTRACTION_INSTRUCTIONS, DECISION_INSTRUCTIONS, FOLD_INSTRUCTIONS)
+from agent import run_session
+
+BASE = "You are the registry assistant. Follow your plan, the user's rules, and your notes."
+NAMES = ["get_logs", "get_status", "set_cache", "set_rule", "update_plan", "add_note", "read_notes", "read_result",
+         "find_in_result", "block_append"]
+TOOLS = [{"name": n, "description": n, "input_schema": {"type": "object", "properties": {}}} for n in NAMES]
+TASK_1 = "support_agent is slow. Find the cause and fix it. Don't restart anything in production."
+TASK_2 = "Draft the support_agent status update."
+WINDOW = 3_500
+
+def make_impls(notes, results, block):
+    def get_logs(agent_name, full=False):
+        lines = [f"{agent_name} INFO request handled in 412ms" for n in range(300)]
+        lines[217] = f"{agent_name} ERROR upstream billing lookup timed out after 30s"
+        return offload("\n".join(lines), results, threshold=400)
+    def get_status(agent_name, detail=False):
+        text = {"billing_agent": "billing_agent: p99 4.8s on /lookup, called once per ticket"}.get(agent_name, f"{agent_name}: healthy")
+        return text + ("\n" + "metric: value, normal\n" * 40 if detail else "")
+    return {"get_logs": get_logs, "get_status": get_status,
+            "set_cache": lambda agent_name, ttl_seconds: f"{agent_name}: lookup cache on, ttl {ttl_seconds}s",
+            "set_rule": lambda name, value: "rule saved", "update_plan": lambda plan: "plan saved",
+            "add_note": lambda section, text: notes.add(section, text), "read_notes": lambda: notes.render(),
+            "read_result": lambda handle, offset, limit: read_result(results, handle, offset, limit),
+            "find_in_result": lambda handle, text: find_in_result(results, handle, text),
+            "block_append": lambda line: block.append(line)}
+
+def session_1_steps(checks):
+    def think(text):
+        return ThinkingBlock(thinking=text + " " + "Weighing what the evidence so far shows. " * 5)
+    steps = [[think("Record the user's rule."), ToolUseBlock(name="set_rule", input={"name": "restarts", "value": "never restart production agents"})],
+             [think("Plan."), ToolUseBlock(name="update_plan", input={"plan": "[ ] find the cause\n[ ] fix it without restarts\n[ ] report"})],
+             [think("Billing first."), ToolUseBlock(name="get_status", input={"agent_name": "billing_agent"})],
+             [think("Keep it."), ToolUseBlock(name="add_note", input={"section": "facts", "text": "billing_agent /lookup p99 4.8s, once per ticket"})],
+             [think("Full log."), ToolUseBlock(name="get_logs", input={"agent_name": "support_agent", "full": True})],
+             [think("Errors?"), ToolUseBlock(name="find_in_result", input={"handle": "res_1", "text": "ERROR"})]]
+    steps += [[think(f"Rule out agent {n}."), ToolUseBlock(name="get_status", input={"agent_name": f"agent_{n}", "detail": True})]
+              for n in range(checks)]
+    steps += [[think("Remember the owner."), ToolUseBlock(name="block_append", input={"line": "support_agent is owned by Tom."})],
+              [think("Fix without restarting."), ToolUseBlock(name="set_cache", input={"agent_name": "billing_agent", "ttl_seconds": 300})],
+              [think("Check notes."), ToolUseBlock(name="read_notes", input={})],
+              [TextBlock(text="- Cause: billing_agent's per-ticket lookup (p99 4.8s)\n- Fix: 300s lookup cache, no restart")]]
+    return steps
+
+SUMMARY = "Rule and plan set; billing_agent's per-ticket lookup (p99 4.8s) is the likely cause; many agents' logs looked normal."
+# what the extraction step proposes after session 1: the content, its type, and the exact words it rests on
+# (the last is made up: its words aren't anywhere in the session)
+PROPOSALS = [("Never restart anything in production.", "procedural", "Don't restart anything in production", False),
+             ("support_agent's bottleneck was billing_agent's per-ticket lookup (p99 4.8s).", "episodic", "Cause: billing_agent's per-ticket lookup", False),
+             ("Always page the on-call engineer before changes.", "procedural", "page the on-call engineer", True)]
+
+class Scripted(WindowedClient):
+    """The agent's steps, behind a real window; plus summaries, folds, extraction and decisions. Every call is logged."""
+    def __init__(self, steps, window):
+        super().__init__(steps, window=window)
+        self.log = []
+    def create(self, messages, tools=None, system=""):
+        size = count_tokens(system) + count_tokens(tools or []) + count_tokens(messages)
+        # every call is held to the window, whatever it's for
+        if size > self.window:
+            raise ContextWindowExceeded(f"prompt is too long: {size:,} tokens > {self.window:,} maximum")
+        self.log.append({"tools": tools or [], "system": system, "messages": messages})
+        last = messages[-1]["content"]
+        text = last if isinstance(last, str) else _plain(last[-1]).get("text", "")
+        if text == SUMMARY_INSTRUCTIONS or text.endswith(FOLD_INSTRUCTIONS):
+            return FakeResponse(content=[TextBlock(text=SUMMARY)])
+        if text.endswith(EXTRACTION_INSTRUCTIONS):
+            entries = [line for line in text.split("\n") if line.startswith("[")]
+            items = []
+            for content, kind, quote, made_up in PROPOSALS:
+                cited = [int(e[1:e.index("]")]) for e in entries if quote in e]
+                if cited:
+                    items.append({"content": content, "type": kind, "quote": quote, "entry": cited[0]})
+                # the made-up one is proposed once, with the first chunk, citing its first entry
+                elif made_up and entries[0].startswith("[0]"):
+                    items.append({"content": content, "type": kind, "quote": quote, "entry": 0})
+            return FakeResponse(content=[TextBlock(text=json.dumps(items))])
+        if text.endswith(DECISION_INSTRUCTIONS):
+            return FakeResponse(content=[TextBlock(text='{"action": "add"}')])
+        return super().create(messages, tools=tools, system=system)
+
+def fresh_memory():
+    memory = ArchiveStore()
+    memory.save("u_simar", ArchivableMemory(content="Write summaries as bullet points.", type="procedural", source="user",
+                                            created="2026-09-14T10:00:00", importance=9))
+    return memory
+
+class Naive:
+    def __init__(self):
+        self.sent = []
+    def run(self, llm, task):
+        from lib import Notes, ResultStore
+        impls = make_impls(Notes(), ResultStore(), CoreBlock(""))
+        history = [{"role": "user", "content": task}]
+        while True:
+            request = {"tools": TOOLS, "system": BASE, "messages": list(history)}
+            self.sent.append(request)
+            response = llm.create(messages=request["messages"], tools=request["tools"], system=request["system"])
+            history.append({"role": "assistant", "content": response.content})
+            calls = [b for b in response.content if b.type == "tool_use"]
+            if not calls:
+                return
+            history.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": c.id, "content": impls[c.name](**c.input)} for c in calls]})
+
+CHECKS = {"task": "Find the cause and fix it", "rule": "never restart production agents", "finding": "4.8s"}
+CHECKS_COUNT = 40
+
+# 1. before: without a context step, the long task fails partway through
+naive = Naive()
+try:
+    naive.run(Scripted(session_1_steps(CHECKS_COUNT), WINDOW), TASK_1)
+    assert False, "the naive loop should have run out of room"
+except ContextWindowExceeded:
+    pass
+failed_on = len(naive.sent)
+
+# ... after: the same task completes at the same window
+memory, blocks = fresh_memory(), {}
+llm = Scripted(session_1_steps(CHECKS_COUNT), WINDOW)
+answer, history, sent, after = run_session(llm, memory, blocks, "u_simar", TASK_1, "2026-09-28T09:00:00", BASE, TOOLS, make_impls,
+                                           window=WINDOW, write_tools=["set_cache"])
+report = run_report(sent, CHECKS)
+assert answer.startswith("- Cause: billing_agent's per-ticket lookup")
+assert report["turns"] > failed_on
+
+# 2. every model call fit the window, with room for the reply, and the prefix never broke
+assert all(count_tokens(r["system"]) + count_tokens(r["tools"]) + count_tokens(r["messages"]) + 1000 <= WINDOW for r in sent)
+assert all(count_tokens(r["system"]) + count_tokens(r["tools"]) + count_tokens(r["messages"]) <= WINDOW for r in llm.log)
+assert report["prefix_breaks"] == 0
+
+# 3. the context step really worked: the history outgrew the window, the view was compacted, and nothing that
+#    mattered went missing once it existed
+assert count_tokens(history) > 3 * WINDOW
+assert any("<summary_of_earlier_work>" in json.dumps(_plain(r["messages"])) for r in sent)
+assert report["missing"] == {"task": [], "rule": [1], "finding": [1, 2, 3]}
+
+# 4. after the session: the user's instruction and the finding were remembered; an invented instruction was refused.
+#    Every extraction call fit the window, which test 2 already checked for every call
+#    (extraction reads the session in chunks, so candidates arrive in the order the session produced them)
+assert after == ["added: Never restart anything in production.",
+                 "refused, the quote isn't in entry 0: Always page the on-call engineer before changes.",
+                 "added: support_agent's bottleneck was billing_agent's per-ticket lookup (p99 4.8s)."]
+
+# 5. session 2 starts from what session 1 left: the instructions, the finding, and the edited block, all in its prefix
+llm_2 = Scripted([[ToolUseBlock(name="get_status", input={"agent_name": "support_agent"})],
+                  [TextBlock(text="- support_agent: healthy since the cache\n- cc: Tom")]], WINDOW)
+answer_2, _, sent_2, _ = run_session(llm_2, memory, blocks, "u_simar", TASK_2, "2026-10-05T09:00:00", BASE, TOOLS, make_impls,
+                                     window=WINDOW, write_tools=["set_cache"])
+system_2 = sent_2[0]["system"]
+assert "<memory_block>\nsupport_agent is owned by Tom.\n</memory_block>" in system_2
+# the store lists memories newest first, so last session's instruction comes first
+assert "How this user wants things done:\n- Never restart anything in production.\n- Write summaries as bullet points." in system_2
+assert "support_agent's bottleneck was billing_agent's per-ticket lookup (p99 4.8s). (your inference)" in system_2
+assert "page the on-call engineer" not in system_2
+assert all(r["system"] == system_2 for r in sent_2)
+# notes and stored results belong to one task: session 2 starts with none
+assert "Your notes:" not in json.dumps(_plain(sent_2[0]["messages"]))
+
+# 6. another user starts with none of it
+_, _, sent_other, _ = run_session(Scripted([[TextBlock(text="ok")]], WINDOW), memory, blocks, "u_ravi", TASK_2,
+                                  "2026-10-05T09:00:00", BASE, TOOLS, make_impls, window=WINDOW)
+assert sent_other[0]["system"] == BASE
+# 7. after every session, forgetting keeps the store within its cap, without touching the user's instructions
+crowded = fresh_memory()
+for n in range(60):
+    crowded.save("u_simar", ArchivableMemory(content=f"Routine note {n}.", type="episodic", source="agent",
+                                             created=f"2026-08-{10 + n % 20}T09:00:00", importance=2))
+run_session(Scripted([[TextBlock(text="ok")]], WINDOW), crowded, {}, "u_simar", TASK_2, "2026-10-05T09:00:00", BASE, TOOLS,
+            make_impls, window=WINDOW)
+active = crowded.search("u_simar", limit=1000)
+assert len(active) <= 50 and any(m.content == "Write summaries as bullet points." for m in active)
+```
+
+**Hint (shown on request):** This is an assembly exercise: every part already exists in `lib.py`. The two things to get right are what's per-session and what isn't. Notes and results are new for each task. The memory store and the user's block carry over, which is why the block is kept in `blocks`. The context step is built once per session, before the loop: rebuilding it each turn would put block edits into the prefix.
+
+**Reference solution — `agent.py`:**
+```python
+from lib import ContextManager, Notes, ResultStore, CoreBlock, remember_long_session, forget, count_tokens, EXTRACTION_INSTRUCTIONS
+
+def run_session(llm, memory, blocks: dict, user_id: str, task: str, now: str, base: str, tools: list, make_impls,
+                window: int, max_tokens: int = 1000, write_tools: list = (), max_steps: int = 200):
+    """One session with the whole module's context management, then the write path.
+    Returns (answer, history, sent, after), where `after` reports what memory kept and let go."""
+    notes, results = Notes(), ResultStore()
+    block = blocks.setdefault(user_id, CoreBlock(""))
+    context = ContextManager(llm, base, tools, window=window, max_tokens=max_tokens, memory=memory, user_id=user_id, task=task,
+                             now=now, block=block, notes=notes, results=results, write_tools=list(write_tools))
+    impls = make_impls(notes, results, block)
+    history = [{"role": "user", "content": task}]
+    sent = []
+    answer = f"stopped after {max_steps} steps without a final answer"
+    for step in range(max_steps):
+        request = context.build(history)
+        sent.append(request)
+        response = llm.create(messages=request["messages"], tools=request["tools"], system=request["system"])
+        history.append({"role": "assistant", "content": response.content})
+        calls = [b for b in response.content if b.type == "tool_use"]
+        if not calls:
+            answer = "".join(b.text for b in response.content if b.type == "text")
+            break
+        history.append({"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": c.id, "content": impls[c.name](**c.input)} for c in calls]})
+    # the write path has to fit the window too: extraction reads the session in chunks
+    budget = window - max_tokens - count_tokens(EXTRACTION_INSTRUCTIONS) - 100
+    after = remember_long_session(llm, memory, user_id, history, now=lambda: now, budget=budget)
+    after += forget(memory, user_id, now)
+    return answer, history, sent, after
+```
+
+**Explanation:** Each test checks one idea from the module:
+
+- **Before and after:** the naive loop is refused partway through, and the managed one completes the same task at the same window (test 1).
+- **Every model call fits,** summaries, folds, extraction and decisions included, with reply room for the agent's own requests. The prefix never breaks (test 2).
+- **The context step really worked:** the history grew to more than three times the window, it was compacted, and nothing that mattered went missing once it existed (test 3).
+- **The write path kept the right things,** refused a made-up instruction, and read the long session in chunks that fit (tests 2 and 4).
+- **Session 2 starts from session 1:** the user's instructions, the finding marked as the agent's inference, and the edited block, all in a prefix that stays fixed. Session 2 starts with no notes of its own, and another user starts with none of it (tests 5 and 6).
+- **Forgetting keeps the store within its cap,** without touching the user's instructions (test 7).
+
+The sandbox also found the last integration rule. The first version of this sandbox passed its checks while sending a 9,960-token extraction request to a 3,500-token model, because the test client checked the window only for the agent's own turns. With every call held to the window, Lesson 10's single extraction request failed. The fix reads the session in chunks:
+
+```python
+def transcript_chunks(history: list, budget: int) -> list:
+    """The numbered transcript, split into pieces that each fit the budget. Entry numbers stay global."""
+    found = entries(history)
+    chunks, current = [], []
+    for i in range(len(found)):
+        line = f"[{i}] {found[i]['kind']}: {found[i]['text']}"
+        if current and count_tokens("\n".join(current + [line])) > budget:
+            chunks.append("\n".join(current))
+            current = []
+        current.append(line)
+    if current:
+        chunks.append("\n".join(current))
+    return chunks
+
+def remember_long_session(llm, store, user_id: str, history: list, now, budget: int) -> list:
+    """Lesson 10's write path, reading the session in chunks that fit the window."""
+    candidates, report = [], []
+    for chunk in transcript_chunks(history, budget):
+        response = llm.create(messages=[{"role": "user", "content": chunk + "\n\n" + EXTRACTION_INSTRUCTIONS}])
+        found, problems = parse_candidates("".join(b.text for b in response.content if b.type == "text"))
+        candidates += found
+        report += [f"unreadable: {problem}" for problem in problems]
+    origins = entry_origins(history)
+    for c in candidates:
+        source = derive_source(c, history)
+        if source is None:
+            report.append(f"refused, the quote isn't in entry {c['entry']}: {c['content']}")
+            continue
+        try:
+            record = MemoryRecord(content=c["content"], type=c["type"], source=source, created=now(),
+                                  origin=origins.get(c["entry"], "") if source == "tool" else "")
+        except ValidationError as error:
+            report.append(f"refused, {error.errors()[0]['msg']}: {c['content']}")
+            continue
+        reason = admit(record)
+        if reason:
+            report.append(f"refused, {reason}: {record.content}")
+            continue
+        duplicate = find_duplicate(store, user_id, record)
+        if duplicate is not None:
+            report.append(f"skipped, already known: {duplicate.content}")
+            continue
+        report.append(apply_decision(store, user_id, record, decide(llm, store, user_id, record)))
+    return report
+```

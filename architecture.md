@@ -1582,6 +1582,30 @@ messages with `on_overflow="drop_front"`) subclasses whichever
 `check_pairing`) depends only on `_plain`. Both append after
 `COUNT_TOKENS`.
 
+**Module 4 Lesson 12 finding: a window check has to cover every model call,
+not just the agent's own turns.** The comprehensive sandbox's hidden-test
+client (`Scripted(WindowedClient)`, Lesson 4.12 recap) checks each request's
+size and raises `ContextWindowExceeded` before *any* `create()` call —
+summaries, folds, extraction and decision requests included — unlike
+`WindowedClient`'s own base check, which a naive test double could apply
+only where the main loop calls it. An early version of this exercise's
+`agent.py` passed while quietly sending a 9,960-token extraction request
+(Lesson 10's single-shot `remember_session`, run on a full long-session
+transcript) to a 3,500-token model, because nothing was checking that
+particular call's size. Held to the window on every call, it failed
+outright — confirmed by reproducing the exact failure
+(`ContextWindowExceeded: prompt is too long: 9,960 tokens > 3,500 maximum`)
+against a real Pyodide instance. The fix is `transcript_chunks`/
+`remember_long_session` (Lesson 4.12's `lib.py`): the write path reads the
+session in pieces that each fit a budget, with entry numbers kept global so
+a quote can still be checked against the right transcript entry after
+chunking. **Takeaway for future window-enforcement exercises:** a fake
+client meant to catch "this request doesn't fit" bugs should assert the
+window on every `create()` call the code under test can make, not only the
+call sites the exercise's main loop happens to hit — a check that only
+watches the obvious path will pass code that's silently broken on a less
+obvious one.
+
 **Hang-safe hidden tests (Lesson 4.2 `trim_to_fit`).** The Pyodide
 harness has no execution timeout, and a natural learner bug (a `while`
 loop that drops the newest round too, so `rounds[1:]` of `[]` never

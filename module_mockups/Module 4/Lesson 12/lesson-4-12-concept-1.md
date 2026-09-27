@@ -31,6 +31,7 @@ Each piece worked on its own page. Putting them together surfaced rules that are
 - **Recall before forgetting,** so what a task needs is refreshed before it's judged ([Lesson 11](→ this module, forgetting aging and retrieval quality lesson)).
 - **Summaries don't pile up forever.** [Lesson 5](→ this module, compaction and summarization lesson, when a summary loses something concept, summaries of summaries) appends each new summary rather than rewriting old ones, and said that rewriting them would eventually be a deliberate step. Here it is: when the summaries take more than a set share of the budget, they're folded into one, and the old ones are stored first, so nothing is lost. The next concept shows what happens without it.
 - **A request always fits.** Whatever the steps above leave, a view still over budget is trimmed by whole rounds, as the last resort.
+- **The write path fits the window too.** After a long session, [Lesson 10's extraction](→ this module, deciding what to remember lesson, extraction with evidence concept) can't send the whole transcript in one request. It reads the session in chunks that fit, with entry numbers kept global so every quote can still be checked. The lesson's sandbox is where this surfaced.
 
 ## The context step, in code
 

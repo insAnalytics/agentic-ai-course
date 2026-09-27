@@ -3150,7 +3150,7 @@ below describe each lesson as first converted; see the git log
    actually growing). Lesson 11 is now **Locked**: all three concepts
    plus both bookends exist and build cleanly.
 
-12. **Assembling the Context Step** — **Building** (folder
+12. **Assembling the Context Step** — **Locked** (folder
     `12-assembling-the-context-step`, slugified from the mockup's own
     framing — this lesson integrates the whole module's context code into
     one `ContextManager` class and measures it, so no single earlier
@@ -3279,9 +3279,78 @@ below describe each lesson as first converted; see the git log
     figures already verified when each earlier lesson's own demo was
     built.
 
-    Lesson 12 is **Building**: all three concepts exist; no intro or
-    bookends yet (mirroring how Lessons 10 and 11 looked before their
-    bookends arrived).
+    Concept 1 also gained one bullet after its initial build: the mockup's
+    `lesson-4-12-concept-1.md` was updated post-build with a new
+    integration rule, "the write path fits the window too" (Lesson 10's
+    extraction can't send a long session's whole transcript in one
+    request, so it reads the session in chunks with entry numbers kept
+    global), added as the last bullet in the-integration-rules subsection,
+    linked to Lesson 10's extraction-with-evidence concept page (page
+    link, verified against the built HTML — the mockup's pointer names
+    only the concept, no subsection).
+
+    Bookends are now built too, from the mockup's
+    `lesson-4-12-bookends.md`: an intro (learning outcomes + why-it-matters,
+    no callbacks) and a comprehensive `recap-practice` page. 8-question
+    comprehensive quiz spanning all three concepts (lesson-number
+    references in explanations reworded to descriptive phrases, e.g. "the
+    compaction lesson", matching this lesson's established style). The
+    comprehensive sandbox is a `MultiFileGradedExercise`: `lib.py`
+    (read-only) is the whole module's code in the order it was built —
+    Lesson 2's plan/rules helpers through Lesson 11's `ArchiveStore`/
+    `forget`, plus this lesson's `anchor_text`/`ContextManager`, and two
+    new pieces the sandbox itself needed, `transcript_chunks` and
+    `remember_long_session` (Lesson 10's write path, reading a session in
+    budgeted chunks instead of one request) — needs `pydantic`. `fake.py`
+    combines the base fake client (`ToolUseBlock`/`TextBlock`/
+    `ThinkingBlock`/`FakeResponse`/`FakeLLMClient`, via
+    `REACT_FAKE_CLIENT`) with the windowed-client upgrade
+    (`ContextWindowExceeded`/`WindowedClient`, via `WINDOWED_CLIENT`, both
+    from `src/lib/fakeClient.ts`) plus its own `from tokens import
+    count_tokens` line, since `WindowedClient.create` calls `count_tokens`
+    as a bare name and needs it in its own module's namespace when split
+    across real files (concept 2's single-file `SETUP` never needed this,
+    since everything shares one namespace there). `tokens.py` is the usual
+    `count_tokens`/`_plain` companion. `agent.py` implements `run_session`:
+    a fresh `Notes()`/`ResultStore()` per task, this user's `CoreBlock`
+    from a `blocks` dict (created once, kept across sessions), a
+    `ContextManager` built once per session, the canonical loop, then
+    `remember_long_session` with a budget of
+    `window - max_tokens - count_tokens(EXTRACTION_INSTRUCTIONS) - 100`
+    followed by `forget`. Verified against a real Pyodide instance
+    (`pyodide@0.26.4`, real `pydantic`, multi-file `sys.path` setup
+    matching `src/lib/pyodide.ts`'s convention): the reference solution
+    passes all seven hidden-test assertions (naive-vs-managed on the same
+    3,500-token window; every model call, summaries and folds included,
+    fits the window with prefix breaks at zero; the history outgrew 3x the
+    window and was compacted without losing the task/rule/finding; the
+    write path kept the user's instruction and the finding while refusing
+    a planted "page the on-call engineer" instruction with no real quote
+    behind it; session 2 inherits session 1's instructions, finding and
+    edited memory block in its prefix while starting with no notes of its
+    own; another user starts clean; forgetting keeps a 60-memory store
+    within its 50-item cap without touching the user's standing
+    instruction). Two targeted mutations were also verified to fail for
+    the right reason, not indiscriminately: an `agent.py` that calls
+    Lesson 10's single-shot `remember_session` instead of the chunked
+    `remember_long_session` fails immediately with
+    `ContextWindowExceeded: prompt is too long: 9,960 tokens > 3,500
+    maximum` — reproducing, digit for digit, the exact bug the mockup's
+    own "Explanation" section describes finding during its authoring; and
+    an `agent.py` that reuses one module-level `Notes()`/`ResultStore()`
+    across every session and user (instead of a fresh pair per task) fails
+    only test 5's assertion that session 2 starts with no notes of its own
+    (`"Your notes:"` leaking in from session 1's shared `Notes`), passing
+    tests 1-4 exactly as the correct version does. This confirms the
+    hidden tests actually catch the two things the exercise is about
+    (window-safe chunked extraction; per-task-scoped `Notes`/`ResultStore`),
+    not just "something is different." Callbacks: none new beyond what
+    concept 1 and 2 already resolved — the bookends mockup's own callbacks
+    live inside `lib.py`'s carried-forward docstrings/comments, already
+    covered by those concepts' link resolution.
+
+    Lesson 12 is now **Locked**: all three concepts plus both bookends
+    exist and build cleanly.
 
 ---
 
