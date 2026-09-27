@@ -2779,7 +2779,7 @@ below describe each lesson as first converted; see the git log
    fail. The recap is `04-recap-practice.mdx` (the lesson has three
    concepts).
 
-7. **Just-in-Time Context and Dynamic Tool Exposure** — Building (title is
+7. **Just-in-Time Context and Dynamic Tool Exposure** — **Locked** (title is
    a placeholder: the mockup names no lesson; folder
    `07-just-in-time-context-and-dynamic-tool-exposure`, named from
    Lesson 6's forward reference). Concept 1 (what you load, and where it
@@ -2831,7 +2831,16 @@ below describe each lesson as first converted; see the git log
    rule subsection, Lesson 4's clearing concept, Module 3's
    prompt-injection concept and Lesson 6's store-bounds subsection
    (anchors verified); Lesson 10 is plain prose (unbuilt). All three
-   concepts exist; no intro/bookends yet.
+   concepts exist. Bookends built: `00-intro.mdx` and `04-recap-practice.mdx`
+   (8-question comprehensive quiz; multi-file comprehensive sandbox with
+   read-only `lib.py`, entry `agent.py`: `build_system`, `dispatch`,
+   `run_agent` with a fixed 3-tool prefix, stage gating and a guide index,
+   eight hidden test groups). Verified natively: the reference passes and
+   the starter fails; mutations confirmed: no stage gate and no stage line
+   each fail. Docstring backticks in `lib.py` removed (they break
+   `String.raw`). Callbacks link to Lesson 1's what-fills-the-window
+   concept, Lesson 2's re-anchoring concept, Lesson 3's intro and this
+   lesson's concepts 1 and 3.
 
 ---
 

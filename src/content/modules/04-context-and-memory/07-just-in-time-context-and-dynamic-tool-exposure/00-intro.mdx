@@ -1,0 +1,32 @@
+---
+title: "Intro"
+lesson: "07-just-in-time-context-and-dynamic-tool-exposure"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Explain why anything loaded partway through a run belongs in the conversation, not the prefix, and measure what the other placements cost",
+    "Give each stage of a task its own tools without changing the tool list, by gating calls in the dispatcher",
+    "Put a large tool catalog behind two fixed tools, and validate calls the provider can no longer check",
+    "Load instructions and reference material only when they're needed, from a library you control",
+  ]}
+/>
+
+<WhyItMatters>
+  An agent connected to a few real services can easily carry tens of
+  thousands of tokens of tool definitions and runbooks on every request,
+  almost all of them unused at any given step.
+  [Lesson 1](/04-context-and-memory/01-the-context-budget/01-what-fills-the-window/)
+  measured it: on the first turn, tool definitions were most of the
+  request. Loading only what's needed is the obvious fix, and done
+  carelessly it's expensive. The tool list and system prompt are the start
+  of every request, so changing them costs the cache everything after
+  them, and removing a tool the history mentions confuses the model.
+
+  This lesson loads tools, instructions and reference material on demand
+  while keeping the start of every request exactly the same, from the first
+  turn to the last.
+</WhyItMatters>
