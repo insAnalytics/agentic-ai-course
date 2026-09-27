@@ -2988,7 +2988,36 @@ below describe each lesson as first converted; see the git log
    (to the previous concept) links to its page (anchor verified); the
    other (Lesson 11's forgetting rules) stays plain prose since Lesson
    11 isn't built yet, matching how concept 1 left its own forward
-   references to concept 3.
+   references to concept 3. Concept 3 (memory poisoning, and the source
+   rule) is also built — the lesson's final concept: `admit` and
+   `render_memories`, redefining `entries`/`numbered_transcript`/
+   `parse_candidates`/`derive_source` (concept 1), `Memory`/
+   `MemoryRecord` (Lesson 9/concept 2) and Lesson 8's `memory_block`
+   locally, same self-contained-consts pattern as every other page
+   (this concept's demos never touch `MemoryStore`/`VersionedStore`, so
+   they're left out of its setup). Two live demos: the SpAIware-style
+   poisoning walkthrough (evidence check correctly tags the planted line
+   as `tool`, naive storage still files it as a standing instruction,
+   the source rule refuses it) and the disguised-fact demo (passes
+   `admit`, shown attributed under "what sources said" instead of as an
+   instruction). Both verified natively (`python`, real `pydantic`
+   2.12.5) to match the mockup's printed output exactly, including the
+   nested `memory_block`/`render_memories` section text. 5 quiz cards;
+   graded exercise with five hidden tests. Verified natively: the
+   reference passes all five and the starter fails; three targeted
+   mutations (letting only tool-sourced procedural memories get
+   refused, so the agent's inference slips through; dropping the
+   tool-origin check; and removing the procedural-type guard from
+   `render_memories`'s sections) each fail exactly the test guarding
+   that rule (1, 2, and 3+4 respectively). Callbacks: the previous
+   concept's rule links to its `only-the-user's-word` subsection anchor
+   (verified), Lesson 8's procedural-memory warning links to its
+   subsection anchor (verified), and the two Module 3 references
+   (prompt injection, blast radius) link to their concept pages, same
+   as concept 1's existing Module 3 link. Lesson 10 now has all three
+   concepts built; no bookends mockup exists yet, so `00-intro.mdx` and
+   `04-recap-practice.mdx` are still missing and the lesson stays
+   Building until that mockup arrives.
 
 ---
 
