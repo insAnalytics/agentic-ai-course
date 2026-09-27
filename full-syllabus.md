@@ -3108,6 +3108,30 @@ below describe each lesson as first converted; see the git log
    named), Lesson 8's "procedures are always loaded" rule (subsection
    anchor verified), and the same Xiong et al. citation concept 1 used.
 
+   Concept 3 (forgetting on purpose) is also built — the lesson's final
+   concept: `ArchivableMemory`, `ArchiveStore` (`archive_one`, `restore`,
+   `delete`) and `forget`, on top of concept 2's scoring code, redefined
+   locally as usual. `forget` archives superseded memories past a
+   retention period, then, if the store is over a cap, archives the
+   lowest-scoring active memories (by concept 2's scoring with no task
+   in view, so only recency and importance decide), never touching the
+   user's own standing instructions. The "a year, with forgetting" demo
+   (cap of 15, policy run weekly) and the restore/delete walkthrough are
+   verified natively (`python`, real `pydantic`/`datetime`) to reproduce
+   the mockup's exact counts (69 stored, 15 active, 54 archived) and
+   restore/delete sequence. 5 quiz cards; graded exercise with five
+   hidden tests. Verified natively: the reference passes all five and
+   the starter fails; two targeted mutations (dropping the
+   standing-instruction guard from the cap rule, and ignoring
+   `retention_days` so every superseded memory is archived immediately)
+   each fail multiple tests that check exactly those rules (2+4, and
+   1+2+3 respectively). Callbacks: the previous concept (page link),
+   Lesson 10's "supersede, don't delete" (subsection anchor verified),
+   and Lesson 10's source rule (subsection anchor verified). Lesson 11
+   now has all three concepts built; no bookends mockup exists yet, so
+   it stays **Building** until one arrives, matching how Lesson 10 was
+   left after its own concept 3.
+
 ---
 
 ## Modules 4–11 — current plan
