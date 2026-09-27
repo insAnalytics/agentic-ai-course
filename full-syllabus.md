@@ -2907,6 +2907,22 @@ below describe each lesson as first converted; see the git log
    (Module 0 teaches `Field` only through Module 3's `description=`) is
    covered by the code comment as authored. Lessons 10-11 are plain prose
    (unbuilt).
+   Concept 2 (three ways an agent uses the store) is built:
+   `make_memory_tools` (tools bound to the session's user, with no
+   `user_id` parameter), `write_after_session` and `CoreBlock` (hard
+   limit, exact first-match replace), with two demos matching the
+   mockup's printed output exactly when re-run; 5 quiz cards; graded
+   exercise with seven hidden tests (split into self-contained
+   snippets; test 4 now saves one of Simar's own memories so the
+   'Ravi can't see it' check is meaningful on its own). Verified
+   natively: the reference passes and the starter fails all seven;
+   mutations confirmed: a `user_id` parameter fails 4, source `user`
+   fails 1, not catching `ValidationError` fails 2, replacing every
+   match fails 5, an off-by-one limit fails 6, editing before the length
+   check fails 6. Callbacks link to Module 3's prompt-injection and
+   validate-failures concepts, Lesson 6's store-bounds subsection
+   (anchor verified) and Module 0's decorators concept; Lesson 10 and
+   the next concept are plain prose.
 
 ---
 
