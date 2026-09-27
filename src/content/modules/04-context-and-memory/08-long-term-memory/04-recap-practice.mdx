@@ -1,0 +1,349 @@
+---
+title: "Recap & Practice"
+lesson: "08-long-term-memory"
+order: 4
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, COUNT_TOKENS, WINDOWED_CLIENT } from "../../../../lib/fakeClient";
+
+export const TOKENS_PY = "# the token estimate used throughout this module -- read-only\n" + COUNT_TOKENS.trimStart();
+
+export const LIB_PY = String.raw`# this lesson's code, plus the cache helper the tests use -- read-only
+import json
+from tokens import count_tokens, _plain
+
+STOPWORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "is", "was", "it", "this", "that",
+             "with", "as", "at", "by", "be", "i", "you", "my", "me", "we", "our", "please", "about", "from", "last"}
+
+def keywords(text: str) -> set:
+    """The words in text worth matching on: lowercased, punctuation removed, common and one-letter words dropped."""
+    text = text.lower()
+    for mark in ".,;:!?()'\"":
+        text = text.replace(mark, " ")
+    # single letters, like the "s" a possessive leaves behind, carry no meaning either
+    return {word for word in text.split() if len(word) > 1} - STOPWORDS
+
+def recall(memories: list, task: str, limit: int = 3) -> list:
+    """The memories sharing the most keywords with the task, best first, at most limit."""
+    wanted = keywords(task)
+    scored = []
+    for memory in memories:
+        score = len(wanted & keywords(memory))
+        if score:
+            scored.append((score, memory))
+    return [memory for score, memory in sorted(scored, key=lambda pair: pair[0], reverse=True)[:limit]]
+
+def session_prompt(base: str, recalled: list) -> str:
+    """The session's system prompt: fixed from its first request to its last."""
+    if not recalled:
+        return base
+    return base + "\n\nFrom earlier sessions with this user:\n- " + "\n- ".join(recalled)
+
+def recall_for(store: dict, user_id: str, task: str, limit: int = 3) -> list:
+    """Recall only from this user's memories. An unknown user has none."""
+    return recall(store.get(user_id, []), task, limit)
+
+def assemble_memory(memories: list, task: str, fact_limit: int = 3, episode_limit: int = 2) -> dict:
+    """Each type of memory, chosen by its own rule."""
+    procedural = [m["text"] for m in memories if m["type"] == "procedural"]
+    facts = [m["text"] for m in memories if m["type"] == "semantic"]
+    wanted = keywords(task)
+    relevant_episodes = [m for m in memories if m["type"] == "episodic" and wanted & keywords(m["text"])]
+    # ISO dates ("2026-09-21") sort correctly as text, so the newest come first
+    newest = sorted(relevant_episodes, key=lambda m: m["date"], reverse=True)[:episode_limit]
+    return {"procedural": procedural,
+            "semantic": recall(facts, task, fact_limit),
+            "episodic": [f"{m['date']}: {m['text']}" for m in newest]}
+
+def memory_block(assembled: dict) -> str:
+    """The recalled memories as text for the session prompt, one section per type, empty sections left out."""
+    headers = {"procedural": "How this user wants things done:",
+               "semantic": "What you know:",
+               "episodic": "What happened before:"}
+    parts = []
+    for kind in ["procedural", "semantic", "episodic"]:
+        if assembled[kind]:
+            parts.append(headers[kind] + "\n- " + "\n- ".join(assembled[kind]))
+    return "\n\n".join(parts)
+
+
+def serialize(x) -> str:
+    # byte-for-byte form, as a cache sees it: key order matters, exactly as sent
+    return json.dumps(_plain(x))
+
+def first_divergence(previous: dict, current: dict) -> dict:
+    """Where does current stop matching previous, and how much of it could be read from the cache?"""
+    reusable = 0
+    if serialize(current["tools"]) != serialize(previous["tools"]):
+        return {"diverges_at": "tools", "reusable_tokens": 0}
+    reusable += count_tokens(current["tools"])
+    if serialize(current["system"]) != serialize(previous["system"]):
+        return {"diverges_at": "system", "reusable_tokens": reusable}
+    reusable += count_tokens(current["system"])
+    for i, old in enumerate(previous["messages"]):
+        if i >= len(current["messages"]) or serialize(current["messages"][i]) != serialize(old):
+            return {"diverges_at": f"messages[{i}]", "reusable_tokens": reusable}
+        reusable += count_tokens(old)
+    return {"diverges_at": None, "reusable_tokens": reusable}
+
+def cost_of_run(requests: list, read_multiplier: float, write_multiplier: float) -> int:
+    """Cost of the requests actually sent, using first_divergence to see what each could reuse."""
+    total = 0.0
+    previous = None
+    for request in requests:
+        size = count_tokens(request["tools"]) + count_tokens(request["system"]) + count_tokens(request["messages"])
+        reused = first_divergence(previous, request)["reusable_tokens"] if previous else 0
+        total += reused * read_multiplier + (size - reused) * write_multiplier
+        previous = request
+    return round(total)
+`;
+
+export const AGENT_STARTER = String.raw`from lib import assemble_memory, memory_block
+
+TYPES = ["episodic", "semantic", "procedural"]
+
+def remember(store: dict, user_id: str, memory: dict) -> None:
+    # TODO: refuse a bad type, or a missing text or date, with ValueError;
+    #       otherwise add a copy to this user's list
+    ...
+
+def start_session(store: dict, user_id: str, base: str, task: str) -> str:
+    # TODO: the base, plus a blank line and the memory block if there is one
+    ...
+
+def run_session(llm, store: dict, user_id: str, base: str, task: str, tool_impls: dict, max_steps: int = 20):
+    # TODO: build the system prompt once; then the canonical loop, with that prompt on every request
+    ...
+`;
+
+export const AGENT_REFERENCE = String.raw`from lib import assemble_memory, memory_block
+
+TYPES = ["episodic", "semantic", "procedural"]
+
+def remember(store: dict, user_id: str, memory: dict) -> None:
+    """Add one memory to this user's list, after checking it has what every memory needs."""
+    if memory.get("type") not in TYPES:
+        raise ValueError(f"memory type must be one of {TYPES}, got {memory.get('type')!r}")
+    if not memory.get("text") or not memory.get("date"):
+        raise ValueError("a memory needs its text and a date")
+    store.setdefault(user_id, []).append(dict(memory))
+
+def start_session(store: dict, user_id: str, base: str, task: str) -> str:
+    """The session's system prompt: the base, plus this user's memories chosen for this task."""
+    block = memory_block(assemble_memory(store.get(user_id, []), task))
+    return base + "\n\n" + block if block else base
+
+def run_session(llm, store: dict, user_id: str, base: str, task: str, tool_impls: dict, max_steps: int = 20):
+    """One session: the system prompt is built once, from memory, and stays fixed to the end."""
+    system = start_session(store, user_id, base, task)
+    history = [{"role": "user", "content": task}]
+    sent = []
+    for step in range(max_steps):
+        request = {"tools": [], "system": system, "messages": list(history)}
+        sent.append(request)
+        response = llm.create(messages=request["messages"], tools=request["tools"], system=request["system"])
+        history.append({"role": "assistant", "content": response.content})
+        calls = [b for b in response.content if b.type == "tool_use"]
+        if not calls:
+            return "".join(b.text for b in response.content if b.type == "text"), history, sent
+        history.append({"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": c.id, "content": tool_impls[c.name](**c.input)} for c in calls]})
+    return f"stopped after {max_steps} steps without a final answer", history, sent
+`;
+
+export const HIDDEN_TESTS = REACT_FAKE_CLIENT + COUNT_TOKENS + WINDOWED_CLIENT + String.raw`
+from lib import first_divergence
+from agent import remember, start_session, run_session
+import json
+
+BASE = "You are the operations assistant."
+text = lambda x: json.dumps(_plain(x))
+
+def impls():
+    return {"registry__get": lambda id: f"{id}: model claude-haiku, p99 4.1s",
+            "registry__update": lambda id, model: f"{id} now runs on {model}",
+            "get_logs": lambda agent_name: f"{agent_name} INFO request handled in 412ms status=200\n" * 40}
+
+# session 1, last Monday: an investigation
+session_1_script = [[ToolUseBlock(name="registry__get", input={"id": "support_agent"})]]
+session_1_script += [[ToolUseBlock(name="get_logs", input={"agent_name": a})] for a in ["billing_agent", "search_agent", "triage_agent"]]
+session_1_script += [[ToolUseBlock(name="registry__update", input={"id": "support_agent", "model": "claude-sonnet"})],
+                     [TextBlock(text="- billing_agent's lookup was the bottleneck\n- support_agent moved to claude-sonnet")]]
+store = {}
+_, history_1, _ = run_session(WindowedClient(session_1_script, window=100_000), store, "u_simar", BASE,
+                              "support_agent is slow. Find out why. Keep summaries to bullet points, please.", impls())
+
+# after session 1: what's worth keeping (chosen by hand here; choosing it automatically is Lesson 10's subject)
+remember(store, "u_simar", {"type": "procedural", "text": "Write summaries as bullet points.", "date": "2026-09-21"})
+remember(store, "u_simar", {"type": "procedural", "text": "cc Priya on anything about support_agent.", "date": "2026-09-21"})
+remember(store, "u_simar", {"type": "episodic", "text": "support_agent was slow; billing_agent's per-ticket lookup was the bottleneck.", "date": "2026-09-21"})
+remember(store, "u_ravi", {"type": "procedural", "text": "Post status notes to #search-team, not by email.", "date": "2026-09-19"})
+
+# 1. memories are kept per user, as copies, with every field
+assert [m["type"] for m in store["u_simar"]] == ["procedural", "procedural", "episodic"]
+assert len(store["u_ravi"]) == 1
+original = {"type": "semantic", "text": "Priya owns support_agent.", "date": "2026-09-21"}
+remember(store, "u_simar", original)
+original["text"] = "changed afterwards"
+assert store["u_simar"][-1]["text"] == "Priya owns support_agent."
+
+# 2. a memory without a valid type, text or date is refused
+for bad in [{"type": "preference", "text": "x", "date": "2026-09-21"}, {"type": "semantic", "text": "", "date": "2026-09-21"},
+            {"type": "semantic", "text": "x"}]:
+    try:
+        remember(store, "u_simar", bad)
+        assert False, f"accepted {bad}"
+    except ValueError:
+        pass
+assert len(store["u_simar"]) == 4
+
+# 3. session 2 starts from memory: this user's instructions and the relevant past, and nothing else
+task_2 = "Draft the status update on support_agent for this week."
+system_2 = start_session(store, "u_simar", BASE, task_2)
+assert system_2.startswith(BASE + "\n\nHow this user wants things done:\n- Write summaries as bullet points.\n- cc Priya on anything about support_agent.")
+assert "What you know:\n- Priya owns support_agent." in system_2
+assert "2026-09-21: support_agent was slow" in system_2
+assert "#search-team" not in system_2 and "claude-haiku" not in system_2
+
+# 4. it's a small fraction of starting from session 1's whole transcript
+transcript_start = count_tokens(BASE) + count_tokens(history_1 + [{"role": "user", "content": task_2}])
+assert count_tokens(system_2) + count_tokens([{"role": "user", "content": task_2}]) < 0.25 * transcript_start
+
+# 5. during session 2 the system prompt never changes, and the memories never enter the history
+session_2_script = [[ToolUseBlock(name="registry__get", input={"id": "support_agent"})],
+                    [TextBlock(text="- support_agent is healthy this week\n- cc: Priya")]]
+answer, history_2, sent_2 = run_session(WindowedClient(session_2_script, window=100_000), store, "u_simar", BASE, task_2, impls())
+assert answer.startswith("- support_agent is healthy")
+assert all(r["system"] == system_2 for r in sent_2)
+assert all(first_divergence(a, b)["diverges_at"] not in ("tools", "system") for a, b in zip(sent_2, sent_2[1:]))
+assert "cc Priya" not in text(history_2)
+assert history_2[0] == {"role": "user", "content": task_2}
+
+# 6. each user sees only their own memories; a new user starts with the base prompt alone
+system_ravi = start_session(store, "u_ravi", BASE, task_2)
+assert "#search-team" in system_ravi and "Priya" not in system_ravi
+assert start_session(store, "u_new", BASE, task_2) == BASE
+`;
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "Why isn't a checkpoint of last week's session a good way to give this week's session memory?",
+      "options": [
+        "A checkpoint can't be saved to disk",
+        "A checkpoint keeps a whole session so the same task can continue; a new task needs only a few selected things, and some of the old session is no longer true",
+        "Checkpoints lose the user's messages",
+        "A checkpoint only works for one turn"
+      ],
+      "correctIndex": 1,
+      "explanation": "In the demo, starting from the old transcript was 35 times the size of three memories, and carried a stale fact next to its correction."
+    },
+    {
+      "question": "Which part of a memory system decides that memories recalled at session start go into the system prompt?",
+      "options": [
+        "Storage",
+        "Retrieval",
+        "Injection",
+        "Extraction"
+      ],
+      "correctIndex": 2,
+      "explanation": "Injection is where recalled memories go in the request. Lesson 7's rule decides it: the prompt is built once and fixed, so the prefix never changes."
+    },
+    {
+      "question": "Why did matching raw words recall every memory?",
+      "options": [
+        "Every memory shares common words such as \"the\" with the task",
+        "Raw matching ignores the limit",
+        "The memories weren't scoped",
+        "Memories are matched by their dates"
+      ],
+      "correctIndex": 0,
+      "explanation": "Dropping common words, one-letter words and punctuation leaves the words that carry meaning."
+    },
+    {
+      "question": "What does per-user scoping prevent?",
+      "options": [
+        "Memories being recalled twice",
+        "The cache breaking at the system prompt",
+        "Stale facts",
+        "One user's memories, including their instructions, appearing in another user's session"
+      ],
+      "correctIndex": 3,
+      "explanation": "Without it, Ravi's instruction to post status notes to #search-team matched Simar's task and would have landed in her session."
+    },
+    {
+      "question": "\"Priya owns support_agent\" is semantic memory. What is \"cc Priya on anything about support_agent\"?",
+      "options": [
+        "Episodic, because it happened in a session",
+        "Procedural, because it changes what the agent does every time it applies",
+        "Semantic, because it mentions a fact",
+        "Working memory, because it's short"
+      ],
+      "correctIndex": 1,
+      "explanation": "The question that sorts a memory is whether it informs the agent or directs it."
+    },
+    {
+      "question": "Why are procedures always loaded, rather than recalled by keyword?",
+      "options": [
+        "Keyword search can't read instructions",
+        "They're stored in the system prompt already",
+        "A standing instruction applies to every task, whatever its words, and keyword recall missed one when the task said \"draft\"",
+        "There are too many to search"
+      ],
+      "correctIndex": 2,
+      "explanation": "They can be loaded every time because they're few and short. Facts and episodes are recalled by relevance."
+    },
+    {
+      "question": "How do episodes and facts go out of date differently?",
+      "options": [
+        "Neither does",
+        "Episodes are superseded; facts age",
+        "Both expire after a set time",
+        "Episodes stay true about their date but matter less as they age; facts are superseded when a newer fact contradicts them"
+      ],
+      "correctIndex": 3,
+      "explanation": "That's why episodes carry dates and are recalled newest first, and why contradicting facts are Lesson 10's hard case."
+    },
+    {
+      "question": "Why is procedural memory the riskiest kind to write?",
+      "options": [
+        "It's the largest kind",
+        "It's loaded into every future session and followed without being asked, so a wrong or injected instruction is obeyed every time",
+        "It can't be searched",
+        "It breaks the cache"
+      ],
+      "correctIndex": 1,
+      "explanation": "The CoALA paper makes the same point about agents in general. Lesson 10 turns it into a rule about where behavior-changing memories may come from."
+    }
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<MultiFileGradedExercise
+  client:load
+  task={"Last Monday, the user asked the registry agent why support_agent was slow, and mentioned how they like their summaries. After that session, a few typed memories are written for them. This Monday, a new session starts from those memories instead of last week's transcript. lib.py, which is read-only, has this lesson's keywords, recall, assemble_memory and memory_block. Complete agent.py. remember(store, user_id, memory): add a copy of memory to store[user_id], creating the list if needed. Raise ValueError if the memory's type isn't one of TYPES, or its text or date is missing or empty. start_session(store, user_id, base, task): the session's system prompt. Build the memory block from this user's memories chosen for the task, with assemble_memory and memory_block. Return base, a blank line (\"\\n\\n\") and the block. If the block is empty, return base alone. run_session(llm, store, user_id, base, task, tool_impls, max_steps=20): one session. Build the system prompt once, with start_session, then run the canonical loop with that prompt on every request, starting from a history holding only the task. Return (final_text, history, sent_requests). The tests run session 1, write the memories (chosen by hand: choosing them automatically is Lesson 10's subject), and then check session 2."}
+  entry="agent.py"
+  files={[
+    { name: "tokens.py", readOnly: true, code: TOKENS_PY },
+    { name: "lib.py", readOnly: true, code: LIB_PY },
+    { name: "agent.py", code: AGENT_STARTER },
+  ]}
+  hiddenTests={HIDDEN_TESTS}
+  hint={"store.setdefault(user_id, []) returns the user's list, creating it first if needed, and dict(memory) makes the copy. Build the system prompt before the loop starts, not inside it: it belongs to the whole session."}
+  correctFiles={[
+    { name: "tokens.py", readOnly: true, code: TOKENS_PY },
+    { name: "lib.py", readOnly: true, code: LIB_PY },
+    { name: "agent.py", code: AGENT_REFERENCE },
+  ]}
+  explanation={"Each test checks one idea from the lesson. Memories are stored per user, as copies, and only when well formed (tests 1 and 2). A memory added by reference would change if the caller's dict changed later. Session 2 starts from memory: both standing instructions, the relevant fact and past episode, nothing from another user, and nothing stale (test 3). It's a small fraction of starting from the transcript (test 4): this session starts at about 100 tokens, against about 2,100 for last week's whole transcript plus the new task, roughly a twentieth. The memories live in the fixed system prompt: it's identical on every request, and the memories never enter the history (test 5). Scoping holds: each user sees only their own memories, and a new user starts with the base prompt alone (test 6). The memories here were chosen by hand, and the store is a dict of lists. Lesson 9 builds a proper store: typed records, search, and three ways for an agent to use it."}
+/>
+
+</CheckpointZone>

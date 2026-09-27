@@ -2842,7 +2842,7 @@ below describe each lesson as first converted; see the git log
    concept, Lesson 2's re-anchoring concept, Lesson 3's intro and this
    lesson's concepts 1 and 3.
 
-8. **Long-Term Memory** — Building (title is a placeholder: the mockup
+8. **Long-Term Memory** — **Locked** (title is a placeholder: the mockup
    names no lesson; folder `08-long-term-memory`, chosen from the
    concept's own subject and its forward references to Lessons 9-11).
    Concept 1 (what dies with the session, and what shouldn't) is built:
@@ -2875,7 +2875,16 @@ below describe each lesson as first converted; see the git log
    oldest-first fails 3 and 5, no empty-section skip fails 5, unlimited
    facts fails 4. Concept 2 now links forward to it. The CoALA paper link
    is as written in the mockup; Lesson 10 is plain prose (unbuilt). No
-   recap/bookends yet.
+   bookends built: `00-intro.mdx` and
+   `04-recap-practice.mdx` (8-question comprehensive quiz; multi-file
+   comprehensive sandbox with read-only `lib.py`, entry `agent.py`:
+   `remember`, `start_session`, `run_session` with the memory block built
+   once into the fixed system prompt, six hidden test groups run as one
+   script). Verified natively: the reference passes and the starter
+   fails; mutations confirmed: no copy, no validation, rebuilding the
+   prompt per request, recalling from all users and dropping the
+   empty-block fallback each fail. Docstring backticks in `lib.py`
+   removed. Lesson 9 is plain prose (unbuilt).
 
 ---
 
