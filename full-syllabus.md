@@ -3057,6 +3057,34 @@ below describe each lesson as first converted; see the git log
    pattern as concept 1's revised demo. Lesson 10 is now **Locked**:
    all three concepts plus both bookends exist and build cleanly.
 
+11. **Forgetting, Aging, and Retrieval Quality** — Building (working
+   title, taken from Lesson 10 concept 2's own forward reference —
+   "this module, forgetting aging and retrieval quality lesson" — folder
+   `11-forgetting-aging-and-retrieval-quality`). Concept 1 (why a store
+   that keeps everything gets worse) is built: no new shared code, just
+   a live demo over Lesson 10's `MemoryRecord`/`VersionedStore` and
+   Lesson 8's `keywords`, redefined locally per this project's usual
+   per-page pattern. The demo simulates a year of weekly memory writes
+   (three memories that matter, plus a routine note every week and an
+   old latency figure every fourth) and shows recall of the three
+   "useful" memories degrading from 3/5 to 0/5 as the store fills with
+   look-alike clutter — verified natively (`python`, real `pydantic`
+   and `datetime`) to print the mockup's exact table, week by week and
+   count by count. 5 quiz cards; no graded exercise, matching the
+   mockup's own note that this lesson's exercises start in concept 2.
+   Callbacks: Lesson 10's intro (whole-lesson reference, no single
+   concept named); Lesson 2's look-alike-distractor evidence, linked to
+   its specific subsection anchor (verified) rather than the generic
+   second reference to "Lesson 2's argument," which links to Lesson 2's
+   intro page instead, since that one names no specific subsection;
+   and Lesson 9's search-ranking rule, linked to its subsection anchor
+   (verified). The two forward references (concept 2's scoring, concept
+   3's forgetting) stay plain prose, unbuilt. **Module 0 gap noted by
+   the mockup:** `datetime` (`date`, `timedelta`) is used from here on
+   with one-line glosses in the code itself; Module 0 doesn't teach it,
+   so no page-level explanation was added beyond the mockup's own
+   comment.
+
 ---
 
 ## Modules 4–11 — current plan

@@ -1,0 +1,277 @@
+---
+title: "Why a store that keeps everything gets worse"
+lesson: "11-forgetting-aging-and-retrieval-quality"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+export const KEYWORDS = String.raw`
+STOPWORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "is", "was", "it", "this", "that",
+             "with", "as", "at", "by", "be", "i", "you", "my", "me", "we", "our", "please", "about", "from", "last"}
+
+def keywords(text: str) -> set:
+    """The words in text worth matching on: lowercased, punctuation removed, common and one-letter words dropped."""
+    text = text.lower()
+    for mark in ".,;:!?()'\"":
+        text = text.replace(mark, " ")
+    # single letters, like the "s" a possessive leaves behind, carry no meaning either
+    return {word for word in text.split() if len(word) > 1} - STOPWORDS
+`;
+
+export const MEMORY_MODEL = String.raw`
+from typing import Literal
+from pydantic import BaseModel, Field
+
+class Memory(BaseModel):
+    # min_length=1 makes Pydantic reject an empty string
+    content: str = Field(min_length=1)
+    type: Literal["episodic", "semantic", "procedural"]
+    # who the memory came from: the user, the agent's own conclusion, or a tool result
+    source: Literal["user", "agent", "tool"]
+    # an ISO timestamp such as "2026-09-21T10:04:00", which sorts correctly as text
+    created: str
+    tags: list[str] = []
+`;
+
+export const STORE_CLASS = String.raw`
+class MemoryStore:
+    """Every user's memories, kept apart. Every method takes the user it acts for."""
+    def __init__(self):
+        self._by_user = {}
+
+    def save(self, user_id: str, memory: Memory) -> None:
+        # a copy, so the caller changing their object later can't change what's stored
+        self._by_user.setdefault(user_id, []).append(Memory(**memory.model_dump()))
+
+    def search(self, user_id: str, query: str = "", tags: list = None, kind: str = None, limit: int = 5) -> list:
+        """This user's memories that match, best first; with no query, newest first."""
+        candidates = []
+        for memory in self._by_user.get(user_id, []):
+            if kind is not None and memory.type != kind:
+                continue
+            if tags and not set(tags) & set(memory.tags):
+                continue
+            candidates.append(memory)
+        newest_first = sorted(candidates, key=lambda m: m.created, reverse=True)
+        if not query:
+            return newest_first[:limit]
+        wanted = keywords(query)
+        scored = [(len(wanted & keywords(m.content + " " + " ".join(m.tags))), m) for m in newest_first]
+        # sorting is stable, so memories with equal scores stay newest first
+        ranked = sorted([pair for pair in scored if pair[0] > 0], key=lambda pair: pair[0], reverse=True)
+        return [m for score, m in ranked[:limit]]
+`;
+
+export const RECORD_CLASS = String.raw`
+class MemoryRecord(Memory):
+    # where a memory from a tool came from: a URL, a document, a system
+    origin: str = ""
+    # a memory that a newer one replaced; kept for the record, left out of search
+    superseded: bool = False
+`;
+
+export const VERSIONED_STORE = String.raw`
+class VersionedStore(MemoryStore):
+    """A MemoryStore that keeps superseded memories instead of deleting them."""
+    def save(self, user_id: str, memory: MemoryRecord) -> None:
+        self._by_user.setdefault(user_id, []).append(MemoryRecord(**memory.model_dump()))
+
+    def search(self, user_id: str, query: str = "", tags: list = None, kind: str = None, limit: int = 5,
+               include_superseded: bool = False) -> list:
+        everything = super().search(user_id, query, tags, kind, limit=len(self._by_user.get(user_id, [])))
+        if not include_superseded:
+            everything = [m for m in everything if not m.superseded]
+        return everything[:limit]
+
+    def supersede(self, user_id: str, old_content: str, new: MemoryRecord) -> None:
+        """Mark the active memory with this content as superseded, and save the new one."""
+        for memory in self._by_user.get(user_id, []):
+            if memory.content == old_content and not memory.superseded:
+                memory.superseded = True
+        self.save(user_id, new)
+`;
+
+export const SETUP = KEYWORDS + MEMORY_MODEL + STORE_CLASS + RECORD_CLASS + VERSIONED_STORE;
+
+export const YEAR_DEMO = String.raw`# date and timedelta come from Python's datetime module: a calendar date, and a length of time to add to one
+from datetime import date, timedelta
+
+def week_start(week):
+    return (date(2026, 1, 5) + timedelta(weeks=week)).isoformat()
+
+store = VersionedStore()
+useful = set()
+
+def remember(content, created, kind="episodic", source="agent", matters=False):
+    store.save("u_simar", MemoryRecord(content=content, type=kind, source=source, created=created))
+    if matters:
+        useful.add(content)
+
+# the few things that matter, learned early
+remember("Never restart support_agent during business hours.", week_start(0) + "T09:00:00", "procedural", "user", matters=True)
+remember("support_agent's bottleneck is billing_agent's per-ticket lookup.", week_start(1) + "T09:00:00", matters=True)
+remember("Tom owns support_agent.", week_start(4) + "T09:00:00", "semantic", "user", matters=True)
+
+task = "Draft the support_agent status update."
+print(f"{'weeks':>5} {'stored':>7}   useful in the top 5 recalled")
+for week in range(1, 53):
+    # most weeks leave a routine note behind; every few weeks, an old metric
+    remember(f"Week {week}: support_agent review done, nothing unusual.", week_start(week) + "T17:00:00")
+    if week % 4 == 0:
+        remember(f"support_agent p99 was {3 + week % 3}.{week % 10}s in week {week}.", week_start(week) + "T17:05:00")
+    if week in (1, 2, 4, 13, 26, 52):
+        recalled = store.search("u_simar", task, limit=5)
+        hits = [m.content for m in recalled if m.content in useful]
+        print(f"{week:>5} {len(store.search('u_simar', limit=1000)):>7}   {len(hits)} of 5   top: {recalled[0].content}")
+`;
+
+<Subsection title="The store after a year" variant="a">
+
+[Lesson 10](/04-context-and-memory/10-deciding-what-to-remember/00-intro/)
+made sure nothing false or planted gets in. It doesn't stop the store from
+filling up with things that are true, harmless, and useless. Here's a year of
+weekly reviews. Three things that matter are learned early. After that, most
+weeks leave a routine note behind, and every fourth week an old latency
+figure. After a few checkpoints, the demo asks what recall returns for this
+week's task. `MemoryRecord` and `VersionedStore` are already loaded:
+
+<LiveDemo client:load setupCode={SETUP} code={YEAR_DEMO} />
+
+*("useful" is marked by hand here, which a real system can't do)*
+
+In the first weeks, recall finds three of the three memories that matter. By
+week 4 it finds one, and from week 13 on, none. Nothing was deleted and
+nothing went wrong in any single step. Every memory matches the task on
+"support_agent", equal scores go to the newest, and there's always a newer
+routine note. The rule never to restart support_agent during business hours
+is still stored. It just never comes back.
+
+</Subsection>
+
+<Subsection title="Why this hurts, not just wastes" variant="b">
+
+It would be one thing if the routine notes merely took up space. The evidence
+says they do worse than that:
+
+- **Look-alike clutter is the hardest kind.**
+  [Lesson 2's evidence](/04-context-and-memory/02-context-that-fits-but-still-hurts/01-agents-get-worse-before-the-window-is-full/#what-the-evidence-shows)
+  found that models degrade most when the context is full of material that
+  resembles what matters without being it. Fifty near-identical weekly notes
+  are exactly that.
+- **Agents follow what they recall.** An empirical study of memory
+  management (Xiong et al.,
+  ["How Memory Management Impacts LLM Agents"](https://arxiv.org/abs/2505.16067))
+  found that agents closely imitate the past experiences they retrieve, which
+  the authors call *experience-following*. A wrong or low-quality memory then
+  keeps producing the same wrong behavior on similar tasks: *error
+  propagation*.
+- **Adding everything fell further behind over time.** In the same study,
+  storing every experience left the agent performing worse than it would
+  with an error-free memory, and the gap widened as the runs went on. Being
+  strict about what's added, combined with deleting entries based on their
+  track record, did better.
+
+That's
+[Lesson 2's argument](/04-context-and-memory/02-context-that-fits-but-still-hurts/00-intro/),
+that more context isn't better context, applied to memory. It's also
+after-the-fact support for Lesson 10: being selective about what goes in is
+half of it. This lesson is the other half, what happens to memories once
+they're in.
+
+</Subsection>
+
+<Subsection title="What the store's search is missing" variant="a">
+
+[Lesson 9's search](/04-context-and-memory/09-building-a-memory-store/01-a-memory-record-and-a-store-scoped-by-design/#a-store-scoped-by-design)
+ranks by keyword relevance, and breaks ties by recency. The demo shows what
+that leaves out:
+
+- **No sense of importance.** A standing safety rule and a routine note
+  score the same when they share one word.
+- **No sense of use.** A memory recalled every week and one never recalled
+  look alike, so there's no signal of which have proved useful.
+- **Nothing ever leaves.** Every week adds, nothing goes, and relevance
+  alone can't sort it out.
+
+The next concept adds importance and use to the ranking. The one after
+decides what leaves the store, and how, so that leaving isn't the same as
+losing.
+
+</Subsection>
+
+<Subsection title="Does memory help at all?" variant="b">
+
+Whether an agent does better with its memory than without it is a question
+for measurement, not argument. It depends on the agent, the tasks and the
+memory design. Module 7 covers evaluating agents, and memory is one of the
+things to evaluate. This lesson assumes you'll check.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "In the demo, why did recall stop returning the rule never to restart support_agent during business hours?",
+      "options": [
+        "It was deleted when the store got large",
+        "It was superseded by a routine note",
+        "Every memory matched the task on one word, equal scores went to the newest, and newer routine notes kept arriving",
+        "Rules can't be recalled by keyword"
+      ],
+      "correctIndex": 2,
+      "explanation": "Nothing went wrong in any single step. Relevance alone can't tell a safety rule from a routine note when both share one word."
+    },
+    {
+      "question": "Why are fifty near-identical weekly notes worse than fifty unrelated ones?",
+      "options": [
+        "They take more tokens",
+        "Models degrade most on context that resembles what matters without being it",
+        "They break the duplicate check",
+        "They can't be superseded"
+      ],
+      "correctIndex": 1,
+      "explanation": "That was Lesson 2's evidence about look-alike distractors. Routine notes that mention the same agent are exactly that kind of clutter."
+    },
+    {
+      "question": "What is \"experience-following\", and why does it make bad memories costly?",
+      "options": [
+        "Agents recall memories in the order they were stored",
+        "Agents ignore old memories",
+        "Agents only follow the user's instructions",
+        "Agents closely imitate the past experiences they retrieve, so a wrong memory keeps producing the same wrong behavior on similar tasks"
+      ],
+      "correctIndex": 3,
+      "explanation": "Xiong et al. call the result error propagation. It's why what stays in memory matters as much as what goes in."
+    },
+    {
+      "question": "In the same study, what did better over time than adding every experience?",
+      "options": [
+        "Strict selection of what's added, combined with deleting entries based on their track record",
+        "Adding everything, then summarizing it",
+        "Keeping only the most recent experience",
+        "Never using memory at all"
+      ],
+      "correctIndex": 0,
+      "explanation": "Selective addition is Lesson 10's half. What leaves the store, and how, is this lesson's half."
+    },
+    {
+      "question": "Which of these does the store's current search not take into account?",
+      "options": [
+        "Keyword relevance",
+        "Which user the memory belongs to",
+        "How important a memory is, and whether it's been useful before",
+        "The memory's type"
+      ],
+      "correctIndex": 2,
+      "explanation": "Search ranks by keywords and breaks ties by recency. Importance and use are the next concept's additions."
+    }
+  ]}
+/>
+
+</CheckpointZone>
