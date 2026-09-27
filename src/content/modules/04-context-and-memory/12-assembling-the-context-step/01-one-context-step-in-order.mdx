@@ -1,0 +1,1235 @@
+---
+title: "One context step, in order"
+lesson: "12-assembling-the-context-step"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, COUNT_TOKENS, CHECK_PAIRING } from "../../../../lib/fakeClient";
+
+export const MODULE_LIB = String.raw`
+def strip_old_thinking(messages: list) -> list:
+    """Remove thinking blocks from every assistant message except the newest one."""
+    last = -1
+    for i in range(len(messages)):
+        if messages[i]["role"] == "assistant":
+            last = i
+    stripped = []
+    for i in range(len(messages)):
+        message = messages[i]
+        if message["role"] == "assistant" and i != last:
+            kept = [b for b in message["content"] if _plain(b)["type"] != "thinking"]
+            if kept:
+                message = {**message, "content": kept}
+        stripped.append(message)
+    return stripped
+
+def split_rounds(messages: list) -> list:
+    """Group everything after the first message into rounds that can be removed safely."""
+    rounds = []
+    for message in messages[1:]:
+        if is_tool_results(message) and rounds:
+            rounds[-1].append(message)
+        else:
+            rounds.append([message])
+    return rounds
+
+def trim_to_fit(messages: list, budget: int) -> list:
+    """Keep the task and the newest rounds; drop the oldest whole rounds until the messages fit."""
+    task = messages[0]
+    rounds = split_rounds(messages)
+    while True:
+        kept = [task]
+        for r in rounds:
+            kept += r
+        if count_tokens(kept) <= budget or len(rounds) == 1:
+            return kept
+        rounds = rounds[1:]
+
+def clear_old_results(messages: list, keep_last: int) -> list:
+    """Replace the content of all but the newest keep_last successful tool results with a placeholder.
+    Tool calls, failed results, and every message stay where they are."""
+    names = {}
+    for message in messages:
+        if message["role"] == "assistant" and isinstance(message["content"], list):
+            for block in message["content"]:
+                if _plain(block)["type"] == "tool_use":
+                    names[block.id] = block.name
+
+    successful = []
+    for message in messages:
+        if is_tool_results(message):
+            for block in message["content"]:
+                if block.get("type") == "tool_result" and not block.get("is_error"):
+                    successful.append(block["tool_use_id"])
+    to_keep = successful[len(successful) - keep_last:]
+
+    cleared = []
+    for message in messages:
+        if is_tool_results(message):
+            new_content = []
+            for block in message["content"]:
+                if block.get("type") == "tool_result" and not block.get("is_error") and block["tool_use_id"] not in to_keep:
+                    name = names[block["tool_use_id"]]
+                    block = {**block, "content": f"[cleared: an earlier {name} result, removed to save space. Call {name} again if you need it.]"}
+                new_content.append(block)
+            cleared.append({**message, "content": new_content})
+        else:
+            cleared.append(message)
+    return cleared
+
+def add_to_end(messages: list, text: str) -> list:
+    last = messages[-1]
+    if isinstance(last["content"], str):
+        new_last = {**last, "content": last["content"] + "\n\n" + text}
+    else:
+        new_last = {**last, "content": last["content"] + [{"type": "text", "text": text}]}
+    return messages[:-1] + [new_last]
+
+def rule_history(messages: list) -> dict:
+    """Every value each rule has been set to, in order, from the agent's set_rule calls."""
+    history = {}
+    for message in messages:
+        if message["role"] == "assistant" and isinstance(message["content"], list):
+            for block in message["content"]:
+                if block.type == "tool_use" and block.name == "set_rule":
+                    history.setdefault(block.input["name"], []).append(block.input["value"])
+    return history
+
+def current_rules_block(messages: list) -> str:
+    history = rule_history(messages)
+    if not history:
+        return ""
+    lines = [f"- {name}: {values[-1]}" for name, values in history.items()]
+    return "<current_rules>\n" + "\n".join(lines) + "\n</current_rules>"
+
+def latest_plan(messages: list) -> str:
+    plan = ""
+    for message in messages:
+        if message["role"] == "assistant" and isinstance(message["content"], list):
+            for block in message["content"]:
+                if block.type == "tool_use" and block.name == "update_plan":
+                    plan = block.input["plan"]
+    return plan
+
+SUMMARY_INSTRUCTIONS = """Write a summary of the work above. The messages it covers will be removed, and you will continue the task from this summary alone.
+Include:
+- the task, and every constraint or preference the user stated
+- decisions made, and the reason for each
+- facts established, with exact values: names, ids, numbers, paths
+- what is finished, and what was tried and failed, with why
+- open questions and the next steps
+If an earlier summary appears above, don't repeat it: cover only the work after it.
+Leave out raw tool output that can be fetched again. Plain text, under 300 words."""
+
+def summary_request(messages: list, keep_recent: int):
+    """The messages to send to get a summary of everything except the newest keep_recent rounds, or None."""
+    rounds = split_rounds(messages)
+    if keep_recent >= len(rounds):
+        return None
+    older = [messages[0]]
+    for r in rounds[:len(rounds) - keep_recent]:
+        older += r
+    return add_to_end(older, SUMMARY_INSTRUCTIONS)
+
+def compact(messages: list, summary: str, keep_recent: int) -> list:
+    """Replace every round but the newest keep_recent with a summary, placed after the task in the first message."""
+    rounds = split_rounds(messages)
+    first = {"role": "user",
+             "content": messages[0]["content"] + "\n\n<summary_of_earlier_work>\n" + summary + "\n</summary_of_earlier_work>"}
+    compacted = [first]
+    for r in rounds[len(rounds) - keep_recent:]:
+        compacted += r
+    return compacted
+
+def changes_ledger(messages: list, write_tools: list) -> list:
+    """One line per call to a write tool, with its arguments and the first line of its result."""
+    results = {}
+    for message in messages:
+        if is_tool_results(message):
+            for block in message["content"]:
+                if block.get("type") == "tool_result":
+                    results[block["tool_use_id"]] = block
+    lines = []
+    for message in messages:
+        if message["role"] == "assistant" and isinstance(message["content"], list):
+            for block in message["content"]:
+                if _plain(block)["type"] == "tool_use" and block.name in write_tools and block.id in results:
+                    result = results[block.id]
+                    arguments = ", ".join([f"{key}={value}" for key, value in block.input.items()])
+                    outcome = "FAILED: " if result.get("is_error") else ""
+                    first_line = str(result["content"]).split("\n")[0]
+                    lines.append(f"- {block.name}({arguments}) -> {outcome}{first_line}")
+    return lines
+
+def next_step(view: list, budget: int, low_water: int, keep_last: int, keep_recent: int) -> str:
+    """What the context step should do with this view: "send", "clear", "compact", or "trim"."""
+    if count_tokens(view) <= budget:
+        return "send"
+    cleared = clear_old_results(strip_old_thinking(view), keep_last)
+    if count_tokens(cleared) <= low_water:
+        return "clear"
+    if summary_request(cleared, keep_recent) is None:
+        return "trim"
+    return "compact"
+
+def serialize(x) -> str:
+    # byte-for-byte form, as a cache sees it: key order matters, exactly as sent
+    return json.dumps(_plain(x))
+
+def first_divergence(previous: dict, current: dict) -> dict:
+    """Where does current stop matching previous, and how much of it could be read from the cache?"""
+    reusable = 0
+    if serialize(current["tools"]) != serialize(previous["tools"]):
+        return {"diverges_at": "tools", "reusable_tokens": 0}
+    reusable += count_tokens(current["tools"])
+    if serialize(current["system"]) != serialize(previous["system"]):
+        return {"diverges_at": "system", "reusable_tokens": reusable}
+    reusable += count_tokens(current["system"])
+    for i, old in enumerate(previous["messages"]):
+        if i >= len(current["messages"]) or serialize(current["messages"][i]) != serialize(old):
+            return {"diverges_at": f"messages[{i}]", "reusable_tokens": reusable}
+        reusable += count_tokens(old)
+    return {"diverges_at": None, "reusable_tokens": reusable}
+
+def cost_of_run(requests: list, read_multiplier: float, write_multiplier: float) -> int:
+    """Cost of the requests actually sent, using first_divergence to see what each could reuse."""
+    total = 0.0
+    previous = None
+    for request in requests:
+        size = count_tokens(request["tools"]) + count_tokens(request["system"]) + count_tokens(request["messages"])
+        reused = first_divergence(previous, request)["reusable_tokens"] if previous else 0
+        total += reused * read_multiplier + (size - reused) * write_multiplier
+        previous = request
+    return round(total)
+
+class ResultStore:
+    """Large tool results, kept outside the conversation under handles the store mints."""
+    def __init__(self):
+        self.items = {}
+        self.minted = 0
+
+    def put(self, content: str) -> str:
+        self.minted += 1
+        handle = f"res_{self.minted}"
+        self.items[handle] = content
+        return handle
+
+    def get(self, handle: str):
+        return self.items.get(handle)
+
+def offload(content: str, store: ResultStore, threshold: int, preview_lines: int = 10) -> str:
+    """Small results pass through. Large ones are stored, and a preview with the handle goes into the context."""
+    if count_tokens(content) <= threshold:
+        return content
+    handle = store.put(content)
+    lines = content.split("\n")
+    preview = "\n".join(lines[:preview_lines])
+    return (f"[Stored as {handle}: {len(lines)} lines, about {count_tokens(content):,} tokens. "
+            f"The first {preview_lines} lines are below. "
+            f"Read more with read_result(handle=\"{handle}\", offset=..., limit=...).]\n{preview}")
+
+def read_result(store: ResultStore, handle: str, offset: int = 0, limit: int = 50) -> str:
+    content = store.get(handle)
+    if content is None:
+        return f"Error: no stored result called {handle}. Use a handle exactly as it appears in an earlier result."
+    lines = content.split("\n")
+    page = lines[offset:offset + limit]
+    text = "\n".join(page)
+    if offset + limit < len(lines):
+        text += f"\n\n... lines {offset}-{offset + len(page)} of {len(lines)}. Call again with offset={offset + limit} for more."
+    return text
+
+def find_in_result(store: ResultStore, handle: str, text: str, max_matches: int = 20) -> str:
+    """The lines of a stored result that contain text, with their line numbers."""
+    content = store.get(handle)
+    if content is None:
+        return f"Error: no stored result called {handle}. Use a handle exactly as it appears in an earlier result."
+    lines = content.split("\n")
+    matches = [f"{i}: {lines[i]}" for i in range(len(lines)) if text in lines[i]]
+    if not matches:
+        return f"No lines in {handle} contain {text}."
+    shown = "\n".join(matches[:max_matches])
+    if len(matches) > max_matches:
+        shown += f"\n... {len(matches) - max_matches} more matches not shown."
+    return shown
+
+def clear_to_store(messages: list, keep_last: int, store: ResultStore) -> list:
+    """Like clear_old_results, but each cleared result is stored first, and its placeholder says how to read it back."""
+    names = {}
+    for message in messages:
+        if message["role"] == "assistant" and isinstance(message["content"], list):
+            for block in message["content"]:
+                if _plain(block)["type"] == "tool_use":
+                    names[block.id] = block.name
+
+    successful = []
+    for message in messages:
+        if is_tool_results(message):
+            for block in message["content"]:
+                if block.get("type") == "tool_result" and not block.get("is_error"):
+                    successful.append(block["tool_use_id"])
+    to_keep = successful[len(successful) - keep_last:]
+
+    cleared = []
+    for message in messages:
+        if is_tool_results(message):
+            new_content = []
+            for block in message["content"]:
+                old = block.get("type") == "tool_result" and not block.get("is_error") and block["tool_use_id"] not in to_keep
+                # a result that's already a placeholder is left alone, so clearing twice changes nothing
+                if old and not str(block["content"]).startswith("[cleared:"):
+                    handle = store.put(str(block["content"]))
+                    name = names[block["tool_use_id"]]
+                    block = {**block, "content": f"[cleared: an earlier {name} result, stored as {handle}. "
+                                                 f"Read it with read_result(handle=\"{handle}\", offset=..., limit=...).]"}
+                new_content.append(block)
+            cleared.append({**message, "content": new_content})
+        else:
+            cleared.append(message)
+    return cleared
+
+def transcript(messages: list) -> str:
+    """A plain-text record of messages: what was said, what was called, what came back."""
+    lines = []
+    for message in messages:
+        if isinstance(message["content"], str):
+            lines.append(f"{message['role']}: {message['content']}")
+            continue
+        for block in message["content"]:
+            block = _plain(block)
+            if block["type"] == "text":
+                lines.append(f"{message['role']}: {block['text']}")
+            elif block["type"] == "tool_use":
+                lines.append(f"called {block['name']}({json.dumps(block['input'])})")
+            elif block["type"] == "tool_result":
+                lines.append(f"result: {block['content']}")
+    return "\n".join(lines)
+
+def compact_with_archive(messages: list, summary: str, keep_recent: int, store: ResultStore) -> list:
+    """compact, but the rounds being replaced are stored first, and the summary says where."""
+    rounds = split_rounds(messages)
+    replaced = []
+    for r in rounds[:len(rounds) - keep_recent]:
+        replaced += r
+    handle = store.put(transcript(replaced))
+    note = f"\nThe full record of this work is stored as {handle}; read it with read_result(handle=\"{handle}\", offset=..., limit=...)."
+    return compact(messages, summary + note, keep_recent)
+
+SECTIONS = ["facts", "decisions", "open"]
+
+class Notes:
+    """The agent's own notes for one task. It can add items and mark open ones done, but never rewrite them."""
+    def __init__(self, max_items: int = 40):
+        self.items = []
+        self.max_items = max_items
+
+    def add(self, section: str, text: str) -> str:
+        if section not in SECTIONS:
+            return f"Error: no section called {section}. Use one of: {', '.join(SECTIONS)}."
+        if len(self.items) >= self.max_items:
+            return f"Error: notes are full ({self.max_items} items). Keep notes to what the rest of the task needs."
+        item_id = f"n{len(self.items) + 1}"
+        self.items.append({"id": item_id, "section": section, "text": text, "done": False})
+        return f"Noted as {item_id} under {section}."
+
+    def mark_done(self, item_id: str) -> str:
+        for item in self.items:
+            if item["id"] == item_id:
+                if item["section"] != "open":
+                    return f"Error: {item_id} is not an open item, so it can't be marked done."
+                item["done"] = True
+                return f"Marked {item_id} done."
+        return f"Error: no note called {item_id}."
+
+    def render(self) -> str:
+        if not self.items:
+            return "No notes yet."
+        lines = []
+        for section in SECTIONS:
+            entries = [item for item in self.items if item["section"] == section]
+            if not entries:
+                continue
+            lines.append(f"{section}:")
+            for item in entries:
+                box = ("[x] " if item["done"] else "[ ] ") if section == "open" else ""
+                lines.append(f"- {box}{item['id']}: {item['text']}")
+        return "\n".join(lines)
+
+    def index_line(self) -> str:
+        if not self.items:
+            return ""
+        facts = len([i for i in self.items if i["section"] == "facts"])
+        decisions = len([i for i in self.items if i["section"] == "decisions"])
+        still_open = len([i for i in self.items if i["section"] == "open" and not i["done"]])
+        return f"Your notes: {facts} facts, {decisions} decisions, {still_open} open items. Read them with read_notes()."
+
+STOPWORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "is", "was", "it", "this", "that",
+             "with", "as", "at", "by", "be", "i", "you", "my", "me", "we", "our", "please", "about", "from", "last"}
+
+def keywords(text: str) -> set:
+    """The words in text worth matching on: lowercased, punctuation removed, common and one-letter words dropped."""
+    text = text.lower()
+    for mark in ".,;:!?()'\"":
+        text = text.replace(mark, " ")
+    # single letters, like the "s" a possessive leaves behind, carry no meaning either
+    return {word for word in text.split() if len(word) > 1} - STOPWORDS
+
+from typing import Literal
+from pydantic import BaseModel, Field
+
+class Memory(BaseModel):
+    # min_length=1 makes Pydantic reject an empty string
+    content: str = Field(min_length=1)
+    type: Literal["episodic", "semantic", "procedural"]
+    # who the memory came from: the user, the agent's own conclusion, or a tool result
+    source: Literal["user", "agent", "tool"]
+    # an ISO timestamp such as "2026-09-21T10:04:00", which sorts correctly as text
+    created: str
+    tags: list[str] = []
+
+class MemoryStore:
+    """Every user's memories, kept apart. Every method takes the user it acts for."""
+    def __init__(self):
+        self._by_user = {}
+
+    def save(self, user_id: str, memory: Memory) -> None:
+        # a copy, so the caller changing their object later can't change what's stored
+        self._by_user.setdefault(user_id, []).append(Memory(**memory.model_dump()))
+
+    def search(self, user_id: str, query: str = "", tags: list = None, kind: str = None, limit: int = 5) -> list:
+        """This user's memories that match, best first; with no query, newest first."""
+        candidates = []
+        for memory in self._by_user.get(user_id, []):
+            if kind is not None and memory.type != kind:
+                continue
+            if tags and not set(tags) & set(memory.tags):
+                continue
+            candidates.append(memory)
+        newest_first = sorted(candidates, key=lambda m: m.created, reverse=True)
+        if not query:
+            return newest_first[:limit]
+        wanted = keywords(query)
+        scored = [(len(wanted & keywords(m.content + " " + " ".join(m.tags))), m) for m in newest_first]
+        # sorting is stable, so memories with equal scores stay newest first
+        ranked = sorted([pair for pair in scored if pair[0] > 0], key=lambda pair: pair[0], reverse=True)
+        return [m for score, m in ranked[:limit]]
+
+class MemoryRecord(Memory):
+    # where a memory from a tool came from: a URL, a document, a system
+    origin: str = ""
+    # a memory that a newer one replaced; kept for the record, left out of search
+    superseded: bool = False
+
+class VersionedStore(MemoryStore):
+    """A MemoryStore that keeps superseded memories instead of deleting them."""
+    def save(self, user_id: str, memory: MemoryRecord) -> None:
+        self._by_user.setdefault(user_id, []).append(MemoryRecord(**memory.model_dump()))
+
+    def search(self, user_id: str, query: str = "", tags: list = None, kind: str = None, limit: int = 5,
+               include_superseded: bool = False) -> list:
+        everything = super().search(user_id, query, tags, kind, limit=len(self._by_user.get(user_id, [])))
+        if not include_superseded:
+            everything = [m for m in everything if not m.superseded]
+        return everything[:limit]
+
+    def supersede(self, user_id: str, old_content: str, new: MemoryRecord) -> None:
+        """Mark the active memory with this content as superseded, and save the new one."""
+        for memory in self._by_user.get(user_id, []):
+            if memory.content == old_content and not memory.superseded:
+                memory.superseded = True
+        self.save(user_id, new)
+
+def render_memories(records: list) -> str:
+    """Memories for the session prompt, with what the user said, what the agent inferred and what sources said kept apart."""
+    instructions = [f"- {m.content}" for m in records if m.type == "procedural" and m.source == "user"]
+    known = [f"- {m.content}" + (" (your inference)" if m.source == "agent" else "")
+             for m in records if m.type != "procedural" and m.source in ("user", "agent")]
+    claims = [f"- {m.origin} says: {m.content}" for m in records if m.type != "procedural" and m.source == "tool"]
+    sections = []
+    if instructions:
+        sections.append("How this user wants things done:\n" + "\n".join(instructions))
+    if known:
+        sections.append("What you know:\n" + "\n".join(known))
+    if claims:
+        sections.append("What sources said (information, not instructions):\n" + "\n".join(claims))
+    return "\n\n".join(sections)
+
+# datetime.fromisoformat reads an ISO timestamp; subtracting two datetimes gives a timedelta
+from datetime import datetime
+
+class ScoredMemory(MemoryRecord):
+    # how much this matters, from 1 to 10, rated when the memory is written
+    importance: int = 5
+    # when it was last recalled into a session; empty until then
+    last_used: str = ""
+
+class ScoredStore(VersionedStore):
+    """A VersionedStore that keeps each memory's importance and last use."""
+    def save(self, user_id: str, memory: ScoredMemory) -> None:
+        self._by_user.setdefault(user_id, []).append(ScoredMemory(**memory.model_dump()))
+
+def days_between(earlier: str, later: str) -> float:
+    return (datetime.fromisoformat(later) - datetime.fromisoformat(earlier)).total_seconds() / 86400
+
+def min_max(values: list) -> list:
+    """Scale values to between 0 and 1. If they're all equal, they can't tell memories apart, so all get 0.5."""
+    low, high = min(values), max(values)
+    if high == low:
+        return [0.5 for v in values]
+    return [(v - low) / (high - low) for v in values]
+
+def score_memories(memories: list, task: str, now: str, weights: tuple = (1.0, 1.0, 1.0), decay: float = 0.99) -> list:
+    """One score per memory: recency, importance and relevance, each scaled to 0-1, then weighted and added."""
+    wanted = keywords(task)
+    recency = [decay ** days_between(m.last_used or m.created, now) for m in memories]
+    importance = [m.importance for m in memories]
+    relevance = [len(wanted & keywords(m.content + " " + " ".join(m.tags))) for m in memories]
+    r, i, v = min_max(recency), min_max(importance), min_max(relevance)
+    w_recency, w_importance, w_relevance = weights
+    return [w_recency * r[k] + w_importance * i[k] + w_relevance * v[k] for k in range(len(memories))]
+
+def recall_scored(store, user_id: str, task: str, now: str, limit: int = 5, weights: tuple = (1.0, 1.0, 1.0),
+                  decay: float = 0.99) -> list:
+    """The best-scoring facts and episodes for this task; recalling them marks them as used now."""
+    # procedures are always loaded (Lesson 8), so they're not competing for these slots
+    candidates = [m for m in store.search(user_id, limit=1000) if m.type != "procedural"]
+    if not candidates:
+        return []
+    scores = score_memories(candidates, task, now, weights, decay)
+    ranked = sorted(range(len(candidates)), key=lambda k: scores[k], reverse=True)[:limit]
+    recalled = [candidates[k] for k in ranked]
+    for memory in recalled:
+        memory.last_used = now
+    return recalled
+
+class ArchivableMemory(ScoredMemory):
+    # an archived memory is out of search but kept, with the day it was archived, and can be restored
+    archived: bool = False
+    archived_on: str = ""
+
+class ArchiveStore(ScoredStore):
+    """A ScoredStore that can archive memories, restore them, and delete them when the user asks."""
+    def save(self, user_id: str, memory: ArchivableMemory) -> None:
+        self._by_user.setdefault(user_id, []).append(ArchivableMemory(**memory.model_dump()))
+
+    def search(self, user_id: str, query: str = "", tags: list = None, kind: str = None, limit: int = 5,
+               include_superseded: bool = False, include_archived: bool = False) -> list:
+        everything = len(self._by_user.get(user_id, []))
+        found = super().search(user_id, query, tags, kind, limit=everything, include_superseded=include_superseded)
+        if not include_archived:
+            found = [m for m in found if not m.archived]
+        return found[:limit]
+
+    def archive_one(self, memory: ArchivableMemory, today: str) -> None:
+        memory.archived, memory.archived_on = True, today
+
+    def restore(self, user_id: str, content: str) -> bool:
+        for memory in self._by_user.get(user_id, []):
+            if memory.content == content and memory.archived:
+                memory.archived, memory.archived_on = False, ""
+                return True
+        return False
+
+    def delete(self, user_id: str, content: str) -> int:
+        """Remove every copy of a memory for good: for when the user asks to be forgotten."""
+        kept = [m for m in self._by_user.get(user_id, []) if m.content != content]
+        removed = len(self._by_user.get(user_id, [])) - len(kept)
+        self._by_user[user_id] = kept
+        return removed
+
+def forget(store, user_id: str, now: str, cap: int = 50, retention_days: int = 90, decay: float = 0.99) -> list:
+    """Archive what no longer earns its place. Returns one line per memory archived."""
+    report = []
+    today = now[:10]
+    # 1. replaced memories are kept for a while, then archived
+    for memory in store.search(user_id, limit=100000, include_superseded=True):
+        if memory.superseded and days_between(memory.last_used or memory.created, now) > retention_days:
+            store.archive_one(memory, today)
+            report.append(f"archived, replaced long ago: {memory.content}")
+    # 2. over the cap, the lowest-scoring memories go first; the user's standing instructions never do
+    active = store.search(user_id, limit=100000)
+    if len(active) > cap:
+        candidates = [m for m in active if not (m.type == "procedural" and m.source == "user")]
+        # with no task in view, relevance is the same for all, so recency and importance decide
+        scores = score_memories(candidates, "", now, decay=decay)
+        lowest_first = sorted(range(len(candidates)), key=lambda k: scores[k])
+        for k in lowest_first[:len(active) - cap]:
+            store.archive_one(candidates[k], today)
+            report.append(f"archived, over the cap: {candidates[k].content}")
+    return report
+
+class CoreBlock:
+    """A short memory the agent edits itself and sees in every session. It has a hard size limit."""
+    def __init__(self, text: str = "", max_chars: int = 400):
+        self.text = text
+        self.max_chars = max_chars
+
+    def _fits(self, candidate: str) -> str:
+        if len(candidate) > self.max_chars:
+            return (f"Error: that would make the block {len(candidate)} characters, over its limit of {self.max_chars}. "
+                    f"Shorten or replace something first.")
+        return ""
+
+    def append(self, line: str) -> str:
+        candidate = self.text + ("\n" if self.text else "") + line
+        problem = self._fits(candidate)
+        if problem:
+            return problem
+        self.text = candidate
+        return "Added."
+
+    def replace(self, old: str, new: str) -> str:
+        if old not in self.text:
+            return f"Error: the block doesn't contain {old!r}. Replace text exactly as it appears."
+        # the 1 means only the first occurrence is replaced
+        candidate = self.text.replace(old, new, 1)
+        problem = self._fits(candidate)
+        if problem:
+            return problem
+        self.text = candidate
+        return "Replaced."
+`.trimStart();
+
+export const ANCHOR_TEXT_FUNC = String.raw`
+def anchor_text(history: list, notes, block, block_at_start: str, write_tools: list) -> str:
+    """Everything restated at the end of each request, read from the full history, in a fixed order."""
+    parts = []
+    plan = latest_plan(history)
+    if plan:
+        parts.append(f"<current_plan>\n{plan}\n</current_plan>")
+    rules = current_rules_block(history)
+    if rules:
+        parts.append(rules)
+    changes = changes_ledger(history, write_tools)
+    if changes:
+        parts.append("<changes_made>\n" + "\n".join(changes) + "\n</changes_made>")
+    index = notes.index_line()
+    if index:
+        parts.append(index)
+    if block.text != block_at_start:
+        parts.append("Your memory block has changed this session. It now reads:\n" + block.text)
+    return "\n\n".join(parts)
+`;
+
+export const CONTEXT_MANAGER = String.raw`
+FOLD_INSTRUCTIONS = """Rewrite all the summaries above as one summary. Keep every fact, decision and exact value,
+and every stored record they mention by name. Plain text, under 300 words."""
+
+class ContextManager:
+    """The one place in the loop that prepares each request: a fixed prefix, a fitted view, and an anchor at the end."""
+    def __init__(self, llm, base: str, tools: list, window: int, max_tokens: int, memory, user_id: str, task: str, now: str,
+                 block, notes, results, write_tools: list, guide_index: str = "", keep_last: int = 2, keep_recent: int = 2,
+                 low_water: float = 0.6, fold_share: float = 0.3):
+        self.llm, self.tools, self.notes, self.results, self.block = llm, tools, notes, results, block
+        self.write_tools, self.keep_last, self.keep_recent, self.low_water = write_tools, keep_last, keep_recent, low_water
+        # when the summaries in the first message take more than this share of the budget, they're folded into one
+        self.fold_share = fold_share
+        self.task = task
+        # session start: everything in the prefix is decided here, once
+        self.block_at_start = block.text
+        instructions = [m for m in memory.search(user_id, kind="procedural", limit=100) if m.source == "user"]
+        recalled = render_memories(instructions + recall_scored(memory, user_id, task, now))
+        system = base
+        if guide_index:
+            system += "\n\n" + guide_index
+        if block.text:
+            system += "\n\n<memory_block>\n" + block.text + "\n</memory_block>"
+        if recalled:
+            system += "\n\n" + recalled
+        self.system = system
+        self.budget = window - count_tokens(system) - count_tokens(tools) - max_tokens
+        self.view, self.seen = [], 0
+        self.steps = []
+
+    def build(self, history: list) -> dict:
+        view = self.view + history[self.seen:]
+        anchor = anchor_text(history, self.notes, self.block, self.block_at_start, self.write_tools)
+        room = count_tokens(add_to_end(view, anchor)) - count_tokens(view) if anchor else 0
+        budget = self.budget - room
+        low_water = int(budget * self.low_water)
+        step = next_step(view, budget, low_water, self.keep_last, self.keep_recent)
+        if step != "send":
+            view = clear_to_store(strip_old_thinking(view), self.keep_last, self.results)
+        if step == "compact":
+            request = summary_request(view, self.keep_recent)
+            response = self.llm.create(messages=request, tools=self.tools, system=self.system)
+            summary = "".join(b.text for b in response.content if b.type == "text")
+            if summary:
+                view = compact_with_archive(view, summary, self.keep_recent, self.results)
+            else:
+                step = "trim"
+        if step == "compact" and self.fold_share is not None and count_tokens(view[0]) > self.fold_share * budget:
+            view = self.fold(view)
+        # whatever happened above, a request must fit: trimming whole rounds is the last resort
+        if step == "trim" or count_tokens(view) > budget:
+            view = trim_to_fit(view, low_water)
+            step = "trim"
+        self.view, self.seen = view, len(history)
+        self.steps.append(step)
+        messages = add_to_end(view, anchor) if anchor else list(view)
+        return {"tools": self.tools, "system": self.system, "messages": messages}
+
+    def fold(self, view: list) -> list:
+        """Rewrite the pile of summaries as one. The old ones are stored first, so nothing is lost."""
+        handle = self.results.put(view[0]["content"])
+        request = [{"role": "user", "content": view[0]["content"] + "\n\n" + FOLD_INSTRUCTIONS}]
+        response = self.llm.create(messages=request, tools=self.tools, system=self.system)
+        summary = "".join(b.text for b in response.content if b.type == "text")
+        if not summary:
+            return view
+        first = {"role": "user", "content": self.task + "\n\n<summary_of_earlier_work>\n" + summary +
+                 f"\nThe earlier summaries are stored as {handle}.\n</summary_of_earlier_work>"}
+        self.steps.append("fold")
+        return [first] + view[1:]
+`;
+
+export const SESSION_SETUP = String.raw`
+BASE = "You are the registry assistant. Follow your plan, the user's rules, and your notes."
+TOOL_NAMES = ["get_logs", "get_status", "set_cache", "set_rule", "update_plan", "add_note", "read_notes", "read_result", "find_in_result",
+              "block_append"]
+TOOLS = [{"name": n, "description": n, "input_schema": {"type": "object", "properties": {}}} for n in TOOL_NAMES]
+AGENTS = ["research_agent", "triage_agent", "search_agent", "report_agent", "auth_agent", "notify_agent", "billing_agent"]
+
+class ScriptedAgent(FakeLLMClient):
+    """Plays the agent's scripted steps, and answers any summary request with a scripted summary."""
+    def create(self, messages, tools=None, system=""):
+        last = messages[-1]["content"]
+        if isinstance(last, list) and _plain(last[-1]).get("text") == SUMMARY_INSTRUCTIONS:
+            return FakeResponse(content=[TextBlock(text="Rule and plan set; billing_agent's per-ticket lookup (p99 4.8s) is the likely cause; "
+                                                        "several agents' logs looked normal.")])
+        return super().create(messages)
+
+def script():
+    def think(text):
+        return ThinkingBlock(thinking=text + " " + "Weighing what the evidence so far shows. " * 5)
+    steps = [
+        [think("Record the user's rule first."), ToolUseBlock(name="set_rule", input={"name": "restarts", "value": "never restart production agents"})],
+        [think("Plan the work."), ToolUseBlock(name="update_plan", input={"plan": "[ ] find the cause\n[ ] fix it without restarts\n[ ] report"})],
+        [think("Start with billing."), ToolUseBlock(name="get_status", input={"agent_name": "billing_agent"})],
+        [think("That's the finding; keep it."), ToolUseBlock(name="add_note", input={"section": "facts", "text": "billing_agent /lookup p99 4.8s, once per ticket"})],
+        [think("Pull the full support log."), ToolUseBlock(name="get_logs", input={"agent_name": "support_agent", "full": True})],
+        [think("Look for errors in it."), ToolUseBlock(name="find_in_result", input={"handle": "res_1", "text": "ERROR"})],
+    ]
+    for agent in AGENTS:
+        steps.append([think(f"Rule out {agent}."), ToolUseBlock(name="get_status", input={"agent_name": agent, "detail": True})])
+    steps += [
+        [think("Remember the owner across sessions."), ToolUseBlock(name="block_append", input={"line": "support_agent is owned by Tom."})],
+        [think("Fix it without a restart."), ToolUseBlock(name="set_cache", input={"agent_name": "billing_agent", "ttl_seconds": 300})],
+        [think("Check the notes before reporting."), ToolUseBlock(name="read_notes", input={})],
+        [TextBlock(text="- Cause: billing_agent's per-ticket lookup (p99 4.8s)\n- Fix: 300s lookup cache, no restart")],
+    ]
+    return steps
+
+def make_impls(notes, results, block):
+    def get_logs(agent_name, full=False):
+        lines = [f"{agent_name} INFO request handled in 412ms" for n in range(300)]
+        lines[217] = f"{agent_name} ERROR upstream billing lookup timed out after 30s"
+        return offload("\n".join(lines), results, threshold=400)
+    def get_status(agent_name, detail=False):
+        text = {"billing_agent": "billing_agent: p99 4.8s on /lookup, called once per ticket"}.get(agent_name, f"{agent_name}: healthy")
+        return text + ("\n" + "metric: value, normal\n" * 40 if detail else "")
+    return {"get_logs": get_logs, "get_status": get_status,
+            "set_cache": lambda agent_name, ttl_seconds: f"{agent_name}: lookup cache on, ttl {ttl_seconds}s",
+            "set_rule": lambda name, value: "rule saved", "update_plan": lambda plan: "plan saved",
+            "add_note": lambda section, text: notes.add(section, text), "read_notes": lambda: notes.render(),
+            "read_result": lambda handle, offset, limit: read_result(results, handle, offset, limit),
+            "find_in_result": lambda handle, text: find_in_result(results, handle, text),
+            "block_append": lambda line: block.append(line)}
+
+def run(context, llm, task, impls, max_steps=30):
+    history = [{"role": "user", "content": task}]
+    sent = []
+    for step in range(max_steps):
+        request = context.build(history)
+        sent.append(request)
+        response = llm.create(messages=request["messages"], tools=request["tools"], system=request["system"])
+        history.append({"role": "assistant", "content": response.content})
+        calls = [b for b in response.content if b.type == "tool_use"]
+        if not calls:
+            return "".join(b.text for b in response.content if b.type == "text"), history, sent
+        history.append({"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": c.id, "content": impls[c.name](**c.input)} for c in calls]})
+    return "stopped", history, sent
+`;
+
+export const SETUP = REACT_FAKE_CLIENT + COUNT_TOKENS + CHECK_PAIRING + MODULE_LIB + ANCHOR_TEXT_FUNC + CONTEXT_MANAGER + SESSION_SETUP;
+
+export const SESSION_DEMO = String.raw`memory = ArchiveStore()
+memory.save("u_simar", ArchivableMemory(content="Write summaries as bullet points.", type="procedural", source="user",
+                                        created="2026-09-14T10:00:00", importance=9))
+notes, results, block = Notes(), ResultStore(), CoreBlock("User: Simar, operations lead.")
+TASK = "support_agent is slow. Find the cause and fix it."
+llm = ScriptedAgent(script())
+context = ContextManager(llm, BASE, TOOLS, window=3_500, max_tokens=1_000, memory=memory, user_id="u_simar", task=TASK,
+                         now="2026-09-28T09:00:00", block=block, notes=notes, results=results, write_tools=["set_cache"])
+answer, history, sent = run(context, llm, TASK, make_impls(notes, results, block))
+
+print("turn  sent  step")
+for turn in range(len(sent)):
+    print(f"{turn + 1:>4} {count_tokens(sent[turn]['messages']):>5}  {context.steps[turn]}")
+last = json.dumps(_plain(sent[-1]["messages"]))
+print("\nanswer:", answer.split("\n")[0])
+print("history:", count_tokens(history), "tokens; largest request's messages:", max(count_tokens(r["messages"]) for r in sent))
+print("prefix unchanged all session:", all(r["system"] == sent[0]["system"] and r["tools"] is TOOLS for r in sent))
+print("pairing intact every turn:", all(check_pairing(r["messages"]) == [] for r in sent))
+print("in the last request: rule", "never restart production agents" in last, "| plan", "fix it without restarts" in last,
+      "| change", "set_cache(agent_name=billing_agent" in last, "| notes index", "Your notes:" in last, "| block edit", "owned by Tom" in last)
+print("early finding still in the last request:", "4.8s" in last)
+print("results stored away:", len(results.items), "(the full log, cleared results, and the compacted rounds' record)")
+`;
+
+export const EXERCISE_PROVIDED = "# --- provided: the module's code, as loaded in this lesson's setup; don't change this part ---\n"
+  + REACT_FAKE_CLIENT.trimStart() + COUNT_TOKENS + CHECK_PAIRING + MODULE_LIB
+  + "\n# --- end of provided code ---\n\n";
+
+export const EXERCISE_STARTER = String.raw`def anchor_text(history: list, notes, block, block_at_start: str, write_tools: list) -> str:
+    # TODO: the plan, the rules, the change ledger, the notes index, and the block's new text if it changed,
+    #       in that order, each only if there's something to say, joined by blank lines
+    ...
+`;
+
+export const EXERCISE_REFERENCE = ANCHOR_TEXT_FUNC.trimStart();
+
+export const EXERCISE_TESTS = [
+  String.raw`
+def call(tool, result, **arguments):
+    block = ToolUseBlock(name=tool, input=arguments)
+    return [{"role": "assistant", "content": [block]},
+            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]}]
+
+history = [{"role": "user", "content": "Fix support_agent."}]
+history += call("update_plan", "plan saved", plan="[ ] find the cause\n[ ] fix it")
+history += call("set_rule", "rule saved", name="restarts", value="never in production")
+history += call("get_status", "billing_agent: p99 4.8s", agent_name="billing_agent")
+history += call("set_cache", "billing_agent: cache on", agent_name="billing_agent", ttl_seconds=300)
+
+# 1. every part, in the fixed order: plan, rules, changes, notes index, block edits; separated by blank lines
+notes = Notes()
+notes.add("facts", "billing_agent is slow")
+block = CoreBlock("User: Simar.")
+start = block.text
+block.append("Owns: support_agent.")
+text = anchor_text(history, notes, block, start, ["set_cache"])
+assert text == ("<current_plan>\n[ ] find the cause\n[ ] fix it\n</current_plan>\n\n"
+                "<current_rules>\n- restarts: never in production\n</current_rules>\n\n"
+                "<changes_made>\n- set_cache(agent_name=billing_agent, ttl_seconds=300) -> billing_agent: cache on\n</changes_made>\n\n"
+                "Your notes: 1 facts, 0 decisions, 0 open items. Read them with read_notes().\n\n"
+                "Your memory block has changed this session. It now reads:\nUser: Simar.\nOwns: support_agent.")`,
+  String.raw`
+def call(tool, result, **arguments):
+    block = ToolUseBlock(name=tool, input=arguments)
+    return [{"role": "assistant", "content": [block]},
+            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]}]
+
+history = [{"role": "user", "content": "Fix support_agent."}]
+history += call("update_plan", "plan saved", plan="[ ] find the cause\n[ ] fix it")
+history += call("set_rule", "rule saved", name="restarts", value="never in production")
+history += call("get_status", "billing_agent: p99 4.8s", agent_name="billing_agent")
+history += call("set_cache", "billing_agent: cache on", agent_name="billing_agent", ttl_seconds=300)
+block = CoreBlock("User: Simar.")
+block.append("Owns: support_agent.")
+
+# 2. parts with nothing to say are left out; an unchanged block says nothing
+assert anchor_text(history[:1], Notes(), CoreBlock("User: Simar."), "User: Simar.", ["set_cache"]) == ""
+only_rules = anchor_text(history[:1] + history[3:5], Notes(), block, block.text, ["set_cache"])
+assert only_rules == "<current_rules>\n- restarts: never in production\n</current_rules>"`,
+  String.raw`
+def call(tool, result, **arguments):
+    block = ToolUseBlock(name=tool, input=arguments)
+    return [{"role": "assistant", "content": [block]},
+            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]}]
+
+history = [{"role": "user", "content": "Fix support_agent."}]
+history += call("update_plan", "plan saved", plan="[ ] find the cause\n[ ] fix it")
+history += call("set_rule", "rule saved", name="restarts", value="never in production")
+history += call("get_status", "billing_agent: p99 4.8s", agent_name="billing_agent")
+history += call("set_cache", "billing_agent: cache on", agent_name="billing_agent", ttl_seconds=300)
+block = CoreBlock("User: Simar.")
+block.append("Owns: support_agent.")
+
+# 3. only calls to write tools are listed as changes
+assert "get_status" not in anchor_text(history, Notes(), block, block.text, ["set_cache"])
+assert "<changes_made>" not in anchor_text(history, Notes(), block, block.text, [])`,
+  String.raw`
+def call(tool, result, **arguments):
+    block = ToolUseBlock(name=tool, input=arguments)
+    return [{"role": "assistant", "content": [block]},
+            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]}]
+
+history = [{"role": "user", "content": "Fix support_agent."}]
+history += call("update_plan", "plan saved", plan="[ ] find the cause\n[ ] fix it")
+history += call("set_rule", "rule saved", name="restarts", value="never in production")
+history += call("get_status", "billing_agent: p99 4.8s", agent_name="billing_agent")
+history += call("set_cache", "billing_agent: cache on", agent_name="billing_agent", ttl_seconds=300)
+block = CoreBlock("User: Simar.")
+block.append("Owns: support_agent.")
+
+# 4. it reads from the history it's given: a compacted copy without the plan and rule calls would lose them,
+#    which is why the context step always passes the full history
+compacted = compact(history, "Plan and rule set; billing is slow.", keep_recent=1)
+assert "<current_plan>" not in anchor_text(compacted, Notes(), block, block.text, ["set_cache"])
+assert "<current_plan>" in anchor_text(history, Notes(), block, block.text, ["set_cache"])`,
+];
+
+<Subsection title="Three phases" variant="a">
+
+This module built one piece at a time. In a working agent, they all live in
+one place: the step that prepares each request, between the loop keeping its
+history and the model call.
+[Lesson 3](/04-context-and-memory/03-prompt-caching/00-intro/) started that
+step, and every lesson since has added to it. Assembled, it works in three
+phases:
+
+- **At session start,** everything in the prefix is decided, once:
+  - the tool list
+    ([Lesson 7](/04-context-and-memory/07-just-in-time-context-and-dynamic-tool-exposure/00-intro/))
+  - the system prompt and the guide index
+  - the memory block as it stands, and the memories recalled for this task,
+    with the user's instructions first
+    ([Lessons 9-11](/04-context-and-memory/09-building-a-memory-store/00-intro/))
+- **Each turn,** in this order:
+  - Tool results are shaped as they arrive, by the tools themselves: large
+    ones offloaded to the store, with a preview and a handle
+    ([Lesson 6](/04-context-and-memory/06-offloading-context-to-storage/00-intro/)).
+  - The view is fitted only when it's over budget. Old reasoning is stripped
+    and old results cleared to the store; compaction, with an archive,
+    follows only if that isn't enough; trimming is the last resort
+    ([Lessons 4-6](/04-context-and-memory/04-when-the-window-fills/00-intro/)).
+  - The anchor is added at the end: the plan, the rules, the change ledger,
+    the notes index, and any edits to the memory block
+    ([Lessons 2, 5, 6 and 9](/04-context-and-memory/02-context-that-fits-but-still-hurts/04-re-anchoring-the-goal/)).
+- **After the session,** the write path runs: extract, check, admit and store
+  ([Lesson 10](/04-context-and-memory/10-deciding-what-to-remember/00-intro/)),
+  then forget
+  ([Lesson 11](/04-context-and-memory/11-forgetting-aging-and-retrieval-quality/00-intro/)).
+
+</Subsection>
+
+<Subsection title="The integration rules" variant="b">
+
+Each piece worked on its own page. Putting them together surfaced rules that
+aren't obvious from any single lesson, and each one was learned the hard way
+somewhere in this module:
+
+- **Anchors are read from the full history, never the prepared copy.** After
+  compaction, the calls that set the plan and rules are gone from the copy
+  ([Lesson 5](/04-context-and-memory/05-compaction-and-summarization/03-when-a-summary-loses-something/)).
+- **Room is reserved for everything restated at the end.** The anchor counts
+  against the budget
+  ([Lesson 5's sandbox](/04-context-and-memory/05-compaction-and-summarization/00-intro/)).
+- **Cheap before expensive, and nothing lost:** strip old reasoning, then
+  clear to the store, then compact with an archive, then trim.
+- **The summary is asked for inside the conversation,** with the agent's own
+  tools and system prompt, so it reuses the cache
+  ([Lesson 5](/04-context-and-memory/05-compaction-and-summarization/04-when-to-compact-and-what-it-costs/)).
+- **The prefix is fixed for the session.** Memories recalled at the start and
+  the block as it was then go in it. Changes during the session go at the
+  end, and join the prefix at the next session
+  ([Lesson 9](/04-context-and-memory/09-building-a-memory-store/03-where-recalled-memories-go-and-what-it-costs/)).
+- **Tools are bound to the session's user,** and the tool list never changes
+  ([Lessons 7 and 9](/04-context-and-memory/07-just-in-time-context-and-dynamic-tool-exposure/01-what-you-load-and-where-it-goes/)).
+- **Recall before forgetting,** so what a task needs is refreshed before it's
+  judged
+  ([Lesson 11](/04-context-and-memory/11-forgetting-aging-and-retrieval-quality/00-intro/)).
+- **Summaries don't pile up forever.**
+  [Lesson 5](/04-context-and-memory/05-compaction-and-summarization/03-when-a-summary-loses-something/#summaries-of-summaries)
+  appends each new summary rather than rewriting old ones, and said that
+  rewriting them would eventually be a deliberate step. Here it is: when the
+  summaries take more than a set share of the budget, they're folded into
+  one, and the old ones are stored first, so nothing is lost. The next
+  concept shows what happens without it.
+- **A request always fits.** Whatever the steps above leave, a view still
+  over budget is trimmed by whole rounds, as the last resort.
+
+</Subsection>
+
+<Subsection title="The context step, in code" variant="a">
+
+The anchor is one function, with its parts in a fixed order, each included
+only if it has something to say:
+
+```python
+def anchor_text(history: list, notes, block, block_at_start: str, write_tools: list) -> str:
+    """Everything restated at the end of each request, read from the full history, in a fixed order."""
+    parts = []
+    plan = latest_plan(history)
+    if plan:
+        parts.append(f"<current_plan>\n{plan}\n</current_plan>")
+    rules = current_rules_block(history)
+    if rules:
+        parts.append(rules)
+    changes = changes_ledger(history, write_tools)
+    if changes:
+        parts.append("<changes_made>\n" + "\n".join(changes) + "\n</changes_made>")
+    index = notes.index_line()
+    if index:
+        parts.append(index)
+    if block.text != block_at_start:
+        parts.append("Your memory block has changed this session. It now reads:\n" + block.text)
+    return "\n\n".join(parts)
+```
+
+The context step builds the prefix once, then fits and anchors each turn,
+using the module's code for every part. `fold` is the one new step, and the
+next concept shows why it's needed:
+
+```python
+FOLD_INSTRUCTIONS = """Rewrite all the summaries above as one summary. Keep every fact, decision and exact value,
+and every stored record they mention by name. Plain text, under 300 words."""
+
+class ContextManager:
+    """The one place in the loop that prepares each request: a fixed prefix, a fitted view, and an anchor at the end."""
+    def __init__(self, llm, base: str, tools: list, window: int, max_tokens: int, memory, user_id: str, task: str, now: str,
+                 block, notes, results, write_tools: list, guide_index: str = "", keep_last: int = 2, keep_recent: int = 2,
+                 low_water: float = 0.6, fold_share: float = 0.3):
+        self.llm, self.tools, self.notes, self.results, self.block = llm, tools, notes, results, block
+        self.write_tools, self.keep_last, self.keep_recent, self.low_water = write_tools, keep_last, keep_recent, low_water
+        # when the summaries in the first message take more than this share of the budget, they're folded into one
+        self.fold_share = fold_share
+        self.task = task
+        # session start: everything in the prefix is decided here, once
+        self.block_at_start = block.text
+        instructions = [m for m in memory.search(user_id, kind="procedural", limit=100) if m.source == "user"]
+        recalled = render_memories(instructions + recall_scored(memory, user_id, task, now))
+        system = base
+        if guide_index:
+            system += "\n\n" + guide_index
+        if block.text:
+            system += "\n\n<memory_block>\n" + block.text + "\n</memory_block>"
+        if recalled:
+            system += "\n\n" + recalled
+        self.system = system
+        self.budget = window - count_tokens(system) - count_tokens(tools) - max_tokens
+        self.view, self.seen = [], 0
+        self.steps = []
+
+    def build(self, history: list) -> dict:
+        view = self.view + history[self.seen:]
+        anchor = anchor_text(history, self.notes, self.block, self.block_at_start, self.write_tools)
+        room = count_tokens(add_to_end(view, anchor)) - count_tokens(view) if anchor else 0
+        budget = self.budget - room
+        low_water = int(budget * self.low_water)
+        step = next_step(view, budget, low_water, self.keep_last, self.keep_recent)
+        if step != "send":
+            view = clear_to_store(strip_old_thinking(view), self.keep_last, self.results)
+        if step == "compact":
+            request = summary_request(view, self.keep_recent)
+            response = self.llm.create(messages=request, tools=self.tools, system=self.system)
+            summary = "".join(b.text for b in response.content if b.type == "text")
+            if summary:
+                view = compact_with_archive(view, summary, self.keep_recent, self.results)
+            else:
+                step = "trim"
+        if step == "compact" and self.fold_share is not None and count_tokens(view[0]) > self.fold_share * budget:
+            view = self.fold(view)
+        # whatever happened above, a request must fit: trimming whole rounds is the last resort
+        if step == "trim" or count_tokens(view) > budget:
+            view = trim_to_fit(view, low_water)
+            step = "trim"
+        self.view, self.seen = view, len(history)
+        self.steps.append(step)
+        messages = add_to_end(view, anchor) if anchor else list(view)
+        return {"tools": self.tools, "system": self.system, "messages": messages}
+
+    def fold(self, view: list) -> list:
+        """Rewrite the pile of summaries as one. The old ones are stored first, so nothing is lost."""
+        handle = self.results.put(view[0]["content"])
+        request = [{"role": "user", "content": view[0]["content"] + "\n\n" + FOLD_INSTRUCTIONS}]
+        response = self.llm.create(messages=request, tools=self.tools, system=self.system)
+        summary = "".join(b.text for b in response.content if b.type == "text")
+        if not summary:
+            return view
+        first = {"role": "user", "content": self.task + "\n\n<summary_of_earlier_work>\n" + summary +
+                 f"\nThe earlier summaries are stored as {handle}.\n</summary_of_earlier_work>"}
+        self.steps.append("fold")
+        return [first] + view[1:]
+```
+
+</Subsection>
+
+<Subsection title="One session, end to end" variant="b">
+
+Here's a session that exercises every part. The user sets a rule, the agent
+writes a plan and a note, pulls a large log (offloaded when it arrives),
+checks seven agents in detail, edits its memory block, and makes a change.
+The window is small enough that fitting has to happen. The session's tools,
+its scripted steps, and the loop are defined once, and already loaded for
+this lesson's demos:
+
+```python
+BASE = "You are the registry assistant. Follow your plan, the user's rules, and your notes."
+TOOL_NAMES = ["get_logs", "get_status", "set_cache", "set_rule", "update_plan", "add_note", "read_notes", "read_result", "find_in_result",
+              "block_append"]
+TOOLS = [{"name": n, "description": n, "input_schema": {"type": "object", "properties": {}}} for n in TOOL_NAMES]
+AGENTS = ["research_agent", "triage_agent", "search_agent", "report_agent", "auth_agent", "notify_agent", "billing_agent"]
+
+class ScriptedAgent(FakeLLMClient):
+    """Plays the agent's scripted steps, and answers any summary request with a scripted summary."""
+    def create(self, messages, tools=None, system=""):
+        last = messages[-1]["content"]
+        if isinstance(last, list) and _plain(last[-1]).get("text") == SUMMARY_INSTRUCTIONS:
+            return FakeResponse(content=[TextBlock(text="Rule and plan set; billing_agent's per-ticket lookup (p99 4.8s) is the likely cause; "
+                                                        "several agents' logs looked normal.")])
+        return super().create(messages)
+
+def script():
+    def think(text):
+        return ThinkingBlock(thinking=text + " " + "Weighing what the evidence so far shows. " * 5)
+    steps = [
+        [think("Record the user's rule first."), ToolUseBlock(name="set_rule", input={"name": "restarts", "value": "never restart production agents"})],
+        [think("Plan the work."), ToolUseBlock(name="update_plan", input={"plan": "[ ] find the cause\n[ ] fix it without restarts\n[ ] report"})],
+        [think("Start with billing."), ToolUseBlock(name="get_status", input={"agent_name": "billing_agent"})],
+        [think("That's the finding; keep it."), ToolUseBlock(name="add_note", input={"section": "facts", "text": "billing_agent /lookup p99 4.8s, once per ticket"})],
+        [think("Pull the full support log."), ToolUseBlock(name="get_logs", input={"agent_name": "support_agent", "full": True})],
+        [think("Look for errors in it."), ToolUseBlock(name="find_in_result", input={"handle": "res_1", "text": "ERROR"})],
+    ]
+    for agent in AGENTS:
+        steps.append([think(f"Rule out {agent}."), ToolUseBlock(name="get_status", input={"agent_name": agent, "detail": True})])
+    steps += [
+        [think("Remember the owner across sessions."), ToolUseBlock(name="block_append", input={"line": "support_agent is owned by Tom."})],
+        [think("Fix it without a restart."), ToolUseBlock(name="set_cache", input={"agent_name": "billing_agent", "ttl_seconds": 300})],
+        [think("Check the notes before reporting."), ToolUseBlock(name="read_notes", input={})],
+        [TextBlock(text="- Cause: billing_agent's per-ticket lookup (p99 4.8s)\n- Fix: 300s lookup cache, no restart")],
+    ]
+    return steps
+
+def make_impls(notes, results, block):
+    def get_logs(agent_name, full=False):
+        lines = [f"{agent_name} INFO request handled in 412ms" for n in range(300)]
+        lines[217] = f"{agent_name} ERROR upstream billing lookup timed out after 30s"
+        return offload("\n".join(lines), results, threshold=400)
+    def get_status(agent_name, detail=False):
+        text = {"billing_agent": "billing_agent: p99 4.8s on /lookup, called once per ticket"}.get(agent_name, f"{agent_name}: healthy")
+        return text + ("\n" + "metric: value, normal\n" * 40 if detail else "")
+    return {"get_logs": get_logs, "get_status": get_status,
+            "set_cache": lambda agent_name, ttl_seconds: f"{agent_name}: lookup cache on, ttl {ttl_seconds}s",
+            "set_rule": lambda name, value: "rule saved", "update_plan": lambda plan: "plan saved",
+            "add_note": lambda section, text: notes.add(section, text), "read_notes": lambda: notes.render(),
+            "read_result": lambda handle, offset, limit: read_result(results, handle, offset, limit),
+            "find_in_result": lambda handle, text: find_in_result(results, handle, text),
+            "block_append": lambda line: block.append(line)}
+
+def run(context, llm, task, impls, max_steps=30):
+    history = [{"role": "user", "content": task}]
+    sent = []
+    for step in range(max_steps):
+        request = context.build(history)
+        sent.append(request)
+        response = llm.create(messages=request["messages"], tools=request["tools"], system=request["system"])
+        history.append({"role": "assistant", "content": response.content})
+        calls = [b for b in response.content if b.type == "tool_use"]
+        if not calls:
+            return "".join(b.text for b in response.content if b.type == "text"), history, sent
+        history.append({"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": c.id, "content": impls[c.name](**c.input)} for c in calls]})
+    return "stopped", history, sent
+```
+
+<LiveDemo client:load setupCode={SETUP} code={SESSION_DEMO} />
+
+*(the agent's calls and the summary are scripted)*
+
+- **Fitting happened only when it was needed,** and in order. Nine turns
+  were sent as they were. Then, over budget and with clearing not enough,
+  the view was compacted with an archive. Later, clearing alone was enough.
+- **The prefix never changed,** and pairing held on every turn.
+- **Everything that matters was in the last request:** the user's rule, the
+  plan, the change to billing_agent, the notes index and the memory block's
+  edit, all restated from the full history. The early finding, the
+  4.8-second lookup, was carried by the compaction summary.
+- **Nothing was lost.** Thirteen items went to the store: the full log, the
+  results that were cleared, and the record of the compacted rounds.
+
+The next concept measures this against a loop without the context step.
+After the session,
+[Lesson 10's write path](/04-context-and-memory/10-deciding-what-to-remember/00-intro/)
+and
+[Lesson 11's forgetting](/04-context-and-memory/11-forgetting-aging-and-retrieval-quality/00-intro/)
+run exactly as those lessons built them. The lesson's sandbox runs them too.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "What does the context step decide at session start, and never change afterwards?",
+      "options": [
+        "The fitted view",
+        "The anchor",
+        "The tool list and the system prompt, including the guide index, the memory block as it stood, and the recalled memories",
+        "The change ledger"
+      ],
+      "correctIndex": 2,
+      "explanation": "Everything in the prefix is fixed for the session, so the cache is never broken. Anything newer goes at the end of each request."
+    },
+    {
+      "question": "Why does anchor_text take the full history, when the request sends a fitted copy?",
+      "options": [
+        "The copy may have been compacted, and the calls that set the plan and rules would be gone from it",
+        "The full history is shorter",
+        "The anchor is saved into the history",
+        "The copy doesn't include tool results"
+      ],
+      "correctIndex": 0,
+      "explanation": "That's the compaction lesson's lesson. Code can derive the plan, rules and changes exactly, from the full history, which is never changed."
+    },
+    {
+      "question": "In what order does the context step shrink an over-budget view?",
+      "options": [
+        "Trim, then compact, then clear",
+        "Strip old reasoning and clear to the store; compact with an archive only if that isn't enough; trim as a last resort",
+        "Compact first, since it saves the most",
+        "Clear only, never compact"
+      ],
+      "correctIndex": 1,
+      "explanation": "Cheapest first, and nothing lost: cleared results and compacted rounds both go to the store."
+    },
+    {
+      "question": "Why is room reserved in the budget for the anchor?",
+      "options": [
+        "The anchor is sent first",
+        "The anchor is compressed",
+        "Anchors are billed separately",
+        "It's added to every request, so a view that just fits would go over once the anchor is added"
+      ],
+      "correctIndex": 3,
+      "explanation": "Two of this module's own sandboxes found this. The budget for the view is what's left after the anchor."
+    },
+    {
+      "question": "Where do edits the agent makes to its memory block go during a session?",
+      "options": [
+        "Into the system prompt immediately",
+        "Into the history",
+        "At the end of each request; they join the prefix at the next session",
+        "Nowhere until the next session"
+      ],
+      "correctIndex": 2,
+      "explanation": "The agent sees every edit at once, and the prefix changes only between sessions. That was the memory-store lesson's design."
+    }
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"The module's code is provided, including latest_plan, current_rules_block, changes_ledger, Notes and CoreBlock. Implement anchor_text(history, notes, block, block_at_start, write_tools), which returns these parts, in this order, each only if it has something to say, joined by \"\\n\\n\": 1) \"<current_plan>\\n\" + plan + \"\\n</current_plan>\", from latest_plan(history). 2) current_rules_block(history). 3) \"<changes_made>\\n\", then changes_ledger(history, write_tools) joined by \"\\n\", then \"\\n</changes_made>\". 4) notes.index_line(). 5) If block.text differs from block_at_start: \"Your memory block has changed this session. It now reads:\\n\" + block.text. Return \"\" if there's nothing to say."}
+  starterCode={EXERCISE_PROVIDED + EXERCISE_STARTER}
+  hiddenTests={EXERCISE_TESTS}
+  hint={"Collect the parts in a list, appending each one only when it's non-empty, then \"\\n\\n\".join(parts). An empty list joins to \"\", so that case takes care of itself."}
+  correctAnswer={{
+    code: EXERCISE_PROVIDED + EXERCISE_REFERENCE,
+    explanation: "Test 1 pins the order and the format, since the anchor is restated every turn and a stable order keeps it easy for the model to read. Test 2 checks that empty parts are left out, including an unchanged block. Test 3 checks that only calls to write tools become changes. Test 4 is the integration rule itself: fed a compacted copy, the anchor loses the plan, which is why the context step always passes it the full history.",
+  }}
+/>
+
+</CheckpointZone>

@@ -3150,6 +3150,110 @@ below describe each lesson as first converted; see the git log
    actually growing). Lesson 11 is now **Locked**: all three concepts
    plus both bookends exist and build cleanly.
 
+12. **Assembling the Context Step** — **Building** (folder
+    `12-assembling-the-context-step`, slugified from the mockup's own
+    framing — this lesson integrates the whole module's context code into
+    one `ContextManager` class and measures it, so no single earlier
+    lesson's title fit). Concept 1 (one context step, in order) is built:
+    `anchor_text` (the plan, the rules, the change ledger, the notes
+    index, and the memory block's edit, in a fixed order, each only if
+    there's something to say, read from the full history) and
+    `ContextManager` (a fixed prefix built once at session start; each
+    turn strips old reasoning, clears to the store, compacts with an
+    archive, folds piled-up summaries past `fold_share` of the budget,
+    then trims whole rounds as a last resort; the anchor is added, with
+    room reserved for it in the budget). This lesson's setup carries
+    forward the corrected version of every piece the module built:
+    `is_tool_results`/`check_pairing` (Lesson 4, via
+    `src/lib/fakeClient.ts`'s `CHECK_PAIRING`), Lesson 2's
+    `latest_plan`/`current_rules_block`/`changes_ledger`, Lesson 3's
+    `add_to_end`/`serialize`/`first_divergence`/`cost_of_run`, Lesson 4's
+    `trim_to_fit`/`clear_old_results`/`strip_old_thinking`, Lesson 5's
+    `summary_request`/`compact`/`next_step`, Lesson 6's counter-based
+    `ResultStore`/`offload`/`read_result`/`find_in_result`/
+    `clear_to_store`/`compact_with_archive`/`Notes`, Lesson 8's corrected
+    `keywords`, and Lessons 9-11's memory chain (`Memory` through
+    `ArchiveStore`/`forget`, pulled from Lesson 11 recap's own
+    consolidated `LIB_PY`) plus `CoreBlock` from Lesson 9 (with its
+    corrected `save_memory` message, though `save_memory` itself isn't
+    called by this lesson's demos, which call `memory.save()` directly).
+    The "one session, end to end" demo (a scripted 17-turn investigation
+    with a rule, a plan, an offloaded log, seven detail checks, a memory-
+    block edit, and a fix) was verified against a real Pyodide instance
+    (`pyodide@0.26.4`, real `pydantic`) by extracting the exact exported
+    `SETUP`/`SESSION_DEMO` strings straight out of the built `.mdx` file
+    (not a hand-copied re-transcription) and running them in a fresh
+    interpreter — this reproduces the mockup's turn-by-turn step table,
+    token counts, and every closing assertion (`True`) exactly. One
+    subtlety this caught: `ToolUseBlock`'s id counter is a class
+    variable, so re-running a demo in a Pyodide session that already
+    ran an earlier demo (without redefining the class) drifts the
+    counter and shifts a few token counts by one; the real site is safe
+    because each `LiveDemo`'s `setupCode` redefines every class fresh on
+    every Run click (confirmed against `src/lib/pyodide.ts`'s "one
+    shared interpreter, but setup reruns each click" design) — this was
+    confirmed by running each demo against a *fresh* interpreter (as a
+    lone Run click would see it) rather than chaining demos in one
+    session, which is what initially produced numbers a few tokens off
+    in two of concept 2's checks-scaling rows before the fix. 5 quiz
+    cards; graded exercise for `anchor_text` with four hidden tests
+    (order and format; empty parts including an unchanged block; only
+    write-tool calls become changes; a compacted copy loses the plan,
+    which is why the full history is always passed). Verified natively
+    (extracted from the built file): the reference passes all four; two
+    targeted mutations (swapping the plan/rules order, and ledger-ing
+    every tool's calls instead of only `write_tools`) each fail the test
+    that pins exactly that rule. Callbacks: Lesson 3 (intro, no
+    subsection), Lesson 7 (intro), the memory-store lesson (intro, for
+    the "Lessons 9-11" prefix item), Lesson 6 (intro), the
+    history-won't-fit lesson (intro, for "Lessons 4-6"), the
+    re-anchoring concept in the context-that-fits lesson (page link, for
+    "Lessons 2, 5, 6 and 9"), the deciding-what-to-remember and
+    forgetting lessons (intro links), the summary-loses-something concept
+    in the compaction lesson (page link, and its `summaries-of-summaries`
+    subsection anchor — verified against the built HTML — for the
+    piled-up-summaries rule), the compaction lesson's intro (for "Lesson
+    5's sandbox"), the when-to-compact concept (page link), the
+    where-recalled-memories-go concept (page link), and the
+    what-you-load-and-where-it-goes concept (page link). All anchors
+    were verified against `dist/`'s built HTML rather than hand-slugified.
+
+    Concept 2 (measuring the before and after) is also built: `run_report`
+    (per-request token totals, largest/total, `cost_of_run`, prefix
+    breaks via `first_divergence`, and per-check missing-turn lists) plus
+    `WindowedScripted` (the scripted agent behind a real
+    `WindowedClient` window, logging every call including summary/fold
+    requests) and `Naive` (no context step at all). The three-run demo
+    (naive at the same window, naive unlimited, managed) and the
+    cost-at-length table (7/20/40/80/160 checks, plus a folding-vs-never-
+    folding comparison at 160) were verified the same way as concept 1 —
+    extracted straight from the built `.mdx`'s exported strings and run
+    fresh in Pyodide — and reproduce the mockup's numbers exactly,
+    including the break-even point shifting to between 20 and 40 checks
+    and the folding fix (151 tokens of summaries and 0 dropped-without-
+    trace turns, vs. 1,584 tokens and 106 turns without it). This
+    concept's `ContextManager` is concept 1's already-`fold`-equipped
+    version, per the mockup's own note that the class changed mid-concept
+    to gain `fold` and the final fitting guarantee. 5 quiz cards; graded
+    exercise for `run_report` with six hidden tests (split into
+    self-contained snippets, mirroring the mockup's six numbered
+    assertions). Verified natively (extracted from the built file): the
+    reference passes all six; two targeted mutations (counting any
+    request difference, not just tools/system, as a prefix break; and
+    checking only a request's `messages` instead of the whole request for
+    "missing") each fail exactly the test that catches that behavior.
+    Callbacks: the context-that-fits and forgetting lessons (intro
+    links), the previous concept (page link, and its `the-integration-
+    rules` subsection anchor — verified against the built HTML — for
+    where `fold` was added), and the same summary-loses-something
+    subsection anchor as concept 1.
+
+    No new grading component or Pyodide-harness pattern was needed — this
+    lesson recombines existing helpers behind the existing single-file
+    `GradedExercise`/`LiveDemo` machinery. Lesson 12 is **Building**: two
+    concepts exist; no intro or bookends yet (mirroring how Lessons 10 and
+    11 looked with only their first concepts built).
+
 ---
 
 ## Modules 4–11 — current plan
