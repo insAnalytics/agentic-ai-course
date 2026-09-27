@@ -3250,9 +3250,38 @@ below describe each lesson as first converted; see the git log
 
     No new grading component or Pyodide-harness pattern was needed — this
     lesson recombines existing helpers behind the existing single-file
-    `GradedExercise`/`LiveDemo` machinery. Lesson 12 is **Building**: two
-    concepts exist; no intro or bookends yet (mirroring how Lessons 10 and
-    11 looked with only their first concepts built).
+    `GradedExercise`/`LiveDemo` machinery.
+
+    Concept 3 (what to leave out) is also built — the lesson's final
+    concept, per the mockup's own closing note. It's the module's synthesis
+    and has no code: the mockup says explicitly that every figure it cites
+    comes from a demo built earlier in the module, linked to it rather than
+    repeated. No live demo and no graded exercise, matching that. It gives
+    a decision guide (a stable prefix and the anchor for almost every
+    agent; fitting-in-batches, offloading and compaction for long single
+    tasks; tool search for many tools; memory with the source rule and,
+    later, scoring/forgetting for repeat users; nothing extra for short
+    tasks that already fit) and hands off six open questions to later
+    modules (retrieval by meaning to Module 5, guardrails to Module 6,
+    measuring task performance to Module 7, sub-agents to Module 8, user-
+    facing memory to Module 9, retention/compliance to Module 10). 5 quiz
+    cards. Callbacks: this lesson's own previous concept (page link, twice,
+    for `run_report` and for folding); Lesson 1's `TurnTracker` concept
+    (page link); Lessons 2-11's lesson-level intros (page links); Lesson
+    3's and Lesson 4's and Lesson 5's and Lesson 6's specific-figure
+    callbacks (page links to the concept that measured each number — no
+    subsection named in the mockup's own pointer for any of these, so each
+    resolves to the concept page as a whole); and Lesson 10's source-rule
+    subsection anchor (`#the-source-rule`, verified against the built
+    HTML, reusing the same anchor Lesson 11 already linked). All targets
+    confirmed to exist post-build; no numeric claim in this concept needed
+    Pyodide verification, since none of them are new — they're citations of
+    figures already verified when each earlier lesson's own demo was
+    built.
+
+    Lesson 12 is **Building**: all three concepts exist; no intro or
+    bookends yet (mirroring how Lessons 10 and 11 looked before their
+    bookends arrived).
 
 ---
 
