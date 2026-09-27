@@ -2951,7 +2951,7 @@ below describe each lesson as first converted; see the git log
    in the mockup to `Saved as KIND memory.` and the page, exercise and
    tests were updated to match. Title confirmed by the bookends heading.
 
-10. **Deciding What to Remember** — Building (title is a placeholder: the
+10. **Deciding What to Remember** — Locked (title is a placeholder: the
    mockup names no lesson; folder `10-deciding-what-to-remember`, named
    from Lessons 8 and 9's forward references). Concept 1 (extraction,
    with evidence) is built: `entries`, `numbered_transcript`,
@@ -2972,7 +2972,16 @@ below describe each lesson as first converted; see the git log
    carry none), as authored. Callbacks link to Lesson 9's pipeline
    subsection (anchor verified) and concept 1, and Module 3's
    prompt-injection concept; the later concepts are plain prose
-   (unbuilt). Concept 2 (duplicates and contradictions) is also built:
+   (unbuilt at the time). **Revised:** the mockup was later updated to
+   build the demo's scripted `reply` from a runtime `FENCE` variable
+   (a single backtick, repeated) and string concatenation, instead of
+   embedding a literal fence directly inside the Python source; the
+   page's `EXTRACT_DEMO` const was updated to match (a single-backtick
+   JS interpolation in place of the old triple-backtick one) —
+   functionally identical, verified natively to still print the same
+   output.
+
+   Concept 2 (duplicates and contradictions) is also built:
    `MemoryRecord`, `VersionedStore`, `find_duplicate` and
    `apply_decision`, redefining Lesson 9's `keywords`/`Memory`/
    `MemoryStore` locally (this file's own consts, same pattern as every
@@ -3014,10 +3023,39 @@ below describe each lesson as first converted; see the git log
    (verified), Lesson 8's procedural-memory warning links to its
    subsection anchor (verified), and the two Module 3 references
    (prompt injection, blast radius) link to their concept pages, same
-   as concept 1's existing Module 3 link. Lesson 10 now has all three
-   concepts built; no bookends mockup exists yet, so `00-intro.mdx` and
-   `04-recap-practice.mdx` are still missing and the lesson stays
-   Building until that mockup arrives.
+   as concept 1's existing Module 3 link.
+
+   The bookends mockup has since arrived, and both files are now built.
+   `00-intro.mdx`: 4 learning outcomes and why-it-matters, matching the
+   mockup verbatim; its one callback (Lesson 9) links to Lesson 9's
+   intro page. `04-recap-practice.mdx`: 8-question comprehensive quiz
+   (mixed order, spanning all three concepts), and a multi-file
+   comprehensive sandbox — the whole write path (`decide`,
+   `remember_session`) over a scripted 8-candidate extraction reply
+   covering every rule the lesson taught in one session. New file-tab
+   pattern for this course: `fake.py` (read-only) now exists as its own
+   provided module — `ToolUseBlock`/`TextBlock`/`FakeResponse`/
+   `FakeLLMClient` from `src/lib/fakeClient.ts`'s `FAKE_CLIENT`, written
+   out as a real file rather than prepended as raw text into
+   `hiddenTests` (Lesson 9 recap's older convention) — alongside
+   `tokens.py` (Lesson 9's own pattern) and a `lib.py` carrying this
+   lesson's code on top of Lessons 8/9, plus two additions,
+   `entry_origins` and `DECISION_INSTRUCTIONS`. `entry.py` is `agent.py`.
+   Verified natively (`python`, real `pydantic` 2.12.5): the reference
+   solution passes all seven hidden tests exactly, reproducing the
+   mockup's report line for line; three targeted mutations (removing
+   the pre-emptive duplicate check so a duplicate always costs a model
+   call, swapping the admit/duplicate check order, and setting `origin`
+   regardless of source) were tried — the first is caught by test 4's
+   exact request-count assertion (5 requests instead of 4) even though
+   the report text is unaffected; the other two don't change behavior
+   on this exercise's specific test data (no candidate is both a
+   duplicate and admit-refused, and non-tool records never show their
+   origin in `render_memories` anyway), so they're not meaningfully
+   different mutations here — noted rather than claimed as caught. The
+   hidden tests' own scripted fence uses the same runtime-`FENCE`
+   pattern as concept 1's revised demo. Lesson 10 is now **Locked**:
+   all three concepts plus both bookends exist and build cleanly.
 
 ---
 

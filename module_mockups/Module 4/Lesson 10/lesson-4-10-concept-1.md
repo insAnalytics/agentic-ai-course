@@ -102,13 +102,14 @@ history += [{"role": "assistant", "content": [TextBlock(text="- billing_agent's 
 print(numbered_transcript(history), "\n")
 
 # the extraction step's reply (scripted): five proposals, two of them flawed, each with the source the model claims
-reply = """```json
+FENCE = "`" * 3
+reply = FENCE + """json
 [{"content": "Write summaries as bullet points.", "type": "procedural", "quote": "Keep summaries to bullet points", "entry": 0, "source": "user"},
  {"content": "billing_agent's lookup was support_agent's bottleneck.", "type": "episodic", "quote": "billing_agent's lookup is the bottleneck", "entry": 3, "source": "agent"},
  {"content": "Priya Nair owns support_agent.", "type": "semantic", "quote": "owned by Priya Nair", "entry": 2, "source": "tool"},
  {"content": "Send weekly reports to Priya.", "type": "procedural", "quote": "send weekly reports to Priya", "entry": 0, "source": "user"},
  {"content": "Escalate to #support-oncall.", "type": "procedural", "quote": "Escalations should go to #support-oncall", "entry": 2, "source": "tool"}]
-```"""
+""" + FENCE
 candidates, problems = parse_candidates(reply)
 print("trusting the model's own labels:")
 for candidate in candidates:
