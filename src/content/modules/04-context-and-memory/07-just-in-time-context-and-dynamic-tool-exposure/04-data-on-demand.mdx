@@ -1,0 +1,458 @@
+---
+title: "Data on demand: letting the agent explore"
+lesson: "07-just-in-time-context-and-dynamic-tool-exposure"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, COUNT_TOKENS } from "../../../../lib/fakeClient";
+
+export const COST_FUNCS = String.raw`
+def serialize(x) -> str:
+    # byte-for-byte form, as a cache sees it: key order matters, exactly as sent
+    return json.dumps(_plain(x))
+
+def first_divergence(previous: dict, current: dict) -> dict:
+    """Where does current stop matching previous, and how much of it could be read from the cache?"""
+    reusable = 0
+    if serialize(current["tools"]) != serialize(previous["tools"]):
+        return {"diverges_at": "tools", "reusable_tokens": 0}
+    reusable += count_tokens(current["tools"])
+    if serialize(current["system"]) != serialize(previous["system"]):
+        return {"diverges_at": "system", "reusable_tokens": reusable}
+    reusable += count_tokens(current["system"])
+    for i, old in enumerate(previous["messages"]):
+        if i >= len(current["messages"]) or serialize(current["messages"][i]) != serialize(old):
+            return {"diverges_at": f"messages[{i}]", "reusable_tokens": reusable}
+        reusable += count_tokens(old)
+    return {"diverges_at": None, "reusable_tokens": reusable}
+
+def cost_of_run(requests: list, read_multiplier: float, write_multiplier: float) -> int:
+    """Cost of the requests actually sent, using first_divergence to see what each could reuse."""
+    total = 0.0
+    previous = None
+    for request in requests:
+        size = count_tokens(request["tools"]) + count_tokens(request["system"]) + count_tokens(request["messages"])
+        reused = first_divergence(previous, request)["reusable_tokens"] if previous else 0
+        total += reused * read_multiplier + (size - reused) * write_multiplier
+        previous = request
+    return round(total)
+`;
+
+export const WORKSPACE_FUNCS = String.raw`
+class Workspace:
+    """Files the agent explores by path: list them, search them, read a slice. Never everything at once."""
+    def __init__(self, files: dict, max_matches: int = 20, max_lines: int = 40):
+        self.files = files
+        self.max_matches = max_matches
+        self.max_lines = max_lines
+
+    def list_files(self, prefix: str = "") -> str:
+        paths = [path for path in sorted(self.files) if path.startswith(prefix)]
+        if not paths:
+            return f"No files under {prefix!r}."
+        return "\n".join(f"{path} ({len(self.files[path].splitlines())} lines)" for path in paths)
+
+    def grep(self, pattern: str, prefix: str = "") -> str:
+        """Lines containing pattern, ignoring case, as PATH:LINE: TEXT. At most max_matches, then a count of the rest."""
+        hits = []
+        for path in sorted(self.files):
+            if path.startswith(prefix):
+                for number, line in enumerate(self.files[path].splitlines(), start=1):
+                    if pattern.lower() in line.lower():
+                        hits.append(f"{path}:{number}: {line[:200]}")
+        if not hits:
+            return f"No lines match {pattern!r} under {prefix!r}."
+        shown = hits[:self.max_matches]
+        if len(hits) > len(shown):
+            shown.append(f"... and {len(hits) - len(shown)} more. Narrow the pattern or the path.")
+        return "\n".join(shown)
+
+    def read_file(self, path: str, start: int = 1) -> str:
+        """Up to max_lines lines of one file, from line start, with a header saying where the rest is."""
+        if path not in self.files:
+            return f"Error: no file {path}. Use list_files to see what exists."
+        lines = self.files[path].splitlines()
+        if not 1 <= start <= len(lines):
+            return f"Error: {path} has lines 1 to {len(lines)}."
+        chunk = lines[start - 1:start - 1 + self.max_lines]
+        end = start + len(chunk) - 1
+        header = f"{path}, lines {start}-{end} of {len(lines)}"
+        if end < len(lines):
+            header += f"; read_file(path, start={end + 1}) for more"
+        return header + "\n" + "\n".join(line[:200] for line in chunk)
+
+def require_reading(name: str, required: dict, read: set):
+    """None if the call may run; otherwise an error saying which guide must be read first."""
+    guide = required.get(name)
+    if guide is not None and guide not in read:
+        return f"Error: read the {guide} guide first, with read_guide(\"{guide}\"), then call {name} again."
+    return None
+`;
+
+export const SETUP = REACT_FAKE_CLIENT + COUNT_TOKENS + COST_FUNCS + WORKSPACE_FUNCS;
+
+export const EXPLORE_DEMO = String.raw`def log(agent, n, extra):
+    lines = [f"2026-09-28T09:{i % 60:02d}:00Z {agent} INFO request handled in 412ms status=200" for i in range(n)]
+    for at, line in extra:
+        lines[at] = line
+    return "\n".join(lines)
+
+FILES = {
+    "logs/support_agent.log": log("support_agent", 300, [(120, "2026-09-28T10:02:00Z support_agent ERROR lookup failed: billing_agent timed out after 2s"),
+                                                         (180, "2026-09-28T10:31:00Z support_agent ERROR lookup failed: billing_agent timed out after 2s")]),
+    "logs/billing_agent.log": log("billing_agent", 300, [(119, "2026-09-28T10:01:58Z billing_agent WARN /lookup p99 4.8s since the 10:00 release")]),
+    "logs/search_agent.log": log("search_agent", 300, []),
+    "logs/triage_agent.log": log("triage_agent", 300, []),
+    "config/support_agent.yaml": "model: claude-haiku\nupstream: billing_agent\nupstream_timeout: 2s\nretries: 0\n",
+    "config/billing_agent.yaml": "model: claude-sonnet\nrelease: 41\ncache_lookups: false\n",
+    "config/search_agent.yaml": "model: claude-haiku\nindex: v7\n",
+}
+workspace = Workspace(FILES)
+MAP = "Files: logs/ has one log per agent; config/ has one settings file per agent."
+TOOLS = [{"name": n, "description": d, "input_schema": {"type": "object", "properties": {}}} for n, d in
+         [("list_files", "List files under a path prefix."), ("grep", "Find lines containing a pattern."), ("read_file", "Read part of a file.")]]
+TASK = "support_agent has been failing since about 10:00. Find out why."
+
+def run(system, first_message, steps):
+    """Sends one request per step, appending each tool call and its result; returns every request sent."""
+    history = [{"role": "user", "content": first_message}]
+    requests = []
+    for name, arguments in steps:
+        requests.append({"tools": TOOLS, "system": system, "messages": history})
+        call = ToolUseBlock(name=name, input=arguments)
+        result = getattr(workspace, name)(**arguments)
+        history = history + [{"role": "assistant", "content": [call]},
+                             {"role": "user", "content": [{"type": "tool_result", "tool_use_id": call.id, "content": result}]}]
+    requests.append({"tools": TOOLS, "system": system, "messages": history})
+    return requests
+
+everything = TASK + "\n\n" + "\n\n".join(f"## {path}\n{text}" for path, text in FILES.items())
+runs = [
+    ("everything up front", run("You are the operations assistant.", everything, [])),
+    ("explore, with a map", run("You are the operations assistant. " + MAP, TASK, [
+        ("grep", {"pattern": "ERROR", "prefix": "logs/"}),
+        ("grep", {"pattern": "WARN", "prefix": "logs/"}),
+        ("read_file", {"path": "config/support_agent.yaml"}),
+        ("read_file", {"path": "config/billing_agent.yaml"})])),
+    ("explore, one dead end", run("You are the operations assistant. " + MAP, TASK, [
+        ("grep", {"pattern": "exception", "prefix": "logs/"}),
+        ("list_files", {"prefix": "logs/"}),
+        ("grep", {"pattern": "ERROR", "prefix": "logs/"}),
+        ("grep", {"pattern": "WARN", "prefix": "logs/"}),
+        ("read_file", {"path": "config/support_agent.yaml"}),
+        ("read_file", {"path": "config/billing_agent.yaml"})])),
+]
+print(f"{'':22} requests  largest   total sent   cost")
+for label, requests in runs:
+    sizes = [count_tokens(r["tools"]) + count_tokens(r["system"]) + count_tokens(r["messages"]) for r in requests]
+    print(f"{label:22} {len(requests):>8}  {max(sizes):>7,}  {sum(sizes):>11,}  {cost_of_run(requests, 0.1, 1.25):>5,}")
+
+print("\nwhat the agent read:")
+print(workspace.grep("ERROR", "logs/"))
+print(workspace.grep("WARN", "logs/"))
+print(workspace.read_file("config/support_agent.yaml"))
+too_broad = workspace.grep("INFO", "logs/").split("\n")
+print(too_broad[0], "\n...\n" + too_broad[-1])
+`;
+
+export const GATE_DEMO = String.raw`REQUIRED = {"deploy__rollback": "rollback", "deploy__update": "deploy"}
+read = set()
+
+def dispatch(name, arguments):
+    if name == "read_guide":
+        read.add(arguments["name"])
+        return f"(the {arguments['name']} guide)"
+    refusal = require_reading(name, REQUIRED, read)
+    if refusal:
+        return refusal
+    return f"{name} ran with {arguments}"
+
+# the agent jumps straight to the risky tool, as a model that didn't think to check the runbook would
+for name, arguments in [("registry__get", {"id": "research_agent"}),
+                        ("deploy__rollback", {"agent": "research_agent", "release": 40}),
+                        ("read_guide", {"name": "rollback"}),
+                        ("deploy__rollback", {"agent": "research_agent", "release": 40})]:
+    print(f"{name:17} -> {dispatch(name, arguments)}")
+`;
+
+export const STARTER = String.raw`class Workspace:
+    """Files the agent explores by path: list them, search them, read a slice. Never everything at once."""
+    def __init__(self, files: dict, max_matches: int = 20, max_lines: int = 40):
+        self.files = files
+        self.max_matches = max_matches
+        self.max_lines = max_lines
+
+    def list_files(self, prefix: str = "") -> str:
+        paths = [path for path in sorted(self.files) if path.startswith(prefix)]
+        if not paths:
+            return f"No files under {prefix!r}."
+        return "\n".join(f"{path} ({len(self.files[path].splitlines())} lines)" for path in paths)
+
+    def grep(self, pattern: str, prefix: str = "") -> str:
+        # TODO: matching lines, ignoring case, as PATH:LINE: TEXT (text cut to 200 characters), paths in sorted order;
+        #       at most max_matches, then a line counting the rest; a message if nothing matches
+        ...
+
+    def read_file(self, path: str, start: int = 1) -> str:
+        # TODO: an error for an unknown path or a start outside the file; otherwise a header line,
+        #       then up to max_lines lines from start (each cut to 200 characters)
+        ...
+
+def require_reading(name: str, required: dict, read: set):
+    # TODO: None if the call may run; an error naming the guide if it's required and not yet read
+    ...
+`;
+
+export const REFERENCE = WORKSPACE_FUNCS.trimStart();
+
+export const TEST_SETUP = String.raw`
+files = {
+    "logs/a.log": "\n".join("line 10 ERROR disk slow" if i == 10 else f"line {i} ok" for i in range(1, 51)),
+    "logs/b.log": "boot\nERROR disk full\nshutdown",
+    "config/a.yaml": "timeout: 2s\n" + "x" * 300,
+}
+ws = Workspace(files, max_matches=3, max_lines=5)
+`;
+
+export const TESTS = [
+  TEST_SETUP + String.raw`
+# 1. grep: every match, ignoring case, as PATH:LINE: TEXT, in path order
+assert ws.grep("error") == "logs/a.log:10: line 10 ERROR disk slow\nlogs/b.log:2: ERROR disk full"`,
+  TEST_SETUP + String.raw`
+# 2. grep: the prefix limits where it looks; no match says so
+assert ws.grep("error", "logs/b") == "logs/b.log:2: ERROR disk full"
+assert ws.grep("zzz") == "No lines match 'zzz' under ''."
+assert ws.grep("error", "config/") == "No lines match 'error' under 'config/'."`,
+  TEST_SETUP + String.raw`
+# 3. grep: at most max_matches lines, then a count of the rest, so a broad pattern can't flood the context
+assert ws.grep("ok", "logs/a") == ("logs/a.log:1: line 1 ok\nlogs/a.log:2: line 2 ok\nlogs/a.log:3: line 3 ok\n"
+                                   "... and 46 more. Narrow the pattern or the path.")`,
+  TEST_SETUP + String.raw`
+# 4. one very long line is cut to 200 characters, in grep and in read_file
+assert ws.grep("xxx") == "config/a.yaml:2: " + "x" * 200
+assert ws.read_file("config/a.yaml").split("\n")[-1] == "x" * 200`,
+  TEST_SETUP + String.raw`
+# 5. read_file: a slice of at most max_lines, with a header saying where the rest is
+assert ws.read_file("logs/a.log") == ("logs/a.log, lines 1-5 of 50; read_file(path, start=6) for more\n"
+                                      "line 1 ok\nline 2 ok\nline 3 ok\nline 4 ok\nline 5 ok")
+assert ws.read_file("logs/a.log", 48) == "logs/a.log, lines 48-50 of 50\nline 48 ok\nline 49 ok\nline 50 ok"
+assert ws.read_file("logs/b.log") == "logs/b.log, lines 1-3 of 3\nboot\nERROR disk full\nshutdown"`,
+  TEST_SETUP + String.raw`
+# 6. read_file: only paths in the workspace, and only lines that exist
+assert ws.read_file("logs/c.log") == "Error: no file logs/c.log. Use list_files to see what exists."
+assert ws.read_file("../logs/a.log") == "Error: no file ../logs/a.log. Use list_files to see what exists."
+assert ws.read_file("logs/a.log", 51) == "Error: logs/a.log has lines 1 to 50."
+assert ws.read_file("logs/a.log", 0) == "Error: logs/a.log has lines 1 to 50."`,
+  TEST_SETUP + String.raw`
+# 7. require_reading: tools with no requirement always run; required reading blocks until it's done
+required = {"deploy__rollback": "rollback"}
+assert require_reading("registry__get", required, set()) is None
+assert require_reading("deploy__rollback", required, set()) == \
+    'Error: read the rollback guide first, with read_guide("rollback"), then call deploy__rollback again.'
+assert require_reading("deploy__rollback", required, {"incident"}) is not None
+assert require_reading("deploy__rollback", required, {"rollback"}) is None`,
+];
+
+<Subsection title="The same idea, applied to data" variant="a">
+
+The previous concepts loaded tools and guides only when they were needed.
+The same question comes up for the data a task works on: logs, configs,
+documents, records. The simple answer is to gather what might be relevant
+and put it in the context before the agent starts. Anthropic's
+[guide to context engineering](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
+describes the alternative many agents have moved to. The agent keeps
+**lightweight references**, such as file paths, queries and links, and
+uses tools to load what it needs *while it works*. Coding agents are the
+familiar example: rather than being handed a whole repository, they list
+directories, search with `grep`, and read the few files that matter. The
+Manus team describes the file system the same way, as context that's
+unlimited in size and that the agent reads and writes on demand.
+
+It's the idea behind
+[Lesson 6's handles](/04-context-and-memory/06-offloading-context-to-storage/01-keep-the-reference-not-the-result/)
+too. A handle, a path or a query costs a few tokens, and the data behind it
+stays outside the window until it's asked for.
+
+</Subsection>
+
+<Subsection title="A workspace to explore" variant="b">
+
+Three tools cover most exploring, and each one has a limit on how much it
+can return, so that no single call can flood the context:
+
+- **`list_files`** shows what exists, with each file's size, so the agent
+  can see what it's dealing with before it reads anything.
+- **`grep`** finds the lines that contain a pattern, each with where it is.
+  A pattern that matches too much returns the first few matches and a count
+  of the rest, which tells the agent to narrow its search.
+- **`read_file`** reads a slice of a file, and says where the rest is.
+
+Paths are looked up in the workspace and nowhere else, which is the rule
+from
+[the guide library](/04-context-and-memory/07-just-in-time-context-and-dynamic-tool-exposure/03-instructions-and-reference-material-on-demand/#whose-instructions-are-these)
+again. You'll write `grep` and `read_file` in the exercise below.
+
+</Subsection>
+
+<Subsection title="Measured" variant="a">
+
+An incident: `support_agent` has been failing since 10:00. The workspace
+holds four agents' logs and three config files. The task is run three ways:
+with everything pasted in up front, and twice exploring, once directly and
+once with a wrong first guess. The exploring runs get a one-line map of the
+workspace in their system prompt. `Workspace` and Lesson 3's `cost_of_run`
+are loaded:
+
+<LiveDemo client:load setupCode={SETUP} code={EXPLORE_DEMO} />
+
+*(the tool calls are scripted; the fake client isn't a model)*
+
+Everything up front is one large request of about 23,000 tokens, nearly all
+of it log lines nobody needed. Exploring found the same answer in five much
+smaller requests: support_agent times out after 2 seconds, and
+billing_agent's lookup has taken 4.8 seconds since its 10:00 release. That's
+over ten times fewer tokens sent in total, and far less cost. On real logs,
+which run to millions of lines, pasting everything in isn't possible at all.
+
+The wrong first guess shows the price of exploring. Searching for
+"exception" found nothing, and the agent had to look around before
+searching again. That's two extra round trips, each adding a little to
+every request after it. Exploring trades tokens for time: every step is
+another model call, and an agent can wander into dead ends. The last lines
+of the output show why every tool is bounded: a search for "INFO" matches
+almost every line, and returns twenty and a count.
+
+</Subsection>
+
+<Subsection title="A map, then explore" variant="b">
+
+The exploring runs didn't start blind. Their system prompt said what the
+workspace holds, in one line: logs in one folder, configs in another. That
+**hybrid** is how most agents that explore are set up. A little is loaded
+up front: what exists, how it's laid out, and the conventions that always
+apply. Everything else is found when needed. Claude Code works this way:
+a project's `CLAUDE.md` file is loaded at the start of every session, and
+the code itself is explored with search and read tools.
+
+It's the same shape as the guide index and the tool catalog in this
+lesson's earlier concepts. A short, fixed description sits in the prefix,
+and it's good enough to know where to look. The details arrive as tool
+results, at the end of the conversation.
+
+</Subsection>
+
+<Subsection title="What exploring can miss" variant="a">
+
+Loading on demand has a failure that loading everything doesn't: **the
+agent has to know to look.** A model that never thinks to read the rollback
+runbook improvises a rollback. A model that searches for the wrong word
+decides there's nothing to find. Nothing in the context tells it that what
+it needed was one call away.
+
+Three defenses, from cheapest to strongest:
+
+- **What must always apply stays in the prefix.** A rule like "never roll
+  back during business hours without approval" can't depend on the agent
+  choosing to read it. Short rules that apply to every task are loaded up
+  front, as standing instructions are.
+- **Say when to read, not just what's there.** An index line like
+  "rollback: undo a bad release. Read before any rollback" tells the model
+  when it applies, not only what it covers.
+- **Make the dispatcher require it.** For the actions that matter most,
+  code can refuse to run a tool until its guide has been read. It's
+  [the first concept's gating](/04-context-and-memory/07-just-in-time-context-and-dynamic-tool-exposure/01-what-you-load-and-where-it-goes/#stages-without-changing-the-list),
+  keyed on what the agent has read rather than on the stage:
+
+<LiveDemo client:load setupCode={SETUP} code={GATE_DEMO} />
+
+The refusal says exactly what to do, so the agent recovers in one step, and
+the rule holds whatever the model decides. How often an agent loads what it
+should on real tasks is something to measure, not assume, which is Module
+7's subject.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "What does an agent keep in its context when it explores data instead of having it loaded up front?",
+    "options": [
+      "Lightweight references, such as paths and queries, and only the pieces it has read",
+      "A compressed copy of every file, so it can search without tools",
+      "Nothing about the data until the final answer",
+      "Every file's first page, and the rest on request"
+    ],
+    "correctIndex": 0,
+    "explanation": "References cost a few tokens. The data behind them stays outside the window until a tool reads the part the agent asks for."
+  },
+  {
+    "question": "In the demo, exploring sent over ten times fewer tokens. What did it cost instead?",
+    "options": [
+      "Nothing: exploring is better in every way",
+      "Round trips: each step is another model call, and a wrong guess adds more",
+      "Accuracy: the explored answer was less complete",
+      "Cache hits: exploring breaks the prefix on every step"
+    ],
+    "correctIndex": 1,
+    "explanation": "Exploring trades tokens for time. The dead-end run needed two extra calls. The prefix never changed, since results arrive at the end of the conversation."
+  },
+  {
+    "question": "Why does grep return at most a fixed number of matches, with a count of the rest?",
+    "options": [
+      "Models can only read twenty lines at a time",
+      "So that a pattern matching almost everything can't flood the context, and the count tells the agent to narrow it",
+      "Because the matches after the twentieth are usually wrong",
+      "To keep the tool's output the same size as a cache entry"
+    ],
+    "correctIndex": 1,
+    "explanation": "A search for \"INFO\" matched over a thousand lines. Unbounded, it would have pasted the logs back in through the side door."
+  },
+  {
+    "question": "What is the risk of loading data and guides only on demand, which loading everything up front doesn't have?",
+    "options": [
+      "The prefix changes whenever something is loaded",
+      "Tool results can't be cleared later",
+      "The agent may never look for something it needed, and nothing tells it so",
+      "Files read on demand can't be cited"
+    ],
+    "correctIndex": 2,
+    "explanation": "An agent has to know to look. The defenses are keeping always-applicable rules in the prefix, index lines that say when to read, and a dispatcher that requires reading before the riskiest tools."
+  },
+  {
+    "question": "Why does require_reading refuse the call with a message instead of reading the guide for the agent automatically?",
+    "options": [
+      "Tool results can't be added without a tool call",
+      "The guide's text should reach the agent through its own read_guide call, and the message tells it exactly which one, so it recovers in one step",
+      "Refusing is cheaper than reading",
+      "The model would ignore a guide it didn't ask for"
+    ],
+    "correctIndex": 1,
+    "explanation": "The refusal keeps the loop simple: every tool result answers the call the model made. The message names the guide, so the next call is obvious."
+  }
+]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"list_files is written. Implement Workspace.grep(pattern, prefix=\"\"): for each path in sorted order that starts with prefix, every line containing pattern, ignoring case, as \"PATH:LINE: TEXT\", with LINE counted from 1 and TEXT cut to its first 200 characters. If there are more than max_matches, keep the first max_matches and add \"... and N more. Narrow the pattern or the path.\". Join with \"\\n\". With no match, return \"No lines match 'PATTERN' under 'PREFIX'.\" (use !r). Workspace.read_file(path, start=1): an unknown path returns \"Error: no file PATH. Use list_files to see what exists.\"; a start outside 1 to the number of lines returns \"Error: PATH has lines 1 to N.\". Otherwise, return the header \"PATH, lines START-END of N\", adding \"; read_file(path, start=NEXT) for more\" if lines remain, then up to max_lines lines from start, each cut to 200 characters, all joined by \"\\n\". require_reading(name, required, read): required maps tool names to the guide that must be read first, and read is the set of guides read so far. Return None if the tool has no requirement or its guide is in read; otherwise \"Error: read the GUIDE guide first, with read_guide(\\\"GUIDE\\\"), then call NAME again.\"."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  hint={"enumerate(text.splitlines(), start=1) gives line numbers from 1. For the cap, collect every hit first, then slice hits[:self.max_matches] and count what's left. In read_file, lines[start - 1:start - 1 + self.max_lines] is the slice, and the last line shown is start + len(chunk) - 1."}
+  correctAnswer={{
+    code: REFERENCE,
+    explanation: "Test 3 is the one that matters most: a broad pattern returns a bounded answer and a count, so a single search can't paste the logs back into the context. Tests 4 and 5 bound the other way a read can grow, one very long line and one very long file. Test 6 keeps paths inside the workspace, the same rule as the guide library's names. Test 7 checks the gate: a required guide blocks its tool until it's in the set of guides read, and only that guide will do.",
+  }}
+/>
+
+</CheckpointZone>
