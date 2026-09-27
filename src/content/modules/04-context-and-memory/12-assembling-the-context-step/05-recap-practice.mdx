@@ -1,7 +1,7 @@
 ---
 title: "Recap & Practice"
 lesson: "12-assembling-the-context-step"
-order: 4
+order: 5
 ---
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
@@ -1336,6 +1336,17 @@ assert len(active) <= 50 and any(m.content == "Write summaries as bullet points.
       "explanation": "Code can derive the plan, the rules and the changes exactly, from a history that is never changed."
     },
     {
+      "question": "A request fits the window, but the manifests show the summary section above its own limit for thirty turns running. What should that prompt?",
+      "options": [
+        "Nothing, since the request still fits",
+        "A look at why summaries are growing, such as whether folding kicks in before or after that limit",
+        "Raising the window, since the summary is too big for it",
+        "Removing the summary, since the history is enough"
+      ],
+      "correctIndex": 1,
+      "explanation": "A section over its limit is crowding out the working history before anything fails. In the long run, folding at 30% of the budget sat just above a 500-token limit: two settings that disagreed, which the per-section check surfaced."
+    },
+    {
       "question": "What did measuring the context step find about appended summaries?",
       "options": [
         "They broke tool pairing",
@@ -1378,6 +1389,17 @@ assert len(active) <= 50 and any(m.content == "Write summaries as bullet points.
       ],
       "correctIndex": 1,
       "explanation": "What's sent can be measured exactly. What a real model does with a cleaner context is the research's claim, cited, not demoed."
+    },
+    {
+      "question": "Turning the anchor off made the 17-turn run cheaper. Why keep it?",
+      "options": [
+        "The anchor makes the prefix cacheable",
+        "Without it, the user's rule was missing from every request after the compaction, and a cost table alone would never show that",
+        "The anchor is required for the summary to be written",
+        "Removing it makes the run take more turns"
+      ],
+      "correctIndex": 1,
+      "explanation": "An ablation measures what a piece does, not just what it costs. The summary said a rule was set, not what it was; the anchor kept the rule itself in front of the model."
     },
     {
       "question": "Which piece belongs in almost every agent?",
