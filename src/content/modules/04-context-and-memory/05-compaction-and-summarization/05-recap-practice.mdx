@@ -96,7 +96,7 @@ def clear_old_results(messages: list, keep_last: int) -> list:
             for block in message["content"]:
                 if block.get("type") == "tool_result" and not block.get("is_error"):
                     successful.append(block["tool_use_id"])
-    to_keep = successful[len(successful) - keep_last:]
+    to_keep = successful[max(0, len(successful) - keep_last):]
 
     cleared = []
     for message in messages:
@@ -442,7 +442,9 @@ def script():
     steps = [
         [think("Start with the agent at the head of the queue."), ToolUseBlock(name="get_metrics", input={"agent_name": "support_agent"})],
         [think("support_agent is fine; check what it calls per ticket."), ToolUseBlock(name="get_metrics", input={"agent_name": "billing_agent"})],
-        [think("The user said to avoid restarts; record it."), ToolUseBlock(name="set_rule", input={"name": "restarts", "value": "never restart production agents"})],
+        [think("The user said to avoid restarts; record it."),
+         TextBlock(text="billing_agent's /lookup is p99 4.8s, once per ticket: the likely cause."),
+         ToolUseBlock(name="set_rule", input={"name": "restarts", "value": "never restart production agents"})],
     ]
     for agent in AGENTS + AGENTS:
         steps.append([think(f"Rule out {agent}."), ToolUseBlock(name="get_logs", input={"agent_name": agent})])
@@ -461,11 +463,13 @@ class ScriptedAgent(WindowedClient):
         super().__init__(steps, window=window)
         self.summary = summary
         self.summaries_written = 0
+        self.summary_requests = []
     def create(self, messages, tools=None, system=""):
         last = messages[-1]["content"]
         if isinstance(last, list) and _plain(last[-1]).get("text") == SUMMARY_INSTRUCTIONS:
             self.summaries_written += 1
             self.summary_prefix = (tools, system)
+            self.summary_requests.append(messages)
             if self.summary is None:
                 return FakeResponse(content=[ToolUseBlock(name="get_logs", input={"agent_name": "billing_agent"})])
             return FakeResponse(content=[TextBlock(text=self.summary)])
@@ -495,6 +499,8 @@ watch = Watch(context)
 answer, history, sent = run_agent(llm, TASK, watch, impls())
 assert answer.startswith("Cause: billing_agent")
 assert "4.8s" in text(sent[-1])
+# ...and the summarizer could see the finding: by then its tool result was cleared, but the agent had said it
+assert llm.summary_requests and "4.8s" in json.dumps(_plain(llm.summary_requests[0]))
 
 # 2. every request, anchor included, leaves room for the reply, and carries exactly one anchor
 for r in sent:
@@ -676,7 +682,7 @@ assert count_tokens(tight_context.build(tight)["messages"]) <= tight_context.bud
     { name: "lib.py", readOnly: true, code: LIB_PY },
     { name: "agent.py", code: AGENT_REFERENCE },
   ]}
-  explanation={"Each test checks one idea from the lesson. Before and after: Lesson 4's fitter completes the run without the finding, and this context step completes it with the finding still in the final request, carried by the summary (test 1). The summary here is scripted, so the test checks where it goes, not how well it's written. Every request fits and is valid: reply room is left, the anchor is counted, only one anchor is carried, the task comes first, calls are paired, and the step in progress goes back as returned (tests 2, 3 and 10). The rule survives compaction without the summary's help: the scripted summary leaves the rule out, as a real one might, and the rule is still in every request, because it's read from the full history (test 4). The order holds: clearing happens before the first compaction, and compaction happens rarely, through the agent's own client (tests 5 and 6). Edits stay rare: on most turns, only the previous request's last message, the one that carried the anchor, differs (test 7). The loop's history is untouched (test 8). A summary call that returns no text falls back to trimming, and the run still completes (test 9). This context step and Lesson 3's CacheAwareContext are two halves of the same job; Lesson 12 combines them."}
+  explanation={"Each test checks one idea from the lesson. Before and after: Lesson 4's fitter completes the run without the finding, and this context step completes it with the finding still in the final request, carried by the summary (test 1). The summary here is scripted, so the test checks where it goes, not how well it's written. It does check what the summarizer was sent: by then the finding's tool result had long been cleared, and the finding reaches the summarizer only because the agent stated it in its visible text. Every request fits and is valid: reply room is left, the anchor is counted, only one anchor is carried, the task comes first, calls are paired, and the step in progress goes back as returned (tests 2, 3 and 10). The rule survives compaction without the summary's help: the scripted summary leaves the rule out, as a real one might, and the rule is still in every request, because it's read from the full history (test 4). The order holds: clearing happens before the first compaction, and compaction happens rarely, through the agent's own client (tests 5 and 6). Edits stay rare: on most turns, only the previous request's last message, the one that carried the anchor, differs (test 7). The loop's history is untouched (test 8). A summary call that returns no text falls back to trimming, and the run still completes (test 9). This context step and Lesson 3's CacheAwareContext are two halves of the same job; Lesson 12 combines them."}
 />
 
 </CheckpointZone>

@@ -3352,6 +3352,65 @@ below describe each lesson as first converted; see the git log
     Lesson 12 is now **Locked**: all three concepts plus both bookends
     exist and build cleanly.
 
+**Module 4 quality pass (2026-09-27).** A full content review, then fixes
+made directly in the `.mdx` files. The mockups in `module_mockups/Module 4`
+were *not* updated to match, so they now lag the site. The course stays
+provider-neutral on purpose: provider specifics appear only as examples.
+Every exercise reference and demo in the module was re-run in CPython
+under the harness semantics. All references pass, and the only demo output
+that changed is the one intended (L10 C1's extraction demo). Changes:
+- **Bugs.**
+  - `clear_old_results` sliced `successful[len - keep_last:]`. The index
+    went negative when `keep_last` exceeded the number of results. It's now
+    `max(0, ...)` in all 19 copies (L4, L5, L6, L12), with a new L4 C3 test.
+  - L10 C2 hidden test 6 never superseded anything before asserting "already
+    superseded is refused", so the reference answer failed its own test. It
+    now supersedes first.
+  - L10 C1 `derive_source`: a procedural candidate now needs at least half
+    of its keywords in its quote, because a real user quote could otherwise
+    carry an injected instruction. New test 8 and a sixth demo proposal.
+  - L10 C2 `find_duplicate`: skips memories that differ on a new provided
+    `negated()`, since "Don't X" otherwise deduped against "X". New assertion
+    in test 1.
+  - L11 retention clock: `ArchiveStore.supersede` records `superseded_on`,
+    and `forget` measures retention from it, not from last use. The C3
+    fixture and test 1/2 were adjusted, and the recap test 4 expects week 43.
+  - L5 recap: the summarizer only saw cleared placeholders. The scenario's
+    agent now states its finding in visible text, and test 1 asserts that
+    the *summary request* contains it. New L5 C4 subsection "What the
+    summarizer gets to read".
+  - L2 C2: new test 7 (reordered argument keys; a success followed only by
+    an error).
+- **Real APIs vs the course's estimates.**
+  - L1 C1: new subsection "Estimates and real counts" (token-count calls,
+    usage fields, tokenizer drift). The reply room now covers reasoning
+    tokens and the difference between rejecting and silently truncating.
+  - L3 C1: new "Using a real cache" subsection (automatic vs marker,
+    minimum size, expiry, per-model scope, checking cache reads).
+  - L3 C2: the request-order claim is qualified.
+  - L12 C2: caveat that the break-even is a result of an input-only cost
+    model.
+- **Prose corrections.**
+  - L2: superseded ≠ wrong; new "Not stale: repeated actions, and
+    baselines" subsection; new "Who may set a rule" subsection.
+  - L2: the original goal is "least at risk", not "not lost"; the Manus
+    structured-variation remedy is added.
+  - L8: the "the" claim fixed, the option-letter reference removed, the
+    write path named as a fourth decision, episodes vs live state and
+    procedures vs L7 reconciled.
+  - L10: role ≠ authorship.
+  - L11: labelled recall@k/precision@k named; the archive-as-cold-storage
+    and deletion scope made honest.
+  - L6: line-bounded readers; pinning non-refetchable results.
+  - L7: per-area cost; L9: "almost never".
+  - L12: prefix-break meaning.
+  - Authoring-history text removed from L6 and L12.
+  - Plain-prose forward references in L1 and L2 are now links.
+- **Not done here:** quiz option-length balancing (deferred until every
+  module is drafted), and the L11 year demos that save "learned early"
+  memories before their dates (fixing that changes demo numbers the prose
+  quotes).
+
 ---
 
 ## Modules 4–11 — current plan

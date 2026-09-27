@@ -223,8 +223,15 @@ get there:
 - **Retrieval:** when to look memories up, and how to find the right ones.
 - **Injection:** where the memories that are found go in the request.
 
-This concept builds the smallest system that makes all three, on plain
-strings. Lesson 9 builds a real store on the same three decisions.
+Behind those three sits a fourth, on the way *in*: what's worth writing
+down at all, when, and how to update a memory that's already there. Here the
+memories are picked by hand, so it doesn't come up yet.
+[Lesson 9](/04-context-and-memory/09-building-a-memory-store/00-intro/) and
+[Lesson 10](/04-context-and-memory/10-deciding-what-to-remember/00-intro/)
+build that write path, and it's the hardest of the four to get right.
+
+This concept builds the smallest system that makes the first three, on plain
+strings. Lesson 9 builds a real store on the same decisions.
 
 </Subsection>
 
@@ -260,8 +267,8 @@ are shown in the next section; they're already loaded:
 
 <LiveDemo client:load setupCode={SETUP} code={NAIVE_DEMO} />
 
-Matching raw words recalled every memory, because every one of them contains
-"the". Dropping common words, one-letter words and punctuation fixes that.
+Matching raw words recalled every memory, because every one of them shares
+a common word with the task: "the" in three of them, "on" in the other. Dropping common words, one-letter words and punctuation fixes that.
 The fixed version recalled only the memory about `support_agent`.
 
 It also missed one it should have kept: the user wants summaries as bullet
@@ -329,13 +336,13 @@ The memories are written by hand here.
         "Tools, system prompt and messages"
       ],
       "correctIndex": 0,
-      "explanation": "What a memory is and where it's kept, how the right ones are found, and where they go in the request. The types in C are the next concept's subject."
+      "explanation": "What a memory is and where it's kept, how the right ones are found, and where they go in the request. Episodic, semantic and procedural are types of memory, the next concept's subject."
     },
     {
       "question": "Why did matching raw words recall every memory?",
       "options": [
         "The memories were too short",
-        "Every memory contains common words like \"the\", which also appear in the task",
+        "Every memory shares a common word such as \"the\" or \"on\" with the task",
         "Raw matching ignores capital letters",
         "The limit was set too high"
       ],

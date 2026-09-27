@@ -65,7 +65,7 @@ def clear_old_results(messages: list, keep_last: int) -> list:
             for block in message["content"]:
                 if block.get("type") == "tool_result" and not block.get("is_error"):
                     successful.append(block["tool_use_id"])
-    to_keep = successful[len(successful) - keep_last:]
+    to_keep = successful[max(0, len(successful) - keep_last):]
 
     cleared = []
     for message in messages:
@@ -272,7 +272,7 @@ def clear_to_store(messages: list, keep_last: int, store: ResultStore) -> list:
             for block in message["content"]:
                 if block.get("type") == "tool_result" and not block.get("is_error"):
                     successful.append(block["tool_use_id"])
-    to_keep = successful[len(successful) - keep_last:]
+    to_keep = successful[max(0, len(successful) - keep_last):]
 
     cleared = []
     for message in messages:
@@ -510,11 +510,20 @@ class ArchivableMemory(ScoredMemory):
     # an archived memory is out of search but kept, with the day it was archived, and can be restored
     archived: bool = False
     archived_on: str = ""
+    # when a newer memory replaced this one: a replaced memory's retention period counts from here
+    superseded_on: str = ""
 
 class ArchiveStore(ScoredStore):
     """A ScoredStore that can archive memories, restore them, and delete them when the user asks."""
     def save(self, user_id: str, memory: ArchivableMemory) -> None:
         self._by_user.setdefault(user_id, []).append(ArchivableMemory(**memory.model_dump()))
+
+    def supersede(self, user_id: str, old_content: str, new: ArchivableMemory) -> None:
+        """Supersede as before, and record when: the moment the newer memory arrived."""
+        for memory in self._by_user.get(user_id, []):
+            if memory.content == old_content and not memory.superseded:
+                memory.superseded_on = new.created
+        super().supersede(user_id, old_content, new)
 
     def search(self, user_id: str, query: str = "", tags: list = None, kind: str = None, limit: int = 5,
                include_superseded: bool = False, include_archived: bool = False) -> list:
@@ -547,7 +556,7 @@ def forget(store, user_id: str, now: str, cap: int = 50, retention_days: int = 9
     today = now[:10]
     # 1. replaced memories are kept for a while, then archived
     for memory in store.search(user_id, limit=100000, include_superseded=True):
-        if memory.superseded and days_between(memory.last_used or memory.created, now) > retention_days:
+        if memory.superseded and days_between(memory.superseded_on or memory.created, now) > retention_days:
             store.archive_one(memory, today)
             report.append(f"archived, replaced long ago: {memory.content}")
     # 2. over the cap, the lowest-scoring memories go first; the user's standing instructions never do
@@ -911,9 +920,9 @@ phases:
 
 <Subsection title="The integration rules" variant="b">
 
-Each piece worked on its own page. Putting them together surfaced rules that
-aren't obvious from any single lesson, and each one was learned the hard way
-somewhere in this module:
+Each piece worked on its own page. Putting them together brings out rules that
+aren't obvious from any single lesson, and each one traces back to a
+problem shown somewhere in this module:
 
 - **Anchors are read from the full history, never the prepared copy.** After
   compaction, the calls that set the plan and rules are gone from the copy
@@ -924,7 +933,8 @@ somewhere in this module:
 - **Cheap before expensive, and nothing lost:** strip old reasoning, then
   clear to the store, then compact with an archive, then trim.
 - **The summary is asked for inside the conversation,** with the agent's own
-  tools and system prompt, so it reuses the cache
+  tools and system prompt, so it reuses whatever part of the request is
+  still cached, the tools and system prompt at least
   ([Lesson 5](/04-context-and-memory/05-compaction-and-summarization/04-when-to-compact-and-what-it-costs/)).
 - **The prefix is fixed for the session.** Memories recalled at the start and
   the block as it was then go in it. Changes during the session go at the

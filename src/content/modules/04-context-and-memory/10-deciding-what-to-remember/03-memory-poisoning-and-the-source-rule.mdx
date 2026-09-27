@@ -10,6 +10,19 @@ import GradedExercise from "../../../../components/lesson/GradedExercise";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 import { REACT_FAKE_CLIENT, COUNT_TOKENS } from "../../../../lib/fakeClient";
 
+export const KEYWORDS = String.raw`
+STOPWORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "is", "was", "it", "this", "that",
+             "with", "as", "at", "by", "be", "i", "you", "my", "me", "we", "our", "please", "about", "from", "last"}
+
+def keywords(text: str) -> set:
+    """The words in text worth matching on: lowercased, punctuation removed, common and one-letter words dropped."""
+    text = text.lower()
+    for mark in ".,;:!?()'\"":
+        text = text.replace(mark, " ")
+    # single letters, like the "s" a possessive leaves behind, carry no meaning either
+    return {word for word in text.split() if len(word) > 1} - STOPWORDS
+`;
+
 export const ENTRY_FUNCS = String.raw`
 def entries(history: list) -> list:
     """A session as numbered pieces, each marked with whose words it is: the user's, the agent's, or a tool's."""
@@ -54,13 +67,19 @@ def parse_candidates(reply: str) -> tuple:
     return candidates, problems
 
 def derive_source(candidate: dict, history: list):
-    """Whose words a candidate rests on, checked against the entry it cites; None if the quote isn't there."""
+    """Whose words a candidate rests on, checked against the entry it cites; None if the quote isn't there,
+    or if a standing instruction says more than its quote does."""
     found = entries(history)
     if not 0 <= candidate["entry"] < len(found):
         return None
     cited = found[candidate["entry"]]
     if not candidate["quote"] or candidate["quote"] not in cited["text"]:
         return None
+    # an instruction gets its authority from the quote, so at least half of its words must be in the quote
+    if candidate["type"] == "procedural":
+        wanted = keywords(candidate["content"])
+        if len(wanted & keywords(candidate["quote"])) * 2 < len(wanted):
+            return None
     return cited["kind"]
 `;
 
@@ -126,7 +145,7 @@ def render_memories(records: list) -> str:
     return "\n\n".join(sections)
 `;
 
-export const SETUP = REACT_FAKE_CLIENT + COUNT_TOKENS + ENTRY_FUNCS + CHECK_FUNCS + MEMORY_MODEL + RECORD_CLASS
+export const SETUP = REACT_FAKE_CLIENT + COUNT_TOKENS + KEYWORDS + ENTRY_FUNCS + CHECK_FUNCS + MEMORY_MODEL + RECORD_CLASS
   + MEMORY_BLOCK + ADMIT_FUNCS;
 
 export const POISON_DEMO = String.raw`def call(name, result, **arguments):

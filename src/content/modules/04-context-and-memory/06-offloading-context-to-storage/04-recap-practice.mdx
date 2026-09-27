@@ -96,7 +96,7 @@ def clear_old_results(messages: list, keep_last: int) -> list:
             for block in message["content"]:
                 if block.get("type") == "tool_result" and not block.get("is_error"):
                     successful.append(block["tool_use_id"])
-    to_keep = successful[len(successful) - keep_last:]
+    to_keep = successful[max(0, len(successful) - keep_last):]
 
     cleared = []
     for message in messages:
@@ -389,7 +389,7 @@ def clear_to_store(messages: list, keep_last: int, store: ResultStore) -> list:
             for block in message["content"]:
                 if block.get("type") == "tool_result" and not block.get("is_error"):
                     successful.append(block["tool_use_id"])
-    to_keep = successful[len(successful) - keep_last:]
+    to_keep = successful[max(0, len(successful) - keep_last):]
 
     cleared = []
     for message in messages:
@@ -923,7 +923,7 @@ assert other_tools["read_notes"]() == "No notes yet."
     { name: "lib.py", readOnly: true, code: LIB_PY },
     { name: "agent.py", code: AGENT_REFERENCE },
   ]}
-  explanation={"Each test checks one idea from the lesson. Before and after: without a store, the final check on the first snapshot has nothing to read; with one, it finds the original line, even though the live queue has changed since (test 1). Offloading happens at creation, and only for service tools: the snapshot comes back as a handle, and the readers return what was asked for, however large (tests 2 and 2b). Every request fits and is valid, with room reserved for the whole anchor, notes index included (tests 3 and 10). Clearing is lossless: every cleared result's handle reads back exactly the original, and no placeholder is ever stored (tests 4 and 5). Compaction leaves a record: each summary names a stored record of the rounds it replaced (test 6). Notes survive compaction: the index is in every request once there are notes, and read_notes still has the fact (test 7). The loop's history is untouched (test 8), and each task gets its own store and notes (test 9). One thing the first version of this scenario showed: with its logs small enough to offload too, the context never grew enough to need clearing or compaction at all. Offloading at creation doesn't replace the later stages, but it pushes them a long way back. The sandbox's logs are sized to enter the context whole, so every stage runs."}
+  explanation={"Each test checks one idea from the lesson. Before and after: without a store, the final check on the first snapshot has nothing to read; with one, it finds the original line, even though the live queue has changed since (test 1). Offloading happens at creation, and only for service tools: the snapshot comes back as a handle, and the readers return what was asked for, however large (tests 2 and 2b). Every request fits and is valid, with room reserved for the whole anchor, notes index included (tests 3 and 10). Clearing is lossless: every cleared result's handle reads back exactly the original, and no placeholder is ever stored (tests 4 and 5). Compaction leaves a record: each summary names a stored record of the rounds it replaced (test 6). Notes survive compaction: the index is in every request once there are notes, and read_notes still has the fact (test 7). The loop's history is untouched (test 8), and each task gets its own store and notes (test 9). One thing worth knowing about the scenario itself: if its logs were large enough to be offloaded too, the context would never grow enough to need clearing or compaction at all. Offloading at creation doesn't replace the later stages, but it pushes them a long way back. The sandbox's logs are sized to enter the context whole, so that every stage runs."}
 />
 
 </CheckpointZone>

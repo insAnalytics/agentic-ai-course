@@ -96,7 +96,7 @@ def clear_old_results(messages: list, keep_last: int) -> list:
             for block in message["content"]:
                 if not block.get("is_error"):
                     successful.append(block["tool_use_id"])
-    to_keep = successful[len(successful) - keep_last:]
+    to_keep = successful[max(0, len(successful) - keep_last):]
 
     cleared = []
     for message in messages:

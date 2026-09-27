@@ -97,7 +97,7 @@ def clear_old_results(messages: list, keep_last: int) -> list:
             for block in message["content"]:
                 if block.get("type") == "tool_result" and not block.get("is_error"):
                     successful.append(block["tool_use_id"])
-    to_keep = successful[len(successful) - keep_last:]
+    to_keep = successful[max(0, len(successful) - keep_last):]
 
     cleared = []
     for message in messages:
@@ -130,7 +130,7 @@ def clear_to_store(messages: list, keep_last: int, store: ResultStore) -> list:
             for block in message["content"]:
                 if block.get("type") == "tool_result" and not block.get("is_error"):
                     successful.append(block["tool_use_id"])
-    to_keep = successful[len(successful) - keep_last:]
+    to_keep = successful[max(0, len(successful) - keep_last):]
 
     cleared = []
     for message in messages:
@@ -383,7 +383,7 @@ def clear_to_store(messages: list, keep_last: int, store: ResultStore) -> list:
             for block in message["content"]:
                 if block.get("type") == "tool_result" and not block.get("is_error"):
                     successful.append(block["tool_use_id"])
-    to_keep = successful[len(successful) - keep_last:]
+    to_keep = successful[max(0, len(successful) - keep_last):]
 
     cleared = []
     for message in messages:
@@ -511,6 +511,12 @@ class BoundedStore(ResultStore):
 The removed handle doesn't just vanish. Reading it says what happened, so
 the model fetches the data again if it can, instead of retrying a handle
 that will never work.
+
+"If it can" matters. Oldest-first is the simplest eviction rule, but the
+oldest results are often the ones that can't be fetched again: a snapshot
+taken before a change, or a page that has since been edited. A real store
+lets results like those be pinned so eviction skips them, or moves them to
+cheaper storage instead of deleting them.
 
 - **The store mints handles, and the model only passes them back.** If the
   store keeps results in files, it maps each handle to a path of its own

@@ -134,7 +134,34 @@ and they're paid for again on every request.
 
 </Subsection>
 
-<Subsection title="The reply comes out of the same window" variant="a">
+<Subsection title="Estimates and real counts" variant="a">
+
+In a real agent, an estimate like this is for planning. The real numbers
+come from the provider, in two places:
+
+- **Before sending,** most providers offer a token-counting call that
+  returns the exact input count for a request, using the model's own
+  tokenizer.
+- **After sending,** every response reports its usage: how many input
+  tokens were read, how many output tokens were written, and, where
+  [caching](/04-context-and-memory/03-prompt-caching/00-intro/) is in play,
+  how many of the input tokens were served from the cache. A production
+  budget tracker records these reported numbers every turn. Providers
+  report cached tokens differently (some count them inside the input
+  total, others list them separately), so check which before adding them
+  up.
+
+The two can differ from an estimate by more than you'd expect. Code, JSON,
+numbers and non-English text all split into tokens differently from plain
+English prose, and a new model can bring a new tokenizer that counts the
+same text differently. The provider also adds text of its own: tool
+definitions are rewritten into the format the model was trained on, often
+with some instructions around them. And images and documents take up
+tokens too, often more than their size in characters would suggest.
+
+</Subsection>
+
+<Subsection title="The reply comes out of the same window" variant="b">
 
 The last piece is the one most often forgotten.
 [Module 1's context-window lesson](/01-llm-foundations/06-context-windows-and-kv-cache/02-max-output-length-vs-context-window/)
@@ -144,12 +171,24 @@ with `max_tokens` has to fit alongside everything you send:
 
 <LiveDemo client:load code={FITS_DEMO} />
 
-200,000 tokens is a common window size, used here as an example. The same
-input fits or doesn't depending on how much room is reserved for the reply.
+Window sizes vary widely, from a few thousand tokens on small local models
+to a million or more on large hosted ones. 200,000 is used here as an
+example. The same input fits or doesn't depending on how much room is
+reserved for the reply.
 That's why "how much context do I have left?" always means *window minus
 input minus reply room*, never window minus input alone. And an agent is the
 worst case for this: its input grows every turn, while the reply room it
 needs stays about the same.
+
+Two things make reply room larger than it first looks. On models that
+reason before they answer, the reasoning is output too, and it usually
+comes out of the same `max_tokens`: a reasoning model can spend thousands of
+tokens thinking before writing a short visible reply, so it needs far more
+room than its answers suggest. And what happens when a request doesn't fit
+depends on the stack. Most hosted APIs reject it with an error, while some
+servers and settings silently cut the oldest input instead.
+[Lesson 4](/04-context-and-memory/04-when-the-window-fills/01-hitting-the-wall/)
+looks at both.
 
 </Subsection>
 
@@ -181,7 +220,7 @@ needs stays about the same.
     "explanation": "Different models tokenize differently. One consistent approximation keeps the arithmetic comparable across lessons without depending on any one model's tokenizer, and it's labeled as an approximation."
   },
   {
-    "question": "A request has 196,000 input tokens and reserves 8,000 for the reply, in a 200,000-token window. What happens?",
+    "question": "A request has 196,000 input tokens and reserves 8,000 for the reply, in a 200,000-token window, on an API that rejects requests that don't fit. What happens?",
     "options": [
       "It fits, since the input alone is under 200,000",
       "It fits, since the reply is usually shorter than reserved",

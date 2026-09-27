@@ -175,10 +175,15 @@ from the cache. Everything from that point on, however much of it is
 unchanged, has to be processed again, because the cache only matches
 from the start.
 
-The order of the parts matters too. A request is laid out as the tool
-definitions, then the system prompt, then the messages, and a change
-anywhere invalidates that point and everything after it. A change to the
-tools invalidates the lot.
+The order of the parts matters too. The tool definitions and the system
+prompt come before the messages (Claude's API, for example, lays a request
+out as tools, then system prompt, then messages), and a change anywhere
+invalidates that point and everything after it. A change to the tools, at
+or near the very start, invalidates almost everything. Some settings that
+aren't text at all are part of the match too: the model always, and on some
+providers settings such as how the model may use tools or how much it
+reasons. Changing one of those mid-run can cost as much as editing the
+text.
 
 Here's a function that finds that point, by comparing two consecutive
 requests part by part:
@@ -318,7 +323,7 @@ anything before it.
       "Only the system prompt is reprocessed"
     ],
     "correctIndex": 2,
-    "explanation": "The request is laid out as tools, then system, then messages, so a change to the tools invalidates everything."
+    "explanation": "Tool definitions come at or near the start of the request, before the messages, so a change to the tools invalidates almost everything after it."
   },
   {
     "question": "Two tool calls have the same arguments in a different key order. Why can they break a cache?",

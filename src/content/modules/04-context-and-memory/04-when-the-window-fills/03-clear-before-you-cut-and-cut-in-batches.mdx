@@ -51,7 +51,7 @@ def clear_old_results(messages: list, keep_last: int) -> list:
             for block in message["content"]:
                 if not block.get("is_error"):
                     successful.append(block["tool_use_id"])
-    to_keep = successful[len(successful) - keep_last:]
+    to_keep = successful[max(0, len(successful) - keep_last):]
 
     cleared = []
     for message in messages:
@@ -269,9 +269,11 @@ ending_in_pair = [task] + exchange([("get_logs", "a" * 400)]) + exchange([("get_
 t = texts(clear_old_results(ending_in_pair, keep_last=2))
 assert t[0].startswith("[cleared") and t[1] == "b" * 400 and t[2] == "c" * 400`,
   TEST_SETUP + String.raw`
-# 5. keep_last=0 clears every successful result
+# 5. keep_last=0 clears every successful result; more than there are clears none
 t = texts(clear_old_results(history, keep_last=0))
-assert all(x.startswith("[cleared") for x in [t[0], t[1], t[2], t[4]]) and t[3].startswith("Error")`,
+assert all(x.startswith("[cleared") for x in [t[0], t[1], t[2], t[4]]) and t[3].startswith("Error")
+# ...and a keep_last larger than the number of successful results clears nothing
+assert texts(clear_old_results(history, keep_last=10)) == original_texts`,
   TEST_SETUP + String.raw`
 # 6. calls and message count are untouched, pairing still holds, and the history itself isn't changed
 out = clear_old_results(history, keep_last=2)
@@ -340,7 +342,7 @@ def clear_old_results(messages: list, keep_last: int) -> list:
             for block in message["content"]:
                 if not block.get("is_error"):
                     successful.append(block["tool_use_id"])
-    to_keep = successful[len(successful) - keep_last:]
+    to_keep = successful[max(0, len(successful) - keep_last):]
 
     cleared = []
     for message in messages:
@@ -528,10 +530,10 @@ measures what's sent, not how well a model would do with it.)
 
 <GradedExercise
   client:load
-  task={"count_tokens, is_tool_results, check_pairing, split_rounds and trim_to_fit are provided. Implement clear_old_results(messages, keep_last): return a new message list in which every successful tool result, except the newest keep_last, has its content replaced with \"[cleared: an earlier NAME result, removed to save space. Call NAME again if you need it.]\", where NAME is the name of the tool that produced it. Count results one by one, newest last; parallel results in one message count separately. A result with \"is_error\": True is never cleared, and doesn't count toward keep_last. keep_last=0 clears every successful result. Keep every message and block in place, and never modify messages or the blocks in it. Then fit(messages, budget, keep_last): if the messages fit, return a copy unchanged. Otherwise clear old results first, then pass the result to trim_to_fit."}
+  task={"count_tokens, is_tool_results, check_pairing, split_rounds and trim_to_fit are provided. Implement clear_old_results(messages, keep_last): return a new message list in which every successful tool result, except the newest keep_last, has its content replaced with \"[cleared: an earlier NAME result, removed to save space. Call NAME again if you need it.]\", where NAME is the name of the tool that produced it. Count results one by one, newest last; parallel results in one message count separately. A result with \"is_error\": True is never cleared, and doesn't count toward keep_last. keep_last=0 clears every successful result, and a keep_last larger than the number of successful results clears none. Keep every message and block in place, and never modify messages or the blocks in it. Then fit(messages, budget, keep_last): if the messages fit, return a copy unchanged. Otherwise clear old results first, then pass the result to trim_to_fit."}
   starterCode={PROVIDED + STARTER}
   hiddenTests={TESTS}
-  hint={"Build a new dict for each result you clear, with {**block, \"content\": ...}, so the original block is untouched. successful[len(successful) - keep_last:] gives the newest keep_last ids, and none when keep_last is 0. Watch out for the shorter-looking successful[-keep_last:]: with 0 it becomes successful[-0:], which is the whole list."}
+  hint={"Build a new dict for each result you clear, with {**block, \"content\": ...}, so the original block is untouched. successful[max(0, len(successful) - keep_last):] gives the newest keep_last ids, none when keep_last is 0, and all of them when keep_last is larger than the number of results (without max, the start goes negative and counts from the end). Watch out for the shorter-looking successful[-keep_last:]: with 0 it becomes successful[-0:], which is the whole list."}
   correctAnswer={{
     code: PROVIDED + REFERENCE,
     explanation: "Test 4 is the one a per-message count gets wrong: with two parallel results in the newest message and keep_last=2, both stay. Test 3 checks that failures are kept and don't use up keep_last. Test 6 catches the easiest mistake, writing the placeholder into the original block, which would change the loop's own history. Tests 8 and 9 check the order in fit: clearing alone when it's enough, whole rounds only after clearing.",

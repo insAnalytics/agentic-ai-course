@@ -287,10 +287,12 @@ agent's normal request, so everything but its last message can be read
 from the cache.
 
 Two practical points about that call. It goes out with the agent's tools,
-so the model might try to call one instead of summarizing: where the API
-allows it, turn tool use off for this one request (Claude's API, for
-example, accepts `tool_choice: {"type": "none"}`). And if the reply
-contains no text, don't compact.
+so the model might try to call one instead of summarizing. A line added to
+the instructions helps ("don't call any tools; reply with text only"). Many APIs also
+let you turn tool use off for a single request, but check what that costs:
+on some providers, the tool-choice setting is part of what the cache
+matches, so changing it for one request means the conversation isn't read
+from the cache after all. And if the reply contains no text, don't compact.
 
 </Subsection>
 
