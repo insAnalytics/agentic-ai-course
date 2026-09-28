@@ -4068,7 +4068,15 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    mockup:** "three of the ten lowest scores belong to questions whose
    answer was retrieved" now reads "four", and "Two of those three" reads
    "Two of those four", since the demo's own output lists q25, q04, q24 and
-   q05. Concept 4 onwards and the bookends are not drafted yet.
+   q05. Concept 4 (sources that disagree) is built: no new shared code;
+   three live demos, code and output exact matches in real Pyodide (q36's
+   five sources with dates, types and rate lines, the March monitoring
+   guide first and the changelog third; two fixed answers, both passing
+   the citation checks, citing dates March only against March, August and
+   September; `stated_values`, defined in the demo, finding 60 against 100
+   for q35 and q36); prose claims checked (D08 dated 2026-03-02, v2.4
+   dated 2026-05-12, D01 and D03 dated 2026-08-18 and stating 60); 4 quiz
+   cards. No changes from the mockup. The bookends are not drafted yet.
 
 ---
 
