@@ -145,6 +145,8 @@ async def _run(src, ns):
 _ns = {}
 _error = None
 try:
+    if __prelude_code:
+        await _run(__prelude_code, _ns)
     await _run(__learner_code, _ns)
     _ns["__source__"] = __learner_code
 except Exception as e:
@@ -169,14 +171,23 @@ json.dumps({"error": _error, "results": _results})
  * Runs `learnerCode` once, then each hidden test snippet against the resulting
  * namespace (a fresh copy per test, so tests can't see each other's mutations).
  * Test source is never surfaced back to the caller — only pass/fail per test.
+ *
+ * `prelude` (optional) is exec'd into the learner's namespace *before* their
+ * code: hidden, but visible to learner functions as globals. Unlike code
+ * prepended to a hidden test (which lands in that test's copy, invisible to
+ * the learner's functions' `__globals__`), this is how "already loaded"
+ * helpers reach learner code without pasting them into the editor. First
+ * needed by Module 5 Lesson 1 concept 4 (see architecture.md §4.1).
  */
 export async function runAgainstHiddenTests(
   pyodide: PyodideInterface,
   learnerCode: string,
   tests: string[],
+  prelude = "",
 ): Promise<{ error: string | null; results: boolean[] }> {
   return withPyodideQueue(async () => {
-    await pyodide.loadPackagesFromImports(learnerCode).catch(() => {});
+    await pyodide.loadPackagesFromImports(prelude + "\n" + learnerCode).catch(() => {});
+    pyodide.globals.set("__prelude_code", prelude);
     pyodide.globals.set("__learner_code", learnerCode);
     pyodide.globals.set("__tests_json", JSON.stringify(tests));
     const resultJson = (await pyodide.runPythonAsync(TEST_HARNESS)) as string;

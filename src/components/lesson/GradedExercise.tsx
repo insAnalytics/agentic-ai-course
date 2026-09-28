@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { loadPyodideOnce, runAgainstHiddenTests, runCapturingOutput, type PyodideInterface } from "../../lib/pyodide";
+import { writeCourseData } from "../../lib/courseData";
 import CodeEditor from "./CodeEditor";
 import LinkedText from "./LinkedText";
 
@@ -22,6 +23,18 @@ interface GradedExerciseProps {
    * in. Same idea as LiveDemo's `setupCode`.
    */
   setupCode?: string;
+  /**
+   * Optional hidden code exec'd into the learner's own namespace before their
+   * code, so learner functions can call it as globals ("already loaded"
+   * helpers) without it being pasted into the editor. See
+   * `runAgainstHiddenTests`'s `prelude`.
+   */
+  namespaceSetup?: string;
+  /**
+   * Static course data files written into Pyodide's FS at `/data/<path>`
+   * before grading, fetched on the first Submit. Same as LiveDemo's prop.
+   */
+  dataFiles?: string[];
 }
 
 type Reveal = "none" | "hint" | "answer";
@@ -33,6 +46,8 @@ export default function GradedExercise({
   hint,
   correctAnswer,
   setupCode,
+  namespaceSetup,
+  dataFiles,
 }: GradedExerciseProps) {
   const [code, setCode] = useState(starterCode);
   const [pyodide, setPyodide] = useState<PyodideInterface | null>(null);
@@ -58,8 +73,17 @@ export default function GradedExercise({
   const submit = async () => {
     if (!pyodide) return;
     setStatus("grading");
+    if (dataFiles?.length) {
+      try {
+        await writeCourseData(pyodide, dataFiles);
+      } catch (err) {
+        setResults({ error: String(err), results: hiddenTests.map(() => false) });
+        setStatus("ready");
+        return;
+      }
+    }
     if (setupCode) await runCapturingOutput(pyodide, setupCode);
-    const outcome = await runAgainstHiddenTests(pyodide, code, hiddenTests);
+    const outcome = await runAgainstHiddenTests(pyodide, code, hiddenTests, namespaceSetup);
     setResults(outcome);
     setStatus("ready");
   };

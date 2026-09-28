@@ -266,9 +266,11 @@ every Run so a demo that edits a data file can't break the next one.
 `LiveDemo` takes it as `dataFiles={["rag/documents.json"]}` (run before
 `setupCode`). Module 5's shared constants live in `src/lib/ragCorpus.ts`:
 `RAG_DATA` (the `dataFiles` list) and `LOAD_DOCUMENTS` (Python
-`load_documents()`, appended after `COUNT_TOKENS` in setup code). Only
-`LiveDemo` supports `dataFiles` so far; add the same call to a graded
-component's run path the first time a Module 5 exercise needs the corpus.
+`load_documents()`, appended after `COUNT_TOKENS` in setup code) and, from
+Lesson 1 concept 4, `SECTION_SEARCH` (`split_sections`, `load_sections`,
+`keywords`). `LiveDemo` and `GradedExercise` both take `dataFiles`; the
+multi-file and other graded components don't yet — add the same
+`writeCourseData` call to their run path when a Module 5 exercise needs it.
 
 ---
 
@@ -1601,6 +1603,27 @@ stay in the test prelude. A second LiveDemo can reuse an earlier
 demo's functions by passing them as part of its `setupCode`: Concept 2
 splits its routed-loop demo into `ROUTED_FUNCS` (definitions) plus the
 run, and its second demo uses `BASE_SETUP + ROUTED_FUNCS`.
+
+**`namespaceSetup` (Module 5 Lesson 1 concept 4): a proper fix for the
+finding above.** `runAgainstHiddenTests` takes an optional `prelude`, and
+`GradedExercise` exposes it as `namespaceSetup`: hidden code exec'd into
+the harness's `_ns` *before* the learner's code. So "already loaded"
+helpers really are globals for learner functions, without a
+`# --- provided ---` block in the editor, and every hidden test's copy of
+the namespace inherits them too. Backward compatible (empty prelude is
+skipped). Concept 4's `KeywordIndex` exercise passes
+`COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH` this way (about 45 lines
+that would otherwise clutter the editor). **Corollary for any test that
+monkeypatches a helper:** rebinding the name in the test (`keywords = spy`)
+only changes the test's copy, so the learner's methods never see the spy.
+The mockup's test 1 did exactly that and failed the reference solution in
+real Pyodide. The shipped test patches the learner's own globals instead
+(`KeywordIndex.add.__globals__["keywords"] = spy`, restored in `finally`).
+Verified with the real `TEST_HARNESS` string: reference 6/6, starter 0/6,
+and mutations each fail their target test (keywords recomputed in search →
+1; no `ValueError` → 5; score written onto the stored dict → 4; sorting by
+the whole pair (dict comparison on ties) → 3, 6; zero scores kept → 2, 3;
+`k` ignored → 3, 6; ties reversed → 3, 6).
 
 **Module 4 token counting (`COUNT_TOKENS` in `src/lib/fakeClient.ts`).**
 `count_tokens(x)` (about 4 characters per token, `math.ceil`; non-strings

@@ -3384,7 +3384,19 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    v1's table (81.74%); v2 revised it to 76.78% but kept the abstract's
    "65% cost reduction". Links to both papers were added as a sources
    line. Forward references to Lessons 7, 9, 10, 11 and 12 are plain prose
-   until those exist. The bookends are not drafted yet.
+   until those exist. Concept 4 (the pipeline's two halves) is built:
+   indexing vs querying, heading-split sections (`SECTION_SEARCH` in
+   `ragCorpus.ts`: `split_sections`, `load_sections`, `keywords` with
+   backticks as punctuation), an end-to-end demo (1,145 sections, 262
+   tokens sent), two failure demos, the module map, and a graded
+   `KeywordIndex` exercise (6 tests, test 6 on the full corpus). All three
+   demos reproduce the mockup's output exactly in real Pyodide. **Change
+   from the mockup:** hidden test 1 rebound `keywords` in the test's own
+   namespace copy, which the learner's methods never see, so it failed the
+   reference solution. It now patches `KeywordIndex.add.__globals__`
+   (architecture.md §4.1). New infrastructure: `GradedExercise` gains
+   `namespaceSetup` (hidden helpers exec'd into the learner namespace) and
+   `dataFiles`. The bookends are not drafted yet.
 
 ---
 
