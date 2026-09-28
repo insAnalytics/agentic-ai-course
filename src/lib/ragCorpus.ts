@@ -316,3 +316,107 @@ def structured_chunks(document: dict, max_tokens: int = 200) -> list[dict]:
             chunks.append({**metadata, "section": section["path"], "chunk": len(chunks), "text": text})
     return chunks
 `;
+
+/**
+ * Module 5 Lesson 3 concept 4 within_budget, verbatim (keep identical to
+ * that page and to Lesson 3 recap lib.py). Completes Lesson 3 recap
+ * lib.py, which is Lesson 4 shared setup: ... + STRUCTURED_CHUNKS +
+ * WITHIN_BUDGET + VECTORS.
+ */
+export const WITHIN_BUDGET = String.raw`
+def within_budget(search, budget: int):
+    """A search that returns ranked chunks until the next one would take the total over budget tokens."""
+    def budgeted(question: str, k: int) -> list[dict]:
+        results, used = [], 0
+        for chunk in search(question, 100):
+            size = count_tokens(chunk["text"])
+            if used + size > budget:
+                break
+            results.append(chunk)
+            used += size
+        return results
+    return budgeted
+`;
+
+/**
+ * Module 5 Lesson 4 concept 1 precomputed-vector helpers (text_key,
+ * vectors_for, query_vectors), shown verbatim on that page (keep the two
+ * byte-identical). Imports numpy, so Pyodide loads it from the setup.
+ * Vectors are looked up by a hash of the chunk text: see
+ * README-embeddings.md and scripts/rag_chunking.py.
+ */
+export const VECTORS = String.raw`
+import base64
+import hashlib
+
+import numpy as np
+
+EMBEDDINGS = Path("/data/rag/embeddings")
+
+def text_key(text: str) -> str:
+    """How a chunk's vector is filed: the first 16 hex digits of the SHA-256 of its text."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+def _unpack(encoded: str, dim: int) -> np.ndarray:
+    return np.frombuffer(base64.b64decode(encoded), dtype="<f2").reshape(-1, dim).astype(np.float32)
+
+def vectors_for(chunks: list[dict], model: str = "bge-small-en-v1.5", chunking: str = "structured-200") -> np.ndarray:
+    """The precomputed embedding of each chunk, one row per chunk, in the chunks' order."""
+    stored = json.loads((EMBEDDINGS / model / f"{chunking}.json").read_text())
+    matrix = _unpack(stored["vectors"], stored["dim"])
+    rows = {key: row for row, key in enumerate(stored["keys"])}
+    missing = [c for c in chunks if text_key(c["text"]) not in rows]
+    if missing:
+        raise KeyError(f"{len(missing)} chunks have no precomputed vector in {model}/{chunking}; "
+                       f"their text differs from the text that was embedded")
+    return matrix[[rows[text_key(c["text"])] for c in chunks]]
+
+def query_vectors(model: str = "bge-small-en-v1.5", kind: str = "instructed") -> dict[str, np.ndarray]:
+    """The precomputed embedding of every labelled query, by query id. kind is "instructed" or "plain"."""
+    stored = json.loads((EMBEDDINGS / model / "queries.json").read_text())
+    return dict(zip(stored["keys"], _unpack(stored[kind], stored["dim"])))
+`;
+
+/** Module 5 Lesson 4 onwards: documents, labels, and bge-small vectors for structured 200-token chunks and the queries. */
+export const RAG_BGE_DATA = [
+  ...RAG_EVAL_DATA,
+  "rag/embeddings/bge-small-en-v1.5/structured-200.json",
+  "rag/embeddings/bge-small-en-v1.5/queries.json",
+];
+
+/**
+ * Module 5 Lesson 4 concept 1 graded exercise, reference solution
+ * verbatim (VectorIndex). Joins the setup for every page AFTER concept 1
+ * (append after VECTORS) and must never load on concept 1 itself, or the
+ * exercise would start already solved.
+ */
+export const VECTOR_INDEX = String.raw`
+class VectorIndex:
+    """Chunks with their embeddings, searched by cosine similarity to a query vector."""
+
+    def __init__(self, dim: int = 384):
+        self._chunks = []
+        self._matrix = np.empty((0, dim), dtype=np.float32)
+
+    def __len__(self) -> int:
+        return len(self._chunks)
+
+    def add(self, chunks: list[dict], vectors: np.ndarray) -> None:
+        vectors = np.asarray(vectors, dtype=np.float32)
+        if vectors.ndim != 2 or len(vectors) != len(chunks):
+            raise ValueError(f"need one vector per chunk: got {len(chunks)} chunks and vectors of shape {vectors.shape}")
+        for chunk in chunks:
+            if not chunk.get("doc_id") or not chunk.get("section"):
+                raise ValueError("every chunk needs a doc_id and a section, so an answer can cite it")
+        # stored at length 1, so a dot product with a length-1 query is the cosine
+        unit = vectors / np.linalg.norm(vectors, axis=1, keepdims=True)
+        self._chunks.extend(chunks)
+        self._matrix = np.vstack([self._matrix, unit])
+
+    def search(self, query_vector: np.ndarray, k: int = 3) -> list[dict]:
+        query = np.asarray(query_vector, dtype=np.float32)
+        scores = self._matrix @ (query / np.linalg.norm(query))
+        # a stable sort keeps equal scores in the order the chunks were added
+        best = np.argsort(-scores, kind="stable")[:k]
+        return [{**self._chunks[row], "score": float(scores[row])} for row in best]
+`;

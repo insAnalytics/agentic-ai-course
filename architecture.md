@@ -315,6 +315,17 @@ concept 3's exercise reference: appended only on pages *after* concept 3
 (first on concept 4), never on concept 3 itself. It becomes `scripts/rag_chunking.py`, unchanged,
 when Lesson 4's embeddings are generated, so the text embedded offline is
 identical to what the browser produces.
+Lesson 4's setup is Lesson 3's recap `lib.py` in full, then the vector
+helpers: `... + STRUCTURED_CHUNKS + WITHIN_BUDGET + VECTORS`.
+`WITHIN_BUDGET` is Lesson 3 concept 4's `within_budget`, verbatim.
+`VECTORS` (`text_key`, `vectors_for`, `query_vectors`; shown verbatim on
+Lesson 4 concept 1) imports numpy, which `runCapturingOutput`'s
+`loadPackagesFromImports` loads from the setup code, so pages need nothing
+extra. `RAG_BGE_DATA` is `RAG_EVAL_DATA` plus the bge-small
+`structured-200.json` and `queries.json`; pages needing other chunkings or
+MiniLM add those files to their own `dataFiles`. `VECTOR_INDEX`
+(`VectorIndex`) is Lesson 4 concept 1's exercise reference: pages *after*
+concept 1 only.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.
@@ -1731,6 +1742,16 @@ Verified against real Python: the "drop the newest round too" mutation
 fails tests 7 and 9 in about a second instead of hanging. Use the same
 pattern for any exercise whose natural wrong answer is a non-terminating
 loop.
+
+**numpy's default sort doesn't keep ties in order (Module 5 Lesson 4
+concept 1, `VectorIndex`).** The task requires equal scores to keep
+insertion order, and the mockup's test checked it with a two-way tie. In
+Pyodide's numpy 1.26, `np.argsort` without `kind="stable"` preserves tie
+order for fewer than about 16 elements (it falls back to insertion sort)
+and scrambles it from 20 up, so a learner using the default sort passed
+every test. Test 3 gained a 20-chunk, two-way tie that only a stable sort
+passes. **Takeaway:** any hidden test for "ties keep their order" on a
+numpy ranking needs at least 20 tied elements.
 
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 

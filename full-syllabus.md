@@ -3589,6 +3589,32 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    Lesson 3 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
 
+4. **Search by Meaning** — **Building** (folder `04-search-by-meaning`;
+   title provisional until the bookends mockup). Embeddings from
+   `scripts/generate-rag-embeddings.py` are committed under
+   `public/data/rag/embeddings/` (architecture.md §3.1). Concept 1 (from
+   similarity to search) is built: the two halves (linked to Lesson 1's
+   pipeline page); vectors computed ahead of time, with the `VECTORS`
+   helpers shown as a static block (byte-identical to the export and the
+   mockup, checked by script); three live demos, all exact matches in real
+   Pyodide 0.26.4 with numpy (1,968 vectors of 384, 3.0 MB, all length 1;
+   q01's top three by dot product, 0.774 D14 "Can my agent use the
+   biggest model?"; keyword search's top three for the same question);
+   cosine as dot product, linked to Module 1's
+   `#the-actual-computation` (anchor verified); 4 quiz cards; graded
+   `VectorIndex` exercise. Shared setup is Lesson 3's recap `lib.py` in
+   full (checked line by line) plus `VECTORS`. **Changes from the
+   mockup's hidden tests:** test 4 rebuilds test 3's index (each test runs
+   in a fresh namespace copy), and test 3 gains a 20-chunk tie, because
+   numpy's default `argsort` passed the original two-way tie
+   (architecture.md §4.1). Verified with the real `TEST_HARNESS`: the
+   reference passes (test 5 on the full corpus), the starter fails all
+   five, and nine mutations each fail (stored or query vectors not
+   normalized, unstable sort, numpy float score, stored chunk mutated, no
+   count check, no source check, replacing instead of appending,
+   ascending order). The reference is the new `VECTOR_INDEX` export, for
+   pages after concept 1 only. Concepts 2+ and bookends not yet drafted.
+
 ---
 
 ## Modules 4–11 — current plan
