@@ -529,7 +529,8 @@ class CrossEncoderScores:
 
     def __init__(self, model: str = "ms-marco-MiniLM-L6-v2", chunking: str = "structured-200"):
         stored = json.loads((RERANK / model / f"{chunking}.json").read_text())
-        self.timing = stored["timing"]
+        # only the full scoring run was timed; files scored later may have no timing
+        self.timing = stored.get("timing")
         shape = (len(stored["query_keys"]), len(stored["chunk_keys"]))
         self._matrix = np.frombuffer(base64.b64decode(stored["scores"]), dtype="<f4").reshape(shape)
         self._rows = {query_id: row for row, query_id in enumerate(stored["query_keys"])}
@@ -596,3 +597,67 @@ def parse_ranking(reply: str, count: int) -> list[int]:
             order.append(number - 1)
     return order + [position for position in range(count) if position not in order]
 `;
+
+/**
+ * Module 5 Lesson 7 concept 1 pipeline and variant loaders
+ * (load_query_variants, variant_vectors, rrf, ModulePipeline), shown
+ * verbatim on that page (keep the two byte-identical). Lesson 7 setup is
+ * Lesson 6 recap lib.py (... + RERANK_SCORES + RERANK + LISTWISE_RERANK),
+ * then this, then REWRITE_QUERY.
+ */
+export const MODULE_PIPELINE = String.raw`
+from collections import defaultdict
+
+DATA = Path("/data/rag")
+
+def load_query_variants() -> dict:
+    """The model-written rewrites, sub-queries and hypothetical documents, with the prompts that asked for them."""
+    return json.loads((DATA / "query-variants.json").read_text())
+
+def variant_vectors() -> dict[str, np.ndarray]:
+    """Embeddings of the variants, keyed like "q15:rewrite", "q21:sub1" or "q09:hyde"."""
+    stored = json.loads((EMBEDDINGS / "bge-small-en-v1.5" / "query-variants.json").read_text())
+    return dict(zip(stored["keys"], _unpack(stored["vectors"], stored["dim"])))
+
+def rrf(rankings: list[list[dict]], k: int = 60) -> list[dict]:
+    """Reciprocal Rank Fusion of several rankings, as in Lesson 5."""
+    scores, found = defaultdict(float), {}
+    for ranking in rankings:
+        for rank, chunk in enumerate(ranking, 1):
+            key = (chunk["doc_id"], chunk["chunk"])
+            scores[key] += 1 / (k + rank)
+            found.setdefault(key, chunk)
+    return [found[key] for key in sorted(scores, key=scores.get, reverse=True)]
+
+class ModulePipeline:
+    """The module's retrieval so far: BM25 and search by meaning fused, then the top 30 reranked."""
+
+    def __init__(self, chunks: list[dict]):
+        self.bm25 = BM25Index()
+        self.bm25.add(chunks)
+        self.meaning = VectorIndex()
+        self.meaning.add(chunks, vectors_for(chunks))
+
+    def search(self, text: str, vector: np.ndarray, score, k: int = 5, depth: int = 30) -> list[dict]:
+        """text feeds BM25, vector feeds search by meaning, and score(chunk) is the reranker's score."""
+        candidates = rrf([self.bm25.search(text, 100), self.meaning.search(vector, 100)])[:depth]
+        return sorted(candidates, key=score, reverse=True)[:k]
+`;
+
+/** Module 5 Lesson 7 concept 1 rewrite_query, shown verbatim on that page. Append after MODULE_PIPELINE. */
+export const REWRITE_QUERY = String.raw`
+def rewrite_query(client, prompt: str, question: str, history: list[dict] = ()) -> str:
+    """Ask the model for a standalone search query, given the question and any conversation before it."""
+    conversation = "\n".join(f"{turn['role']}: {turn['content']}" for turn in history) or "(none)"
+    request = f"{prompt}\n\nConversation so far:\n{conversation}\n\nLatest question: {question}"
+    response = client.create([{"role": "user", "content": request}])
+    return "".join(block.text for block in response.content if block.type == "text").strip()
+`;
+
+/** RAG_RERANK_DATA plus the model-written query variants, their embeddings and their cross-encoder scores (Lesson 7 onwards). */
+export const RAG_VARIANTS_DATA = [
+  ...RAG_RERANK_DATA,
+  "rag/query-variants.json",
+  "rag/embeddings/bge-small-en-v1.5/query-variants.json",
+  "rag/rerank/ms-marco-MiniLM-L6-v2/query-variants.json",
+];

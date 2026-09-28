@@ -414,7 +414,8 @@ class CrossEncoderScores:
 
     def __init__(self, model: str = "ms-marco-MiniLM-L6-v2", chunking: str = "structured-200"):
         stored = json.loads((RERANK / model / f"{chunking}.json").read_text())
-        self.timing = stored["timing"]
+        # only the full scoring run was timed; files scored later may have no timing
+        self.timing = stored.get("timing")
         shape = (len(stored["query_keys"]), len(stored["chunk_keys"]))
         self._matrix = np.frombuffer(base64.b64decode(stored["scores"]), dtype="<f4").reshape(shape)
         self._rows = {query_id: row for row, query_id in enumerate(stored["query_keys"])}

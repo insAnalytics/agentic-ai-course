@@ -376,6 +376,15 @@ From Lesson 6 concept 4 on the setup appends `RERANK` and then
 `LISTWISE_RERANK` (`rerank_prompt`, `parse_ranking`; shown verbatim on
 concept 4). Demos that script a model reply add `REACT_FAKE_CLIENT +
 RECORDING_CLIENT` from `fakeClient.ts` after that setup.
+`CrossEncoderScores` reads `timing` with `stored.get("timing")` (changed
+at Lesson 7 concept 1, in the export, Lesson 6 concept 1's shown block and
+Lesson 6's recap `lib.py` together): only the full scoring run was timed,
+and later score files such as `query-variants.json` have none. Lesson 7's
+setup is Lesson 6's recap `lib.py` (the Lesson 6 setup through
+`LISTWISE_RERANK`), then `MODULE_PIPELINE` (`load_query_variants`,
+`variant_vectors`, `rrf`, `ModulePipeline`) and `REWRITE_QUERY`
+(`rewrite_query`), both shown verbatim on Lesson 7 concept 1, with
+`RAG_VARIANTS_DATA` (`RAG_RERANK_DATA` plus the three query-variant files).
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.

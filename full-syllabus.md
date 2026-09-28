@@ -3828,6 +3828,30 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
 
    Lesson 6 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
+   At Lesson 7 concept 1, `CrossEncoderScores` changed from
+   `stored["timing"]` to `stored.get("timing")` (with a comment), as that
+   mockup asked, in the shared export, concept 1's shown block and the
+   recap `lib.py`. Re-verified: concept 1's shown block still equals the
+   export, its timing demo prints the same, and the recap reference still
+   passes. The Lesson 6 mockup files weren't edited.
+
+7. **Query Transformation** — **Building** (folder
+   `07-query-transformation`; title provisional until the bookends mockup).
+   Data: the query variants committed under `public/data/rag/`
+   (architecture.md §3.1), model-written for the course and replayed
+   through the fake client. Shared setup is Lesson 6's recap `lib.py`
+   (checked line by line) plus the new `MODULE_PIPELINE` and
+   `REWRITE_QUERY`; data `RAG_VARIANTS_DATA`. Concept 1 (the question as
+   asked isn't always the best query) is built: both new blocks shown as
+   static blocks (byte-identical to the exports and the mockup); two live
+   demos, code and output exact matches in real Pyodide (three rewrites
+   replayed through the fake client, that demo alone given
+   `REACT_FAKE_CLIENT + RECORDING_CLIENT`; the full pipeline as asked vs
+   rewritten, 32 vs 36 in the top 5, q08, q15, q25, q26, q44 gained, q11
+   lost, sign test 0.22, about 3 s in Node); the q11 claim checked (its
+   rewrite's top five opens with three chunks of Alertmanager's
+   `<incidentio_config>`); costs and safeguards of rewriting; 4 quiz
+   cards. Concepts 2+ and bookends not yet drafted.
 
 ---
 
