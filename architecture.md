@@ -295,8 +295,8 @@ from Lesson 3 concept 2 on it also appends `FIXED_CHUNKS`
 two byte-identical), and from concept 3 on `STRUCTURE_HELPERS`
 (`split_blocks`, `heading_sections`, `pack_lines`; also shown verbatim).
 `STRUCTURED_CHUNKS` (`pack_blocks`, `structured_chunks`) is Lesson 3
-concept 3's exercise reference: appended only on pages *after* concept 3,
-never on concept 3 itself. It becomes `scripts/rag_chunking.py`, unchanged,
+concept 3's exercise reference: appended only on pages *after* concept 3
+(first on concept 4), never on concept 3 itself. It becomes `scripts/rag_chunking.py`, unchanged,
 when Lesson 4's embeddings are generated, so the text embedded offline is
 identical to what the browser produces.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`

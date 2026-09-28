@@ -3548,8 +3548,21 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    heading in the text, chunk numbers per section, big blocks not split,
    heading instead of path, `>=` limit). The reference is the new
    `STRUCTURED_CHUNKS` export, for pages after concept 3 only; it becomes
-   `scripts/rag_chunking.py` with Lesson 4's embeddings. Concepts 4+ and
-   bookends not yet drafted.
+   `scripts/rag_chunking.py` with Lesson 4's embeddings. Concept 4
+   (comparing chunkings fairly) is built: setup now includes
+   `STRUCTURED_CHUNKS`. Three live demos, code and output both exact
+   matches with the mockup in real Pyodide (four chunkings at k = 5 with
+   tokens sent, median sizes and cut code; seven chunkings at 500 / 1,000
+   / 2,000-token budgets via `within_budget`, defined in each demo; the
+   structured-vs-fixed 200 head-to-head at 1,000 tokens, q18 and q31
+   gained, q27 lost, sign test 1.00; about 2 s for the slowest in Node).
+   Prose-only figures checked by script: 21 of 43 heading-section top
+   results over 1,000 tokens, 3,415 structured-100 chunks, 106 cut-code
+   chunks. The module's choice (structured, up to 200 tokens) with chunk
+   size left to Lesson 4; Chroma's report linked; 4 quiz cards. "Mixed
+   evidence in the previous concept" links to concept 2's
+   `#overlap-repeating-the-edges` (anchor verified). Concepts 5+ (if any)
+   and bookends not yet drafted.
 
 ---
 
