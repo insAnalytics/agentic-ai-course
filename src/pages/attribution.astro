@@ -1,0 +1,129 @@
+---
+import { readFileSync } from "node:fs";
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+// Licence texts live beside the corpus (public/data/rag/licenses/) so the data
+// folder carries its own notices; this page reads them at build time.
+// (Resolved from the project root: import.meta.url points into dist/ once bundled.)
+const read = (name: string) => readFileSync(`${process.cwd()}/public/data/rag/licenses/${name}`, "utf-8");
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+const sources = [
+  {
+    name: "Prometheus documentation",
+    repo: "prometheus/docs",
+    commit: "3713ac2990dbecb30392623b9ff083c77ca45d4d",
+    date: "2026-09-23",
+    used: "docs/ (without docs/specs/)",
+    docs: 63,
+    licence: "Apache License 2.0",
+    licenceHref: "#apache-2-0",
+    notice: read("NOTICE-prometheus-docs.txt"),
+  },
+  {
+    name: "Prometheus server",
+    repo: "prometheus/prometheus",
+    commit: "ea954809ceafceb53ecfa295ab0947753929de9e",
+    date: "2026-09-26",
+    used: "docs/ (without configuration/configuration.md and querying/api.md)",
+    docs: 28,
+    licence: "Apache License 2.0",
+    licenceHref: "#apache-2-0",
+    notice: read("NOTICE-prometheus.txt"),
+  },
+  {
+    name: "Prometheus Alertmanager",
+    repo: "prometheus/alertmanager",
+    commit: "c2b235d8b40ef1756d8e68ccd770629cb9232f22",
+    date: "2026-09-27",
+    used: "docs/",
+    docs: 11,
+    licence: "Apache License 2.0",
+    licenceHref: "#apache-2-0",
+    notice: read("NOTICE-alertmanager.txt"),
+  },
+  {
+    name: "PostgreSQL documentation",
+    repo: "postgres/postgres",
+    commit: "2d36d97c91bd43a3ac57513ed786c9e02a6532fa",
+    date: "2026-09-28",
+    used: "doc/src/sgml/high-availability.sgml, doc/src/sgml/wal.sgml",
+    docs: 2,
+    licence: "PostgreSQL Licence",
+    licenceHref: "#postgresql",
+    notice: null,
+  },
+];
+
+const apache = read("APACHE-2.0.txt");
+const postgres = read("POSTGRESQL-COPYRIGHT.txt");
+---
+
+<BaseLayout title="Attribution and licences">
+  <div class="max-w-3xl px-12 py-14 text-[var(--color-ink)]">
+    <h1 class="mb-2 text-3xl font-extrabold tracking-tight">Attribution and licences</h1>
+    <p class="mb-4 text-[var(--color-ink-soft)]">
+      The document corpus used in Module 5 (<code>{base}/data/rag/documents.json</code>) combines documents written for
+      this course with real public documentation from the projects below, each taken from GitHub at a pinned commit.
+    </p>
+    <p class="mb-10 text-[var(--color-ink-soft)]">
+      <strong>Changes made:</strong> the public text was reformatted, not reworded. Images were removed, links keep their
+      words but lose their targets, and YAML front matter was moved into document metadata. The PostgreSQL files were
+      converted from DocBook SGML to Markdown with pandoc; cross-references to chapters outside those two files were
+      replaced with the plain text "section &lt;id&gt;".
+    </p>
+
+    <h2 id="sources" class="mb-4 text-xl font-bold">Sources</h2>
+    <div class="mb-12 flex flex-col gap-4">
+      {
+        sources.map((s) => (
+          <section class="card px-5 py-4 text-sm">
+            <h3 class="mb-2 text-base font-bold">{s.name}</h3>
+            <dl class="grid grid-cols-[8rem_1fr] gap-x-3 gap-y-1">
+              <dt class="text-[var(--color-ink-soft)]">Repository</dt>
+              <dd>
+                <a href={`https://github.com/${s.repo}`}>{s.repo}</a>
+              </dd>
+              <dt class="text-[var(--color-ink-soft)]">Commit</dt>
+              <dd>
+                <a href={`https://github.com/${s.repo}/tree/${s.commit}`}>
+                  <code>{s.commit}</code>
+                </a>{" "}
+                ({s.date})
+              </dd>
+              <dt class="text-[var(--color-ink-soft)]">Paths used</dt>
+              <dd>
+                <code>{s.used}</code> ({s.docs} documents)
+              </dd>
+              <dt class="text-[var(--color-ink-soft)]">Licence</dt>
+              <dd>
+                <a href={s.licenceHref}>{s.licence}</a>
+              </dd>
+            </dl>
+            {s.notice && (
+              <details class="mt-3">
+                <summary class="cursor-pointer text-[var(--color-ink-soft)]">NOTICE file (verbatim)</summary>
+                <pre class="mt-2 overflow-x-auto whitespace-pre-wrap text-xs">{s.notice}</pre>
+              </details>
+            )}
+          </section>
+        ))
+      }
+    </div>
+
+    <h2 id="postgresql" class="mb-2 text-xl font-bold">PostgreSQL Licence</h2>
+    <p class="mb-3 text-sm text-[var(--color-ink-soft)]">
+      Copyright notice and licence from <code>COPYRIGHT</code> in postgres/postgres at the commit above, reproduced in
+      full.
+    </p>
+    <pre class="card mb-12 overflow-x-auto whitespace-pre-wrap px-5 py-4 text-xs">{postgres}</pre>
+
+    <h2 id="apache-2-0" class="mb-2 text-xl font-bold">Apache License 2.0</h2>
+    <p class="mb-3 text-sm text-[var(--color-ink-soft)]">
+      Applies to the text from prometheus/docs, prometheus/prometheus and prometheus/alertmanager. The text was
+      reformatted as described above.
+    </p>
+    <pre class="card overflow-x-auto whitespace-pre-wrap px-5 py-4 text-xs">{apache}</pre>
+  </div>
+</BaseLayout>

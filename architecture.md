@@ -230,6 +230,35 @@ Adding a lesson = adding a lesson folder with a `_lesson.yaml` and its page
 `.mdx` files in the right module folder. No app code changes required for
 ordinary content.
 
+### 3.1 Static course data (`public/data/`)
+
+Large datasets that lessons run against live under `public/data/` and are
+served as plain static files. Module 5 (RAG) uses `public/data/rag/`:
+
+- `documents.json` (~1 MB, 119 documents) — the RAG corpus, built by
+  `scripts/build-rag-corpus.py` from the course-written documents in
+  `scripts/rag_corpus/internal/D01..D15.md` plus four public sources at
+  pinned commits (prometheus/docs, prometheus/prometheus,
+  prometheus/alertmanager under Apache 2.0; two postgres/postgres doc files
+  under the PostgreSQL Licence). Re-run the script only if the documents
+  change.
+- `queries.json` — browser copy of the labelled query set; the source of
+  truth is `scripts/rag_corpus/queries.json`.
+- `licenses/` — the Apache 2.0 text, each Prometheus repo's NOTICE, and the
+  PostgreSQL COPYRIGHT file, all verbatim at the pinned commits.
+  `src/pages/attribution.astro` reads them at build time to render the
+  attribution page (`/attribution/`, linked from the sidebar footer). If a
+  source or commit changes, update the page's `sources` list and these files
+  together.
+- Chunker and embedding scripts (and their vector files, a few MB) come
+  later, with the lessons that teach them.
+
+**Loading rule (every Module 5 page):** fetch these files at runtime, on the
+learner's first Run click, and let the browser cache them — never `import`
+them into page or component code, which would inline megabytes into the JS
+bundle. Build the URL from `import.meta.env.BASE_URL` so it works under the
+GitHub Pages base path.
+
 ---
 
 ## 4. Sandbox architecture — three tiers
