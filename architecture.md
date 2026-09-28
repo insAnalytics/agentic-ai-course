@@ -426,6 +426,13 @@ would parse them as JSX. From Lesson 8 concept 3 on the data is
 `structured-100` and `fixed-200`). `EXPAND_NEIGHBOURS`
 (`expand_neighbours`) is Lesson 8 concept 3's exercise reference: pages
 *after* concept 3 only, appended after `WITH_CONTEXT`.
+Lesson 9's setup is Lesson 8's recap `lib.py` (the Lesson 8 setup through
+`EXPAND_NEIGHBOURS`), then `ANSWER_RETRIEVER` (`AnswerRetriever`, the
+contextual pipeline handing back original chunks with reranker scores)
+and `ANSWER_INSTRUCTIONS`, both shown verbatim on Lesson 9 concept 1, with
+`RAG_EXPANSION_DATA`. `ASSEMBLE_REQUEST` (`format_source`,
+`assemble_request`) is Lesson 9 concept 1's exercise reference: pages
+*after* concept 1 only, appended after `ANSWER_INSTRUCTIONS`.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.

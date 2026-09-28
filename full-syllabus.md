@@ -4015,6 +4015,33 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    Lesson 8 is now **Locked**: all three concepts plus both bookends exist
    and build cleanly.
 
+9. **Grounded Answers** (provisional title) — **Building** (folder
+   `09-grounded-answers`). Shared setup is Lesson 8's recap `lib.py` plus
+   the new `ANSWER_RETRIEVER` and `ANSWER_INSTRUCTIONS`; data
+   `RAG_EXPANSION_DATA`. Concept 1 (assembling the request) is built: both
+   new blocks shown as static blocks (byte-identical to the exports and the
+   mockup); two live demos, code and output exact matches in real Pyodide
+   (Lesson 1's `build_prompt` for q35's top five; two requests sharing 20
+   tokens, instructions 140 tokens); three callbacks linked to verified
+   anchors (Module 4's prefix cache,
+   `#the-same-work-done-again-on-every-turn`; Module 1's lost-in-the-middle,
+   `#the-lost-in-the-middle-effect`; Module 4's context that hurts,
+   `#what-the-evidence-shows`); prose claims checked (D01 says 60 and D08
+   says 100 requests per minute, dated 2026-08-18 and 2026-03-02; q35's
+   top ten come to 1,138 tokens; the ninth is D13, readable by finance
+   only); 4 quiz cards; graded `format_source`/`assemble_request` exercise.
+   **Change from the mockup's hidden tests:** test 2 rebuilds the
+   `request` and `content` it borrowed from test 1. Verified with the real
+   `runAgainstHiddenTests`: the reference passes, the starter fails all
+   four, and eleven mutations each fail (budget skipped rather than
+   stopped, budget ignored, `>=` budget, budget counting the text only,
+   question first, single-newline join, instructions in the message, no
+   date, wrong type field, sources mapped to doc ids, ids from S0); one
+   more, numbering ids by blocks rather than sources, passes and is
+   equivalent. The reference is the new `ASSEMBLE_REQUEST` export, for
+   pages after concept 1 only. Concept 2 onwards and the bookends are not
+   drafted yet.
+
 ---
 
 ## Modules 4–11 — current plan
