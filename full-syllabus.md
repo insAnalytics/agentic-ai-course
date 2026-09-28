@@ -4015,8 +4015,9 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    Lesson 8 is now **Locked**: all three concepts plus both bookends exist
    and build cleanly.
 
-9. **Grounded Answers** (provisional title) — **Building** (folder
-   `09-grounded-answers`). Shared setup is Lesson 8's recap `lib.py` plus
+9. **Answering from Retrieved Context** — **Locked** (folder
+   `09-grounded-answers`, named while the title was provisional; the title
+   comes from the bookends mockup). Shared setup is Lesson 8's recap `lib.py` plus
    the new `ANSWER_RETRIEVER` and `ANSWER_INSTRUCTIONS`; data
    `RAG_EXPANSION_DATA`. Concept 1 (assembling the request) is built: both
    new blocks shown as static blocks (byte-identical to the exports and the
@@ -4076,7 +4077,35 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    September; `stated_values`, defined in the demo, finding 60 against 100
    for q35 and q36); prose claims checked (D08 dated 2026-03-02, v2.4
    dated 2026-05-12, D01 and D03 dated 2026-08-18 and stating 60); 4 quiz
-   cards. No changes from the mockup. The bookends are not drafted yet.
+   cards. No changes from the mockup.
+   Bookends are built: intro (3 outcomes, why it matters) and recap with an
+   8-question comprehensive quiz and a two-file sandbox (`lib.py`
+   read-only, entry **`answer.py`**: `answer_question`, abstaining below
+   the threshold without a model call, otherwise sending
+   `assemble_request`'s messages, returning "declined" for a decline and
+   "answered" with cited sources and flags; hidden tests prefixed with
+   `REACT_FAKE_CLIENT + RECORDING_CLIENT`). All four code blocks generated
+   from the mockup; `lib.py` is Lesson 8's recap `lib.py` plus a Lesson 9
+   section and matches the lesson's setup line for line except the merged
+   `collections` import. The generator writes `lib.py`'s escape through an
+   interpolation, and the built page was checked to keep it as an escape.
+   Data `RAG_EXPANSION_DATA`. **Changes from the mockup's hidden tests:**
+   test 1 gains a score exactly at the threshold, which must be answered,
+   because `<=` passed every original test; test 2 gains a one-source
+   budget, which must reach `assemble_request`, and a reply with
+   surrounding spaces, which must come back stripped, because ignoring the
+   budget and not stripping both passed. Verified with the real
+   `runMultiFileAgainstHiddenTests`: the reference passes (test 5 on the
+   real corpus: q37 abstains without a call, q39 is declined, q35 answered
+   with S1 resolved to D01's rate limits; about 1 s in Node), the starter
+   fails, and twelve mutations each fail (model called before the
+   threshold, `<=` threshold, no check for empty results, first block
+   only, k ignored, budget ignored, declines flagged, flags in the wrong
+   order, own prompt, the request's sources returned, reply not stripped,
+   searching with the question text).
+
+   Lesson 9 is now **Locked**: all four concepts plus both bookends exist
+   and build cleanly.
 
 ---
 
