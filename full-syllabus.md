@@ -3613,7 +3613,19 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    normalized, unstable sort, numpy float score, stored chunk mutated, no
    count check, no source check, replacing instead of appending,
    ascending order). The reference is the new `VECTOR_INDEX` export, for
-   pages after concept 1 only. Concepts 2+ and bookends not yet drafted.
+   pages after concept 1 only. Concept 2 (queries aren't documents) is
+   built: symmetric vs asymmetric models and bge-small's query
+   instruction; the `MEANING_SEARCH` helpers shown as a static block
+   (byte-identical to the export and mockup; setup from concept 2 on, with
+   `VECTOR_INDEX`); three live demos, code and output exact matches in
+   real Pyodide (plain vs instructed query cosine 0.936 to 0.980; with vs
+   without the instruction, q11 and q46 gained, sign test 0.50; bge-small
+   vs MiniLM, q08 and q45 gained, q27 lost, sign test 1.00, using the new
+   `RAG_MINILM_DATA`); the real-tokenizer table, checked against
+   `embedding-report.json`; prose claims checked (the "Outside those
+   hours" quote is in the corpus; keyword search misses q08 at k = 5 on
+   both heading sections and structured chunks); 4 quiz cards. Concepts
+   3+ and bookends not yet drafted.
 
 ---
 

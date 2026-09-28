@@ -420,3 +420,29 @@ class VectorIndex:
         best = np.argsort(-scores, kind="stable")[:k]
         return [{**self._chunks[row], "score": float(scores[row])} for row in best]
 `;
+
+/**
+ * Module 5 Lesson 4 concept 2 helpers (meaning_search, answered_ids),
+ * shown verbatim on that page (keep the two byte-identical). Joins the
+ * setup from concept 2 on: append after VECTOR_INDEX, which it uses.
+ */
+export const MEANING_SEARCH = String.raw`
+def meaning_search(chunks: list[dict], queries: list[dict], model: str = "bge-small-en-v1.5", kind: str = "instructed"):
+    """search(question, k) by meaning over precomputed vectors. Works only for the labelled questions."""
+    index = VectorIndex()
+    index.add(chunks, vectors_for(chunks, model=model))
+    vectors = query_vectors(model, kind)
+    by_question = {q["query"]: vectors[q["id"]] for q in queries}
+    return lambda question, k: index.search(by_question[question], k)
+
+def answered_ids(search, queries: list[dict], k: int = 5) -> set:
+    """The ids of questions with evidence whose top k results hold every part of the answer."""
+    return {q["id"] for q in queries if q["evidence"] and answerable(search(q["query"], k), q)}
+`;
+
+/** RAG_BGE_DATA plus all-MiniLM-L6-v2 vectors for structured 200-token chunks and the queries. */
+export const RAG_MINILM_DATA = [
+  ...RAG_BGE_DATA,
+  "rag/embeddings/all-MiniLM-L6-v2/structured-200.json",
+  "rag/embeddings/all-MiniLM-L6-v2/queries.json",
+];
