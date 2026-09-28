@@ -3528,7 +3528,28 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    against its tables: 82.4 vs 77.1 recall for TokenTextSplitter 250 with
    all-MiniLM-L6-v2, 88.6 vs 89.2 at 400 with text-embedding-3-large); 4
    quiz cards. The "comparing chunkings fairly" callback is plain prose
-   until that concept exists. Concepts 3+ and bookends not yet drafted.
+   until that concept exists. Concept 3 (structure-aware splitting) is
+   built: `split_blocks`, `heading_sections` and `pack_lines` shown as a
+   static block (byte-identical to the new `STRUCTURE_HELPERS` export,
+   checked by script; setup from concept 3 on); two live demos, both exact
+   matches in real Pyodide (Alertmanager configuration's heading paths;
+   first_steps' "Downloading Prometheus" section, 7 naive pieces vs 5
+   blocks, the 8-line `--help` example kept whole); packing; what every
+   chunk carries; 4 quiz cards. The mockup's "## Metrics ... in the
+   previous concept" (it was concept 1, not 2) now reads "earlier in this
+   lesson" and links to concept 1's `#the-corpus-uncut` (anchor
+   verified). Forward references to Lessons 8, 9 and 12 are plain prose.
+   Graded exercise (`pack_blocks`, `structured_chunks`; 5 hidden tests,
+   starter and tests checked byte-for-byte against the mockup, the `DOC`
+   fixture prepended to each test). Verified with the real `TEST_HARNESS`:
+   the reference passes (test 5 on the full corpus: 1,968 chunks at 200
+   tokens), the starter fails all five, and eight mutations each fail (no
+   heading budget, budget without the blank line, single-newline join, no
+   heading in the text, chunk numbers per section, big blocks not split,
+   heading instead of path, `>=` limit). The reference is the new
+   `STRUCTURED_CHUNKS` export, for pages after concept 3 only; it becomes
+   `scripts/rag_chunking.py` with Lesson 4's embeddings. Concepts 4+ and
+   bookends not yet drafted.
 
 ---
 

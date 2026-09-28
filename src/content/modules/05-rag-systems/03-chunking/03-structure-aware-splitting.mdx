@@ -1,0 +1,322 @@
+---
+title: "Structure-aware splitting"
+lesson: "03-chunking"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { COUNT_TOKENS } from "../../../../lib/fakeClient";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, SIGN_TEST, FIXED_CHUNKS, STRUCTURE_HELPERS, STRUCTURED_CHUNKS, RAG_EVAL_DATA } from "../../../../lib/ragCorpus";
+
+export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION + METRICS + SIGN_TEST + FIXED_CHUNKS + STRUCTURE_HELPERS;
+
+export const PATHS_DEMO = String.raw`config = next(d for d in load_documents() if d["doc_id"] == "alertmanager/configuration.md")
+for section in heading_sections(config)[4:8]:
+    print(section["path"])
+`;
+
+export const BLOCKS_DEMO = String.raw`guide = next(d for d in load_documents() if d["doc_id"] == "prometheus-docs/introduction/first_steps.md")
+section = next(s for s in heading_sections(guide) if s["path"].endswith("Downloading Prometheus"))
+
+naive = [part for part in section["body"].split("\n\n") if part.strip()]
+blocks = split_blocks(section["body"])
+print(f"splitting at every blank line: {len(naive)} pieces; split_blocks: {len(blocks)}")
+help_example = next(block for block in blocks if block.startswith(FENCE) and "--help" in block)
+print(f"the --help example stays one block of {len(help_example.splitlines())} lines, blank lines included")
+`;
+
+export const STARTER = String.raw`def pack_blocks(blocks: list[str], max_tokens: int) -> list[str]:
+    """Group consecutive blocks into pieces of at most max_tokens, joined by blank lines.
+    A block too big on its own is split with pack_lines first."""
+    # TODO
+    ...
+
+def structured_chunks(document: dict, max_tokens: int = 200) -> list[dict]:
+    """Chunks that follow the document's structure: headings, then paragraphs and whole code blocks,
+    each chunk starting with its section's heading and carrying the document's metadata."""
+    # TODO: for each of heading_sections(document), pack its body's blocks into the room left
+    #       after the heading line, and build one chunk dict per piece
+    ...
+`;
+
+export const FIXTURES = String.raw`
+DOC = {"doc_id": "T1", "title": "Test guide", "date": "2026-09-01", "access": ["oncall"], "source_type": "official",
+       "text": "# Test guide\n\nIntro paragraph.\n\n## Setup\n\n### Install\n\nRun the installer.\n\n"
+               + FENCE + "bash\n./install.sh\n\n./verify.sh\n" + FENCE + "\n\nThen restart.\n\n## Usage\n\nUse it."}
+`;
+
+export const TESTS = [
+  FIXTURES + String.raw`
+# 1. blocks are packed in order, joined by a blank line, up to the limit
+a, b, c = "a" * 40, "b" * 40, "c" * 40
+assert pack_blocks([a, b, c], 25) == [f"{a}\n\n{b}", c], \
+    f"pack greedily, joining blocks with a blank line ('\\n\\n'); got {pack_blocks([a, b, c], 25)}"
+assert pack_blocks([a], 25) == [a] and pack_blocks([], 25) == []
+`,
+  FIXTURES + String.raw`
+# 2. a block too big on its own is split with pack_lines before packing
+big = "\n".join(["x" * 40, "y" * 40, "z" * 40])
+assert pack_blocks([big], 15) == ["x" * 40, "y" * 40, "z" * 40], \
+    f"split a too-big block with pack_lines, then pack the parts; got {pack_blocks([big], 15)}"
+`,
+  FIXTURES + String.raw`
+# 3. sections, paths, whole code blocks, metadata
+chunks = structured_chunks(DOC, 200)
+assert [c["section"] for c in chunks] == ["Test guide", "Test guide > Setup > Install", "Test guide > Usage"], \
+    f"expected three chunks with heading paths; got {[c['section'] for c in chunks]}"
+install = chunks[1]["text"]
+assert install.startswith("### Install\n\n"), "each chunk starts with its section's heading line"
+assert FENCE + "bash\n./install.sh\n\n./verify.sh\n" + FENCE in install, "the code block, blank line included, stays whole"
+assert [c["chunk"] for c in chunks] == [0, 1, 2], "chunk numbers count up within the document"
+assert set(chunks[0]) == {"doc_id", "title", "date", "access", "source_type", "section", "chunk", "text"}, sorted(chunks[0])
+assert chunks[0]["access"] == ["oncall"], "chunks carry the document's metadata, including who may read them"
+`,
+  FIXTURES + String.raw`
+# 4. the limit holds with the heading included
+for limit in [12, 20, 40]:
+    sizes = [count_tokens(c["text"]) for c in structured_chunks(DOC, limit)]
+    assert max(sizes) <= limit, f"at max_tokens={limit}, a chunk has {max(sizes)} tokens; the heading counts too"
+`,
+  FIXTURES + String.raw`
+# 5. the whole corpus
+corpus = [c for d in load_documents() for c in structured_chunks(d, 200)]
+assert len(corpus) == 1968, f"expected 1,968 chunks at 200 tokens, got {len(corpus)}"
+assert all(count_tokens(c["text"]) <= 200 for c in corpus), "no chunk may exceed 200 tokens"
+assert all(c["section"] and c["doc_id"] for c in corpus), "every chunk needs its source"
+sentence = "If you'd rather move to ${"`"}claude-opus${"`"}, the agent must move to the ${"`"}priority${"`"} tier first"
+assert any(sentence in c["text"] for c in corpus), "the priority-tier sentence should survive whole"
+`,
+];
+
+<Subsection title="Cut where the author already did" variant="a">
+
+Documents come with boundaries built in. A heading starts a new topic. A
+blank line ends a paragraph, and a paragraph is usually one idea. A code
+block is one unit that means nothing in halves. A **structure-aware**
+chunker cuts at those boundaries, and only falls back to cutting blindly
+when a single unit is too big for any chunk.
+
+It works in three steps:
+
+1. **Split at headings,** recording where each section sits in the
+   document.
+2. **Split each section into blocks:** paragraphs, and code blocks kept
+   whole.
+3. **Pack blocks into chunks** up to a size limit, starting each chunk with
+   its section's heading.
+
+The helpers for the first two steps, and for the fallback, are loaded for
+the rest of this lesson:
+
+```python
+def split_blocks(text: str) -> list[str]:
+    """Paragraphs and whole code blocks: split at blank lines, except inside a code block."""
+    blocks, lines, in_code = [], [], False
+    for line in text.splitlines():
+        if line.startswith(FENCE):
+            in_code = not in_code
+        if not line.strip() and not in_code:
+            if lines:
+                blocks.append("\n".join(lines))
+                lines = []
+        else:
+            lines.append(line)
+    if lines:
+        blocks.append("\n".join(lines))
+    return blocks
+
+def heading_sections(document: dict) -> list[dict]:
+    """Split at Markdown headings (not inside code blocks), recording each section's heading path.
+    A section with nothing under its heading is dropped: its heading lives on in the paths below it."""
+    sections, stack, heading, body, in_code = [], [], "", [], False
+
+    def close():
+        text = "\n".join(body).strip()
+        if text:
+            path = " > ".join([document["title"], *(title for _, title in stack)])
+            sections.append({"heading": heading, "path": path, "body": text})
+
+    for line in document["text"].splitlines():
+        if line.startswith(FENCE):
+            in_code = not in_code
+        match = None if in_code else re.match(r"(#{1,6}) (.+)", line)
+        if match:
+            close()
+            level = len(match.group(1))
+            # a heading replaces any heading at its level or deeper; level 1 is the document's title
+            stack = [(lvl, title) for lvl, title in stack if lvl < level]
+            if level > 1:
+                stack.append((level, match.group(2).strip()))
+            heading, body = line, []
+        else:
+            body.append(line)
+    close()
+    return sections
+
+def pack_lines(lines: list[str], max_tokens: int) -> list[str]:
+    """Group lines into parts of at most max_tokens; a line longer than that is cut into fixed-size pieces."""
+    width = max_tokens * CHARS_PER_TOKEN
+    lines = [line[start:start + width] for line in lines for start in range(0, max(len(line), 1), width)]
+    parts, current = [], []
+    for line in lines:
+        if current and count_tokens("\n".join([*current, line])) > max_tokens:
+            parts.append("\n".join(current))
+            current = []
+        current.append(line)
+    if current:
+        parts.append("\n".join(current))
+    return parts
+```
+
+</Subsection>
+
+<Subsection title="Sections, and where they sit" variant="b">
+
+`heading_sections` records each section's **path**: the document's title
+followed by every heading above it. In a long reference page, that path is
+often the only place a section's topic is named:
+
+<LiveDemo client:load dataFiles={RAG_EVAL_DATA} setupCode={SETUP} code={PATHS_DEMO} />
+
+A section called "Example" means nothing on its own. Its path says it's an
+example of the `<route>` setting in Alertmanager's configuration. The path
+goes into every chunk's metadata, and the heading line itself goes at the
+top of every chunk's text, so it's searchable too.
+
+`heading_sections` also drops sections with nothing under their heading,
+like the
+["## Metrics" parent headings earlier in this lesson](/05-rag-systems/03-chunking/01-why-documents-are-split/#the-corpus-uncut).
+Those headings aren't lost: they appear in the paths of the sections below
+them.
+
+</Subsection>
+
+<Subsection title="Paragraphs, and whole code blocks" variant="a">
+
+Splitting a section at every blank line would also split code blocks,
+because code often contains blank lines. `split_blocks` tracks whether it's
+inside a code block and only splits outside one:
+
+<LiveDemo client:load dataFiles={RAG_EVAL_DATA} setupCode={SETUP} code={BLOCKS_DEMO} />
+
+The command-line help example contains blank lines of its own. Split
+naively, it would become three pieces, and a chunk boundary could fall
+between them.
+
+</Subsection>
+
+<Subsection title="Packing blocks into chunks" variant="b">
+
+With the blocks in hand, packing is greedy: add blocks to the current
+chunk, in order, until the next one would take it over the limit, then
+start a new chunk. Two details matter:
+
+- **The heading counts.** Each chunk's text starts with its section's
+  heading line, and the limit applies to the whole chunk, heading
+  included. So the room for blocks is the limit minus the heading.
+- **A block too big for any chunk has to be cut.** `pack_lines` splits it
+  at line breaks, which keeps lines of code and sentences on separate lines
+  intact, and cuts a single overlong line only as a last resort. A code
+  block longer than a whole chunk still ends up in pieces; no chunker can
+  avoid that, but cutting between lines is the least damaging place.
+
+</Subsection>
+
+<Subsection title="What every chunk carries" variant="a">
+
+Each chunk carries its document's metadata, plus where it sits:
+
+- **`doc_id` and `title`:** the source, for citing it in an answer, which
+  Lesson 9 builds on.
+- **`section`:** the heading path, which locates the chunk within the
+  document and names its topic.
+- **`chunk`:** its position among the document's chunks, which makes each
+  chunk's identity unique and lets its neighbours be found, which Lesson 8
+  uses.
+- **`date`:** for telling a current source from a stale one, like the
+  monitoring guide's out-of-date rate limit.
+- **`access`:** which groups may read it. Lesson 12 filters on it at
+  retrieval time, so it has to be on every chunk from the moment the chunk
+  is made.
+- **`source_type`:** official, wiki or vendor, for weighing how far to
+  trust a chunk.
+
+All of it is decided here, at indexing time. Anything a chunk doesn't carry
+now can't be filtered on, cited or checked later.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "Why does a structure-aware chunker start each chunk with its section's heading line?",
+    "options": [
+      "So continuation chunks keep the words that name their topic, which search can match",
+      "Because embedding models require every input to begin with a heading",
+      "So the chunk's position can be worked out from its heading level",
+      "Because the heading makes the chunk long enough to be indexed"
+    ],
+    "correctIndex": 0,
+    "explanation": "A long section split into three chunks would otherwise have its heading only in the first. Repeating it keeps the topic in every chunk's text, where both keyword and meaning search can see it."
+  },
+  {
+    "question": "Why does split_blocks track whether it's inside a code block?",
+    "options": [
+      "Code blocks often contain blank lines, and splitting there would cut the code apart",
+      "Code blocks are removed before indexing, so they must be found first",
+      "Headings inside code blocks start new sections unless they're tracked",
+      "Code blocks count more towards the size limit than prose does"
+    ],
+    "correctIndex": 0,
+    "explanation": "A blank line normally ends a paragraph, but inside a code block it's part of the code. Tracking the fences keeps each code block a single unit wherever it fits in one chunk. heading_sections uses the same tracking for comment lines that start with #."
+  },
+  {
+    "question": "What does a section's path add that its heading alone doesn't?",
+    "options": [
+      "Where the section sits, which often names its topic, like which setting an \"Example\" is for",
+      "The number of tokens in the section, for packing",
+      "Which readers may see the section, for access control",
+      "The date the section was last edited"
+    ],
+    "correctIndex": 0,
+    "explanation": "Headings are often generic (\"Example\", \"Step 4\", \"Configuration\"). The path adds the headings above, down from the document's title, so the chunk says what it's an example or a step of."
+  },
+  {
+    "question": "Why must each chunk's access field be set when the chunk is made, not added later?",
+    "options": [
+      "Filtering by who may read happens at retrieval, and it can only use what each chunk carries",
+      "The embedding model reads the access field and embeds it with the text",
+      "Access can only be set once, because chunks are read-only after indexing",
+      "The model uses the access field to decide whether to answer"
+    ],
+    "correctIndex": 0,
+    "explanation": "Permissions are enforced by the code, when results are chosen, never by asking the model. A chunk that doesn't know who may read it can't be filtered, however the rest of the system is built."
+  }
+]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Using split_blocks, heading_sections and pack_lines from the lesson's setup, write two functions. pack_blocks(blocks, max_tokens) goes through the blocks in order. A block larger than max_tokens on its own is first split with pack_lines(block.splitlines(), max_tokens), and its parts are packed like blocks. It adds each block to the current piece while the piece, joined with blank lines (\"\\n\\n\"), stays within max_tokens by count_tokens; when the next block would go over, the current piece is finished and a new one starts. It returns the list of pieces. structured_chunks(document, max_tokens=200): for each section from heading_sections(document), pack split_blocks(section[\"body\"]) into the room left after the heading, max_tokens - count_tokens(heading + \"\\n\\n\"), or all of max_tokens when the section has no heading (text before the first heading). Make one chunk per piece: every field of the document except text, plus \"section\" (the section's path), \"chunk\" (0, 1, 2 … counting through the whole document) and \"text\" (the heading line, a blank line, then the piece; just the piece when there's no heading). Return the chunks in document order."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  namespaceSetup={SETUP}
+  dataFiles={RAG_EVAL_DATA}
+  hint={"pack_blocks keeps a list, current, of the blocks in the piece being built. Before adding a block, check count_tokens(\"\\n\\n\".join([*current, block])); if that's over the limit and current isn't empty, finish the piece and reset current. In structured_chunks, keep one list of chunks for the whole document, so len(chunks) gives the next chunk number."}
+  correctAnswer={{
+    code: STRUCTURED_CHUNKS.trimStart(),
+    explanation: "The chunker keeps each part of the job in its own place. heading_sections knows about headings and paths, split_blocks knows about paragraphs and code, and pack_blocks knows only about sizes, so each can be tested on its own, as the hidden tests do. The heading comes out of the budget before packing, which is why the tests can demand that no chunk exceed the limit with its heading included. The chunk number counts through the whole document rather than restarting per section, so the pair of doc_id and chunk names exactly one chunk. On the real corpus this produces 1,968 chunks at 200 tokens, none over the limit, and the priority-tier sentence that fixed-size splitting cut in half survives whole. The next concept measures whether any of that helps retrieval."
+  }}
+/>
+
+</CheckpointZone>
