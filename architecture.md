@@ -275,7 +275,13 @@ in Lesson 2 concept 2, keep the two byte-identical. A chunk is relevant to
 a span if it's from the same document and holds at least half the quote
 as one unbroken stretch) and `RAG_EVAL_DATA` (documents plus
 `queries.json`). Lesson 2's setup is `COUNT_TOKENS + LOAD_DOCUMENTS +
-SECTION_SEARCH + KEYWORD_INDEX + EVALUATION`. `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
+SECTION_SEARCH + KEYWORD_INDEX + EVALUATION`. `METRICS`
+(`is_relevant_to_query`, `precision_at_k`, `recall_at_k`,
+`reciprocal_rank`, `evaluate`) is Lesson 2 concept 3's exercise reference
+solution: it's appended after `EVALUATION` on every Lesson 2 page *after*
+concept 3, and never on concept 3 itself, or the exercise starts solved.
+Recall counts evidence groups (answer parts), not spans; precision divides
+by k. `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.
 In a multi-file sandbox, a hidden test can monkeypatch a helper through its

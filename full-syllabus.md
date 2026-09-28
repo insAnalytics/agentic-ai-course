@@ -3436,9 +3436,24 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    `scripts/rag_corpus/queries.json`. Concept 1's figures are unchanged by
    the v2 labels and the shown `is_relevant`. Callbacks to "reading the
    numbers honestly" and "when the labels are wrong" are plain prose until
-   those concepts exist. Shared setup in `ragCorpus.ts`: `KEYWORD_INDEX`,
-   `EVALUATION`, `RAG_EVAL_DATA`. Concepts 3+ and bookends not yet
-   drafted.
+   those concepts exist. Concept 3 (the metrics) is built: precision@k
+   (divides by k), recall@k over evidence groups, reciprocal rank / MRR,
+   answerable@k; a hand-worked example; a live demo of the precision
+   ceiling (1 to 6 relevant sections per query, best possible
+   precision@5 0.456, exact match in real Pyodide); which number to watch,
+   linked to Module 1's lost-in-the-middle subsection (anchor verified);
+   4 quiz cards; graded exercise (the four metrics plus `evaluate`, six
+   hidden tests shipped as in the mockup, shared fixtures prepended to each
+   test since every test gets a fresh namespace copy). Verified with the
+   real `TEST_HARNESS`: the reference passes (test 6 on the full corpus:
+   recall 0.509, precision 0.144, MRR 0.418, answerable 0.442), the starter
+   fails all six, and nine mutations each fail (precision over returned
+   count, no `[:k]` in recall or reciprocal rank, 0-based rank, recall over
+   spans, stale evidence counted, no evidence filter, answerable as any
+   part found, search without k). Shared setup in `ragCorpus.ts`:
+   `KEYWORD_INDEX`, `EVALUATION`, `RAG_EVAL_DATA`, and `METRICS` (the
+   exercise's reference, loaded only on pages after concept 3). Concepts
+   4+ and bookends not yet drafted.
 
 ---
 

@@ -1,0 +1,327 @@
+# Module 5, Lesson 2 — Concept 3: The metrics
+
+> **Note for the site build:**
+> - **The exercise's reference solution joins the lesson's shared setup**
+>   for every demo and exercise *after* this concept:
+>   `is_relevant_to_query`, `precision_at_k`, `recall_at_k`,
+>   `reciprocal_rank` and `evaluate`, exactly as in the reference solution
+>   below. It must not be loaded before this exercise, or the exercise
+>   would start already solved.
+> - The demo in this concept defines `is_relevant_to_query` itself.
+> - Hidden test 6 reads the corpus and the queries, so the data loader runs
+>   before grading.
+
+---
+
+## Four questions to ask of a result list
+
+"Did the search work?" breaks into four smaller questions, and each has
+a standard number. All of them look only at the top *k* results, because
+that's what gets sent to the model.
+
+- **How much of what came back is useful?** That's **precision@k**: the
+  number of relevant chunks in the top *k*, divided by *k*. Three relevant
+  chunks in the top five is a precision@5 of 0.6. Divide by *k* even when
+  the search returned fewer than *k*: empty slots aren't useful either.
+- **How much of the answer came back?** That's **recall@k**: the share of
+  the answer that's in the top *k*. The textbook version counts every
+  relevant chunk in the collection, which punishes a search for not
+  returning the same fact twice. Here, recall counts the answer's
+  *parts*, its evidence groups: a two-part question with one part found
+  has a recall of 0.5, whichever copy of that part was found.
+- **How early did the first useful result appear?** That's the
+  **reciprocal rank**: 1 divided by the position of the first relevant
+  chunk, so 1 for first place, 0.5 for second and 0.2 for fifth, and 0 if
+  none is in the top *k*. Averaged over queries it's the **mean reciprocal
+  rank (MRR)**, the score the TREC question-answering track introduced in
+  1999 to rank systems that return a short list of answers.
+- **Could the model answer from it?** That's **answerable@k**: whether
+  every part of the answer is somewhere in the top *k*, recall@k equal to
+  1. Averaged over queries, it's the share of questions the model has
+  everything it needs for.
+
+Each metric is computed per query, then averaged over every query that has
+evidence. Unanswerable questions are left out: there's nothing to find.
+
+---
+
+## One result list, worked by hand
+
+Take the two-part rate-limit question from the previous concept, and a
+search that returned five chunks: an off-topic one, then the error-code
+row (part two), another off-topic one, then the API reference's rate
+limit (part one), then another off-topic one.
+
+- **precision@5 = 2 / 5 = 0.4.** Two of the five slots are useful.
+- **recall@5 = 1.0.** Both parts are in the top five.
+- **reciprocal rank = 1 / 2 = 0.5.** The first relevant chunk is second.
+- **answerable@5: yes.**
+
+Now cut the list to *k* = 3. Only part two is left in it, so recall@3 is
+0.5 and the question isn't answerable at 3. Same search, same ranking;
+the choice of *k* changed the verdict.
+
+---
+
+## Why precision stays low
+
+Most questions in this set have only a couple of relevant sections in the
+whole corpus. A question with one relevant section can't have a
+precision@5 above 0.2, however good the search: four slots are left over.
+This measures the ceiling:
+
+```python
+def is_relevant_to_query(chunk: dict, query: dict) -> bool:
+    return any(is_relevant(chunk, span) for group in query["evidence"] for span in group)
+
+sections = load_sections()
+scored = [q for q in load_queries()["main"] if q["evidence"]]
+relevant_counts = [sum(is_relevant_to_query(s, q) for s in sections) for q in scored]
+best_precision = sum(min(count, 5) / 5 for count in relevant_counts) / len(scored)
+print(f"relevant sections per query: {min(relevant_counts)} to {max(relevant_counts)}, "
+      f"{sum(relevant_counts) / len(scored):.1f} on average")
+print(f"the best precision@5 any search could reach: {best_precision:.3f}")
+```
+```
+relevant sections per query: 1 to 6, 2.3 on average
+the best precision@5 any search could reach: 0.456
+```
+*(runs live, shows output — read-only demo snippet, not graded)*
+
+A perfect search would still score about 0.46 at *k* = 5. So precision
+can't be read on its own scale; compare it only between searches at the
+same *k*.
+
+---
+
+## Which number to watch
+
+Each metric fits a different decision:
+
+- **answerable@k and recall@k** matter most for retrieval that feeds a
+  model, because the model reads everything in the top *k*. If the answer
+  is in there anywhere, the model has a chance; if it isn't, nothing later
+  can fix it.
+- **MRR** matters when position matters: when only the first result or two
+  get used, or when the list is long and the answer should be near an edge
+  of the prompt, as
+  [Module 1's lost-in-the-middle concept](→ Module 1, context windows and KV cache lesson, uneven use of long contexts concept)
+  showed. Lesson 6's reranking is aimed squarely at it.
+- **precision@k** matters for cost and distraction: every irrelevant chunk
+  is tokens paid for and a near-miss the model has to ignore.
+
+Raising *k* trades one for another. More results means more chances to
+include the answer, so recall and answerable rise, and more slots filled
+with noise, so precision falls. The next concept measures that trade on
+the keyword search.
+
+---
+
+## Quiz cards
+
+> **Q1.** A search returns three chunks when asked for five, and two of
+> them are relevant. What's its precision@5?
+> - 0.4, because precision divides by the five slots asked for ✅
+> - 0.67, because two of the three returned chunks are relevant
+> - 1.0, because every relevant chunk that exists was returned
+> - 0.6, because three of the five slots were filled
+>
+> *Explanation: precision@k asks how much of the top k is useful, and
+> empty slots aren't. Dividing by the number returned would let a search
+> score perfectly by returning one good chunk and nothing else.*
+
+> **Q2.** A two-part question has two passages that state part one, and
+> the search returns both of them but nothing for part two. What's its
+> recall?
+> - 0.5, because one of the answer's two parts was found ✅
+> - 1.0, because every passage it returned was relevant
+> - 0.67, because two of the three labelled passages were found
+> - 0.0, because recall only counts complete answers
+>
+> *Explanation: recall here counts parts of the answer, and the two
+> passages are alternatives for the same part. Counting every labelled
+> passage would reward returning the same fact twice. Complete answers
+> are what answerable@k counts.*
+
+> **Q3.** Search A puts the answer first on half the questions and nowhere
+> on the other half. Search B puts it second on every question. Which has
+> the higher MRR at k = 5?
+> - They're equal: both average 0.5 ✅
+> - A, because it ranks the answer first more often
+> - B, because it finds the answer on every question
+> - A, because MRR ignores questions with no answer found
+>
+> *Explanation: A averages 1 and 0, which is 0.5; B scores 0.5 every
+> time, also 0.5. MRR rewards early answers but can't tell these apart,
+> while answerable@5 can: B answers every question, A half of them.
+> That's why no single number is enough.*
+
+> **Q4.** Raising k from 5 to 10 for the same search usually does what?
+> - Raises recall and answerable, and lowers precision ✅
+> - Raises every metric, since more results can only help
+> - Lowers recall, because the extra results push the answer down
+> - Leaves MRR unchanged and raises precision
+>
+> *Explanation: more slots give more chances to include the answer, and
+> most of the extra slots are noise, so precision drops. MRR can only rise
+> or stay the same, since a first relevant result at position 7 now counts.
+> The top five results are the same either way.*
+
+---
+
+## Applied sandbox exercise
+*(graded — implement the four metrics and average them over a query set)*
+
+**Task shown to learner:**
+
+Implement the metrics from this concept, using `is_relevant` from the
+lesson's setup through the helper `is_relevant_to_query`, which is written
+for you. Each takes the ranked `results`, the `query` (with its
+`evidence` groups) and `k`, and looks only at `results[:k]`:
+
+- `precision_at_k`: relevant chunks in the top k, divided by k.
+- `recall_at_k`: the share of the query's evidence groups with at least
+  one relevant chunk in the top k.
+- `reciprocal_rank`: 1 / the position (counting from 1) of the first
+  relevant chunk in the top k, or 0.0.
+
+Then `evaluate(search, queries, k)`: for every query whose `evidence` isn't
+empty, call `search(query["query"], k)` once, compute the three metrics
+and whether the query is answerable (recall of exactly 1). Return the
+averages as `{"recall", "precision", "mrr", "answerable"}`, each rounded
+to 3 places. Stale evidence doesn't count as relevant.
+
+**Starter code:**
+
+```python
+def is_relevant_to_query(chunk: dict, query: dict) -> bool:
+    return any(is_relevant(chunk, span) for group in query["evidence"] for span in group)
+
+def precision_at_k(results: list[dict], query: dict, k: int) -> float:
+    # TODO: the share of the k slots filled by relevant chunks
+    ...
+
+def recall_at_k(results: list[dict], query: dict, k: int) -> float:
+    # TODO: the share of the query's evidence groups found in the top k
+    ...
+
+def reciprocal_rank(results: list[dict], query: dict, k: int) -> float:
+    # TODO: 1 / the position of the first relevant chunk in the top k, or 0
+    ...
+
+def evaluate(search, queries: list[dict], k: int) -> dict:
+    # TODO: for each query with evidence, call search(question, k), then average
+    #       recall, precision, MRR and answerable over those queries, rounded to 3 places
+    ...
+```
+
+**Hidden tests:**
+
+```python
+# shared by the tests below
+QUERY = {"id": "t1", "query": "What is the rate limit, and what error comes past it?",
+         "evidence": [[{"doc_id": "D01", "quote": "Each key may make 60 requests per minute."},
+                       {"doc_id": "D03", "quote": "Lowered the rate limit from 100 to 60 requests per minute per key."}],
+                      [{"doc_id": "D02", "quote": "The key made too many requests this minute."}]],
+         "stale_evidence": [{"doc_id": "D08", "quote": "The registry allows 100 requests per minute per key"}]}
+OFF = {"doc_id": "D04", "section": "Core services", "text": "registry-api stores every agent's configuration."}
+LIMIT = {"doc_id": "D01", "section": "Rate limits", "text": "Each key may make 60 requests per minute."}
+CHANGELOG = {"doc_id": "D03", "section": "v2.4", "text": "Lowered the rate limit from 100 to 60 requests per minute per key."}
+ERROR = {"doc_id": "D02", "section": "Limits and availability", "text": "The key made too many requests this minute."}
+STALE = {"doc_id": "D08", "section": "Polling", "text": "The registry allows 100 requests per minute per key."}
+
+# 1. the worked example from the page
+results = [OFF, ERROR, OFF, LIMIT, OFF]
+assert precision_at_k(results, QUERY, 5) == 0.4, f"precision@5 should be 2/5; got {precision_at_k(results, QUERY, 5)}"
+assert recall_at_k(results, QUERY, 5) == 1.0, "both parts of the answer are in the top 5"
+assert reciprocal_rank(results, QUERY, 5) == 0.5, "the first relevant chunk is at position 2"
+assert recall_at_k(results, QUERY, 3) == 0.5, "in the top 3, only the error part is found"
+
+# 2. precision divides by k, even when fewer than k results come back
+assert precision_at_k([LIMIT, ERROR], QUERY, 5) == 0.4, "two relevant results out of five slots is 0.4, not 1.0"
+
+# 3. only the top k count, for every metric
+late = [OFF, OFF, OFF, LIMIT]
+assert reciprocal_rank(late, QUERY, 3) == 0.0, "a relevant chunk at position 4 is outside the top 3"
+assert recall_at_k(late, QUERY, 3) == 0.0 and precision_at_k(late, QUERY, 3) == 0.0
+
+# 4. alternatives in a group count once; stale evidence isn't relevant
+assert recall_at_k([LIMIT, CHANGELOG], QUERY, 2) == 0.5, \
+    "two alternatives for the same part still cover one part of two; count groups, not spans"
+assert precision_at_k([LIMIT, CHANGELOG], QUERY, 2) == 1.0, "both are relevant chunks"
+assert precision_at_k([STALE], QUERY, 1) == 0.0, "stale evidence doesn't count as relevant"
+
+# 5. evaluate: asks search for k results, skips queries without evidence, averages
+asked = []
+def fake_search(question, k):
+    asked.append(k)
+    return [LIMIT, ERROR] if "rate" in question else [OFF]
+queries = [QUERY, {"id": "t2", "query": "Something unanswerable", "evidence": []},
+           {"id": "t3", "query": "error past the limit", "evidence": [[{"doc_id": "D02", "quote": "The key made too many requests this minute."}]]}]
+m = evaluate(fake_search, queries, 2)
+assert asked == [2, 2], f"search should be called once per query with evidence, with k; calls got k={asked}"
+assert m == {"recall": 0.5, "precision": 0.5, "mrr": 0.5, "answerable": 0.5}, m
+
+# 6. the real corpus, with Lesson 1's keyword search
+index = KeywordIndex()
+index.add(load_sections())
+m = evaluate(index.search, load_queries()["main"], 5)
+assert m == {"recall": 0.509, "precision": 0.144, "mrr": 0.418, "answerable": 0.442}, m
+```
+
+**Hint (shown on request):**
+
+For recall, loop over `query["evidence"]` and ask of each group: is any
+chunk in the top k relevant to any span in it? Sum the `True`s and divide
+by the number of groups. For the reciprocal rank, `enumerate(results[:k],
+1)` gives positions that start at 1. In `evaluate`, filter the queries to
+those with evidence first, so both the loop and the averages use the same
+list.
+
+**Reference solution:**
+
+```python
+def is_relevant_to_query(chunk: dict, query: dict) -> bool:
+    return any(is_relevant(chunk, span) for group in query["evidence"] for span in group)
+
+def precision_at_k(results: list[dict], query: dict, k: int) -> float:
+    """The share of the k result slots filled by relevant chunks."""
+    return sum(is_relevant_to_query(chunk, query) for chunk in results[:k]) / k
+
+def recall_at_k(results: list[dict], query: dict, k: int) -> float:
+    """The share of the answer's parts (evidence groups) found in the top k."""
+    top = results[:k]
+    found = [any(is_relevant(chunk, span) for chunk in top for span in group) for group in query["evidence"]]
+    return sum(found) / len(found)
+
+def reciprocal_rank(results: list[dict], query: dict, k: int) -> float:
+    """1 / the position of the first relevant chunk in the top k, or 0 if there's none."""
+    for position, chunk in enumerate(results[:k], 1):
+        if is_relevant_to_query(chunk, query):
+            return 1 / position
+    return 0.0
+
+def evaluate(search, queries: list[dict], k: int) -> dict:
+    """Average each metric over the queries that have evidence. search(question, k) returns ranked chunks."""
+    scored = [q for q in queries if q["evidence"]]
+    totals = {"recall": 0.0, "precision": 0.0, "mrr": 0.0, "answerable": 0.0}
+    for query in scored:
+        results = search(query["query"], k)
+        totals["recall"] += recall_at_k(results, query, k)
+        totals["precision"] += precision_at_k(results, query, k)
+        totals["mrr"] += reciprocal_rank(results, query, k)
+        totals["answerable"] += recall_at_k(results, query, k) == 1
+    return {name: round(total / len(scored), 3) for name, total in totals.items()}
+```
+
+**Explanation:**
+
+Each metric is a few lines because the hard part, deciding what counts as
+relevant, was settled once in `is_relevant`. The details the tests check
+are the ones that change the numbers: precision divides by k, so a search
+can't look perfect by returning less; recall counts groups, so a repeated
+fact isn't double-counted; every metric stops at k, since results beyond
+it are never sent; and queries without evidence are skipped, since there's
+nothing to find. On the real corpus, Lesson 1's keyword search scores a
+recall@5 of 0.509 and answers 44.2% of the questions: the baseline every
+later lesson has to beat.

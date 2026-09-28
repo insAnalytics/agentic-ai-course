@@ -128,3 +128,43 @@ def answerable(results: list[dict], query: dict) -> bool:
     return all(any(is_relevant(chunk, span) for chunk in results for span in group)
                for group in query["evidence"])
 `;
+
+/**
+ * Module 5 Lesson 2 concept 3's graded exercise, reference solution
+ * verbatim. Joins the lesson's setup for every page AFTER concept 3
+ * (append after EVALUATION) and must never load on concept 3 itself, or
+ * the exercise would start already solved.
+ */
+export const METRICS = String.raw`
+def is_relevant_to_query(chunk: dict, query: dict) -> bool:
+    return any(is_relevant(chunk, span) for group in query["evidence"] for span in group)
+
+def precision_at_k(results: list[dict], query: dict, k: int) -> float:
+    """The share of the k result slots filled by relevant chunks."""
+    return sum(is_relevant_to_query(chunk, query) for chunk in results[:k]) / k
+
+def recall_at_k(results: list[dict], query: dict, k: int) -> float:
+    """The share of the answer's parts (evidence groups) found in the top k."""
+    top = results[:k]
+    found = [any(is_relevant(chunk, span) for chunk in top for span in group) for group in query["evidence"]]
+    return sum(found) / len(found)
+
+def reciprocal_rank(results: list[dict], query: dict, k: int) -> float:
+    """1 / the position of the first relevant chunk in the top k, or 0 if there's none."""
+    for position, chunk in enumerate(results[:k], 1):
+        if is_relevant_to_query(chunk, query):
+            return 1 / position
+    return 0.0
+
+def evaluate(search, queries: list[dict], k: int) -> dict:
+    """Average each metric over the queries that have evidence. search(question, k) returns ranked chunks."""
+    scored = [q for q in queries if q["evidence"]]
+    totals = {"recall": 0.0, "precision": 0.0, "mrr": 0.0, "answerable": 0.0}
+    for query in scored:
+        results = search(query["query"], k)
+        totals["recall"] += recall_at_k(results, query, k)
+        totals["precision"] += precision_at_k(results, query, k)
+        totals["mrr"] += reciprocal_rank(results, query, k)
+        totals["answerable"] += recall_at_k(results, query, k) == 1
+    return {name: round(total / len(scored), 3) for name, total in totals.items()}
+`;
