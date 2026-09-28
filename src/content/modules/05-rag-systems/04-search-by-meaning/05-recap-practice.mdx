@@ -8,7 +8,7 @@ import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGrad
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 import { RAG_BGE_DATA } from "../../../../lib/ragCorpus";
 
-export const LIB_PY = String.raw`# Lessons 1 to 4's code, from their concepts -- read-only
+export const LIB_PY = String.raw`# code from this module's earlier lessons, from their concepts -- read-only
 import json
 import math
 import re
@@ -577,7 +577,7 @@ for query in labelled["main"]:
 
 <MultiFileGradedExercise
   client:load
-  task={"lib.py holds Lessons 1 to 4's code, including VectorIndex, vectors_for and query_vectors. It's read-only. In retrieval.py, write two things. (1) FilteredVectorIndex, a subclass of VectorIndex, overrides search(query_vector, k=3, groups=None). With groups=None, it searches exactly as VectorIndex does. Otherwise, only chunks whose access shares at least one group with groups take part: score them, and return the best k of those, highest first, as new dicts with a float \"score\" (a cosine, whatever the query's length). A reader in no matching group gets [], and so does groups=[]. (2) access_report(index, labelled, vectors, k=5): for every query in labelled[\"main\"], and every entry in its access_cases (in order), search with vectors[query[\"id\"]], that k and the case's groups. Return one dict per case: {\"id\", \"groups\", \"expect\", \"answered\"}, where \"answered\" is answerable(results, query)."}
+  task={"lib.py holds code from this module's earlier lessons, including VectorIndex, vectors_for and query_vectors. It's read-only. In retrieval.py, write two things. (1) FilteredVectorIndex, a subclass of VectorIndex, overrides search(query_vector, k=3, groups=None). With groups=None, it searches exactly as VectorIndex does. Otherwise, only chunks whose access shares at least one group with groups take part: score them, and return the best k of those, highest first, as new dicts with a float \"score\" (a cosine, whatever the query's length). A reader in no matching group gets [], and so does groups=[]. (2) access_report(index, labelled, vectors, k=5): for every query in labelled[\"main\"], and every entry in its access_cases (in order), search with vectors[query[\"id\"]], that k and the case's groups. Return one dict per case: {\"id\", \"groups\", \"expect\", \"answered\"}, where \"answered\" is answerable(results, query)."}
   entry="retrieval.py"
   files={[
     { name: "lib.py", readOnly: true, code: LIB_PY },
@@ -590,7 +590,7 @@ for query in labelled["main"]:
     { name: "lib.py", readOnly: true, code: LIB_PY },
     { name: "retrieval.py", code: RETRIEVAL_REFERENCE },
   ]}
-  explanation={"Filtering first means forbidden chunks never become candidates, so they can't be returned and can't take places from permitted ones. Test 2 checks the second half: an all-staff reader gets two results, where filtering after the ranking would have returned none. Test 3 checks the edge cases a permissions filter must get right: no matching group and no groups at all both mean nothing. The one subtle line maps positions in the filtered scores back to rows in the index through allowed; test 5 catches the version that forgets. On the real corpus, access_report confirms the labels' four access cases: the security and finance readers find their answers, the others get none, and no restricted page reaches an all-staff reader for any question in the set. Lesson 12 builds the full version of this, where permissions come from the reader rather than the call."}
+  explanation={"Filtering first means forbidden chunks never become candidates, so they can't be returned and can't take places from permitted ones. Test 2 checks the second half: an all-staff reader gets two results, where filtering after the ranking would have returned none. Test 3 checks the edge cases a permissions filter must get right: no matching group and no groups at all both mean nothing. The one subtle line maps positions in the filtered scores back to rows in the index through allowed; test 5 catches the version that forgets. On the real corpus, access_report confirms the labels' four access cases: the security and finance readers find their answers, the others get none, and no restricted page reaches an all-staff reader for any question in the set. Lesson 13 builds the full version of this, where permissions come from the reader rather than the call."}
 />
 
 </CheckpointZone>

@@ -273,7 +273,7 @@ served as plain static files. Module 5 (RAG) uses `public/data/rag/`:
   `scripts/rag_corpus/embedding-report.json`. Each page fetches only the
   files its demos need, via `dataFiles`, and those pages need numpy loaded
   in Pyodide.
-- `rerank/ms-marco-MiniLM-L6-v2/structured-200.json` (~640 KB, Lesson 6
+- `rerank/ms-marco-MiniLM-L6-v2/structured-200.json` (~640 KB, Lesson 7
   onwards) — real cross-encoder scores from
   `scripts/generate-rag-rerank-scores.py` (see `README-rerank.md`): every
   labelled query (57, main and held-out) against every structured-200
@@ -285,7 +285,7 @@ served as plain static files. Module 5 (RAG) uses `public/data/rag/`:
   "timing" (3.55 ms a pair, 97 ms for 30 candidates) is GPU timing; the
   script scores one question at a time in batches of 64, which, not the
   GPU, bounds its speed (about 7 minutes for 112,176 pairs).
-- Query variants (Lesson 7 onwards), from
+- Query variants (Lesson 8 onwards), from
   `scripts/generate-rag-query-variants.py` (see `README-query-variants.md`;
   texts in `scripts/rag_corpus/query_variants_src.py`, written by Claude
   for the course and served as scripted model replies — edit that file,
@@ -303,7 +303,7 @@ served as plain static files. Module 5 (RAG) uses `public/data/rag/`:
   it sharply. Batch size doesn't change the scores. Checked when
   generated: texts match the source file, vectors unit length, chunk keys
   match the chunker, no NaNs or empty rows.
-- Contextual chunks (Lesson 8 onwards), from
+- Contextual chunks (Lesson 9 onwards), from
   `scripts/generate-rag-contextual.py` (see `README-contextual.md`):
   two new versions of every structured-200 chunk, built by
   `scripts/rag_context.py`, which must stay identical to the lesson's
@@ -380,63 +380,63 @@ concept 1 only. From concept 2 on the setup also appends `VECTOR_INDEX` and
 concept 2). `RAG_MINILM_DATA` adds the all-MiniLM-L6-v2 files to
 `RAG_BGE_DATA`, for the demos that compare the two models. `RAG_BGE_ALL_DATA` adds bge-small's `structured-100`, `structured-400`
 and `fixed-200` files, for concept 3's chunk-size comparison.
-Lesson 5's setup is Lesson 4's recap `lib.py`, which is exactly Lesson 4's
+Lesson 6's setup is Lesson 4's recap `lib.py`, which is exactly Lesson 4's
 page setup (`... + VECTORS + VECTOR_INDEX + MEANING_SEARCH`), with
-`RAG_BGE_DATA`. From Lesson 5 concept 2 on it also appends `TERMS`
+`RAG_BGE_DATA`. From Lesson 6 concept 2 on it also appends `TERMS`
 (`terms`, the list version of `keywords`; shown verbatim on that page).
-`BM25_INDEX` (`BM25Index`) is Lesson 5 concept 2's exercise reference:
+`BM25_INDEX` (`BM25Index`) is Lesson 6 concept 2's exercise reference:
 pages *after* concept 2 only.
-Lesson 6's setup is Lesson 5's recap `lib.py` (exactly the Lesson 5 page
+Lesson 7's setup is Lesson 6's recap `lib.py` (exactly the Lesson 6 page
 setup through `BM25_INDEX`) followed by `RERANK_SCORES` (`RERANK`,
-`CrossEncoderScores`; shown verbatim on Lesson 6 concept 1), with
+`CrossEncoderScores`; shown verbatim on Lesson 7 concept 1), with
 `RAG_RERANK_DATA` (`RAG_BGE_DATA` plus the cross-encoder scores file).
-`RERANK` (`rerank`) is Lesson 6 concept 3's exercise reference: pages
+`RERANK` (`rerank`) is Lesson 7 concept 3's exercise reference: pages
 *after* concept 3 only.
-From Lesson 6 concept 4 on the setup appends `RERANK` and then
+From Lesson 7 concept 4 on the setup appends `RERANK` and then
 `LISTWISE_RERANK` (`rerank_prompt`, `parse_ranking`; shown verbatim on
 concept 4). Demos that script a model reply add `REACT_FAKE_CLIENT +
 RECORDING_CLIENT` from `fakeClient.ts` after that setup.
 `CrossEncoderScores` reads `timing` with `stored.get("timing")` (changed
-at Lesson 7 concept 1, in the export, Lesson 6 concept 1's shown block and
-Lesson 6's recap `lib.py` together): only the full scoring run was timed,
-and later score files such as `query-variants.json` have none. Lesson 7's
-setup is Lesson 6's recap `lib.py` (the Lesson 6 setup through
+at Lesson 8 concept 1, in the export, Lesson 7 concept 1's shown block and
+Lesson 7's recap `lib.py` together): only the full scoring run was timed,
+and later score files such as `query-variants.json` have none. Lesson 8's
+setup is Lesson 7's recap `lib.py` (the Lesson 7 setup through
 `LISTWISE_RERANK`), then `MODULE_PIPELINE` (`load_query_variants`,
 `variant_vectors`, `rrf`, `ModulePipeline`) and `REWRITE_QUERY`
-(`rewrite_query`), both shown verbatim on Lesson 7 concept 1, with
+(`rewrite_query`), both shown verbatim on Lesson 8 concept 1, with
 `RAG_VARIANTS_DATA` (`RAG_RERANK_DATA` plus the three query-variant files).
-From Lesson 7 concept 3 on the setup also appends `SPLIT_QUERY`
+From Lesson 8 concept 3 on the setup also appends `SPLIT_QUERY`
 (`split_query`, shown verbatim on that page). `INTERLEAVE` (`interleave`)
-is Lesson 7 concept 3's exercise reference: pages *after* concept 3 only.
-From Lesson 7 concept 4 on the setup appends `INTERLEAVE` and then `HYDE`
+is Lesson 8 concept 3's exercise reference: pages *after* concept 3 only.
+From Lesson 8 concept 4 on the setup appends `INTERLEAVE` and then `HYDE`
 (`hypothetical_document`, shown verbatim on that page).
-Lesson 8's setup is Lesson 7's recap `lib.py` (the Lesson 7 setup through
+Lesson 9's setup is Lesson 8's recap `lib.py` (the Lesson 8 setup through
 `HYDE`), then `WITH_HEADER` (`with_header`, which must stay identical to
 `scripts/rag_context.py`) and `VERSIONED_PIPELINE` (`VersionedPipeline`,
 `ModulePipeline` over another chunk version's stored vectors), both shown
-verbatim on Lesson 8 concept 1, with `RAG_CONTEXTUAL_DATA`
+verbatim on Lesson 9 concept 1, with `RAG_CONTEXTUAL_DATA`
 (`RAG_VARIANTS_DATA` plus `chunk-contexts.json` and the headers and
-contextual embedding and score files). From Lesson 8 concept 2 on the
+contextual embedding and score files). From Lesson 9 concept 2 on the
 setup appends `WITH_CONTEXT` (`with_context`, which must also stay
 identical to `scripts/rag_context.py`, and `situate_chunk`, both shown
 verbatim on that page). A prompt containing `<tags>` or `{placeholders}`
 goes in a fenced `text` block on the page, not a blockquote, where MDX
-would parse them as JSX. From Lesson 8 concept 3 on the data is
+would parse them as JSX. From Lesson 9 concept 3 on the data is
 `RAG_EXPANSION_DATA` (`RAG_CONTEXTUAL_DATA` plus bge-small
 `structured-100` and `fixed-200`). `EXPAND_NEIGHBOURS`
-(`expand_neighbours`) is Lesson 8 concept 3's exercise reference: pages
+(`expand_neighbours`) is Lesson 9 concept 3's exercise reference: pages
 *after* concept 3 only, appended after `WITH_CONTEXT`.
-Lesson 9's setup is Lesson 8's recap `lib.py` (the Lesson 8 setup through
+Lesson 10's setup is Lesson 9's recap `lib.py` (the Lesson 9 setup through
 `EXPAND_NEIGHBOURS`), then `ANSWER_RETRIEVER` (`AnswerRetriever`, the
 contextual pipeline handing back original chunks with reranker scores)
-and `ANSWER_INSTRUCTIONS`, both shown verbatim on Lesson 9 concept 1, with
+and `ANSWER_INSTRUCTIONS`, both shown verbatim on Lesson 10 concept 1, with
 `RAG_EXPANSION_DATA`. `ASSEMBLE_REQUEST` (`format_source`,
-`assemble_request`) is Lesson 9 concept 1's exercise reference: pages
+`assemble_request`) is Lesson 10 concept 1's exercise reference: pages
 *after* concept 1 only, appended after `ANSWER_INSTRUCTIONS`.
-From Lesson 9 concept 2 on the setup appends `ASSEMBLE_REQUEST` and then
+From Lesson 10 concept 2 on the setup appends `ASSEMBLE_REQUEST` and then
 `CHECK_CITATIONS` (`CITATION`, `check_citations`, shown verbatim on that
 page).
-From Lesson 9 concept 3 on the setup appends `DECLINED` (`DECLINE`,
+From Lesson 10 concept 3 on the setup appends `DECLINED` (`DECLINE`,
 `declined`, shown verbatim on that page). A Python escape like `\u2019`
 inside a `String.raw` export doesn't survive the TypeScript build (it
 arrives as the character itself), so the export writes the backslash as

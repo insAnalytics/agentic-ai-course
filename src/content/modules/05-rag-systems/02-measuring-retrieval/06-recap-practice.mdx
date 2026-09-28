@@ -8,7 +8,7 @@ import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGrad
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 import { RAG_EVAL_DATA } from "../../../../lib/ragCorpus";
 
-export const LIB_PY = String.raw`# Lessons 1 and 2's code, from their concepts -- read-only
+export const LIB_PY = String.raw`# code from this module's earlier lessons, from their concepts -- read-only
 import json
 import math
 import re
@@ -386,7 +386,7 @@ assert report["by_type"]["multi_hop"] == {"a": 0, "b": 0, "total": 3}, report["b
 
 <MultiFileGradedExercise
   client:load
-  task={"lib.py holds Lessons 1 and 2's code, including answerable, evaluate and sign_test. It's read-only. Write compare_searches(search_a, search_b, labelled, k=5) in harness.py. labelled is the whole loaded query set; each search is a function search(question, k) returning ranked chunks. Return a dict: \"a\" and \"b\", each search's averages from evaluate; \"by_type\", for each query type, {\"a\": answered by A, \"b\": answered by B, \"total\": questions}, counting answerable@k; \"gained\" and \"lost\", sorted lists of the ids of questions B answers and A doesn't, and the reverse; \"p_value\", sign_test on the gained and lost counts, rounded to 3 places. Use only labelled[\"main\"]: the held-out questions must never be run. Leave out questions without evidence. Call each search exactly once per question, with k, and compute everything from those results."}
+  task={"lib.py holds code from this module's earlier lessons, including answerable, evaluate and sign_test. It's read-only. Write compare_searches(search_a, search_b, labelled, k=5) in harness.py. labelled is the whole loaded query set; each search is a function search(question, k) returning ranked chunks. Return a dict: \"a\" and \"b\", each search's averages from evaluate; \"by_type\", for each query type, {\"a\": answered by A, \"b\": answered by B, \"total\": questions}, counting answerable@k; \"gained\" and \"lost\", sorted lists of the ids of questions B answers and A doesn't, and the reverse; \"p_value\", sign_test on the gained and lost counts, rounded to 3 places. Use only labelled[\"main\"]: the held-out questions must never be run. Leave out questions without evidence. Call each search exactly once per question, with k, and compute everything from those results."}
   entry="harness.py"
   files={[
     { name: "lib.py", readOnly: true, code: LIB_PY },

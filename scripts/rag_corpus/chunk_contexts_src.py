@@ -1,4 +1,4 @@
-"""Model-written chunk contexts for Module 5 Lesson 8 (contextual retrieval), written for the course by Claude.
+"""Model-written chunk contexts for Module 5 Lesson 9 (contextual retrieval), written for the course by Claude.
 
 Each context follows CONTEXT_PROMPT, Anthropic's contextual retrieval prompt, with the
 whole document in view: that is how the method works, so no knowledge is withheld.

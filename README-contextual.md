@@ -1,4 +1,4 @@
-# Module 5 contextual chunks (Lesson 8): notes for the site build
+# Module 5 contextual chunks (Lesson 9): notes for the site build
 
 ## Run once
 

@@ -8,7 +8,7 @@ import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGrad
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 import { RAG_EVAL_DATA } from "../../../../lib/ragCorpus";
 
-export const LIB_PY = String.raw`# Lessons 1 to 3's code, from their concepts -- read-only
+export const LIB_PY = String.raw`# code from this module's earlier lessons, from their concepts -- read-only
 import json
 import math
 import re
@@ -509,7 +509,7 @@ else:
 
 <MultiFileGradedExercise
   client:load
-  task={"lib.py holds Lessons 1 to 3's code, including structured_chunks, fixed_chunks and within_budget. It's read-only. Write evaluate_chunker(chunker, documents, labelled, budget=1000, max_tokens=512) in pipeline.py. chunker is any function from one document to a list of chunks. (1) Chunk every document with chunker(document). (2) Check every chunk before indexing it: raise ValueError if any of the fields in REQUIRED (doc_id, section, access) is missing or empty, or if its text is over max_tokens by count_tokens. max_tokens stands for the embedding model's input limit. (3) Index the chunks in a KeywordIndex and wrap its search with within_budget(index.search, budget). (4) Search once for each main question that has evidence. The held-out questions must never be run. (5) Return a dict: \"chunks\", how many chunks were made; \"largest\", the biggest chunk, in tokens; \"answered\", sorted ids of the questions answerable from their results; \"answerable\", the share of scored questions answered, rounded to 3 places; \"tokens_sent\", the average tokens sent per scored question, rounded to a whole number."}
+  task={"lib.py holds code from this module's earlier lessons, including structured_chunks, fixed_chunks and within_budget. It's read-only. Write evaluate_chunker(chunker, documents, labelled, budget=1000, max_tokens=512) in pipeline.py. chunker is any function from one document to a list of chunks. (1) Chunk every document with chunker(document). (2) Check every chunk before indexing it: raise ValueError if any of the fields in REQUIRED (doc_id, section, access) is missing or empty, or if its text is over max_tokens by count_tokens. max_tokens stands for the embedding model's input limit. (3) Index the chunks in a KeywordIndex and wrap its search with within_budget(index.search, budget). (4) Search once for each main question that has evidence. The held-out questions must never be run. (5) Return a dict: \"chunks\", how many chunks were made; \"largest\", the biggest chunk, in tokens; \"answered\", sorted ids of the questions answerable from their results; \"answerable\", the share of scored questions answered, rounded to 3 places; \"tokens_sent\", the average tokens sent per scored question, rounded to a whole number."}
   entry="pipeline.py"
   files={[
     { name: "lib.py", readOnly: true, code: LIB_PY },
@@ -522,7 +522,7 @@ else:
     { name: "lib.py", readOnly: true, code: LIB_PY },
     { name: "pipeline.py", code: PIPELINE_REFERENCE },
   ]}
-  explanation={"The pipeline refuses bad chunks before indexing them, because problems found there are cheap and problems found later are silent: a chunk with no access can't be filtered in Lesson 12, and a chunk over the embedder's limit would be truncated without warning in Lesson 4. Test 5 shows the check earning its place: Lesson 1's uncapped heading sections are refused outright, because some are far over 512 tokens. Scoring at a token budget makes the comparison fair between chunkers of different sizes, and leaving out questions without evidence avoids a trap test 2 catches: answerable is true for a question with no evidence groups, since all() of nothing is True. On the real corpus the module's structured chunker answers 25 of 43 questions within 1,000 tokens, against 24 for fixed 200-token chunks. Lesson 4 runs the same comparison with search by meaning."}
+  explanation={"The pipeline refuses bad chunks before indexing them, because problems found there are cheap and problems found later are silent: a chunk with no access can't be filtered in Lesson 13, and a chunk over the embedder's limit would be truncated without warning in Lesson 4. Test 5 shows the check earning its place: Lesson 1's uncapped heading sections are refused outright, because some are far over 512 tokens. Scoring at a token budget makes the comparison fair between chunkers of different sizes, and leaving out questions without evidence avoids a trap test 2 catches: answerable is true for a question with no evidence groups, since all() of nothing is True. On the real corpus the module's structured chunker answers 25 of 43 questions within 1,000 tokens, against 24 for fixed 200-token chunks. Lesson 4 runs the same comparison with search by meaning."}
 />
 
 </CheckpointZone>

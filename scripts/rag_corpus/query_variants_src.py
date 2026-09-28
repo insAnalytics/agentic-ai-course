@@ -1,4 +1,4 @@
-"""Model-written query variants for Module 5 Lesson 7, written for the course by Claude.
+"""Model-written query variants for Module 5 Lesson 8, written for the course by Claude.
 
 Rewrites follow REWRITE_PROMPT, sub-queries follow SPLIT_PROMPT, hypothetical
 documents follow HYDE_PROMPT. For questions about the company's private

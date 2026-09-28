@@ -1,5 +1,5 @@
 """
-Query variants for Module 5 (RAG Systems), Lesson 7: rewrites, sub-queries and
+Query variants for Module 5 (RAG Systems), Lesson 8: rewrites, sub-queries and
 hypothetical documents (HyDE), embedded and scored by the module's models.
 
 The texts are in scripts/rag_corpus/query_variants_src.py, written for the course

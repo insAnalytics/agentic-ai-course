@@ -1,5 +1,5 @@
 """
-Contextual chunks for Module 5 (RAG Systems), Lesson 8.
+Contextual chunks for Module 5 (RAG Systems), Lesson 9.
 
 Two new versions of every structured-200 chunk, built by scripts/rag_context.py:
 - "structured-200-headers": each chunk's section path (document title down) prepended.

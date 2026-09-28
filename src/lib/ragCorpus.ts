@@ -456,9 +456,9 @@ export const RAG_BGE_ALL_DATA = [
 ];
 
 /**
- * Module 5 Lesson 5 concept 2 terms (keywords as a list that keeps
+ * Module 5 Lesson 6 concept 2 terms (keywords as a list that keeps
  * repeats), shown verbatim on that page (keep the two byte-identical).
- * Joins the Lesson 5 setup from concept 2 on: append after MEANING_SEARCH.
+ * Joins the Lesson 6 setup from concept 2 on: append after MEANING_SEARCH.
  */
 export const TERMS = String.raw`
 def terms(text: str) -> list[str]:
@@ -468,7 +468,7 @@ def terms(text: str) -> list[str]:
 `;
 
 /**
- * Module 5 Lesson 5 concept 2 graded exercise, reference solution
+ * Module 5 Lesson 6 concept 2 graded exercise, reference solution
  * verbatim (BM25Index). Joins the setup for every page AFTER concept 2
  * (append after TERMS) and must never load on concept 2 itself, or the
  * exercise would start already solved.
@@ -515,9 +515,9 @@ class BM25Index:
 `;
 
 /**
- * Module 5 Lesson 6 concept 1 precomputed cross-encoder scores (RERANK,
+ * Module 5 Lesson 7 concept 1 precomputed cross-encoder scores (RERANK,
  * CrossEncoderScores), shown verbatim on that page (keep the two
- * byte-identical). Lesson 6 setup is Lesson 5 recap lib.py (... +
+ * byte-identical). Lesson 7 setup is Lesson 6 recap lib.py (... +
  * TERMS + BM25_INDEX) followed by this. Uses text_key and base64 from
  * VECTORS.
  */
@@ -542,14 +542,14 @@ class CrossEncoderScores:
         return float(self._matrix[self._rows[query_id], self._columns[text_key(chunk["text"])]])
 `;
 
-/** RAG_BGE_DATA plus the ms-marco-MiniLM-L6-v2 cross-encoder scores (Lesson 6 onwards). */
+/** RAG_BGE_DATA plus the ms-marco-MiniLM-L6-v2 cross-encoder scores (Lesson 7 onwards). */
 export const RAG_RERANK_DATA = [
   ...RAG_BGE_DATA,
   "rag/rerank/ms-marco-MiniLM-L6-v2/structured-200.json",
 ];
 
 /**
- * Module 5 Lesson 6 concept 3 graded exercise, reference solution
+ * Module 5 Lesson 7 concept 3 graded exercise, reference solution
  * verbatim (rerank). Joins the setup for every page AFTER concept 3
  * (append after RERANK_SCORES) and must never load on concept 3 itself,
  * or the exercise would start already solved.
@@ -572,9 +572,9 @@ def rerank(search, cross_encoder, queries: list[dict], depth: int = 30):
 `;
 
 /**
- * Module 5 Lesson 6 concept 4 listwise reranking helpers (rerank_prompt,
+ * Module 5 Lesson 7 concept 4 listwise reranking helpers (rerank_prompt,
  * parse_ranking), shown verbatim on that page (keep the two
- * byte-identical). Joins the Lesson 6 setup from concept 4 on: append
+ * byte-identical). Joins the Lesson 7 setup from concept 4 on: append
  * after RERANK.
  */
 export const LISTWISE_RERANK = String.raw`
@@ -599,10 +599,10 @@ def parse_ranking(reply: str, count: int) -> list[int]:
 `;
 
 /**
- * Module 5 Lesson 7 concept 1 pipeline and variant loaders
+ * Module 5 Lesson 8 concept 1 pipeline and variant loaders
  * (load_query_variants, variant_vectors, rrf, ModulePipeline), shown
- * verbatim on that page (keep the two byte-identical). Lesson 7 setup is
- * Lesson 6 recap lib.py (... + RERANK_SCORES + RERANK + LISTWISE_RERANK),
+ * verbatim on that page (keep the two byte-identical). Lesson 8 setup is
+ * Lesson 7 recap lib.py (... + RERANK_SCORES + RERANK + LISTWISE_RERANK),
  * then this, then REWRITE_QUERY.
  */
 export const MODULE_PIPELINE = String.raw`
@@ -620,7 +620,7 @@ def variant_vectors() -> dict[str, np.ndarray]:
     return dict(zip(stored["keys"], _unpack(stored["vectors"], stored["dim"])))
 
 def rrf(rankings: list[list[dict]], k: int = 60) -> list[dict]:
-    """Reciprocal Rank Fusion of several rankings, as in Lesson 5."""
+    """Reciprocal Rank Fusion of several rankings, as in Lesson 6."""
     scores, found = defaultdict(float), {}
     for ranking in rankings:
         for rank, chunk in enumerate(ranking, 1):
@@ -644,7 +644,7 @@ class ModulePipeline:
         return sorted(candidates, key=score, reverse=True)[:k]
 `;
 
-/** Module 5 Lesson 7 concept 1 rewrite_query, shown verbatim on that page. Append after MODULE_PIPELINE. */
+/** Module 5 Lesson 8 concept 1 rewrite_query, shown verbatim on that page. Append after MODULE_PIPELINE. */
 export const REWRITE_QUERY = String.raw`
 def rewrite_query(client, prompt: str, question: str, history: list[dict] = ()) -> str:
     """Ask the model for a standalone search query, given the question and any conversation before it."""
@@ -654,7 +654,7 @@ def rewrite_query(client, prompt: str, question: str, history: list[dict] = ()) 
     return "".join(block.text for block in response.content if block.type == "text").strip()
 `;
 
-/** RAG_RERANK_DATA plus the model-written query variants, their embeddings and their cross-encoder scores (Lesson 7 onwards). */
+/** RAG_RERANK_DATA plus the model-written query variants, their embeddings and their cross-encoder scores (Lesson 8 onwards). */
 export const RAG_VARIANTS_DATA = [
   ...RAG_RERANK_DATA,
   "rag/query-variants.json",
@@ -663,8 +663,8 @@ export const RAG_VARIANTS_DATA = [
 ];
 
 /**
- * Module 5 Lesson 7 concept 3 split_query, shown verbatim on that page
- * (keep the two byte-identical). Joins the Lesson 7 setup from concept 3
+ * Module 5 Lesson 8 concept 3 split_query, shown verbatim on that page
+ * (keep the two byte-identical). Joins the Lesson 8 setup from concept 3
  * on: append after REWRITE_QUERY.
  */
 export const SPLIT_QUERY = String.raw`
@@ -681,7 +681,7 @@ def split_query(client, prompt: str, question: str) -> list[str]:
 `;
 
 /**
- * Module 5 Lesson 7 concept 3 graded exercise, reference solution
+ * Module 5 Lesson 8 concept 3 graded exercise, reference solution
  * verbatim (interleave). Joins the setup for every page AFTER concept 3
  * (append after SPLIT_QUERY) and must never load on concept 3 itself, or
  * the exercise would start already solved.
@@ -704,8 +704,8 @@ def interleave(result_lists: list[list[dict]], k: int) -> list[dict]:
 `;
 
 /**
- * Module 5 Lesson 7 concept 4 hypothetical_document (HyDE), shown
- * verbatim on that page (keep the two byte-identical). Joins the Lesson 7
+ * Module 5 Lesson 8 concept 4 hypothetical_document (HyDE), shown
+ * verbatim on that page (keep the two byte-identical). Joins the Lesson 8
  * setup from concept 4 on: append after INTERLEAVE.
  */
 export const HYDE = String.raw`
@@ -718,10 +718,10 @@ def hypothetical_document(client, prompt: str, question: str, history: list[dict
 `;
 
 /**
- * Module 5 Lesson 8 concept 1 with_header, shown verbatim on that page
+ * Module 5 Lesson 9 concept 1 with_header, shown verbatim on that page
  * (keep the two byte-identical, and identical to scripts/rag_context.py:
  * the stored vectors and scores are looked up by a hash of its output).
- * Lesson 8 setup is Lesson 7 recap lib.py (... + INTERLEAVE + HYDE),
+ * Lesson 9 setup is Lesson 8 recap lib.py (... + INTERLEAVE + HYDE),
  * then this, then VERSIONED_PIPELINE.
  */
 export const WITH_HEADER = String.raw`
@@ -730,7 +730,7 @@ def with_header(chunk: dict) -> dict:
     return {**chunk, "text": f"{chunk['section']}\n\n{chunk['text']}"}
 `;
 
-/** Module 5 Lesson 8 concept 1 VersionedPipeline, shown verbatim on that page. Append after WITH_HEADER. */
+/** Module 5 Lesson 9 concept 1 VersionedPipeline, shown verbatim on that page. Append after WITH_HEADER. */
 export const VERSIONED_PIPELINE = String.raw`
 class VersionedPipeline(ModulePipeline):
     """The module's pipeline over another version of the chunks, using that version's stored vectors."""
@@ -742,7 +742,7 @@ class VersionedPipeline(ModulePipeline):
         self.meaning.add(chunks, vectors_for(chunks, chunking=chunking))
 `;
 
-/** RAG_VARIANTS_DATA plus the chunk contexts, and vectors and cross-encoder scores for the headers and contextual chunk versions (Lesson 8 onwards). */
+/** RAG_VARIANTS_DATA plus the chunk contexts, and vectors and cross-encoder scores for the headers and contextual chunk versions (Lesson 9 onwards). */
 export const RAG_CONTEXTUAL_DATA = [
   ...RAG_VARIANTS_DATA,
   "rag/chunk-contexts.json",
@@ -753,9 +753,9 @@ export const RAG_CONTEXTUAL_DATA = [
 ];
 
 /**
- * Module 5 Lesson 8 concept 2 with_context and situate_chunk, shown
+ * Module 5 Lesson 9 concept 2 with_context and situate_chunk, shown
  * verbatim on that page (keep them byte-identical; with_context must also
- * match scripts/rag_context.py). Joins the Lesson 8 setup from concept 2
+ * match scripts/rag_context.py). Joins the Lesson 9 setup from concept 2
  * on: append after VERSIONED_PIPELINE.
  */
 export const WITH_CONTEXT = String.raw`
@@ -773,7 +773,7 @@ def situate_chunk(client, prompt: str, document: dict, chunk: dict) -> str:
     return "".join(block.text for block in response.content if block.type == "text").strip()
 `;
 
-/** RAG_CONTEXTUAL_DATA plus bge-small vectors for structured 100-token chunks and fixed 200-token windows (Lesson 8 concept 3 onwards). */
+/** RAG_CONTEXTUAL_DATA plus bge-small vectors for structured 100-token chunks and fixed 200-token windows (Lesson 9 concept 3 onwards). */
 export const RAG_EXPANSION_DATA = [
   ...RAG_CONTEXTUAL_DATA,
   "rag/embeddings/bge-small-en-v1.5/structured-100.json",
@@ -781,7 +781,7 @@ export const RAG_EXPANSION_DATA = [
 ];
 
 /**
- * Module 5 Lesson 8 concept 3 graded exercise, reference solution
+ * Module 5 Lesson 9 concept 3 graded exercise, reference solution
  * verbatim (expand_neighbours). Joins the setup for every page AFTER
  * concept 3 (append after WITH_CONTEXT) and must never load on concept 3
  * itself, or the exercise would start already solved.
@@ -806,14 +806,14 @@ def expand_neighbours(results: list[dict], by_position: dict, window: int, budge
 `;
 
 /**
- * Module 5 Lesson 9 concept 1 AnswerRetriever, shown verbatim on that page
- * (keep the two byte-identical). Lesson 9 setup is Lesson 8 recap lib.py
+ * Module 5 Lesson 10 concept 1 AnswerRetriever, shown verbatim on that page
+ * (keep the two byte-identical). Lesson 10 setup is Lesson 9 recap lib.py
  * (... + WITH_CONTEXT + EXPAND_NEIGHBOURS), then this, then
  * ANSWER_INSTRUCTIONS; data RAG_EXPANSION_DATA.
  */
 export const ANSWER_RETRIEVER = String.raw`
 class AnswerRetriever:
-    """Lesson 8's best retrieval, handing back source text: the contextual index, reranked,
+    """Lesson 9's best retrieval, handing back source text: the contextual index, reranked,
     each result replaced by its original chunk with the reranker's score attached."""
 
     def __init__(self):
@@ -832,7 +832,7 @@ class AnswerRetriever:
                 for r in results]
 `;
 
-/** Module 5 Lesson 9 concept 1 ANSWER_INSTRUCTIONS, shown verbatim on that page. Append after ANSWER_RETRIEVER. */
+/** Module 5 Lesson 10 concept 1 ANSWER_INSTRUCTIONS, shown verbatim on that page. Append after ANSWER_RETRIEVER. */
 export const ANSWER_INSTRUCTIONS = String.raw`
 ANSWER_INSTRUCTIONS = """You answer questions about the company's agent platform using only the sources provided with each question.
 
@@ -844,7 +844,7 @@ ANSWER_INSTRUCTIONS = """You answer questions about the company's agent platform
 `;
 
 /**
- * Module 5 Lesson 9 concept 1 graded exercise, reference solution
+ * Module 5 Lesson 10 concept 1 graded exercise, reference solution
  * verbatim (format_source, assemble_request). Joins the setup for every
  * page AFTER concept 1 (append after ANSWER_INSTRUCTIONS) and must never
  * load on concept 1 itself, or the exercise would start already solved.
@@ -873,8 +873,8 @@ def assemble_request(question: str, chunks: list[dict], budget: int = 1500) -> d
 `;
 
 /**
- * Module 5 Lesson 9 concept 2 CITATION and check_citations, shown verbatim
- * on that page (keep the two byte-identical). Joins the Lesson 9 setup from
+ * Module 5 Lesson 10 concept 2 CITATION and check_citations, shown verbatim
+ * on that page (keep the two byte-identical). Joins the Lesson 10 setup from
  * concept 2 on: append after ASSEMBLE_REQUEST.
  */
 export const CHECK_CITATIONS = String.raw`
@@ -896,8 +896,8 @@ def check_citations(answer: str, sources: dict) -> dict:
 `;
 
 /**
- * Module 5 Lesson 9 concept 3 DECLINE and declined, shown verbatim on that
- * page (keep the two byte-identical). Joins the Lesson 9 setup from
+ * Module 5 Lesson 10 concept 3 DECLINE and declined, shown verbatim on that
+ * page (keep the two byte-identical). Joins the Lesson 10 setup from
  * concept 3 on: append after CHECK_CITATIONS.
  */
 export const DECLINED = String.raw`

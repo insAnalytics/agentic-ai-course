@@ -1,0 +1,351 @@
+---
+title: "Returning more than was matched"
+lesson: "09-contextual-chunks"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { COUNT_TOKENS } from "../../../../lib/fakeClient";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, SIGN_TEST, FIXED_CHUNKS, STRUCTURE_HELPERS, STRUCTURED_CHUNKS, WITHIN_BUDGET, VECTORS, VECTOR_INDEX, MEANING_SEARCH, TERMS, BM25_INDEX, RERANK_SCORES, RERANK, LISTWISE_RERANK, MODULE_PIPELINE, REWRITE_QUERY, SPLIT_QUERY, INTERLEAVE, HYDE, WITH_HEADER, VERSIONED_PIPELINE, WITH_CONTEXT, EXPAND_NEIGHBOURS, RAG_EXPANSION_DATA } from "../../../../lib/ragCorpus";
+
+export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION + METRICS + SIGN_TEST + FIXED_CHUNKS + STRUCTURE_HELPERS + STRUCTURED_CHUNKS + WITHIN_BUDGET + VECTORS + VECTOR_INDEX + MEANING_SEARCH + TERMS + BM25_INDEX + RERANK_SCORES + RERANK + LISTWISE_RERANK + MODULE_PIPELINE + REWRITE_QUERY + SPLIT_QUERY + INTERLEAVE + HYDE + WITH_HEADER + VERSIONED_PIPELINE + WITH_CONTEXT;
+
+export const NEIGHBOUR_DEMO = String.raw`query = next(q for q in load_queries()["main"] if q["id"] == "q05")
+small = [c for d in load_documents() for c in structured_chunks(d, 100)]
+lookup = {(c["doc_id"], c["chunk"]): c for c in small}
+meaning = VectorIndex()
+meaning.add(small, vectors_for(small, chunking="structured-100"))
+
+hit = meaning.search(query_vectors()["q05"], 1)[0]
+print(f"{query['query']}\ntop 100-token chunk: {hit['doc_id']} #{hit['chunk']}\n")
+for number in (hit["chunk"] - 1, hit["chunk"], hit["chunk"] + 1):
+    neighbour = lookup[(hit["doc_id"], number)]
+    marker = "*" if is_relevant_to_query(neighbour, query) else " "
+    print(f"{marker} #{number}  {neighbour['section'].split(' > ')[-1]}: {neighbour['text'].split(chr(10))[2][:60]}...")
+`;
+
+export const PARENTS_DEMO = String.raw`queries = [q for q in load_queries()["main"] if q["evidence"]]
+documents, question_vectors = load_documents(), query_vectors()
+
+def first_stage(chunks: list[dict], chunking: str):
+    """The hybrid first stage over a set of chunks: BM25 and search by meaning, fused."""
+    bm25, meaning = BM25Index(), VectorIndex()
+    bm25.add(chunks)
+    meaning.add(chunks, vectors_for(chunks, chunking=chunking))
+    return lambda q: rrf([bm25.search(q["query"], 100), meaning.search(question_vectors[q["id"]], 100)])
+
+def within(chunks: list[dict], budget: int) -> list[dict]:
+    kept, used = [], 0
+    for c in chunks:
+        if used + count_tokens(c["text"]) > budget:
+            break
+        kept.append(c)
+        used += count_tokens(c["text"])
+    return kept
+
+small = [c for d in documents for c in structured_chunks(d, 100)]
+sections = defaultdict(list)
+for c in small:
+    sections[(c["doc_id"], c["section"])].append(c)
+
+def with_parents(results: list[dict]) -> list[dict]:
+    """Each result replaced by every small chunk of its section, the section's first appearance only."""
+    parents, seen = [], set()
+    for result in results:
+        key = (result["doc_id"], result["section"])
+        if key not in seen:
+            seen.add(key)
+            parents.extend(sections[key])
+    return parents
+
+searches = {"200-token chunks": first_stage([c for d in documents for c in structured_chunks(d, 200)], "structured-200"),
+            "100-token chunks": first_stage(small, "structured-100")}
+print(f"{'':<34}{'500':>6}{'1,000':>7}{'2,000':>7}   (answered within the token budget)")
+rows = [("200-token chunks", searches["200-token chunks"], lambda r: r),
+        ("100-token chunks", searches["100-token chunks"], lambda r: r),
+        ("100-token chunks, whole sections", searches["100-token chunks"], with_parents)]
+for label, search, expand in rows:
+    counts = [sum(answerable(within(expand(search(q)), b), q) for q in queries) for b in (500, 1000, 2000)]
+    print(f"{label:<34}" + "".join(f"{n:>{w}}" for n, w in zip(counts, (6, 7, 7))))
+`;
+
+export const WINDOWS_DEMO = String.raw`contexts = json.loads((DATA / "chunk-contexts.json").read_text())["contexts"]
+queries = [q for q in load_queries()["main"] if q["evidence"]]
+documents, question_vectors = load_documents(), query_vectors()
+
+def first_stage(chunks: list[dict], chunking: str):
+    """The hybrid first stage over a set of chunks: BM25 and search by meaning, fused."""
+    bm25, meaning = BM25Index(), VectorIndex()
+    bm25.add(chunks)
+    meaning.add(chunks, vectors_for(chunks, chunking=chunking))
+    return lambda q: rrf([bm25.search(q["query"], 100), meaning.search(question_vectors[q["id"]], 100)])
+
+def within(chunks: list[dict], budget: int) -> list[dict]:
+    kept, used = [], 0
+    for c in chunks:
+        if used + count_tokens(c["text"]) > budget:
+            break
+        kept.append(c)
+        used += count_tokens(c["text"])
+    return kept
+
+def whole_quotes(results: list[dict], query: dict) -> bool:
+    """Stricter than answerable: some chunk must contain each group's whole quote, not just half of it."""
+    return all(any(c["doc_id"] == s["doc_id"] and normalize(s["quote"]) in normalize(c["text"])
+                   for c in results for s in group) for group in query["evidence"])
+
+searches = {
+    "structured, plain": first_stage([c for d in documents for c in structured_chunks(d, 200)], "structured-200"),
+    "structured, contexts": first_stage([with_context(c, contexts) for d in documents
+                                         for c in structured_chunks(d, 200)], "structured-200-contextual"),
+    # fixed windows have no chunk numbers of their own, so number them by position
+    "fixed windows": first_stage([{**c, "chunk": n} for d in documents for n, c in enumerate(fixed_chunks(d, 200))],
+                                 "fixed-200"),
+}
+print(f"{'':<22}{'1,000 tokens':>18}{'3,000 tokens':>18}   (half a quote / whole quote)")
+for label, search in searches.items():
+    cells = []
+    for budget in (1000, 3000):
+        found = [within(search(q), budget) for q in queries]
+        half = sum(answerable(r, q) for r, q in zip(found, queries))
+        whole = sum(whole_quotes(r, q) for r, q in zip(found, queries))
+        cells.append(f"{half} / {whole}")
+    print(f"{label:<22}" + "".join(f"{cell:>18}" for cell in cells))
+`;
+
+export const STARTER = String.raw`def expand_neighbours(results: list[dict], by_position: dict, window: int, budget: int) -> list[dict]:
+    """Each ranked result with the chunks up to ${"`"}window${"`"} places either side of it in its document,
+    in document order, skipping repeats, until the next chunk would take the total over ${"`"}budget${"`"} tokens."""
+    # TODO
+    ...
+`;
+
+export const FIXTURES = String.raw`
+def chunk(doc_id, number, tokens):
+    return {"doc_id": doc_id, "chunk": number, "section": "s", "text": "x" * (4 * tokens)}
+DOC = [chunk("D01", n, 10) for n in range(5)]
+OTHER = [chunk("D02", n, 10) for n in range(3)]
+BIG, SMALL = chunk("D03", 0, 50), chunk("D04", 0, 5)
+BY_POSITION = {(c["doc_id"], c["chunk"]): c for c in DOC + OTHER + [BIG, SMALL]}
+ids = lambda chunks: [(c["doc_id"], c["chunk"]) for c in chunks]
+`;
+
+export const CORPUS_FIXTURES = String.raw`
+queries = [q for q in load_queries()["main"] if q["evidence"]]
+documents, question_vectors = load_documents(), query_vectors()
+def first_stage(chunks, chunking):
+    bm25, meaning = BM25Index(), VectorIndex()
+    bm25.add(chunks)
+    meaning.add(chunks, vectors_for(chunks, chunking=chunking))
+    return lambda q: rrf([bm25.search(q["query"], 100), meaning.search(question_vectors[q["id"]], 100)])
+def within(chunks, budget):
+    kept, used = [], 0
+    for c in chunks:
+        if used + count_tokens(c["text"]) > budget:
+            break
+        kept.append(c)
+        used += count_tokens(c["text"])
+    return kept
+`;
+
+export const TESTS = [
+  FIXTURES + String.raw`
+# 1. each result brings its neighbours, in document order
+expanded = expand_neighbours([DOC[2]], BY_POSITION, window=1, budget=100)
+assert isinstance(expanded, list), f"expand_neighbours should return a list; got {expanded!r}"
+assert ids(expanded) == [("D01", 1), ("D01", 2), ("D01", 3)], \
+    f"the chunks either side of a result, in document order; got {ids(expanded)}"
+assert ids(expand_neighbours([DOC[2]], BY_POSITION, window=0, budget=100)) == [("D01", 2)], "window 0 is the result alone"
+assert expanded == DOC[1:4], "return the chunks themselves, unchanged"
+`,
+  FIXTURES + String.raw`
+# 2. results are taken in rank order, and repeats are skipped
+expanded = expand_neighbours([DOC[3], OTHER[0], DOC[2]], BY_POSITION, window=1, budget=100)
+assert ids(expanded) == [("D01", 2), ("D01", 3), ("D01", 4), ("D02", 0), ("D02", 1), ("D01", 1)], \
+    f"expand results in rank order, skipping chunks already taken; got {ids(expanded)}"
+`,
+  FIXTURES + String.raw`
+# 3. document edges, and positions that don't exist, are skipped
+assert ids(expand_neighbours([DOC[0]], BY_POSITION, window=2, budget=100)) == [("D01", 0), ("D01", 1), ("D01", 2)]
+assert ids(expand_neighbours([OTHER[2]], BY_POSITION, window=1, budget=100)) == [("D02", 1), ("D02", 2)]
+`,
+  FIXTURES + String.raw`
+# 4. the budget stops everything at the first chunk that won't fit
+expanded = expand_neighbours([DOC[2], OTHER[1]], BY_POSITION, window=1, budget=45)
+assert ids(expanded) == [("D01", 1), ("D01", 2), ("D01", 3), ("D02", 0)], \
+    f"stop at the first chunk that would go over the budget; got {ids(expanded)}"
+assert ids(expand_neighbours([DOC[2]], BY_POSITION, window=1, budget=30)) == [("D01", 1), ("D01", 2), ("D01", 3)], \
+    "a chunk that brings the total exactly to the budget still fits"
+assert expand_neighbours([DOC[2]], BY_POSITION, window=1, budget=5) == [], "nothing fits in 5 tokens"
+assert expand_neighbours([BIG, SMALL], BY_POSITION, window=0, budget=20) == [], \
+    "stop at the first chunk that doesn't fit, rather than skipping it and taking a smaller one later"
+assert "rank" not in DOC[2] and len(DOC[2]["text"]) == 40, "expand_neighbours shouldn't change the chunks"
+`,
+  CORPUS_FIXTURES + String.raw`
+# 5. the real corpus: 100-token chunks from the hybrid first stage, at equal budgets
+small = [c for d in documents for c in structured_chunks(d, 100)]
+search_small = first_stage(small, "structured-100")
+lookup = {(c["doc_id"], c["chunk"]): c for c in small}
+for budget, plain, with_neighbours in [(500, 26, 26), (1000, 28, 29), (2000, 31, 32)]:
+    got = (sum(answerable(within(search_small(q), budget), q) for q in queries),
+           sum(answerable(expand_neighbours(search_small(q), lookup, 1, budget), q) for q in queries))
+    assert got == (plain, with_neighbours), f"at {budget} tokens, expected {(plain, with_neighbours)}; got {got}"
+`,
+  CORPUS_FIXTURES + String.raw`
+# 6. fixed windows, which cut sentences, numbered by position so neighbours can be found
+windows = [{**c, "chunk": n} for d in documents for n, c in enumerate(fixed_chunks(d, 200))]
+search_windows = first_stage(windows, "fixed-200")
+lookup = {(c["doc_id"], c["chunk"]): c for c in windows}
+for budget, plain, with_neighbours in [(500, 27, 22), (2000, 33, 35)]:
+    got = (sum(answerable(within(search_windows(q), budget), q) for q in queries),
+           sum(answerable(expand_neighbours(search_windows(q), lookup, 1, budget), q) for q in queries))
+    assert got == (plain, with_neighbours), f"fixed windows at {budget} tokens, expected {(plain, with_neighbours)}; got {got}"
+`,
+];
+
+<Subsection title="Small to find, big to read" variant="a">
+
+The previous two concepts added context to each chunk *before* searching.
+There's a second family of fixes that works *after*: search with small,
+precise chunks, which match a question sharply, then hand the model
+something bigger around each match. It goes by names like small-to-big or
+parent-document retrieval, and comes in two common forms:
+
+- **Neighbours.** Return each matched chunk with the chunks just before and
+  after it in its document. This is what Lesson 3's chunk numbers were
+  for: `(doc_id, chunk)` names a position, so the chunks either side are one
+  lookup away.
+- **Parents.** Return the whole section a matched chunk belongs to.
+
+Here's the kind of case it's meant for, with 100-token chunks. An asterisk
+marks a chunk that answers the question:
+
+<LiveDemo client:load dataFiles={RAG_EXPANSION_DATA} setupCode={SETUP} code={NEIGHBOUR_DEMO} />
+
+The best match is step 1 of the key-rotation runbook, about issuing a new
+key. The answer, that an exposed key is rotated first and investigated
+second, is in the chunk just before it. Returning the neighbours would have
+included it.
+
+</Subsection>
+
+<Subsection title="At an equal budget" variant="b">
+
+Returning more text always finds more answers, if cost is ignored, so the
+only fair comparison is the one Lesson 3 set up: the same token budget for
+every approach. Here are the module's 200-token chunks, 100-token chunks,
+and 100-token chunks expanded to their whole sections, through the hybrid
+first stage. It builds two first stages over the whole corpus, so allow
+twenty seconds or so:
+
+<LiveDemo client:load dataFiles={RAG_EXPANSION_DATA} setupCode={SETUP} code={PARENTS_DEMO} />
+
+Small chunks alone do exactly as well as 200-token chunks at every budget,
+and expanding them to whole sections does *worse*. The reason is the budget
+itself. Every token spent on a matched chunk's surroundings is a token not
+spent on the next-best match, and the next match is often worth more. The
+structured chunker also already keeps sections together wherever it can, so
+a "parent" is often much of what a 200-token chunk already was. Whether
+neighbours, a smaller expansion than whole sections, do any better is this
+concept's exercise.
+
+</Subsection>
+
+<Subsection title="Fixed windows, and a caution about our own measure" variant="a">
+
+One more comparison, because it tests this whole lesson's premise. Fixed
+windows, Lesson 3's blind cut every 200 tokens, ignore headings, so the
+first window of each document contains its title and its first section
+together. That's a crude, automatic form of context. Here they are against
+the structured chunks with and without the model-written contexts, counted
+two ways. This one builds three first stages, so again allow ten seconds or
+more:
+
+<LiveDemo client:load dataFiles={RAG_EXPANSION_DATA} setupCode={SETUP} code={WINDOWS_DEMO} />
+
+Counted with Lesson 2's rule, where a chunk holding at least half of a quote
+counts as relevant, fixed windows come out on top. But that rule was
+designed to survive re-chunking, and it's lenient in exactly the way fixed
+windows exploit: a window that cut a sentence in half still holds half of
+it. Counted strictly, with the whole quote in one chunk, their lead mostly
+disappears: one question ahead at 1,000 tokens, level at 3,000. Structured
+chunks with contexts get there without cutting a sentence.
+
+Two things to take from that. First, the context fixed windows carry by
+accident is real, and it's the same thing headers and contexts supply on
+purpose. Second, every measure has a bias, and a technique can win by
+fitting the measure rather than the need. Checking the result with a
+stricter count is how you tell the difference.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "What's the idea behind small-to-big retrieval?",
+    "options": [
+      "Match with small, precise chunks, then give the model a larger unit around each match",
+      "Embed small chunks with a small model and large ones with a large model",
+      "Retrieve large chunks first, then cut them down to the matching sentence",
+      "Grow the chunk size until the question is answered"
+    ],
+    "correctIndex": 0,
+    "explanation": "Small chunks match a question sharply; larger units give the model the surrounding context it needs to answer. The two jobs use different sizes."
+  },
+  {
+    "question": "At equal token budgets, expanding 100-token matches to their whole sections answered fewer questions. Why?",
+    "options": [
+      "Budget spent on a match's surroundings isn't spent on the next-best matches",
+      "Whole sections are too long for the embedding model",
+      "The reranker can't score expanded sections",
+      "Sections contain duplicate text, which the budget counts twice"
+    ],
+    "correctIndex": 0,
+    "explanation": "A budget is a fixed number of tokens. Filling it with the top few matches' sections leaves no room for the fourth or fifth match, and on this corpus those later matches were often worth more."
+  },
+  {
+    "question": "Why do fixed windows score higher under Lesson 2's half-quote rule than under a whole-quote count?",
+    "options": [
+      "A window that cuts a sentence in half still holds half of it, which the lenient rule accepts",
+      "Fixed windows are always longer than structured chunks",
+      "The whole-quote count ignores chunks from vendor documents",
+      "Fixed windows repeat each quote in two chunks"
+    ],
+    "correctIndex": 0,
+    "explanation": "The half-quote rule lets labels survive re-chunking, and it can't tell a complete answer from half of one. A stricter count shows how much of a chunking's score is fragments."
+  },
+  {
+    "question": "Fixed windows found some out-of-context answers that plain structured chunks missed. What were they carrying?",
+    "options": [
+      "The document's title and first section in the same window, a crude form of context",
+      "Model-written contexts added during indexing",
+      "The questions' identifiers, copied in by the chunker",
+      "Neighbouring chunks, added by expansion"
+    ],
+    "correctIndex": 0,
+    "explanation": "A blind cut ignores headings, so the first window of a report includes its title, and its incident id. Headers and contexts supply that deliberately, without cutting sentences."
+  }
+]}
+/>
+
+<GradedExercise
+  client:load
+  task={"Write expand_neighbours(results, by_position, window, budget). results is a ranked list of chunks; by_position maps (doc_id, chunk) to every chunk in the index. Go through the results in rank order, and for each one take the chunks from window places before it to window places after it in the same document, in document order. Skip positions that don't exist (the start or end of a document) and chunks already taken. Keep a running total of count_tokens of the chunks taken. Stop completely at the first chunk that would take the total over budget, even if a smaller chunk later might fit. Return the chunks taken, in the order taken, unchanged."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  namespaceSetup={SETUP}
+  dataFiles={RAG_EXPANSION_DATA}
+  hint={"range(result[\"chunk\"] - window, result[\"chunk\"] + window + 1) gives the positions around a result in document order. Check key in by_position before looking a chunk up, so the edges of a document are skipped rather than raising KeyError. Return as soon as a chunk doesn't fit."}
+  correctAnswer={{
+    code: EXPAND_NEIGHBOURS.trimStart(),
+    explanation: "Stopping at the first chunk that doesn't fit, rather than skipping it, keeps the ranking's priorities: a smaller chunk further down shouldn't jump ahead of a larger, better-ranked one. The real-corpus tests show what neighbours are worth. With 100-token structured chunks, adding one neighbour either side answers 26, 29 and 32 questions within 500, 1,000 and 2,000 tokens, against 26, 28 and 31 without: a question at the larger budgets, within noise. With fixed windows the effect depends on the budget: at 500 tokens, neighbours cost five questions, 22 against 27, because each match now takes three windows' worth of budget; at 2,000 they gain two, 35 against 33, most likely because a sentence cut at a window's edge is completed by its neighbour. That's the pattern for this whole lesson. Expansion repairs what the chunking broke, so it helps most when the chunking breaks things, and a budget decides whether the repair is affordable."
+  }}
+/>
+
+</CheckpointZone>

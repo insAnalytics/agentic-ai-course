@@ -1,4 +1,4 @@
-"""Module 5 Lesson 8's searchable-text builders, identical to the lesson's code.
+"""Module 5 Lesson 9's searchable-text builders, identical to the lesson's code.
 
 Vectors and reranker scores are looked up by a hash of the exact text, so these must
 produce exactly the text the browser builds. If the lesson's functions change, change

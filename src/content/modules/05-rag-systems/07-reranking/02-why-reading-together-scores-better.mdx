@@ -1,0 +1,169 @@
+---
+title: "Why reading together scores better"
+lesson: "07-reranking"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { COUNT_TOKENS } from "../../../../lib/fakeClient";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, SIGN_TEST, FIXED_CHUNKS, STRUCTURE_HELPERS, STRUCTURED_CHUNKS, WITHIN_BUDGET, VECTORS, VECTOR_INDEX, MEANING_SEARCH, TERMS, BM25_INDEX, RERANK_SCORES, RAG_RERANK_DATA } from "../../../../lib/ragCorpus";
+
+export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION + METRICS + SIGN_TEST + FIXED_CHUNKS + STRUCTURE_HELPERS + STRUCTURED_CHUNKS + WITHIN_BUDGET + VECTORS + VECTOR_INDEX + MEANING_SEARCH + TERMS + BM25_INDEX + RERANK_SCORES;
+
+export const SIX_QUESTIONS_DEMO = String.raw`queries = {q["id"]: q for q in load_queries()["main"]}
+chunks = [c for d in load_documents() for c in structured_chunks(d, 200)]
+meaning = meaning_search(chunks, list(queries.values()))
+cross_encoder = CrossEncoderScores()
+
+def first_answer(results: list[dict], query: dict):
+    """The position of the first chunk that answers the query, or None."""
+    return next((rank for rank, c in enumerate(results, 1) if is_relevant_to_query(c, query)), None)
+
+print(f"{'':>5}{'meaning':>9}{'reranked':>10}   (position of the first answering chunk among 30 candidates)")
+for query_id in ["q10", "q43", "q16", "q20", "q08", "q44"]:
+    query = queries[query_id]
+    candidates = meaning(query["query"], 30)
+    reranked = sorted(candidates, key=lambda c: cross_encoder.score(query_id, c), reverse=True)
+    print(f"{query_id:>5}{first_answer(candidates, query):>9}{first_answer(reranked, query):>10}   {query['query']}")
+`;
+
+export const WORSE_DEMO = String.raw`queries = {q["id"]: q for q in load_queries()["main"]}
+chunks = [c for d in load_documents() for c in structured_chunks(d, 200)]
+meaning = meaning_search(chunks, list(queries.values()))
+cross_encoder = CrossEncoderScores()
+query = queries["q08"]
+
+candidates = meaning(query["query"], 30)
+reranked = sorted(candidates, key=lambda c: cross_encoder.score("q08", c), reverse=True)
+print(query["query"])
+for chunk in reranked[:2]:
+    print(f"  {cross_encoder.score('q08', chunk):>6.2f}  {chunk['doc_id']} | {chunk['section'].split(' > ')[-1]}")
+answer = next(c for c in candidates if is_relevant_to_query(c, query))
+print(f"  {cross_encoder.score('q08', answer):>6.2f}  {answer['doc_id']} | {answer['section'].split(' > ')[-1]}  (the answer)")
+print(f"\nthe answer's text: {answer['text'].split(chr(10), 2)[2]}")
+`;
+
+<Subsection title="Compress, then compare" variant="a">
+
+Search by meaning uses what's called a **bi-encoder**: two separate trips
+through the embedding model, one for the question and one for the chunk.
+Each text is turned into its vector alone, without any knowledge of the
+other. The only point where question and chunk meet is the very end, a
+single dot product between two finished vectors.
+
+That design is what makes it fast, since every chunk's vector is computed
+once and reused. It's also its weakness. The chunk's vector had to be made
+before any question existed, so it's a general-purpose summary: 384 numbers
+standing for everything the chunk says. When a question hinges on one
+detail, an exact code or a particular condition, that detail may carry
+little weight in the summary, and chunks that are *about the same topic*
+land close together whether or not they answer.
+
+</Subsection>
+
+<Subsection title="Compare while reading" variant="b">
+
+A **cross-encoder** takes a different approach. The question and the chunk
+are joined into one input and read by the model together, and the output is
+a single relevance score. Inside, this is the attention mechanism from
+[Module 1's attention lesson](/01-llm-foundations/03-attention-and-transformer-architecture/02-the-attention-mechanism/#the-core-idea-a-weighted-combination-of-every-other-token):
+every token can attend to every other token, so every word of the question
+can attend to every word of the chunk. The code `MON-2002` in the question
+can look directly at `MON-2002` in the chunk; the phrase "how long" can look
+for the number of hours. Nothing is summarised in advance, because nothing
+is known in advance.
+
+This module's reranker learned what a good match looks like from a large
+set of real search questions paired with passages people judged relevant.
+Here's what reading together does on six questions, reranking search by
+meaning's top 30 candidates:
+
+<LiveDemo client:load dataFiles={RAG_RERANK_DATA} setupCode={SETUP} code={SIX_QUESTIONS_DEMO} />
+
+On the first four the change is large. "MON-2002" goes from 16th to 1st:
+the code that search by meaning couldn't place, the reranker can simply see
+in both texts. The Alertmanager question goes from 17th to 1st, and the
+runbook's "Revoke it within 24 hours" step rises from 4th to 1st for a
+question about how long two registry keys can stay valid, though the chunk
+never says "registry".
+
+</Subsection>
+
+<Subsection title="Where it gets worse" variant="a">
+
+The last two rows went the other way, and it's worth seeing why:
+
+<LiveDemo client:load dataFiles={RAG_RERANK_DATA} setupCode={SETUP} code={WORSE_DEMO} />
+
+The reranker's favourite is a Prometheus page that says cause-based alerts
+"shouldn't wake anyone up": nearly the question's own words, in a passage
+about alerting philosophy, not about this company's pager. The real answer
+never mentions waking or night. Getting from the question to it takes two
+steps of inference: that "at night" means outside 08:00 to 20:00, and that
+"pages" is what wakes someone. A small reranker, trained mostly on web
+search questions, rewards the close wording and misses the inference. The
+Postgres question fails similarly: its answer talks about the "WAL write
+location" and "lag", not about how far behind a standby is.
+
+So a reranker isn't an oracle. It's a better scorer on average, with
+different blind spots from the first stage. Whether "better on average"
+holds across all the labelled questions, and which first stage gives it the
+best candidates, is the next concept's measurement.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "In a bi-encoder, where does the question first interact with the chunk?",
+    "options": [
+      "Only at the end, in one dot product between two finished vectors",
+      "At the start, where the question is appended to the chunk",
+      "Inside the model's attention layers, token by token",
+      "Nowhere: the chunk's vector is compared with the stored vectors instead"
+    ],
+    "correctIndex": 0,
+    "explanation": "Each text is embedded on its own, so everything the chunk will ever contribute is fixed before any question arrives. That's what makes it fast, and what limits it."
+  },
+  {
+    "question": "Why can a cross-encoder rank \"MON-2002\" first when search by meaning put it 16th?",
+    "options": [
+      "The code in the question can attend directly to the same code in the chunk",
+      "The cross-encoder was trained on this company's error codes",
+      "The cross-encoder searches the whole corpus instead of 30 candidates",
+      "The cross-encoder ignores every word except identifiers"
+    ],
+    "correctIndex": 0,
+    "explanation": "Reading the two texts together lets matching details meet inside the model. In a pre-made vector, a code the model has never seen carries little weight; in a joint reading, the exact match is visible."
+  },
+  {
+    "question": "For \"Which alerts wake someone up at night?\", the reranker preferred a page saying cause-based alerts \"shouldn't wake anyone up\". Why?",
+    "options": [
+      "It rewards close wording, and the real answer needs inference the small model misses",
+      "The real answer was not among the 30 candidates it was given",
+      "The reranker penalises chunks from the company's own wiki",
+      "Cross-encoders can't read times like 08:00"
+    ],
+    "correctIndex": 0,
+    "explanation": "The answer was in the candidates, at 4th. But it says \"outside 08:00 to 20:00, only RegistryUnreachable pages\", which answers the question only after two inferences. The Prometheus page shares the question's words, and the reranker scored that higher."
+  },
+  {
+    "question": "What's the right way to think of a reranker, given both results?",
+    "options": [
+      "A better scorer on average, with blind spots of its own, to be measured",
+      "An oracle that always puts the true answer first",
+      "A replacement for the first stage, once it has been trained",
+      "A tie-breaker that only matters when first-stage scores are equal"
+    ],
+    "correctIndex": 0,
+    "explanation": "It moved four answers sharply up and two down. Its errors differ from the first stage's, so whether the combination helps overall is an empirical question, answered next."
+  }
+]}
+/>
+
+</CheckpointZone>

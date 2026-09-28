@@ -1,0 +1,183 @@
+---
+title: "Citations that point back"
+lesson: "10-grounded-answers"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { COUNT_TOKENS, REACT_FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, SIGN_TEST, FIXED_CHUNKS, STRUCTURE_HELPERS, STRUCTURED_CHUNKS, WITHIN_BUDGET, VECTORS, VECTOR_INDEX, MEANING_SEARCH, TERMS, BM25_INDEX, RERANK_SCORES, RERANK, LISTWISE_RERANK, MODULE_PIPELINE, REWRITE_QUERY, SPLIT_QUERY, INTERLEAVE, HYDE, WITH_HEADER, VERSIONED_PIPELINE, WITH_CONTEXT, EXPAND_NEIGHBOURS, ANSWER_RETRIEVER, ANSWER_INSTRUCTIONS, ASSEMBLE_REQUEST, CHECK_CITATIONS, RAG_EXPANSION_DATA } from "../../../../lib/ragCorpus";
+
+export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION + METRICS + SIGN_TEST + FIXED_CHUNKS + STRUCTURE_HELPERS + STRUCTURED_CHUNKS + WITHIN_BUDGET + VECTORS + VECTOR_INDEX + MEANING_SEARCH + TERMS + BM25_INDEX + RERANK_SCORES + RERANK + LISTWISE_RERANK + MODULE_PIPELINE + REWRITE_QUERY + SPLIT_QUERY + INTERLEAVE + HYDE + WITH_HEADER + VERSIONED_PIPELINE + WITH_CONTEXT + EXPAND_NEIGHBOURS + ANSWER_RETRIEVER + ANSWER_INSTRUCTIONS + ASSEMBLE_REQUEST + CHECK_CITATIONS;
+
+export const SETUP_WITH_CLIENT = SETUP + REACT_FAKE_CLIENT + RECORDING_CLIENT;
+
+export const CHECK_DEMO = String.raw`query = next(q for q in load_queries()["main"] if q["id"] == "q35")
+request = assemble_request(query["query"], AnswerRetriever().search(query, k=5), budget=1500)
+reply = ("Each registry key may make 60 requests per minute [S1]. Requests past the limit get HTTP 429 "
+         "with REG-1009 and a Retry-After header [S1][S3]. The monitoring guide gives 100 requests per minute, "
+         "but it predates v2.4, which lowered the limit to 60 [S4][S2].")
+client = FakeLLMClient([[TextBlock(reply)]])
+# a real client also sends request["system"]; the fake client takes only the messages
+response = client.create(request["messages"])
+answer = "".join(block.text for block in response.content if block.type == "text")
+
+checked = check_citations(answer, request["sources"])
+for statement in checked["statements"]:
+    print(f"{statement['cites']}  {statement['text'][:70]}...")
+print("\nunknown ids:", checked["unknown"], "  uncited statements:", len(checked["uncited"]))
+for source_id, (doc_id, section) in checked["cited"].items():
+    print(f"{source_id} -> {doc_id} | {section}")
+`;
+
+export const PROBLEMS_DEMO = String.raw`query = next(q for q in load_queries()["main"] if q["id"] == "q35")
+request = assemble_request(query["query"], AnswerRetriever().search(query, k=5), budget=1500)
+replies = {
+    "cites a source it wasn't given": "Each key may make 60 requests per minute [S1]. The limit resets every hour [S7].",
+    "leaves a statement uncited": "Each key may make 60 requests per minute [S1]. Most dashboards poll every second.",
+    "cites the wrong source": "Each key may make 60 requests per minute [S3].",
+}
+for problem, reply in replies.items():
+    checked = check_citations(reply, request["sources"])
+    flagged = bool(checked["unknown"] or checked["uncited"])
+    print(f"{problem:<32} unknown {checked['unknown']}, uncited {len(checked['uncited'])}  -> "
+          f"{'flagged' if flagged else 'passes'}")
+print(f"\nS3 is {request['sources']['S3']['section']}:")
+print(request["sources"]["S3"]["text"].splitlines()[4])
+`;
+
+<Subsection title="Citations a program can read" variant="a">
+
+An answer built from retrieved sources is only as trustworthy as the link
+between each statement and where it came from. A citation is that link, and
+this lesson's instructions ask for it in a form code can read: after each
+statement, the id of the source it came from, like `[S2]`. Because
+`assemble_request` recorded which chunk each id stands for, every citation
+can be traced to a document and a section.
+
+Models don't do this perfectly. [Gao and colleagues built
+ALCE](https://arxiv.org/abs/2305.14627), a benchmark that scores answers with
+citations automatically, and found that even the best models they tested
+lacked complete citation support in about half of their answers on one of
+its datasets. So citations are worth asking for, and worth checking.
+
+</Subsection>
+
+<Subsection title="Checking what can be checked" variant="b">
+
+Some things about citations are mechanical, and code can check them every
+time. This is already loaded for every demo and exercise from here to the
+end of this lesson:
+
+```python
+CITATION = re.compile(r"\[(S\d+)\]")
+
+def check_citations(answer: str, sources: dict) -> dict:
+    """What code can check about an answer's citations: which statements cite what, which ids
+    weren't among the sources sent, and which statements cite nothing."""
+    # a sentence ends at . ! or ?, unless a citation follows straight after
+    statements = [s.strip() for s in re.split(r"(?<=[.!?])\s+(?!\[)", answer.strip()) if s.strip()]
+    checked = [{"text": s, "cites": CITATION.findall(s)} for s in statements]
+    cited = {source_id for s in checked for source_id in s["cites"]}
+    return {
+        "statements": checked,
+        "unknown": sorted(cited - sources.keys()),
+        "uncited": [s["text"] for s in checked if not s["cites"]],
+        "cited": {i: (sources[i]["doc_id"], sources[i]["section"]) for i in sorted(cited & sources.keys())},
+    }
+```
+
+It splits the answer into statements, collects each statement's citations,
+and reports two kinds of problem: ids that weren't among the sources sent,
+and statements that cite nothing. It also maps every valid id back to its
+document and section, which is what an interface would show a reader, a
+subject for Module 9. Here it is on a scripted answer to the rate-limit
+question:
+
+<LiveDemo client:load dataFiles={RAG_EXPANSION_DATA} setupCode={SETUP_WITH_CLIENT} code={CHECK_DEMO} />
+
+*The model's reply is scripted to show the mechanics.*
+
+Every statement cites something, every id was sent, and each one resolves
+to a specific place in a specific document.
+
+</Subsection>
+
+<Subsection title="What the checks catch, and what they can't" variant="a">
+
+Here are three answers that go wrong in different ways:
+
+<LiveDemo client:load dataFiles={RAG_EXPANSION_DATA} setupCode={SETUP} code={PROBLEMS_DEMO} />
+
+The first two are caught. An id the model wasn't given is either invented or
+garbled, and a statement with no citation is exactly the kind of statement
+that might have come from the model's general knowledge rather than the
+sources. What to do about them is a design choice: drop the statement, ask
+the model again, or show the answer with a warning.
+
+The third passes both checks and is still wrong. `S3` exists, and the
+statement cites it, but S3 is the error-code table, and it never says 60.
+The number is right; its source isn't. Checking that a cited source actually
+*supports* a statement means reading both and comparing what they say, which
+is a model call or a person, not a regular expression. That's Module 6's
+subject, verification. This lesson's checks are the cheap first layer: they
+make sure every citation points somewhere real, so that verification has
+something to check.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "Why ask for citations like [S2] rather than document names?",
+    "options": [
+      "Each id maps to exactly one chunk that was sent, so code can trace it",
+      "Models can't write document names correctly",
+      "Short citations use fewer output tokens, which is the main reason",
+      "Document names would reveal restricted documents"
+    ],
+    "correctIndex": 0,
+    "explanation": "assemble_request records which chunk each id stands for. A short id in a fixed format can be found by a regular expression and resolved to a document and section."
+  },
+  {
+    "question": "An answer cites [S7], but only five sources were sent. What does that tell you?",
+    "options": [
+      "The citation is invented or garbled, so the statement's source is unknown",
+      "The model found a seventh source on its own",
+      "The seventh source was cut by the token budget, so the citation is fine",
+      "Nothing: citation numbers are approximate"
+    ],
+    "correctIndex": 0,
+    "explanation": "The model saw only S1 to S5. Any other id can't point to anything it was shown, so the statement behind it has no traceable source."
+  },
+  {
+    "question": "What does ALCE's finding suggest about asking models for citations?",
+    "options": [
+      "They're worth asking for and worth checking, since even strong models often leave statements unsupported",
+      "Citations are unreliable, so they shouldn't be requested",
+      "Models cite correctly once they're told to",
+      "Citation quality only matters for long answers"
+    ],
+    "correctIndex": 0,
+    "explanation": "On one of ALCE's datasets, even the best models lacked complete citation support about half the time. Asking for citations makes checking possible; it doesn't make checking unnecessary."
+  },
+  {
+    "question": "A statement cites a real source that doesn't say what the statement says. Why doesn't check_citations catch it?",
+    "options": [
+      "It only checks that ids exist and statements cite something; judging support means comparing meaning",
+      "It only checks the first citation in each statement",
+      "The source was below the reranker's threshold",
+      "Its regular expression doesn't match citations at the end of a sentence"
+    ],
+    "correctIndex": 0,
+    "explanation": "Whether a source supports a claim is a question about what both say. That needs a model or a person, and it's the job of verification in Module 6. The mechanical checks make sure every citation points somewhere real first."
+  }
+]}
+/>
+
+</CheckpointZone>

@@ -1,0 +1,24 @@
+---
+title: "Intro"
+lesson: "07-reranking"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Explain why a reranker reads question and passage together, why that scores better than comparing two separate embeddings, and why it can only ever be a second stage",
+    "Build a two-stage search, choosing the first stage and the reranking depth by measurement, and account for what the second stage costs",
+    "Use a model call as a reranker, with a prompt that treats candidates as data and a parser that treats the reply as untrusted text",
+  ]}
+/>
+
+<WhyItMatters>
+  An agent usually sends only a handful of retrieved chunks to its model, so
+  what matters most is whether the answer is among the first few. Reranking
+  is the most direct way to improve that, and on this module's questions it
+  did: more answers at rank 1 from every first stage. It also adds latency
+  to every question, and its errors are different from the first stage's, so
+  it's a component to measure, not to switch on and forget.
+</WhyItMatters>

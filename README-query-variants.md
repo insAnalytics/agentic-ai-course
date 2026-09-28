@@ -1,4 +1,4 @@
-# Module 5 query variants (Lesson 7): notes for the site build
+# Module 5 query variants (Lesson 8): notes for the site build
 
 ## Run once
 

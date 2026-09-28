@@ -1,5 +1,5 @@
 """
-Real reranker scores for Module 5 (RAG Systems), Lesson 6 onwards.
+Real reranker scores for Module 5 (RAG Systems), Lesson 7 onwards.
 
 Model: cross-encoder/ms-marco-MiniLM-L6-v2, a cross-encoder trained on the
 MS MARCO passage-ranking task (22.7M parameters, free, runs locally). A

@@ -3383,7 +3383,7 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    against both papers. Self-Route's "82% answered by retrieval" is from
    v1's table (81.74%); v2 revised it to 76.78% but kept the abstract's
    "65% cost reduction". Links to both papers were added as a sources
-   line. Forward references to Lessons 7, 9, 10, 11 and 12 are plain prose
+   line. Forward references to Lessons 8, 10, 11, 12 and 13 are plain prose
    until those exist. Concept 4 (the pipeline's two halves) is built:
    indexing vs querying, heading-split sections (`SECTION_SEARCH` in
    `ragCorpus.ts`: `split_sections`, `load_sections`, `keywords` with
@@ -3515,7 +3515,7 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    heading and first paragraph, which never say "registry", checked
    against the corpus); embedding input limits and silent truncation; the
    too-large / too-small trade-off; 4 quiz cards. Forward references to
-   the next lesson and Lesson 8 are plain prose. Shared setup is Lesson 2's
+   the next lesson and Lesson 9 are plain prose. Shared setup is Lesson 2's
    recap `lib.py` in full, via the new `SIGN_TEST` export in
    `ragCorpus.ts`. Concept 2 (fixed-size splitting) is built: the shared
    `fixed_chunks` shown as a static block (byte-identical to the new
@@ -3538,7 +3538,7 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    chunk carries; 4 quiz cards. The mockup's "## Metrics ... in the
    previous concept" (it was concept 1, not 2) now reads "earlier in this
    lesson" and links to concept 1's `#the-corpus-uncut` (anchor
-   verified). Forward references to Lessons 8, 9 and 12 are plain prose.
+   verified). Forward references to Lessons 9, 10 and 13 are plain prose.
    Graded exercise (`pack_blocks`, `structured_chunks`; 5 hidden tests,
    starter and tests checked byte-for-byte against the mockup, the `DOC`
    fixture prepended to each test). Verified with the real `TEST_HARNESS`:
@@ -3669,8 +3669,21 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    Lesson 4 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
 
-5. **Keyword Search and Hybrid Retrieval** — **Locked** (folder
-   `05-hybrid-search`, named while the title was provisional; the title
+5. **Documents that aren't clean text** — **Planned** (inserted on
+   2026-09-28; content comes later, and its folder is created with its first
+   page). Inserting it moved the lessons after it up by one: folders
+   `06-hybrid-search` to `10-grounded-answers`, every Module 5 lesson number
+   of 5 or more in the pages, code and shared files, and the forward
+   references to the planned Lessons 10 to 13, which are now 11 to 14. The
+   recap sandboxes' `lib.py` headers now read "code from this module's
+   earlier lessons", since the new lesson's code won't be in them, and
+   their task text says `lib.py` holds "code from this module's earlier
+   lessons". The mockup folders moved too (`module_mockups/Module 5/Lesson
+   6` to `Lesson 10`); the files inside keep their original names and text.
+   The entries below keep their history as written, renumbered.
+
+6. **Keyword Search and Hybrid Retrieval** — **Locked** (folder
+   `06-hybrid-search`, named while the title was provisional; the title
    comes from the bookends mockup). Shared setup is Lesson 4's
    recap `lib.py`, which is exactly the Lesson 4 page setup (`... + VECTORS
    + VECTOR_INDEX + MEANING_SEARCH`, checked line by line in both
@@ -3735,7 +3748,7 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    the previous concept suggested", which referred to it before it existed.
    Bookends are built: intro (3 outcomes, why it matters) and recap with an
    8-question comprehensive quiz and a multi-file sandbox (`lib.py`
-   read-only, Lessons 1 to 5's code; entry **`fusion.py`**: `fuse`,
+   read-only, Lessons 1 to 6's code; entry **`fusion.py`**: `fuse`,
    weighted RRF over any number of searches returning a search function,
    and `report`, answered counts overall and by type). `lib.py`, starter,
    reference and hidden tests were generated from the mockup and checked
@@ -3752,13 +3765,13 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    score replaces theirs. The explanation's claim checked: weight 0.25
    gains q10 and q43 and loses q08 and q11 against search by meaning.
 
-   Lesson 5 is now **Locked**: all four concepts plus both bookends exist
+   Lesson 6 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
 
-6. **Reranking** — **Locked** (folder `06-reranking`; the title comes
+7. **Reranking** — **Locked** (folder `07-reranking`; the title comes
    from the bookends mockup). Data: the cross-encoder scores committed
    under `public/data/rag/rerank/` (architecture.md §3.1). Shared setup is
-   Lesson 5's recap `lib.py` (checked line by line) plus the new
+   Lesson 6's recap `lib.py` (checked line by line) plus the new
    `RERANK_SCORES`; data `RAG_RERANK_DATA`. Concept 1 (two stages) is
    built: why a reranker can't be precomputed, the two stages; the
    `CrossEncoderScores` block shown as a static block (byte-identical to
@@ -3808,7 +3821,7 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    is untrusted text and the output is only a permutation; 4 quiz cards.
    Bookends are built: intro (3 outcomes, why it matters) and recap with an
    8-question comprehensive quiz and a multi-file sandbox (`lib.py`
-   read-only, Lessons 1 to 6's code; entry **`pipeline.py`**:
+   read-only, Lessons 1 to 7's code; entry **`pipeline.py`**:
    `ModelReranker`, a callable class reranking any search's top `depth`
    with one model call, counting `calls` and `prompt_tokens`; hidden tests
    prefixed with `REACT_FAKE_CLIENT + RECORDING_CLIENT`). `lib.py`,
@@ -3826,21 +3839,21 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    first stage's own dicts returned, k applied before ranking, own prompt,
    the model's order ignored).
 
-   Lesson 6 is now **Locked**: all four concepts plus both bookends exist
+   Lesson 7 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
-   At Lesson 7 concept 1, `CrossEncoderScores` changed from
+   At Lesson 8 concept 1, `CrossEncoderScores` changed from
    `stored["timing"]` to `stored.get("timing")` (with a comment), as that
    mockup asked, in the shared export, concept 1's shown block and the
    recap `lib.py`. Re-verified: concept 1's shown block still equals the
    export, its timing demo prints the same, and the recap reference still
-   passes. The Lesson 6 mockup files weren't edited.
+   passes. The Lesson 7 mockup files weren't edited.
 
-7. **Better Queries** — **Locked** (folder `07-query-transformation`,
+8. **Better Queries** — **Locked** (folder `08-query-transformation`,
    named while the title was provisional; the title comes from the
    bookends mockup).
    Data: the query variants committed under `public/data/rag/`
    (architecture.md §3.1), model-written for the course and replayed
-   through the fake client. Shared setup is Lesson 6's recap `lib.py`
+   through the fake client. Shared setup is Lesson 7's recap `lib.py`
    (checked line by line) plus the new `MODULE_PIPELINE` and
    `REWRITE_QUERY`; data `RAG_VARIANTS_DATA`. Concept 1 (the question as
    asked isn't always the best query) is built: both new blocks shown as
@@ -3920,14 +3933,14 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    through the module so test 4's patch can't replace it). No changes
    from the mockup.
 
-   Lesson 7 is now **Locked**: all four concepts plus both bookends exist
+   Lesson 8 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
 
-8. **Chunks That Lose Their Meaning Out of Context** — **Locked** (folder
-   `08-contextual-chunks`, named while the title was provisional; the
+9. **Chunks That Lose Their Meaning Out of Context** — **Locked** (folder
+   `09-contextual-chunks`, named while the title was provisional; the
    title comes from the bookends mockup). Data: the headers and contextual chunk
    versions committed under `public/data/rag/` (architecture.md §3.1).
-   Shared setup is Lesson 7's recap `lib.py` plus the new `WITH_HEADER`
+   Shared setup is Lesson 8's recap `lib.py` plus the new `WITH_HEADER`
    and `VERSIONED_PIPELINE`; data `RAG_CONTEXTUAL_DATA`. Concept 1 (chunks
    that don't say what they're about) is built: both new blocks shown as
    static blocks (byte-identical to the exports and the mockup); three
@@ -3993,9 +4006,9 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    a retrieved one with what indexing added kept apart and a `ValueError`
    unless the retrieved text ends with the source text, and
    `prompt_chunks`, source chunks expanded with `expand_neighbours`). All
-   four code blocks generated from the mockup; `lib.py` is Lesson 7's recap
-   `lib.py` plus a Lesson 8 section and matches the lesson's setup line for
-   line except the merged `collections` import, as in Lesson 7. Data
+   four code blocks generated from the mockup; `lib.py` is Lesson 8's recap
+   `lib.py` plus a Lesson 9 section and matches the lesson's setup line for
+   line except the merged `collections` import, as in Lesson 8. Data
    `RAG_EXPANSION_DATA`. **Change from the mockup's hidden tests:** test 1
    gains a retrieved chunk carrying a `"score"`, which must not come back,
    because returning the retrieved chunk's fields with the source text
@@ -4012,12 +4025,12 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    intro's figures checked: the contextual pipeline answers 36 in the top
    five and 26 at rank 1, against 32 and 22 plain.
 
-   Lesson 8 is now **Locked**: all three concepts plus both bookends exist
+   Lesson 9 is now **Locked**: all three concepts plus both bookends exist
    and build cleanly.
 
-9. **Answering from Retrieved Context** — **Locked** (folder
-   `09-grounded-answers`, named while the title was provisional; the title
-   comes from the bookends mockup). Shared setup is Lesson 8's recap `lib.py` plus
+10. **Answering from Retrieved Context** — **Locked** (folder
+   `10-grounded-answers`, named while the title was provisional; the title
+   comes from the bookends mockup). Shared setup is Lesson 9's recap `lib.py` plus
    the new `ANSWER_RETRIEVER` and `ANSWER_INSTRUCTIONS`; data
    `RAG_EXPANSION_DATA`. Concept 1 (assembling the request) is built: both
    new blocks shown as static blocks (byte-identical to the exports and the
@@ -4085,7 +4098,7 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    `assemble_request`'s messages, returning "declined" for a decline and
    "answered" with cited sources and flags; hidden tests prefixed with
    `REACT_FAKE_CLIENT + RECORDING_CLIENT`). All four code blocks generated
-   from the mockup; `lib.py` is Lesson 8's recap `lib.py` plus a Lesson 9
+   from the mockup; `lib.py` is Lesson 9's recap `lib.py` plus a Lesson 10
    section and matches the lesson's setup line for line except the merged
    `collections` import. The generator writes `lib.py`'s escape through an
    interpolation, and the built page was checked to keep it as an escape.
@@ -4104,7 +4117,7 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    order, own prompt, the request's sources returned, reply not stripped,
    searching with the question text).
 
-   Lesson 9 is now **Locked**: all four concepts plus both bookends exist
+   Lesson 10 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
 
 ---
