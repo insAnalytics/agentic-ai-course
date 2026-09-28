@@ -3683,7 +3683,29 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    Prometheus; the error table says "Meaning", never "mean"; no keyword in
    more than half the chunks, though the heading marker `##` counts as a
    keyword and is in 939 of 1,968); 4 quiz cards. No new shared code.
-   Concepts 2+ and bookends not yet drafted.
+   Concept 2 (BM25) is built: saturation and length normalisation, two
+   live demos (tf / (k1 + tf) at k1 = 1.2, ten mentions worth 2.0x one;
+   one mention at a quarter, one and four times average length, 0.66 /
+   0.45 / 0.20), both exact matches in real Pyodide; the whole score and
+   parameter ranges from Robertson and Zaragoza (linked); `terms` shown as
+   a static block (byte-identical to the new `TERMS` export, setup from
+   concept 2 on); 4 quiz cards; graded `BM25Index` exercise. **Change
+   from the mockup's hidden tests:** tests 3 and 4 build their own
+   `index` over `SMALL` and test 6 loads its own `queries`, because each
+   test runs in a fresh namespace copy and the mockup's versions borrowed
+   them from tests 1 and 5 (the reference failed all three before the
+   fix). Verified with the real `TEST_HARNESS`: the reference passes (test
+   5: 25 answered, q05 and q09 gained over word overlap, none lost; test 6:
+   17 at b = 0 and 26 at b = 0.75 on heading sections; about 2 s in Node),
+   the starter fails all six, and eleven mutations each fail (statistics
+   over the last batch only, idf without the 0.5s, no length
+   normalisation, linear tf, question repeats counted, zero scores kept,
+   length in distinct words, rounded score, stored chunk mutated, no
+   source check, `keywords` instead of `terms`). The explanation's claim
+   checked: for q09, BM25's top five holds D03's v2.3 changelog entry
+   fourth and not the error table. The reference is the new `BM25_INDEX`
+   export, for pages after concept 2 only. Concepts 3+ and bookends not
+   yet drafted.
 
 ---
 

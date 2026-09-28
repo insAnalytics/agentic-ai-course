@@ -454,3 +454,62 @@ export const RAG_BGE_ALL_DATA = [
   "rag/embeddings/bge-small-en-v1.5/structured-400.json",
   "rag/embeddings/bge-small-en-v1.5/fixed-200.json",
 ];
+
+/**
+ * Module 5 Lesson 5 concept 2 terms (keywords as a list that keeps
+ * repeats), shown verbatim on that page (keep the two byte-identical).
+ * Joins the Lesson 5 setup from concept 2 on: append after MEANING_SEARCH.
+ */
+export const TERMS = String.raw`
+def terms(text: str) -> list[str]:
+    """Like keywords, but a list that keeps repeats, so each word's count in the text is known."""
+    words = text.lower().translate(PUNCTUATION).split()
+    return [word for word in words if len(word) > 1 and word not in STOPWORDS]
+`;
+
+/**
+ * Module 5 Lesson 5 concept 2 graded exercise, reference solution
+ * verbatim (BM25Index). Joins the setup for every page AFTER concept 2
+ * (append after TERMS) and must never load on concept 2 itself, or the
+ * exercise would start already solved.
+ */
+export const BM25_INDEX = String.raw`
+import math
+from collections import Counter
+
+class BM25Index:
+    """Chunks scored by BM25: rarity-weighted matches, saturating with repeats, normalised for length."""
+
+    def __init__(self, k1: float = 1.2, b: float = 0.75):
+        self.k1, self.b = k1, b
+        self._chunks, self._counts = [], []
+        self._idf, self._average_length = {}, 0.0
+
+    def __len__(self) -> int:
+        return len(self._chunks)
+
+    def add(self, chunks: list[dict]) -> None:
+        for chunk in chunks:
+            if not chunk.get("doc_id") or not chunk.get("section"):
+                raise ValueError("every chunk needs a doc_id and a section, so an answer can cite it")
+            self._chunks.append(chunk)
+            self._counts.append(Counter(terms(chunk["text"])))
+        # rarity and average length describe the whole collection, so recompute them after every batch
+        n = len(self._counts)
+        containing = Counter(word for counts in self._counts for word in counts)
+        self._idf = {word: math.log((n - df + 0.5) / (df + 0.5)) for word, df in containing.items()}
+        self._average_length = sum(sum(c.values()) for c in self._counts) / n
+
+    def score(self, question: str, row: int) -> float:
+        counts = self._counts[row]
+        length = sum(counts.values())
+        norm = self.k1 * ((1 - self.b) + self.b * length / self._average_length)
+        return sum(self._idf[word] * counts[word] / (norm + counts[word])
+                   for word in set(terms(question)) if word in counts)
+
+    def search(self, question: str, k: int = 3) -> list[dict]:
+        scored = [(self.score(question, row), row) for row in range(len(self._chunks))]
+        # sorting is stable, so equal scores keep the order the chunks were added in
+        ranked = sorted((pair for pair in scored if pair[0] > 0), key=lambda pair: pair[0], reverse=True)
+        return [{**self._chunks[row], "score": float(score)} for score, row in ranked[:k]]
+`;

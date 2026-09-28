@@ -330,6 +330,12 @@ concept 1 only. From concept 2 on the setup also appends `VECTOR_INDEX` and
 concept 2). `RAG_MINILM_DATA` adds the all-MiniLM-L6-v2 files to
 `RAG_BGE_DATA`, for the demos that compare the two models. `RAG_BGE_ALL_DATA` adds bge-small's `structured-100`, `structured-400`
 and `fixed-200` files, for concept 3's chunk-size comparison.
+Lesson 5's setup is Lesson 4's recap `lib.py`, which is exactly Lesson 4's
+page setup (`... + VECTORS + VECTOR_INDEX + MEANING_SEARCH`), with
+`RAG_BGE_DATA`. From Lesson 5 concept 2 on it also appends `TERMS`
+(`terms`, the list version of `keywords`; shown verbatim on that page).
+`BM25_INDEX` (`BM25Index`) is Lesson 5 concept 2's exercise reference:
+pages *after* concept 2 only.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.
