@@ -255,8 +255,24 @@ served as plain static files. Module 5 (RAG) uses `public/data/rag/`:
   attribution page (`/attribution/`, linked from the sidebar footer). If a
   source or commit changes, update the page's `sources` list and these files
   together.
-- Chunker and embedding scripts (and their vector files, a few MB) come
-  later, with the lessons that teach them.
+- `embeddings/<model>/` (~10.5 MB, Lesson 4 onwards) — real vectors from
+  `scripts/generate-rag-embeddings.py` (see `README-embeddings.md`):
+  `bge-small-en-v1.5/` holds `structured-100/200/400.json`,
+  `fixed-200.json` and `queries.json` (plain and instructed);
+  `all-MiniLM-L6-v2/` holds `structured-200.json` and `queries.json`.
+  float16, L2-normalized, base64; each chunk vector is keyed by the first
+  16 hex digits of the SHA-256 of its text, so the browser finds a vector by
+  hashing the chunk text it produced itself. That only works while
+  `scripts/rag_chunking.py` stays identical to Lesson 3's chunkers
+  (`FIXED_CHUNKS`, `STRUCTURE_HELPERS`, `STRUCTURED_CHUNKS`): if either
+  changes, change both and regenerate. Checked when generated: all six
+  functions byte-identical, and chunking the corpus in CPython 3.14 and in
+  Pyodide 0.26.4 gives the same keys for all four chunkings. Identical
+  chunk texts share a key and a vector (1,962 unique of 1,968 at
+  structured 200). Real token counts per model are in
+  `scripts/rag_corpus/embedding-report.json`. Each page fetches only the
+  files its demos need, via `dataFiles`, and those pages need numpy loaded
+  in Pyodide.
 
 **Loading rule (every Module 5 page):** fetch these files at runtime, on the
 learner's first Run click, and let the browser cache them — never `import`
