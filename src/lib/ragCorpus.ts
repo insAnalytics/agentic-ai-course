@@ -772,3 +772,35 @@ def situate_chunk(client, prompt: str, document: dict, chunk: dict) -> str:
     response = client.create([{"role": "user", "content": request}])
     return "".join(block.text for block in response.content if block.type == "text").strip()
 `;
+
+/** RAG_CONTEXTUAL_DATA plus bge-small vectors for structured 100-token chunks and fixed 200-token windows (Lesson 8 concept 3 onwards). */
+export const RAG_EXPANSION_DATA = [
+  ...RAG_CONTEXTUAL_DATA,
+  "rag/embeddings/bge-small-en-v1.5/structured-100.json",
+  "rag/embeddings/bge-small-en-v1.5/fixed-200.json",
+];
+
+/**
+ * Module 5 Lesson 8 concept 3 graded exercise, reference solution
+ * verbatim (expand_neighbours). Joins the setup for every page AFTER
+ * concept 3 (append after WITH_CONTEXT) and must never load on concept 3
+ * itself, or the exercise would start already solved.
+ */
+export const EXPAND_NEIGHBOURS = String.raw`
+def expand_neighbours(results: list[dict], by_position: dict, window: int, budget: int) -> list[dict]:
+    """Each ranked result with the chunks up to ${"`"}window${"`"} places either side of it in its document,
+    in document order, skipping repeats, until the next chunk would take the total over ${"`"}budget${"`"} tokens."""
+    expanded, seen, used = [], set(), 0
+    for result in results:
+        for number in range(result["chunk"] - window, result["chunk"] + window + 1):
+            key = (result["doc_id"], number)
+            if key in seen or key not in by_position:
+                continue
+            size = count_tokens(by_position[key]["text"])
+            if used + size > budget:
+                return expanded
+            seen.add(key)
+            expanded.append(by_position[key])
+            used += size
+    return expanded
+`;
