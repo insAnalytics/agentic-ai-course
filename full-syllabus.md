@@ -3704,8 +3704,18 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    source check, `keywords` instead of `terms`). The explanation's claim
    checked: for q09, BM25's top five holds D03's v2.3 changelog entry
    fourth and not the error table. The reference is the new `BM25_INDEX`
-   export, for pages after concept 2 only. Concepts 3+ and bookends not
-   yet drafted.
+   export, for pages after concept 2 only. Concept 3 (fusing rankings) is
+   built: setup now includes `BM25_INDEX`. Three live demos, code and
+   output exact matches in real Pyodide (BM25 and cosine top-5 scores on
+   different scales; RRF on "MON-2002", D02's error table first from BM25
+   rank 1 and meaning rank 16, and only D02 and D08 contain the code; 27,
+   28, 27, 27 answered at k = 1, 10, 60, 100, about 1 s in Node); RRF
+   paper linked, and its claims checked against the PDF: the "mitigates
+   the impact of high rankings by outlier systems" quote, k = 60 fixed in
+   a pilot and not altered, Table 1's MAP values at k = 0/20/60/100/500
+   (.2072/.2134/.2145/.2142/.2098), and "outperforms Condorcet, CombMNZ
+   and the best system by 4% to 5% on average"; 4 quiz cards. No new
+   shared code. Concepts 4+ and bookends not yet drafted.
 
 ---
 
