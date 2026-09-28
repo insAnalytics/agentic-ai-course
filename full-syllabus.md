@@ -3460,7 +3460,17 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    quiz cards. First page to load `METRICS` in its setup. Concepts 1 and
    2's "reading the numbers honestly" mentions now link here (to
    `#which-questions-moved` and `#the-held-out-set`, anchors verified).
-   "When the labels are wrong" (concept 2) is still plain prose. Further
+   Concept 5 (when the labels are wrong) is built: two live demos, both
+   exact matches in real Pyodide (q09 scored against its first-draft and
+   reviewed labels, precision@3 0.33 vs 1.00; a 57-query top-20 pool of
+   both keyword searches, 1,459 unlabelled sections to judge; both restore
+   `STOPWORDS`), pooling and its bias (Zobel 1998, Büttcher et al. 2007),
+   what labels can't settle, 4 quiz cards. The prose's claims about the
+   v1 to v2 review were checked against the two files: 19 passages added
+   across 12 queries (9 main, 3 held out), q09 gained 4, nothing removed;
+   the keyword baseline at k = 5 moves only in precision (0.140 to 0.144).
+   Concept 2's "When the labels are wrong" now links here
+   (`#a-label-that-was-right-and-incomplete`, anchor verified). Further
    concepts and bookends not yet drafted.
 
 ---

@@ -1,0 +1,218 @@
+---
+title: "When the labels are wrong"
+lesson: "02-measuring-retrieval"
+order: 5
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { COUNT_TOKENS } from "../../../../lib/fakeClient";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, RAG_EVAL_DATA } from "../../../../lib/ragCorpus";
+
+export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION + METRICS;
+
+export const TWO_LABELS_DEMO = String.raw`QUESTION_WORDS = {"what", "does", "mean", "how", "which", "why", "do", "can", "should"}
+STOPWORDS |= QUESTION_WORDS
+try:
+    tweaked = KeywordIndex()
+    tweaked.add(load_sections())
+    results = tweaked.search("What does REG-1007 mean?", 3)
+finally:
+    STOPWORDS -= QUESTION_WORDS
+
+current = next(q for q in load_queries()["main"] if q["id"] == "q09")
+# the label as first written: only the error-code table
+first_draft = {**current, "evidence": [[{"doc_id": "D02", "quote": "The model isn't on the allowlist for the agent's tier."}]]}
+
+print(f"{'result':<26}{'first draft':>12}{'reviewed':>10}")
+for chunk in results:
+    print(f"{chunk['doc_id'] + ' | ' + chunk['section']:<26}"
+          f"{is_relevant_to_query(chunk, first_draft)!s:>12}{is_relevant_to_query(chunk, current)!s:>10}")
+print(f"precision@3: {precision_at_k(results, first_draft, 3):.2f} with the first draft, "
+      f"{precision_at_k(results, current, 3):.2f} reviewed")
+`;
+
+export const POOL_DEMO = String.raw`QUESTION_WORDS = {"what", "does", "mean", "how", "which", "why", "do", "can", "should"}
+labelled = load_queries()
+queries = labelled["main"] + labelled["held_out"]
+
+baseline = KeywordIndex()
+baseline.add(load_sections())
+STOPWORDS |= QUESTION_WORDS
+try:
+    tweaked = KeywordIndex()
+    tweaked.add(load_sections())
+    tweaked_top = {q["id"]: tweaked.search(q["query"], 20) for q in queries}
+finally:
+    STOPWORDS -= QUESTION_WORDS
+
+to_judge = 0
+for query in queries:
+    pool = {(c["doc_id"], c["section"]): c for c in baseline.search(query["query"], 20) + tweaked_top[query["id"]]}
+    to_judge += sum(not is_relevant_to_query(chunk, query) for chunk in pool.values())
+print(f"{len(queries)} queries, {to_judge} pooled sections not yet labelled relevant, to be read by a person")
+`;
+
+<Subsection title="A label that was right, and incomplete" variant="a">
+
+Labels are written by a person reading documents, and a person misses
+things. This module's first draft labelled "What does REG-1007 mean?" with
+one passage: the error-code table's row. That's correct, and it isn't the
+only passage that answers the question. Here's the stopword-fixed search
+from earlier, scored against both versions of that label:
+
+<LiveDemo client:load dataFiles={RAG_EVAL_DATA} setupCode={SETUP} code={TWO_LABELS_DEMO} />
+
+All three results explain `REG-1007`: the API reference's section on
+creating an agent says the request fails with it when the model isn't
+allowed on the tier, and its section on errors shows the full error. The
+first draft called two of them wrong. Nothing about the search changed
+between the two lines of output. Only the labels did, and precision went
+from 0.33 to 1.00.
+
+This is the normal state of a labelled set, not a lapse in this one.
+Nobody reads 1,145 sections for every question. Every missing label turns
+a correct result into an apparent mistake, so incomplete labels make
+retrieval look worse than it is, and they make it look worse
+*unevenly*.
+
+</Subsection>
+
+<Subsection title="Pooling: judge what the searches found" variant="b">
+
+Reading every section for every question is out of reach, even for a
+corpus this size. The standard way through, used by large evaluations such
+as TREC for decades, is **pooling**: run several different searches, take
+the top results of each, and have a person judge everything in that pool
+that isn't labelled yet. Anything no search ranked highly is assumed not
+relevant.
+
+Even a small pool is a lot of reading:
+
+<LiveDemo client:load dataFiles={RAG_EVAL_DATA} setupCode={SETUP} code={POOL_DEMO} />
+
+For this course's set, the review pooled the top 20 of the keyword search
+and of a second keyword scorer, BM25, which is Lesson 5's subject. Two
+shortcuts kept it to a manageable read, and both are judgments, stated
+here so they can be checked:
+
+- **For questions about the registry, only the registry's own sections
+  were read.** Prometheus and PostgreSQL pages can't describe
+  `REG-1007` or `support_agent`.
+- **For the six questions about the public documentation, every pooled
+  section was considered:** by its heading first, and by its text wherever
+  the heading could plausibly hold the answer.
+
+A section was added only if it states the answer, not if it's merely
+about the same topic. The review found **19 missing passages across 12
+questions**: nine in the main set and three held out. The REG-1007
+question gained four. The public-docs questions gained passages from
+pages the labels had never mentioned, such as Prometheus's best-practice
+page on the `for` clause and Alertmanager's reference for inhibition
+rules. The labels' version went from 1 to 2, and every number in this
+lesson uses version 2.
+
+</Subsection>
+
+<Subsection title="Pools favour the searches that built them" variant="a">
+
+Pooling has a known bias. A passage gets judged only if one of the pooled
+searches ranked it highly. A **new** search that finds a relevant passage
+none of them found is scored as if it made a mistake. Studies of TREC's
+pools found them reasonably reliable for comparing the systems that took
+part (Zobel, 1998), and also that pooled evaluation is inherently biased
+against systems that didn't contribute to the pool (Büttcher and
+colleagues, 2007).
+
+For this module that matters directly. Both pooled searches match words.
+Lesson 4 adds search by meaning, which will rank passages that share no
+words with the question, exactly the ones this pool is least likely to
+contain. Scored against version 2, it would be penalised for its
+strengths. So before Lesson 4 reports any numbers, its results are pooled
+and judged the same way, the labels move to a new version if anything is
+added, and the keyword baseline is re-scored against that version too.
+Numbers from different label versions are never compared.
+
+A smaller effect is worth seeing too. For the keyword search itself,
+version 2 barely moved the baseline: precision@5 went from 0.140 to 0.144,
+and the other metrics didn't change at all. The missing labels mattered
+little to the searches that found them, and would have mattered most to
+one that hadn't taken part yet.
+
+</Subsection>
+
+<Subsection title="What labels can't settle" variant="b">
+
+Three limits stay, however careful the review:
+
+- **Relevance is a judgment.** "States the answer" is a rule a person
+  applies, and two people will disagree at the edges. Every label here is
+  one reader's judgment.
+- **Relevance here is yes or no.** A section that answers the question
+  completely and one that answers half of it both count. Metrics with
+  graded relevance exist, and they need graded labels, which cost more to
+  write.
+- **Relevant isn't the same as good.** A retrieved passage can be relevant
+  and out of date, like the monitoring guide's rate limit, or relevant and
+  planted. What to do with those is for Lessons 9 and 12.
+
+None of this makes the set less useful. It makes it a measuring instrument
+with known error: good for comparing searches and finding failures, and
+not a certificate of correctness.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "A search's precision@3 rose from 0.33 to 1.00 without the search changing. What changed?",
+    "options": [
+      "The ranking: the relevant chunks moved into the top three",
+      "The labels: two results that answered the question hadn't been labelled",
+      "The metric: precision was switched to divide by the number returned",
+      "The corpus: two sections were rewritten to mention REG-1007"
+    ],
+    "correctIndex": 1,
+    "explanation": "The same three results were scored against two versions of the labels. Under the first, two correct results counted as wrong. Incomplete labels always push scores down, which is why they're reviewed before the numbers are trusted."
+  },
+  {
+    "question": "What does pooling assume about a section that no pooled search ranked highly?",
+    "options": [
+      "That it's relevant, unless a person marks it otherwise",
+      "That it's a duplicate of a section that was judged",
+      "That it isn't relevant, since nobody judged it",
+      "That it should be judged later, before any numbers are reported"
+    ],
+    "correctIndex": 2,
+    "explanation": "Pooling makes judging affordable by reading only what the searches surfaced; everything else is treated as not relevant. That's the source of both its efficiency and its bias."
+  },
+  {
+    "question": "Why must search by meaning be added to the pool before its own numbers are reported?",
+    "options": [
+      "Search by meaning can't be scored until the labels are written in its format",
+      "Its results are longer, so they need a separate relevance rule",
+      "The pool must contain every search that will ever be compared",
+      "It will find relevant passages the word-matching pool never surfaced, and be marked wrong for them"
+    ],
+    "correctIndex": 3,
+    "explanation": "Pooled labels are most complete for the searches that built the pool. A new search that finds passages sharing no words with the question is exactly what a word-matching pool misses, so without its own pool it would be penalised for its strength."
+  },
+  {
+    "question": "Why were only the registry's own sections read when reviewing questions about the registry?",
+    "options": [
+      "The vendor documentation can't describe the company's own error codes or agents",
+      "Vendor pages are too long for a person to read and judge",
+      "The registry's sections were the only ones the pool returned",
+      "Vendor pages aren't allowed to be labelled, because of their licences"
+    ],
+    "correctIndex": 0,
+    "explanation": "It's a stated shortcut, based on what the pages could possibly contain: Prometheus's documentation has never heard of REG-1007. For the public-docs questions the shortcut doesn't hold, and every pooled section was considered. Shortcuts like this are fine when they're written down."
+  }
+]}
+/>
+
+</CheckpointZone>
