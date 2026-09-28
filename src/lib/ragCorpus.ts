@@ -182,3 +182,30 @@ def sign_test(gains: int, losses: int) -> float:
     tail = sum(math.comb(n, i) for i in range(max(gains, losses), n + 1)) / 2 ** n
     return min(1.0, 2 * tail)
 `;
+
+/**
+ * Module 5 Lesson 3 concept 2's fixed-size chunker, shown verbatim on that
+ * page (keep the two byte-identical). Joins the lesson's setup from
+ * concept 2 onwards: append after SIGN_TEST.
+ */
+export const FIXED_CHUNKS = String.raw`
+CHARS_PER_TOKEN = 4
+
+def fixed_chunks(document: dict, size: int, overlap: int = 0) -> list[dict]:
+    """Cut a document every ${"`"}size${"`"} tokens (by the course's estimate). Each chunk
+    starts with the last ${"`"}overlap${"`"} tokens of the one before."""
+    if not 0 <= overlap < size:
+        raise ValueError("overlap must be at least 0 and smaller than size")
+    text = document["text"]
+    width, step = size * CHARS_PER_TOKEN, (size - overlap) * CHARS_PER_TOKEN
+    metadata = {key: value for key, value in document.items() if key != "text"}
+    chunks = []
+    for start in range(0, len(text), step):
+        piece = text[start:start + width]
+        if piece.strip():
+            chunks.append({**metadata, "section": f"characters {start}-{start + len(piece)}", "text": piece})
+        # the last window reached the end; another would only repeat its tail
+        if start + width >= len(text):
+            break
+    return chunks
+`;

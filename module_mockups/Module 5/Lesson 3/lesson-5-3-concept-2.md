@@ -1,0 +1,199 @@
+# Module 5, Lesson 3 — Concept 2: Fixed-size splitting
+
+> **Note for the site build:**
+> - **New shared code** for every demo and exercise from this concept to the
+>   end of the lesson: `CHARS_PER_TOKEN` and `fixed_chunks`, exactly as in
+>   the first code block below, appended after the lesson's `lib.py` setup.
+> - The demos are independent of each other.
+
+---
+
+## Cut every N tokens
+
+The simplest chunker ignores the text's structure entirely: it cuts every
+*N* tokens, wherever that lands. It needs no knowledge of the format, works
+on any text, and makes chunks of predictable size, which is why it's the
+default in many tools.
+
+Real splitters count tokens with the embedding model's own tokenizer. This
+one uses the course's estimate of four characters per token, which is the
+same idea and runs anywhere:
+
+```python
+CHARS_PER_TOKEN = 4
+
+def fixed_chunks(document: dict, size: int, overlap: int = 0) -> list[dict]:
+    """Cut a document every `size` tokens (by the course's estimate). Each chunk
+    starts with the last `overlap` tokens of the one before."""
+    if not 0 <= overlap < size:
+        raise ValueError("overlap must be at least 0 and smaller than size")
+    text = document["text"]
+    width, step = size * CHARS_PER_TOKEN, (size - overlap) * CHARS_PER_TOKEN
+    metadata = {key: value for key, value in document.items() if key != "text"}
+    chunks = []
+    for start in range(0, len(text), step):
+        piece = text[start:start + width]
+        if piece.strip():
+            chunks.append({**metadata, "section": f"characters {start}-{start + len(piece)}", "text": piece})
+        # the last window reached the end; another would only repeat its tail
+        if start + width >= len(text):
+            break
+    return chunks
+```
+*(defined once here and already loaded for every demo and exercise from here to the end of this lesson)*
+
+Each chunk keeps its document's metadata and records its character range as
+its `section`, so it can still be traced and cited. The `overlap` argument
+is explained below. At 200 tokens, the corpus becomes about 1,200 chunks:
+
+```python
+documents = load_documents()
+corpus_tokens = sum(count_tokens(d["text"]) for d in documents)
+
+for size, overlap in [(200, 0), (200, 50)]:
+    chunks = [c for d in documents for c in fixed_chunks(d, size, overlap)]
+    stored = sum(count_tokens(c["text"]) for c in chunks)
+    print(f"size {size}, overlap {overlap:>2}: {len(chunks):>5} chunks, "
+          f"{stored:,} tokens stored ({stored / corpus_tokens:.0%} of the corpus)")
+```
+```
+size 200, overlap  0:  1212 chunks, 232,241 tokens stored (100% of the corpus)
+size 200, overlap 50:  1564 chunks, 305,191 tokens stored (131% of the corpus)
+```
+*(runs live, shows output — read-only demo snippet, not graded)*
+
+---
+
+## What a blind cut breaks
+
+A cut every 800 characters falls wherever it falls. In the migration
+runbook it lands in the middle of a word, in the middle of the sentence
+that matters most:
+
+```python
+runbook = next(d for d in load_documents() if d["doc_id"] == "D07")
+chunks = fixed_chunks(runbook, 200)
+for first, second in zip(chunks, chunks[1:]):
+    # the first boundary that falls in the middle of a word
+    if first["text"][-1].isalnum() and second["text"][0].isalnum():
+        print(f"end of one chunk:   ...{first['text'][-60:]!r}")
+        print(f"start of the next:  {second['text'][:60]!r}...")
+        break
+```
+```
+end of one chunk:   ...'er move to `claude-opus`, the agent must move to the `priori'
+start of the next:  'ty` tier first, or the change fails with `REG-1007`.\n\n## Ste'...
+```
+*(runs live, shows output — read-only demo snippet, not graded)*
+
+"The agent must move to the `priority` tier first" is now in two halves,
+and neither chunk says it. A question about moving to `claude-opus` could
+retrieve the first chunk, which stops mid-word, or the second, which starts
+with "ty` tier first" and never says which model. Code fares worse, because
+a code block cut in two stops being valid code:
+
+```python
+FENCE = "`" * 3
+chunks = [c for d in load_documents() for c in fixed_chunks(d, 200)]
+# an odd number of fence lines means a code block was opened or closed without its partner
+broken = [c for c in chunks if c["text"].count(FENCE) % 2 == 1]
+print(f"{len(broken)} of {len(chunks)} chunks cut a code block open")
+```
+```
+155 of 1212 chunks cut a code block open
+```
+*(runs live, shows output — read-only demo snippet, not graded)*
+
+More than one chunk in eight holds a code block with only one of its
+fences, starting or ending partway through a configuration or a command.
+
+---
+
+## Overlap: repeating the edges
+
+The usual patch is **overlap**: each chunk starts with the last part of the
+one before, so text near a cut appears whole in one of the two. With 50
+tokens of overlap, the split sentence survives:
+
+```python
+runbook = next(d for d in load_documents() if d["doc_id"] == "D07")
+sentence = "If you'd rather move to `claude-opus`, the agent must move to the `priority` tier first"
+
+for overlap in [0, 50]:
+    whole = [c["section"] for c in fixed_chunks(runbook, 200, overlap) if sentence in c["text"]]
+    print(f"overlap {overlap:>2}: the whole sentence is in {whole or 'no chunk'}")
+```
+```
+overlap  0: the whole sentence is in no chunk
+overlap 50: the whole sentence is in ['characters 600-1400']
+```
+*(runs live, shows output — read-only demo snippet, not graded)*
+
+Overlap has costs, and the first demo already showed one: at 50 tokens of
+overlap the index stores about 31% more text, because every boundary region
+is stored twice. The other cost lands at query time. Two neighbouring
+chunks share their overlap, so a search can return both and send the
+repeated text to the model twice.
+
+Whether the trade pays off is an empirical question, and the evidence is
+mixed. Chroma's 2024 study of chunking strategies found overlap helped in
+one setting and not in another. With a small embedding model and 250-token
+chunks, a fixed-size splitter found 82.4% of the relevant text with 125
+tokens of overlap, against 77.1% without. With a larger model and
+400-token chunks, overlap gave no gain. Overlap always lowered efficiency,
+since it sends repeated tokens. So it's a setting to measure on your own
+corpus, not a default to switch on, and
+[comparing chunkings fairly](→ this lesson, comparing chunkings fairly concept)
+does exactly that.
+
+Overlap also fixes only the symptom. The sentence was cut because the
+chunker didn't know where sentences, paragraphs and code blocks are. The
+next concept gives it that knowledge.
+
+---
+
+## Quiz cards
+
+> **Q1.** Why is fixed-size splitting such a common default?
+> - It works on any text and gives chunks of predictable size, with no knowledge of the format ✅
+> - It keeps sentences and code blocks whole, whatever their length
+> - It produces the fewest chunks, so it's the cheapest to index
+> - Embedding models are trained on text cut at fixed sizes
+>
+> *Explanation: its strength is that it needs nothing from the text:
+> Markdown, logs or transcripts all get cut the same way, into chunks that
+> fit a known limit. Its weakness is the same fact: it cuts wherever the
+> count lands.*
+
+> **Q2.** A fixed-size cut splits "the agent must move to the priority
+> tier first" into two chunks. What's lost?
+> - Neither chunk states the fact, so neither is a good match or a usable source ✅
+> - Both chunks are dropped from the index because they end mid-word
+> - The search returns both chunks together, so nothing is lost
+> - The embedding model rejoins the halves before embedding them
+>
+> *Explanation: each half is indexed separately and scored separately.
+> The first ends mid-word and the second starts without its subject, so
+> the sentence that answers the question exists in neither.*
+
+> **Q3.** With 50 tokens of overlap on 200-token chunks, the index stores
+> about 31% more text. Where else does overlap cost something?
+> - Neighbouring chunks share text, so a search can send the repeated part twice ✅
+> - Every query must be embedded twice, once for each overlapping chunk
+> - Overlapping chunks can't carry metadata, so they can't be cited
+> - The model has to be told which parts of its input overlap
+>
+> *Explanation: two adjacent chunks both contain their shared region. If
+> both rank highly, the prompt carries that text twice, paying for tokens
+> that add nothing.*
+
+> **Q4.** What does the evidence say about using overlap?
+> - It helped in some settings and not others, so it should be measured on your own corpus ✅
+> - It always raises recall, so it should always be used
+> - It never helps, because embedding models ignore repeated text
+> - It only matters for code, so prose should be split without it
+>
+> *Explanation: in Chroma's study, overlap raised recall for small chunks
+> with a small embedding model, gave no gain with a larger model and larger
+> chunks, and always lowered efficiency. That's a setting to test, not a
+> default.*

@@ -3517,7 +3517,18 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    too-large / too-small trade-off; 4 quiz cards. Forward references to
    the next lesson and Lesson 8 are plain prose. Shared setup is Lesson 2's
    recap `lib.py` in full, via the new `SIGN_TEST` export in
-   `ragCorpus.ts`. Concepts 2+ and bookends not yet drafted.
+   `ragCorpus.ts`. Concept 2 (fixed-size splitting) is built: the shared
+   `fixed_chunks` shown as a static block (byte-identical to the new
+   `FIXED_CHUNKS` export, checked by script; setup from concept 2 on);
+   four live demos, all exact matches in real Pyodide (1,212 chunks at 200
+   tokens vs 1,564 / 131% stored with 50 overlap; D07's mid-word cut in
+   "`priority`"; 155 of 1,212 chunks with an unpaired code fence; the
+   split sentence whole only with overlap, in characters 600-1400); the
+   costs of overlap and Chroma's 2024 study, linked (figures checked
+   against its tables: 82.4 vs 77.1 recall for TokenTextSplitter 250 with
+   all-MiniLM-L6-v2, 88.6 vs 89.2 at 400 with text-embedding-3-large); 4
+   quiz cards. The "comparing chunkings fairly" callback is plain prose
+   until that concept exists. Concepts 3+ and bookends not yet drafted.
 
 ---
 
