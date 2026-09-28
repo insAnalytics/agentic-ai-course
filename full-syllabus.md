@@ -3367,7 +3367,15 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    tokens). Both demos were verified in real Pyodide 0.26.4 against the
    real `documents.json`, and reproduce the mockup's output exactly. This
    is the first page to load the corpus, via the new `LiveDemo`
-   `dataFiles` prop. Concepts 2+ and the bookends are not drafted yet.
+   `dataFiles` prop. Concept 2 (what pasting everything costs) is built:
+   `everything_cost` (uncached / cached as a fixed prefix) vs
+   `retrieval_cost` in Module 4's token-units, live demo table for 1 to
+   1,000 questions (verified in real Pyodide, exact match), why the cached
+   column is the best case (expiry, a changing corpus, per-permission
+   prefixes), and per-turn cost in an agent. The prose's "average section
+   is about 115 tokens" was checked against the corpus (2,024
+   heading-delimited sections, 115.1 tokens average). Concept 3+ and the
+   bookends are not drafted yet.
 
 ---
 
