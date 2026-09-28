@@ -3862,8 +3862,30 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    come from the INC-2041 report" now reads "four of the five", since the
    demo's own output shows D09 four times and D13 fifth. The "three
    incident reports' What we changed sections" claim was checked (D09,
-   D12, D11). No new shared code. Concepts 3+ and bookends not yet
-   drafted.
+   D12, D11). No new shared code. Concept 3 (splitting questions that ask
+   for two things) is built: `split_query` shown as a static block
+   (byte-identical to the new `SPLIT_QUERY` export and the mockup; setup
+   from concept 3 on); linked to Module 2's goal decomposition
+   (`#decomposing-before-executing-anything`, anchor verified); two live
+   demos, code and output exact matches in real Pyodide (the three
+   multi-part questions split via the fake client; BM25 top 2 as asked vs
+   the sub-queries concatenated, q22 and q23 still missing part 2); 4 quiz
+   cards; graded `interleave` exercise. **Changes from the mockup's
+   hidden tests:** test 5 now loads its own `variants`, `queries` and
+   `chunks`, which it borrowed from test 4; test 1 gains `merged == [A1,
+   B1, A2, B2]`, because returning altered copies (the task says "the
+   chunks themselves, unchanged") passed every original test. The
+   explanation's claim checked: q22's first sub-query ranks D14's "Can my
+   agent use the biggest model?" first through the full pipeline. Verified
+   with the real `TEST_HARNESS`: the reference passes (tests 4 and 5 on
+   the full corpus: BM25 split and interleaved answers all three at top 2,
+   RRF-fused one; the full pipeline answers two as asked and one split),
+   the starter fails all five, and eight mutations each fail (lists
+   concatenated, repeats kept, a repeat using a place, no default for no
+   lists, k ignored, chunks keyed by document only, altered copies
+   returned, only the shortest list's length used). The reference is the
+   new `INTERLEAVE` export, for pages after concept 3 only. Concepts 4+ and
+   bookends not yet drafted.
 
 ---
 

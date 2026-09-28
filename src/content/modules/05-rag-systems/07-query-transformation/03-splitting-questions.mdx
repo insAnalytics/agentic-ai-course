@@ -1,0 +1,250 @@
+---
+title: "Splitting questions that ask for two things"
+lesson: "07-query-transformation"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { COUNT_TOKENS, REACT_FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, SIGN_TEST, FIXED_CHUNKS, STRUCTURE_HELPERS, STRUCTURED_CHUNKS, WITHIN_BUDGET, VECTORS, VECTOR_INDEX, MEANING_SEARCH, TERMS, BM25_INDEX, RERANK_SCORES, RERANK, LISTWISE_RERANK, MODULE_PIPELINE, REWRITE_QUERY, SPLIT_QUERY, INTERLEAVE, RAG_VARIANTS_DATA } from "../../../../lib/ragCorpus";
+
+export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION + METRICS + SIGN_TEST + FIXED_CHUNKS + STRUCTURE_HELPERS + STRUCTURED_CHUNKS + WITHIN_BUDGET + VECTORS + VECTOR_INDEX + MEANING_SEARCH + TERMS + BM25_INDEX + RERANK_SCORES + RERANK + LISTWISE_RERANK + MODULE_PIPELINE + REWRITE_QUERY + SPLIT_QUERY;
+
+export const SETUP_WITH_CLIENT = SETUP + REACT_FAKE_CLIENT + RECORDING_CLIENT;
+
+export const SPLIT_DEMO = String.raw`variants = load_query_variants()
+queries = [q for q in load_queries()["main"] if q["type"] == "multi_part"]
+# the fake client replays the model-written splits, one line per sub-query
+client = FakeLLMClient([[TextBlock("\n".join(variants["sub_queries"][q["id"]]))] for q in queries])
+
+for query in queries:
+    print(query["query"])
+    for part in split_query(client, variants["prompts"]["split"], query["query"]):
+        print(f"  - {part}")
+`;
+
+export const MERGE_DEMO = String.raw`variants = load_query_variants()
+queries = [q for q in load_queries()["main"] if q["type"] == "multi_part"]
+chunks = [c for d in load_documents() for c in structured_chunks(d, 200)]
+bm25 = BM25Index()
+bm25.add(chunks)
+
+def parts_found(results: list[dict], query: dict) -> str:
+    found = [any(is_relevant(c, span) for c in results for span in group) for group in query["evidence"]]
+    return ", ".join(f"part {n} {'found' if hit else 'missing'}" for n, hit in enumerate(found, 1))
+
+for query in queries:
+    as_asked = bm25.search(query["query"], 2)
+    # the naive merge: the first sub-query's results, then the second's
+    concatenated = [c for part in variants["sub_queries"][query["id"]] for c in bm25.search(part, 10)][:2]
+    print(f"{query['id']}  as asked: {parts_found(as_asked, query):<32} concatenated: {parts_found(concatenated, query)}")
+`;
+
+export const STARTER = String.raw`def interleave(result_lists: list[list[dict]], k: int) -> list[dict]:
+    """Take each list's first result, then each list's second, and so on, skipping repeats, up to k chunks."""
+    # TODO
+    ...
+`;
+
+export const FIXTURES = String.raw`
+def chunk(doc_id, number):
+    return {"doc_id": doc_id, "chunk": number, "section": "s", "text": f"{doc_id} {number}"}
+A1, A2, A3 = chunk("A", 1), chunk("A", 2), chunk("A", 3)
+B1, B2 = chunk("B", 1), chunk("B", 2)
+C1 = chunk("C", 1)
+ids = lambda results: [(c["doc_id"], c["chunk"]) for c in results]
+`;
+
+export const TESTS = [
+  FIXTURES + String.raw`
+# 1. each list's first result comes before any list's second
+merged = interleave([[A1, A2, A3], [B1, B2]], 4)
+assert isinstance(merged, list), f"interleave should return a list; got {merged!r}"
+assert ids(merged) == [("A", 1), ("B", 1), ("A", 2), ("B", 2)], \
+    f"take one from each list in turn; got {ids(merged)}"
+assert merged == [A1, B1, A2, B2], "return the chunks themselves, unchanged"
+assert ids(interleave([[A1, A2, A3], [B1, B2]], 2)) == [("A", 1), ("B", 1)], "stop at k"
+`,
+  FIXTURES + String.raw`
+# 2. a chunk found by more than one list appears once, where it was first reached
+assert ids(interleave([[A1, B1], [B1, C1]], 4)) == [("A", 1), ("B", 1), ("C", 1)], \
+    f"skip repeats, keeping the first place a chunk was reached; got {ids(interleave([[A1, B1], [B1, C1]], 4))}"
+repeat_first = interleave([[A1, B1], [A1, C1]], 3)
+assert ids(repeat_first) == [("A", 1), ("B", 1), ("C", 1)], \
+    f"a repeat takes no place, so the next chunk moves up; got {ids(repeat_first)}"
+`,
+  FIXTURES + String.raw`
+# 3. lists of different lengths, more than two lists, and empty lists
+assert ids(interleave([[A1], [B1, B2], [C1]], 5)) == [("A", 1), ("B", 1), ("C", 1), ("B", 2)]
+assert interleave([], 3) == [] and interleave([[], []], 3) == [], "no results means an empty list"
+assert ids(interleave([[], [B1, B2]], 1)) == [("B", 1)], "an empty list takes no turns"
+assert A1 == chunk("A", 1), "interleave shouldn't change the chunks it's given"
+`,
+  FIXTURES + String.raw`
+# 4. the real corpus: BM25's top 2 for each multi-part question
+variants = load_query_variants()
+queries = [q for q in load_queries()["main"] if q["type"] == "multi_part"]
+chunks = [c for d in load_documents() for c in structured_chunks(d, 200)]
+bm25 = BM25Index()
+bm25.add(chunks)
+split = [interleave([bm25.search(part, 10) for part in variants["sub_queries"][q["id"]]], 2) for q in queries]
+as_asked = [bm25.search(q["query"], 2) for q in queries]
+assert [answerable(r, q) for r, q in zip(as_asked, queries)] == [True, False, False]
+assert [answerable(r, q) for r, q in zip(split, queries)] == [True, True, True], \
+    f"split and interleaved, every part should be found; got {[answerable(r, q) for r, q in zip(split, queries)]}"
+fused = [rrf([bm25.search(part, 10) for part in variants["sub_queries"][q["id"]]])[:2] for q in queries]
+assert [answerable(r, q) for r, q in zip(fused, queries)] == [True, False, False]
+`,
+  FIXTURES + String.raw`
+# 5. the same questions through the full pipeline, top 2
+variants = load_query_variants()
+queries = [q for q in load_queries()["main"] if q["type"] == "multi_part"]
+chunks = [c for d in load_documents() for c in structured_chunks(d, 200)]
+pipeline = ModulePipeline(chunks)
+vectors, question_vectors = variant_vectors(), query_vectors()
+question_scores, variant_scores = CrossEncoderScores(), CrossEncoderScores(chunking="query-variants")
+def sub_results(query, number, part):
+    key = f"{query['id']}:sub{number}"
+    return pipeline.search(part, vectors[key], lambda c: variant_scores.score(key, c), k=10)
+full_asked = [pipeline.search(q["query"], question_vectors[q["id"]], lambda c: question_scores.score(q["id"], c), k=2)
+              for q in queries]
+full_split = [interleave([sub_results(q, n, part) for n, part in enumerate(variants["sub_queries"][q["id"]], 1)], 2)
+              for q in queries]
+assert sum(answerable(r, q) for r, q in zip(full_asked, queries)) == 2
+assert sum(answerable(r, q) for r, q in zip(full_split, queries)) == 1
+`,
+];
+
+<Subsection title="One query, two needs" variant="a">
+
+"What is the registry's rate limit, and what error do you get when you go
+over it?" asks for two facts that live in different places: the limit in the
+API reference, the error in the error-code table. A search ranks chunks by
+how well each matches the whole question, and a chunk that matches one half
+well can outrank every chunk about the other half. With only a few results
+to fill, one part can take them all.
+
+The fix is to search for each part separately, which is
+[goal decomposition](/02-the-agent-loop/08-planning-and-decomposition/01-goal-decomposition/#decomposing-before-executing-anything)
+applied to a query: one model call splits the question, and each part gets
+its own search. This function is loaded for every demo and exercise from
+here to the end of the lesson:
+
+```python
+def split_query(client, prompt: str, question: str) -> list[str]:
+    """Ask the model to split a question into one search query per thing it asks. Falls back to the question."""
+    response = client.create([{"role": "user", "content": f"{prompt}\n\nQuestion: {question}"}])
+    reply = "".join(block.text for block in response.content if block.type == "text")
+    parts = []
+    for line in reply.splitlines():
+        line = line.strip()
+        if line and line not in parts:
+            parts.append(line)
+    return parts or [question]
+```
+
+The reply is read line by line, blank and repeated lines are dropped, and a
+reply with nothing usable falls back to the original question, so a failed
+split never means no search at all. Here are the labelled set's three
+multi-part questions, split:
+
+<LiveDemo client:load dataFiles={RAG_VARIANTS_DATA} setupCode={SETUP_WITH_CLIENT} code={SPLIT_DEMO} />
+
+*The splits are model-written and replayed as scripted replies.*
+
+</Subsection>
+
+<Subsection title="Splitting isn't enough: the merge decides" variant="b">
+
+Two sub-queries produce two ranked lists, and only a few chunks go to the
+model. How the lists are combined decides whether both parts get a place.
+Here are the three questions with BM25 and room for two chunks: searched as
+asked, and split with the two lists simply joined end to end:
+
+<LiveDemo client:load dataFiles={RAG_VARIANTS_DATA} setupCode={SETUP} code={MERGE_DEMO} />
+
+As asked, two of the three questions lose their second part. Split and
+joined end to end, nothing improves: the first sub-query's results fill both
+places before the second sub-query gets a turn. Splitting did its job, the
+second list does contain the missing parts, but the merge threw that away.
+
+A fair merge takes turns: the first result from each list, then the second
+from each, skipping any chunk already taken. Every part is guaranteed a
+place before any part gets two. That's this concept's exercise.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "Why can a single search miss half of a two-part question?",
+    "options": [
+      "Chunks that match one part strongly can take every place before the other part's chunks rank",
+      "Search engines only read the first half of a question",
+      "Two-part questions are too long for the embedding model",
+      "The reranker removes any chunk that answers only one part"
+    ],
+    "correctIndex": 0,
+    "explanation": "The ranking scores each chunk against the whole question. If one part's words dominate, its chunks fill the top places, and the answer to the other part sits lower, below the cut."
+  },
+  {
+    "question": "Why did joining the sub-queries' results end to end fail?",
+    "options": [
+      "The first sub-query's results filled every place before the second list was reached",
+      "Joining the lists removed the chunks both lists shared",
+      "The second sub-query found nothing relevant",
+      "Joined lists can't be passed to the model"
+    ],
+    "correctIndex": 0,
+    "explanation": "With two places, the first list's top two chunks take both. The second list had the missing part; the merge never reached it."
+  },
+  {
+    "question": "What does split_query return if the model's reply contains no usable lines?",
+    "options": [
+      "The original question, so the search still runs",
+      "An empty list, so no search runs",
+      "An error, so the agent can ask again",
+      "The reply as a single sub-query, whatever it says"
+    ],
+    "correctIndex": 0,
+    "explanation": "A failed split falls back to searching the question as asked. Like parse_ranking, the parser makes the worst case no worse than not splitting at all."
+  },
+  {
+    "question": "What does splitting a question cost?",
+    "options": [
+      "One model call to split, then one search per part instead of one",
+      "Nothing: the sub-queries reuse the original search's results",
+      "One model call per sub-query, with no extra searches",
+      "A second reranker, trained on sub-queries"
+    ],
+    "correctIndex": 0,
+    "explanation": "Each part is a full search, reranking included, and the split itself is a model call before any search. For a two-part question that roughly doubles the retrieval work."
+  }
+]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Write interleave(result_lists, k). result_lists holds one ranked list of chunks per sub-query. Return up to k chunks, taking the first chunk of each list in order, then the second of each, and so on. A chunk is identified by (doc_id, chunk); if it has already been taken, skip it, and a skipped repeat doesn't use up a place. Lists can have different lengths, and some can be empty. Return the chunks themselves, unchanged."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  namespaceSetup={SETUP}
+  dataFiles={RAG_VARIANTS_DATA}
+  hint={"Loop over positions on the outside and lists on the inside: position 0 of every list, then position 1 of every list. max((len(r) for r in result_lists), default=0) gives the number of positions without failing on an empty input. Keep a set of the keys already taken, and return as soon as you have k."}
+  correctAnswer={{
+    code: INTERLEAVE.trimStart(),
+    explanation: "Interleaving guarantees what the other merges don't: every sub-query's best chunk gets a place before any sub-query gets a second. Test 4 shows the difference on the real corpus. With BM25 and room for two chunks, the questions searched as asked have one of three answered; split and interleaved, all three. Fusing the sub-queries' lists with RRF answers only one, because RRF rewards chunks that both lists like, and a chunk that suits both parts of a question is rarely the best answer to either. Test 5 is the honest other half. Through the full pipeline, with its reranker, the questions as asked already had two of three answered in the top two, and splitting answered only one. Interleaving gives each part exactly one place, so each sub-query's own first result has to be right, and for the tier question it wasn't: \"models a standard-tier agent can use\" put the FAQ on using the biggest model first, not the table of tiers and their models. A strong pipeline had already found both parts from the whole question. With only three multi-part questions in the set, neither result says much about splitting in general. What they do say is where it earns its cost: when the search is weak relative to the question's parts, or when very few chunks go to the model, and when each sub-query is specific enough to put its own answer first."
+  }}
+/>
+
+</CheckpointZone>

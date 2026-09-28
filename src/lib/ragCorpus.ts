@@ -661,3 +661,44 @@ export const RAG_VARIANTS_DATA = [
   "rag/embeddings/bge-small-en-v1.5/query-variants.json",
   "rag/rerank/ms-marco-MiniLM-L6-v2/query-variants.json",
 ];
+
+/**
+ * Module 5 Lesson 7 concept 3 split_query, shown verbatim on that page
+ * (keep the two byte-identical). Joins the Lesson 7 setup from concept 3
+ * on: append after REWRITE_QUERY.
+ */
+export const SPLIT_QUERY = String.raw`
+def split_query(client, prompt: str, question: str) -> list[str]:
+    """Ask the model to split a question into one search query per thing it asks. Falls back to the question."""
+    response = client.create([{"role": "user", "content": f"{prompt}\n\nQuestion: {question}"}])
+    reply = "".join(block.text for block in response.content if block.type == "text")
+    parts = []
+    for line in reply.splitlines():
+        line = line.strip()
+        if line and line not in parts:
+            parts.append(line)
+    return parts or [question]
+`;
+
+/**
+ * Module 5 Lesson 7 concept 3 graded exercise, reference solution
+ * verbatim (interleave). Joins the setup for every page AFTER concept 3
+ * (append after SPLIT_QUERY) and must never load on concept 3 itself, or
+ * the exercise would start already solved.
+ */
+export const INTERLEAVE = String.raw`
+def interleave(result_lists: list[list[dict]], k: int) -> list[dict]:
+    """Take each list's first result, then each list's second, and so on, skipping repeats, up to k chunks."""
+    merged, seen = [], set()
+    for position in range(max((len(results) for results in result_lists), default=0)):
+        for results in result_lists:
+            if position < len(results):
+                chunk = results[position]
+                key = (chunk["doc_id"], chunk["chunk"])
+                if key not in seen:
+                    seen.add(key)
+                    merged.append(chunk)
+                    if len(merged) == k:
+                        return merged
+    return merged
+`;

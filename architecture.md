@@ -385,6 +385,9 @@ setup is Lesson 6's recap `lib.py` (the Lesson 6 setup through
 `variant_vectors`, `rrf`, `ModulePipeline`) and `REWRITE_QUERY`
 (`rewrite_query`), both shown verbatim on Lesson 7 concept 1, with
 `RAG_VARIANTS_DATA` (`RAG_RERANK_DATA` plus the three query-variant files).
+From Lesson 7 concept 3 on the setup also appends `SPLIT_QUERY`
+(`split_query`, shown verbatim on that page). `INTERLEAVE` (`interleave`)
+is Lesson 7 concept 3's exercise reference: pages *after* concept 3 only.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.
