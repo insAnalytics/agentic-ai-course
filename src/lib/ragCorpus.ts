@@ -751,3 +751,24 @@ export const RAG_CONTEXTUAL_DATA = [
   "rag/rerank/ms-marco-MiniLM-L6-v2/structured-200-headers.json",
   "rag/rerank/ms-marco-MiniLM-L6-v2/structured-200-contextual.json",
 ];
+
+/**
+ * Module 5 Lesson 8 concept 2 with_context and situate_chunk, shown
+ * verbatim on that page (keep them byte-identical; with_context must also
+ * match scripts/rag_context.py). Joins the Lesson 8 setup from concept 2
+ * on: append after VERSIONED_PIPELINE.
+ */
+export const WITH_CONTEXT = String.raw`
+def with_context(chunk: dict, contexts: dict[str, str]) -> dict:
+    """The chunk with its model-written context at the top, if it has one; otherwise with its header."""
+    context = contexts.get(f"{chunk['doc_id']}:{chunk['chunk']}")
+    if context is None:
+        return with_header(chunk)
+    return {**chunk, "text": f"{context}\n\n{chunk['text']}"}
+
+def situate_chunk(client, prompt: str, document: dict, chunk: dict) -> str:
+    """Ask the model for a short context placing this chunk within its whole document."""
+    request = prompt.format(document=document["text"], chunk=chunk["text"])
+    response = client.create([{"role": "user", "content": request}])
+    return "".join(block.text for block in response.content if block.type == "text").strip()
+`;

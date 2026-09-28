@@ -3941,8 +3941,29 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    quiz cards. **Change from the mockup:** "one of them crowded the table
    out" now reads "its steps crowded the table out", since the demo's
    data shows two runbook steps (Steps 1 and 3) entering q23's top five
-   while the table dropped out. Concepts 2 onwards and the bookends are
-   not drafted yet.
+   while the table dropped out. Concept 2 (contextual retrieval) is
+   built: setup now includes the new `WITH_CONTEXT` (`with_context`,
+   `situate_chunk`, static blocks byte-identical to the export and the
+   mockup); Anthropic's contextual retrieval post linked, prompt shown as
+   a text block (its tags and braces would otherwise parse as MDX) and
+   checked equal to the stored prompt; three live demos, code and output
+   exact matches in real Pyodide (D11's timeline with its context via the
+   fake client; plain, headers and contexts through the full pipeline,
+   32, 34 and 36 in the top 5, contexts against plain gained q08, q25,
+   q27, q28 and lost none, sign test 0.12, against headers gained q08,
+   q23, q25 and lost q15, 0.62, about 4.5 s in Node; indexing cost, 75
+   calls 46,863 units uncached and 22,159 cached, 1,968 calls 14,005,435
+   and 2,013,020); prose claims checked (75 internal and 1,893 vendor
+   chunks, contexts for exactly the internal ones, 15 internal documents,
+   232,241 corpus tokens, contexts averaging 31 tokens, the quoted D07:1
+   and D15:4 contexts); 4 quiz cards. **Change from the mockup:** q15's
+   loss was explained as the reranker scoring other changelog entries
+   above v2.4; the pipeline shows the entry never reaches the reranker
+   (BM25 searches "v2" after splitting at the dot, search by meaning
+   doesn't find it in its top 100, and it fuses 32nd, outside the 30
+   candidates), while the reranker would score it 5.75, above the 1.80 of
+   the chunk it ranked first. The bullet now says so. Concepts 3 onwards
+   and the bookends are not drafted yet.
 
 ---
 

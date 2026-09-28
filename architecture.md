@@ -416,7 +416,12 @@ Lesson 8's setup is Lesson 7's recap `lib.py` (the Lesson 7 setup through
 `ModulePipeline` over another chunk version's stored vectors), both shown
 verbatim on Lesson 8 concept 1, with `RAG_CONTEXTUAL_DATA`
 (`RAG_VARIANTS_DATA` plus `chunk-contexts.json` and the headers and
-contextual embedding and score files).
+contextual embedding and score files). From Lesson 8 concept 2 on the
+setup appends `WITH_CONTEXT` (`with_context`, which must also stay
+identical to `scripts/rag_context.py`, and `situate_chunk`, both shown
+verbatim on that page). A prompt containing `<tags>` or `{placeholders}`
+goes in a fenced `text` block on the page, not a blockquote, where MDX
+would parse them as JSX.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.
