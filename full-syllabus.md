@@ -3679,7 +3679,8 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    earlier lessons", since the new lesson's code won't be in them, and
    their task text says `lib.py` holds "code from this module's earlier
    lessons". The mockup folders moved too (`module_mockups/Module 5/Lesson
-   6` to `Lesson 10`); the files inside keep their original names and text.
+   6` to `Lesson 10`), and their files were renamed to match
+   (`lesson-5-6-*.md` to `lesson-5-10-*.md`); the mockups' text is unchanged.
    The entries below keep their history as written, renumbered.
 
 6. **Keyword Search and Hybrid Retrieval** — **Locked** (folder
