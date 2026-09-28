@@ -388,6 +388,8 @@ setup is Lesson 6's recap `lib.py` (the Lesson 6 setup through
 From Lesson 7 concept 3 on the setup also appends `SPLIT_QUERY`
 (`split_query`, shown verbatim on that page). `INTERLEAVE` (`interleave`)
 is Lesson 7 concept 3's exercise reference: pages *after* concept 3 only.
+From Lesson 7 concept 4 on the setup appends `INTERLEAVE` and then `HYDE`
+(`hypothetical_document`, shown verbatim on that page).
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.

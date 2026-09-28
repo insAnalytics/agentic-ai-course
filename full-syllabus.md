@@ -3884,8 +3884,23 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    concatenated, repeats kept, a repeat using a place, no default for no
    lists, k ignored, chunks keyed by document only, altered copies
    returned, only the shortest list's length used). The reference is the
-   new `INTERLEAVE` export, for pages after concept 3 only. Concepts 4+ and
-   bookends not yet drafted.
+   new `INTERLEAVE` export, for pages after concept 3 only. Concept 4
+   (HyDE, and what the model already knows) is built: setup now includes
+   `INTERLEAVE` and the new `HYDE` (`hypothetical_document`, static block
+   byte-identical to the export and the mockup); Gao et al. (ACL 2023)
+   and Yoon et al. (ACL 2025 Findings) linked, the latter's details
+   checked against the full paper (seven models; FEVER, SciFact,
+   AVeriTeC; worse than baseline for passages without supported
+   sentences; "niche or novel knowledge"); three live demos, code and
+   output exact matches in real Pyodide (MON-2002 moved from rank 16 to 1
+   by a wrong but well-worded passage, via the fake client; search by
+   meaning with passages, private 24 to 28 of 38 and public 4 to 5 of 5;
+   the full pipeline unchanged at 32 either way, about 3 s in Node); prose
+   claims checked (MON-2002 means REGISTRY_UNREACHABLE; the q20 and q36
+   passages resemble the labelled guidance; the invented 1,000 per hour
+   and 99.9% figures are in the stored passages, and q37 has no answer in
+   the corpus); 4 quiz cards. Concepts 5+ (if any) and bookends not yet
+   drafted.
 
 ---
 

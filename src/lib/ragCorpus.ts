@@ -702,3 +702,17 @@ def interleave(result_lists: list[list[dict]], k: int) -> list[dict]:
                         return merged
     return merged
 `;
+
+/**
+ * Module 5 Lesson 7 concept 4 hypothetical_document (HyDE), shown
+ * verbatim on that page (keep the two byte-identical). Joins the Lesson 7
+ * setup from concept 4 on: append after INTERLEAVE.
+ */
+export const HYDE = String.raw`
+def hypothetical_document(client, prompt: str, question: str, history: list[dict] = ()) -> str:
+    """Ask the model for a passage that would answer the question. It's searched with, never shown as an answer."""
+    conversation = "\n".join(f"{turn['role']}: {turn['content']}" for turn in history) or "(none)"
+    request = f"{prompt}\n\nConversation so far:\n{conversation}\n\nQuestion: {question}"
+    response = client.create([{"role": "user", "content": request}])
+    return "".join(block.text for block in response.content if block.type == "text").strip()
+`;
