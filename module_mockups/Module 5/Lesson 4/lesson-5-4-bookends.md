@@ -1,0 +1,650 @@
+# Search by meaning
+
+> **Note for the site build:**
+> - **Comprehensive sandbox:** multi-file, with `lib.py` read-only and
+>   **`retrieval.py` as the entry file**. `lib.py` is Lessons 1 to 4's code
+>   in one file, exactly as shown below. **numpy must be loaded.**
+> - **Data for grading:** bge-small's `structured-200.json` and
+>   `queries.json`, plus the documents and labels. Hidden tests are one block
+>   and need no fake client.
+
+> **You'll be able to**
+> - Build search by meaning: embed chunks once, score every chunk with one
+>   matrix product, and return results with their sources
+> - Choose and check an embedding model: use its documented query prefix,
+>   compare models on your own questions, and check every chunk against the
+>   model's real input limit
+> - Explain what a vector store adds, keeping the index, filtering before
+>   ranking and approximate search, and when a plain matrix is enough
+
+**Why it matters**
+Search by meaning is what lets an agent find the runbook step for a
+question asked in different words. It's also where retrieval gets opaque: a
+score is a number with no words behind it, a truncated chunk fails silently,
+and a filter in the wrong place quietly leaks or drops results. This lesson
+builds it from the arithmetic up and measures it against keywords, so its
+strengths and its blind spots are both on record before the next lesson
+combines the two.
+
+---
+
+## Comprehensive quiz
+
+*(end of lesson, conceptual — spans all four concepts, mixed order)*
+
+> **Q1.** An agent answers 1,000 questions a day over a corpus of 10,000
+> chunks. How many embedding-model calls does search by meaning need per
+> day, once the index is built?
+> - About 1,000: one per question, since the chunks were embedded once at indexing ✅
+> - About 10 million: every chunk is re-embedded for every question
+> - About 10,000: the chunks are re-embedded once a day
+> - None: the question is compared with the chunks' text directly
+>
+> *Explanation: indexing embeds each chunk once and stores the vector.
+> Each question then needs one model call for itself, and the comparison
+> with stored vectors is arithmetic.*
+
+> **Q2.** Someone edits the chunker so it trims trailing spaces, without
+> regenerating the stored vectors. What does `vectors_for` do?
+> - Refuses: the edited chunks' hashes no longer match any stored vector ✅
+> - Returns the old vectors, since the text is almost the same
+> - Re-embeds the changed chunks automatically in the browser
+> - Returns zero vectors for the changed chunks, which never match
+>
+> *Explanation: vectors are filed by a hash of the exact text. Any change
+> breaks the match, and the lookup says so instead of pairing a chunk with
+> a vector made from different text.*
+
+> **Q3.** A team switches to an embedding model whose documentation asks
+> for a prefix on queries, and doesn't add it. What's the likely symptom?
+> - Retrieval quietly gets somewhat worse, with no error anywhere ✅
+> - Every query fails with an error until the prefix is added
+> - Results are unchanged, since prefixes are only a recommendation
+> - The documents must be re-embedded with the prefix too
+>
+> *Explanation: the model still returns vectors, just not the ones it was
+> trained to compare. The only way to see the damage is to measure on
+> labelled questions, as this lesson did with bge-small's instruction.*
+
+> **Q4.** Two models score almost the same on the labelled questions, but
+> one silently truncates 42 chunks. Why prefer the other?
+> - Answers past a truncation point can never be found, whether or not these questions test them ✅
+> - Truncated chunks are larger, so they cost more tokens in the prompt
+> - Truncation makes the model's scores fall outside the range 0 to 1
+> - The labelled set is invalid when any chunk is truncated
+>
+> *Explanation: a truncated chunk is searchable only by its beginning. The
+> labelled questions may not happen to ask about the lost endings, but real
+> questions will. A structural failure outweighs a tie on scores.*
+
+> **Q5.** Which question is search by meaning most likely to lose to
+> keyword search?
+> - "MON-2002" on its own ✅
+> - "Which alerts wake someone up at night?"
+> - "Can I put my agent on the most powerful model?"
+> - "What does REG-1007 mean?"
+>
+> *Explanation: a bare internal code gives the model no ordinary language
+> to place; keyword search matches the exact string. The others either
+> paraphrase their answers or wrap the code in ordinary words, and search
+> by meaning did as well or better on them.*
+
+> **Q6.** On this corpus, chunk sizes from 100 to 400 tokens scored within
+> three questions of each other by meaning. What should a team with a
+> different corpus take from that?
+> - Run the same equal-budget comparison on their own corpus before choosing ✅
+> - Chunk size doesn't matter for search by meaning
+> - Use 200 tokens, since it's been shown to be the best size
+> - Use 400 tokens, since larger chunks carry more context
+>
+> *Explanation: this result depends on this corpus, where most sections
+> are short and the two sizes often cut them identically. Long, dense
+> documents might show the dilution this one doesn't. The method transfers;
+> the number doesn't.*
+
+> **Q7.** A search filters out forbidden chunks after taking the top 5,
+> and for one reader returns nothing. What went wrong, and what didn't?
+> - The reader lost results that were permitted, but nothing forbidden was shown ✅
+> - The reader was shown forbidden chunks before they were removed
+> - The filter failed and returned every chunk in the index
+> - Nothing went wrong: an empty result means no permitted chunk matched
+>
+> *Explanation: filtering after ranking is safe but wasteful: forbidden
+> chunks take the places, then vanish, leaving gaps or nothing. Filtering
+> before ranking gives every place to a permitted chunk.*
+
+> **Q8.** When should a team move from exact search to an approximate index
+> like HNSW?
+> - When exact search is too slow at their real size, then measuring the recall they give up ✅
+> - From the start, since vector databases use HNSW by default
+> - Once they pass a thousand chunks, since exact search can't handle more
+> - Never, since approximate search loses relevant results
+>
+> *Explanation: exact search is simple and loses nothing, and it's fast
+> for thousands and even tens of thousands of chunks. Approximate search
+> buys speed with recall, so it's adopted when speed demands it and then
+> measured like any other change.*
+
+---
+
+## Comprehensive sandbox
+*(graded, multi-file — search by meaning that respects who may read what)*
+
+**Task shown to learner:**
+
+`lib.py` holds Lessons 1 to 4's code, including `VectorIndex`,
+`vectors_for` and `query_vectors`. It's read-only. In `retrieval.py`:
+
+`FilteredVectorIndex`, a subclass of `VectorIndex`, overrides
+`search(query_vector, k=3, groups=None)`:
+- With `groups=None`, it searches exactly as `VectorIndex` does.
+- Otherwise, only chunks whose `access` shares at least one group with
+  `groups` take part. Score them, and return the best `k` of *those*,
+  highest first, as new dicts with a float `"score"` (a cosine, whatever the
+  query's length). A reader in no matching group gets `[]`, and so does
+  `groups=[]`.
+
+`access_report(index, labelled, vectors, k=5)`:
+- For every query in `labelled["main"]`, and every entry in its
+  `access_cases` (in order), search with `vectors[query["id"]]`, that `k`
+  and the case's `groups`.
+- Return one dict per case: `{"id", "groups", "expect", "answered"}`, where
+  `"answered"` is `answerable(results, query)`.
+
+**Tab: `lib.py`** (read-only)
+```python
+# Lessons 1 to 4's code, from their concepts -- read-only
+import json
+import math
+import re
+from pathlib import Path
+
+def _plain(x):
+    # turn content-block objects into plain dicts, so everything can be written as JSON
+    if isinstance(x, (str, int, float, bool)) or x is None:
+        return x
+    if isinstance(x, dict):
+        return {key: _plain(value) for key, value in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [_plain(value) for value in x]
+    return _plain(vars(x))
+
+def count_tokens(x) -> int:
+    """Approximate token count: about 4 characters per token. Deterministic, not a real tokenizer."""
+    if isinstance(x, str):
+        return math.ceil(len(x) / 4)
+    return math.ceil(len(json.dumps(_plain(x))) / 4)
+
+def load_documents() -> list[dict]:
+    """Every document in the corpus, with its metadata and its text as Markdown."""
+    return json.loads(Path("/data/rag/documents.json").read_text(encoding="utf-8"))
+
+# three backticks, built rather than typed, so this code can sit inside a Markdown code block
+FENCE = "`" * 3
+
+def split_sections(document: dict) -> list[dict]:
+    """Split a document at its Markdown headings, ignoring '#' lines inside code blocks.
+    Each section keeps the document's metadata and records the heading it sits under."""
+    sections, lines, heading, in_code = [], [], document["title"], False
+
+    def close():
+        text = "\n".join(lines).strip()
+        if text:
+            meta = {key: value for key, value in document.items() if key != "text"}
+            sections.append({**meta, "section": heading, "text": text})
+
+    for line in document["text"].splitlines():
+        if line.startswith(FENCE):
+            in_code = not in_code
+        if not in_code and re.match(r"#{1,6} ", line):
+            close()
+            lines, heading = [], line.lstrip("#").strip()
+        lines.append(line)
+    close()
+    return sections
+
+def load_sections() -> list[dict]:
+    return [section for document in load_documents() for section in split_sections(document)]
+
+STOPWORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "is", "was", "it", "this", "that",
+             "with", "as", "at", "by", "be", "i", "you", "my", "me", "we", "our", "please", "about", "from", "last"}
+PUNCTUATION = str.maketrans({mark: " " for mark in ".,;:!?()'\"`"})
+
+def keywords(text: str) -> set:
+    """The words in text worth matching on: lowercased, punctuation removed, common and one-letter words dropped."""
+    words = text.lower().translate(PUNCTUATION).split()
+    return {word for word in words if len(word) > 1} - STOPWORDS
+
+class KeywordIndex:
+    """Sections indexed by their keywords, worked out once, when each section is added."""
+
+    def __init__(self):
+        self._entries = []
+
+    def __len__(self) -> int:
+        return len(self._entries)
+
+    def add(self, sections: list[dict]) -> None:
+        for section in sections:
+            if not section.get("doc_id") or not section.get("section"):
+                raise ValueError("every section needs a doc_id and a section heading, so an answer can cite it")
+            self._entries.append((keywords(section["text"]), section))
+
+    def search(self, question: str, k: int = 3) -> list[dict]:
+        wanted = keywords(question)
+        scored = [(len(wanted & words), section) for words, section in self._entries]
+        # sorting is stable, so sections with equal scores keep the order they were added in
+        ranked = sorted((pair for pair in scored if pair[0] > 0), key=lambda pair: pair[0], reverse=True)
+        return [{**section, "score": score} for score, section in ranked[:k]]
+
+def build_prompt(question: str, passages: list[dict]) -> str:
+    sources = "\n\n".join(f'<source doc="{p["doc_id"]}" section="{p["section"]}">\n{p["text"]}\n</source>'
+                          for p in passages)
+    return f"Answer using only these sources, and name the source you used.\n\n{sources}\n\nQuestion: {question}"
+
+
+# --- Lesson 2 ---
+
+def load_queries() -> dict:
+    """The labelled query set: main and held-out queries, each with its evidence."""
+    return json.loads(Path("/data/rag/queries.json").read_text(encoding="utf-8"))
+
+def normalize(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
+
+def is_relevant(chunk: dict, span: dict) -> bool:
+    """True if the chunk comes from the span's document and holds at least half of the quote, unbroken."""
+    if chunk["doc_id"] != span["doc_id"]:
+        return False
+    text, quote = normalize(chunk["text"]), normalize(span["quote"])
+    half = math.ceil(len(quote) / 2)
+    return any(quote[start:start + half] in text for start in range(len(quote) - half + 1))
+
+def answerable(results: list[dict], query: dict) -> bool:
+    """True if, for every evidence group, at least one result is relevant to one of its spans."""
+    return all(any(is_relevant(chunk, span) for chunk in results for span in group)
+               for group in query["evidence"])
+
+def is_relevant_to_query(chunk: dict, query: dict) -> bool:
+    return any(is_relevant(chunk, span) for group in query["evidence"] for span in group)
+
+def precision_at_k(results: list[dict], query: dict, k: int) -> float:
+    """The share of the k result slots filled by relevant chunks."""
+    return sum(is_relevant_to_query(chunk, query) for chunk in results[:k]) / k
+
+def recall_at_k(results: list[dict], query: dict, k: int) -> float:
+    """The share of the answer's parts (evidence groups) found in the top k."""
+    top = results[:k]
+    found = [any(is_relevant(chunk, span) for chunk in top for span in group) for group in query["evidence"]]
+    return sum(found) / len(found)
+
+def reciprocal_rank(results: list[dict], query: dict, k: int) -> float:
+    """1 / the position of the first relevant chunk in the top k, or 0 if there's none."""
+    for position, chunk in enumerate(results[:k], 1):
+        if is_relevant_to_query(chunk, query):
+            return 1 / position
+    return 0.0
+
+def evaluate(search, queries: list[dict], k: int) -> dict:
+    """Average each metric over the queries that have evidence. search(question, k) returns ranked chunks."""
+    scored = [q for q in queries if q["evidence"]]
+    totals = {"recall": 0.0, "precision": 0.0, "mrr": 0.0, "answerable": 0.0}
+    for query in scored:
+        results = search(query["query"], k)
+        totals["recall"] += recall_at_k(results, query, k)
+        totals["precision"] += precision_at_k(results, query, k)
+        totals["mrr"] += reciprocal_rank(results, query, k)
+        totals["answerable"] += recall_at_k(results, query, k) == 1
+    return {name: round(total / len(scored), 3) for name, total in totals.items()}
+
+def sign_test(gains: int, losses: int) -> float:
+    """If a change made no real difference, the chance of a split at least this lopsided, either way."""
+    n = gains + losses
+    tail = sum(math.comb(n, i) for i in range(max(gains, losses), n + 1)) / 2 ** n
+    return min(1.0, 2 * tail)
+
+
+# --- Lesson 3 ---
+
+CHARS_PER_TOKEN = 4
+
+def fixed_chunks(document: dict, size: int, overlap: int = 0) -> list[dict]:
+    """Cut a document every `size` tokens (by the course's estimate). Each chunk
+    starts with the last `overlap` tokens of the one before."""
+    if not 0 <= overlap < size:
+        raise ValueError("overlap must be at least 0 and smaller than size")
+    text = document["text"]
+    width, step = size * CHARS_PER_TOKEN, (size - overlap) * CHARS_PER_TOKEN
+    metadata = {key: value for key, value in document.items() if key != "text"}
+    chunks = []
+    for start in range(0, len(text), step):
+        piece = text[start:start + width]
+        if piece.strip():
+            chunks.append({**metadata, "section": f"characters {start}-{start + len(piece)}", "text": piece})
+        # the last window reached the end; another would only repeat its tail
+        if start + width >= len(text):
+            break
+    return chunks
+
+def split_blocks(text: str) -> list[str]:
+    """Paragraphs and whole code blocks: split at blank lines, except inside a code block."""
+    blocks, lines, in_code = [], [], False
+    for line in text.splitlines():
+        if line.startswith(FENCE):
+            in_code = not in_code
+        if not line.strip() and not in_code:
+            if lines:
+                blocks.append("\n".join(lines))
+                lines = []
+        else:
+            lines.append(line)
+    if lines:
+        blocks.append("\n".join(lines))
+    return blocks
+
+def heading_sections(document: dict) -> list[dict]:
+    """Split at Markdown headings (not inside code blocks), recording each section's heading path.
+    A section with nothing under its heading is dropped: its heading lives on in the paths below it."""
+    sections, stack, heading, body, in_code = [], [], "", [], False
+
+    def close():
+        text = "\n".join(body).strip()
+        if text:
+            path = " > ".join([document["title"], *(title for _, title in stack)])
+            sections.append({"heading": heading, "path": path, "body": text})
+
+    for line in document["text"].splitlines():
+        if line.startswith(FENCE):
+            in_code = not in_code
+        match = None if in_code else re.match(r"(#{1,6}) (.+)", line)
+        if match:
+            close()
+            level = len(match.group(1))
+            # a heading replaces any heading at its level or deeper; level 1 is the document's title
+            stack = [(lvl, title) for lvl, title in stack if lvl < level]
+            if level > 1:
+                stack.append((level, match.group(2).strip()))
+            heading, body = line, []
+        else:
+            body.append(line)
+    close()
+    return sections
+
+def pack_lines(lines: list[str], max_tokens: int) -> list[str]:
+    """Group lines into parts of at most max_tokens; a line longer than that is cut into fixed-size pieces."""
+    width = max_tokens * CHARS_PER_TOKEN
+    lines = [line[start:start + width] for line in lines for start in range(0, max(len(line), 1), width)]
+    parts, current = [], []
+    for line in lines:
+        if current and count_tokens("\n".join([*current, line])) > max_tokens:
+            parts.append("\n".join(current))
+            current = []
+        current.append(line)
+    if current:
+        parts.append("\n".join(current))
+    return parts
+
+def pack_blocks(blocks: list[str], max_tokens: int) -> list[str]:
+    """Group consecutive blocks into pieces of at most max_tokens, joined by blank lines.
+    A block too big on its own is split at line breaks, and a line still too big is cut every max_tokens."""
+    pieces, current = [], []
+    for block in blocks:
+        if count_tokens(block) > max_tokens:
+            parts = pack_lines(block.splitlines(), max_tokens)
+        else:
+            parts = [block]
+        for part in parts:
+            if current and count_tokens("\n\n".join([*current, part])) > max_tokens:
+                pieces.append("\n\n".join(current))
+                current = []
+            current.append(part)
+    if current:
+        pieces.append("\n\n".join(current))
+    return pieces
+
+def structured_chunks(document: dict, max_tokens: int = 200) -> list[dict]:
+    """Chunks that follow the document's structure: headings, then paragraphs and whole code blocks,
+    each chunk starting with its section's heading and carrying the document's metadata."""
+    metadata = {key: value for key, value in document.items() if key != "text"}
+    chunks = []
+    for section in heading_sections(document):
+        heading = section["heading"]
+        # the heading line and the blank line after it come out of each chunk's budget
+        room = max_tokens - count_tokens(heading + "\n\n") if heading else max_tokens
+        for piece in pack_blocks(split_blocks(section["body"]), room):
+            text = f"{heading}\n\n{piece}" if heading else piece
+            chunks.append({**metadata, "section": section["path"], "chunk": len(chunks), "text": text})
+    return chunks
+
+def within_budget(search, budget: int):
+    """A search that returns ranked chunks until the next one would take the total over budget tokens."""
+    def budgeted(question: str, k: int) -> list[dict]:
+        results, used = [], 0
+        for chunk in search(question, 100):
+            size = count_tokens(chunk["text"])
+            if used + size > budget:
+                break
+            results.append(chunk)
+            used += size
+        return results
+    return budgeted
+
+
+# --- Lesson 4 ---
+
+import base64
+import hashlib
+
+import numpy as np
+
+EMBEDDINGS = Path("/data/rag/embeddings")
+
+def text_key(text: str) -> str:
+    """How a chunk's vector is filed: the first 16 hex digits of the SHA-256 of its text."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+def _unpack(encoded: str, dim: int) -> np.ndarray:
+    return np.frombuffer(base64.b64decode(encoded), dtype="<f2").reshape(-1, dim).astype(np.float32)
+
+def vectors_for(chunks: list[dict], model: str = "bge-small-en-v1.5", chunking: str = "structured-200") -> np.ndarray:
+    """The precomputed embedding of each chunk, one row per chunk, in the chunks' order."""
+    stored = json.loads((EMBEDDINGS / model / f"{chunking}.json").read_text())
+    matrix = _unpack(stored["vectors"], stored["dim"])
+    rows = {key: row for row, key in enumerate(stored["keys"])}
+    missing = [c for c in chunks if text_key(c["text"]) not in rows]
+    if missing:
+        raise KeyError(f"{len(missing)} chunks have no precomputed vector in {model}/{chunking}; "
+                       f"their text differs from the text that was embedded")
+    return matrix[[rows[text_key(c["text"])] for c in chunks]]
+
+def query_vectors(model: str = "bge-small-en-v1.5", kind: str = "instructed") -> dict[str, np.ndarray]:
+    """The precomputed embedding of every labelled query, by query id. kind is "instructed" or "plain"."""
+    stored = json.loads((EMBEDDINGS / model / "queries.json").read_text())
+    return dict(zip(stored["keys"], _unpack(stored[kind], stored["dim"])))
+
+class VectorIndex:
+    """Chunks with their embeddings, searched by cosine similarity to a query vector."""
+
+    def __init__(self, dim: int = 384):
+        self._chunks = []
+        self._matrix = np.empty((0, dim), dtype=np.float32)
+
+    def __len__(self) -> int:
+        return len(self._chunks)
+
+    def add(self, chunks: list[dict], vectors: np.ndarray) -> None:
+        vectors = np.asarray(vectors, dtype=np.float32)
+        if vectors.ndim != 2 or len(vectors) != len(chunks):
+            raise ValueError(f"need one vector per chunk: got {len(chunks)} chunks and vectors of shape {vectors.shape}")
+        for chunk in chunks:
+            if not chunk.get("doc_id") or not chunk.get("section"):
+                raise ValueError("every chunk needs a doc_id and a section, so an answer can cite it")
+        # stored at length 1, so a dot product with a length-1 query is the cosine
+        unit = vectors / np.linalg.norm(vectors, axis=1, keepdims=True)
+        self._chunks.extend(chunks)
+        self._matrix = np.vstack([self._matrix, unit])
+
+    def search(self, query_vector: np.ndarray, k: int = 3) -> list[dict]:
+        query = np.asarray(query_vector, dtype=np.float32)
+        scores = self._matrix @ (query / np.linalg.norm(query))
+        # a stable sort keeps equal scores in the order the chunks were added
+        best = np.argsort(-scores, kind="stable")[:k]
+        return [{**self._chunks[row], "score": float(scores[row])} for row in best]
+
+def meaning_search(chunks: list[dict], queries: list[dict], model: str = "bge-small-en-v1.5", kind: str = "instructed"):
+    """search(question, k) by meaning over precomputed vectors. Works only for the labelled questions."""
+    index = VectorIndex()
+    index.add(chunks, vectors_for(chunks, model=model))
+    vectors = query_vectors(model, kind)
+    by_question = {q["query"]: vectors[q["id"]] for q in queries}
+    return lambda question, k: index.search(by_question[question], k)
+
+def answered_ids(search, queries: list[dict], k: int = 5) -> set:
+    """The ids of questions with evidence whose top k results hold every part of the answer."""
+    return {q["id"] for q in queries if q["evidence"] and answerable(search(q["query"], k), q)}
+```
+
+**Tab: `retrieval.py`** (starter, entry file)
+```python
+import numpy as np
+
+from lib import VectorIndex, answerable
+
+class FilteredVectorIndex(VectorIndex):
+    """A VectorIndex whose search can be limited to the chunks a reader may see."""
+
+    def search(self, query_vector: np.ndarray, k: int = 3, groups=None) -> list[dict]:
+        # TODO: with no groups, search as VectorIndex does; otherwise let only chunks
+        #       whose access shares a group with the reader compete for the k places
+        ...
+
+def access_report(index: FilteredVectorIndex, labelled: dict, vectors: dict, k: int = 5) -> list[dict]:
+    """For every access case in the main set, search as that reader and record whether the question was answerable."""
+    # TODO
+    ...
+```
+
+**Hidden tests:**
+```python
+import numpy as np
+
+import lib
+from retrieval import FilteredVectorIndex, access_report
+
+# shared by the tests below
+PUBLIC = {"doc_id": "D01", "section": "Limits", "access": ["all-staff"], "text": "60 requests per minute"}
+FAQ = {"doc_id": "D14", "section": "Costs", "access": ["all-staff"], "text": "ask your budget holder"}
+FINANCE = {"doc_id": "D13", "section": "Monthly limit", "access": ["finance"], "text": "capped at $4,000"}
+SECURITY = {"doc_id": "D12", "section": "Summary", "access": ["security"], "text": "key found in logs"}
+VECTORS = np.array([[0.6, 0.8], [0.0, 1.0], [1.0, 0.0], [0.9, 0.1]])
+index = FilteredVectorIndex(dim=2)
+index.add([PUBLIC, FAQ, FINANCE, SECURITY], VECTORS)
+QUERY = np.array([1.0, 0.0])
+
+# 1. without groups, it searches like VectorIndex
+assert isinstance(index.search(QUERY, 2), list), f"search should return a list; got {index.search(QUERY, 2)!r}"
+plain = lib.VectorIndex(dim=2)
+plain.add([PUBLIC, FAQ, FINANCE, SECURITY], VECTORS)
+assert [r["doc_id"] for r in index.search(QUERY, 2)] == [r["doc_id"] for r in plain.search(QUERY, 2)], \
+    "with groups=None, search should behave exactly like VectorIndex.search"
+
+# 2. with groups, only permitted chunks compete, so k places are filled when possible
+results = index.search(QUERY, 2, groups=["all-staff"])
+assert isinstance(results, list), f"search should return a list; got {results!r}"
+assert [r["doc_id"] for r in results] == ["D01", "D14"], \
+    f"filter before ranking: the two all-staff chunks should fill both places; got {[r['doc_id'] for r in results]}"
+scaled = index.search(2 * QUERY, 1, groups=["all-staff"])[0]["score"]
+assert abs(scaled - 0.6) < 1e-6 and isinstance(scaled, float), f"scores are cosines, whatever the query's length; got {scaled}"
+both = [r["doc_id"] for r in index.search(QUERY, 3, groups=["all-staff", "finance"])]
+assert both == ["D13", "D01", "D14"], f"a reader in either group sees chunks from both; got {both}"
+
+# 3. a reader in no matching group gets nothing, never a forbidden chunk
+assert index.search(QUERY, 3, groups=["contractors"]) == [], "no permitted chunks means no results"
+assert index.search(QUERY, 3, groups=[]) == [], "a reader in no groups may see nothing"
+
+# 4. the access report, on a small labelled set
+LABELLED = {"main": [
+    {"id": "t1", "query": "cap", "evidence": [[{"doc_id": "D13", "quote": "capped at $4,000"}]],
+     "access_cases": [{"groups": ["all-staff"], "expect": "no permitted evidence"},
+                      {"groups": ["all-staff", "finance"], "expect": "evidence"}]},
+    {"id": "t2", "query": "limit", "evidence": [[{"doc_id": "D01", "quote": "60 requests per minute"}]]},
+], "held_out": []}
+report = access_report(index, LABELLED, {"t1": QUERY, "t2": QUERY}, k=2)
+assert report == [
+    {"id": "t1", "groups": ["all-staff"], "expect": "no permitted evidence", "answered": False},
+    {"id": "t1", "groups": ["all-staff", "finance"], "expect": "evidence", "answered": True},
+], f"one entry per access case, in order; got {report}"
+DEEPER = {"main": [{"id": "t3", "query": "costs", "evidence": [[{"doc_id": "D14", "quote": "ask your budget holder"}]],
+                    "access_cases": [{"groups": ["all-staff"], "expect": "evidence"}]}], "held_out": []}
+assert access_report(index, DEEPER, {"t3": QUERY}, k=1)[0]["answered"] is False, "access_report should search with its k"
+assert access_report(index, DEEPER, {"t3": QUERY}, k=2)[0]["answered"] is True
+
+# 5. the real corpus: every access case behaves as labelled, and restricted pages never leak
+chunks = [c for d in lib.load_documents() for c in lib.structured_chunks(d, 200)]
+real = FilteredVectorIndex()
+real.add(chunks, lib.vectors_for(chunks))
+labelled, vectors = lib.load_queries(), lib.query_vectors()
+report = access_report(real, labelled, vectors)
+assert len(report) == 4, f"the main set has 4 access cases; got {len(report)}"
+assert all(r["answered"] == (r["expect"] == "evidence") for r in report), \
+    f"each reader should get an answer exactly when the labels expect evidence; got {report}"
+for query in labelled["main"]:
+    leaked = [r["doc_id"] for r in real.search(vectors[query["id"]], 5, groups=["all-staff"]) if r["doc_id"] in ("D12", "D13")]
+    assert not leaked, f"{query['id']} returned restricted pages {leaked} to an all-staff reader"
+```
+
+**Hint (shown on request):**
+
+A subclass can read the stored chunks and matrix as `self._chunks` and
+`self._matrix`. Build the list of permitted row numbers first, then score
+only those rows with `self._matrix[allowed]`. The position of a result in
+that smaller array isn't its row in the index, so map it back through
+`allowed` before looking up the chunk. `set(a) & set(b)` is empty exactly
+when two lists share nothing.
+
+**Reference solution:**
+
+**Tab: `retrieval.py`**
+```python
+import numpy as np
+
+from lib import VectorIndex, answerable
+
+class FilteredVectorIndex(VectorIndex):
+    """A VectorIndex whose search can be limited to the chunks a reader may see."""
+
+    def search(self, query_vector: np.ndarray, k: int = 3, groups=None) -> list[dict]:
+        if groups is None:
+            return super().search(query_vector, k)
+        # only chunks the reader may see compete for the k places
+        allowed = [row for row, chunk in enumerate(self._chunks) if set(chunk["access"]) & set(groups)]
+        query = np.asarray(query_vector, dtype=np.float32)
+        scores = self._matrix[allowed] @ (query / np.linalg.norm(query))
+        best = np.argsort(-scores, kind="stable")[:k]
+        return [{**self._chunks[allowed[i]], "score": float(scores[i])} for i in best]
+
+def access_report(index: FilteredVectorIndex, labelled: dict, vectors: dict, k: int = 5) -> list[dict]:
+    """For every access case in the main set, search as that reader and record whether the question was answerable."""
+    report = []
+    for query in labelled["main"]:
+        for case in query.get("access_cases", []):
+            results = index.search(vectors[query["id"]], k, groups=case["groups"])
+            report.append({"id": query["id"], "groups": case["groups"], "expect": case["expect"],
+                           "answered": answerable(results, query)})
+    return report
+```
+
+**Explanation:**
+
+Filtering first means forbidden chunks never become candidates, so they
+can't be returned and can't take places from permitted ones. Test 2 checks
+the second half: an all-staff reader gets two results, where filtering
+after the ranking would have returned none. Test 3 checks the edge cases a
+permissions filter must get right: no matching group and no groups at all
+both mean nothing. The one subtle line maps positions in the filtered
+scores back to rows in the index through `allowed`; test 5 catches the
+version that forgets. On the real corpus, `access_report` confirms the
+labels' four access cases: the security and finance readers find their
+answers, the others get none, and no restricted page reaches an all-staff
+reader for any question in the set. Lesson 12 builds the full version of
+this, where permissions come from the reader rather than the call.

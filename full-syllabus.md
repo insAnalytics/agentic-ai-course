@@ -3589,8 +3589,8 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    Lesson 3 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
 
-4. **Search by Meaning** — **Building** (folder `04-search-by-meaning`;
-   title provisional until the bookends mockup). Embeddings from
+4. **Search by Meaning** — **Locked** (folder `04-search-by-meaning`;
+   the title comes from the bookends mockup). Embeddings from
    `scripts/generate-rag-embeddings.py` are committed under
    `public/data/rag/embeddings/` (architecture.md §3.1). Concept 1 (from
    similarity to search) is built: the two halves (linked to Lesson 1's
@@ -3644,7 +3644,30 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    plus output (byte-identical to the mockup), reproduced exactly with
    faiss-cpu 1.15.1 on the committed vectors (96/99/100% at efSearch
    8/16/64); when a plain matrix is enough; 4 quiz cards. No new shared
-   code. Concepts 5+ (if any) and bookends not yet drafted.
+   code.
+   Bookends are built: intro (3 outcomes, why it matters) and recap with an
+   8-question comprehensive quiz and a multi-file sandbox (`lib.py`
+   read-only, Lessons 1 to 4's code; entry **`retrieval.py`**:
+   `FilteredVectorIndex`, a `VectorIndex` subclass whose
+   `search(query_vector, k, groups)` filters before ranking, and
+   `access_report` over the main set's `access_cases`). `lib.py`, starter
+   and reference were generated from the mockup and checked
+   byte-for-byte; every line of the setup the lesson's pages ran is in
+   `lib.py`. **Change from the mockup:** test 4's labels gain a held-out
+   question with an access case, because a report that also ran
+   `labelled["held_out"]` passed every original test. Verified with the
+   real `runMultiFileAgainstHiddenTests`: the reference passes (test 5 on
+   the full corpus: q40 and q41's four access cases as labelled, no D12 or
+   D13 chunk reaching an all-staff reader for any main question; about 1 s
+   in Node), the starter fails, and nine mutations each fail (filtering
+   after ranking, positions not mapped back through `allowed`, query not
+   normalized, numpy score, `groups=[]` treated as no filter, `k` ignored,
+   groups ignored, held-out questions run, ascending order). An unstable
+   sort still passes, harmlessly: the task sets no tie order for filtered
+   search.
+
+   Lesson 4 is now **Locked**: all four concepts plus both bookends exist
+   and build cleanly.
 
 ---
 
