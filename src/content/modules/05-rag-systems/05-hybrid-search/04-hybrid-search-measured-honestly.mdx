@@ -175,6 +175,16 @@ questions wrap the code in ordinary words, which search by meaning handles
 well, so fusion's benefit shows up in ranking rather than coverage. The way
 to know for your corpus is this table, run on your questions.
 
+There's also a setting between the two. RRF can give each ranking a weight
+that multiplies its 1/(k + rank) shares, so a smaller weight for BM25 makes
+its confident votes count for less against search by meaning's, while still
+letting it lift an answer only it finds, like "MON-2002". Any weight chosen
+by looking at these 43 questions fits them a little, though, so it's a
+setting to confirm on
+[the held-out questions](/05-rag-systems/02-measuring-retrieval/04-reading-the-numbers-honestly/#the-held-out-set)
+before trusting it. This lesson's final exercise builds weighted fusion and
+tries one.
+
 This is also the upgrade Module 4's keyword matching was waiting for. Its
 five uses of word overlap, from finding tools to recalling memories, gain
 search by meaning alongside keywords in Lesson 13, measured the same way.

@@ -3726,7 +3726,13 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    meaning 17th; for q08 and q11 meaning has the answer 4th while BM25's
    top places go elsewhere; INC-2093 appears only in D11's title line,
    never in a structured chunk's text); what to use depending on how many
-   results are read; 4 quiz cards. No new shared code.
+   results are read; 4 quiz cards. No new shared code. After the
+   bookends, one paragraph was added to "What to use, then" (not in the
+   concept mockup): weighted RRF as a middle setting, and that a weight
+   chosen on the main questions must be confirmed on the held-out set
+   (linked to Lesson 2's `#the-held-out-set`, anchor verified). It grounds
+   the comprehensive quiz's Q8 and the sandbox explanation's "the lever
+   the previous concept suggested", which referred to it before it existed.
    Bookends are built: intro (3 outcomes, why it matters) and recap with an
    8-question comprehensive quiz and a multi-file sandbox (`lib.py`
    read-only, Lessons 1 to 5's code; entry **`fusion.py`**: `fuse`,
