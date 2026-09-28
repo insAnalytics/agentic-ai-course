@@ -871,3 +871,26 @@ def assemble_request(question: str, chunks: list[dict], budget: int = 1500) -> d
     content = "\n\n".join([*blocks, f"Question: {question}"])
     return {"system": ANSWER_INSTRUCTIONS, "messages": [{"role": "user", "content": content}], "sources": sources}
 `;
+
+/**
+ * Module 5 Lesson 9 concept 2 CITATION and check_citations, shown verbatim
+ * on that page (keep the two byte-identical). Joins the Lesson 9 setup from
+ * concept 2 on: append after ASSEMBLE_REQUEST.
+ */
+export const CHECK_CITATIONS = String.raw`
+CITATION = re.compile(r"\[(S\d+)\]")
+
+def check_citations(answer: str, sources: dict) -> dict:
+    """What code can check about an answer's citations: which statements cite what, which ids
+    weren't among the sources sent, and which statements cite nothing."""
+    # a sentence ends at . ! or ?, unless a citation follows straight after
+    statements = [s.strip() for s in re.split(r"(?<=[.!?])\s+(?!\[)", answer.strip()) if s.strip()]
+    checked = [{"text": s, "cites": CITATION.findall(s)} for s in statements]
+    cited = {source_id for s in checked for source_id in s["cites"]}
+    return {
+        "statements": checked,
+        "unknown": sorted(cited - sources.keys()),
+        "uncited": [s["text"] for s in checked if not s["cites"]],
+        "cited": {i: (sources[i]["doc_id"], sources[i]["section"]) for i in sorted(cited & sources.keys())},
+    }
+`;

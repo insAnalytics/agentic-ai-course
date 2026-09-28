@@ -433,6 +433,9 @@ and `ANSWER_INSTRUCTIONS`, both shown verbatim on Lesson 9 concept 1, with
 `RAG_EXPANSION_DATA`. `ASSEMBLE_REQUEST` (`format_source`,
 `assemble_request`) is Lesson 9 concept 1's exercise reference: pages
 *after* concept 1 only, appended after `ANSWER_INSTRUCTIONS`.
+From Lesson 9 concept 2 on the setup appends `ASSEMBLE_REQUEST` and then
+`CHECK_CITATIONS` (`CITATION`, `check_citations`, shown verbatim on that
+page).
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.

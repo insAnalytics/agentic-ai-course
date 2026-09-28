@@ -4039,7 +4039,18 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    date, wrong type field, sources mapped to doc ids, ids from S0); one
    more, numbering ids by blocks rather than sources, passes and is
    equivalent. The reference is the new `ASSEMBLE_REQUEST` export, for
-   pages after concept 1 only. Concept 2 onwards and the bookends are not
+   pages after concept 1 only. Concept 2 (citations that point back) is
+   built: setup now includes `ASSEMBLE_REQUEST` and the new
+   `CHECK_CITATIONS` (`CITATION`, `check_citations`, static block
+   byte-identical to the export and the mockup); ALCE (Gao et al., EMNLP
+   2023) linked, its "lack complete citation support 50% of the time" on
+   ELI5 checked against the abstract; two live demos, code and output exact
+   matches in real Pyodide (a scripted answer checked via the fake client,
+   every statement cited and every id resolved; three flawed replies, an
+   unknown id and an uncited statement flagged, a wrong-source citation
+   passing); prose claims checked (S3, the error-code table, never says
+   60; S2 is v2.4, which lowered the limit from 100 to 60); 4 quiz cards.
+   No changes from the mockup. Concept 3 onwards and the bookends are not
    drafted yet.
 
 ---
