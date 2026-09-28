@@ -410,6 +410,11 @@ must stay identical to `scripts/rag_pdf.py`, because the PDF chunk vectors
 are looked up by the exact text they produce. Data scripts run on this
 Windows machine must pass `encoding="utf-8"` to `write_text`/`read_text`:
 the default is cp1252, which silently wrote `corpus.json` as invalid UTF-8.
+From Lesson 5 concept 3 on the setup appends `TO_MARKDOWN` and then
+`PDF_TABLES` (`table_as_rows`, `pdf_query_vectors`, `contains_facts`,
+`plain_text`, `added_chunks`, `pdf_chunks`, `index_with_pdfs`, shown
+verbatim on that page; the first, fourth and fifth must match
+`scripts/rag_pdf.py`).
 Lesson 6's setup is Lesson 4's recap `lib.py`, which is exactly Lesson 4's
 page setup (`... + VECTORS + VECTOR_INDEX + MEANING_SEARCH`), with
 `RAG_BGE_DATA`. From Lesson 6 concept 2 on it also appends `TERMS`

@@ -26,6 +26,6 @@ def extract(path: Path) -> dict:
 
 if __name__ == "__main__":
     out = {p.stem.split("-")[0]: extract(p) for p in sorted(PDFS.glob("*.pdf"))}
-    (HERE / "extracted.json").write_text(json.dumps(out, indent=1))
+    (HERE / "extracted.json").write_text(json.dumps(out, indent=1), encoding="utf-8")
     for doc_id, doc in out.items():
         print(doc_id, [(len(p["words"]), len(p["tables"]), len(p["images"])) for p in doc["pages"]])

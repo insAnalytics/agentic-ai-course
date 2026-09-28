@@ -87,7 +87,7 @@ def main():
     (OUT / "files").mkdir(exist_ok=True)
     for path in (PDF_SRC / "pdfs").iterdir():
         shutil.copy(path, OUT / "files" / path.name)
-    (OUT / "extracted.json").write_text(json.dumps(extracted))
+    (OUT / "extracted.json").write_text(json.dumps(extracted), encoding="utf-8")
     (OUT / "corpus.json").write_text(json.dumps({
         "written_by": "Summaries and descriptions: Claude, for the course, from the rendered tables and images; "
                       "served as scripted model replies",
@@ -107,13 +107,13 @@ def main():
         "model": "stand-in (dry run)" if dry_run else "BAAI/bge-small-en-v1.5", "dim": 384, "dtype": "float16",
         "normalized": True, "chunking": "pdf", "keys": [text_key(t) for t in texts],
         "vectors": pack(np.asarray(embedder.encode(texts, batch_size=32))),
-    }))
+    }), encoding="utf-8")
     questions = [BGE_INSTRUCTION + q["query"] for q in source.QUERIES]
     (EMBED / "pdf-queries.json").write_text(json.dumps({
         "model": "stand-in (dry run)" if dry_run else "BAAI/bge-small-en-v1.5", "dim": 384, "dtype": "float16",
         "normalized": True, "keys": [q["id"] for q in source.QUERIES],
         "instructed": pack(np.asarray(embedder.encode(questions, batch_size=32))),
-    }))
+    }), encoding="utf-8")
     print(f"{len(texts)} distinct PDF chunk texts and {len(questions)} questions embedded")
 
 

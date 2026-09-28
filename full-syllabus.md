@@ -3709,8 +3709,22 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    wasn't valid UTF-8 and `load_pdf_corpus()` failed; it's rewritten as
    UTF-8, checked identical in content to what the script meant to write,
    and `scripts/generate-rag-pdf.py` now writes and reads with
-   `encoding="utf-8"`. Concept 3 onwards and the bookends are not drafted
-   yet. Inserting it moved the lessons after it up by one: folders
+   `encoding="utf-8"`. The content side sent the same fix, extended to
+   every `write_text` in `generate-rag-pdf.py` and `extract.py`; both
+   files were replaced with it. Concept 3 (tables for retrieval) is built:
+   setup now includes `TO_MARKDOWN` and the new `PDF_TABLES`
+   (`table_as_rows`, `pdf_query_vectors`, `contains_facts`, `plain_text`,
+   `added_chunks`, `pdf_chunks`, `index_with_pdfs`; static block
+   byte-identical to the export and the mockup, and the three shared with
+   `scripts/rag_pdf.py` identical to it); three live demos, code and output
+   exact matches in real Pyodide (the late rota chunk without its header,
+   failing p08's facts; the tiers table three ways; the five table
+   questions' ranks in four versions, rows with headers the only one at
+   rank 1 throughout); prose claims checked (the tiers summary ranks 7th
+   for p07, below its table at 3rd; the rota summary ranks 1st for p08 but
+   doesn't state the answer; the summary prompt matches the stored one); 4
+   quiz cards. No changes from the mockup. Concept 4 onwards and the
+   bookends are not drafted yet. Inserting it moved the lessons after it up by one: folders
    `06-hybrid-search` to `10-grounded-answers`, every Module 5 lesson number
    of 5 or more in the pages, code and shared files, and the forward
    references to the planned Lessons 10 to 13, which are now 11 to 14. The

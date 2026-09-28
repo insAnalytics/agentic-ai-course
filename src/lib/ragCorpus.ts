@@ -545,6 +545,60 @@ def to_markdown(extracted: dict, render_table=table_as_markdown, margin: float =
     return "\n\n".join(blocks)
 `;
 
+/**
+ * Module 5 Lesson 5 concept 3 PDF chunking and search helpers (table_as_rows,
+ * pdf_query_vectors, contains_facts, plain_text, added_chunks, pdf_chunks,
+ * index_with_pdfs), shown verbatim on that page (keep them byte-identical;
+ * table_as_rows, plain_text and added_chunks must also match
+ * scripts/rag_pdf.py). Joins the Lesson 5 setup from concept 3 on: append
+ * after TO_MARKDOWN.
+ */
+export const PDF_TABLES = String.raw`
+def table_as_rows(rows: list[list[str]]) -> str:
+    """Each row as its own line of 'header: value' pairs, so a row keeps its meaning on its own."""
+    header, *body = rows
+    return "\n\n".join("; ".join(f"{h}: {v}" for h, v in zip(header, row)) + "." for row in body)
+
+def pdf_query_vectors() -> dict[str, np.ndarray]:
+    """bge-small's embeddings of the PDF questions, with its retrieval instruction, by question id."""
+    stored = json.loads((EMBEDDINGS / "bge-small-en-v1.5" / "pdf-queries.json").read_text())
+    return dict(zip(stored["keys"], _unpack(stored["instructed"], stored["dim"])))
+
+def contains_facts(chunk: dict, query: dict) -> bool:
+    """A PDF question's relevance rule: the chunk is from the right document and states every fact."""
+    return chunk["doc_id"] == query["doc_id"] and all(
+        normalize(fact).lower() in normalize(chunk["text"]).lower() for fact in query["facts"])
+
+def plain_text(extracted: dict) -> str:
+    """What a plain extractor returns: every page's text, pages separated by a blank line."""
+    return "\n\n".join(page["plain_text"] for page in extracted["pages"])
+
+def added_chunks(document: dict, chunks: list[dict], texts: list[tuple[str, str]]) -> list[dict]:
+    """Extra chunks for one document (table summaries or image descriptions), numbered after its chunks."""
+    start = max((c["chunk"] for c in chunks), default=-1) + 1
+    metadata = {k: v for k, v in document.items() if k != "text"}
+    return [{**metadata, "section": f"{document['title']} > {label}", "chunk": start + n, "text": text}
+            for n, (label, text) in enumerate(texts)]
+
+def pdf_chunks(render_table=table_as_markdown, added: list = (), plain: bool = False) -> list[dict]:
+    """Chunks for all four PDFs: rebuilt Markdown with tables written by render_table (or the plain
+    extracted text), plus any added (doc_id, label, text) chunks such as table summaries."""
+    extraction, chunks = load_pdf_extraction(), []
+    for doc_id, document in load_pdf_corpus()["documents"].items():
+        text = plain_text(extraction[doc_id]) if plain else to_markdown(extraction[doc_id], render_table)
+        made = structured_chunks({**document, "text": text}, 200)
+        extra = [(label, content) for owner, label, content in added if owner == doc_id]
+        chunks += made + added_chunks({**document, "text": text}, made, extra)
+    return chunks
+
+def index_with_pdfs(pdf: list[dict]) -> VectorIndex:
+    """Search by meaning over the whole corpus plus a version of the PDFs' chunks."""
+    corpus = [c for d in load_documents() for c in structured_chunks(d, 200)]
+    index = VectorIndex()
+    index.add(corpus + pdf, np.vstack([vectors_for(corpus), vectors_for(pdf, chunking="pdf-chunks")]))
+    return index
+`;
+
 /** RAG_BGE_DATA plus the PDF corpus: stored extraction, corpus, and bge-small vectors for its chunks and questions (Lesson 5). */
 export const RAG_PDF_DATA = [
   ...RAG_BGE_DATA,
