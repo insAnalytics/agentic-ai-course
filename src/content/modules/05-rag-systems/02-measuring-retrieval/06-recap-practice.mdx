@@ -1,0 +1,405 @@
+---
+title: "Recap & Practice"
+lesson: "02-measuring-retrieval"
+order: 6
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { RAG_EVAL_DATA } from "../../../../lib/ragCorpus";
+
+export const LIB_PY = String.raw`# Lessons 1 and 2's code, from their concepts -- read-only
+import json
+import math
+import re
+from pathlib import Path
+
+def _plain(x):
+    # turn content-block objects into plain dicts, so everything can be written as JSON
+    if isinstance(x, (str, int, float, bool)) or x is None:
+        return x
+    if isinstance(x, dict):
+        return {key: _plain(value) for key, value in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [_plain(value) for value in x]
+    return _plain(vars(x))
+
+def count_tokens(x) -> int:
+    """Approximate token count: about 4 characters per token. Deterministic, not a real tokenizer."""
+    if isinstance(x, str):
+        return math.ceil(len(x) / 4)
+    return math.ceil(len(json.dumps(_plain(x))) / 4)
+
+def load_documents() -> list[dict]:
+    """Every document in the corpus, with its metadata and its text as Markdown."""
+    return json.loads(Path("/data/rag/documents.json").read_text(encoding="utf-8"))
+
+# three backticks, built rather than typed, so this code can sit inside a Markdown code block
+FENCE = "${"`"}" * 3
+
+def split_sections(document: dict) -> list[dict]:
+    """Split a document at its Markdown headings, ignoring '#' lines inside code blocks.
+    Each section keeps the document's metadata and records the heading it sits under."""
+    sections, lines, heading, in_code = [], [], document["title"], False
+
+    def close():
+        text = "\n".join(lines).strip()
+        if text:
+            meta = {key: value for key, value in document.items() if key != "text"}
+            sections.append({**meta, "section": heading, "text": text})
+
+    for line in document["text"].splitlines():
+        if line.startswith(FENCE):
+            in_code = not in_code
+        if not in_code and re.match(r"#{1,6} ", line):
+            close()
+            lines, heading = [], line.lstrip("#").strip()
+        lines.append(line)
+    close()
+    return sections
+
+def load_sections() -> list[dict]:
+    return [section for document in load_documents() for section in split_sections(document)]
+
+STOPWORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "is", "was", "it", "this", "that",
+             "with", "as", "at", "by", "be", "i", "you", "my", "me", "we", "our", "please", "about", "from", "last"}
+PUNCTUATION = str.maketrans({mark: " " for mark in ".,;:!?()'\"${"`"}"})
+
+def keywords(text: str) -> set:
+    """The words in text worth matching on: lowercased, punctuation removed, common and one-letter words dropped."""
+    words = text.lower().translate(PUNCTUATION).split()
+    return {word for word in words if len(word) > 1} - STOPWORDS
+
+class KeywordIndex:
+    """Sections indexed by their keywords, worked out once, when each section is added."""
+
+    def __init__(self):
+        self._entries = []
+
+    def __len__(self) -> int:
+        return len(self._entries)
+
+    def add(self, sections: list[dict]) -> None:
+        for section in sections:
+            if not section.get("doc_id") or not section.get("section"):
+                raise ValueError("every section needs a doc_id and a section heading, so an answer can cite it")
+            self._entries.append((keywords(section["text"]), section))
+
+    def search(self, question: str, k: int = 3) -> list[dict]:
+        wanted = keywords(question)
+        scored = [(len(wanted & words), section) for words, section in self._entries]
+        # sorting is stable, so sections with equal scores keep the order they were added in
+        ranked = sorted((pair for pair in scored if pair[0] > 0), key=lambda pair: pair[0], reverse=True)
+        return [{**section, "score": score} for score, section in ranked[:k]]
+
+def build_prompt(question: str, passages: list[dict]) -> str:
+    sources = "\n\n".join(f'<source doc="{p["doc_id"]}" section="{p["section"]}">\n{p["text"]}\n</source>'
+                          for p in passages)
+    return f"Answer using only these sources, and name the source you used.\n\n{sources}\n\nQuestion: {question}"
+
+
+# --- Lesson 2 ---
+
+def load_queries() -> dict:
+    """The labelled query set: main and held-out queries, each with its evidence."""
+    return json.loads(Path("/data/rag/queries.json").read_text(encoding="utf-8"))
+
+def normalize(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
+
+def is_relevant(chunk: dict, span: dict) -> bool:
+    """True if the chunk comes from the span's document and holds at least half of the quote, unbroken."""
+    if chunk["doc_id"] != span["doc_id"]:
+        return False
+    text, quote = normalize(chunk["text"]), normalize(span["quote"])
+    half = math.ceil(len(quote) / 2)
+    return any(quote[start:start + half] in text for start in range(len(quote) - half + 1))
+
+def answerable(results: list[dict], query: dict) -> bool:
+    """True if, for every evidence group, at least one result is relevant to one of its spans."""
+    return all(any(is_relevant(chunk, span) for chunk in results for span in group)
+               for group in query["evidence"])
+
+def is_relevant_to_query(chunk: dict, query: dict) -> bool:
+    return any(is_relevant(chunk, span) for group in query["evidence"] for span in group)
+
+def precision_at_k(results: list[dict], query: dict, k: int) -> float:
+    """The share of the k result slots filled by relevant chunks."""
+    return sum(is_relevant_to_query(chunk, query) for chunk in results[:k]) / k
+
+def recall_at_k(results: list[dict], query: dict, k: int) -> float:
+    """The share of the answer's parts (evidence groups) found in the top k."""
+    top = results[:k]
+    found = [any(is_relevant(chunk, span) for chunk in top for span in group) for group in query["evidence"]]
+    return sum(found) / len(found)
+
+def reciprocal_rank(results: list[dict], query: dict, k: int) -> float:
+    """1 / the position of the first relevant chunk in the top k, or 0 if there's none."""
+    for position, chunk in enumerate(results[:k], 1):
+        if is_relevant_to_query(chunk, query):
+            return 1 / position
+    return 0.0
+
+def evaluate(search, queries: list[dict], k: int) -> dict:
+    """Average each metric over the queries that have evidence. search(question, k) returns ranked chunks."""
+    scored = [q for q in queries if q["evidence"]]
+    totals = {"recall": 0.0, "precision": 0.0, "mrr": 0.0, "answerable": 0.0}
+    for query in scored:
+        results = search(query["query"], k)
+        totals["recall"] += recall_at_k(results, query, k)
+        totals["precision"] += precision_at_k(results, query, k)
+        totals["mrr"] += reciprocal_rank(results, query, k)
+        totals["answerable"] += recall_at_k(results, query, k) == 1
+    return {name: round(total / len(scored), 3) for name, total in totals.items()}
+
+def sign_test(gains: int, losses: int) -> float:
+    """If a change made no real difference, the chance of a split at least this lopsided, either way."""
+    n = gains + losses
+    tail = sum(math.comb(n, i) for i in range(max(gains, losses), n + 1)) / 2 ** n
+    return min(1.0, 2 * tail)
+`;
+
+export const HARNESS_STARTER = String.raw`from collections import defaultdict
+
+from lib import answerable, evaluate, sign_test
+
+def compare_searches(search_a, search_b, labelled: dict, k: int = 5) -> dict:
+    """Compare two searches on the main query set only: averages, answerable by type, and which questions moved."""
+    # TODO: use only labelled["main"], and only queries with evidence
+    # TODO: call each search once per question; score everything from those results
+    # TODO: return a, b, by_type, gained, lost and p_value
+    ...
+`;
+
+export const HARNESS_REFERENCE = String.raw`from collections import defaultdict
+
+from lib import answerable, evaluate, sign_test
+
+def compare_searches(search_a, search_b, labelled: dict, k: int = 5) -> dict:
+    """Compare two searches on the main query set only: averages, answerable by type, and which questions moved."""
+    queries = [q for q in labelled["main"] if q["evidence"]]
+    # run each search once per question, and score everything from those results
+    results_a = {q["query"]: search_a(q["query"], k) for q in queries}
+    results_b = {q["query"]: search_b(q["query"], k) for q in queries}
+
+    by_type = defaultdict(lambda: {"a": 0, "b": 0, "total": 0})
+    answered_a, answered_b = set(), set()
+    for query in queries:
+        counts = by_type[query["type"]]
+        counts["total"] += 1
+        if answerable(results_a[query["query"]], query):
+            counts["a"] += 1
+            answered_a.add(query["id"])
+        if answerable(results_b[query["query"]], query):
+            counts["b"] += 1
+            answered_b.add(query["id"])
+
+    gained, lost = sorted(answered_b - answered_a), sorted(answered_a - answered_b)
+    return {
+        "a": evaluate(lambda question, k: results_a[question], queries, k),
+        "b": evaluate(lambda question, k: results_b[question], queries, k),
+        "by_type": dict(by_type),
+        "gained": gained,
+        "lost": lost,
+        "p_value": round(sign_test(len(gained), len(lost)), 3),
+    }
+`;
+
+export const HIDDEN_TESTS = String.raw`import lib
+from harness import compare_searches
+
+# shared by the tests below
+LIMIT = {"doc_id": "D01", "section": "Rate limits", "text": "Each key may make 60 requests per minute."}
+ERROR = {"doc_id": "D02", "section": "Limits", "text": "The key made too many requests this minute."}
+OFF = {"doc_id": "D04", "section": "Core services", "text": "registry-api stores every agent's configuration."}
+LABELLED = {
+    "main": [
+        {"id": "q1", "type": "identifier", "query": "rate limit",
+         "evidence": [[{"doc_id": "D01", "quote": "Each key may make 60 requests per minute."}]]},
+        {"id": "q2", "type": "identifier", "query": "too many requests",
+         "evidence": [[{"doc_id": "D02", "quote": "The key made too many requests this minute."}]]},
+        {"id": "q3", "type": "paraphrase", "query": "how fast can I call it",
+         "evidence": [[{"doc_id": "D01", "quote": "Each key may make 60 requests per minute."}]]},
+        {"id": "q4", "type": "unanswerable", "query": "what is the SLA", "evidence": []},
+    ],
+    "held_out": [
+        {"id": "h1", "type": "identifier", "query": "held-out question",
+         "evidence": [[{"doc_id": "D01", "quote": "Each key may make 60 requests per minute."}]]},
+    ],
+}
+def recording(answers):
+    calls = []
+    def search(question, k):
+        calls.append((question, k))
+        return answers.get(question, [OFF])
+    return search, calls
+
+# 1. only main questions with evidence are asked, each once per search, with k
+search_a, calls_a = recording({"rate limit": [LIMIT]})
+search_b, calls_b = recording({"rate limit": [LIMIT], "too many requests": [ERROR]})
+report = compare_searches(search_a, search_b, LABELLED, k=3)
+asked = [question for question, k in calls_a + calls_b]
+assert "held-out question" not in asked, "the held-out questions must never be run"
+assert "what is the SLA" not in asked, "skip questions without evidence"
+assert sorted(calls_a) == sorted(calls_b) == [("how fast can I call it", 3), ("rate limit", 3), ("too many requests", 3)], \
+    f"call each search once per question with evidence, with k; search_a was called with {calls_a}"
+
+# 2. the averages come from evaluate, on the same results
+assert report["a"] == {"recall": 0.333, "precision": 0.111, "mrr": 0.333, "answerable": 0.333}, report["a"]
+assert report["b"] == {"recall": 0.667, "precision": 0.222, "mrr": 0.667, "answerable": 0.667}, report["b"]
+
+# 3. answerable by type, and which questions moved
+assert report["by_type"] == {"identifier": {"a": 1, "b": 2, "total": 2}, "paraphrase": {"a": 0, "b": 0, "total": 1}}, \
+    f"by_type should count answered questions per type, for questions with evidence; got {report['by_type']}"
+assert report["gained"] == ["q2"] and report["lost"] == [], \
+    f"gained lists what b answers and a doesn't; got gained={report['gained']}, lost={report['lost']}"
+assert report["p_value"] == 1.0, f"one gain and no losses is no evidence at all; got {report['p_value']}"
+
+# 4. losses are reported too, and the sign test uses both counts
+report = compare_searches(search_b, search_a, LABELLED, k=3)
+assert report["gained"] == [] and report["lost"] == ["q2"], "swapping the searches should turn the gain into a loss"
+
+# 5. the real corpus: Lesson 1's keyword search against the stopword fix
+baseline = lib.KeywordIndex()
+baseline.add(lib.load_sections())
+QUESTION_WORDS = {"what", "does", "mean", "how", "which", "why", "do", "can", "should"}
+
+def with_question_words_dropped(action):
+    """Run action with question words treated as stopwords, then put the stopwords back."""
+    lib.STOPWORDS |= QUESTION_WORDS
+    try:
+        return action()
+    finally:
+        lib.STOPWORDS -= QUESTION_WORDS
+
+tweaked = lib.KeywordIndex()
+with_question_words_dropped(lambda: tweaked.add(lib.load_sections()))
+def tweaked_search(question, k):
+    return with_question_words_dropped(lambda: tweaked.search(question, k))
+
+report = compare_searches(baseline.search, tweaked_search, lib.load_queries(), k=5)
+assert report["a"] == {"recall": 0.509, "precision": 0.144, "mrr": 0.418, "answerable": 0.442}, report["a"]
+assert (report["gained"], report["lost"], report["p_value"]) == (["q05", "q09", "q20", "q21", "q31"], ["q01"], 0.219), \
+    (report["gained"], report["lost"], report["p_value"])
+assert report["by_type"]["multi_hop"] == {"a": 0, "b": 0, "total": 3}, report["by_type"]["multi_hop"]
+`;
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "A new search raises answerable@5 on the main set from 0.44 to 0.72. What should you check before trusting the gain?",
+    "options": [
+      "Only that the gain holds at k = 10 as well as at k = 5",
+      "Which questions it gained and lost, and whether its passages were pooled and judged",
+      "Whether the held-out set shows the same gain, run straight away",
+      "Nothing further, since a gain that large can't be noise"
+    ],
+    "correctIndex": 1,
+    "explanation": "A large gain is unlikely to be noise, but it can hide losses on questions that matter, and a search outside the pool may be scored against incomplete labels. The held-out set is saved for the finished system, not for each change."
+  },
+  {
+    "question": "A team labels its query set with chunk ids, then changes its chunk size. What happens to the labels?",
+    "options": [
+      "They still work, because chunk ids are assigned in document order",
+      "They become stricter, since smaller chunks hold less of each answer",
+      "They need re-checking only for documents that were edited",
+      "They point at chunks that no longer exist or hold different text"
+    ],
+    "correctIndex": 3,
+    "explanation": "A chunk id names a piece of text produced by one way of splitting. Split differently and the same id means something else. Quotes stay attached to the text itself, so one set of labels scores every chunking."
+  },
+  {
+    "question": "Why run a check that every labelled quote occurs exactly once in its document?",
+    "options": [
+      "A mistyped quote matches nothing, and its query then looks like a retrieval failure",
+      "Quotes that appear twice would be counted as two separate answers",
+      "The relevance rule can only compare quotes that are under a set length",
+      "Documents change their text each time the corpus is rebuilt"
+    ],
+    "correctIndex": 0,
+    "explanation": "Labels are data, and a broken label fails silently: the search gets blamed for a quote that can never match. Checking every quote by code, like testing any other input, catches that before any number is reported."
+  },
+  {
+    "question": "Search A answers 30 of 43 questions with the answer usually fourth or fifth. Search B answers 25 with the answer usually first. The model reads all five results. Which number favours A?",
+    "options": [
+      "MRR, because A's answers are found more often",
+      "precision@5, because A returns more results",
+      "answerable@5, because the model has what it needs on more questions",
+      "recall@1, because A finds more answers overall"
+    ],
+    "correctIndex": 2,
+    "explanation": "When the model reads all k results, what matters most is whether the answer is anywhere in them. B's higher MRR would matter if only the top result were used, or if position in the prompt hurt."
+  },
+  {
+    "question": "A search scores a precision@5 of 0.46 on this set. Why might that be close to perfect?",
+    "options": [
+      "Precision is capped at 0.5, since half of any result list is noise",
+      "The labels are incomplete, so no search can score above 0.5",
+      "Precision@5 is always half of recall@5 on a corpus this size",
+      "Most questions have only one or two relevant sections, so most slots can't be filled"
+    ],
+    "correctIndex": 3,
+    "explanation": "A question with one relevant section can't score above 0.2 at k = 5. Averaged over this set, the best possible search reaches about 0.46. Precision is only meaningful compared between searches at the same k."
+  },
+  {
+    "question": "A change gains 20 questions and loses 2. What does the sign test say?",
+    "options": [
+      "Nothing, since the test only works for splits smaller than 10",
+      "A split that lopsided would almost never happen by chance",
+      "The change is certain to help on every future question",
+      "The two losses cancel out the gains, so the change is neutral"
+    ],
+    "correctIndex": 1,
+    "explanation": "If the change did nothing and each flipped question went either way like a coin, 20 to 2 or worse would be extremely rare. That's strong evidence it helps overall, but it says nothing about which questions it helps, and the two losses still deserve a look."
+  },
+  {
+    "question": "When should the held-out questions be run?",
+    "options": [
+      "Once, on the finished system, after every choice has been made",
+      "After each change, to confirm the main set's result",
+      "Whenever the main set's result is surprisingly good",
+      "Before any change, to record a starting point"
+    ],
+    "correctIndex": 0,
+    "explanation": "Running them to inform a decision makes them part of the tuning, and they stop being an honest check. Run once at the end, they show how much of the improvement came from fitting the main set."
+  },
+  {
+    "question": "Labels were pooled from two keyword searches. A new search finds a relevant passage that shares no words with its question. How is it scored?",
+    "options": [
+      "As correct, because the relevance rule checks the passage's meaning",
+      "It's skipped, because passages outside the pool aren't scored",
+      "As a mistake, because no pooled search surfaced that passage to be judged",
+      "As half-correct, because it matches the question's topic but not its words"
+    ],
+    "correctIndex": 2,
+    "explanation": "Pooling treats everything no pooled search ranked highly as not relevant. A search that finds different things than the pool's searches is penalised for exactly those finds, which is why a new kind of search gets pooled before its numbers are reported."
+  }
+]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<MultiFileGradedExercise
+  client:load
+  task={"lib.py holds Lessons 1 and 2's code, including answerable, evaluate and sign_test. It's read-only. Write compare_searches(search_a, search_b, labelled, k=5) in harness.py. labelled is the whole loaded query set; each search is a function search(question, k) returning ranked chunks. Return a dict: \"a\" and \"b\", each search's averages from evaluate; \"by_type\", for each query type, {\"a\": answered by A, \"b\": answered by B, \"total\": questions}, counting answerable@k; \"gained\" and \"lost\", sorted lists of the ids of questions B answers and A doesn't, and the reverse; \"p_value\", sign_test on the gained and lost counts, rounded to 3 places. Use only labelled[\"main\"]: the held-out questions must never be run. Leave out questions without evidence. Call each search exactly once per question, with k, and compute everything from those results."}
+  entry="harness.py"
+  files={[
+    { name: "lib.py", readOnly: true, code: LIB_PY },
+    { name: "harness.py", code: HARNESS_STARTER },
+  ]}
+  hiddenTests={HIDDEN_TESTS}
+  dataFiles={RAG_EVAL_DATA}
+  hint={"Store each search's results in a dict keyed by question: {q[\"query\"]: search_a(q[\"query\"], k) for q in queries}. Then evaluate can be given a stand-in search that looks results up instead of searching again: lambda question, k: results_a[question]. Build the answered-id sets in the same loop as the per-type counts, and take their differences for gained and lost."}
+  correctFiles={[
+    { name: "lib.py", readOnly: true, code: LIB_PY },
+    { name: "harness.py", code: HARNESS_REFERENCE },
+  ]}
+  explanation={"Three design choices carry the lesson. Taking the whole labelled set and using only labelled[\"main\"] makes the held-out rule part of the code, not a promise, so no comparison can quietly touch it. Running each search once and scoring everything from the stored results keeps the averages, the per-type counts and the gained/lost lists consistent with each other, and it matters for cost: in later lessons a search may be a model call. And the report says more than an average: which kinds of question moved, exactly which questions were gained and lost, and how likely that split would be by chance. On the real corpus, test 5 reproduces the lesson's finding for the stopword fix: five gained, one lost, and a p-value of 0.219, weak evidence from this set alone. This harness is how every later lesson's claims will be checked."}
+/>
+
+</CheckpointZone>

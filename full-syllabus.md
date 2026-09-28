@@ -3414,8 +3414,8 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    Lesson 1 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
 
-2. **Measuring Retrieval** — **Building** (folder `02-measuring-retrieval`;
-   title provisional until the bookends mockup). Concept 1 (measure before
+2. **Measuring Retrieval Before Improving It** — **Locked** (folder
+   `02-measuring-retrieval`; the title comes from the bookends mockup). Concept 1 (measure before
    you change anything) is built: question words as stopwords fixes
    "What does REG-1007 mean?" (live demo), then the same change over the 43
    main queries with evidence at k=5 answers 19 before and 23 after (five
@@ -3470,8 +3470,26 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    across 12 queries (9 main, 3 held out), q09 gained 4, nothing removed;
    the keyword baseline at k = 5 moves only in precision (0.140 to 0.144).
    Concept 2's "When the labels are wrong" now links here
-   (`#a-label-that-was-right-and-incomplete`, anchor verified). Further
-   concepts and bookends not yet drafted.
+   (`#a-label-that-was-right-and-incomplete`, anchor verified).
+   Bookends are built: intro (3 outcomes, why it matters) and recap with an
+   8-question comprehensive quiz and a multi-file sandbox (`lib.py`
+   read-only, Lessons 1 and 2's code; entry **`harness.py`**, not
+   `agent.py`: `compare_searches(search_a, search_b, labelled, k)`
+   returning both searches' `evaluate` averages, answerable by type,
+   sorted gained/lost ids and a rounded sign-test p-value, main set only,
+   each search called once per question). `lib.py`, starter, reference and
+   hidden tests were generated from the mockup and checked byte-for-byte
+   against it; `lib.py` contains every line of the shared setup the
+   lesson's pages ran. Verified with the real multi-file harness
+   (`runMultiFileAgainstHiddenTests`): the reference passes (test 5 on the
+   full corpus: q05, q09, q20, q21, q31 gained, q01 lost, p = 0.219, about
+   0.3 s), the starter fails, and eight mutations each fail (held-out
+   questions run, no evidence filter, `evaluate` searching again, gained
+   and lost swapped, p-value unrounded, totals counting only answered
+   questions, `k` ignored, plus the starter).
+
+   Lesson 2 is now **Locked**: all five concepts plus both bookends exist
+   and build cleanly.
 
 ---
 
