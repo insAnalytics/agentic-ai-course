@@ -1,0 +1,236 @@
+---
+title: "Hybrid search, measured honestly"
+lesson: "05-hybrid-search"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { COUNT_TOKENS } from "../../../../lib/fakeClient";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, SIGN_TEST, FIXED_CHUNKS, STRUCTURE_HELPERS, STRUCTURED_CHUNKS, WITHIN_BUDGET, VECTORS, VECTOR_INDEX, MEANING_SEARCH, TERMS, BM25_INDEX, RAG_BGE_DATA } from "../../../../lib/ragCorpus";
+
+export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION + METRICS + SIGN_TEST + FIXED_CHUNKS + STRUCTURE_HELPERS + STRUCTURED_CHUNKS + WITHIN_BUDGET + VECTORS + VECTOR_INDEX + MEANING_SEARCH + TERMS + BM25_INDEX;
+
+export const TABLE_DEMO = String.raw`from collections import defaultdict
+
+def rrf(rankings: list[list[dict]], k: int = 60) -> list[dict]:
+    """Reciprocal Rank Fusion: each chunk scores the sum of 1 / (k + rank) over the rankings it appears in."""
+    scores, found = defaultdict(float), {}
+    for ranking in rankings:
+        for rank, chunk in enumerate(ranking, 1):
+            key = (chunk["doc_id"], chunk["chunk"])
+            scores[key] += 1 / (k + rank)
+            found[key] = chunk
+    return [{**found[key], "score": scores[key]} for key in sorted(scores, key=scores.get, reverse=True)]
+
+queries = load_queries()["main"]
+chunks = [c for d in load_documents() for c in structured_chunks(d, 200)]
+overlap, bm25 = KeywordIndex(), BM25Index()
+overlap.add(chunks)
+bm25.add(chunks)
+meaning = meaning_search(chunks, queries)
+
+def lookup(lists: dict):
+    """A search(question, k) that reads rankings computed in advance."""
+    def search(question: str, k: int) -> list[dict]:
+        return lists[question][:k]
+    return search
+
+# run each search once per question, deep enough for every k below
+ranked = {name: {q["query"]: search(q["query"], 100) for q in queries if q["evidence"]}
+          for name, search in [("word overlap", overlap.search), ("BM25", bm25.search), ("meaning", meaning)]}
+ranked["hybrid"] = {question: rrf([ranked["BM25"][question], ranked["meaning"][question]])
+                    for question in ranked["BM25"]}
+searches = {name: lookup(lists) for name, lists in ranked.items()}
+
+print(f"{'search':<14}{'@1':>5}{'@3':>5}{'@5':>5}{'@20':>5}{'MRR@5':>8}   (questions answered, of 43)")
+for name, search in searches.items():
+    counts = [len(answered_ids(search, queries, k)) for k in (1, 3, 5, 20)]
+    mrr = evaluate(search, queries, 5)["mrr"]
+    print(f"{name:<14}" + "".join(f"{c:>5}" for c in counts) + f"{mrr:>8.3f}")
+`;
+
+export const BY_TYPE_DEMO = String.raw`from collections import defaultdict
+
+def rrf(rankings: list[list[dict]], k: int = 60) -> list[dict]:
+    """Reciprocal Rank Fusion: each chunk scores the sum of 1 / (k + rank) over the rankings it appears in."""
+    scores, found = defaultdict(float), {}
+    for ranking in rankings:
+        for rank, chunk in enumerate(ranking, 1):
+            key = (chunk["doc_id"], chunk["chunk"])
+            scores[key] += 1 / (k + rank)
+            found[key] = chunk
+    return [{**found[key], "score": scores[key]} for key in sorted(scores, key=scores.get, reverse=True)]
+
+queries = load_queries()["main"]
+chunks = [c for d in load_documents() for c in structured_chunks(d, 200)]
+overlap, bm25 = KeywordIndex(), BM25Index()
+overlap.add(chunks)
+bm25.add(chunks)
+meaning = meaning_search(chunks, queries)
+
+def lookup(lists: dict):
+    """A search(question, k) that reads rankings computed in advance."""
+    def search(question: str, k: int) -> list[dict]:
+        return lists[question][:k]
+    return search
+
+# run each search once per question, deep enough for every k below
+ranked = {name: {q["query"]: search(q["query"], 100) for q in queries if q["evidence"]}
+          for name, search in [("word overlap", overlap.search), ("BM25", bm25.search), ("meaning", meaning)]}
+ranked["hybrid"] = {question: rrf([ranked["BM25"][question], ranked["meaning"][question]])
+                    for question in ranked["BM25"]}
+searches = {name: lookup(lists) for name, lists in ranked.items()}
+
+from collections import Counter
+
+answered = {name: answered_ids(search, queries, 5) for name, search in searches.items()}
+types = Counter(q["type"] for q in queries if q["evidence"])
+print(f"{'type':<16}{'BM25':>6}{'meaning':>9}{'hybrid':>8}   (answered in the top 5)")
+for query_type, total in types.items():
+    row = [sum(q["id"] in answered[name] for q in queries if q["type"] == query_type) for name in ("BM25", "meaning", "hybrid")]
+    print(f"{query_type:<16}" + "".join(f"{n:>{w}}" for n, w in zip(row, (6, 9, 8))) + f"   of {total}")
+
+text = {q["id"]: q["query"] for q in queries}
+gained, lost = answered["hybrid"] - answered["meaning"], answered["meaning"] - answered["hybrid"]
+print(f"\nhybrid against meaning: gained {len(gained)}, lost {len(lost)}, sign test {sign_test(len(gained), len(lost)):.2f}")
+for label, ids in [("gained", gained), ("lost", lost)]:
+    for query_id in sorted(ids):
+        print(f"  {label:<7}{query_id}: {text[query_id]}")
+`;
+
+<Subsection title="Four searches, one table" variant="a">
+
+Hybrid search, BM25 and search by meaning fused with RRF, has a strong
+reputation. Keyword search catches exact identifiers that search by meaning
+misses, search by meaning catches paraphrases that keywords miss, and fusion
+should get both. Here's every search this module has built, over the same
+chunks, at four depths:
+
+<LiveDemo client:load dataFiles={RAG_BGE_DATA} setupCode={SETUP} code={TABLE_DEMO} />
+
+*Each demo on this page runs every question through three searches, so it
+takes a few seconds.*
+
+Read across the rows:
+
+- **BM25 beats word overlap,** everywhere or equally, as the previous
+  concept found.
+- **Hybrid is best at the very top.** It puts a complete answer in first
+  place for 20 questions, against 15 for search by meaning, and its MRR is
+  clearly the highest, 0.702 against 0.624.
+- **Hybrid is not best further down.** At five results it answers 27
+  questions to search by meaning's 28, and at twenty it answers 31 to 34.
+
+So on this corpus, hybrid search is a better *ranker*, putting the right
+chunk first more often, but not a better *finder*: search by meaning alone
+gets more answers somewhere into its results.
+
+</Subsection>
+
+<Subsection title="Type by type, question by question" variant="b">
+
+<LiveDemo client:load dataFiles={RAG_BGE_DATA} setupCode={SETUP} code={BY_TYPE_DEMO} />
+
+The gains are what hybrid search is for. "MON-2002" is the bare identifier
+search by meaning couldn't place, and BM25's first-place vote carried it.
+The alerting question gained because "mute", "alerts", "cluster" and
+"other" are the words Alertmanager's section on inhibition uses, so BM25
+ranked it first.
+
+The losses show the other side of fusion. RRF gives each list's top places
+the same weight whatever the question, and it can't tell when a list is
+confidently wrong. "Which alerts wake someone up at night?" is a paraphrase
+search by meaning answered, but BM25's top places went to pages about
+alerts that share its words, and those votes pushed the answer out of the
+top five. "What happened in INC-2093?" was lost the same way: BM25's top
+places went to chunks matching "what" and "happened", because the incident
+id appears only in the report's title, not in the chunk that answers, a
+problem Lesson 8 takes up. Two gained, three lost, and a sign test of 1.00:
+at five results, the two can't be told apart on this set.
+
+</Subsection>
+
+<Subsection title="What to use, then" variant="a">
+
+The honest answer depends on how the results are used, and that's the real
+lesson here:
+
+- **If the model reads only the first one to three results,** hybrid search
+  is the better choice on this corpus: it puts the answer first for a third
+  more questions.
+- **If the model reads five,** search by meaning alone did as well, with one
+  known gap: bare identifiers, which keyword search should cover.
+- **If a second, more careful step re-ranks a longer list,** what matters is
+  how many answers the first step gets into that list at all. At twenty
+  results, search by meaning alone found more. Lesson 6 builds that second
+  step and measures which first step it should use.
+
+Hybrid's reputation isn't wrong: exact identifiers, product names and error
+codes are common in real questions, and keyword search is the dependable way
+to match them. On a corpus where more questions were bare identifiers, the
+balance would tip further towards fusion. On this one, most identifier
+questions wrap the code in ordinary words, which search by meaning handles
+well, so fusion's benefit shows up in ranking rather than coverage. The way
+to know for your corpus is this table, run on your questions.
+
+This is also the upgrade Module 4's keyword matching was waiting for. Its
+five uses of word overlap, from finding tools to recalling memories, gain
+search by meaning alongside keywords in Lesson 13, measured the same way.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "Hybrid search answered 20 questions at rank 1 against 15 for search by meaning, but 27 against 28 at rank 5. What's the best summary?",
+    "options": [
+      "Hybrid ranks answers higher, but doesn't find more of them",
+      "Hybrid is better overall, since rank 1 matters most",
+      "Search by meaning is better overall, since it answers more at rank 5",
+      "The two are identical, since the totals differ by only one"
+    ],
+    "correctIndex": 0,
+    "explanation": "The two numbers measure different things. Fusion moved answers up the list, which is what MRR and rank 1 reward, without adding answers the lists lacked. Which matters depends on how many results get used."
+  },
+  {
+    "question": "Why did fusion lose \"Which alerts wake someone up at night?\", which search by meaning answered alone?",
+    "options": [
+      "BM25's confident top places went to pages sharing its words, and pushed the answer down",
+      "RRF ignores the meaning list whenever BM25 returns results",
+      "The question contains no rare words, so fusion gave it a score of zero",
+      "Fusion only keeps chunks that appear in both lists"
+    ],
+    "correctIndex": 0,
+    "explanation": "RRF treats every list's top ranks alike. When one list is confidently wrong for a question, its votes crowd out the other list's correct answer. Fusion helps most when both lists are partly right."
+  },
+  {
+    "question": "A team's agent sends only the top two results to the model. On a corpus like this one, which search should they start with?",
+    "options": [
+      "Hybrid, because it puts the answer first more often",
+      "Search by meaning, because it answers more questions at rank 5",
+      "BM25, because it never loses to word overlap",
+      "Word overlap, because it's the simplest to maintain"
+    ],
+    "correctIndex": 0,
+    "explanation": "With only two results used, what matters is getting the answer to the very top, where hybrid led by a wide margin here. The choice follows from how results are consumed, and from measurement."
+  },
+  {
+    "question": "Why might hybrid search do better on another company's corpus than it did here?",
+    "options": [
+      "If more questions were bare identifiers, keyword search would matter more",
+      "Because RRF's k = 60 was tuned on a different corpus",
+      "Because other embedding models can't handle paraphrases",
+      "Because larger corpora always favour keyword search"
+    ],
+    "correctIndex": 0,
+    "explanation": "Keyword search earns its place on exact strings: codes, names, ids with nothing around them. Here, most identifier questions included ordinary words that search by meaning handled. The mix of questions decides the result, which is why it's measured per corpus."
+  }
+]}
+/>
+
+</CheckpointZone>

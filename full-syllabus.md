@@ -3715,7 +3715,18 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    a pilot and not altered, Table 1's MAP values at k = 0/20/60/100/500
    (.2072/.2134/.2145/.2142/.2098), and "outperforms Condorcet, CombMNZ
    and the best system by 4% to 5% on average"; 4 quiz cards. No new
-   shared code. Concepts 4+ and bookends not yet drafted.
+   shared code. Concept 4 (hybrid search, measured honestly) is built:
+   two live demos, code and output exact matches in real Pyodide (word
+   overlap, BM25, meaning and hybrid at k = 1/3/5/20 with MRR@5: hybrid
+   20 at rank 1 vs meaning's 15, MRR 0.702 vs 0.624, but 27 vs 28 at 5 and
+   31 vs 34 at 20; by type and question by question, hybrid vs meaning
+   gained q10 and q43, lost q04, q08 and q11, sign test 1.00; about 2 s
+   each in Node); prose claims checked (BM25 ranks q43's answer first,
+   meaning 17th; for q08 and q11 meaning has the answer 4th while BM25's
+   top places go elsewhere; INC-2093 appears only in D11's title line,
+   never in a structured chunk's text); what to use depending on how many
+   results are read; 4 quiz cards. No new shared code. Concepts 5+ (if
+   any) and bookends not yet drafted.
 
 ---
 
