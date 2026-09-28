@@ -3669,9 +3669,21 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    Lesson 4 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
 
-5. **Documents that aren't clean text** — **Planned** (inserted on
-   2026-09-28; content comes later, and its folder is created with its first
-   page). Inserting it moved the lessons after it up by one: folders
+5. **Documents That Aren't Clean Text** (provisional title) — **Building**
+   (folder `05-document-parsing`; inserted on 2026-09-28). Data: the PDF
+   corpus under `public/data/rag/pdf/` (architecture.md §3.1). Shared setup
+   is Lesson 4's recap `lib.py` plus the new `PDF_LOADERS`; data
+   `RAG_PDF_DATA`. Concept 1 (what a PDF actually contains) is built: the
+   loaders shown as a static block (byte-identical to the export and the
+   mockup); the four PDFs linked (the mockup's `/data/rag/pdf/files/...`
+   links get the site's base path at build, checked in the built HTML);
+   three live demos on the stored extraction, code and output exact
+   matches in real Pyodide (pypdf's text for P01's first page; pdfplumber's
+   fonts and sizes; five tables and two text-free images, and which
+   service names are in P04's text); prose claims checked (the page number
+   is drawn at the bottom but extracted first, P03's table has 13 weeks,
+   auth-service appears only in the diagram); 4 quiz cards. No changes from
+   the mockup. Concept 2 onwards and the bookends are not drafted yet. Inserting it moved the lessons after it up by one: folders
    `06-hybrid-search` to `10-grounded-answers`, every Module 5 lesson number
    of 5 or more in the pages, code and shared files, and the forward
    references to the planned Lessons 10 to 13, which are now 11 to 14. The

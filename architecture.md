@@ -397,6 +397,12 @@ concept 1 only. From concept 2 on the setup also appends `VECTOR_INDEX` and
 concept 2). `RAG_MINILM_DATA` adds the all-MiniLM-L6-v2 files to
 `RAG_BGE_DATA`, for the demos that compare the two models. `RAG_BGE_ALL_DATA` adds bge-small's `structured-100`, `structured-400`
 and `fixed-200` files, for concept 3's chunk-size comparison.
+Lesson 5's setup is Lesson 4's recap `lib.py` (the Lesson 4 setup through
+`MEANING_SEARCH`), then `PDF_LOADERS` (`PDF_DATA`, `load_pdf_extraction`,
+`load_pdf_corpus`, shown verbatim on Lesson 5 concept 1), with
+`RAG_PDF_DATA` (`RAG_BGE_DATA` plus the stored extraction, the PDF corpus
+and its embeddings). Links to files under `public/` are written as
+`/data/...` in the MDX and get the site's base path at build.
 Lesson 6's setup is Lesson 4's recap `lib.py`, which is exactly Lesson 4's
 page setup (`... + VECTORS + VECTOR_INDEX + MEANING_SEARCH`), with
 `RAG_BGE_DATA`. From Lesson 6 concept 2 on it also appends `TERMS`

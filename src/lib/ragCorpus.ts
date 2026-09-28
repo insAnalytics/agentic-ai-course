@@ -456,6 +456,34 @@ export const RAG_BGE_ALL_DATA = [
 ];
 
 /**
+ * Module 5 Lesson 5 concept 1 PDF loaders (PDF_DATA, load_pdf_extraction,
+ * load_pdf_corpus), shown verbatim on that page (keep the two
+ * byte-identical). Lesson 5 setup is Lesson 4's recap lib.py (... +
+ * MEANING_SEARCH), then this; data RAG_PDF_DATA. The stored extraction
+ * comes from scripts/generate-rag-pdf.py (README-pdf.md).
+ */
+export const PDF_LOADERS = String.raw`
+PDF_DATA = Path("/data/rag/pdf")
+
+def load_pdf_extraction() -> dict:
+    """What two free extractors returned for each of the lesson's PDFs, run offline and stored."""
+    return json.loads((PDF_DATA / "extracted.json").read_text())
+
+def load_pdf_corpus() -> dict:
+    """The PDFs' metadata, the model-written table summaries and image descriptions, and the labelled questions."""
+    return json.loads((PDF_DATA / "corpus.json").read_text())
+`;
+
+/** RAG_BGE_DATA plus the PDF corpus: stored extraction, corpus, and bge-small vectors for its chunks and questions (Lesson 5). */
+export const RAG_PDF_DATA = [
+  ...RAG_BGE_DATA,
+  "rag/pdf/extracted.json",
+  "rag/pdf/corpus.json",
+  "rag/embeddings/bge-small-en-v1.5/pdf-chunks.json",
+  "rag/embeddings/bge-small-en-v1.5/pdf-queries.json",
+];
+
+/**
  * Module 5 Lesson 6 concept 2 terms (keywords as a list that keeps
  * repeats), shown verbatim on that page (keep the two byte-identical).
  * Joins the Lesson 6 setup from concept 2 on: append after MEANING_SEARCH.
