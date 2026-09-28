@@ -3354,6 +3354,23 @@ below describe each lesson as first converted; see the git log
 
 ---
 
+## Module 5 — RAG Systems
+
+Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
+
+1. **Why Retrieval** — **Building** (folder `01-why-retrieval`; the lesson
+   title is provisional, since the mockups don't name the lesson yet).
+   Concept 1 (what the model can't know) is built: the kinds of knowledge a
+   model can't have from training, the fix being text in the prompt, the
+   corpus introduced with `load_documents()`, and two live demos (corpus
+   size by source type; finding the one `REG-1007` row, 37 of 232,241
+   tokens). Both demos were verified in real Pyodide 0.26.4 against the
+   real `documents.json`, and reproduce the mockup's output exactly. This
+   is the first page to load the corpus, via the new `LiveDemo`
+   `dataFiles` prop. Concepts 2+ and the bookends are not drafted yet.
+
+---
+
 ## Modules 4–11 — current plan
 
 *Updated 2026-09-24 from the Module 3 handover. The course now has 12

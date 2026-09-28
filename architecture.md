@@ -259,6 +259,17 @@ them into page or component code, which would inline megabytes into the JS
 bundle. Build the URL from `import.meta.env.BASE_URL` so it works under the
 GitHub Pages base path.
 
+**Implementation:** `src/lib/courseData.ts` (`writeCourseData`) fetches each
+path once per page (memoized; a failed fetch isn't cached, so the next Run
+retries) and writes it into Pyodide's FS at `/data/<path>` — rewritten on
+every Run so a demo that edits a data file can't break the next one.
+`LiveDemo` takes it as `dataFiles={["rag/documents.json"]}` (run before
+`setupCode`). Module 5's shared constants live in `src/lib/ragCorpus.ts`:
+`RAG_DATA` (the `dataFiles` list) and `LOAD_DOCUMENTS` (Python
+`load_documents()`, appended after `COUNT_TOKENS` in setup code). Only
+`LiveDemo` supports `dataFiles` so far; add the same call to a graded
+component's run path the first time a Module 5 exercise needs the corpus.
+
 ---
 
 ## 4. Sandbox architecture — three tiers

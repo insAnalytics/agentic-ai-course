@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { loadPyodideOnce, runCapturingOutput, type PyodideInterface } from "../../lib/pyodide";
+import { writeCourseData } from "../../lib/courseData";
 import CodeEditor from "./CodeEditor";
 
 interface LiveDemoProps {
@@ -14,9 +15,16 @@ interface LiveDemoProps {
    * depending on some other demo having run first.
    */
   setupCode?: string;
+  /**
+   * Static course data files (paths under `public/data/`, e.g.
+   * "rag/documents.json") written into Pyodide's FS at `/data/<path>` before
+   * `setupCode` runs. Fetched on the first Run click, never on page load —
+   * see src/lib/courseData.ts.
+   */
+  dataFiles?: string[];
 }
 
-export default function LiveDemo({ code: initialCode, setupCode }: LiveDemoProps) {
+export default function LiveDemo({ code: initialCode, setupCode, dataFiles }: LiveDemoProps) {
   const [code, setCode] = useState(initialCode);
   const [output, setOutput] = useState<string | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "running">("loading");
@@ -37,6 +45,15 @@ export default function LiveDemo({ code: initialCode, setupCode }: LiveDemoProps
   const run = async () => {
     if (!pyodide) return;
     setStatus("running");
+    if (dataFiles?.length) {
+      try {
+        await writeCourseData(pyodide, dataFiles);
+      } catch (err) {
+        setOutput(String(err));
+        setStatus("ready");
+        return;
+      }
+    }
     if (setupCode) await runCapturingOutput(pyodide, setupCode);
     const { output, error } = await runCapturingOutput(pyodide, code);
     setOutput(error ? output + error : output);
