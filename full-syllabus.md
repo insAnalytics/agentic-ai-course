@@ -3851,7 +3851,19 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    lost, sign test 0.22, about 3 s in Node); the q11 claim checked (its
    rewrite's top five opens with three chunks of Alertmanager's
    `<incidentio_config>`); costs and safeguards of rewriting; 4 quiz
-   cards. Concepts 2+ and bookends not yet drafted.
+   cards. Concept 2 (follow-up questions) is built: three live demos, code
+   and output exact matches in real Pyodide (the three conversational
+   questions as asked, one answered; BM25 on q24 with its history glued
+   on, answered with the short history and not with two added error-code
+   exchanges; the three rewritten with their conversations via the fake
+   client, all answered); linked to Module 2's scratchpad subsection
+   (`#why-it-has-to-exist-the-model-remembers-nothing-on-its-own`, anchor
+   verified); 4 quiz cards. **Change from the mockup:** "all five results
+   come from the INC-2041 report" now reads "four of the five", since the
+   demo's own output shows D09 four times and D13 fifth. The "three
+   incident reports' What we changed sections" claim was checked (D09,
+   D12, D11). No new shared code. Concepts 3+ and bookends not yet
+   drafted.
 
 ---
 
