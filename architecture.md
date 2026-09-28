@@ -273,6 +273,18 @@ served as plain static files. Module 5 (RAG) uses `public/data/rag/`:
   `scripts/rag_corpus/embedding-report.json`. Each page fetches only the
   files its demos need, via `dataFiles`, and those pages need numpy loaded
   in Pyodide.
+- `rerank/ms-marco-MiniLM-L6-v2/structured-200.json` (~640 KB, Lesson 6
+  onwards) — real cross-encoder scores from
+  `scripts/generate-rag-rerank-scores.py` (see `README-rerank.md`): every
+  labelled query (57, main and held-out) against every structured-200
+  chunk (1,968), float32, base64, shape (queries, chunks), rows keyed by
+  query id and columns by the same text hash as the embeddings, plus the
+  generating machine's timing. Checked when generated: chunk keys match
+  the lessons' chunker in order, query keys match the labels, no NaNs or
+  empty rows. Generated on an RTX 3070 Ti (CUDA 12.8 PyTorch), so its
+  "timing" (3.55 ms a pair, 97 ms for 30 candidates) is GPU timing; the
+  script scores one question at a time in batches of 64, which, not the
+  GPU, bounds its speed (about 7 minutes for 112,176 pairs).
 
 **Loading rule (every Module 5 page):** fetch these files at runtime, on the
 learner's first Run click, and let the browser cache them — never `import`
