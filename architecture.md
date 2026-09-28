@@ -354,6 +354,10 @@ setup through `BM25_INDEX`) followed by `RERANK_SCORES` (`RERANK`,
 `RAG_RERANK_DATA` (`RAG_BGE_DATA` plus the cross-encoder scores file).
 `RERANK` (`rerank`) is Lesson 6 concept 3's exercise reference: pages
 *after* concept 3 only.
+From Lesson 6 concept 4 on the setup appends `RERANK` and then
+`LISTWISE_RERANK` (`rerank_prompt`, `parse_ranking`; shown verbatim on
+concept 4). Demos that script a model reply add `REACT_FAKE_CLIENT +
+RECORDING_CLIENT` from `fakeClient.ts` after that setup.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.

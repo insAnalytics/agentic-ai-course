@@ -3796,8 +3796,17 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    all five, and eight mutations each fail (candidates at k not depth, no
    depth check, ascending, stored chunk mutated, first-stage score kept,
    each candidate scored twice, ties flipped, k ignored). The reference is
-   the new `RERANK` export, for pages after concept 3 only. Concepts 4+
-   and bookends not yet drafted.
+   the new `RERANK` export, for pages after concept 3 only. Concept 4 (a
+   model call as the reranker) is built: setup now includes `RERANK` and
+   the new `LISTWISE_RERANK` (`rerank_prompt`, `parse_ranking`, shown as a
+   static block, byte-identical to the export and the mockup); listwise
+   reranking and Sun et al. (EMNLP 2023, linked); three live demos, code
+   and output exact matches in real Pyodide (q08's top 5 reranked from a
+   scripted fake-client reply, 566-token prompt, the first demo alone
+   given `REACT_FAKE_CLIENT + RECORDING_CLIENT`; four malformed replies
+   parsed; top-30 prompts of 3,180 to 6,324 tokens, median 4,096); a reply
+   is untrusted text and the output is only a permutation; 4 quiz cards.
+   Concepts 5+ (if any) and bookends not yet drafted.
 
 ---
 
