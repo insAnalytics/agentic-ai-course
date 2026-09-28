@@ -3414,6 +3414,26 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    Lesson 1 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
 
+2. **Measuring Retrieval** — **Building** (folder `02-measuring-retrieval`;
+   title provisional until the bookends mockup). Concept 1 (measure before
+   you change anything) is built: question words as stopwords fixes
+   "What does REG-1007 mean?" (live demo), then the same change over the 43
+   main queries with evidence at k=5 answers 19 before and 23 after (five
+   gained, q01 lost; live demo); three lessons (set not example, totals
+   hide movement, small sets are noisy); measure first, linked to Module
+   4's measure-first subsection (anchor verified); retrieval vs answer
+   quality (Module 7). Both demos restore `STOPWORDS` and reproduce the
+   mockup's output exactly in real Pyodide 0.26.4 against the committed
+   `public/data/rag/queries.json` (the uncommitted v2 labels in
+   `scripts/rag_corpus/queries.json` give the same output). The
+   "reading the numbers honestly" callback is plain prose until that
+   concept exists. New shared setup in `ragCorpus.ts`: `KEYWORD_INDEX`,
+   `EVALUATION` (**provisional** `is_relevant`/`answerable`, written from
+   `queries.json`'s stated rules because concept 1 uses them before
+   concept 2 shows them; replace with concept 2's code and re-check
+   concept 1's numbers), `RAG_EVAL_DATA`. 4 quiz cards. Concepts 2+ and
+   bookends not yet drafted.
+
 ---
 
 ## Modules 4–11 — current plan

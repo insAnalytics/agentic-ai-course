@@ -268,7 +268,13 @@ every Run so a demo that edits a data file can't break the next one.
 `RAG_DATA` (the `dataFiles` list) and `LOAD_DOCUMENTS` (Python
 `load_documents()`, appended after `COUNT_TOKENS` in setup code) and, from
 Lesson 1 concept 4, `SECTION_SEARCH` (`split_sections`, `load_sections`,
-`keywords`). `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
+`keywords`). Lesson 2 adds `KEYWORD_INDEX` (Lesson 1's `KeywordIndex` and
+`build_prompt`, the rest of its recap `lib.py`), `EVALUATION`
+(`load_queries`, `normalize`, `is_relevant`, `answerable`, following the
+rules stated in `queries.json`; provisional until Lesson 2 concept 2's
+mockup gives the shown version) and `RAG_EVAL_DATA` (documents plus
+`queries.json`). Lesson 2's setup is `COUNT_TOKENS + LOAD_DOCUMENTS +
+SECTION_SEARCH + KEYWORD_INDEX + EVALUATION`. `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.
 In a multi-file sandbox, a hidden test can monkeypatch a helper through its

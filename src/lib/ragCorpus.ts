@@ -62,3 +62,74 @@ def keywords(text: str) -> set:
     words = text.lower().translate(PUNCTUATION).split()
     return {word for word in words if len(word) > 1} - STOPWORDS
 `;
+
+/**
+ * The rest of Module 5 Lesson 1's lib.py (its recap sandbox's LIB_PY holds
+ * the same code): the graded KeywordIndex and the pipeline demo's
+ * build_prompt. Append after SECTION_SEARCH.
+ */
+export const KEYWORD_INDEX = String.raw`
+class KeywordIndex:
+    """Sections indexed by their keywords, worked out once, when each section is added."""
+
+    def __init__(self):
+        self._entries = []
+
+    def __len__(self) -> int:
+        return len(self._entries)
+
+    def add(self, sections: list[dict]) -> None:
+        for section in sections:
+            if not section.get("doc_id") or not section.get("section"):
+                raise ValueError("every section needs a doc_id and a section heading, so an answer can cite it")
+            self._entries.append((keywords(section["text"]), section))
+
+    def search(self, question: str, k: int = 3) -> list[dict]:
+        wanted = keywords(question)
+        scored = [(len(wanted & words), section) for words, section in self._entries]
+        # sorting is stable, so sections with equal scores keep the order they were added in
+        ranked = sorted((pair for pair in scored if pair[0] > 0), key=lambda pair: pair[0], reverse=True)
+        return [{**section, "score": score} for score, section in ranked[:k]]
+
+def build_prompt(question: str, passages: list[dict]) -> str:
+    sources = "\n\n".join(f'<source doc="{p["doc_id"]}" section="{p["section"]}">\n{p["text"]}\n</source>'
+                          for p in passages)
+    return f"Answer using only these sources, and name the source you used.\n\n{sources}\n\nQuestion: {question}"
+`;
+
+/** Module 5 Lesson 2 pages load the labelled queries alongside the corpus. */
+export const RAG_EVAL_DATA = ["rag/documents.json", "rag/queries.json"];
+
+/**
+ * Module 5 Lesson 2's scoring helpers, following the rules stated in
+ * queries.json ("matching", "relevance"). Concept 1 uses them before
+ * concept 2 shows them; PROVISIONAL until concept 2's mockup exists — when
+ * it does, replace this with its code verbatim and re-check concept 1's
+ * demo output (43 questions; 19 before, 23 after). Append after
+ * KEYWORD_INDEX; pass dataFiles={RAG_EVAL_DATA}.
+ */
+export const EVALUATION = String.raw`
+def load_queries() -> dict:
+    """The labelled questions: "main" for measuring, "held_out" kept back for a final check."""
+    return json.loads(Path("/data/rag/queries.json").read_text(encoding="utf-8"))
+
+def normalize(text: str) -> str:
+    """Collapse every run of whitespace to one space, the form the labelled quotes match in."""
+    return re.sub(r"\s+", " ", text).strip()
+
+def is_relevant(chunk: dict, span: dict) -> bool:
+    """Whether a chunk holds at least half of a labelled span's characters."""
+    if chunk["doc_id"] != span["doc_id"]:
+        return False
+    text, quote = normalize(chunk["text"]), normalize(span["quote"])
+    if quote in text:
+        return True
+    # a chunk boundary can cut through the span: count the part of it at the chunk's start or end
+    half = (len(quote) + 1) // 2
+    return any(text.endswith(quote[:n]) or text.startswith(quote[-n:]) for n in range(half, len(quote)))
+
+def answerable(results: list[dict], query: dict) -> bool:
+    """Whether every part of the answer (each evidence group) has a relevant chunk in the results."""
+    return all(any(is_relevant(chunk, span) for chunk in results for span in group)
+               for group in query["evidence"])
+`;
