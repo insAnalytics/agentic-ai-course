@@ -303,6 +303,26 @@ served as plain static files. Module 5 (RAG) uses `public/data/rag/`:
   it sharply. Batch size doesn't change the scores. Checked when
   generated: texts match the source file, vectors unit length, chunk keys
   match the chunker, no NaNs or empty rows.
+- Contextual chunks (Lesson 8 onwards), from
+  `scripts/generate-rag-contextual.py` (see `README-contextual.md`):
+  two new versions of every structured-200 chunk, built by
+  `scripts/rag_context.py`, which must stay identical to the lesson's
+  `with_header`/`with_context` because vectors and scores are looked up by
+  a hash of the exact text. `structured-200-headers` prepends each chunk's
+  section path; `structured-200-contextual` prepends a model-written
+  context for the 75 internal registry chunks and the header for every
+  other chunk. Contexts live in `scripts/rag_corpus/chunk_contexts_src.py`
+  (written by Claude for the course; edit that, not the JSON, and rerun)
+  and are served from `chunk-contexts.json` (~11 KB, with the prompt) as
+  scripted model replies. Per version:
+  `embeddings/bge-small-en-v1.5/structured-200-{headers,contextual}.json`
+  (~2 MB, 1,968 vectors) and
+  `rerank/ms-marco-MiniLM-L6-v2/structured-200-{headers,contextual}.json`
+  (~640 KB, all 57 labelled questions against every chunk). Generated on
+  the RTX 3070 Ti with `BATCH` overridden to 128, as for the query variants
+  (about 5 and 7 minutes). Checked when generated: contexts match the
+  source, keys match the hashed texts, vectors unit length, no NaNs or
+  empty rows.
 
 **Loading rule (every Module 5 page):** fetch these files at runtime, on the
 learner's first Run click, and let the browser cache them — never `import`
