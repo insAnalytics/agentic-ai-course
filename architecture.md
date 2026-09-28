@@ -268,9 +268,13 @@ every Run so a demo that edits a data file can't break the next one.
 `RAG_DATA` (the `dataFiles` list) and `LOAD_DOCUMENTS` (Python
 `load_documents()`, appended after `COUNT_TOKENS` in setup code) and, from
 Lesson 1 concept 4, `SECTION_SEARCH` (`split_sections`, `load_sections`,
-`keywords`). `LiveDemo` and `GradedExercise` both take `dataFiles`; the
-multi-file and other graded components don't yet — add the same
+`keywords`). `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
+take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.
+In a multi-file sandbox, a hidden test can monkeypatch a helper through its
+module (`lib.keywords = spy`), since `lib`'s own functions look names up in
+that real module; that's the multi-file counterpart of the single-file
+`__globals__` patch (§4.1).
 
 ---
 

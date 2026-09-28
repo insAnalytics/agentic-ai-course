@@ -1,0 +1,418 @@
+# Why retrieval, when the window is huge
+
+> **Note for the site build:**
+> - **Comprehensive sandbox:** multi-file, with `lib.py` read-only and
+>   `agent.py` as the entry file. `lib.py` is this lesson's code gathered in
+>   one file, exactly as shown below.
+> - **Hidden tests** are one block, prefixed with `REACT_FAKE_CLIENT` and
+>   `RECORDING_CLIENT` from `fakeClient.ts`, unchanged.
+> - **Grading reads the corpus** (hidden test 7), so run the Module 5 data
+>   loader before grading.
+
+> **You'll be able to**
+> - Say which knowledge an agent has to get from outside the model, and why
+>   that turns "what does the model know?" into "which text do we send?"
+> - Compare sending a whole corpus with sending retrieved passages, in cost
+>   with and without a prefix cache, and state what the research does and
+>   doesn't show about answer quality
+> - Build the two halves of a retrieval pipeline, indexing once and
+>   retrieving for every question, with every passage carrying its source
+
+**Why it matters**
+An agent that works on a real system needs knowledge no model was trained
+on: internal documentation, recent changes, the incident report from last
+week. Context windows are now large enough that "just paste it all in" can
+work, so the real design decision is when to paste and when to search, and
+what each costs. Every later lesson in this module improves one half of the
+pipeline built here, so it helps to see the whole pipeline first, working
+and failing.
+
+---
+
+## Comprehensive quiz
+
+*(end of lesson, conceptual — spans all four concepts, mixed order)*
+
+> **Q1.** A team's assistant splits and re-indexes the entire corpus each
+> time a question arrives. What's wrong with that design?
+> - It repeats, for every question, work that depends only on the documents ✅
+> - Re-indexing loses each section's source, so answers can't be cited
+> - A corpus can only be indexed once; a second pass returns nothing
+> - Splitting documents has to happen after the question is known
+>
+> *Explanation: splitting and working out what each piece can be found by
+> give the same result whatever the question, so they belong in indexing,
+> paid once per document. Doing them in querying pays again on every
+> question while the user waits. Nothing is lost by re-indexing; it's just
+> wasted.*
+
+> **Q2.** An internal help desk gets a question about every fifteen
+> minutes, and the whole corpus is cached as a fixed prefix. Why might the
+> cache barely help?
+> - Cache entries expire after a few minutes unused, so most questions pay the write again ✅
+> - Caches only discount the first question in a session, not later ones
+> - A fifteen-minute gap makes the provider re-read the corpus from disk
+> - Help desks ask different questions, and caches only match identical questions
+>
+> *Explanation: the saving comes from reading an identical prefix back
+> while it's still cached. With questions further apart than the cache
+> lasts, each one finds nothing to reuse and pays the write, which costs
+> more than sending the corpus uncached. What varies between requests is the
+> question at the end, which a prefix cache doesn't need to match.*
+
+> **Q3.** Which of these questions should an agent answer by retrieving
+> documents, rather than by calling a tool?
+> - How long the old key stays valid after a registry key rotation ✅
+> - Which model `research_agent` is running at this moment
+> - Whether `support_agent` is paused right now
+> - How many requests `billing_agent` has made in the last minute
+>
+> *Explanation: the rotation window is a written procedure in a runbook;
+> it's knowledge that lives in documents. The other three are live state
+> that changes from moment to moment, and the system that holds the state
+> is the place to ask. A document would only say what was true when it was
+> written.*
+
+> **Q4.** In LaRA, comparison questions were retrieval's weakest task, by
+> about 15 points. Why do they suit retrieval so badly?
+> - They need two separate parts of the text, and the search has to find both ✅
+> - Comparison questions are longer, so they exceed the retriever's input limit
+> - The model can't compare passages unless they come from the same chunk
+> - Retrieval sends passages in a random order, which breaks comparisons
+>
+> *Explanation: a single-fact question needs one passage; a comparison
+> needs both sides, and a question worded around one side often doesn't
+> lead the search to the other. With the whole text, both sides are simply
+> there. Lesson 10's agent, which can search again for the missing side,
+> is one answer to this.*
+
+> **Q5.** Self-Route sends the full text only for some questions. What
+> decides which ones?
+> - The model itself, asked whether the retrieved passages are enough to answer ✅
+> - A fixed rule that routes every question longer than a set length
+> - The retriever's similarity scores, compared with a threshold
+> - How many tokens the full text would take, compared with the window
+>
+> *Explanation: the model gets the retrieved passages with the option to
+> say it can't answer from them. Only when it says so is the full text sent.
+> With Gemini-1.5-Pro, retrieval alone answered 82% of questions, which is
+> where the cost saving came from.*
+
+> **Q6.** Why does the course's index refuse a section that has no
+> `doc_id` or heading, rather than letting it through?
+> - A passage that can't be traced when it's stored can never be cited in an answer ✅
+> - Sections without a heading are too short to be worth indexing
+> - The keyword scoring needs the heading to work out a section's keywords
+> - Untraced sections would be sent to every question, filling the prompt
+>
+> *Explanation: the source has to travel with each piece from indexing to
+> the answer. If it's missing at the start, nothing later can restore it,
+> so the cheapest place to enforce it is where pieces enter the index. The
+> scoring itself only reads the text.*
+
+> **Q7.** Why does this module price requests in token-units, where one
+> unit is one input token at full price, rather than in dollars?
+> - The comparison then holds for any provider's prices, or as compute for a local model ✅
+> - Dollar prices are the same for every provider, so they add nothing
+> - Token-units include the cost of the retrieval search, and dollars don't
+> - Providers bill cached tokens in token-units, not in dollars
+>
+> *Explanation: what matters is the ratio between approaches, which a
+> neutral unit keeps independent of any one price list. Multiply by a
+> provider's price per token to get dollars; for a local model, read the
+> units as relative compute. Neither unit includes the search itself.*
+
+> **Q8.** A search returns nothing for a question about the private
+> registry. Why is not calling the model the right response?
+> - The model has no source for private facts, so its answer could only be a guess ✅
+> - The model would refuse to answer a question without any sources
+> - An empty prompt is rejected by the API as invalid input
+> - Without passages, the model would repeat the question back
+>
+> *Explanation: the registry's documents were never in any training data,
+> so an answer without them is the model producing its most plausible
+> text, a hallucination by the same mechanism as a correct answer. It
+> wouldn't reliably refuse. Lesson 9 goes further: deciding what to do when
+> retrieval finds something, but not enough.*
+
+---
+
+## Comprehensive sandbox
+*(graded, multi-file — a retrieval assistant that indexes once, retrieves per question, and reports what it saved)*
+
+**Task shown to learner:**
+
+`lib.py` holds this lesson's code: the token estimate, the corpus loader,
+`split_sections`, `keywords`, `KeywordIndex` from the exercise and
+`build_prompt` from the pipeline demo. It's read-only. Complete
+`RetrievalAssistant` in `agent.py`:
+
+- **`__init__(documents, client)`** is the indexing half. Split every
+  document into sections, add them all to one `KeywordIndex`, and count the
+  corpus's tokens once: the sum of `count_tokens(document["text"])`.
+- **`ask(question, k=3)`** is the querying half, and returns a dict:
+  - `"sources"`: the retrieved sections as `(doc_id, section)` pairs, best
+    match first, at most `k`.
+  - `"answer"`: the text of every text block in the model's reply, joined
+    with `""`.
+  - `"sent_tokens"`: `count_tokens` of the prompt that was sent.
+  - `"everything_tokens"`: the corpus's tokens plus the question's, what
+    sending everything would have taken.
+
+  Build the prompt with `build_prompt` and send it as a single user message
+  with `client.create([...])`, once per question. If nothing is retrieved,
+  don't call the model: return `None` as the answer, no sources and 0 tokens
+  sent, and still report `everything_tokens`.
+
+**Tab: `lib.py`** (read-only)
+```python
+# this lesson's code, from its concepts -- read-only
+import json
+import math
+import re
+from pathlib import Path
+
+def _plain(x):
+    # turn content-block objects into plain dicts, so everything can be written as JSON
+    if isinstance(x, (str, int, float, bool)) or x is None:
+        return x
+    if isinstance(x, dict):
+        return {key: _plain(value) for key, value in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [_plain(value) for value in x]
+    return _plain(vars(x))
+
+def count_tokens(x) -> int:
+    """Approximate token count: about 4 characters per token. Deterministic, not a real tokenizer."""
+    if isinstance(x, str):
+        return math.ceil(len(x) / 4)
+    return math.ceil(len(json.dumps(_plain(x))) / 4)
+
+def load_documents() -> list[dict]:
+    """Every document in the corpus, with its metadata and its text as Markdown."""
+    return json.loads(Path("/data/rag/documents.json").read_text(encoding="utf-8"))
+
+# three backticks, built rather than typed, so this code can sit inside a Markdown code block
+FENCE = "`" * 3
+
+def split_sections(document: dict) -> list[dict]:
+    """Split a document at its Markdown headings, ignoring '#' lines inside code blocks.
+    Each section keeps the document's metadata and records the heading it sits under."""
+    sections, lines, heading, in_code = [], [], document["title"], False
+
+    def close():
+        text = "\n".join(lines).strip()
+        if text:
+            meta = {key: value for key, value in document.items() if key != "text"}
+            sections.append({**meta, "section": heading, "text": text})
+
+    for line in document["text"].splitlines():
+        if line.startswith(FENCE):
+            in_code = not in_code
+        if not in_code and re.match(r"#{1,6} ", line):
+            close()
+            lines, heading = [], line.lstrip("#").strip()
+        lines.append(line)
+    close()
+    return sections
+
+def load_sections() -> list[dict]:
+    return [section for document in load_documents() for section in split_sections(document)]
+
+STOPWORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "is", "was", "it", "this", "that",
+             "with", "as", "at", "by", "be", "i", "you", "my", "me", "we", "our", "please", "about", "from", "last"}
+PUNCTUATION = str.maketrans({mark: " " for mark in ".,;:!?()'\"`"})
+
+def keywords(text: str) -> set:
+    """The words in text worth matching on: lowercased, punctuation removed, common and one-letter words dropped."""
+    words = text.lower().translate(PUNCTUATION).split()
+    return {word for word in words if len(word) > 1} - STOPWORDS
+
+class KeywordIndex:
+    """Sections indexed by their keywords, worked out once, when each section is added."""
+
+    def __init__(self):
+        self._entries = []
+
+    def __len__(self) -> int:
+        return len(self._entries)
+
+    def add(self, sections: list[dict]) -> None:
+        for section in sections:
+            if not section.get("doc_id") or not section.get("section"):
+                raise ValueError("every section needs a doc_id and a section heading, so an answer can cite it")
+            self._entries.append((keywords(section["text"]), section))
+
+    def search(self, question: str, k: int = 3) -> list[dict]:
+        wanted = keywords(question)
+        scored = [(len(wanted & words), section) for words, section in self._entries]
+        # sorting is stable, so sections with equal scores keep the order they were added in
+        ranked = sorted((pair for pair in scored if pair[0] > 0), key=lambda pair: pair[0], reverse=True)
+        return [{**section, "score": score} for score, section in ranked[:k]]
+
+def build_prompt(question: str, passages: list[dict]) -> str:
+    sources = "\n\n".join(f'<source doc="{p["doc_id"]}" section="{p["section"]}">\n{p["text"]}\n</source>'
+                          for p in passages)
+    return f"Answer using only these sources, and name the source you used.\n\n{sources}\n\nQuestion: {question}"
+```
+
+**Tab: `agent.py`** (starter, entry file)
+```python
+from lib import KeywordIndex, build_prompt, count_tokens, split_sections
+
+class RetrievalAssistant:
+    """Answers questions from a corpus: indexes it once, then retrieves for every question."""
+
+    def __init__(self, documents: list[dict], client):
+        self.client = client
+        # TODO: the indexing half. Split every document into sections, add them all to one
+        #       KeywordIndex, and count the corpus's tokens once
+        ...
+
+    def ask(self, question: str, k: int = 3) -> dict:
+        # TODO: the querying half. Retrieve up to k sections; if there are none, return without
+        #       calling the model. Otherwise build the prompt, call the model once, and return
+        #       the answer, the sources, and both token counts
+        ...
+```
+
+**Hidden tests:**
+```python
+import lib
+from agent import RetrievalAssistant
+from lib import count_tokens, load_documents
+
+# shared by the tests below
+DOCS = [
+    {"doc_id": "D01", "title": "Registry API reference", "date": "2026-08-18", "access": ["all-staff"],
+     "source_type": "official",
+     "text": "# Registry API reference\n\n## Rate limits\n\nEach key may make 60 requests per minute.\n\n## Errors\n\nEvery error has a code and a name."},
+    {"doc_id": "D02", "title": "Error code reference", "date": "2026-08-18", "access": ["all-staff"],
+     "source_type": "official",
+     "text": "# Error code reference\n\n## Limits and availability\n\nREG-1009 means the key made too many requests this minute."},
+]
+
+# 1. indexing happens once, in the constructor; each question adds only its own keywords
+calls = []
+real_keywords = lib.keywords
+def counting_keywords(text):
+    calls.append(text)
+    return real_keywords(text)
+lib.keywords = counting_keywords
+try:
+    assistant = RetrievalAssistant(DOCS, FakeLLMClient([[TextBlock("one")], [TextBlock("two")]]))
+    assert len(calls) == 5, f"the constructor should index all 5 sections once; keywords ran {len(calls)} times"
+    assistant.ask("requests per minute")
+    assistant.ask("what does REG-1009 mean")
+    assert len(calls) == 7, "each question should add one keywords call, for the question itself"
+finally:
+    lib.keywords = real_keywords
+
+# 2. the model gets one user message: the retrieved sections, tagged with their sources, then the question
+client = RecordingClient([[TextBlock("60 a minute (D01, Rate limits).")]])
+result = RetrievalAssistant(DOCS, client).ask("How many requests per minute can a key make?", k=2)
+assert client.call_count == 1, "ask should call the model exactly once"
+sent = client.seen[0]
+assert len(sent) == 1 and sent[0]["role"] == "user", "send a single user message"
+prompt = sent[0]["content"]
+assert '<source doc="D01" section="Rate limits">' in prompt, "each passage should be tagged with its doc and section"
+assert prompt.count("<source ") == 2, f"with k=2, send 2 passages; sent {prompt.count('<source ')}"
+assert prompt.rstrip().endswith("How many requests per minute can a key make?"), "the question should come last"
+
+# 3. the answer is every text block joined, never just the first block
+client = FakeLLMClient([[ThinkingBlock("The rate limit section answers this."), TextBlock("60 requests "),
+                         TextBlock("per minute.")]])
+result = RetrievalAssistant(DOCS, client).ask("requests per minute")
+assert result["answer"] == "60 requests per minute.", f"join the text of every text block; got {result['answer']!r}"
+
+# 4. sources are (doc_id, section) pairs, best match first
+result = RetrievalAssistant(DOCS, FakeLLMClient([[TextBlock("ok")]])).ask("how many requests per minute can a key make")
+assert result["sources"] == [("D01", "Rate limits"), ("D02", "Limits and availability")], \
+    f"sources should be (doc_id, section) pairs, best match first; got {result['sources']}"
+result = RetrievalAssistant(DOCS, FakeLLMClient([[TextBlock("ok")]])).ask("how many requests per minute can a key make", k=1)
+assert result["sources"] == [("D01", "Rate limits")], f"with k=1, return one source; got {result['sources']}"
+
+# 5. both token counts: what was sent, and what sending everything would have cost
+client = RecordingClient([[TextBlock("ok")]])
+result = RetrievalAssistant(DOCS, client).ask("requests per minute")
+assert result["sent_tokens"] == count_tokens(client.seen[0][0]["content"]), "sent_tokens should count the prompt actually sent"
+corpus = sum(count_tokens(d["text"]) for d in DOCS)
+assert result["everything_tokens"] == corpus + count_tokens("requests per minute"), \
+    "everything_tokens should be the whole corpus plus the question"
+
+# 6. nothing retrieved: no model call, no answer
+client = FakeLLMClient([[TextBlock("a guess")]])
+result = RetrievalAssistant(DOCS, client).ask("kubernetes helm chart")
+assert client.call_count == 0, "with nothing retrieved, don't call the model"
+assert result["answer"] is None and result["sources"] == [] and result["sent_tokens"] == 0, result
+assert result["everything_tokens"] > 0, "still report what sending everything would have cost"
+
+# 7. the whole corpus
+client = FakeLLMClient([[TextBlock("Move it to the priority tier first.")]])
+result = RetrievalAssistant(load_documents(), client).ask("Why won't the registry let me move my agent to claude-opus?")
+assert result["sources"] == [("D07", "Why and by when"), ("D07", "Step 1: Check the target is allowed"),
+                             ("D14", "Why does my agent get told to slow down?")], result["sources"]
+assert (result["sent_tokens"], result["everything_tokens"]) == (262, 232_256), \
+    f"expected 262 tokens sent against 232,256 for everything; got {result['sent_tokens']} and {result['everything_tokens']}"
+```
+
+**Hint (shown on request):**
+
+The constructor is a loop over the documents calling
+`self.index.add(split_sections(document))`, and one `sum(...)` for the
+corpus tokens. In `ask`, search first and return early when the result is
+empty, before building any prompt. A model's reply can hold several blocks,
+including thinking, so collect the text from every block whose `type` is
+`"text"` rather than reading `response.content[0]`.
+
+**Reference solution:**
+
+**Tab: `agent.py`**
+```python
+from lib import KeywordIndex, build_prompt, count_tokens, split_sections
+
+class RetrievalAssistant:
+    """Answers questions from a corpus: indexes it once, then retrieves for every question."""
+
+    def __init__(self, documents: list[dict], client):
+        self.client = client
+        # indexing: done once, whatever number of questions follows
+        self.index = KeywordIndex()
+        for document in documents:
+            self.index.add(split_sections(document))
+        self.corpus_tokens = sum(count_tokens(document["text"]) for document in documents)
+
+    def ask(self, question: str, k: int = 3) -> dict:
+        everything = self.corpus_tokens + count_tokens(question)
+        passages = self.index.search(question, k)
+        if not passages:
+            # with nothing retrieved, the model could only answer from its own guesses
+            return {"answer": None, "sources": [], "sent_tokens": 0, "everything_tokens": everything}
+        prompt = build_prompt(question, passages)
+        response = self.client.create([{"role": "user", "content": prompt}])
+        return {
+            "answer": "".join(block.text for block in response.content if block.type == "text"),
+            "sources": [(p["doc_id"], p["section"]) for p in passages],
+            "sent_tokens": count_tokens(prompt),
+            "everything_tokens": everything,
+        }
+```
+
+**Explanation:**
+
+The constructor does all the work that depends only on the documents, so
+test 1 can check that asking two questions adds exactly two keyword
+computations, one per question, on top of the indexing. `ask` then keeps the
+source attached all the way: the index returns sections with their
+`doc_id` and heading, `build_prompt` tags each passage with them, and the
+result reports them as `sources`, so an answer can be traced to the
+section it came from. The early return for an empty search is the cheapest
+guard against
+[a failure described earlier](→ this lesson, the "which answers better: everything, or the right few" concept, each approach has its own way to fail):
+with nothing retrieved, the model has nothing to answer from but its own guesses. Reading every text
+block, not `content[0]`, matters because real replies can start with a
+thinking block, as test 3's does. On the real corpus, test 7 shows the
+lesson's numbers: 262 tokens sent against 232,256 for everything, while
+retrieving the section that answers the question. The search's weaknesses
+are still there; the rest of the module fixes them, measuring each change,
+starting in Lesson 2.

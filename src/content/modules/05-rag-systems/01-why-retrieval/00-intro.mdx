@@ -1,0 +1,25 @@
+---
+title: "Intro"
+lesson: "01-why-retrieval"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Say which knowledge an agent has to get from outside the model, and why that turns \"what does the model know?\" into \"which text do we send?\"",
+    "Compare sending a whole corpus with sending retrieved passages, in cost with and without a prefix cache, and state what the research does and doesn't show about answer quality",
+    "Build the two halves of a retrieval pipeline, indexing once and retrieving for every question, with every passage carrying its source",
+  ]}
+/>
+
+<WhyItMatters>
+  An agent that works on a real system needs knowledge no model was trained
+  on: internal documentation, recent changes, the incident report from last
+  week. Context windows are now large enough that "just paste it all in" can
+  work, so the real design decision is when to paste and when to search, and
+  what each costs. Every later lesson in this module improves one half of the
+  pipeline built here, so it helps to see the whole pipeline first, working
+  and failing.
+</WhyItMatters>

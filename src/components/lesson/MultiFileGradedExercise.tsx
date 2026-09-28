@@ -5,6 +5,7 @@ import {
   type PyodideInterface,
   type SandboxFile,
 } from "../../lib/pyodide";
+import { writeCourseData } from "../../lib/courseData";
 import MultiFileEditor from "./MultiFileEditor";
 import LinkedText from "./LinkedText";
 
@@ -18,6 +19,11 @@ interface MultiFileGradedExerciseProps {
   hint: string;
   correctFiles: SandboxFile[];
   explanation: string;
+  /**
+   * Static course data files written into Pyodide's FS at `/data/<path>`
+   * before grading, fetched on the first Submit. Same as LiveDemo's prop.
+   */
+  dataFiles?: string[];
 }
 
 type Reveal = "none" | "hint" | "answer";
@@ -30,6 +36,7 @@ export default function MultiFileGradedExercise({
   hint,
   correctFiles,
   explanation,
+  dataFiles,
 }: MultiFileGradedExerciseProps) {
   const instanceId = useId().replace(/[^a-zA-Z0-9]/g, "");
   const [files, setFiles] = useState(initialFiles);
@@ -65,6 +72,15 @@ export default function MultiFileGradedExercise({
   const submit = async () => {
     if (!pyodide) return;
     setStatus("grading");
+    if (dataFiles?.length) {
+      try {
+        await writeCourseData(pyodide, dataFiles);
+      } catch (err) {
+        setOutcome({ entryOutput: "", entryError: null, error: String(err), results: [false] });
+        setStatus("ready");
+        return;
+      }
+    }
     const result = await runMultiFileAgainstHiddenTests(pyodide, files, entry, hiddenTests, instanceId);
     setOutcome(result);
     setStatus("ready");

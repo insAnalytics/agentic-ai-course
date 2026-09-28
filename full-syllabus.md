@@ -3358,8 +3358,8 @@ below describe each lesson as first converted; see the git log
 
 Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
 
-1. **Why Retrieval** — **Building** (folder `01-why-retrieval`; the lesson
-   title is provisional, since the mockups don't name the lesson yet).
+1. **Why Retrieval, When the Window Is Huge** — **Locked** (folder
+   `01-why-retrieval`; the title comes from the bookends mockup).
    Concept 1 (what the model can't know) is built: the kinds of knowledge a
    model can't have from training, the fix being text in the prompt, the
    corpus introduced with `load_documents()`, and two live demos (corpus
@@ -3396,7 +3396,23 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    reference solution. It now patches `KeywordIndex.add.__globals__`
    (architecture.md §4.1). New infrastructure: `GradedExercise` gains
    `namespaceSetup` (hidden helpers exec'd into the learner namespace) and
-   `dataFiles`. The bookends are not drafted yet.
+   `dataFiles`. Bookends are built: intro (3 outcomes, why it matters) and
+   recap with an 8-question comprehensive quiz and a multi-file sandbox
+   (`lib.py` read-only, the lesson's code; `agent.py` entry:
+   `RetrievalAssistant`, indexing in `__init__`, `ask` returning answer,
+   sources, `sent_tokens`, `everything_tokens`, with no model call when
+   nothing is retrieved). `MultiFileGradedExercise` gained `dataFiles` for
+   hidden test 7 (full corpus: 262 tokens sent vs 232,256). Verified with
+   the real multi-file harness: the reference passes, the starter fails, and
+   eight mutations each fail (re-indexing per question, `content[0]` only,
+   no early return, `everything_tokens` without the question, sources as
+   dicts, `k` ignored, question placed first, `sent_tokens` counting only
+   the passages). `lib.py` was checked line-for-line against the shared
+   constants. The mockup's hidden tests shipped unchanged: test 1's
+   `lib.keywords` patch works in a real module.
+
+   Lesson 1 is now **Locked**: all four concepts plus both bookends exist
+   and build cleanly.
 
 ---
 
