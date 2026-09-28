@@ -3835,8 +3835,9 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    export, its timing demo prints the same, and the recap reference still
    passes. The Lesson 6 mockup files weren't edited.
 
-7. **Query Transformation** — **Building** (folder
-   `07-query-transformation`; title provisional until the bookends mockup).
+7. **Better Queries** — **Locked** (folder `07-query-transformation`,
+   named while the title was provisional; the title comes from the
+   bookends mockup).
    Data: the query variants committed under `public/data/rag/`
    (architecture.md §3.1), model-written for the course and replayed
    through the fake client. Shared setup is Lesson 6's recap `lib.py`
@@ -3899,8 +3900,28 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    claims checked (MON-2002 means REGISTRY_UNREACHABLE; the q20 and q36
    passages resemble the labelled guidance; the invented 1,000 per hour
    and 99.9% figures are in the stored passages, and q37 has no answer in
-   the corpus); 4 quiz cards. Concepts 5+ (if any) and bookends not yet
-   drafted.
+   the corpus); 4 quiz cards.
+   Bookends are built: intro (3 outcomes, why it matters) and recap with an
+   8-question comprehensive quiz and a three-file sandbox (`lib.py` and
+   `stages.py` read-only, entry **`route.py`**: `choose_queries`, one
+   model call per question, rewriting follow-ups with their history and
+   offering everything else to `split_query`, and `smart_search`,
+   interleaving the chosen queries' `search_text` results; hidden tests
+   prefixed with `REACT_FAKE_CLIENT + RECORDING_CLIENT`). All five code
+   blocks generated from the mockup and checked byte-for-byte; `lib.py`
+   matches the lesson's setup line for line except that it merges `from
+   collections import Counter` and `... import defaultdict` into one line.
+   Verified with the real `runMultiFileAgainstHiddenTests`: the reference
+   passes (test 5 on the full labelled set: 43 calls, 32 to 34 answered,
+   q25 and q26 gained, none lost; about 3.5 s in Node), the starter fails,
+   and nine mutations each fail (no history passed, always split, always
+   rewrite, wrong prompt, results concatenated, only the first query, k
+   ignored in the merge, the question searched too, `search_text` reached
+   through the module so test 4's patch can't replace it). No changes
+   from the mockup.
+
+   Lesson 7 is now **Locked**: all four concepts plus both bookends exist
+   and build cleanly.
 
 ---
 
