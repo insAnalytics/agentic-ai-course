@@ -1,0 +1,528 @@
+---
+title: "Recap & Practice"
+lesson: "03-chunking"
+order: 5
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { RAG_EVAL_DATA } from "../../../../lib/ragCorpus";
+
+export const LIB_PY = String.raw`# Lessons 1 to 3's code, from their concepts -- read-only
+import json
+import math
+import re
+from pathlib import Path
+
+def _plain(x):
+    # turn content-block objects into plain dicts, so everything can be written as JSON
+    if isinstance(x, (str, int, float, bool)) or x is None:
+        return x
+    if isinstance(x, dict):
+        return {key: _plain(value) for key, value in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [_plain(value) for value in x]
+    return _plain(vars(x))
+
+def count_tokens(x) -> int:
+    """Approximate token count: about 4 characters per token. Deterministic, not a real tokenizer."""
+    if isinstance(x, str):
+        return math.ceil(len(x) / 4)
+    return math.ceil(len(json.dumps(_plain(x))) / 4)
+
+def load_documents() -> list[dict]:
+    """Every document in the corpus, with its metadata and its text as Markdown."""
+    return json.loads(Path("/data/rag/documents.json").read_text(encoding="utf-8"))
+
+# three backticks, built rather than typed, so this code can sit inside a Markdown code block
+FENCE = "${"`"}" * 3
+
+def split_sections(document: dict) -> list[dict]:
+    """Split a document at its Markdown headings, ignoring '#' lines inside code blocks.
+    Each section keeps the document's metadata and records the heading it sits under."""
+    sections, lines, heading, in_code = [], [], document["title"], False
+
+    def close():
+        text = "\n".join(lines).strip()
+        if text:
+            meta = {key: value for key, value in document.items() if key != "text"}
+            sections.append({**meta, "section": heading, "text": text})
+
+    for line in document["text"].splitlines():
+        if line.startswith(FENCE):
+            in_code = not in_code
+        if not in_code and re.match(r"#{1,6} ", line):
+            close()
+            lines, heading = [], line.lstrip("#").strip()
+        lines.append(line)
+    close()
+    return sections
+
+def load_sections() -> list[dict]:
+    return [section for document in load_documents() for section in split_sections(document)]
+
+STOPWORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "is", "was", "it", "this", "that",
+             "with", "as", "at", "by", "be", "i", "you", "my", "me", "we", "our", "please", "about", "from", "last"}
+PUNCTUATION = str.maketrans({mark: " " for mark in ".,;:!?()'\"${"`"}"})
+
+def keywords(text: str) -> set:
+    """The words in text worth matching on: lowercased, punctuation removed, common and one-letter words dropped."""
+    words = text.lower().translate(PUNCTUATION).split()
+    return {word for word in words if len(word) > 1} - STOPWORDS
+
+class KeywordIndex:
+    """Sections indexed by their keywords, worked out once, when each section is added."""
+
+    def __init__(self):
+        self._entries = []
+
+    def __len__(self) -> int:
+        return len(self._entries)
+
+    def add(self, sections: list[dict]) -> None:
+        for section in sections:
+            if not section.get("doc_id") or not section.get("section"):
+                raise ValueError("every section needs a doc_id and a section heading, so an answer can cite it")
+            self._entries.append((keywords(section["text"]), section))
+
+    def search(self, question: str, k: int = 3) -> list[dict]:
+        wanted = keywords(question)
+        scored = [(len(wanted & words), section) for words, section in self._entries]
+        # sorting is stable, so sections with equal scores keep the order they were added in
+        ranked = sorted((pair for pair in scored if pair[0] > 0), key=lambda pair: pair[0], reverse=True)
+        return [{**section, "score": score} for score, section in ranked[:k]]
+
+def build_prompt(question: str, passages: list[dict]) -> str:
+    sources = "\n\n".join(f'<source doc="{p["doc_id"]}" section="{p["section"]}">\n{p["text"]}\n</source>'
+                          for p in passages)
+    return f"Answer using only these sources, and name the source you used.\n\n{sources}\n\nQuestion: {question}"
+
+
+# --- Lesson 2 ---
+
+def load_queries() -> dict:
+    """The labelled query set: main and held-out queries, each with its evidence."""
+    return json.loads(Path("/data/rag/queries.json").read_text(encoding="utf-8"))
+
+def normalize(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
+
+def is_relevant(chunk: dict, span: dict) -> bool:
+    """True if the chunk comes from the span's document and holds at least half of the quote, unbroken."""
+    if chunk["doc_id"] != span["doc_id"]:
+        return False
+    text, quote = normalize(chunk["text"]), normalize(span["quote"])
+    half = math.ceil(len(quote) / 2)
+    return any(quote[start:start + half] in text for start in range(len(quote) - half + 1))
+
+def answerable(results: list[dict], query: dict) -> bool:
+    """True if, for every evidence group, at least one result is relevant to one of its spans."""
+    return all(any(is_relevant(chunk, span) for chunk in results for span in group)
+               for group in query["evidence"])
+
+def is_relevant_to_query(chunk: dict, query: dict) -> bool:
+    return any(is_relevant(chunk, span) for group in query["evidence"] for span in group)
+
+def precision_at_k(results: list[dict], query: dict, k: int) -> float:
+    """The share of the k result slots filled by relevant chunks."""
+    return sum(is_relevant_to_query(chunk, query) for chunk in results[:k]) / k
+
+def recall_at_k(results: list[dict], query: dict, k: int) -> float:
+    """The share of the answer's parts (evidence groups) found in the top k."""
+    top = results[:k]
+    found = [any(is_relevant(chunk, span) for chunk in top for span in group) for group in query["evidence"]]
+    return sum(found) / len(found)
+
+def reciprocal_rank(results: list[dict], query: dict, k: int) -> float:
+    """1 / the position of the first relevant chunk in the top k, or 0 if there's none."""
+    for position, chunk in enumerate(results[:k], 1):
+        if is_relevant_to_query(chunk, query):
+            return 1 / position
+    return 0.0
+
+def evaluate(search, queries: list[dict], k: int) -> dict:
+    """Average each metric over the queries that have evidence. search(question, k) returns ranked chunks."""
+    scored = [q for q in queries if q["evidence"]]
+    totals = {"recall": 0.0, "precision": 0.0, "mrr": 0.0, "answerable": 0.0}
+    for query in scored:
+        results = search(query["query"], k)
+        totals["recall"] += recall_at_k(results, query, k)
+        totals["precision"] += precision_at_k(results, query, k)
+        totals["mrr"] += reciprocal_rank(results, query, k)
+        totals["answerable"] += recall_at_k(results, query, k) == 1
+    return {name: round(total / len(scored), 3) for name, total in totals.items()}
+
+def sign_test(gains: int, losses: int) -> float:
+    """If a change made no real difference, the chance of a split at least this lopsided, either way."""
+    n = gains + losses
+    tail = sum(math.comb(n, i) for i in range(max(gains, losses), n + 1)) / 2 ** n
+    return min(1.0, 2 * tail)
+
+
+# --- Lesson 3 ---
+
+CHARS_PER_TOKEN = 4
+
+def fixed_chunks(document: dict, size: int, overlap: int = 0) -> list[dict]:
+    """Cut a document every ${"`"}size${"`"} tokens (by the course's estimate). Each chunk
+    starts with the last ${"`"}overlap${"`"} tokens of the one before."""
+    if not 0 <= overlap < size:
+        raise ValueError("overlap must be at least 0 and smaller than size")
+    text = document["text"]
+    width, step = size * CHARS_PER_TOKEN, (size - overlap) * CHARS_PER_TOKEN
+    metadata = {key: value for key, value in document.items() if key != "text"}
+    chunks = []
+    for start in range(0, len(text), step):
+        piece = text[start:start + width]
+        if piece.strip():
+            chunks.append({**metadata, "section": f"characters {start}-{start + len(piece)}", "text": piece})
+        # the last window reached the end; another would only repeat its tail
+        if start + width >= len(text):
+            break
+    return chunks
+
+def split_blocks(text: str) -> list[str]:
+    """Paragraphs and whole code blocks: split at blank lines, except inside a code block."""
+    blocks, lines, in_code = [], [], False
+    for line in text.splitlines():
+        if line.startswith(FENCE):
+            in_code = not in_code
+        if not line.strip() and not in_code:
+            if lines:
+                blocks.append("\n".join(lines))
+                lines = []
+        else:
+            lines.append(line)
+    if lines:
+        blocks.append("\n".join(lines))
+    return blocks
+
+def heading_sections(document: dict) -> list[dict]:
+    """Split at Markdown headings (not inside code blocks), recording each section's heading path.
+    A section with nothing under its heading is dropped: its heading lives on in the paths below it."""
+    sections, stack, heading, body, in_code = [], [], "", [], False
+
+    def close():
+        text = "\n".join(body).strip()
+        if text:
+            path = " > ".join([document["title"], *(title for _, title in stack)])
+            sections.append({"heading": heading, "path": path, "body": text})
+
+    for line in document["text"].splitlines():
+        if line.startswith(FENCE):
+            in_code = not in_code
+        match = None if in_code else re.match(r"(#{1,6}) (.+)", line)
+        if match:
+            close()
+            level = len(match.group(1))
+            # a heading replaces any heading at its level or deeper; level 1 is the document's title
+            stack = [(lvl, title) for lvl, title in stack if lvl < level]
+            if level > 1:
+                stack.append((level, match.group(2).strip()))
+            heading, body = line, []
+        else:
+            body.append(line)
+    close()
+    return sections
+
+def pack_lines(lines: list[str], max_tokens: int) -> list[str]:
+    """Group lines into parts of at most max_tokens; a line longer than that is cut into fixed-size pieces."""
+    width = max_tokens * CHARS_PER_TOKEN
+    lines = [line[start:start + width] for line in lines for start in range(0, max(len(line), 1), width)]
+    parts, current = [], []
+    for line in lines:
+        if current and count_tokens("\n".join([*current, line])) > max_tokens:
+            parts.append("\n".join(current))
+            current = []
+        current.append(line)
+    if current:
+        parts.append("\n".join(current))
+    return parts
+
+def pack_blocks(blocks: list[str], max_tokens: int) -> list[str]:
+    """Group consecutive blocks into pieces of at most max_tokens, joined by blank lines.
+    A block too big on its own is split at line breaks, and a line still too big is cut every max_tokens."""
+    pieces, current = [], []
+    for block in blocks:
+        if count_tokens(block) > max_tokens:
+            parts = pack_lines(block.splitlines(), max_tokens)
+        else:
+            parts = [block]
+        for part in parts:
+            if current and count_tokens("\n\n".join([*current, part])) > max_tokens:
+                pieces.append("\n\n".join(current))
+                current = []
+            current.append(part)
+    if current:
+        pieces.append("\n\n".join(current))
+    return pieces
+
+def structured_chunks(document: dict, max_tokens: int = 200) -> list[dict]:
+    """Chunks that follow the document's structure: headings, then paragraphs and whole code blocks,
+    each chunk starting with its section's heading and carrying the document's metadata."""
+    metadata = {key: value for key, value in document.items() if key != "text"}
+    chunks = []
+    for section in heading_sections(document):
+        heading = section["heading"]
+        # the heading line and the blank line after it come out of each chunk's budget
+        room = max_tokens - count_tokens(heading + "\n\n") if heading else max_tokens
+        for piece in pack_blocks(split_blocks(section["body"]), room):
+            text = f"{heading}\n\n{piece}" if heading else piece
+            chunks.append({**metadata, "section": section["path"], "chunk": len(chunks), "text": text})
+    return chunks
+
+def within_budget(search, budget: int):
+    """A search that returns ranked chunks until the next one would take the total over budget tokens."""
+    def budgeted(question: str, k: int) -> list[dict]:
+        results, used = [], 0
+        for chunk in search(question, 100):
+            size = count_tokens(chunk["text"])
+            if used + size > budget:
+                break
+            results.append(chunk)
+            used += size
+        return results
+    return budgeted
+`;
+
+export const PIPELINE_STARTER = String.raw`from lib import KeywordIndex, answerable, count_tokens, within_budget
+
+REQUIRED = ("doc_id", "section", "access")
+
+def evaluate_chunker(chunker, documents: list[dict], labelled: dict,
+                     budget: int = 1000, max_tokens: int = 512) -> dict:
+    """Chunk every document, check the chunks, index them, and score retrieval at a token budget."""
+    # TODO: chunk every document with chunker(document)
+    # TODO: refuse (ValueError) a chunk missing any REQUIRED field, or over max_tokens
+    # TODO: index the chunks, wrap the search in within_budget, and search once per main question with evidence
+    # TODO: return chunks, largest, answered, answerable and tokens_sent
+    ...
+`;
+
+export const PIPELINE_REFERENCE = String.raw`from lib import KeywordIndex, answerable, count_tokens, within_budget
+
+REQUIRED = ("doc_id", "section", "access")
+
+def evaluate_chunker(chunker, documents: list[dict], labelled: dict,
+                     budget: int = 1000, max_tokens: int = 512) -> dict:
+    """Chunk every document, check the chunks, index them, and score retrieval at a token budget."""
+    chunks = [chunk for document in documents for chunk in chunker(document)]
+    for chunk in chunks:
+        missing = [field for field in REQUIRED if not chunk.get(field)]
+        if missing:
+            raise ValueError(f"chunk {chunk.get('doc_id')}/{chunk.get('section')} is missing {', '.join(missing)}")
+        if count_tokens(chunk["text"]) > max_tokens:
+            raise ValueError(f"chunk {chunk['doc_id']}/{chunk['section']} is over {max_tokens} tokens")
+
+    index = KeywordIndex()
+    index.add(chunks)
+    search = within_budget(index.search, budget)
+    queries = [q for q in labelled["main"] if q["evidence"]]
+    results = {q["id"]: search(q["query"], 0) for q in queries}
+    answered = sorted(q["id"] for q in queries if answerable(results[q["id"]], q))
+    sent = sum(count_tokens(c["text"]) for found in results.values() for c in found)
+    return {
+        "chunks": len(chunks),
+        "largest": max(count_tokens(c["text"]) for c in chunks),
+        "answered": answered,
+        "answerable": round(len(answered) / len(queries), 3),
+        "tokens_sent": round(sent / len(queries)),
+    }
+`;
+
+export const HIDDEN_TESTS = String.raw`import lib
+from pipeline import evaluate_chunker
+
+# shared by the tests below
+DOCS = [
+    {"doc_id": "D01", "title": "API", "date": "2026-08-18", "access": ["all-staff"], "source_type": "official",
+     "text": "# API\n\n## Rate limits\n\nEach key may make 60 requests per minute.\n\n## Errors\n\nEvery error has a code."},
+    {"doc_id": "D02", "title": "Errors", "date": "2026-08-18", "access": ["all-staff"], "source_type": "official",
+     "text": "# Errors\n\n## Limits\n\nREG-1009 means the key made too many requests this minute."},
+]
+LABELLED = {
+    "main": [
+        {"id": "q1", "type": "identifier", "query": "requests per minute per key",
+         "evidence": [[{"doc_id": "D01", "quote": "Each key may make 60 requests per minute."}]]},
+        {"id": "q2", "type": "identifier", "query": "what does REG-1009 mean",
+         "evidence": [[{"doc_id": "D02", "quote": "REG-1009 means the key made too many requests this minute."}]]},
+        {"id": "q3", "type": "unanswerable", "query": "what is the SLA", "evidence": []},
+    ],
+    "held_out": [
+        {"id": "h1", "type": "identifier", "query": "requests per minute",
+         "evidence": [[{"doc_id": "D01", "quote": "Each key may make 60 requests per minute."}]]},
+    ],
+}
+
+# 1. every document goes through the chunker, and the report describes the chunks
+seen = []
+def recording_chunker(document):
+    seen.append(document["doc_id"])
+    return lib.structured_chunks(document, 200)
+report = evaluate_chunker(recording_chunker, DOCS, LABELLED)
+assert seen == ["D01", "D02"], f"call the chunker once per document; it saw {seen}"
+assert report["chunks"] == 3, f"expected 3 chunks, got {report['chunks']}"
+largest = max(lib.count_tokens(c["text"]) for d in DOCS for c in lib.structured_chunks(d, 200))
+assert report["largest"] == largest, f"largest is the biggest chunk in tokens, {largest}; got {report['largest']}"
+
+# 2. only main questions with evidence are scored
+assert report["answered"] == ["q1", "q2"], f"expected ['q1', 'q2'] answered; got {report['answered']}"
+assert report["answerable"] == 1.0, report["answerable"]
+
+# 3. tokens sent is the average per scored question, within the budget
+report = evaluate_chunker(lambda d: lib.structured_chunks(d, 200), DOCS, LABELLED, budget=20)
+assert report["tokens_sent"] <= 20, f"the budget caps what's sent; got {report['tokens_sent']}"
+chunks = [c for d in DOCS for c in lib.structured_chunks(d, 200)]
+index = lib.KeywordIndex()
+index.add(chunks)
+budgeted = lib.within_budget(index.search, 20)
+expected = round(sum(lib.count_tokens(c["text"]) for q in LABELLED["main"][:2] for c in budgeted(q["query"], 0)) / 2)
+assert report["tokens_sent"] == expected, f"tokens_sent should be the mean over scored questions, {expected}; got {report['tokens_sent']}"
+
+# 4. chunks without their source or permissions, or over the limit, are refused
+def no_access(document):
+    return [{k: v for k, v in c.items() if k != "access"} for c in lib.structured_chunks(document, 200)]
+def empty_access(document):
+    return [{**c, "access": []} for c in lib.structured_chunks(document, 200)]
+for bad, label in [(no_access, "missing access"), (empty_access, "with empty access"),
+                   (lambda d: lib.structured_chunks(d, 200), "over max_tokens")]:
+    try:
+        evaluate_chunker(bad, DOCS, LABELLED, max_tokens=5 if label == "over max_tokens" else 512)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(f"a chunker producing chunks {label} should raise ValueError")
+
+# 5. the real corpus: the module's chunker, fixed-size, and uncapped sections
+documents, labelled = lib.load_documents(), lib.load_queries()
+structured = evaluate_chunker(lib.structured_chunks, documents, labelled)
+assert (structured["chunks"], structured["largest"], structured["answerable"]) == (1968, 200, 0.581), structured
+fixed = evaluate_chunker(lambda d: lib.fixed_chunks(d, 200), documents, labelled)
+assert fixed["answerable"] == 0.558, fixed["answerable"]
+try:
+    evaluate_chunker(lib.split_sections, documents, labelled)
+except ValueError:
+    pass
+else:
+    raise AssertionError("heading sections include chunks over 512 tokens, so they should be refused")
+`;
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "A 2,000-token section is embedded whole by a model with a 512-token limit. Its last paragraph answers a question exactly, but search by meaning never returns the section for it. Why?",
+      "options": [
+        "The model embedded only the section's beginning, so the last paragraph never shaped its vector",
+        "Long sections score lower by design, so they're always ranked last",
+        "The model averaged the whole section, diluting the last paragraph",
+        "Search by meaning ignores the final paragraph of every section"
+      ],
+      "correctIndex": 0,
+      "explanation": "Text beyond the input limit is usually truncated silently. The vector describes the first 512 tokens only, so nothing after them can make the section match. Chunking within the limit is the only fix."
+    },
+    {
+      "question": "A team splits its documents into single sentences, to make chunks as precise as possible. What's the risk?",
+      "options": [
+        "Many sentences lose the subject they refer to, so they stop matching the questions they answer",
+        "Single sentences are too short for any embedding model to accept",
+        "Precision@k falls to zero, because each chunk holds too little text",
+        "The index can't store metadata for chunks shorter than a paragraph"
+      ],
+      "correctIndex": 0,
+      "explanation": "\"Revoke it within 24 hours of issuing the new one\" answers a question about registry keys, but never says \"registry\" or even \"key\". Too small, a chunk loses the context that makes it findable."
+    },
+    {
+      "question": "Adding 50 tokens of overlap to 200-token chunks raised the index's size by about 31%. Where else does it cost?",
+      "options": [
+        "Adjacent chunks can both be retrieved, sending their shared text twice",
+        "Each query must be searched once per overlapping region",
+        "Overlapping chunks can't be filtered by permissions",
+        "The embedding model rejects inputs that repeat earlier text"
+      ],
+      "correctIndex": 0,
+      "explanation": "Two neighbouring chunks share their overlap. If both rank highly, the prompt pays for the same tokens twice. Whether the extra recall is worth that is something to measure."
+    },
+    {
+      "question": "A chunk's section path reads \"Configuration > Route-related settings > <route> > Example\". Why keep the whole path rather than just \"Example\"?",
+      "options": [
+        "The path names what the section is about, which the bare heading doesn't",
+        "Paths are required for the chunk to fit the embedding limit",
+        "The path tells the search which chunks to skip",
+        "The heading alone would be too short to store as metadata"
+      ],
+      "correctIndex": 0,
+      "explanation": "Headings are often generic. The path carries the context from the headings above, down from the document's title, into the chunk's metadata, so it can be cited and understood out of place."
+    },
+    {
+      "question": "A chunker splits every section at blank lines. What goes wrong with a configuration example that contains blank lines?",
+      "options": [
+        "It's cut into pieces that can end up in different chunks",
+        "The blank lines are removed, joining the code into one line",
+        "The example is skipped, because code can't be indexed",
+        "The example's heading is dropped from the section path"
+      ],
+      "correctIndex": 0,
+      "explanation": "Inside a code block, a blank line is part of the code. A structure-aware chunker tracks the code fences and splits only outside them, so the example stays one unit wherever it fits."
+    },
+    {
+      "question": "Chunking A answers more questions at k = 5 than chunking B, but its chunks are twice as long. What should you do before preferring A?",
+      "options": [
+        "Compare them at an equal token budget, since A sends about twice the text",
+        "Compare them at k = 10, so both get more results",
+        "Nothing, since answering more questions is what counts",
+        "Halve A's chunks and compare again at k = 5"
+      ],
+      "correctIndex": 0,
+      "explanation": "A fixed k lets longer chunks send more text, which gives them more chances to include the answer. An equal token budget compares what each chunking finds for the same cost."
+    },
+    {
+      "question": "Why did this lesson not use keyword search to choose a chunk size?",
+      "options": [
+        "Counting shared words favours long chunks, so the comparison would be tilted towards them",
+        "Keyword search can only be run on fixed-size chunks",
+        "The labelled questions can't be answered by keyword search at any size",
+        "Chunk size has no effect on keyword search"
+      ],
+      "correctIndex": 0,
+      "explanation": "Retrieved heading sections had a median of 865 tokens against 107 for all of them. A scorer that rewards length can't judge size fairly, so the size is decided with search by meaning."
+    },
+    {
+      "question": "In a harness, a question with no evidence counted as answered. Why, and what's the fix?",
+      "options": [
+        "\"Every evidence group was found\" is true when there are no groups; skip questions without evidence",
+        "The search returned results for it, which counts as an answer; raise the budget",
+        "Its labels were deleted, so it matched every chunk; restore the labels",
+        "Unanswerable questions always count as answered; subtract them afterwards"
+      ],
+      "correctIndex": 0,
+      "explanation": "Answerable checks that every group has a relevant chunk, and all() of nothing is True. Questions without evidence measure whether a system declines to answer, which is a different test, so a retrieval score leaves them out."
+    }
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<MultiFileGradedExercise
+  client:load
+  task={"lib.py holds Lessons 1 to 3's code, including structured_chunks, fixed_chunks and within_budget. It's read-only. Write evaluate_chunker(chunker, documents, labelled, budget=1000, max_tokens=512) in pipeline.py. chunker is any function from one document to a list of chunks. (1) Chunk every document with chunker(document). (2) Check every chunk before indexing it: raise ValueError if any of the fields in REQUIRED (doc_id, section, access) is missing or empty, or if its text is over max_tokens by count_tokens. max_tokens stands for the embedding model's input limit. (3) Index the chunks in a KeywordIndex and wrap its search with within_budget(index.search, budget). (4) Search once for each main question that has evidence. The held-out questions must never be run. (5) Return a dict: \"chunks\", how many chunks were made; \"largest\", the biggest chunk, in tokens; \"answered\", sorted ids of the questions answerable from their results; \"answerable\", the share of scored questions answered, rounded to 3 places; \"tokens_sent\", the average tokens sent per scored question, rounded to a whole number."}
+  entry="pipeline.py"
+  files={[
+    { name: "lib.py", readOnly: true, code: LIB_PY },
+    { name: "pipeline.py", code: PIPELINE_STARTER },
+  ]}
+  hiddenTests={HIDDEN_TESTS}
+  dataFiles={RAG_EVAL_DATA}
+  hint={"For the check, [field for field in REQUIRED if not chunk.get(field)] finds fields that are missing or empty in one pass. within_budget ignores its k argument, so pass anything. Store each question's results in a dict keyed by id, then compute both the answered list and the tokens sent from that one set of results."}
+  correctFiles={[
+    { name: "lib.py", readOnly: true, code: LIB_PY },
+    { name: "pipeline.py", code: PIPELINE_REFERENCE },
+  ]}
+  explanation={"The pipeline refuses bad chunks before indexing them, because problems found there are cheap and problems found later are silent: a chunk with no access can't be filtered in Lesson 12, and a chunk over the embedder's limit would be truncated without warning in Lesson 4. Test 5 shows the check earning its place: Lesson 1's uncapped heading sections are refused outright, because some are far over 512 tokens. Scoring at a token budget makes the comparison fair between chunkers of different sizes, and leaving out questions without evidence avoids a trap test 2 catches: answerable is true for a question with no evidence groups, since all() of nothing is True. On the real corpus the module's structured chunker answers 25 of 43 questions within 1,000 tokens, against 24 for fixed 200-token chunks. Lesson 4 runs the same comparison with search by meaning."}
+/>
+
+</CheckpointZone>

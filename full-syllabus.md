@@ -3505,8 +3505,8 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    pool's review and the v1 to v3 baseline). Re-verified by script in real
    Pyodide: all 14 demos match, both references pass, both starters fail.
 
-3. **Chunking** — **Building** (folder `03-chunking`; title provisional
-   until the bookends mockup). Concept 1 (why documents are split) is
+3. **Chunking** — **Locked** (folder `03-chunking`; the title comes from
+   the bookends mockup). Concept 1 (why documents are split) is
    built: the chunk is both what's scored and what's sent; three live
    demos, all exact matches in real Pyodide 0.26.4 (documents vs heading
    sections: 119 / median 995 / largest 23,000 / 77 over 512 tokens, and
@@ -3561,8 +3561,33 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    chunks. The module's choice (structured, up to 200 tokens) with chunk
    size left to Lesson 4; Chroma's report linked; 4 quiz cards. "Mixed
    evidence in the previous concept" links to concept 2's
-   `#overlap-repeating-the-edges` (anchor verified). Concepts 5+ (if any)
-   and bookends not yet drafted.
+   `#overlap-repeating-the-edges` (anchor verified).
+   Bookends are built: intro (3 outcomes, why it matters) and recap with an
+   8-question comprehensive quiz and a multi-file sandbox (`lib.py`
+   read-only, Lessons 1 to 3's code including `structured_chunks` and
+   `within_budget`; entry **`pipeline.py`**: `evaluate_chunker(chunker,
+   documents, labelled, budget, max_tokens)` refusing chunks missing or
+   empty in `doc_id`/`section`/`access` or over `max_tokens`, scoring main
+   questions with evidence at a token budget, returning chunks, largest,
+   answered, answerable, tokens_sent). `lib.py`, starter and reference were
+   generated from the mockup and checked byte-for-byte against it; every
+   line of the setup the lesson's pages ran is in `lib.py`, and its
+   `within_budget` is identical to concept 4's. **Change from the
+   mockup:** hidden test 4 gains an empty-`access` case, because a
+   presence-only check (`field not in chunk`) passed every original test
+   although the task says "missing or empty". Verified with the real
+   `runMultiFileAgainstHiddenTests`: the reference passes (test 5 on the
+   full corpus: structured 1,968 chunks, largest 200, 0.581; fixed 200
+   0.558; heading sections refused; about 0.3 s in Node), the starter
+   fails, and ten mutations each fail (no evidence filter, held-out
+   questions run, no size check, no required-field check, presence-only
+   check, top 5 instead of the budget, answerable unrounded, total instead
+   of mean tokens, largest in characters, documents counted as chunks).
+   Leaving `answered` unsorted still passes, harmlessly: the questions are
+   already in id order.
+
+   Lesson 3 is now **Locked**: all four concepts plus both bookends exist
+   and build cleanly.
 
 ---
 

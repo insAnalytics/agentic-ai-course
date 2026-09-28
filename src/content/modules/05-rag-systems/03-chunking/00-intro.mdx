@@ -1,0 +1,24 @@
+---
+title: "Intro"
+lesson: "03-chunking"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Explain why documents are split into chunks, and the trade-off between chunks that are too large and too small, including embedding models' input limits",
+    "Build fixed-size and structure-aware chunkers that keep code whole and give every chunk its source, section path and permissions",
+    "Compare chunkings fairly, at an equal token budget, and tell when a result reflects the search's bias rather than the chunking",
+  ]}
+/>
+
+<WhyItMatters>
+  Chunking decides the unit that every later step works with: what gets
+  embedded, what gets scored, what gets sent to the model and what gets
+  cited. It happens once, at indexing time, so its mistakes are invisible at
+  query time: a fact cut in half or a section truncated by the embedder
+  simply never comes back. Getting it right is mostly about avoiding the bad
+  choices, and about measuring the rest fairly.
+</WhyItMatters>
