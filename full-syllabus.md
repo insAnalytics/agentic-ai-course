@@ -3452,8 +3452,16 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    spans, stale evidence counted, no evidence filter, answerable as any
    part found, search without k). Shared setup in `ragCorpus.ts`:
    `KEYWORD_INDEX`, `EVALUATION`, `RAG_EVAL_DATA`, and `METRICS` (the
-   exercise's reference, loaded only on pages after concept 3). Concepts
-   4+ and bookends not yet drafted.
+   exercise's reference, loaded only on pages after concept 3). Concept 4
+   (reading the numbers honestly) is built: three live demos, all exact
+   matches in real Pyodide (the keyword baseline at k = 1, 3, 5, 10;
+   answerable@5 by query type; the stopword fix's 5 gained / 1 lost with a
+   two-sided sign test, 0.22, restoring `STOPWORDS`), the held-out set, 4
+   quiz cards. First page to load `METRICS` in its setup. Concepts 1 and
+   2's "reading the numbers honestly" mentions now link here (to
+   `#which-questions-moved` and `#the-held-out-set`, anchors verified).
+   "When the labels are wrong" (concept 2) is still plain prose. Further
+   concepts and bookends not yet drafted.
 
 ---
 
