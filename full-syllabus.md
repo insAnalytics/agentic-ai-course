@@ -3923,6 +3923,27 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    Lesson 7 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
 
+8. **Contextual Chunks** (provisional title) — **Building** (folder
+   `08-contextual-chunks`). Data: the headers and contextual chunk
+   versions committed under `public/data/rag/` (architecture.md §3.1).
+   Shared setup is Lesson 7's recap `lib.py` plus the new `WITH_HEADER`
+   and `VERSIONED_PIPELINE`; data `RAG_CONTEXTUAL_DATA`. Concept 1 (chunks
+   that don't say what they're about) is built: both new blocks shown as
+   static blocks (byte-identical to the exports and the mockup); three
+   live demos, code and output exact matches in real Pyodide (the three
+   incident reports' ids in 0 of their 4 chunks each; D11's summary with
+   its header; plain vs headers through the full pipeline, 22 to 23 at
+   rank 1 and 32 to 34 in the top 5, q15, q27, q28 gained, q23 lost, sign
+   test 0.62, 15 tokens a header, about 3 s in Node); prose claims
+   checked (q15's v2.4 entry ranks first with headers, displacing
+   Prometheus's migration guide; q27 and q28 gain their incident
+   reports' summaries; the key-rotation steps never say "registry"); 4
+   quiz cards. **Change from the mockup:** "one of them crowded the table
+   out" now reads "its steps crowded the table out", since the demo's
+   data shows two runbook steps (Steps 1 and 3) entering q23's top five
+   while the table dropped out. Concepts 2 onwards and the bookends are
+   not drafted yet.
+
 ---
 
 ## Modules 4–11 — current plan

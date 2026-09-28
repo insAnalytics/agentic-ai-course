@@ -716,3 +716,38 @@ def hypothetical_document(client, prompt: str, question: str, history: list[dict
     response = client.create([{"role": "user", "content": request}])
     return "".join(block.text for block in response.content if block.type == "text").strip()
 `;
+
+/**
+ * Module 5 Lesson 8 concept 1 with_header, shown verbatim on that page
+ * (keep the two byte-identical, and identical to scripts/rag_context.py:
+ * the stored vectors and scores are looked up by a hash of its output).
+ * Lesson 8 setup is Lesson 7 recap lib.py (... + INTERLEAVE + HYDE),
+ * then this, then VERSIONED_PIPELINE.
+ */
+export const WITH_HEADER = String.raw`
+def with_header(chunk: dict) -> dict:
+    """The chunk with its section path, from the document title down, at the top of its text."""
+    return {**chunk, "text": f"{chunk['section']}\n\n{chunk['text']}"}
+`;
+
+/** Module 5 Lesson 8 concept 1 VersionedPipeline, shown verbatim on that page. Append after WITH_HEADER. */
+export const VERSIONED_PIPELINE = String.raw`
+class VersionedPipeline(ModulePipeline):
+    """The module's pipeline over another version of the chunks, using that version's stored vectors."""
+
+    def __init__(self, chunks: list[dict], chunking: str):
+        self.bm25 = BM25Index()
+        self.bm25.add(chunks)
+        self.meaning = VectorIndex()
+        self.meaning.add(chunks, vectors_for(chunks, chunking=chunking))
+`;
+
+/** RAG_VARIANTS_DATA plus the chunk contexts, and vectors and cross-encoder scores for the headers and contextual chunk versions (Lesson 8 onwards). */
+export const RAG_CONTEXTUAL_DATA = [
+  ...RAG_VARIANTS_DATA,
+  "rag/chunk-contexts.json",
+  "rag/embeddings/bge-small-en-v1.5/structured-200-headers.json",
+  "rag/embeddings/bge-small-en-v1.5/structured-200-contextual.json",
+  "rag/rerank/ms-marco-MiniLM-L6-v2/structured-200-headers.json",
+  "rag/rerank/ms-marco-MiniLM-L6-v2/structured-200-contextual.json",
+];

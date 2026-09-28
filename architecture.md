@@ -410,6 +410,13 @@ From Lesson 7 concept 3 on the setup also appends `SPLIT_QUERY`
 is Lesson 7 concept 3's exercise reference: pages *after* concept 3 only.
 From Lesson 7 concept 4 on the setup appends `INTERLEAVE` and then `HYDE`
 (`hypothetical_document`, shown verbatim on that page).
+Lesson 8's setup is Lesson 7's recap `lib.py` (the Lesson 7 setup through
+`HYDE`), then `WITH_HEADER` (`with_header`, which must stay identical to
+`scripts/rag_context.py`) and `VERSIONED_PIPELINE` (`VersionedPipeline`,
+`ModulePipeline` over another chunk version's stored vectors), both shown
+verbatim on Lesson 8 concept 1, with `RAG_CONTEXTUAL_DATA`
+(`RAG_VARIANTS_DATA` plus `chunk-contexts.json` and the headers and
+contextual embedding and score files).
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.
