@@ -3755,8 +3755,8 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    Lesson 5 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
 
-6. **Reranking** — **Building** (folder `06-reranking`; title provisional
-   until the bookends mockup). Data: the cross-encoder scores committed
+6. **Reranking** — **Locked** (folder `06-reranking`; the title comes
+   from the bookends mockup). Data: the cross-encoder scores committed
    under `public/data/rag/rerank/` (architecture.md §3.1). Shared setup is
    Lesson 5's recap `lib.py` (checked line by line) plus the new
    `RERANK_SCORES`; data `RAG_RERANK_DATA`. Concept 1 (two stages) is
@@ -3806,7 +3806,28 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    given `REACT_FAKE_CLIENT + RECORDING_CLIENT`; four malformed replies
    parsed; top-30 prompts of 3,180 to 6,324 tokens, median 4,096); a reply
    is untrusted text and the output is only a permutation; 4 quiz cards.
-   Concepts 5+ (if any) and bookends not yet drafted.
+   Bookends are built: intro (3 outcomes, why it matters) and recap with an
+   8-question comprehensive quiz and a multi-file sandbox (`lib.py`
+   read-only, Lessons 1 to 6's code; entry **`pipeline.py`**:
+   `ModelReranker`, a callable class reranking any search's top `depth`
+   with one model call, counting `calls` and `prompt_tokens`; hidden tests
+   prefixed with `REACT_FAKE_CLIENT + RECORDING_CLIENT`). `lib.py`,
+   starter and reference generated from the mockup and checked
+   byte-for-byte; `lib.py` equals the lesson's setup line for line.
+   **Change from the mockup:** test 3's second text block is now
+   `" > [3]"`, not `" > [1]"` (expected order D02, D03, D01), because
+   reading only the first text block produced the same order as joining
+   them, so the test couldn't catch it. Verified with the real
+   `runMultiFileAgainstHiddenTests`: the reference passes (test 6: three
+   stages over the full corpus, 43 calls and the exact prompt-token total;
+   under a second in Node), the starter fails, and ten mutations each fail
+   (candidates at k not depth, no depth check, model called for one
+   candidate, first text block only, calls or tokens not counted, the
+   first stage's own dicts returned, k applied before ranking, own prompt,
+   the model's order ignored).
+
+   Lesson 6 is now **Locked**: all four concepts plus both bookends exist
+   and build cleanly.
 
 ---
 
