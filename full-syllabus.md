@@ -3723,8 +3723,28 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    rank 1 throughout); prose claims checked (the tiers summary ranks 7th
    for p07, below its table at 3rd; the rota summary ranks 1st for p08 but
    doesn't state the answer; the summary prompt matches the stored one); 4
-   quiz cards. No changes from the mockup. Concept 4 onwards and the
-   bookends are not drafted yet. Inserting it moved the lessons after it up by one: folders
+   quiz cards. No changes from the mockup. Concept 4 (images for
+   retrieval) is built: no new shared code; the pypdf extraction shown as
+   a static block with its output (pypdf doesn't run in the browser);
+   three live demos, code and output exact matches in real Pyodide (the
+   description prompt and the two stored descriptions; the three image
+   questions without and with descriptions, p04 and p09 to rank 1 and p05
+   still unanswered; the module's 43 questions before and after the PDFs
+   join the index, 28 to 27, q11 lost to P01's Incidents section); two
+   callbacks linked to verified anchors (Module 1's non-text inputs,
+   `#content-becomes-an-array-of-typed-blocks-not-a-plain-string`;
+   Lesson 2's incomplete labels, `#a-label-that-was-right-and-incomplete`);
+   ColPali (Faysse et al., ICLR 2025) linked, its claims checked against
+   the paper (the bias caveat about Claude-3 Sonnet-written ViDoRe queries
+   is in v1 to v3's limitations, not the latest version); the chart and
+   diagram images linked; prose claims checked (the chart's last bar is
+   310 and its peak 4,200; P01's Incidents section describes INC-2093);
+   4 quiz cards. **Change from the mockup:** the pypdf output's byte count
+   is 40,918, not 47,781, run on the committed PDF with pypdf 6.19.0 (and
+   5.9.0, the mockup's version, gives the same); the mockup's figure came
+   from its own copy of the PDF, whose chart PNG was drawn by a different
+   matplotlib. The name and 1050 x 480 size match. The caption names the
+   version used. The bookends are not drafted yet. Inserting it moved the lessons after it up by one: folders
    `06-hybrid-search` to `10-grounded-answers`, every Module 5 lesson number
    of 5 or more in the pages, code and shared files, and the forward
    references to the planned Lessons 10 to 13, which are now 11 to 14. The

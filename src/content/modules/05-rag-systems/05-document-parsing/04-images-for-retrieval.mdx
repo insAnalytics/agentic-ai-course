@@ -1,0 +1,223 @@
+---
+title: "Images for retrieval"
+lesson: "05-document-parsing"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { COUNT_TOKENS } from "../../../../lib/fakeClient";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, SIGN_TEST, FIXED_CHUNKS, STRUCTURE_HELPERS, STRUCTURED_CHUNKS, WITHIN_BUDGET, VECTORS, VECTOR_INDEX, MEANING_SEARCH, PDF_LOADERS, PDF_LINES, TO_MARKDOWN, PDF_TABLES, RAG_PDF_DATA } from "../../../../lib/ragCorpus";
+
+export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION + METRICS + SIGN_TEST + FIXED_CHUNKS + STRUCTURE_HELPERS + STRUCTURED_CHUNKS + WITHIN_BUDGET + VECTORS + VECTOR_INDEX + MEANING_SEARCH + PDF_LOADERS + PDF_LINES + TO_MARKDOWN + PDF_TABLES;
+
+export const DESCRIPTIONS_DEMO = String.raw`corpus = load_pdf_corpus()
+print(f"prompt: {corpus['description_prompt']}\n")
+for doc_id, label, text in corpus["descriptions"]:
+    print(f"{doc_id} | {label}\n{text}\n")
+`;
+
+export const MEASURED_DEMO = String.raw`corpus = load_pdf_corpus()
+queries = [q for q in corpus["queries"] if q["type"] == "pdf_image"]
+vectors = pdf_query_vectors()
+for name, chunks in [("without descriptions", pdf_chunks(render_table=table_as_rows)),
+                     ("with descriptions", pdf_chunks(render_table=table_as_rows, added=corpus["descriptions"]))]:
+    index = index_with_pdfs(chunks)
+    ranks = {q["id"]: next((r for r, c in enumerate(index.search(vectors[q["id"]], 20), 1) if contains_facts(c, q)), "-")
+             for q in queries}
+    print(f"{name:<22}{ranks}")
+print()
+for q in queries:
+    print(f"{q['id']}: {q['query']}  facts {q['facts']}")
+`;
+
+export const ONE_INDEX_DEMO = String.raw`corpus = load_pdf_corpus()
+labelled = [q for q in load_queries()["main"] if q["evidence"]]
+vectors = query_vectors()
+documents = [c for d in load_documents() for c in structured_chunks(d, 200)]
+before = VectorIndex()
+before.add(documents, vectors_for(documents))
+after = index_with_pdfs(pdf_chunks(render_table=table_as_rows, added=corpus["descriptions"]))
+
+answered = {name: {q["id"] for q in labelled if answerable(index.search(vectors[q["id"]], 5), q)}
+            for name, index in [("before", before), ("after", after)]}
+print(f"the module's 43 questions answered in the top 5: {len(answered['before'])} before the PDFs, "
+      f"{len(answered['after'])} after")
+print(f"lost {sorted(answered['before'] - answered['after'])}, gained {sorted(answered['after'] - answered['before'])}")
+query = next(q for q in labelled if q["id"] == "q11")
+print(f"\n{query['query']}")
+for chunk in after.search(vectors["q11"], 5):
+    print(f"  {chunk['doc_id']} | {chunk['section'].split(' > ')[-1]}")
+`;
+
+<Subsection title="Getting the pictures out" variant="a">
+
+The first concept found two images with no text inside them: a chart in the
+operations review and a diagram of service dependencies. Everything they show
+is invisible to search. Before anything can describe them, they have to be
+pulled out of the PDF, which the same libraries do:
+
+```python
+import pypdf
+
+reader = pypdf.PdfReader("P01-ops-review-q3.pdf")
+for number, page in enumerate(reader.pages, 1):
+    for image in page.images:
+        print(f"page {number}: {image.name}, {image.image.size[0]} x {image.image.size[1]} pixels, {len(image.data):,} bytes")
+```
+
+```text
+page 2: FormXob.1ecadb9d0d6752645ba5671bf2cf483b.png, 1050 x 480 pixels, 40,918 bytes
+```
+
+*Illustrative: pypdf doesn't run in this page's sandbox. This was run locally
+with pypdf 6.19.0 on [the committed PDF](/data/rag/pdf/files/P01-ops-review-q3.pdf),
+and the output is real.*
+
+The chart comes out as an ordinary PNG file, at the resolution it was drawn.
+Nothing about it is text yet.
+
+</Subsection>
+
+<Subsection title="Describing images in words" variant="b">
+
+The common fix is to have a vision-capable model look at each image and
+describe it, then index the description as a chunk, next to the document's
+text. Sending an image to a model is the request shape from
+[Module 1's lesson on non-text inputs](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/04-sending-non-text-inputs/#content-becomes-an-array-of-typed-blocks-not-a-plain-string).
+Here are the prompt and the two descriptions this lesson uses, for
+[the chart](/data/rag/pdf/files/rate-limited-chart.png) and
+[the diagram](/data/rag/pdf/files/dependency-diagram.png):
+
+<LiveDemo client:load dataFiles={RAG_PDF_DATA} setupCode={SETUP} code={DESCRIPTIONS_DEMO} />
+
+*The descriptions were written for the course by Claude, looking at the
+rendered images, and are replayed as stored text.*
+
+Each description is added to its document with `added_chunks`, labelled
+"Image 1 (description)", so a citation can say it came from a description of
+an image, not from the document's own words.
+
+</Subsection>
+
+<Subsection title="Measured" variant="a">
+
+Here are the three questions whose answers are only in the images, with the
+PDFs' tables written as rows, without and with the descriptions. This builds
+two indexes over the whole corpus, so allow several seconds:
+
+<LiveDemo client:load dataFiles={RAG_PDF_DATA} setupCode={SETUP} code={MEASURED_DEMO} />
+
+Two of the three go from unanswerable to rank 1. The third stays
+unanswerable, and the reason is worth remembering. The chart's last bar is
+310, and the description says "about 300". A description is a summary: it
+captures the shape of a chart, its peak and its trend, and rounds or drops the
+rest. For questions that need an exact value from a chart, a description is
+the wrong tool. Better options are indexing the data the chart was drawn from,
+if it exists, or sending the image itself to the answering model, so it reads
+the value directly.
+
+That second option connects to a rule Lesson 9 makes explicit: the answering
+model should see source text, not text generated during indexing. A description is generated
+text, and for an image it's the only text there is. It's good for *finding*
+the image. For *answering*, the image is the source, and a model that can read
+images can be given it.
+
+</Subsection>
+
+<Subsection title="One index for everything" variant="b">
+
+Text chunks, table rows and image descriptions now sit in one index,
+competing for the same top five places. Adding documents never only adds
+answers; it can move others. Here are the module's original 43 questions,
+before and after the PDFs joined the index. This also builds two indexes, so
+allow several seconds:
+
+<LiveDemo client:load dataFiles={RAG_PDF_DATA} setupCode={SETUP} code={ONE_INDEX_DEMO} />
+
+One question lost, and it's an instructive one. The operations review's
+incidents section also describes INC-2093, in one sentence, and it now
+outranks the incident report. Whether that's a loss depends on what you
+count: the review does say what happened, briefly, but the labels were written
+before the PDFs existed, so they can't know it's an answer. That's
+[Lesson 2's point about incomplete labels](/05-rag-systems/02-measuring-retrieval/05-when-the-labels-are-wrong/#a-label-that-was-right-and-incomplete)
+in a new form: when the corpus grows, the labels have to be reviewed with it,
+or the measurements quietly go stale.
+
+</Subsection>
+
+<Subsection title="Searching page images directly" variant="a">
+
+There's a different approach that skips extraction and description
+altogether. [ColPali (Faysse and colleagues, ICLR 2025)](https://arxiv.org/abs/2407.01449)
+embeds an *image of each page* with a vision-language model and matches
+questions against those page images directly. Its authors argue that
+text-based pipelines depend on lengthy, brittle extraction and struggle to use
+visual cues, and on their benchmark of visually rich documents, ViDoRe,
+ColPali outperformed the other retrieval systems they tested. They note that
+some of ViDoRe's queries were written by a commercial language model, which
+may bias it.
+
+The trade is familiar from this module. It needs a GPU-scale vision model at
+indexing time and a different kind of index. It returns pages, not chunks,
+and a page is a large unit to send to the answering model. And the answering
+model then has to read an image, not text. It isn't something this page can
+run, but it's a real alternative when documents are mostly charts, forms or
+scans, where extraction has little to work with.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "Why can't search find which service notification-service calls, before descriptions are added?",
+    "options": [
+      "The answer is only in the diagram, and an image contains no text to search",
+      "The diagram document is too short to be chunked",
+      "Service names are removed as stopwords",
+      "The diagram is on a restricted page"
+    ],
+    "correctIndex": 0,
+    "explanation": "Extraction reports where the image is, not what it shows. Until a description puts it into words, the relationships in the diagram don't exist for text search."
+  },
+  {
+    "question": "The description says the last week had \"about 300\" rate-limited requests; the chart shows 310. What does that show about descriptions?",
+    "options": [
+      "They summarise, keeping the shape of a chart and rounding or dropping exact values",
+      "The vision model misread the chart",
+      "Descriptions can't include numbers",
+      "The chart's data is stored somewhere else in the PDF"
+    ],
+    "correctIndex": 0,
+    "explanation": "A description is written to capture what an image is about. For exact values, index the underlying data, or give the image itself to the answering model."
+  },
+  {
+    "question": "After the PDFs were added, \"What happened in INC-2093?\" lost its labelled answer. What should that prompt?",
+    "options": [
+      "Reviewing the labels, since a new document may also answer it",
+      "Removing the new documents from the index",
+      "Raising k until the incident report returns",
+      "Deleting the question from the labelled set"
+    ],
+    "correctIndex": 0,
+    "explanation": "The operations review describes INC-2093 too. Labels written before a document existed can't count it. When the corpus grows, the labels need reviewing with it."
+  },
+  {
+    "question": "What does ColPali do differently from extracting and describing?",
+    "options": [
+      "It embeds images of whole pages and matches questions against them directly",
+      "It extracts text more accurately than pypdf",
+      "It writes better image descriptions",
+      "It converts tables into rows automatically"
+    ],
+    "correctIndex": 0,
+    "explanation": "It skips extraction entirely, using a vision-language model on page images. It needs GPU-scale models, returns whole pages, and leaves the answering model to read an image."
+  }
+]}
+/>
+
+</CheckpointZone>
