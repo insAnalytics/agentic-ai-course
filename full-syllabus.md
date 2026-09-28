@@ -3633,7 +3633,18 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    `RAG_BGE_ALL_DATA`, about 1 s in Node); the "more than half of
    structured 400's chunks are identical to structured 200's" claim
    checked (844 of 1,378, 61%); the module keeps structured 200; 4 quiz
-   cards. No new shared code. Concepts 4+ and bookends not yet drafted.
+   cards. No new shared code. Concept 4 (what a vector store adds) is
+   built: three live demos, code and output exact matches in real Pyodide
+   (saving and reloading the index under `/tmp/vector-store`, 3.0 MB of
+   vectors and 1.6 MB of chunks; q41 filtered after vs before ranking for
+   an all-staff reader, 3 vs 5 results, D13 confirmed finance-only;
+   k-means clusters with 1/2/4/8/32 probes, 2% to 100% scored, 62% to
+   100% of the exact top 5 found, about 0.5 s in Node); HNSW explained,
+   Malkov and Yashunin linked; the FAISS example as a static code block
+   plus output (byte-identical to the mockup), reproduced exactly with
+   faiss-cpu 1.15.1 on the committed vectors (96/99/100% at efSearch
+   8/16/64); when a plain matrix is enough; 4 quiz cards. No new shared
+   code. Concepts 5+ (if any) and bookends not yet drafted.
 
 ---
 
