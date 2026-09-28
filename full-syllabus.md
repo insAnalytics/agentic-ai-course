@@ -3744,7 +3744,17 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    5.9.0, the mockup's version, gives the same); the mockup's figure came
    from its own copy of the PDF, whose chart PNG was drawn by a different
    matplotlib. The name and 1050 x 480 size match. The caption names the
-   version used. The bookends are not drafted yet. Inserting it moved the lessons after it up by one: folders
+   version used. Concept 5 (scans and layout-aware parsers) is built: no
+   shared code and no live demos, all three code blocks static with their
+   outputs, as the mockup asks (pypdf, pypdfium2 and Tesseract don't run
+   in the browser). The first block's empty text layer was reproduced
+   locally (pypdf 6.19.0, pypdfium2 5.13.0); Tesseract isn't installed
+   here, so the two OCR outputs weren't rerun, but every word of the
+   200 dpi OCR text appears in P02's own text. Docling linked, its claims
+   checked against its README (IBM Research, MIT licence, layout, reading
+   order, tables, OCR, Markdown and JSON output, local execution); the
+   support-tiers PDF linked; 4 quiz cards. No changes from the mockup.
+   The bookends are not drafted yet. Inserting it moved the lessons after it up by one: folders
    `06-hybrid-search` to `10-grounded-answers`, every Module 5 lesson number
    of 5 or more in the pages, code and shared files, and the forward
    references to the planned Lessons 10 to 13, which are now 11 to 14. The

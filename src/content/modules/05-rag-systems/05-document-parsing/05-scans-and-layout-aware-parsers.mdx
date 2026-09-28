@@ -1,0 +1,242 @@
+---
+title: "Scans and layout-aware parsers"
+lesson: "05-document-parsing"
+order: 5
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="A scan has no text" variant="a">
+
+Everything so far has relied on the PDF having a text layer: words, stored
+as text, with positions. PDFs made by software have one. PDFs made by a
+scanner, or by photographing a page, don't: each page is a single picture.
+Here's [the support-tiers PDF](/data/rag/pdf/files/P02-support-tiers.pdf)
+turned into what a scan would be, a page image and nothing else:
+
+```python
+import pypdf
+import pypdfium2 as pdfium
+import pytesseract
+
+# simulate a scan: render the page to a greyscale image, and save a PDF holding only that image
+page = pdfium.PdfDocument("P02-support-tiers.pdf")[0]
+image = page.render(scale=200 / 72).to_pil().convert("L")
+image.save("P02-scanned.pdf", resolution=200)
+print("text layer:", repr(pypdf.PdfReader("P02-scanned.pdf").pages[0].extract_text()))
+```
+
+```text
+text layer: ''
+```
+
+*Illustrative: pypdf, pypdfium2 and Tesseract don't run in this page's
+sandbox. Run locally with pypdf 5.9.0, pypdfium2 5.6.0, pytesseract 0.3.13 and
+Tesseract 5.3.4 on the committed support-tiers PDF; the output is real.*
+
+An empty string. Every technique in this lesson so far, and every search in
+this module, gets nothing from this page. Scanned contracts, signed forms,
+older reports and faxed documents are common in real collections, and they
+all look like this to an extractor.
+
+</Subsection>
+
+<Subsection title="OCR reads the pixels" variant="b">
+
+**Optical character recognition (OCR)** turns the picture of text back into
+text. Tesseract is a widely used free OCR engine. Here it is on the scanned
+page:
+
+```python
+import time
+
+import pypdfium2 as pdfium
+import pytesseract
+
+image = pdfium.PdfDocument("P02-scanned.pdf")[0].render(scale=200 / 72).to_pil().convert("L")
+started = time.perf_counter()
+text = pytesseract.image_to_string(image)
+print(f"OCR took {time.perf_counter() - started:.1f} s for one page\n")
+print(text)
+```
+
+```text
+OCR took 1.9 s for one page
+
+Registry platform — Support tiers and response targets — INTERNAL
+
+Support tiers and response targets
+
+Response targets
+
+Every agent's tier sets how quickly the Platform team responds to an incident affecting it, and the
+availability the registry commits to for it. Response times are measured from the first page.
+
+Tier | First response | Resolution target Availability commitment
+standard | 1 hour 1 business day 99.5%
+priority 15 minutes 4 hours 99.9%
+
+Severity levels
+
+Response targets apply to severity 1 and 2 incidents. Severity 3 issues are handled in the normal
+ticket queue, whatever the tier.
+
+Severity Meaning Example
+
+1 Agents can't serve users | Registry unreachable
+
+2 Agents degraded Latency alert firing for over 30 minutes
+3 No user impact yet A dashboard panel not refreshing
+
+Changing tiers
+
+A move to the priority tier needs sign-off from the team's budget holder, as the agent owners' FAQ
+describes. The new targets apply from the first incident after the change.
+
+Page 1
+
+```
+
+*Illustrative, run locally as above. The timing is from one machine and will
+vary.*
+
+On a clean, 200 dpi scan of a born-digital page, it recovered almost every
+word. It also brought back every problem from the first concept, and one
+more:
+
+- **Page furniture is back:** the running header and "Page 1" are in the text.
+- **Structure is gone:** OCR returns lines, not headings; nothing marks
+  "Severity levels" as one. There are no font sizes to rebuild them from, as
+  the cleaning concept did, unless you ask the OCR engine for its layout data too.
+- **Table lines become characters:** the ruling around cells turns into stray
+  `|` marks in some places and nothing in others, so columns are only roughly
+  separated.
+- **It takes real time:** around two seconds per page here, which is minutes
+  for a long report and hours for a large archive.
+
+Quality depends heavily on the scan. Here's the same table row from the same
+page, scanned at 200 dots per inch and at 72, a typical low-quality scan:
+
+```python
+import pypdfium2 as pdfium
+import pytesseract
+
+page = pdfium.PdfDocument("P02-support-tiers.pdf")[0]
+for dpi in (200, 72):
+    text = pytesseract.image_to_string(page.render(scale=dpi / 72).to_pil().convert("L"))
+    row = next(line for line in text.splitlines() if line.startswith("standard"))
+    print(f"scanned at {dpi} dpi: {row}")
+```
+
+```text
+scanned at 200 dpi: standard | 1 hour 1 business day 99.5%
+scanned at 72 dpi: standard | 1 hour ‘business day | 99.5%
+```
+
+*Illustrative, run locally as above.*
+
+At 72 dpi, the "1" of "1 business day" became a quote mark. It's one
+character, and it's exactly the kind of error that turns a correct answer
+into a wrong one without anything looking broken. OCR output has to be
+checked, at least by sampling, before it's trusted.
+
+</Subsection>
+
+<Subsection title="Layout-aware parsers" variant="a">
+
+Rules like the cleaning concept's, and OCR with cleanup, work when documents follow
+simple conventions. Many don't: two columns, sidebars, footnotes, tables
+without ruling lines, headings that are only bold. **Layout-aware parsers**
+replace hand-written rules with models trained on many document pages to
+recognise what each region is.
+
+[Docling](https://github.com/docling-project/docling), from IBM Research and
+released under the MIT licence, is a free example. Its documentation describes
+page layout analysis, reading order, table structure recognition and OCR for
+scanned pages, with output as Markdown or structured JSON, and it runs
+locally. It downloads its layout models on first use, which this page's
+sandbox can't do, so there's no demo here.
+
+What such a parser changes is where the effort goes: fewer rules to write and
+maintain, in exchange for model inference on every page at indexing time,
+usually with a GPU for large collections, and output you still need to
+spot-check, because models make mistakes too.
+
+</Subsection>
+
+<Subsection title="Choosing an approach" variant="b">
+
+There's no single best way to ingest documents. The right one depends on what
+the documents are:
+
+- **Born-digital PDFs with simple layouts,** like this lesson's: a plain
+  extractor plus rules, like `to_markdown`. Fast, free and fully under your
+  control.
+- **Scans and photographs:** OCR first, then the same cleaning. Check the
+  scan resolution, and sample the output by eye.
+- **Complex layouts,** or many different document styles: a layout-aware
+  parser, accepting its cost at indexing time.
+- **Mostly visual documents,** such as slides, charts and forms: image
+  descriptions, or page-image retrieval like ColPali.
+
+Whichever you choose, the test is the one this module keeps coming back to:
+labelled questions over your own documents, measured before and after. An
+ingestion step that produces clean-looking text can still lose the one row a
+question needs, as the rota showed.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "Why does a text extractor return nothing for a scanned page?",
+    "options": [
+      "The page is stored as a single image, with no text layer to extract",
+      "Scanned PDFs are encrypted",
+      "Extractors skip pages without page numbers",
+      "The text is stored in a separate file"
+    ],
+    "correctIndex": 0,
+    "explanation": "A scanner produces a picture of the page. Extractors read stored text, and a scan has none. OCR is what turns the picture back into text."
+  },
+  {
+    "question": "OCR recovered the support-tiers page almost word for word. What did it still lose?",
+    "options": [
+      "The structure: headings aren't marked, and table columns are only roughly separated",
+      "Every number on the page",
+      "The page's reading order",
+      "Nothing: OCR output is equivalent to a text layer"
+    ],
+    "correctIndex": 0,
+    "explanation": "OCR returns lines of text. Headings, tables and page furniture come back as ordinary lines, so the cleaning problems from earlier in the lesson all return."
+  },
+  {
+    "question": "At 72 dpi, \"1 business day\" came out as \"'business day\". Why is this kind of error dangerous?",
+    "options": [
+      "It changes an answer without anything looking broken",
+      "It crashes the chunker",
+      "It makes the page unsearchable",
+      "It doubles the OCR time"
+    ],
+    "correctIndex": 0,
+    "explanation": "A single wrong character looks like normal text, so nothing flags it. Low-resolution scans produce more of them, which is why OCR output needs sampling before it's trusted."
+  },
+  {
+    "question": "What does a layout-aware parser trade, compared with hand-written rules?",
+    "options": [
+      "Fewer rules to write, for model inference on every page at indexing time",
+      "Perfect accuracy, for a higher price",
+      "Faster indexing, for worse tables",
+      "No need to check its output, for a licence fee"
+    ],
+    "correctIndex": 0,
+    "explanation": "A model trained on many layouts replaces brittle rules, but it costs compute on every page and still makes mistakes, so its output needs checking too."
+  }
+]}
+/>
+
+</CheckpointZone>
