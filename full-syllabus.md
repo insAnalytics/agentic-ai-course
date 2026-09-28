@@ -3923,8 +3923,9 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    Lesson 7 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
 
-8. **Contextual Chunks** (provisional title) — **Building** (folder
-   `08-contextual-chunks`). Data: the headers and contextual chunk
+8. **Chunks That Lose Their Meaning Out of Context** — **Locked** (folder
+   `08-contextual-chunks`, named while the title was provisional; the
+   title comes from the bookends mockup). Data: the headers and contextual chunk
    versions committed under `public/data/rag/` (architecture.md §3.1).
    Shared setup is Lesson 7's recap `lib.py` plus the new `WITH_HEADER`
    and `VERSIONED_PIPELINE`; data `RAG_CONTEXTUAL_DATA`. Concept 1 (chunks
@@ -3985,8 +3986,34 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    the budget, no dedupe, document edges raising, one-sided window, off by
    one at the far edge, `>=` budget, result before its neighbours, altered
    copies, budget ignored). The reference is the new `EXPAND_NEIGHBOURS`
-   export, for pages after concept 3 only. Concept 4 onwards and the
-   bookends are not drafted yet.
+   export, for pages after concept 3 only.
+   Bookends are built: intro (3 outcomes, why it matters) and recap with an
+   8-question comprehensive quiz and a two-file sandbox (`lib.py`
+   read-only, entry **`prompt.py`**: `strip_added`, the source chunk behind
+   a retrieved one with what indexing added kept apart and a `ValueError`
+   unless the retrieved text ends with the source text, and
+   `prompt_chunks`, source chunks expanded with `expand_neighbours`). All
+   four code blocks generated from the mockup; `lib.py` is Lesson 7's recap
+   `lib.py` plus a Lesson 8 section and matches the lesson's setup line for
+   line except the merged `collections` import, as in Lesson 7. Data
+   `RAG_EXPANSION_DATA`. **Change from the mockup's hidden tests:** test 1
+   gains a retrieved chunk carrying a `"score"`, which must not come back,
+   because returning the retrieved chunk's fields with the source text
+   passed every original test (the task says the original chunk's fields).
+   Verified with the real `runMultiFileAgainstHiddenTests`: the reference
+   passes (test 4 on the full labelled set: 36 answered within 1,000
+   tokens, 39 with one neighbour either side, q15, q26 and q30 gained and
+   none lost; about 2 s in Node), the starter fails, and eight mutations
+   each fail (no integrity check, `added` not stripped, the retrieved
+   chunk's fields, no `added` key, window ignored, budget ignored, no
+   expansion, `startswith` in place of `endswith`; one more, expanding the
+   retrieved chunks rather than the sources, passes and is equivalent,
+   since `expand_neighbours` takes every chunk from `originals`). The
+   intro's figures checked: the contextual pipeline answers 36 in the top
+   five and 26 at rank 1, against 32 and 22 plain.
+
+   Lesson 8 is now **Locked**: all three concepts plus both bookends exist
+   and build cleanly.
 
 ---
 
