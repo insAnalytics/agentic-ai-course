@@ -3769,8 +3769,18 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    4 quiz cards. **Change from the mockup:** quiz Q4 said "all four
    answering chunks" were in the top 30; there are five answering chunks,
    all in the top 30, of which the reranker lifts four into the top five,
-   so it now says "every answering chunk". Concepts 2+ and bookends not
-   yet drafted.
+   so it now says "every answering chunk". Concept 2 (why reading
+   together scores better) is built: bi-encoders vs cross-encoders, linked
+   to Module 1's attention subsection
+   (`#the-core-idea-a-weighted-combination-of-every-other-token`, anchor
+   verified); two live demos, code and output exact matches in real
+   Pyodide (six questions' first answering position before and after
+   reranking meaning's top 30: q10 16 to 1, q43 17 to 1, q16 4 to 1, q20 16
+   to 5, q08 4 to 6, q44 3 to 14; q08's top two reranked chunks against
+   D15's "Quiet hours" answer at -4.99); prose claims checked (the Zen page
+   says "wake anyone up"; q44's evidence is about the WAL write location;
+   q16's answering chunk never says "registry"); 4 quiz cards. No new
+   shared code. Concepts 3+ and bookends not yet drafted.
 
 ---
 
