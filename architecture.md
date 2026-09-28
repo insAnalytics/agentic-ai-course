@@ -285,6 +285,24 @@ served as plain static files. Module 5 (RAG) uses `public/data/rag/`:
   "timing" (3.55 ms a pair, 97 ms for 30 candidates) is GPU timing; the
   script scores one question at a time in batches of 64, which, not the
   GPU, bounds its speed (about 7 minutes for 112,176 pairs).
+- Query variants (Lesson 7 onwards), from
+  `scripts/generate-rag-query-variants.py` (see `README-query-variants.md`;
+  texts in `scripts/rag_corpus/query_variants_src.py`, written by Claude
+  for the course and served as scripted model replies — edit that file,
+  not the JSON, and rerun): `query-variants.json` (~16 KB: the prompts,
+  57 rewrites, sub-queries for 4 questions, 57 hypothetical documents);
+  `embeddings/bge-small-en-v1.5/query-variants.json` (~127 KB, 122
+  vectors keyed `<id>:rewrite`, `<id>:sub1`/`sub2`, `<id>:hyde`;
+  rewrites and sub-queries embedded with the query instruction, HyDE
+  passages as documents, without it); and
+  `rerank/ms-marco-MiniLM-L6-v2/query-variants.json` (~720 KB, the 65
+  rewrites and sub-queries against all 1,968 chunks; HyDE passages aren't
+  reranked). Generated on the RTX 3070 Ti with the script's `BATCH`
+  overridden to 128 for the run: at its default of 512 the cross-encoder
+  filled the 8 GB card and Windows spilled into system RAM, which slowed
+  it sharply. Batch size doesn't change the scores. Checked when
+  generated: texts match the source file, vectors unit length, chunk keys
+  match the chunker, no NaNs or empty rows.
 
 **Loading rule (every Module 5 page):** fetch these files at runtime, on the
 learner's first Run click, and let the browser cache them — never `import`
