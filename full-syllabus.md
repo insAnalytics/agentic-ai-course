@@ -3669,8 +3669,9 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    Lesson 4 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
 
-5. **Hybrid Search** — **Building** (folder `05-hybrid-search`; title
-   provisional until the bookends mockup). Shared setup is Lesson 4's
+5. **Keyword Search and Hybrid Retrieval** — **Locked** (folder
+   `05-hybrid-search`, named while the title was provisional; the title
+   comes from the bookends mockup). Shared setup is Lesson 4's
    recap `lib.py`, which is exactly the Lesson 4 page setup (`... + VECTORS
    + VECTOR_INDEX + MEANING_SEARCH`, checked line by line in both
    directions); data `RAG_BGE_DATA`. Concept 1 (rare words should count
@@ -3725,8 +3726,28 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    meaning 17th; for q08 and q11 meaning has the answer 4th while BM25's
    top places go elsewhere; INC-2093 appears only in D11's title line,
    never in a structured chunk's text); what to use depending on how many
-   results are read; 4 quiz cards. No new shared code. Concepts 5+ (if
-   any) and bookends not yet drafted.
+   results are read; 4 quiz cards. No new shared code.
+   Bookends are built: intro (3 outcomes, why it matters) and recap with an
+   8-question comprehensive quiz and a multi-file sandbox (`lib.py`
+   read-only, Lessons 1 to 5's code; entry **`fusion.py`**: `fuse`,
+   weighted RRF over any number of searches returning a search function,
+   and `report`, answered counts overall and by type). `lib.py`, starter,
+   reference and hidden tests were generated from the mockup and checked
+   byte-for-byte; `lib.py` equals the lesson's page setup line for line in
+   both directions. Verified with the real `runMultiFileAgainstHiddenTests`:
+   the reference passes (test 6 on the full corpus: hybrid 27, meaning 28,
+   BM25 at weight 0.25 28; paraphrases 6/8/7; about 7 s in Node), the
+   starter fails, and eleven mutations each fail (weights ignored, ranks
+   from 0, chunks keyed by document only, searches asked for n not depth,
+   no weight check, zero weight allowed, no-evidence questions counted,
+   held-out questions counted, `k` ignored in `report`, ascending order,
+   `n` ignored). Keeping the last copy of a chunk instead of the first
+   still passes, harmlessly: both copies are the same chunk and the fused
+   score replaces theirs. The explanation's claim checked: weight 0.25
+   gains q10 and q43 and loses q08 and q11 against search by meaning.
+
+   Lesson 5 is now **Locked**: all four concepts plus both bookends exist
+   and build cleanly.
 
 ---
 
