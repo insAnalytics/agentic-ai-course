@@ -894,3 +894,16 @@ def check_citations(answer: str, sources: dict) -> dict:
         "cited": {i: (sources[i]["doc_id"], sources[i]["section"]) for i in sorted(cited & sources.keys())},
     }
 `;
+
+/**
+ * Module 5 Lesson 9 concept 3 DECLINE and declined, shown verbatim on that
+ * page (keep the two byte-identical). Joins the Lesson 9 setup from
+ * concept 3 on: append after CHECK_CITATIONS.
+ */
+export const DECLINED = String.raw`
+DECLINE = "the sources don't say"
+
+def declined(answer: str) -> bool:
+    """Whether the model declined, recognised by the phrase the instructions ask it to use."""
+    return DECLINE in answer.lower().replace("${"\\"}u2019", "'")
+`;

@@ -4050,8 +4050,25 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    unknown id and an uncited statement flagged, a wrong-source citation
    passing); prose claims checked (S3, the error-code table, never says
    60; S2 is v2.4, which lowered the limit from 100 to 60); 4 quiz cards.
-   No changes from the mockup. Concept 3 onwards and the bookends are not
-   drafted yet.
+   No changes from the mockup. Concept 3 (abstaining when retrieval is
+   weak) is built: setup now includes the new `DECLINED` (`DECLINE`,
+   `declined`, static block byte-identical to the export and the mockup;
+   the export writes its `\u2019` through an interpolation, because the
+   TypeScript build turned a raw `\u2019` into the character itself); two
+   callbacks linked to verified anchors (Module 1's hallucination concept,
+   `#not-a-malfunction-the-same-mechanism-landing-on-a-wrong-answer`;
+   Module 1's constrained decoding, `#a-hard-guarantee-not-a-soft-nudge`);
+   three live demos, code and output exact matches in real Pyodide (top
+   reranker scores by outcome, 36 retrieved, 7 missed, 3 with no answer;
+   the threshold table from -3 to 2; q39's decline via the fake client,
+   top score 4.93 on D11's timeline); prose claims checked (q24 and q25
+   are the follow-ups; D11's timeline pages the on-call engineer at 14:11
+   without naming them; `declined` accepts a curly apostrophe and misses
+   "the documents don't mention"); 4 quiz cards. **Change from the
+   mockup:** "three of the ten lowest scores belong to questions whose
+   answer was retrieved" now reads "four", and "Two of those three" reads
+   "Two of those four", since the demo's own output lists q25, q04, q24 and
+   q05. Concept 4 onwards and the bookends are not drafted yet.
 
 ---
 

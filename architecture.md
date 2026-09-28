@@ -436,6 +436,11 @@ and `ANSWER_INSTRUCTIONS`, both shown verbatim on Lesson 9 concept 1, with
 From Lesson 9 concept 2 on the setup appends `ASSEMBLE_REQUEST` and then
 `CHECK_CITATIONS` (`CITATION`, `check_citations`, shown verbatim on that
 page).
+From Lesson 9 concept 3 on the setup appends `DECLINED` (`DECLINE`,
+`declined`, shown verbatim on that page). A Python escape like `’`
+inside a `String.raw` export doesn't survive the TypeScript build (it
+arrives as the character itself), so the export writes the backslash as
+`${"\\"}`; the page's static block keeps the escape as typed.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.
