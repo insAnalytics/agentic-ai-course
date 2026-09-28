@@ -3683,7 +3683,34 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    service names are in P04's text); prose claims checked (the page number
    is drawn at the bottom but extracted first, P03's table has 13 weeks,
    auth-service appears only in the diagram); 4 quiz cards. No changes from
-   the mockup. Concept 2 onwards and the bookends are not drafted yet. Inserting it moved the lessons after it up by one: folders
+   the mockup. The mockup later added `from collections import Counter` to
+   the loaders block (for concept 2's `to_markdown`); the export and the
+   shown block were updated to match. Concept 2 (cleaning extracted text)
+   is built: setup now includes the new `PDF_LINES` (`page_lines`,
+   `inside`, `table_as_markdown`, static block byte-identical to the
+   export, the mockup and `scripts/rag_pdf.py`); two live demos, code and
+   output exact matches in real Pyodide (P01's first lines rebuilt from
+   positions; the 45-point margin rule catching exactly each page's header
+   and page number); 4 quiz cards; graded `to_markdown` exercise, the
+   reference identical to `scripts/rag_pdf.py`. **Change from the
+   mockup's hidden tests:** the four tests share a fixtures block
+   (`import hashlib`, the helpers and the sample page), since each runs
+   alone. Verified with the real `runAgainstHiddenTests`: the reference
+   passes (test 4's digests of all four PDFs and P01's five headed
+   chunks), the starter fails all four, and nine mutations each fail (body
+   size per page, no furniture drop, table words kept, tables ignored,
+   every heading `##`, no gap rule, a paragraph run across pages,
+   `render_table` ignored, lines joined by newlines); one more, measuring
+   the gap after a table from its top, passes and is equivalent, since the
+   paragraph is always empty right after a table. The explanation's counts
+   checked: plain text makes 3 chunks of P01 and 8 across the four PDFs,
+   cleaned 13. **Data fix:** `public/data/rag/pdf/corpus.json` had been
+   written in cp1252 (`write_text` without an encoding, on Windows), so it
+   wasn't valid UTF-8 and `load_pdf_corpus()` failed; it's rewritten as
+   UTF-8, checked identical in content to what the script meant to write,
+   and `scripts/generate-rag-pdf.py` now writes and reads with
+   `encoding="utf-8"`. Concept 3 onwards and the bookends are not drafted
+   yet. Inserting it moved the lessons after it up by one: folders
    `06-hybrid-search` to `10-grounded-answers`, every Module 5 lesson number
    of 5 or more in the pages, code and shared files, and the forward
    references to the planned Lessons 10 to 13, which are now 11 to 14. The

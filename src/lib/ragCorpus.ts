@@ -463,6 +463,8 @@ export const RAG_BGE_ALL_DATA = [
  * comes from scripts/generate-rag-pdf.py (README-pdf.md).
  */
 export const PDF_LOADERS = String.raw`
+from collections import Counter
+
 PDF_DATA = Path("/data/rag/pdf")
 
 def load_pdf_extraction() -> dict:
@@ -472,6 +474,75 @@ def load_pdf_extraction() -> dict:
 def load_pdf_corpus() -> dict:
     """The PDFs' metadata, the model-written table summaries and image descriptions, and the labelled questions."""
     return json.loads((PDF_DATA / "corpus.json").read_text())
+`;
+
+/**
+ * Module 5 Lesson 5 concept 2 helpers (page_lines, inside,
+ * table_as_markdown), shown verbatim on that page (keep them
+ * byte-identical, and identical to scripts/rag_pdf.py: the stored vectors
+ * are looked up by the exact text they produce). Joins the Lesson 5 setup
+ * from concept 2 on: append after PDF_LOADERS.
+ */
+export const PDF_LINES = String.raw`
+def page_lines(page: dict) -> list[dict]:
+    """Group a page's words into lines by vertical position, left to right."""
+    lines = []
+    for word in sorted(page["words"], key=lambda w: (round(w["top"]), w["x0"])):
+        if lines and abs(lines[-1]["top"] - word["top"]) < 2:
+            lines[-1]["words"].append(word)
+        else:
+            lines.append({"top": word["top"], "size": word["size"], "words": [word]})
+    for line in lines:
+        line["text"] = " ".join(w["text"] for w in line["words"])
+    return lines
+
+def inside(word: dict, bbox: list[float]) -> bool:
+    x0, top, x1, bottom = bbox
+    return x0 - 1 <= word["x0"] <= x1 and top - 1 <= word["top"] <= bottom
+
+def table_as_markdown(rows: list[list[str]]) -> str:
+    header, *body = rows
+    lines = ["| " + " | ".join(header) + " |", "|" + "---|" * len(header)]
+    return "\n".join(lines + ["| " + " | ".join(row) + " |" for row in body])
+`;
+
+/**
+ * Module 5 Lesson 5 concept 2 graded exercise, reference solution
+ * verbatim (to_markdown), identical to scripts/rag_pdf.py. Joins the setup
+ * for every page AFTER concept 2 (append after PDF_LINES) and must never
+ * load on concept 2 itself, or the exercise would start already solved.
+ */
+export const TO_MARKDOWN = String.raw`
+def to_markdown(extracted: dict, render_table=table_as_markdown, margin: float = 45) -> str:
+    """Rebuild a document from positioned words: drop page furniture, mark headings by size,
+    rejoin wrapped lines into paragraphs, and put each table back where it was."""
+    body = Counter(w["size"] for p in extracted["pages"] for w in p["words"]).most_common(1)[0][0]
+    blocks = []
+    for page in extracted["pages"]:
+        tables = sorted(page["tables"], key=lambda t: t["bbox"][1])
+        words = [w for w in page["words"] if margin < w["top"] < page["height"] - margin
+                 and not any(inside(w, t["bbox"]) for t in tables)]
+        items = [(line["top"], "line", line) for line in page_lines({**page, "words": words})]
+        items += [(t["bbox"][1], "table", t) for t in tables]
+        paragraph, last_top = [], None
+        for top, kind, item in sorted(items, key=lambda i: i[0]):
+            new_block = kind == "table" or item["size"] > body or (
+                last_top is not None and top - last_top > 1.6 * body)
+            if new_block and paragraph:
+                blocks.append(" ".join(paragraph))
+                paragraph = []
+            if kind == "table":
+                blocks.append(render_table(item["rows"]))
+                last_top = item["bbox"][3]
+            elif item["size"] > body:
+                blocks.append(f"{'#' if item['size'] >= 1.6 * body else '##'} {item['text']}")
+                last_top = top
+            else:
+                paragraph.append(item["text"])
+                last_top = top
+        if paragraph:
+            blocks.append(" ".join(paragraph))
+    return "\n\n".join(blocks)
 `;
 
 /** RAG_BGE_DATA plus the PDF corpus: stored extraction, corpus, and bge-small vectors for its chunks and questions (Lesson 5). */

@@ -81,7 +81,7 @@ def main():
     dry_run = "--dry-run" in sys.argv
     subprocess.run([sys.executable, str(PDF_SRC / "make_pdfs.py")], check=True)
     subprocess.run([sys.executable, str(PDF_SRC / "extract.py")], check=True)
-    extracted = json.loads((PDF_SRC / "extracted.json").read_text())
+    extracted = json.loads((PDF_SRC / "extracted.json").read_text(encoding="utf-8"))
 
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "files").mkdir(exist_ok=True)
@@ -94,7 +94,7 @@ def main():
         "documents": documents(extracted), "summary_prompt": source.SUMMARY_PROMPT,
         "description_prompt": source.DESCRIPTION_PROMPT, "summaries": source.SUMMARIES,
         "descriptions": source.DESCRIPTIONS, "queries": source.QUERIES,
-    }, indent=1, ensure_ascii=False))
+    }, indent=1, ensure_ascii=False), encoding="utf-8")
 
     if dry_run:
         embedder = StandIn()

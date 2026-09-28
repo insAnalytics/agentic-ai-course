@@ -46,6 +46,8 @@ tables and images it finds. Their output is stored, and every demo in this
 lesson works on it:
 
 ```python
+from collections import Counter
+
 PDF_DATA = Path("/data/rag/pdf")
 
 def load_pdf_extraction() -> dict:

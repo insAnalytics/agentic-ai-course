@@ -1,0 +1,338 @@
+# Module 5, Lesson 5 — Concept 2: Cleaning extracted text
+
+> **Note for the site build:**
+> - **New shared code** for every demo and exercise from this concept to the
+>   end of the lesson: `page_lines`, `inside` and `table_as_markdown`, exactly
+>   as in the first code block below.
+> - **The exercise's reference solution** (`to_markdown`) joins the shared
+>   setup only for pages *after* this concept. It must stay identical to
+>   `to_markdown` in `scripts/rag_pdf.py`, because the stored vectors are
+>   looked up by the exact text it produces.
+
+---
+
+## From drawing instructions back to a document
+
+The previous concept showed what a PDF gives back: words with positions and
+fonts, a list of tables, and the boxes where images sit. Lesson 3's chunker
+needs Markdown: headings marked with `#`, paragraphs separated by blank lines,
+tables as tables. Getting from one to the other takes five steps:
+
+1. **Group words into lines** by their vertical position.
+2. **Drop page furniture,** the running header and page number.
+3. **Mark headings** by font size.
+4. **Rejoin paragraphs** from lines that were broken by the page width.
+5. **Put each table back** where it was, as a table, and remove its words from
+   the running text.
+
+These helpers do the first step and the table rendering, and are loaded for
+the rest of the lesson:
+
+```python
+def page_lines(page: dict) -> list[dict]:
+    """Group a page's words into lines by vertical position, left to right."""
+    lines = []
+    for word in sorted(page["words"], key=lambda w: (round(w["top"]), w["x0"])):
+        if lines and abs(lines[-1]["top"] - word["top"]) < 2:
+            lines[-1]["words"].append(word)
+        else:
+            lines.append({"top": word["top"], "size": word["size"], "words": [word]})
+    for line in lines:
+        line["text"] = " ".join(w["text"] for w in line["words"])
+    return lines
+
+def inside(word: dict, bbox: list[float]) -> bool:
+    x0, top, x1, bottom = bbox
+    return x0 - 1 <= word["x0"] <= x1 and top - 1 <= word["top"] <= bottom
+
+def table_as_markdown(rows: list[list[str]]) -> str:
+    header, *body = rows
+    lines = ["| " + " | ".join(header) + " |", "|" + "---|" * len(header)]
+    return "\n".join(lines + ["| " + " | ".join(row) + " |" for row in body])
+```
+*(defined once here and already loaded for every demo and exercise from here to the end of this lesson)*
+
+Here are the operations review's first lines, rebuilt from positions:
+
+```python
+page = load_pdf_extraction()["P01"]["pages"][0]
+for line in page_lines(page)[:9]:
+    print(f"top {line['top']:>6}  size {line['size']:>4}  {line['text'][:70]}")
+```
+```
+top   27.7  size  8.0  Registry platform — Quarterly operations review, Q3 2026 — INTERNAL
+top   72.1  size 18.0  Quarterly operations review, Q3 2026
+top  105.3  size 14.0  Availability
+top  128.4  size 10.0  The registry met its availability target in July and September, and mi
+top  140.4  size 10.0  INC-2093, the 42-minute outage during a database failover. The target 
+top  165.4  size 10.0  Month Availability Target Incidents
+top  183.4  size 10.0  July 99.97% 99.9% 0
+top  201.4  size 10.0  August 99.84% 99.9% 1 (INC-2093)
+top  219.4  size 10.0  September 99.95% 99.9% 0
+```
+*(runs live on the stored extraction, shows output — read-only demo snippet, not graded)*
+
+Grouping by position already restores more than pypdf did: each table row
+is back on one line, "July 99.97% 99.9% 0", in the right order. The header
+row is a separate line above them, so a row's meaning still depends on the
+row it came with.
+
+---
+
+## Page furniture
+
+The header and page number sit in the page's top and bottom margins, and
+nothing else does. So the simplest rule is positional: drop every line within
+45 points, about 1.6 cm, of the top or bottom edge. Here's what that rule
+catches across all four PDFs:
+
+```python
+margin = 45
+for doc_id, document in load_pdf_extraction().items():
+    for page in document["pages"]:
+        edges = [line["text"] for line in page_lines(page)
+                 if line["top"] < margin or line["top"] > page["height"] - margin]
+        print(f"{doc_id} page {page['number']}: {edges}")
+```
+```
+P01 page 1: ['Registry platform — Quarterly operations review, Q3 2026 — INTERNAL', 'Page 1']
+P01 page 2: ['Registry platform — Quarterly operations review, Q3 2026 — INTERNAL', 'Page 2']
+P02 page 1: ['Registry platform — Support tiers and response targets — INTERNAL', 'Page 1']
+P03 page 1: ['Registry platform — On-call rota, Q4 2026 — INTERNAL', 'Page 1']
+P04 page 1: ['Registry platform — Service dependency diagram — INTERNAL', 'Page 1']
+```
+*(runs live on the stored extraction, shows output — read-only demo snippet, not graded)*
+
+Exactly the running header and the page number on every page, and nothing
+else. A rule based on repetition, dropping any line that appears on every
+page, would catch the header but miss the page number, which changes on every
+page. Neither rule is universal: a document that prints real content in its
+margins, or has no margins to speak of, needs a different one. That's the
+nature of this work. Every rule here is a guess about how the document was
+laid out, correct for these documents.
+
+---
+
+## Headings and paragraphs
+
+With furniture gone, size and spacing do the rest:
+
+- **Body text is the most common font size** in the whole document, 10 points
+  here. Measuring it over the whole document rather than page by page keeps a
+  page that's mostly a large title from redefining what "body" means.
+- **A line larger than the body is a heading.** At 1.6 times the body size or
+  more, it's the document's title and gets `#`; otherwise `##`.
+- **Body lines join into a paragraph** with spaces, undoing the line breaks the
+  page width forced. A vertical gap of more than 1.6 times the body size
+  between lines, or a heading or table, starts a new block.
+- **Tables are placed by their top edge,** in page order with the lines, and
+  rendered by a function, so the next concept can try different ways of
+  writing them. Words inside a table's box are left out of the running text,
+  since the table already carries them.
+- **Each page's last paragraph ends with the page,** so text never runs from
+  one page's bottom into the next page's header position.
+
+The same limits apply as for furniture. Two-column layouts, footnotes, text
+wrapped around a figure, or a document that uses bold body text for headings
+all break these rules in different ways. The last concept in this lesson looks
+at parsers that learn layout from examples instead of following rules.
+
+---
+
+## Quiz cards
+
+> **Q1.** Why drop page furniture by position rather than by repeated text?
+> - The page number changes on every page, so a repetition rule would miss it ✅
+> - Positions are faster to compare than text
+> - The header's text differs between documents
+> - Repeated text can't be detected across pages
+>
+> *Explanation: the running header repeats exactly, but "Page 1", "Page
+> 2" don't. Both sit in the margins, which is what the positional rule
+> uses. Neither rule suits every document.*
+
+> **Q2.** Why is the body size measured over the whole document, not each
+> page?
+> - A page that's mostly large type would otherwise treat its title as body text ✅
+> - Page-by-page counts are slower
+> - Different pages always use different fonts
+> - The body size is stored once per document in the PDF
+>
+> *Explanation: the most common size on a title-heavy page might be the
+> title's own size. Across a whole document, body text dominates, so
+> "larger than body" reliably picks out headings.*
+
+> **Q3.** What does rejoining lines into paragraphs undo?
+> - Line breaks forced by the page's width, which split sentences mid-way ✅
+> - The paragraph breaks the author chose
+> - The table rows, which become one long line
+> - The headings, which are merged into the text
+>
+> *Explanation: a PDF breaks lines wherever the page runs out of width.
+> Joining consecutive body lines restores sentences; a larger vertical gap
+> marks where the author actually started a new paragraph.*
+
+> **Q4.** Why do rules like these need checking against each new kind of
+> document?
+> - Each is a guess about the layout, true for some documents and wrong for others ✅
+> - PDF libraries change their output format every release
+> - Rules only work on documents under two pages
+> - The embedding model needs different rules for each document
+>
+> *Explanation: two columns, footnotes or bold body text all break
+> size-and-position rules. They're conventions of a document, not
+> properties of PDFs in general.*
+
+---
+
+## Applied sandbox exercise
+*(graded — rebuild a document's structure from positioned words)*
+
+**Task shown to learner:**
+
+Write `to_markdown(extracted, render_table=table_as_markdown, margin=45)`.
+`extracted` is one document from `load_pdf_extraction()`: a dict with a
+`"pages"` list, each page having `"height"`, `"words"` and `"tables"`.
+
+- **Body size:** the most common word `"size"` across the whole document.
+- **Per page:** drop words whose `"top"` is within `margin` of the top or
+  bottom of the page (`margin < top < height - margin` keeps a word), and
+  words `inside` any table's `"bbox"`. Group the rest into lines with
+  `page_lines`.
+- **In order of vertical position,** go through the lines and the page's
+  tables (a table's position is its bbox's top, `bbox[1]`):
+  - a **table** becomes `render_table(rows)`;
+  - a **line larger than body** becomes a heading: `# text` if its size is at
+    least 1.6 times the body size, otherwise `## text`;
+  - a **body line** joins the current paragraph with a space.
+- **A new block starts** at a table, at a heading, or when the gap from the
+  previous item's top is more than 1.6 times the body size. After a table,
+  measure the gap from the table's bottom, `bbox[3]`. The current paragraph
+  also ends at the end of each page.
+- Return all blocks joined by a blank line (`"\n\n"`).
+
+**Starter code:**
+
+```python
+def to_markdown(extracted: dict, render_table=table_as_markdown, margin: float = 45) -> str:
+    """Rebuild a document from positioned words: drop page furniture, mark headings by size,
+    rejoin wrapped lines into paragraphs, and put each table back where it was."""
+    # TODO
+    ...
+```
+
+**Hidden tests:**
+
+```python
+import hashlib
+
+# shared by the tests below
+def word(text, x0, top, size=10.0):
+    return {"text": text, "x0": x0, "top": top, "size": size, "font": "Helvetica"}
+def line(text, top, size=10.0, x0=60.0):
+    words, x = [], x0
+    for token in text.split():
+        words.append(word(token, x, top, size))
+        x += 6 * len(token) + 4
+    return words
+PAGE = {"number": 1, "width": 600.0, "height": 800.0, "images": [],
+        "words": line("Report header INTERNAL", 20, 8) + line("Report", 70, 18) + line("Latency", 100, 14)
+                 + line("Median response time held", 120) + line("steady all quarter.", 132)
+                 + line("A second paragraph.", 160) + line("Agent p95", 190) + line("support 4.1", 205)
+                 + line("After the table.", 240) + line("Page 1", 780, 8),
+        "tables": [{"bbox": [55.0, 185.0, 300.0, 215.0], "rows": [["Agent", "p95"], ["support", "4.1"]]}]}
+ONE = {"pages": [PAGE]}
+
+# 1. furniture, headings, paragraphs and the table, in page order
+markdown = to_markdown(ONE)
+assert isinstance(markdown, str), f"to_markdown should return a string; got {markdown!r}"
+blocks = markdown.split("\n\n")
+assert blocks[:4] == ["# Report", "## Latency", "Median response time held steady all quarter.", "A second paragraph."], \
+    f"title, heading, a paragraph rejoined from two lines, then a new paragraph after the gap; got {blocks[:4]}"
+assert blocks[4] == table_as_markdown([["Agent", "p95"], ["support", "4.1"]]), \
+    f"the table goes back where it was, rendered by render_table; got {blocks[4]!r}"
+assert blocks[5:] == ["After the table."], f"text after the table is its own paragraph; got {blocks[5:]}"
+assert "INTERNAL" not in markdown and "Page 1" not in markdown, "drop the header and footer in the margins"
+assert "support 4.1" not in markdown.replace("| support | 4.1 |", ""), "words inside a table's box aren't repeated as text"
+
+# 2. render_table decides how tables are written
+custom = to_markdown(ONE, render_table=lambda rows: f"TABLE with {len(rows)} rows")
+assert "TABLE with 2 rows" in custom.split("\n\n"), "use render_table for every table"
+
+# 3. a paragraph doesn't run across a page break, and the body size comes from the whole document
+second = {**PAGE, "number": 2, "tables": [], "words": line("Continued text.", 120)}
+two = to_markdown({"pages": [{**PAGE, "tables": [], "words": line("Last line of page one", 120)}, second]})
+assert two.split("\n\n") == ["Last line of page one", "Continued text."], \
+    f"each page's paragraphs end with the page; got {two.split(chr(10) * 2)}"
+
+cover = {**PAGE, "number": 2, "tables": [],
+         "words": line("A title set in large type across a page", 70, 18) + line("Short note.", 120)}
+blocks = to_markdown({"pages": [PAGE, cover]}).split("\n\n")
+assert blocks[-2:] == ["# A title set in large type across a page", "Short note."], \
+    f"body size comes from the whole document, so a page of mostly large type still has a heading; got {blocks[-2:]}"
+
+# 4. the real PDFs: the same Markdown as the reference, and chunks that follow the headings
+extraction = load_pdf_extraction()
+digests = {k: hashlib.sha256(to_markdown(v).encode()).hexdigest()[:16] for k, v in extraction.items()}
+assert digests == {"P01": "634aafd694d6022f", "P02": "5c0a305e8c5656ec", "P03": "75d15b1993eef4c3",
+                   "P04": "46c577fa5ccdf64d"}, f"the real PDFs' Markdown should match the reference exactly; got {digests}"
+review = {"doc_id": "P01", "title": "Quarterly operations review, Q3 2026", "text": to_markdown(extraction["P01"])}
+sections = [c["section"].split(" > ")[-1] for c in structured_chunks(review, 200)]
+assert sections == ["Availability", "Latency", "Incidents", "Rate limiting", "Cost"], \
+    f"Lesson 3's chunker should now split at the recovered headings; got {sections}"
+```
+
+**Hint (shown on request):**
+
+Build one list of `(top, kind, item)` for a page, covering its lines and its
+tables, and sort it by `top`. Keep the current paragraph as a list of lines
+and a `last_top`. Before handling each item, decide whether it starts a new
+block, and if so flush the paragraph. `collections.Counter(...).most_common(1)`
+gives the body size.
+
+**Reference solution:**
+
+```python
+def to_markdown(extracted: dict, render_table=table_as_markdown, margin: float = 45) -> str:
+    """Rebuild a document from positioned words: drop page furniture, mark headings by size,
+    rejoin wrapped lines into paragraphs, and put each table back where it was."""
+    body = Counter(w["size"] for p in extracted["pages"] for w in p["words"]).most_common(1)[0][0]
+    blocks = []
+    for page in extracted["pages"]:
+        tables = sorted(page["tables"], key=lambda t: t["bbox"][1])
+        words = [w for w in page["words"] if margin < w["top"] < page["height"] - margin
+                 and not any(inside(w, t["bbox"]) for t in tables)]
+        items = [(line["top"], "line", line) for line in page_lines({**page, "words": words})]
+        items += [(t["bbox"][1], "table", t) for t in tables]
+        paragraph, last_top = [], None
+        for top, kind, item in sorted(items, key=lambda i: i[0]):
+            new_block = kind == "table" or item["size"] > body or (
+                last_top is not None and top - last_top > 1.6 * body)
+            if new_block and paragraph:
+                blocks.append(" ".join(paragraph))
+                paragraph = []
+            if kind == "table":
+                blocks.append(render_table(item["rows"]))
+                last_top = item["bbox"][3]
+            elif item["size"] > body:
+                blocks.append(f"{'#' if item['size'] >= 1.6 * body else '##'} {item['text']}")
+                last_top = top
+            else:
+                paragraph.append(item["text"])
+                last_top = top
+        if paragraph:
+            blocks.append(" ".join(paragraph))
+    return "\n\n".join(blocks)
+```
+
+**Explanation:**
+
+Once the structure is back, everything earlier in the module applies. Test 4
+chunks the rebuilt operations review with Lesson 3's structure-aware chunker,
+and the chunks follow its headings: availability, latency, incidents, rate
+limiting, cost. The plain extraction gave that chunker nothing to split on,
+so its three chunks broke wherever 200 tokens ran out. Across the four PDFs,
+the cleaned versions make 13 chunks against 8 from the plain text, each one a
+section rather than a slice. Notice what `render_table` makes possible: the
+same function writes the document with its tables in any form, which is where
+the next concept starts.

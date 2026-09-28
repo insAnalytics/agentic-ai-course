@@ -403,6 +403,13 @@ Lesson 5's setup is Lesson 4's recap `lib.py` (the Lesson 4 setup through
 `RAG_PDF_DATA` (`RAG_BGE_DATA` plus the stored extraction, the PDF corpus
 and its embeddings). Links to files under `public/` are written as
 `/data/...` in the MDX and get the site's base path at build.
+From Lesson 5 concept 2 on the setup appends `PDF_LINES` (`page_lines`,
+`inside`, `table_as_markdown`); `TO_MARKDOWN` (`to_markdown`) is Lesson 5
+concept 2's exercise reference, for pages *after* concept 2 only. Both
+must stay identical to `scripts/rag_pdf.py`, because the PDF chunk vectors
+are looked up by the exact text they produce. Data scripts run on this
+Windows machine must pass `encoding="utf-8"` to `write_text`/`read_text`:
+the default is cp1252, which silently wrote `corpus.json` as invalid UTF-8.
 Lesson 6's setup is Lesson 4's recap `lib.py`, which is exactly Lesson 4's
 page setup (`... + VECTORS + VECTOR_INDEX + MEANING_SEARCH`), with
 `RAG_BGE_DATA`. From Lesson 6 concept 2 on it also appends `TERMS`
