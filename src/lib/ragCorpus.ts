@@ -168,3 +168,17 @@ def evaluate(search, queries: list[dict], k: int) -> dict:
         totals["answerable"] += recall_at_k(results, query, k) == 1
     return {name: round(total / len(scored), 3) for name, total in totals.items()}
 `;
+
+/**
+ * Module 5 Lesson 2 concept 4's sign_test, verbatim. With METRICS it
+ * completes Lesson 2's recap lib.py, which is Lesson 3's shared setup:
+ * COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX +
+ * EVALUATION + METRICS + SIGN_TEST.
+ */
+export const SIGN_TEST = String.raw`
+def sign_test(gains: int, losses: int) -> float:
+    """If a change made no real difference, the chance of a split at least this lopsided, either way."""
+    n = gains + losses
+    tail = sum(math.comb(n, i) for i in range(max(gains, losses), n + 1)) / 2 ** n
+    return min(1.0, 2 * tail)
+`;

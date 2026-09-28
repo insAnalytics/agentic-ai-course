@@ -286,7 +286,11 @@ SECTION_SEARCH + KEYWORD_INDEX + EVALUATION`. `METRICS`
 solution: it's appended after `EVALUATION` on every Lesson 2 page *after*
 concept 3, and never on concept 3 itself, or the exercise starts solved.
 Recall counts evidence groups (answer parts), not spans; precision divides
-by k. `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
+by k. `SIGN_TEST` (Lesson 2 concept 4's `sign_test`, verbatim) completes
+Lesson 2's recap `lib.py`; Lesson 3's setup is that whole file:
+`COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX +
+EVALUATION + METRICS + SIGN_TEST`, with `dataFiles={RAG_EVAL_DATA}`.
+`LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.
 In a multi-file sandbox, a hidden test can monkeypatch a helper through its

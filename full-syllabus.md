@@ -3505,6 +3505,20 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    pool's review and the v1 to v3 baseline). Re-verified by script in real
    Pyodide: all 14 demos match, both references pass, both starters fail.
 
+3. **Chunking** — **Building** (folder `03-chunking`; title provisional
+   until the bookends mockup). Concept 1 (why documents are split) is
+   built: the chunk is both what's scored and what's sent; three live
+   demos, all exact matches in real Pyodide 0.26.4 (documents vs heading
+   sections: 119 / median 995 / largest 23,000 / 77 over 512 tokens, and
+   1,145 / 107 / 4,301 / 91; the largest section, `postgresql/wal.md` WAL
+   Configuration, and 37 sections of 10 tokens or fewer; D06's "Step 4"
+   heading and first paragraph, which never say "registry", checked
+   against the corpus); embedding input limits and silent truncation; the
+   too-large / too-small trade-off; 4 quiz cards. Forward references to
+   the next lesson and Lesson 8 are plain prose. Shared setup is Lesson 2's
+   recap `lib.py` in full, via the new `SIGN_TEST` export in
+   `ragCorpus.ts`. Concepts 2+ and bookends not yet drafted.
+
 ---
 
 ## Modules 4–11 — current plan
