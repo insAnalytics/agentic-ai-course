@@ -1,0 +1,69 @@
+"""Module 5 Lesson 5's PDF corpus: document metadata, model-written table summaries and image
+descriptions, and labelled questions.
+
+Summaries and descriptions were written for the course by Claude, looking at the rendered tables and
+images, as a vision-capable model would; the lesson serves them as scripted model replies.
+Questions are labelled by facts: a chunk is relevant if it comes from the right document and contains
+every fact string (case-insensitive), because an answer that lives in a chart has no quote to match.
+"""
+
+DOCUMENTS = {
+    "P01": {"title": "Quarterly operations review, Q3 2026", "date": "2026-09-30"},
+    "P02": {"title": "Support tiers and response targets", "date": "2026-08-20"},
+    "P03": {"title": "On-call rota, Q4 2026", "date": "2026-09-25"},
+    "P04": {"title": "Service dependency diagram", "date": "2026-09-15"},
+}
+
+SUMMARY_PROMPT = ("Summarise this table in one or two sentences of plain prose, so it can be found by search. "
+                  "Say what the table is about and what it shows.")
+DESCRIPTION_PROMPT = ("Describe this image for a search index in two or three sentences: what kind of image it "
+                      "is, what it shows, and the key values or relationships it contains.")
+
+# (doc_id, label, text): label names the element, like "Table 1 (summary)" or "Image 1 (description)"
+SUMMARIES = [
+    ("P01", "Table 1 (summary)",
+     "Monthly registry availability for Q3 2026 against a 99.9% target: July 99.97% with no incidents, "
+     "August 99.84% with one incident (INC-2093), below target, and September 99.95% with no incidents."),
+    ("P02", "Table 1 (summary)",
+     "Response targets by agent tier: standard-tier incidents get a first response within 1 hour and "
+     "resolution within 1 business day, with a 99.5% availability commitment; priority-tier incidents get "
+     "a first response within 15 minutes and resolution within 4 hours, with a 99.9% commitment."),
+    ("P03", "Table 1 (summary)",
+     "The Platform team's on-call rota for Q4 2026, listing a primary engineer, a secondary engineer and an "
+     "escalation manager for each week from 5 October to 28 December, with notes on releases, maintenance and "
+     "reduced holiday cover. Engineers rotate among Arjun Mehta, Priya Nair, Lena Fischer and Tomás Reyes."),
+]
+DESCRIPTIONS = [
+    ("P01", "Image 1 (description)",
+     "Bar chart of rate-limited registry requests (REG-1009) per week in Q3 2026. Weekly counts rise from "
+     "about 2,900 in the week of Jul 6 to a peak of about 4,200 in the week of Aug 3, then fall sharply after "
+     "a dashed line between Aug 17 and Aug 24 labelled 'Dashboards moved to their own keys', to about 300 by "
+     "the week of Sep 28."),
+    ("P04", "Image 1 (description)",
+     "Service dependency diagram with arrows from each service to the services it calls. notification-service "
+     "calls registry-api and auth-service; monitoring calls registry-api; registry-api calls auth-service and "
+     "registry-db. kb-search is shown on its own, with no arrows."),
+]
+
+QUERIES = [
+    {"id": "p01", "type": "pdf_table", "doc_id": "P01", "facts": ["August", "99.84%"],
+     "query": "What was the registry's availability in August 2026?"},
+    {"id": "p02", "type": "pdf_table", "doc_id": "P01", "facts": ["July", "99.97%", "September", "99.95%"],
+     "query": "Which months in Q3 met the registry's availability target, and by how much?"},
+    {"id": "p03", "type": "pdf_text", "doc_id": "P01", "facts": ["missed", "INC-2093"],
+     "query": "Why did the registry miss its availability target in August?"},
+    {"id": "p04", "type": "pdf_image", "doc_id": "P01", "facts": ["Aug 3", "4,200"],
+     "query": "In which week of Q3 did rate-limited registry requests peak?"},
+    {"id": "p05", "type": "pdf_image", "doc_id": "P01", "facts": ["Sep 28", "310"],
+     "query": "How many rate-limited requests were there in the last week of September?"},
+    {"id": "p06", "type": "pdf_table", "doc_id": "P02", "facts": ["priority", "15 minutes"],
+     "query": "How quickly does the Platform team respond to an incident affecting a priority-tier agent?"},
+    {"id": "p07", "type": "pdf_table", "doc_id": "P02", "facts": ["standard", "99.5%"],
+     "query": "Which tier comes with a 99.5% availability commitment?"},
+    {"id": "p08", "type": "pdf_table", "doc_id": "P03", "facts": ["21 Dec", "Primary", "Tomás Reyes"],
+     "query": "Who is the primary on-call engineer for the week of 21 December?"},
+    {"id": "p09", "type": "pdf_image", "doc_id": "P04", "facts": ["notification-service", "registry-api", "auth-service"],
+     "query": "Which services does notification-service call?"},
+    {"id": "p10", "type": "pdf_text", "doc_id": "P04", "facts": ["notification-service", "September 2026"],
+     "query": "When was notification-service added, and why?"},
+]

@@ -323,6 +323,23 @@ served as plain static files. Module 5 (RAG) uses `public/data/rag/`:
   (about 5 and 7 minutes). Checked when generated: contexts match the
   source, keys match the hashed texts, vectors unit length, no NaNs or
   empty rows.
+- PDF corpus (Lesson 5), from `scripts/generate-rag-pdf.py` (see
+  `README-pdf.md`): four small registry-themed PDFs built by
+  `scripts/rag_corpus/pdf/make_pdfs.py` (page furniture, ruled tables, two
+  raster images with no text layer), extracted by pypdf and pdfplumber in
+  `scripts/rag_corpus/pdf/extract.py`. The browser never runs an extractor:
+  `pdf/extracted.json` (~70 KB) stores both extractors' output per page,
+  `pdf/corpus.json` the documents' metadata, the model-written table
+  summaries and image descriptions (from
+  `scripts/rag_corpus/pdf_corpus_src.py`, served as scripted model replies)
+  and the 10 PDF questions, and `pdf/files/` the four PDFs and two images
+  for linking. `embeddings/bge-small-en-v1.5/pdf-chunks.json` (33 distinct
+  chunk texts, keyed by text hash) and `pdf-queries.json` (10 instructed
+  questions). `scripts/rag_pdf.py` must stay identical to the lesson's PDF
+  code, because vectors are found by hashing chunk text. Generated with
+  pypdf 6.19.0, pdfplumber 0.11.10, reportlab 5.0.1, matplotlib 3.11.2;
+  checked when generated: the two `extracted.json` copies match, keys match
+  the chunk texts, vectors unit length, no NaNs.
 
 **Loading rule (every Module 5 page):** fetch these files at runtime, on the
 learner's first Run click, and let the browser cache them — never `import`
