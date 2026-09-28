@@ -101,35 +101,30 @@ def build_prompt(question: str, passages: list[dict]) -> str:
 export const RAG_EVAL_DATA = ["rag/documents.json", "rag/queries.json"];
 
 /**
- * Module 5 Lesson 2's scoring helpers, following the rules stated in
- * queries.json ("matching", "relevance"). Concept 1 uses them before
- * concept 2 shows them; PROVISIONAL until concept 2's mockup exists — when
- * it does, replace this with its code verbatim and re-check concept 1's
- * demo output (43 questions; 19 before, 23 after). Append after
- * KEYWORD_INDEX; pass dataFiles={RAG_EVAL_DATA}.
+ * Module 5 Lesson 2's scoring helpers, shown verbatim in concept 2 (keep
+ * the two byte-identical); concept 1 uses them before concept 2 explains
+ * them. Append after KEYWORD_INDEX; pass dataFiles={RAG_EVAL_DATA}.
  */
 export const EVALUATION = String.raw`
+import math
+
 def load_queries() -> dict:
-    """The labelled questions: "main" for measuring, "held_out" kept back for a final check."""
+    """The labelled query set: main and held-out queries, each with its evidence."""
     return json.loads(Path("/data/rag/queries.json").read_text(encoding="utf-8"))
 
 def normalize(text: str) -> str:
-    """Collapse every run of whitespace to one space, the form the labelled quotes match in."""
     return re.sub(r"\s+", " ", text).strip()
 
 def is_relevant(chunk: dict, span: dict) -> bool:
-    """Whether a chunk holds at least half of a labelled span's characters."""
+    """True if the chunk comes from the span's document and holds at least half of the quote, unbroken."""
     if chunk["doc_id"] != span["doc_id"]:
         return False
     text, quote = normalize(chunk["text"]), normalize(span["quote"])
-    if quote in text:
-        return True
-    # a chunk boundary can cut through the span: count the part of it at the chunk's start or end
-    half = (len(quote) + 1) // 2
-    return any(text.endswith(quote[:n]) or text.startswith(quote[-n:]) for n in range(half, len(quote)))
+    half = math.ceil(len(quote) / 2)
+    return any(quote[start:start + half] in text for start in range(len(quote) - half + 1))
 
 def answerable(results: list[dict], query: dict) -> bool:
-    """Whether every part of the answer (each evidence group) has a relevant chunk in the results."""
+    """True if, for every evidence group, at least one result is relevant to one of its spans."""
     return all(any(is_relevant(chunk, span) for chunk in results for span in group)
                for group in query["evidence"])
 `;

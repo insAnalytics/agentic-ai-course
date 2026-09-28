@@ -1,4 +1,5 @@
 {
+  "version": 2,
   "default_reader_groups": [
     "all-staff",
     "oncall",
@@ -97,6 +98,10 @@
           {
             "doc_id": "D06",
             "quote": "For an exposed key, don't wait: revoke as soon as Step 3 passes."
+          },
+          {
+            "doc_id": "D12",
+            "quote": "This incident is why the key rotation runbook says to rotate first and investigate second."
           }
         ]
       ],
@@ -169,6 +174,22 @@
           {
             "doc_id": "D02",
             "quote": "The model isn't on the allowlist for the agent's tier."
+          },
+          {
+            "doc_id": "D01",
+            "quote": "{\"error\": {\"code\": \"REG-1007\", \"name\": \"MODEL_NOT_ALLOWED\", \"message\": \"claude-opus is not allowed on tier standard\"}}"
+          },
+          {
+            "doc_id": "D01",
+            "quote": "or the request fails with `REG-1007`"
+          },
+          {
+            "doc_id": "D03",
+            "quote": "Assigning a model outside it returns `REG-1007`."
+          },
+          {
+            "doc_id": "D07",
+            "quote": "or the change fails with `REG-1007`"
           }
         ]
       ],
@@ -201,6 +222,10 @@
           {
             "doc_id": "D11",
             "quote": "registry-api was unavailable for 42 minutes while registry-db failed over to its standby."
+          },
+          {
+            "doc_id": "D11",
+            "quote": "The primary registry-db host failed a disk check and failover started."
           }
         ]
       ],
@@ -399,6 +424,14 @@
           {
             "doc_id": "D01",
             "quote": "or the request fails with `REG-1007`"
+          },
+          {
+            "doc_id": "D03",
+            "quote": "Assigning a model outside it returns `REG-1007`."
+          },
+          {
+            "doc_id": "D07",
+            "quote": "or the change fails with `REG-1007`"
           }
         ]
       ],
@@ -513,6 +546,10 @@
           {
             "doc_id": "D10",
             "quote": "`research_agent` finds its sources through kb-search."
+          },
+          {
+            "doc_id": "D10",
+            "quote": "From 2026-06-15 to 2026-06-22, `research_agent` answered questions with knowledge-base articles that had since been updated."
           }
         ],
         [
@@ -878,6 +915,14 @@
           {
             "doc_id": "prometheus-server/configuration/alerting_rules.md",
             "quote": "The optional `for` clause causes Prometheus to wait for a certain duration between first encountering a new expression output vector element and counting an alert as firing for this element."
+          },
+          {
+            "doc_id": "prometheus-docs/practices/the_zen.md",
+            "quote": "Prometheus alerting rules let you specify a `for` duration that determines how long a condition must be true before the alert fires."
+          },
+          {
+            "doc_id": "prometheus-server/configuration/recording_rules.md",
+            "quote": "Alerts are considered firing once they have been returned for this long."
           }
         ]
       ],
@@ -892,6 +937,10 @@
           {
             "doc_id": "alertmanager/alertmanager.md",
             "quote": "Inhibition is a concept of suppressing notifications for certain alerts if certain other alerts are already firing."
+          },
+          {
+            "doc_id": "alertmanager/configuration.md",
+            "quote": "An inhibition rule mutes an alert (target) matching a set of matchers when an alert (source) exists that matches another set of matchers."
           }
         ]
       ],
@@ -920,6 +969,10 @@
           {
             "doc_id": "prometheus-server/querying/functions.md",
             "quote": "Use `rate` for alerts and slow-moving counters, as brief changes in the rate can reset the `FOR` clause"
+          },
+          {
+            "doc_id": "prometheus-server/querying/functions.md",
+            "quote": "It is best suited for alerting, and for graphing of slow-moving counters."
           }
         ]
       ],
@@ -934,6 +987,10 @@
           {
             "doc_id": "alertmanager/alertmanager.md",
             "quote": "Grouping categorizes alerts of similar nature into a single notification."
+          },
+          {
+            "doc_id": "alertmanager/configuration.md",
+            "quote": "The labels by which incoming alerts are grouped together."
           }
         ]
       ],
@@ -954,6 +1011,14 @@
           {
             "doc_id": "D14",
             "quote": "If two things share a key, say the agent and a dashboard, they share that allowance."
+          },
+          {
+            "doc_id": "D08",
+            "quote": "a dashboard that uses most of that leaves nothing for the agent sharing its key"
+          },
+          {
+            "doc_id": "D05",
+            "quote": "check whether another process is sharing the agent's key"
           }
         ]
       ],
@@ -1111,6 +1176,14 @@
           {
             "doc_id": "postgresql/high-availability.md",
             "quote": "one that can accept connections and serves read-only queries is called a hot standby server"
+          },
+          {
+            "doc_id": "postgresql/high-availability.md",
+            "quote": "A standby server can also be used for read-only queries, in which case it is called a hot standby server."
+          },
+          {
+            "doc_id": "postgresql/high-availability.md",
+            "quote": "Hot standby is the term used to describe the ability to connect to the server and run read-only queries while the server is in archive recovery or standby mode."
           }
         ]
       ],
@@ -1135,6 +1208,10 @@
           {
             "doc_id": "D10",
             "quote": "a user noticed that a report quoted a policy that had changed four days earlier."
+          },
+          {
+            "doc_id": "D10",
+            "quote": "The only signal was a person comparing an answer with the source."
           }
         ]
       ],

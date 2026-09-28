@@ -3423,16 +3423,22 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    hide movement, small sets are noisy); measure first, linked to Module
    4's measure-first subsection (anchor verified); retrieval vs answer
    quality (Module 7). Both demos restore `STOPWORDS` and reproduce the
-   mockup's output exactly in real Pyodide 0.26.4 against the committed
-   `public/data/rag/queries.json` (the uncommitted v2 labels in
-   `scripts/rag_corpus/queries.json` give the same output). The
-   "reading the numbers honestly" callback is plain prose until that
-   concept exists. New shared setup in `ragCorpus.ts`: `KEYWORD_INDEX`,
-   `EVALUATION` (**provisional** `is_relevant`/`answerable`, written from
-   `queries.json`'s stated rules because concept 1 uses them before
-   concept 2 shows them; replace with concept 2's code and re-check
-   concept 1's numbers), `RAG_EVAL_DATA`. 4 quiz cards. Concepts 2+ and
-   bookends not yet drafted.
+   mockup's output exactly in real Pyodide 0.26.4. Concept 2 (what a
+   labelled query set is) is built: five live demos (57 queries by type;
+   q21's two evidence groups; a quote cut in two, only the side holding
+   half of it counts; q21 not answerable in keyword search's top 5; 127
+   quotes each found exactly once), the static `EVALUATION` block (the
+   shared helpers, byte-identical to `ragCorpus.ts`, checked by script),
+   how the set was built, what it can't score, 4 quiz cards. All demos on
+   both pages match the mockups exactly in real Pyodide against
+   `queries.json` **v2** (the 127-quote count needs v2's added labels), so
+   this conversion synced `public/data/rag/queries.json` from
+   `scripts/rag_corpus/queries.json`. Concept 1's figures are unchanged by
+   the v2 labels and the shown `is_relevant`. Callbacks to "reading the
+   numbers honestly" and "when the labels are wrong" are plain prose until
+   those concepts exist. Shared setup in `ragCorpus.ts`: `KEYWORD_INDEX`,
+   `EVALUATION`, `RAG_EVAL_DATA`. Concepts 3+ and bookends not yet
+   drafted.
 
 ---
 
