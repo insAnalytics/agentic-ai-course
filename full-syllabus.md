@@ -3669,6 +3669,22 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    Lesson 4 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
 
+5. **Hybrid Search** — **Building** (folder `05-hybrid-search`; title
+   provisional until the bookends mockup). Shared setup is Lesson 4's
+   recap `lib.py`, which is exactly the Lesson 4 page setup (`... + VECTORS
+   + VECTOR_INDEX + MEANING_SEARCH`, checked line by line in both
+   directions); data `RAG_BGE_DATA`. Concept 1 (rare words should count
+   for more) is built: IDF from Robertson and Zaragoza (2009, linked);
+   three live demos, code and output exact matches in real Pyodide (the
+   four words of "What does REG-1007 mean?" with their chunk counts and
+   weights; rarity-weighted search still ranking two Prometheus pages
+   first, on "mean" plus "what"; the whole set, 23 answered either way, q31
+   gained and q01 lost); prose claims checked ("mean" in 6 chunks, all
+   Prometheus; the error table says "Meaning", never "mean"; no keyword in
+   more than half the chunks, though the heading marker `##` counts as a
+   keyword and is in 939 of 1,968); 4 quiz cards. No new shared code.
+   Concepts 2+ and bookends not yet drafted.
+
 ---
 
 ## Modules 4–11 — current plan

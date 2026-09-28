@@ -1,0 +1,190 @@
+---
+title: "Rare words should count for more"
+lesson: "05-hybrid-search"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { COUNT_TOKENS } from "../../../../lib/fakeClient";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, SIGN_TEST, FIXED_CHUNKS, STRUCTURE_HELPERS, STRUCTURED_CHUNKS, WITHIN_BUDGET, VECTORS, VECTOR_INDEX, MEANING_SEARCH, RAG_BGE_DATA } from "../../../../lib/ragCorpus";
+
+export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION + METRICS + SIGN_TEST + FIXED_CHUNKS + STRUCTURE_HELPERS + STRUCTURED_CHUNKS + WITHIN_BUDGET + VECTORS + VECTOR_INDEX + MEANING_SEARCH;
+
+export const IDF_DEMO = String.raw`import math
+
+chunks = [c for d in load_documents() for c in structured_chunks(d, 200)]
+chunk_words = [keywords(c["text"]) for c in chunks]
+N = len(chunks)
+
+print(f"{'word':<10}{'in chunks':>10}{'weight':>9}")
+for word in sorted(keywords("What does REG-1007 mean?")):
+    n = sum(word in words for words in chunk_words)
+    print(f"{word:<10}{n:>10}{math.log((N - n + 0.5) / (n + 0.5)):>9.2f}")
+`;
+
+export const WEIGHTING = String.raw`import math
+from collections import Counter
+
+`;
+
+export const WEIGHTED_SEARCH = String.raw`N = len(chunks)
+counts = Counter(word for words in chunk_words for word in words)
+weight = {word: math.log((N - n + 0.5) / (n + 0.5)) for word, n in counts.items()}
+
+def weighted_search(question: str, k: int) -> list[dict]:
+    """Score each chunk by the summed rarity weights of the question words it contains."""
+    wanted = keywords(question)
+    scored = [(sum(weight[w] for w in wanted & words), row) for row, words in enumerate(chunk_words)]
+    ranked = sorted((pair for pair in scored if pair[0] > 0), key=lambda pair: pair[0], reverse=True)
+    return [{**chunks[row], "score": score} for score, row in ranked[:k]]
+`;
+
+export const ONE_QUESTION_DEMO = WEIGHTING + String.raw`chunks = [c for d in load_documents() for c in structured_chunks(d, 200)]
+chunk_words = [keywords(c["text"]) for c in chunks]
+` + WEIGHTED_SEARCH + String.raw`
+question = "What does REG-1007 mean?"
+for result in weighted_search(question, 3):
+    shared = sorted(keywords(question) & keywords(result["text"]))
+    print(f"{result['score']:.2f}  {result['doc_id']} | {result['section'].split(' > ')[-1]}  {shared}")
+`;
+
+export const WHOLE_SET_DEMO = WEIGHTING + String.raw`queries = load_queries()["main"]
+chunks = [c for d in load_documents() for c in structured_chunks(d, 200)]
+chunk_words = [keywords(c["text"]) for c in chunks]
+` + WEIGHTED_SEARCH + String.raw`
+overlap = KeywordIndex()
+overlap.add(chunks)
+plain, weighted = answered_ids(overlap.search, queries), answered_ids(weighted_search, queries)
+print(f"word overlap: {len(plain)} answered;  weighted by rarity: {len(weighted)} answered")
+print(f"gained {sorted(weighted - plain)}, lost {sorted(plain - weighted)}")
+`;
+
+<Subsection title="Every word, counted the same" variant="a">
+
+Lesson 1's keyword search failed on "What does REG-1007 mean?" because it
+counted shared words: a chunk sharing "what" and "does" outranked the error
+table, which shared only `reg-1007`. Every word was worth one point, though
+"what" appears almost everywhere and `reg-1007` almost nowhere.
+
+A word's usefulness for search is about how much it narrows things down. A
+word in nearly every chunk tells you almost nothing about which chunk
+answers the question. A word in five chunks points straight at them. So the
+fix is to weigh each word by how rare it is in the corpus.
+
+</Subsection>
+
+<Subsection title="Inverse document frequency" variant="b">
+
+The standard weight comes from the probabilistic model of retrieval that
+BM25 grew out of.
+[Robertson and Zaragoza's account of it (2009)](https://doi.org/10.1561/1500000019)
+derives the weight a word should get when nothing is known about which
+documents are relevant, and arrives at a close approximation to classical
+**inverse document frequency (IDF)**:
+
+> weight = log( (N − n + 0.5) / (n + 0.5) )
+
+where *N* is the number of chunks and *n* the number of chunks containing
+the word. The fewer chunks contain it, the bigger the weight. The 0.5s keep
+the formula finite for words in no chunks or every chunk. Here are the
+words of the failed question, over the module's 1,968 chunks:
+
+<LiveDemo client:load dataFiles={RAG_BGE_DATA} setupCode={SETUP} code={IDF_DEMO} />
+
+`reg-1007` is now worth nearly twice as much as "what". The logarithm keeps
+the weights in a narrow band, so a rare word doesn't drown out everything
+else, but the order is right.
+
+One edge case of this formula: a word in more than half of all chunks gets a
+*negative* weight, counting against the chunks that contain it. The
+stopword list removes the usual culprits here, and no word in this corpus
+reaches that point. Many implementations add 1 inside the logarithm to keep
+every weight positive.
+
+</Subsection>
+
+<Subsection title="Weighting isn't enough on its own" variant="a">
+
+Score each chunk by the sum of the weights of the question words it
+contains, and try the failed question again:
+
+<LiveDemo client:load dataFiles={RAG_BGE_DATA} setupCode={SETUP} code={ONE_QUESTION_DEMO} />
+
+Still wrong, and the reason is worth understanding. "mean" is also rare in
+this corpus: it appears in only 6 chunks, all of them Prometheus pages,
+several about statistics and averages. So "mean" plus "what" outweighs
+`reg-1007` alone. The error table never says "mean": its column is headed
+"Meaning", and exact matching treats the two as unrelated words. Rarity is
+measured across the corpus, not against the question, so a word can be rare
+and still be the wrong clue. Keyword engines often reduce words to their
+stems, so "meaning" and "mean" match, which is one more lever this lesson
+doesn't pull.
+
+Across the whole labelled set, rarity weighting alone changes little:
+
+<LiveDemo client:load dataFiles={RAG_BGE_DATA} setupCode={SETUP} code={WHOLE_SET_DEMO} />
+
+One gained, one lost, the same total. Weighting fixed the scale of each
+word but left two other problems from earlier lessons untouched: a chunk
+that mentions a word five times scores the same as one that mentions it
+once, and a long chunk has more chances to contain rare words by accident,
+the length bias Lesson 3 measured. BM25, in the next concept, addresses
+both.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "Why should a word that appears in 5 chunks count for more than one that appears in 92?",
+    "options": [
+      "It narrows the search far more, so a match on it says more about the chunk",
+      "Rare words are always the most important words in a question",
+      "Common words are usually misspelled, so their matches are unreliable",
+      "Embedding models give rare words larger vectors"
+    ],
+    "correctIndex": 0,
+    "explanation": "A word nearly every chunk contains can't tell chunks apart. A rare word picks out a handful. IDF turns that into a weight, though, as the \"mean\" example shows, rare isn't the same as relevant."
+  },
+  {
+    "question": "In IDF's formula, what happens to a word that appears in more than half of all chunks?",
+    "options": [
+      "Its weight becomes negative, so matching it lowers a chunk's score",
+      "Its weight becomes zero, so it's ignored",
+      "Its weight becomes infinite, so it dominates the score",
+      "It's removed from the index automatically"
+    ],
+    "correctIndex": 0,
+    "explanation": "log((N − n + 0.5)/(n + 0.5)) drops below zero once n is more than half of N. Stopword lists usually remove such words, and many implementations add 1 inside the logarithm to keep weights positive."
+  },
+  {
+    "question": "With rarity weighting, the Prometheus pages still beat the error table for \"What does REG-1007 mean?\". Why?",
+    "options": [
+      "\"mean\" is also rare here, and the table says \"Meaning\", which exact matching doesn't connect",
+      "The error table is too long, so its weight is divided down",
+      "reg-1007 is split into two words, so it matches nothing",
+      "Rarity weights are computed over the questions, not the chunks"
+    ],
+    "correctIndex": 0,
+    "explanation": "IDF measures rarity across the corpus, where \"mean\" happens to be rare, found only in a few Prometheus pages. Combined with \"what\", it outweighs the one rare word the table shares. Stemming would have let \"Meaning\" match \"mean\"."
+  },
+  {
+    "question": "Rarity weighting alone left the answered count unchanged. What two problems does it not address?",
+    "options": [
+      "Repeated mentions of a word, and long chunks matching by accident",
+      "Paraphrased questions, and questions with identifiers",
+      "Stopwords, and words shorter than two letters",
+      "Chunks without metadata, and chunks over the embedding limit"
+    ],
+    "correctIndex": 0,
+    "explanation": "Summing weights of shared words ignores how often a word appears in a chunk, and gives long chunks more chances to contain rare words. BM25 adds term-frequency saturation and length normalisation for exactly these."
+  }
+]}
+/>
+
+</CheckpointZone>
