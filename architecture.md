@@ -421,7 +421,11 @@ setup appends `WITH_CONTEXT` (`with_context`, which must also stay
 identical to `scripts/rag_context.py`, and `situate_chunk`, both shown
 verbatim on that page). A prompt containing `<tags>` or `{placeholders}`
 goes in a fenced `text` block on the page, not a blockquote, where MDX
-would parse them as JSX.
+would parse them as JSX. From Lesson 8 concept 3 on the data is
+`RAG_EXPANSION_DATA` (`RAG_CONTEXTUAL_DATA` plus bge-small
+`structured-100` and `fixed-200`). `EXPAND_NEIGHBOURS`
+(`expand_neighbours`) is Lesson 8 concept 3's exercise reference: pages
+*after* concept 3 only, appended after `WITH_CONTEXT`.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.

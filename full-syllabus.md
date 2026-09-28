@@ -3962,8 +3962,31 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    (BM25 searches "v2" after splitting at the dot, search by meaning
    doesn't find it in its top 100, and it fuses 32nd, outside the 30
    candidates), while the reranker would score it 5.75, above the 1.80 of
-   the chunk it ranked first. The bullet now says so. Concepts 3 onwards
-   and the bookends are not drafted yet.
+   the chunk it ranked first. The bullet now says so. Concept 3
+   (returning more than was matched) is built: data `RAG_EXPANSION_DATA`
+   (adds bge-small `structured-100` and `fixed-200`); three live demos,
+   code and output exact matches in real Pyodide (q05's best 100-token
+   chunk is D06 #1 with the answer in #0; 200-token, 100-token and
+   whole-section expansion at 500/1,000/2,000 tokens, 26/28/31, 26/28/31,
+   25/25/27, about 18 s in Node, so the page says allow twenty seconds;
+   structured plain, contexts and fixed windows by half and whole quote,
+   about 8 s); prose claims checked (D06 #0 holds "rotated first and
+   investigated second"); 4 quiz cards; graded `expand_neighbours`
+   exercise. **Changes from the mockup's hidden tests:** tests 5 and 6
+   each get their own `queries`, `first_stage` and `within` (test 6
+   borrowed them from test 5); test 1 gains `expanded == DOC[1:4]`,
+   because returning altered copies passed every original test; test 4
+   gains an exact-fit case (budget 30 for three 10-token chunks), because
+   `>=` in place of `>` passed every original test. Verified with the real
+   `runAgainstHiddenTests`: the reference passes (tests 5 and 6 on the full
+   corpus reproduce 26/28/31 against 26/29/32, and fixed windows 27 against
+   22 at 500 and 33 against 35 at 2,000; about 18 s in Node), the starter
+   fails all six, and nine mutations each fail (skip rather than stop at
+   the budget, no dedupe, document edges raising, one-sided window, off by
+   one at the far edge, `>=` budget, result before its neighbours, altered
+   copies, budget ignored). The reference is the new `EXPAND_NEIGHBOURS`
+   export, for pages after concept 3 only. Concept 4 onwards and the
+   bookends are not drafted yet.
 
 ---
 
