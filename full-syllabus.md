@@ -3374,8 +3374,17 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    column is the best case (expiry, a changing corpus, per-permission
    prefixes), and per-turn cost in an agent. The prose's "average section
    is about 115 tokens" was checked against the corpus (2,024
-   heading-delimited sections, 115.1 tokens average). Concept 3+ and the
-   bookends are not drafted yet.
+   heading-delimited sections, 115.1 tokens average). Concept 3 (which
+   answers better: everything, or the right few) is built, prose and quiz
+   only: each approach's failure mode, the DeepMind 2024 (arXiv 2407.16833)
+   and LaRA 2025 (arXiv 2502.09977) head-to-head results, what the evidence
+   supports, and the benchmark-independent reasons (cost, scale,
+   freshness, permissions) plus Self-Route. Figures were spot-checked
+   against both papers. Self-Route's "82% answered by retrieval" is from
+   v1's table (81.74%); v2 revised it to 76.78% but kept the abstract's
+   "65% cost reduction". Links to both papers were added as a sources
+   line. Forward references to Lessons 7, 9, 10, 11 and 12 are plain prose
+   until those exist. The bookends are not drafted yet.
 
 ---
 

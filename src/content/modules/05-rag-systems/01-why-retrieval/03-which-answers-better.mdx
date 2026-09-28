@@ -1,0 +1,213 @@
+---
+title: "Which answers better: everything, or the right few"
+lesson: "01-why-retrieval"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Each approach has its own way to fail" variant="a">
+
+The last concept compared cost. Cost only matters if the answers are good,
+so this one asks which approach answers better. Each fails in its own way.
+
+**Sending everything** puts the answer in the context, but the model has to
+find it among a quarter of a million tokens of text that doesn't answer the
+question. Two effects the course has already met make that harder:
+
+- **Longer input degrades answers.** Module 4 covered
+  [the evidence that models get less reliable as input grows](/04-context-and-memory/02-context-that-fits-but-still-hurts/01-agents-get-worse-before-the-window-is-full/#what-the-evidence-shows),
+  well inside the window, and worst when the extra text resembles what the
+  model is looking for. A knowledge base is full of exactly that: pages
+  about alerts, keys and failovers that look like the one page that
+  answers.
+- **Position matters.** Models use information at the start and end of
+  their input more reliably than
+  [information in the middle](/01-llm-foundations/06-context-windows-and-kv-cache/05-uneven-use-of-long-contexts/#the-lost-in-the-middle-effect).
+  In a 232,000-token corpus, almost every passage is in the middle.
+
+**Sending what was retrieved** gives the model a short, focused context,
+but only if the search found the right passages. If it didn't, the model
+never sees the answer, and nothing after the search can fix that. The
+model will either say it doesn't know or, worse, answer from its own
+guesses.
+
+Which failure is more common is an empirical question, and two studies
+have measured it directly.
+
+</Subsection>
+
+<Subsection title="What the head-to-head studies found" variant="b">
+
+**Google DeepMind, 2024.** Zhuowan Li and colleagues compared the two approaches
+on nine question-answering datasets with three models: Gemini-1.5-Pro,
+GPT-4o and GPT-3.5-Turbo. Their retrieval was a basic setup: documents cut
+into 300-word chunks, and the five most similar chunks to the question
+sent to the model. What they found:
+
+- **Sending everything scored higher on average, for all three models.**
+  On their main results table, the average scores for everything against
+  retrieval were 49.7 against 37.3 for Gemini-1.5-Pro, 48.7 against 32.6
+  for GPT-4o, and 32.1 against 30.3 for GPT-3.5-Turbo.
+- **Except when the text was far larger than the window.** On two datasets
+  averaging about 147,000 words, GPT-3.5-Turbo, with a 16,000-token window,
+  did better with retrieval.
+- **Most of the time, both approaches gave the same answer.** For 63% of
+  questions, the two predictions were identical, right or wrong.
+- **Retrieval's failures had recognisable causes.** Examining the
+  questions retrieval couldn't answer, the authors found four kinds:
+  questions needing several steps, where one answer is needed to search
+  for the next; general questions that are hard to turn into a search;
+  long, complex questions; and implicit questions that depend on
+  understanding the whole text.
+
+**LaRA, 2025.** Kuan Li and colleagues, at HKUST, Alibaba's Tongyi Lab and
+Penn State, built a benchmark to
+fix flaws they found in earlier comparisons, such as texts too short to
+matter and datasets the models had likely seen in training. It has 2,326
+questions over novels, financial reports and academic papers, at two
+lengths, about 32,000 and 128,000 tokens, tested on eleven models. Their
+retrieval was stronger than a basic setup, combining keyword and
+similarity search. What they found:
+
+- **The strongest models did better with everything, at both lengths.**
+  GPT-4o, Claude-3.5-Sonnet and Gemini-1.5-Pro all favoured sending the
+  whole text.
+- **Across all eleven models, the balance shifted with length.** At 32,000
+  tokens, sending everything averaged 2.4 points higher; at 128,000,
+  retrieval averaged 3.68 points higher. Weaker models gained most from
+  retrieval.
+- **Comparison questions were retrieval's weakest task.** Questions that
+  need two separate parts of a text trailed by about 15 points, because
+  the search had to find both parts.
+- **Retrieval was better at saying "that isn't in the text".** On
+  questions whose answer wasn't in the document, retrieval did better, by
+  10.4 points at 32,000 tokens and 22.4 at 128,000. With the whole text in
+  front of them, models more often invented an answer.
+- **Only the full-text approach showed lost in the middle.** Its accuracy
+  dropped when the answer sat near the centre; retrieval's didn't depend
+  on where the answer was.
+
+*Sources: Li et al., "[Retrieval Augmented Generation or Long-Context LLMs?
+A Comprehensive Study and Hybrid Approach](https://arxiv.org/abs/2407.16833)"
+(EMNLP 2024); Li et al., "[LaRA: Benchmarking Retrieval-Augmented Generation
+and Long-Context LLMs](https://arxiv.org/abs/2502.09977)" (2025).*
+
+</Subsection>
+
+<Subsection title="Reading the evidence honestly" variant="a">
+
+Three conclusions hold up, and one caution comes with them.
+
+**When the corpus fits and the model is strong, sending everything is
+often as good or better.** Both studies agree on that. It's the honest
+answer to "is retrieval better?": not automatically, and not for quality
+alone.
+
+**Retrieval is only as good as its search.** The DeepMind team showed this
+with a test where one sentence, "the passkey is 123456", is hidden in
+irrelevant text. Asked "What is the passkey?", retrieval scored 80.3%
+against 65.3% for the whole text. Reworded as "What is the special token
+hidden inside the texts?", retrieval fell to 4.6% while the whole text held
+at 69.3%. Nothing about the text changed, only the words of the question.
+That's why the next lesson measures retrieval before this module improves
+anything.
+
+**The failures point to fixes, and most of this module is those fixes.**
+
+- Questions needing several steps, and the comparison questions LaRA
+  found hard, are what Lesson 10's agentic retrieval is for: an agent
+  that searches, reads, and searches again.
+- Questions about the corpus as a whole are the kind Lesson 11's graph
+  approach answers.
+- Complex or oddly worded questions are what Lesson 7's query rewriting
+  works on.
+- Saying "that isn't in the text", where retrieval already does better, is
+  built on deliberately in Lesson 9.
+
+**The caution:** both studies tested 2024 models. Long-context ability has
+improved since, so the size of every gap above is out of date, even if the
+pattern holds. Treat the numbers as evidence that the choice depends on the
+model, the task and the corpus, not as figures to plan with. The way to
+know for your corpus is to measure on your corpus.
+
+</Subsection>
+
+<Subsection title="The reasons that don't depend on the benchmark" variant="b">
+
+Quality is contested. Four other reasons for retrieval aren't:
+
+- **Cost and latency,** from
+  [the last concept](/05-rag-systems/01-why-retrieval/02-what-pasting-everything-costs/#putting-a-number-on-it):
+  far fewer tokens per question, or per turn in an agent.
+- **Scale:** past the window, sending everything isn't an option at all.
+- **Freshness:** a new document is searchable as soon as it's indexed,
+  without re-sending or re-caching the whole corpus.
+- **Permissions:** a search can leave out documents the user may not read.
+  Sending everything can't, without building a separate "everything" for
+  each set of permissions.
+
+And the two approaches combine. The DeepMind team's **Self-Route** tries
+retrieval first and asks the model whether it can answer from what was
+retrieved. Only when it says it can't does the full text get sent. With
+Gemini-1.5-Pro, the retrieval step answered 82% of questions, cutting
+cost by 65% with scores close to sending everything every time. Deciding,
+question by question, whether retrieved text is enough is a decision an
+agent can make, and Lesson 10 returns to it.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "In both studies, when did sending the whole text tend to beat retrieval on quality?",
+    "options": [
+      "When the text was far larger than the model's window",
+      "When the question's answer wasn't in the text at all",
+      "When the model was strong and the text fit comfortably in its window",
+      "When the model was small and weaker at long inputs"
+    ],
+    "correctIndex": 2,
+    "explanation": "With a strong model and a text that fits, the whole text usually scored as well or better. The other three are where retrieval did well: texts far beyond the window, questions with no answer in the text (LaRA's hallucination detection), and weaker models at 128,000 tokens."
+  },
+  {
+    "question": "In the passkey test, retrieval scored 80.3% on \"What is the passkey?\" but 4.6% on \"What is the special token hidden inside the texts?\". What does that show?",
+    "options": [
+      "Retrieval's quality depends on whether the search matches the question's wording to the text",
+      "The model reading the retrieved text couldn't understand the reworded question",
+      "The whole-text approach cheated by memorising the passkey during training",
+      "Hidden-sentence tests favour retrieval, so the reworded version is the fairer one"
+    ],
+    "correctIndex": 0,
+    "explanation": "The text was identical in both versions; only the question changed. The whole-text approach barely moved, so the model understood both questions fine. What failed was the search: the reworded question no longer led it to the passkey sentence, so the model never saw it. That's why retrieval has to be measured."
+  },
+  {
+    "question": "LaRA found retrieval did better on questions whose answer wasn't in the document. Why does that fit what you know about long inputs?",
+    "options": [
+      "Retrieval always returns an empty result when the answer is missing",
+      "Long inputs are cut off at the window, so the model can't see the end",
+      "Retrieval checks every answer against the document before it's sent",
+      "With the whole text in front of it, a model has more near-misses to build a wrong answer from"
+    ],
+    "correctIndex": 3,
+    "explanation": "A long context full of related-but-wrong passages gives a model plenty to construct a plausible answer from, the distractor effect [Module 4 described](/04-context-and-memory/02-context-that-fits-but-still-hurts/01-agents-get-worse-before-the-window-is-full/#what-the-evidence-shows). Retrieval hands over fewer, more focused passages. It doesn't return nothing, though: a search always returns its best matches, relevant or not, which is why Lesson 9 teaches abstaining deliberately."
+  },
+  {
+    "question": "A team's corpus fits comfortably in their model's window, and the model is strong. Which reason for retrieval still clearly holds?",
+    "options": [
+      "Retrieval will reliably give better answers than the whole corpus would",
+      "Different users may read different documents, and a search can respect that",
+      "The model can't use information that sits in the middle of its input",
+      "A strong model's window will eventually overflow as the questions get longer"
+    ],
+    "correctIndex": 1,
+    "explanation": "Permissions, along with cost, freshness and scale, don't depend on which approach answers better. Better answers is exactly the claim the studies don't support for a strong model and a corpus that fits. Position effects make the middle less reliable, not unusable."
+  }
+]}
+/>
+
+</CheckpointZone>
