@@ -3755,6 +3755,23 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    Lesson 5 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
 
+6. **Reranking** — **Building** (folder `06-reranking`; title provisional
+   until the bookends mockup). Data: the cross-encoder scores committed
+   under `public/data/rag/rerank/` (architecture.md §3.1). Shared setup is
+   Lesson 5's recap `lib.py` (checked line by line) plus the new
+   `RERANK_SCORES`; data `RAG_RERANK_DATA`. Concept 1 (two stages) is
+   built: why a reranker can't be precomputed, the two stages; the
+   `CrossEncoderScores` block shown as a static block (byte-identical to
+   the export and the mockup); two live demos, code and output exact
+   matches in real Pyodide (the measured GPU timing and its projection to
+   30 pairs, the corpus and a million chunks; q09 reranked from search by
+   meaning's top 30: one answering chunk in the top 5 before, four after);
+   4 quiz cards. **Change from the mockup:** quiz Q4 said "all four
+   answering chunks" were in the top 30; there are five answering chunks,
+   all in the top 30, of which the reranker lifts four into the top five,
+   so it now says "every answering chunk". Concepts 2+ and bookends not
+   yet drafted.
+
 ---
 
 ## Modules 4–11 — current plan

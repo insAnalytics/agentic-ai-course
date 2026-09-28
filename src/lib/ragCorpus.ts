@@ -513,3 +513,36 @@ class BM25Index:
         ranked = sorted((pair for pair in scored if pair[0] > 0), key=lambda pair: pair[0], reverse=True)
         return [{**self._chunks[row], "score": float(score)} for score, row in ranked[:k]]
 `;
+
+/**
+ * Module 5 Lesson 6 concept 1 precomputed cross-encoder scores (RERANK,
+ * CrossEncoderScores), shown verbatim on that page (keep the two
+ * byte-identical). Lesson 6 setup is Lesson 5 recap lib.py (... +
+ * TERMS + BM25_INDEX) followed by this. Uses text_key and base64 from
+ * VECTORS.
+ */
+export const RERANK_SCORES = String.raw`
+RERANK = Path("/data/rag/rerank")
+
+class CrossEncoderScores:
+    """Precomputed cross-encoder scores for every labelled question against every chunk."""
+
+    def __init__(self, model: str = "ms-marco-MiniLM-L6-v2", chunking: str = "structured-200"):
+        stored = json.loads((RERANK / model / f"{chunking}.json").read_text())
+        self.timing = stored["timing"]
+        shape = (len(stored["query_keys"]), len(stored["chunk_keys"]))
+        self._matrix = np.frombuffer(base64.b64decode(stored["scores"]), dtype="<f4").reshape(shape)
+        self._rows = {query_id: row for row, query_id in enumerate(stored["query_keys"])}
+        # identical chunk texts share a key and a score, so any one of their columns will do
+        self._columns = {key: column for column, key in enumerate(stored["chunk_keys"])}
+
+    def score(self, query_id: str, chunk: dict) -> float:
+        """The cross-encoder's score for this question and chunk, read together: higher is more relevant."""
+        return float(self._matrix[self._rows[query_id], self._columns[text_key(chunk["text"])]])
+`;
+
+/** RAG_BGE_DATA plus the ms-marco-MiniLM-L6-v2 cross-encoder scores (Lesson 6 onwards). */
+export const RAG_RERANK_DATA = [
+  ...RAG_BGE_DATA,
+  "rag/rerank/ms-marco-MiniLM-L6-v2/structured-200.json",
+];
