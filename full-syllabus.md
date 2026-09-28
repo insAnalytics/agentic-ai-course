@@ -3527,8 +3527,8 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    costs of overlap and Chroma's 2024 study, linked (figures checked
    against its tables: 82.4 vs 77.1 recall for TokenTextSplitter 250 with
    all-MiniLM-L6-v2, 88.6 vs 89.2 at 400 with text-embedding-3-large); 4
-   quiz cards. The "comparing chunkings fairly" callback is plain prose
-   until that concept exists. Concept 3 (structure-aware splitting) is
+   quiz cards. The "comparing chunkings fairly" callback links to
+   concept 4's page. Concept 3 (structure-aware splitting) is
    built: `split_blocks`, `heading_sections` and `pack_lines` shown as a
    static block (byte-identical to the new `STRUCTURE_HELPERS` export,
    checked by script; setup from concept 3 on); two live demos, both exact
