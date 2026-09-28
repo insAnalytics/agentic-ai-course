@@ -546,3 +546,26 @@ export const RAG_RERANK_DATA = [
   ...RAG_BGE_DATA,
   "rag/rerank/ms-marco-MiniLM-L6-v2/structured-200.json",
 ];
+
+/**
+ * Module 5 Lesson 6 concept 3 graded exercise, reference solution
+ * verbatim (rerank). Joins the setup for every page AFTER concept 3
+ * (append after RERANK_SCORES) and must never load on concept 3 itself,
+ * or the exercise would start already solved.
+ */
+export const RERANK = String.raw`
+def rerank(search, cross_encoder, queries: list[dict], depth: int = 30):
+    """A search(question, k) that takes ${"`"}depth${"`"} candidates from ${"`"}search${"`"} and reorders them by cross-encoder score."""
+    if depth < 1:
+        raise ValueError("depth must be at least 1")
+    ids = {q["query"]: q["id"] for q in queries}
+
+    def reranked(question: str, k: int) -> list[dict]:
+        query_id = ids[question]
+        scored = [(cross_encoder.score(query_id, chunk), chunk) for chunk in search(question, depth)]
+        # a stable sort keeps the first stage's order among equal scores
+        scored.sort(key=lambda pair: pair[0], reverse=True)
+        return [{**chunk, "score": score} for score, chunk in scored[:k]]
+
+    return reranked
+`;

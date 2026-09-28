@@ -352,6 +352,8 @@ Lesson 6's setup is Lesson 5's recap `lib.py` (exactly the Lesson 5 page
 setup through `BM25_INDEX`) followed by `RERANK_SCORES` (`RERANK`,
 `CrossEncoderScores`; shown verbatim on Lesson 6 concept 1), with
 `RAG_RERANK_DATA` (`RAG_BGE_DATA` plus the cross-encoder scores file).
+`RERANK` (`rerank`) is Lesson 6 concept 3's exercise reference: pages
+*after* concept 3 only.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.

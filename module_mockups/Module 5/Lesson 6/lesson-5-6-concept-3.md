@@ -1,0 +1,321 @@
+# Module 5, Lesson 6 — Concept 3: Reranking, measured
+
+> **Note for the site build:**
+> - No new shared code before the exercise. **The exercise's reference
+>   solution** (`rerank`) joins the shared setup only for pages *after* this
+>   concept.
+> - The demo builds a BM25 index and a meaning index and reranks every
+>   question fifteen ways; allow several seconds. Hidden test 5 reads the
+>   corpus, the embeddings and the reranker scores.
+
+---
+
+## Every first stage, every depth
+
+Two choices define a two-stage search: which first stage supplies the
+candidates, and how many of them the reranker reads. Here are three first
+stages from Lesson 5, each reranked at four depths, over every labelled
+question:
+
+```python
+from collections import defaultdict
+
+def rrf(rankings: list[list[dict]], k: int = 60) -> list[dict]:
+    scores, found = defaultdict(float), {}
+    for ranking in rankings:
+        for rank, chunk in enumerate(ranking, 1):
+            key = (chunk["doc_id"], chunk["chunk"])
+            scores[key] += 1 / (k + rank)
+            found[key] = chunk
+    return [found[key] for key in sorted(scores, key=scores.get, reverse=True)]
+
+queries = [q for q in load_queries()["main"] if q["evidence"]]
+chunks = [c for d in load_documents() for c in structured_chunks(d, 200)]
+bm25 = BM25Index()
+bm25.add(chunks)
+meaning = meaning_search(chunks, queries)
+cross_encoder = CrossEncoderScores()
+
+# each first stage's top 100, computed once per question
+stages = {"BM25": {}, "meaning": {}, "hybrid": {}}
+for q in queries:
+    by_keywords, by_meaning = bm25.search(q["query"], 100), meaning(q["query"], 100)
+    stages["BM25"][q["id"]], stages["meaning"][q["id"]] = by_keywords, by_meaning
+    stages["hybrid"][q["id"]] = rrf([by_keywords, by_meaning])
+
+def results_for(stage: str, depth, query: dict) -> list[dict]:
+    """The stage's ranking for a question, with its top `depth` reranked (or as it is if depth is None)."""
+    ranking = stages[stage][query["id"]]
+    if depth is None:
+        return ranking
+    return sorted(ranking[:depth], key=lambda c: cross_encoder.score(query["id"], c), reverse=True)
+
+def answered(stage: str, depth, k: int) -> set:
+    return {q["id"] for q in queries if answerable(results_for(stage, depth, q)[:k], q)}
+
+print(f"{'first stage':<12}{'no rerank':>11}" + "".join(f"{f'rerank {d}':>11}" for d in (10, 20, 30, 50))
+      + "   (answered at rank 1 / in the top 5, of 43)")
+for stage in stages:
+    cells = [f"{len(answered(stage, depth, 1))} / {len(answered(stage, depth, 5))}" for depth in (None, 10, 20, 30, 50)]
+    print(f"{stage:<12}" + "".join(f"{cell:>11}" for cell in cells))
+
+best = answered("hybrid", 30, 5)
+for label, baseline in [("meaning alone", answered("meaning", None, 5)), ("hybrid alone", answered("hybrid", None, 5))]:
+    gained, lost = best - baseline, baseline - best
+    print(f"hybrid + rerank 30 against {label}: gained {sorted(gained)}, lost {sorted(lost)}, "
+          f"sign test {sign_test(len(gained), len(lost)):.2f}")
+```
+```
+first stage   no rerank  rerank 10  rerank 20  rerank 30  rerank 50   (answered at rank 1 / in the top 5, of 43)
+BM25            17 / 25    21 / 26    22 / 27    22 / 29    21 / 29
+meaning         15 / 28    20 / 27    22 / 29    22 / 30    22 / 30
+hybrid          20 / 27    21 / 27    22 / 30    22 / 32    22 / 33
+hybrid + rerank 30 against meaning alone: gained ['q10', 'q20', 'q24', 'q31', 'q36', 'q43'], lost ['q08', 'q44'], sign test 0.29
+hybrid + rerank 30 against hybrid alone: gained ['q04', 'q11', 'q20', 'q24', 'q31', 'q36'], lost ['q44'], sign test 0.12
+```
+*(runs live, shows output — read-only demo snippet, not graded. Allow several seconds.)*
+
+Four readings, in order of how sure they are:
+
+- **Reranking puts answers first.** Every first stage, reranked at depth 20
+  or more, answers 21 or 22 questions at rank 1, up from 15 to 20. That's
+  the most consistent result on the page: it holds for all three first
+  stages.
+- **Too few candidates hurts.** At depth 10, search by meaning answers
+  fewer questions in its top five after reranking than before, 27 against
+  28: with only ten candidates, a reranker that sometimes prefers a
+  near-miss has little else to choose from.
+- **Depth 30 is where the gains level off.** Going from 30 to 50 candidates
+  adds one question for hybrid and nothing for the others, for two-thirds
+  more reranking work per question.
+- **Hybrid plus reranking is the best combination here:** 32 of 43
+  questions answered in the top five, against 28 for search by meaning
+  alone, and 22 at rank 1 against 15.
+
+---
+
+## A prediction the numbers overturned
+
+Lesson 5 reasoned that a reranker should want search by meaning as its first
+stage, because search by meaning had more complete answers in its top 20.
+The measurement disagrees: at every depth from 20 up, hybrid candidates
+answered more questions in the top five after reranking than meaning's did.
+
+The reasoning missed something about what the reranker does well. Hybrid's
+candidates include the chunks that match the question's exact words, which
+is precisely where the reranker is strongest, as "MON-2002" showed in the
+previous concept. Search by meaning's extra coverage helped less than
+expected, because on questions like the night one the reranker preferred a
+near-miss to the answer it had been given. A sound argument
+about one part of a system doesn't predict how two parts behave together,
+which is why this module measures instead of assuming.
+
+The gains are also not as certain as the table suggests at a glance. Against
+search by meaning alone, hybrid with reranking gained six questions and lost
+two, a sign test of 0.29; against hybrid alone, six gained and one lost,
+0.12. Neither clears a significance bar on 43 questions. What makes the case
+is the pattern: a consistent rise at rank 1 across every first stage, and
+gains on the kinds of question the previous concept showed the reranker
+handling well.
+
+---
+
+## The price
+
+Each reranked question costs one scoring run per candidate. At depth 30,
+the offline run measured about a tenth of a second on a laptop GPU, more on
+a CPU, on top of the first stage. Hybrid's first stage is itself two
+searches. That's usually a good trade for an agent that sends a few chunks
+to a model call taking seconds, but it's a real addition to every question's
+latency, which is why depth is worth choosing rather than maximising.
+
+From here on, this module's retrieval is **hybrid search, with the top 30
+reranked**.
+
+---
+
+## Quiz cards
+
+> **Q1.** Reranking only 10 candidates left search by meaning with fewer
+> answers in its top five than no reranking at all. Why?
+> - With few candidates, the reranker's occasional preference for a near-miss has little to replace it ✅
+> - The reranker can only work with 30 or more candidates
+> - Reranking always lowers the number answered in the top five
+> - At depth 10 the reranker scores only half of each chunk
+>
+> *Explanation: the reranker can only choose among what it's given. At
+> depth 10, promoting one wrong but similar-looking chunk can push a
+> correct one out of the top five, with no other correct chunk to take its
+> place.*
+
+> **Q2.** Why did hybrid candidates do better after reranking than search
+> by meaning's, despite Lesson 5's prediction?
+> - Hybrid's candidates include exact-wording matches, where the reranker is strongest ✅
+> - The reranker was trained on BM25 results, so it prefers them
+> - Hybrid returns more candidates at every depth
+> - Search by meaning's candidates are too long for the reranker
+>
+> *Explanation: both first stages supplied the same number of candidates.
+> What differed was which ones, and the reranker scores exact matches
+> highly. The prediction reasoned about each part alone; the measurement
+> tested them together.*
+
+> **Q3.** Hybrid plus reranking gained six questions and lost two against
+> search by meaning alone (sign test 0.29). What makes it worth adopting?
+> - A consistent rise at rank 1 across every first stage, with gains of the kinds the reranker is known for ✅
+> - The sign test, since 0.29 is below 0.5
+> - The total, since 32 is larger than 28
+> - Nothing, since it isn't statistically significant
+>
+> *Explanation: no single number proves it on 43 questions. Evidence
+> accumulates: the same effect in three first stages, and wins that match
+> what the reranker was seen doing in individual cases.*
+
+> **Q4.** Why not always rerank the top 50, or 100?
+> - Each candidate costs a scoring run on every question, and past 30 the gains here were nearly flat ✅
+> - The reranker's scores become invalid after the first 30 candidates
+> - A deeper list always lowers the number answered at rank 1
+> - The first stage can't return more than 30 candidates
+>
+> *Explanation: cost grows with every candidate, on every question. Going
+> from 30 to 50 cost two-thirds more work for one more question with one
+> first stage. Depth is a trade, chosen by measuring.*
+
+---
+
+## Applied sandbox exercise
+*(graded — turn any search into a two-stage search)*
+
+**Task shown to learner:**
+
+Write `rerank(search, cross_encoder, queries, depth=30)`. It returns a new
+search function, `reranked(question, k)`, that:
+
+- asks `search` for `depth` candidates;
+- scores each candidate once with `cross_encoder.score(query_id, chunk)`,
+  where `query_id` is the id of the labelled question whose `"query"` is
+  `question` (build the lookup from `queries`);
+- returns the `k` highest-scoring candidates, highest first, keeping the
+  first stage's order among equal scores, each as a **new** dict with
+  `"score"` set to its cross-encoder score.
+
+`rerank` raises `ValueError` if `depth` is below 1. Because it returns a
+search function, a reranked search can go anywhere a search can: into
+`evaluate`, `answered_ids`, or another wrapper.
+
+**Starter code:**
+
+```python
+def rerank(search, cross_encoder, queries: list[dict], depth: int = 30):
+    """A search(question, k) that takes `depth` candidates from `search` and reorders them by cross-encoder score."""
+    # TODO: refuse a depth below 1, then return a function reranked(question, k)
+    ...
+```
+
+**Hidden tests:**
+
+```python
+# shared by the tests below
+A = {"doc_id": "D01", "chunk": 0, "section": "a", "text": "a"}
+B = {"doc_id": "D02", "chunk": 0, "section": "b", "text": "b"}
+C = {"doc_id": "D03", "chunk": 0, "section": "c", "text": "c"}
+D = {"doc_id": "D04", "chunk": 0, "section": "d", "text": "d"}
+QUERIES = [{"id": "t1", "query": "first question"}, {"id": "t2", "query": "second question"}]
+
+class FakeScores:
+    """Stand-in for CrossEncoderScores: a fixed score per (query id, chunk text)."""
+    def __init__(self, table):
+        self.table, self.calls = table, []
+    def score(self, query_id, chunk):
+        self.calls.append((query_id, chunk["text"]))
+        return self.table[query_id][chunk["text"]]
+
+asked = []
+def first_stage(question, k):
+    asked.append((question, k))
+    # the stored chunks themselves, as an index might hand back
+    return [A, B, C, D][:k]
+
+scores = FakeScores({"t1": {"a": 0.1, "b": 2.0, "c": 5.0, "d": 9.0}, "t2": {"a": 1.0, "b": 1.0, "c": 3.0, "d": 0.0}})
+
+# 1. candidates come from the first stage at `depth`, reordered by the cross-encoder
+search = rerank(first_stage, scores, QUERIES, depth=3)
+assert callable(search), f"rerank should return a search function; got {search!r}"
+results = search("first question", 2)
+assert isinstance(results, list), f"the reranked search should return a list; got {results!r}"
+assert asked[-1] == ("first question", 3), f"take `depth` candidates from the first stage; it was asked for {asked[-1]}"
+assert [r["doc_id"] for r in results] == ["D03", "D02"], \
+    f"D04 scores highest but is beyond depth 3; expected D03 then D02, got {[r['doc_id'] for r in results]}"
+
+# 2. each result carries its cross-encoder score, as a new dict
+assert results[0].get("score") == 5.0, f"each result's score should be its cross-encoder score; got {results[0].get('score')}"
+assert "score" not in C, "rerank added a score to the first stage's own chunk; return new dicts"
+scores.calls.clear()
+search("first question", 1)
+assert scores.calls == [("t1", "a"), ("t1", "b"), ("t1", "c")], \
+    f"score each candidate once, with the question's id; got {scores.calls}"
+
+# 3. equal scores keep the first stage's order; k beyond depth returns what there is
+tied = rerank(first_stage, scores, QUERIES, depth=4)("second question", 4)
+assert [r["doc_id"] for r in tied] == ["D03", "D01", "D02", "D04"], \
+    f"equal scores should keep the first stage's order; got {[r['doc_id'] for r in tied]}"
+assert len(rerank(first_stage, scores, QUERIES, depth=2)("first question", 10)) == 2, "there are only `depth` candidates"
+
+# 4. bad depth is refused
+try:
+    rerank(first_stage, scores, QUERIES, depth=0)
+except ValueError:
+    pass
+else:
+    raise AssertionError("depth=0 should raise ValueError")
+
+# 5. the real corpus: rerank search by meaning's top 30
+queries = load_queries()["main"]
+chunks = [c for d in load_documents() for c in structured_chunks(d, 200)]
+meaning = meaning_search(chunks, queries)
+reranked = rerank(meaning, CrossEncoderScores(), queries, depth=30)
+assert (len(answered_ids(meaning, queries, 1)), len(answered_ids(reranked, queries, 1))) == (15, 22), \
+    (len(answered_ids(meaning, queries, 1)), len(answered_ids(reranked, queries, 1)))
+assert len(answered_ids(reranked, queries, 5)) == 30, len(answered_ids(reranked, queries, 5))
+```
+
+**Hint (shown on request):**
+
+Build `{q["query"]: q["id"] for q in queries}` once, outside the inner
+function. Inside, make a list of `(score, chunk)` pairs and sort it with
+`key=lambda pair: pair[0]`: sorting on the score alone keeps ties in their
+original order and never compares two dicts. `{**chunk, "score": score}`
+builds the new dict.
+
+**Reference solution:**
+
+```python
+def rerank(search, cross_encoder, queries: list[dict], depth: int = 30):
+    """A search(question, k) that takes `depth` candidates from `search` and reorders them by cross-encoder score."""
+    if depth < 1:
+        raise ValueError("depth must be at least 1")
+    ids = {q["query"]: q["id"] for q in queries}
+
+    def reranked(question: str, k: int) -> list[dict]:
+        query_id = ids[question]
+        scored = [(cross_encoder.score(query_id, chunk), chunk) for chunk in search(question, depth)]
+        # a stable sort keeps the first stage's order among equal scores
+        scored.sort(key=lambda pair: pair[0], reverse=True)
+        return [{**chunk, "score": score} for score, chunk in scored[:k]]
+
+    return reranked
+```
+
+**Explanation:**
+
+`rerank` has the same shape as `fuse` from Lesson 5 and `within_budget`
+from Lesson 3: it takes a search and returns a search. That's what lets the
+module's retrieval be assembled from parts, a fused first stage wrapped in a
+reranker wrapped in a token budget, and measured at each step with the same
+harness. Test 1 checks the depth boundary: the chunk the cross-encoder
+likes best isn't returned, because the first stage never offered it,
+exactly the limit described in
+[two stages](→ this lesson, two stages concept). Test 2 checks that each candidate
+is scored once, because in a live system each score is a model run. On the
+real corpus, reranking search by meaning's top 30 lifts the questions
+answered at rank 1 from 15 to 22.

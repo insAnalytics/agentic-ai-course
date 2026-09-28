@@ -3780,7 +3780,24 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    D15's "Quiet hours" answer at -4.99); prose claims checked (the Zen page
    says "wake anyone up"; q44's evidence is about the WAL write location;
    q16's answering chunk never says "registry"); 4 quiz cards. No new
-   shared code. Concepts 3+ and bookends not yet drafted.
+   shared code. Concept 3 (reranking, measured) is built: one live demo,
+   code and output an exact match in real Pyodide (BM25, meaning and
+   hybrid first stages at no rerank and depths 10/20/30/50, answered at
+   rank 1 and in the top 5: hybrid + rerank 30 reaches 22 / 32; against
+   meaning alone 6 gained and 2 lost, sign test 0.29; against hybrid alone
+   6 and 1, 0.12; about 1.2 s in Node); the module's retrieval becomes
+   hybrid with the top 30 reranked; 4 quiz cards; graded `rerank`
+   exercise, its explanation's "two stages" callback linked to concept 1's
+   `#precise-but-too-slow-for-everything` (anchor verified). **Change
+   from the mockup's hidden tests:** test 2 builds its own `search` and
+   `results`, which it borrowed from test 1 (each test runs in a fresh
+   namespace copy). Verified with the real `TEST_HARNESS`: the reference
+   passes (test 5: 15 to 22 at rank 1, 30 in the top 5), the starter fails
+   all five, and eight mutations each fail (candidates at k not depth, no
+   depth check, ascending, stored chunk mutated, first-stage score kept,
+   each candidate scored twice, ties flipped, k ignored). The reference is
+   the new `RERANK` export, for pages after concept 3 only. Concepts 4+
+   and bookends not yet drafted.
 
 ---
 
