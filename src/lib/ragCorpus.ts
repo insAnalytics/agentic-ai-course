@@ -1,3 +1,5 @@
+import type { DataFile } from "./courseData";
+
 /**
  * Module 5 (RAG) shared setup. Every Module 5 demo that reads the corpus
  * passes `dataFiles={RAG_DATA}` (fetched on first Run, see courseData.ts)
@@ -97,13 +99,21 @@ def build_prompt(question: str, passages: list[dict]) -> str:
     return f"Answer using only these sources, and name the source you used.\n\n{sources}\n\nQuestion: {question}"
 `;
 
-/** Module 5 Lesson 2 pages load the labelled queries alongside the corpus. */
-export const RAG_EVAL_DATA = ["rag/documents.json", "rag/queries.json"];
+/**
+ * The corpus plus one version of the labelled queries, which Python always
+ * reads as /data/rag/queries.json. Each lesson pins the version its printed
+ * outputs and hidden tests were written against (architecture.md §3.1):
+ * Lesson 2 uses 2, Lesson 3 onwards 3. A later label review adds a new
+ * queries-vN.json and moves only the lessons written after it.
+ */
+export function labelledData(version: number): DataFile[] {
+  return ["rag/documents.json", { src: `rag/queries-v${version}.json`, as: "rag/queries.json" }];
+}
 
 /**
  * Module 5 Lesson 2's scoring helpers, shown verbatim in concept 2 (keep
  * the two byte-identical); concept 1 uses them before concept 2 explains
- * them. Append after KEYWORD_INDEX; pass dataFiles={RAG_EVAL_DATA}.
+ * them. Append after KEYWORD_INDEX; pass dataFiles={labelledData(n)}.
  */
 export const EVALUATION = String.raw`
 import math

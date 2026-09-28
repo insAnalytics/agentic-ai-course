@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 2,
   "default_reader_groups": [
     "all-staff",
     "oncall",
@@ -48,10 +48,6 @@
           {
             "doc_id": "D14",
             "quote": "ask the registry \"who am I?\" with the agent's own key"
-          },
-          {
-            "doc_id": "D06",
-            "quote": "From the agent's environment, call `GET /agents/me` with the new key."
           }
         ]
       ],
@@ -70,10 +66,6 @@
           {
             "doc_id": "D14",
             "quote": "Changes apply when the agent starts its next session, not partway through one that's already running."
-          },
-          {
-            "doc_id": "D07",
-            "quote": "The change applies from each agent's next session."
           }
         ]
       ],
@@ -402,14 +394,6 @@
           {
             "doc_id": "D02",
             "quote": "The key made too many requests this minute."
-          },
-          {
-            "doc_id": "D05",
-            "quote": "Look for `REG-1009` responses in the agent's logs."
-          },
-          {
-            "doc_id": "D03",
-            "quote": "Rate-limited responses (`REG-1009`) now include a `Retry-After` header."
           }
         ]
       ],
@@ -430,10 +414,6 @@
           {
             "doc_id": "D01",
             "quote": "| `standard` | `claude-haiku`, `claude-sonnet` |"
-          },
-          {
-            "doc_id": "D14",
-            "quote": "Standard-tier agents can use the smaller and mid-sized models."
           }
         ],
         [
@@ -666,10 +646,6 @@
           {
             "doc_id": "D09",
             "quote": "payments-gateway checks every request's certificate with auth-service before it will talk to a caller."
-          },
-          {
-            "doc_id": "D09",
-            "quote": "The Payments team found that payments-gateway couldn't open connections to auth-service."
           }
         ],
         [
@@ -696,10 +672,6 @@
           {
             "doc_id": "D10",
             "quote": "`research_agent` finds its sources through kb-search."
-          },
-          {
-            "doc_id": "D10",
-            "quote": "Each kb-search result now carries the date the article was last updated, and `research_agent` includes it when it cites a source."
           }
         ]
       ],
@@ -714,30 +686,18 @@
           {
             "doc_id": "D04",
             "quote": "if registry-db is unavailable, registry-api can't answer at all."
-          },
-          {
-            "doc_id": "D11",
-            "quote": "registry-api was unavailable for 42 minutes while registry-db failed over to its standby."
           }
         ],
         [
           {
             "doc_id": "D04",
             "quote": "Monitoring gets its list of agents from registry-api every 30 seconds"
-          },
-          {
-            "doc_id": "D11",
-            "quote": "monitoring lost sight of every agent for the same period"
           }
         ],
         [
           {
             "doc_id": "D04",
             "quote": "It looks up agent and account configuration through registry-api"
-          },
-          {
-            "doc_id": "D11",
-            "quote": "`support_agent` sessions began failing on their first registry lookup."
           }
         ],
         [
@@ -807,10 +767,6 @@
           {
             "doc_id": "D11",
             "quote": "For the whole outage, monitoring showed no agents at all"
-          },
-          {
-            "doc_id": "D11",
-            "quote": "An alert now fires when the standby falls more than 60 seconds behind."
           }
         ]
       ],
@@ -900,10 +856,6 @@
           {
             "doc_id": "D12",
             "quote": "a routine log review found `support_agent`'s write-scoped registry key in plain text in its debug logs"
-          },
-          {
-            "doc_id": "D12",
-            "quote": "With that flag set, the registry client logs every request in full, headers included"
           }
         ]
       ],
@@ -1039,14 +991,6 @@
           {
             "doc_id": "alertmanager/configuration.md",
             "quote": "The labels by which incoming alerts are grouped together."
-          },
-          {
-            "doc_id": "prometheus-docs/introduction/glossary.md",
-            "quote": "The Alertmanager takes in alerts, aggregates them into groups, de-duplicates, applies silences, throttles, and then sends out notifications"
-          },
-          {
-            "doc_id": "prometheus-docs/introduction/glossary.md",
-            "quote": "A notification represents a group of one or more alerts"
           }
         ]
       ],
@@ -1183,20 +1127,12 @@
           {
             "doc_id": "D04",
             "quote": "It looks up agent and account configuration through registry-api"
-          },
-          {
-            "doc_id": "D11",
-            "quote": "`support_agent` sessions began failing on their first registry lookup."
           }
         ],
         [
           {
             "doc_id": "D04",
             "quote": "`triage_agent` reads incoming tickets and hands the ones it can't close to `support_agent`."
-          },
-          {
-            "doc_id": "D11",
-            "quote": "`triage_agent` kept running but couldn't hand tickets over"
           }
         ]
       ],
@@ -1219,14 +1155,6 @@
           {
             "doc_id": "D07",
             "quote": "No new agent can be put on it"
-          },
-          {
-            "doc_id": "D01",
-            "quote": "`claude-legacy` is deprecated and can't be assigned to any agent"
-          },
-          {
-            "doc_id": "D07",
-            "quote": "You can't roll back to `claude-legacy`: the registry refuses it."
           }
         ]
       ],

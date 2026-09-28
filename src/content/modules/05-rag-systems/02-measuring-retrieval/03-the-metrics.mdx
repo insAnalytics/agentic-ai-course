@@ -9,7 +9,7 @@ import QuizGroup from "../../../../components/lesson/QuizGroup";
 import GradedExercise from "../../../../components/lesson/GradedExercise";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 import { COUNT_TOKENS } from "../../../../lib/fakeClient";
-import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, RAG_EVAL_DATA } from "../../../../lib/ragCorpus";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, labelledData } from "../../../../lib/ragCorpus";
 
 export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION;
 
@@ -163,7 +163,7 @@ whole corpus. A question with one relevant section can't have a
 precision@5 above 0.2, however good the search: four slots are left over.
 This measures the ceiling:
 
-<LiveDemo client:load dataFiles={RAG_EVAL_DATA} setupCode={SETUP} code={CEILING_DEMO} />
+<LiveDemo client:load dataFiles={labelledData(2)} setupCode={SETUP} code={CEILING_DEMO} />
 
 A perfect search would still score about 0.46 at *k* = 5. So precision
 can't be read on its own scale; compare it only between searches at the
@@ -256,7 +256,7 @@ the keyword search.
   starterCode={STARTER}
   hiddenTests={TESTS}
   namespaceSetup={SETUP}
-  dataFiles={RAG_EVAL_DATA}
+  dataFiles={labelledData(2)}
   hint={"For recall, loop over query[\"evidence\"] and ask of each group: is any chunk in the top k relevant to any span in it? Sum the Trues and divide by the number of groups. For the reciprocal rank, enumerate(results[:k], 1) gives positions that start at 1. In evaluate, filter the queries to those with evidence first, so both the loop and the averages use the same list."}
   correctAnswer={{
     code: METRICS.trimStart(),

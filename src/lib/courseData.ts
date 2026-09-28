@@ -29,14 +29,23 @@ function fetchCourseData(path: string): Promise<string> {
 }
 
 /**
- * Writes each file into Pyodide's virtual FS at `/data/<path>`. Rewritten on
- * every call (cheap once fetched), so a demo that edits or deletes a data file
- * can't break the next demo on the page.
+ * A course data file: a path under `public/data/`, written to the same path
+ * under `/data/`, or `{ src, as }` to fetch one file and write it under
+ * another name (e.g. a pinned labels version, `rag/queries-v2.json`, read
+ * by Python as `/data/rag/queries.json`).
  */
-export async function writeCourseData(pyodide: PyodideInterface, paths: string[]): Promise<void> {
-  const texts = await Promise.all(paths.map(fetchCourseData));
-  paths.forEach((path, i) => {
-    const target = `/data/${path}`;
+export type DataFile = string | { src: string; as: string };
+
+/**
+ * Writes each file into Pyodide's virtual FS at `/data/<path>` (or
+ * `/data/<as>`). Rewritten on every call (cheap once fetched), so a demo that
+ * edits or deletes a data file can't break the next demo on the page.
+ */
+export async function writeCourseData(pyodide: PyodideInterface, files: DataFile[]): Promise<void> {
+  const pairs = files.map((file) => (typeof file === "string" ? { src: file, as: file } : file));
+  const texts = await Promise.all(pairs.map((pair) => fetchCourseData(pair.src)));
+  pairs.forEach((pair, i) => {
+    const target = `/data/${pair.as}`;
     pyodide.runPython(`import os; os.makedirs(${JSON.stringify(target.slice(0, target.lastIndexOf("/")))}, exist_ok=True)`);
     pyodide.FS.writeFile(target, texts[i]);
   });

@@ -8,7 +8,7 @@ import LiveDemo from "../../../../components/lesson/LiveDemo";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 import { COUNT_TOKENS } from "../../../../lib/fakeClient";
-import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, RAG_EVAL_DATA } from "../../../../lib/ragCorpus";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, labelledData } from "../../../../lib/ragCorpus";
 
 export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION + METRICS;
 
@@ -62,7 +62,7 @@ one passage: the error-code table's row. That's correct, and it isn't the
 only passage that answers the question. Here's the stopword-fixed search
 from earlier, scored against both versions of that label:
 
-<LiveDemo client:load dataFiles={RAG_EVAL_DATA} setupCode={SETUP} code={TWO_LABELS_DEMO} />
+<LiveDemo client:load dataFiles={labelledData(2)} setupCode={SETUP} code={TWO_LABELS_DEMO} />
 
 All three results explain `REG-1007`: the API reference's section on
 creating an agent says the request fails with it when the model isn't
@@ -90,7 +90,7 @@ relevant.
 
 Even a small pool is a lot of reading:
 
-<LiveDemo client:load dataFiles={RAG_EVAL_DATA} setupCode={SETUP} code={POOL_DEMO} />
+<LiveDemo client:load dataFiles={labelledData(2)} setupCode={SETUP} code={POOL_DEMO} />
 
 For this course's set, the review pooled the top 20 of the keyword search
 and of a second keyword scorer, BM25, which is Lesson 5's subject. Two

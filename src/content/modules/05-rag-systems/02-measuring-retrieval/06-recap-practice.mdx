@@ -6,7 +6,7 @@ order: 6
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
-import { RAG_EVAL_DATA } from "../../../../lib/ragCorpus";
+import { labelledData } from "../../../../lib/ragCorpus";
 
 export const LIB_PY = String.raw`# Lessons 1 and 2's code, from their concepts -- read-only
 import json
@@ -393,7 +393,7 @@ assert report["by_type"]["multi_hop"] == {"a": 0, "b": 0, "total": 3}, report["b
     { name: "harness.py", code: HARNESS_STARTER },
   ]}
   hiddenTests={HIDDEN_TESTS}
-  dataFiles={RAG_EVAL_DATA}
+  dataFiles={labelledData(2)}
   hint={"Store each search's results in a dict keyed by question: {q[\"query\"]: search_a(q[\"query\"], k) for q in queries}. Then evaluate can be given a stand-in search that looks results up instead of searching again: lambda question, k: results_a[question]. Build the answered-id sets in the same loop as the per-type counts, and take their differences for gained and lost."}
   correctFiles={[
     { name: "lib.py", readOnly: true, code: LIB_PY },

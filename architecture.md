@@ -242,8 +242,18 @@ served as plain static files. Module 5 (RAG) uses `public/data/rag/`:
   prometheus/alertmanager under Apache 2.0; two postgres/postgres doc files
   under the PostgreSQL Licence). Re-run the script only if the documents
   change.
-- `queries.json` — browser copy of the labelled query set; the source of
-  truth is `scripts/rag_corpus/queries.json`.
+- `queries-v2.json`, `queries-v3.json` — browser copies of each version of
+  the labelled query set. The source of truth is
+  `scripts/rag_corpus/queries.json` (currently version 3; older versions are
+  kept alongside as `queries-vN.json`). Labels only ever gain passages from
+  a review (v2: the keyword/BM25 pool; v3: the dense pool from
+  `scripts/pool-rag-dense.py`), and a lesson's printed outputs and hidden
+  tests are only valid for the version they were written against, so
+  **each lesson pins its version**: Lesson 2 uses v2, Lesson 3 onwards v3.
+  Pages load it with `dataFiles={labelledData(n)}` (`ragCorpus.ts`), which
+  fetches `rag/queries-vN.json` and writes it to `/data/rag/queries.json`,
+  so Python code never names a version. A new review adds
+  `queries-v(N+1).json` and moves only the lessons written after it.
 - `licenses/` — the Apache 2.0 text, each Prometheus repo's NOTICE, and the
   PostgreSQL COPYRIGHT file, all verbatim at the pinned commits.
   `src/pages/attribution.astro` reads them at build time to render the
@@ -264,7 +274,8 @@ path once per page (memoized; a failed fetch isn't cached, so the next Run
 retries) and writes it into Pyodide's FS at `/data/<path>` — rewritten on
 every Run so a demo that edits a data file can't break the next one.
 `LiveDemo` takes it as `dataFiles={["rag/documents.json"]}` (run before
-`setupCode`). Module 5's shared constants live in `src/lib/ragCorpus.ts`:
+`setupCode`). A `dataFiles` entry is a path, or `{ src, as }` to fetch one file
+and write it under another name (`DataFile` in `courseData.ts`). Module 5's shared constants live in `src/lib/ragCorpus.ts`:
 `RAG_DATA` (the `dataFiles` list) and `LOAD_DOCUMENTS` (Python
 `load_documents()`, appended after `COUNT_TOKENS` in setup code) and, from
 Lesson 1 concept 4, `SECTION_SEARCH` (`split_sections`, `load_sections`,
@@ -273,8 +284,8 @@ Lesson 1 concept 4, `SECTION_SEARCH` (`split_sections`, `load_sections`,
 (`load_queries`, `normalize`, `is_relevant`, `answerable`; shown verbatim
 in Lesson 2 concept 2, keep the two byte-identical. A chunk is relevant to
 a span if it's from the same document and holds at least half the quote
-as one unbroken stretch) and `RAG_EVAL_DATA` (documents plus
-`queries.json`). Lesson 2's setup is `COUNT_TOKENS + LOAD_DOCUMENTS +
+as one unbroken stretch) and `labelledData(version)` (documents plus
+that version of the labels). Lesson 2's setup is `COUNT_TOKENS + LOAD_DOCUMENTS +
 SECTION_SEARCH + KEYWORD_INDEX + EVALUATION`. `METRICS`
 (`is_relevant_to_query`, `precision_at_k`, `recall_at_k`,
 `reciprocal_rank`, `evaluate`) is Lesson 2 concept 3's exercise reference

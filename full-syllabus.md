@@ -3451,7 +3451,7 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    count, no `[:k]` in recall or reciprocal rank, 0-based rank, recall over
    spans, stale evidence counted, no evidence filter, answerable as any
    part found, search without k). Shared setup in `ragCorpus.ts`:
-   `KEYWORD_INDEX`, `EVALUATION`, `RAG_EVAL_DATA`, and `METRICS` (the
+   `KEYWORD_INDEX`, `EVALUATION`, `labelledData(n)`, and `METRICS` (the
    exercise's reference, loaded only on pages after concept 3). Concept 4
    (reading the numbers honestly) is built: three live demos, all exact
    matches in real Pyodide (the keyword baseline at k = 1, 3, 5, 10;
@@ -3490,6 +3490,15 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
 
    Lesson 2 is now **Locked**: all five concepts plus both bookends exist
    and build cleanly.
+
+   Labels pinned to **v2** (2026-09-28): the dense pool's review made the
+   labels v3, so every Lesson 2 page now loads `labelledData(2)`
+   (`queries-v2.json`, read as `/data/rag/queries.json`). Re-verified after
+   the change in real Pyodide: all 14 demos match their mockups' printed
+   output exactly (compared by script, not by eye), the concept 3
+   exercise's reference passes all six tests and the starter none, and
+   the recap sandbox's reference passes and starter fails. Lesson 3
+   onwards uses `labelledData(3)`.
 
 ---
 
