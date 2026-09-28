@@ -8,7 +8,7 @@ import LiveDemo from "../../../../components/lesson/LiveDemo";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 import { COUNT_TOKENS } from "../../../../lib/fakeClient";
-import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, labelledData } from "../../../../lib/ragCorpus";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, RAG_EVAL_DATA } from "../../../../lib/ragCorpus";
 
 export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION + METRICS;
 
@@ -71,7 +71,7 @@ print(f"chance of a split this lopsided with no real effect: {sign_test(len(gain
 Here are the previous concept's metrics for Lesson 1's keyword search, at
 four values of *k*:
 
-<LiveDemo client:load dataFiles={labelledData(2)} setupCode={SETUP} code={DEPTHS_DEMO} />
+<LiveDemo client:load dataFiles={RAG_EVAL_DATA} setupCode={SETUP} code={DEPTHS_DEMO} />
 
 Three things to read from it:
 
@@ -93,7 +93,7 @@ against, at *k* = 5 unless it says otherwise.
 An average over 43 questions mixes very different kinds of question.
 Splitting by type shows where keyword search works and where it can't:
 
-<LiveDemo client:load dataFiles={labelledData(2)} setupCode={SETUP} code={BY_TYPE_DEMO} />
+<LiveDemo client:load dataFiles={RAG_EVAL_DATA} setupCode={SETUP} code={BY_TYPE_DEMO} />
 
 Two readings, and they need to be kept apart:
 
@@ -117,7 +117,7 @@ The stopword fix from the first concept raised the total from 19 to 23.
 Comparing the two searches question by question gives the full picture,
 and a way to ask whether the difference is real:
 
-<LiveDemo client:load dataFiles={labelledData(2)} setupCode={SETUP} code={SIGN_TEST_DEMO} />
+<LiveDemo client:load dataFiles={RAG_EVAL_DATA} setupCode={SETUP} code={SIGN_TEST_DEMO} />
 
 A change that did nothing at all would still flip some questions, because
 each search's ranking has ties and near-misses that small changes shuffle.
@@ -172,7 +172,7 @@ fitted the questions rather than the problem.
       "A lower recall at k = 5, because the ranking changes"
     ],
     "correctIndex": 2,
-    "explanation": "Every retrieved chunk goes into the prompt, so a larger k is paid for in tokens on every question, and most of the extra chunks are noise (precision fell from 0.144 to 0.088). MRR can't fall as k grows, and the top five are unchanged."
+    "explanation": "Every retrieved chunk goes into the prompt, so a larger k is paid for in tokens on every question, and most of the extra chunks are noise (precision fell from 0.153 to 0.093). MRR can't fall as k grows, and the top five are unchanged."
   },
   {
     "question": "Keyword search answered none of the three multi-hop questions. Why is that result different in kind from \"4 of 8\" paraphrase questions?",

@@ -6,7 +6,7 @@ order: 6
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
-import { labelledData } from "../../../../lib/ragCorpus";
+import { RAG_EVAL_DATA } from "../../../../lib/ragCorpus";
 
 export const LIB_PY = String.raw`# Lessons 1 and 2's code, from their concepts -- read-only
 import json
@@ -278,7 +278,7 @@ def tweaked_search(question, k):
     return with_question_words_dropped(lambda: tweaked.search(question, k))
 
 report = compare_searches(baseline.search, tweaked_search, lib.load_queries(), k=5)
-assert report["a"] == {"recall": 0.509, "precision": 0.144, "mrr": 0.418, "answerable": 0.442}, report["a"]
+assert report["a"] == {"recall": 0.509, "precision": 0.153, "mrr": 0.418, "answerable": 0.442}, report["a"]
 assert (report["gained"], report["lost"], report["p_value"]) == (["q05", "q09", "q20", "q21", "q31"], ["q01"], 0.219), \
     (report["gained"], report["lost"], report["p_value"])
 assert report["by_type"]["multi_hop"] == {"a": 0, "b": 0, "total": 3}, report["by_type"]["multi_hop"]
@@ -334,7 +334,7 @@ assert report["by_type"]["multi_hop"] == {"a": 0, "b": 0, "total": 3}, report["b
     "explanation": "When the model reads all k results, what matters most is whether the answer is anywhere in them. B's higher MRR would matter if only the top result were used, or if position in the prompt hurt."
   },
   {
-    "question": "A search scores a precision@5 of 0.46 on this set. Why might that be close to perfect?",
+    "question": "A search scores a precision@5 of 0.50 on this set. Why might that be close to perfect?",
     "options": [
       "Precision is capped at 0.5, since half of any result list is noise",
       "The labels are incomplete, so no search can score above 0.5",
@@ -342,7 +342,7 @@ assert report["by_type"]["multi_hop"] == {"a": 0, "b": 0, "total": 3}, report["b
       "Most questions have only one or two relevant sections, so most slots can't be filled"
     ],
     "correctIndex": 3,
-    "explanation": "A question with one relevant section can't score above 0.2 at k = 5. Averaged over this set, the best possible search reaches about 0.46. Precision is only meaningful compared between searches at the same k."
+    "explanation": "A question with one relevant section can't score above 0.2 at k = 5. Averaged over this set, the best possible search reaches about 0.50. Precision is only meaningful compared between searches at the same k."
   },
   {
     "question": "A change gains 20 questions and loses 2. What does the sign test say?",
@@ -393,7 +393,7 @@ assert report["by_type"]["multi_hop"] == {"a": 0, "b": 0, "total": 3}, report["b
     { name: "harness.py", code: HARNESS_STARTER },
   ]}
   hiddenTests={HIDDEN_TESTS}
-  dataFiles={labelledData(2)}
+  dataFiles={RAG_EVAL_DATA}
   hint={"Store each search's results in a dict keyed by question: {q[\"query\"]: search_a(q[\"query\"], k) for q in queries}. Then evaluate can be given a stand-in search that looks results up instead of searching again: lambda question, k: results_a[question]. Build the answered-id sets in the same loop as the per-type counts, and take their differences for gained and lost."}
   correctFiles={[
     { name: "lib.py", readOnly: true, code: LIB_PY },

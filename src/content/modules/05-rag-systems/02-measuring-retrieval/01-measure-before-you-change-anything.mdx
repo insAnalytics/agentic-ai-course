@@ -8,7 +8,7 @@ import LiveDemo from "../../../../components/lesson/LiveDemo";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 import { COUNT_TOKENS } from "../../../../lib/fakeClient";
-import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, labelledData } from "../../../../lib/ragCorpus";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, RAG_EVAL_DATA } from "../../../../lib/ragCorpus";
 
 export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION;
 
@@ -66,7 +66,7 @@ and "does" with the question while the error-code table shared only
 The obvious fix is to treat question words like "what" and "does" as
 stopwords, so they stop counting. Here it is, tried on that question:
 
-<LiveDemo client:load dataFiles={labelledData(2)} setupCode={SETUP} code={ONE_QUESTION_DEMO} />
+<LiveDemo client:load dataFiles={RAG_EVAL_DATA} setupCode={SETUP} code={ONE_QUESTION_DEMO} />
 
 It works. All three results are now the registry's own pages about
 `REG-1007`, and one of them is the error-code table. On the evidence of
@@ -87,7 +87,7 @@ For now, one function is enough: `answerable(results, query)` says whether
 a list of results contains every part of a query's answer. Here's the fix
 again, over every question that has a labelled answer:
 
-<LiveDemo client:load dataFiles={labelledData(2)} setupCode={SETUP} code={WHOLE_SET_DEMO} />
+<LiveDemo client:load dataFiles={RAG_EVAL_DATA} setupCode={SETUP} code={WHOLE_SET_DEMO} />
 
 The fix is better overall, 23 questions answered against 19, and it's
 still not free: one question that worked now fails. Looking at why is

@@ -3451,7 +3451,7 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    count, no `[:k]` in recall or reciprocal rank, 0-based rank, recall over
    spans, stale evidence counted, no evidence filter, answerable as any
    part found, search without k). Shared setup in `ragCorpus.ts`:
-   `KEYWORD_INDEX`, `EVALUATION`, `labelledData(n)`, and `METRICS` (the
+   `KEYWORD_INDEX`, `EVALUATION`, `RAG_EVAL_DATA`, and `METRICS` (the
    exercise's reference, loaded only on pages after concept 3). Concept 4
    (reading the numbers honestly) is built: three live demos, all exact
    matches in real Pyodide (the keyword baseline at k = 1, 3, 5, 10;
@@ -3491,14 +3491,19 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    Lesson 2 is now **Locked**: all five concepts plus both bookends exist
    and build cleanly.
 
-   Labels pinned to **v2** (2026-09-28): the dense pool's review made the
-   labels v3, so every Lesson 2 page now loads `labelledData(2)`
-   (`queries-v2.json`, read as `/data/rag/queries.json`). Re-verified after
-   the change in real Pyodide: all 14 demos match their mockups' printed
-   output exactly (compared by script, not by eye), the concept 3
-   exercise's reference passes all six tests and the starter none, and
-   the recap sandbox's reference passes and starter fails. Lesson 3
-   onwards uses `labelledData(3)`.
+   Moved to labels **v3** (2026-09-28; the dense pool's review, 18
+   passages across 12 queries, 10 main and 2 held out, checked against
+   v2). The site has one labels file, `public/data/rag/queries.json`. Five
+   demos' live output changed and matches the update's expected values
+   exactly: q21's evidence (group 2 now has four alternatives), 145 quotes
+   checked, the precision@5 ceiling (2.6 relevant sections on average,
+   0.502), the k table's precision column (0.209, 0.153, 0.093) and the
+   pool size (1,454). The other nine demos are unchanged. Concept 3's test
+   6 and the recap's test 5 now expect precision 0.153. Prose updated in
+   concepts 3, 4 and 5 and the recap quiz (0.46 to 0.50; 0.144/0.088 to
+   0.153/0.093; concept 5's pooling-bias paragraphs now describe the dense
+   pool's review and the v1 to v3 baseline). Re-verified by script in real
+   Pyodide: all 14 demos match, both references pass, both starters fail.
 
 ---
 

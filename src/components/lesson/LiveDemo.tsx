@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { loadPyodideOnce, runCapturingOutput, type PyodideInterface } from "../../lib/pyodide";
-import { writeCourseData, type DataFile } from "../../lib/courseData";
+import { writeCourseData } from "../../lib/courseData";
 import CodeEditor from "./CodeEditor";
 
 interface LiveDemoProps {
@@ -21,7 +21,7 @@ interface LiveDemoProps {
    * `setupCode` runs. Fetched on the first Run click, never on page load —
    * see src/lib/courseData.ts.
    */
-  dataFiles?: DataFile[];
+  dataFiles?: string[];
 }
 
 export default function LiveDemo({ code: initialCode, setupCode, dataFiles }: LiveDemoProps) {

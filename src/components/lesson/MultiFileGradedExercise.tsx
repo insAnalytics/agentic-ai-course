@@ -5,7 +5,7 @@ import {
   type PyodideInterface,
   type SandboxFile,
 } from "../../lib/pyodide";
-import { writeCourseData, type DataFile } from "../../lib/courseData";
+import { writeCourseData } from "../../lib/courseData";
 import MultiFileEditor from "./MultiFileEditor";
 import LinkedText from "./LinkedText";
 
@@ -23,7 +23,7 @@ interface MultiFileGradedExerciseProps {
    * Static course data files written into Pyodide's FS at `/data/<path>`
    * before grading, fetched on the first Submit. Same as LiveDemo's prop.
    */
-  dataFiles?: DataFile[];
+  dataFiles?: string[];
 }
 
 type Reveal = "none" | "hint" | "answer";

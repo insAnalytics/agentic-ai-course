@@ -8,7 +8,7 @@ import LiveDemo from "../../../../components/lesson/LiveDemo";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 import { COUNT_TOKENS } from "../../../../lib/fakeClient";
-import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, labelledData } from "../../../../lib/ragCorpus";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, RAG_EVAL_DATA } from "../../../../lib/ragCorpus";
 
 export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION;
 
@@ -67,7 +67,7 @@ answer is in the corpus. It's the retrieval equivalent of a test suite:
 fixed inputs, known correct outputs, and a runner that reports what
 passed. This module's set has 57 questions:
 
-<LiveDemo client:load dataFiles={labelledData(2)} setupCode={SETUP} code={TYPES_DEMO} />
+<LiveDemo client:load dataFiles={RAG_EVAL_DATA} setupCode={SETUP} code={TYPES_DEMO} />
 
 The 11 held-out questions are kept aside and not looked at until the
 module's last lesson;
@@ -86,7 +86,7 @@ change how documents are split, which is exactly what Lesson 3 does: chunk
 412 no longer exists, or holds different text. So each label here is a
 **quote**, copied exactly from the document that answers the question:
 
-<LiveDemo client:load dataFiles={labelledData(2)} setupCode={SETUP} code={EVIDENCE_DEMO} />
+<LiveDemo client:load dataFiles={RAG_EVAL_DATA} setupCode={SETUP} code={EVIDENCE_DEMO} />
 
 Two structural choices are visible in that one query:
 
@@ -139,7 +139,7 @@ def answerable(results: list[dict], query: dict) -> bool:
 Why half, and not the whole quote? Because splitting can cut a quote in
 two, and one side should still count if it holds most of it:
 
-<LiveDemo client:load dataFiles={labelledData(2)} setupCode={SETUP} code={HALF_DEMO} />
+<LiveDemo client:load dataFiles={RAG_EVAL_DATA} setupCode={SETUP} code={HALF_DEMO} />
 
 The second part holds the core of the answer, "HTTP 429 with error
 REG-1009", and counts. The first part holds only "Requests past the limit
@@ -149,7 +149,7 @@ split quote is never counted twice.
 `answerable` then applies the groups. Here's the rate-limit question
 against Lesson 1's keyword search:
 
-<LiveDemo client:load dataFiles={labelledData(2)} setupCode={SETUP} code={ANSWERABLE_DEMO} />
+<LiveDemo client:load dataFiles={RAG_EVAL_DATA} setupCode={SETUP} code={ANSWERABLE_DEMO} />
 
 Neither part is in the top five. That's a retrieval failure the set now
 records, rather than one somebody has to notice.
@@ -167,7 +167,7 @@ How the set was made matters as much as its contents:
   a mistyped quote silently matches nothing, and every query using it
   looks like a retrieval failure. This check runs over every label:
 
-<LiveDemo client:load dataFiles={labelledData(2)} setupCode={SETUP} code={CHECK_DEMO} />
+<LiveDemo client:load dataFiles={RAG_EVAL_DATA} setupCode={SETUP} code={CHECK_DEMO} />
 
 - **The set is versioned.** When a label is fixed, the version changes, and
   numbers from different versions aren't compared.

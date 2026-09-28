@@ -8,7 +8,7 @@ import LiveDemo from "../../../../components/lesson/LiveDemo";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 import { COUNT_TOKENS } from "../../../../lib/fakeClient";
-import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, labelledData } from "../../../../lib/ragCorpus";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, RAG_EVAL_DATA } from "../../../../lib/ragCorpus";
 
 export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION + METRICS;
 
@@ -62,7 +62,7 @@ one passage: the error-code table's row. That's correct, and it isn't the
 only passage that answers the question. Here's the stopword-fixed search
 from earlier, scored against both versions of that label:
 
-<LiveDemo client:load dataFiles={labelledData(2)} setupCode={SETUP} code={TWO_LABELS_DEMO} />
+<LiveDemo client:load dataFiles={RAG_EVAL_DATA} setupCode={SETUP} code={TWO_LABELS_DEMO} />
 
 All three results explain `REG-1007`: the API reference's section on
 creating an agent says the request fails with it when the model isn't
@@ -90,7 +90,7 @@ relevant.
 
 Even a small pool is a lot of reading:
 
-<LiveDemo client:load dataFiles={labelledData(2)} setupCode={SETUP} code={POOL_DEMO} />
+<LiveDemo client:load dataFiles={RAG_EVAL_DATA} setupCode={SETUP} code={POOL_DEMO} />
 
 For this course's set, the review pooled the top 20 of the keyword search
 and of a second keyword scorer, BM25, which is Lesson 5's subject. Two
@@ -110,8 +110,7 @@ questions**: nine in the main set and three held out. The REG-1007
 question gained four. The public-docs questions gained passages from
 pages the labels had never mentioned, such as Prometheus's best-practice
 page on the `for` clause and Alertmanager's reference for inhibition
-rules. The labels' version went from 1 to 2, and every number in this
-lesson uses version 2.
+rules. That review moved the labels from version 1 to version 2.
 
 </Subsection>
 
@@ -125,20 +124,9 @@ part (Zobel, 1998), and also that pooled evaluation is inherently biased
 against systems that didn't contribute to the pool (Büttcher and
 colleagues, 2007).
 
-For this module that matters directly. Both pooled searches match words.
-Lesson 4 adds search by meaning, which will rank passages that share no
-words with the question, exactly the ones this pool is least likely to
-contain. Scored against version 2, it would be penalised for its
-strengths. So before Lesson 4 reports any numbers, its results are pooled
-and judged the same way, the labels move to a new version if anything is
-added, and the keyword baseline is re-scored against that version too.
-Numbers from different label versions are never compared.
+For this module that matters directly. Both pooled searches match words, and Lesson 4 adds search by meaning, which ranks passages that share no words with the question: exactly the ones a word-matching pool is least likely to contain. So before this lesson was written, a search by meaning, using the embedding model Lesson 4 introduces and run offline, was pooled and judged the same way. It surfaced 18 more missing passages across 12 questions, ten in the main set and two held out, that neither word-matching search had ranked highly: the same fact stated in another document's words, incident timelines that name the affected agent, and glossary definitions in the vendor documentation. That moved the labels to version 3, which every labelled number in this module uses. Scored against version 2, search by meaning would have been penalised for exactly those finds.
 
-A smaller effect is worth seeing too. For the keyword search itself,
-version 2 barely moved the baseline: precision@5 went from 0.140 to 0.144,
-and the other metrics didn't change at all. The missing labels mattered
-little to the searches that found them, and would have mattered most to
-one that hadn't taken part yet.
+The keyword search's own numbers show the other side. Across both reviews, its baseline barely moved: precision@5 went from 0.140 under version 1 to 0.153 under version 3, and the other metrics didn't change at all. Missing labels mattered little to the search that helped find them, and would have mattered most to one that hadn't taken part.
 
 </Subsection>
 
