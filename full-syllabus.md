@@ -3624,8 +3624,16 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    `RAG_MINILM_DATA`); the real-tokenizer table, checked against
    `embedding-report.json`; prose claims checked (the "Outside those
    hours" quote is in the corpus; keyword search misses q08 at k = 5 on
-   both heading sections and structured chunks); 4 quiz cards. Concepts
-   3+ and bookends not yet drafted.
+   both heading sections and structured chunks); 4 quiz cards. Concept 3
+   (meaning against keywords, measured) is built: three live demos, code
+   and output exact matches in real Pyodide (answered in the top 5 by
+   query type, 23 vs 28 of 43, paraphrases 4 vs 8; 8 gained and 3 lost,
+   q10 "MON-2002", q20, q43, sign test 0.227; structured 100/200/400 and
+   fixed 200 at 500/1,000/2,000-token budgets by meaning, via the new
+   `RAG_BGE_ALL_DATA`, about 1 s in Node); the "more than half of
+   structured 400's chunks are identical to structured 200's" claim
+   checked (844 of 1,378, 61%); the module keeps structured 200; 4 quiz
+   cards. No new shared code. Concepts 4+ and bookends not yet drafted.
 
 ---
 

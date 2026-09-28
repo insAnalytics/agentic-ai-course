@@ -446,3 +446,11 @@ export const RAG_MINILM_DATA = [
   "rag/embeddings/all-MiniLM-L6-v2/structured-200.json",
   "rag/embeddings/all-MiniLM-L6-v2/queries.json",
 ];
+
+/** RAG_BGE_DATA plus bge-small vectors for structured 100 and 400 and fixed 200-token chunks (Lesson 4 concept 3's chunk-size comparison). */
+export const RAG_BGE_ALL_DATA = [
+  ...RAG_BGE_DATA,
+  "rag/embeddings/bge-small-en-v1.5/structured-100.json",
+  "rag/embeddings/bge-small-en-v1.5/structured-400.json",
+  "rag/embeddings/bge-small-en-v1.5/fixed-200.json",
+];

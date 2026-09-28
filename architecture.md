@@ -328,7 +328,8 @@ MiniLM add those files to their own `dataFiles`. `VECTOR_INDEX`
 concept 1 only. From concept 2 on the setup also appends `VECTOR_INDEX` and
 `MEANING_SEARCH` (`meaning_search`, `answered_ids`; shown verbatim on
 concept 2). `RAG_MINILM_DATA` adds the all-MiniLM-L6-v2 files to
-`RAG_BGE_DATA`, for the demos that compare the two models.
+`RAG_BGE_DATA`, for the demos that compare the two models. `RAG_BGE_ALL_DATA` adds bge-small's `structured-100`, `structured-400`
+and `fixed-200` files, for concept 3's chunk-size comparison.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.
