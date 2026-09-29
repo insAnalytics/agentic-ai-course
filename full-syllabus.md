@@ -4443,6 +4443,32 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    and build cleanly. Lesson 1's and Lesson 2's forward references to
    Lesson 12 stay plain prose.
 
+13. **Permissions** (provisional title) — **Building** (folder
+   `13-permissions`, named while the title is provisional). Shared setup is
+   Lesson 12's recap `lib.py` (the Lesson 12 setup through
+   `GRAPH_COMMUNITIES`), then `REACT_FAKE_CLIENT + RECORDING_CLIENT`; data
+   `RAG_GRAPH_DATA`. Concept 1 (permissions at retrieval time) is built: two
+   live demos, code and output exact matches in real Pyodide (20 of 57
+   questions leaking D05, D06, D12 and D13 to an all-staff reader;
+   filtering the top five afterwards leaving 20 short and 3 empty); links to
+   Lesson 4's "Filtering, and filtering in the wrong place" and Module 3's
+   "The shift in thinking", anchors checked in the built HTML; 4 quiz
+   cards; graded `PermittedRetriever` exercise, reference exported as
+   `PERMITTED_RETRIEVER`. The hint says `AnswerRetriever` is "in the setup"
+   rather than "in `lib.py`", since this single-file exercise has no
+   `lib.py` tab. **Changes from the mockup's hidden tests:** they shared a
+   fixture section and test 1's `first`, so each test now starts with the
+   fixtures and test 2 rebuilds `first`; test 2 also gains a `k=3` search,
+   because ignoring `k` passed every original test. Verified with the real
+   `runAgainstHiddenTests`: the reference passes (5 to 10 s in Node; test 5
+   builds three readers' pipelines, and test 1 runs all 57 questions), the
+   starter fails all five, and nine mutations each fail (filtering
+   afterwards, a tuple cache key, no cache, contextual text returned, no
+   `None` for unreadable groups, no score, `k` ignored, an unfiltered
+   pipeline, plain chunks instead of contextual ones). The lesson's other
+   concepts and the bookends aren't drafted yet. Earlier lessons' forward
+   references to Lesson 13 stay plain prose.
+
 ---
 
 ## Modules 4–11 — current plan

@@ -541,6 +541,11 @@ concept 4 on the setup appends `AFFECTED_BY` and then `GRAPH_COMMUNITIES`
 whose `import networkx as nx` is enough for `loadPackagesFromImports` to
 load networkx 3.3; its Louvain communities on the lesson's graph match the
 mockup's networkx 3.6.1 output exactly.
+Lesson 13's setup is Lesson 12's recap `lib.py` (the Lesson 12 setup through
+`GRAPH_COMMUNITIES`), then `REACT_FAKE_CLIENT + RECORDING_CLIENT`, with
+`RAG_GRAPH_DATA`. `PERMITTED_RETRIEVER` (`PermittedRetriever`) is Lesson 13
+concept 1's exercise reference: pages *after* concept 1 only, appended after
+`RECORDING_CLIENT`.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.

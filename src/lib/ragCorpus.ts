@@ -1381,3 +1381,41 @@ def community_sources(graph: dict, community: set) -> list[str]:
     return sorted({s for (subject, _, obj), sources in graph.items()
                    if subject in community and obj in community for s in sources})
 `;
+
+/**
+ * Module 5 Lesson 13 concept 1 graded exercise, reference solution verbatim
+ * (PermittedRetriever). Joins the Lesson 13 setup for every page AFTER
+ * concept 1 (append after RECORDING_CLIENT) and must never load on concept 1
+ * itself, or the exercise would start already solved.
+ */
+export const PERMITTED_RETRIEVER = String.raw`
+class PermittedRetriever:
+    """Lesson 9's contextual pipeline, built per reader over only the chunks their groups may read,
+    so nothing they can't read is ever a candidate. One pipeline per distinct set of groups."""
+
+    def __init__(self):
+        contexts = json.loads((DATA / "chunk-contexts.json").read_text())["contexts"]
+        self._chunks = [c for d in load_documents() for c in structured_chunks(d, 200)]
+        self._contextual = {(c["doc_id"], c["chunk"]): with_context(c, contexts) for c in self._chunks}
+        self._scores = CrossEncoderScores(chunking="structured-200-contextual")
+        self._vectors = query_vectors()
+        self._pipelines = {}
+
+    def pipeline_for(self, groups) -> VersionedPipeline | None:
+        """The pipeline over what these groups may read, built once per set of groups."""
+        groups = frozenset(groups)
+        if groups not in self._pipelines:
+            permitted = [self._contextual[(c["doc_id"], c["chunk"])] for c in self._chunks if groups & set(c["access"])]
+            self._pipelines[groups] = VersionedPipeline(permitted, "structured-200-contextual") if permitted else None
+        return self._pipelines[groups]
+
+    def search(self, query: dict, groups, k: int = 5) -> list[dict]:
+        """Source chunks this reader may read, best first, each with its reranker "score"."""
+        pipeline = self.pipeline_for(groups)
+        if pipeline is None:
+            return []
+        originals = {(c["doc_id"], c["chunk"]): c for c in self._chunks}
+        results = pipeline.search(query["query"], self._vectors[query["id"]],
+                                  lambda c: self._scores.score(query["id"], c), k=k)
+        return [{**originals[(r["doc_id"], r["chunk"])], "score": self._scores.score(query["id"], r)} for r in results]
+`;
