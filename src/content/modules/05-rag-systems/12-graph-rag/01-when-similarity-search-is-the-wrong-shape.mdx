@@ -1,0 +1,145 @@
+---
+title: "When similarity search is the wrong shape"
+lesson: "12-graph-rag"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { COUNT_TOKENS, REACT_FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, SIGN_TEST, FIXED_CHUNKS, STRUCTURE_HELPERS, STRUCTURED_CHUNKS, WITHIN_BUDGET, VECTORS, VECTOR_INDEX, MEANING_SEARCH, TERMS, BM25_INDEX, RERANK_SCORES, RERANK, LISTWISE_RERANK, MODULE_PIPELINE, REWRITE_QUERY, SPLIT_QUERY, INTERLEAVE, HYDE, WITH_HEADER, VERSIONED_PIPELINE, WITH_CONTEXT, EXPAND_NEIGHBOURS, ANSWER_RETRIEVER, ANSWER_INSTRUCTIONS, ASSEMBLE_REQUEST, CHECK_CITATIONS, DECLINED, AGENT_SEARCH, SEARCH_DOCUMENTS, CONTEXTUAL_SEARCH, SEARCH_BUDGET, REGISTRY_DB, QUERY_DATABASE, RAG_CONTEXTUAL_DATA } from "../../../../lib/ragCorpus";
+
+export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION + METRICS + SIGN_TEST + FIXED_CHUNKS + STRUCTURE_HELPERS + STRUCTURED_CHUNKS + WITHIN_BUDGET + VECTORS + VECTOR_INDEX + MEANING_SEARCH + TERMS + BM25_INDEX + RERANK_SCORES + RERANK + LISTWISE_RERANK + MODULE_PIPELINE + REWRITE_QUERY + SPLIT_QUERY + INTERLEAVE + HYDE + WITH_HEADER + VERSIONED_PIPELINE + WITH_CONTEXT + EXPAND_NEIGHBOURS + ANSWER_RETRIEVER + ANSWER_INSTRUCTIONS + ASSEMBLE_REQUEST + CHECK_CITATIONS + DECLINED + AGENT_SEARCH + SEARCH_DOCUMENTS + CONTEXTUAL_SEARCH + SEARCH_BUDGET + REGISTRY_DB + QUERY_DATABASE + REACT_FAKE_CLIENT + RECORDING_CLIENT;
+
+export const FIVE_DEMO = String.raw`labelled = {q["id"]: q for q in load_queries()["main"]}
+pipeline = AnswerRetriever()
+for query_id in ("q30", "q31", "q32", "q33", "q34"):
+    query = labelled[query_id]
+    results = pipeline.search(query, 10)
+    found = [any(is_relevant(c, s) for c in results for s in group) for group in query["evidence"]]
+    print(f"{query_id} {query['query']}\n     evidence groups in the top 10: {sum(found)} of {len(found)}"
+          f"  -> {'answered' if all(found) else 'not answered'}")
+`;
+export const CHAIN_DEMO = String.raw`query = next(q for q in load_queries()["main"] if q["id"] == "q30")
+results = AnswerRetriever().search(query, 10)
+for group in query["evidence"]:
+    found = any(is_relevant(c, s) for c in results for s in group)
+    print(f"{'found  ' if found else 'missing'}  {group[0]['doc_id']}: {group[0]['quote'][:78]}")
+`;
+
+<Subsection title="Five questions about the whole system" variant="a">
+
+Every technique in this module so far answers the same kind of question: one
+whose answer is written down somewhere, in a passage or two, that retrieval
+has to find. The labelled set has five questions of a different kind, about
+how things connect and about the corpus as a whole. Here's the lesson's best
+pipeline on them, given ten results each. Building an `AnswerRetriever` takes
+a few seconds:
+
+<LiveDemo client:load dataFiles={RAG_CONTEXTUAL_DATA} setupCode={SETUP} code={FIVE_DEMO} />
+
+Two of the five are answered, both about direct dependencies ("what depends on
+kb-search?"), which a document states in so many words. The other three fail,
+and not because retrieval did a poor job on them. They have a different shape.
+
+</Subsection>
+
+<Subsection title="A chain no passage describes" variant="b">
+
+"Which agents stop working if auth-service goes down?" Here's what the answer
+needs, and what the ten results contained. This demo also builds an
+`AnswerRetriever`:
+
+<LiveDemo client:load dataFiles={RAG_CONTEXTUAL_DATA} setupCode={SETUP} code={CHAIN_DEMO} />
+
+The answer is a chain. registry-api asks auth-service to validate every
+request, and `support_agent` looks things up through registry-api, and
+`triage_agent` hands work to `support_agent`. Separately, payments-gateway checks
+every certificate with auth-service, and `billing_agent` calls payments-gateway.
+So all three agents depend on auth-service, some of them two or three links
+away.
+
+The links that were found both mention auth-service. The links that were
+missed don't: "support_agent looks things up through registry-api" says nothing
+about auth-service, so it doesn't resemble the question at all. Similarity
+search finds passages that look like the question. In a chain, the passages
+further along look less and less like it, and that's not a ranking problem more
+results or a better reranker can fix. It needs something that follows links.
+
+</Subsection>
+
+<Subsection title="A question about everything" variant="a">
+
+"What recurring causes run through our incidents?" has no answer passage at
+all. The answer is a pattern across every incident report: a certificate that
+expired unnoticed, a cache setting changed without review, replication lag that
+nothing alerted on, a debug flag left on. Each report contains one piece; the
+answer is what they share. Retrieval found three of the four pieces in its top
+ten, but finding pieces isn't the problem. A question like this is about the
+corpus as a whole, and in a corpus of thousands of reports, "the top ten"
+would be a sample, not the whole.
+
+[The GraphRAG paper](https://arxiv.org/abs/2404.16130), by Edge and colleagues
+at Microsoft, calls these **global** questions, and treats them as a
+summarisation task rather than a retrieval task. Its approach, and its answer
+to chains too, starts by turning the documents into a graph: the entities they
+mention and the relationships between them. The rest of this lesson builds one
+from this corpus, answers the chain by walking the graph, and the global
+questions by summarising parts of it, then weighs what that costs.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "Why did retrieval miss \"support_agent looks things up through registry-api\" for a question about auth-service?",
+      "options": [
+        "That passage doesn't mention auth-service, so it doesn't resemble the question",
+        "The runbook it comes from is restricted",
+        "The reranker scored it too low because it's short",
+        "The passage was cut in half by the chunker"
+      ],
+      "correctIndex": 0,
+      "explanation": "In a chain, only the first link mentions the thing the question is about. Each further link resembles the question less, so similarity search can't follow the chain."
+    },
+    {
+      "question": "Why were \"what depends on kb-search?\" and \"if registry-db fails, what else is affected?\" answered?",
+      "options": [
+        "The documents state those dependencies directly, in passages that resemble the questions",
+        "They're shorter questions",
+        "kb-search and registry-db appear in the question's title",
+        "They were in the held-out set"
+      ],
+      "correctIndex": 0,
+      "explanation": "A direct dependency written down in one or two passages is ordinary retrieval. Only answers that need several links chained together defeat it."
+    },
+    {
+      "question": "What makes \"what recurring causes run through our incidents?\" a global question?",
+      "options": [
+        "Its answer is a pattern across all the reports, not a passage in any of them",
+        "It contains the word \"our\"",
+        "It needs the newest reports only",
+        "It's about monitoring"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each report holds one piece. The answer is what they share, which requires considering the whole collection rather than retrieving a few pieces of it."
+    },
+    {
+      "question": "Why doesn't returning more results solve global questions in general?",
+      "options": [
+        "In a large corpus, any top k is a sample of the collection, not the whole of it",
+        "More results always reduce precision to zero",
+        "Rerankers can't score more than ten results",
+        "Global questions have no labelled evidence"
+      ],
+      "correctIndex": 0,
+      "explanation": "With three reports, ten results nearly covers them. With thousands, no practical k does. The approach has to summarise the corpus, not sample it."
+    }
+  ]}
+/>
+
+</CheckpointZone>

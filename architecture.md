@@ -526,6 +526,9 @@ the shared module; restore it in `finally`, because the module outlives the
 test's namespace copy. `QUERY_DATABASE` (`query_database`) is Lesson 11
 concept 4's exercise reference: pages *after* concept 4 only, appended
 after `REGISTRY_DB`.
+Lesson 12's setup is Lesson 11's recap `lib.py` (the Lesson 11 setup through
+`QUERY_DATABASE`), then `REACT_FAKE_CLIENT + RECORDING_CLIENT`, with
+`RAG_CONTEXTUAL_DATA`.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.

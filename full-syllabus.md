@@ -4350,6 +4350,21 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    and build cleanly. Lesson 1's forward references to Lesson 11 stay plain
    prose.
 
+12. **Graph RAG** (provisional title) — **Building** (folder
+   `12-graph-rag`, named while the title is provisional). Shared setup is
+   Lesson 11's recap `lib.py` (the Lesson 11 setup through
+   `QUERY_DATABASE`), then `REACT_FAKE_CLIENT + RECORDING_CLIENT`; data
+   `RAG_CONTEXTUAL_DATA` so far (later concepts will add `graph.json`, and
+   networkx 3.3 in Pyodide, architecture.md §3.1). Concept 1 (when
+   similarity search is the wrong shape) is built: two live demos, code and
+   output exact matches in real Pyodide (the pipeline's top ten on q30 to
+   q34, two answered; q30's five evidence groups, two found); the GraphRAG
+   paper (Edge et al., arXiv 2404.16130) linked, its "global questions" and
+   query-focused summarisation framing checked against the abstract; 4
+   quiz cards; no exercise, as in the mockup. No changes from the mockup.
+   The lesson's other concepts and the bookends aren't drafted yet. Lesson
+   1's and Lesson 2's forward references to Lesson 12 stay plain prose.
+
 ---
 
 ## Modules 4–11 — current plan
