@@ -1,0 +1,354 @@
+---
+title: "Sources that disagree"
+lesson: "04-verifying-claims"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { LOAD_VERIFICATION, verificationData } from "../../../../lib/reliabilityData";
+
+export const STATEMENTS_DATA = verificationData("statements.large", "statements.small", "nli");
+
+export const STATEMENT_JUDGES = String.raw`from collections import Counter
+
+statement_pairs = load_set("set-v")["statement_pairs"]
+
+
+def says_contradict(run_name: str) -> dict:
+    if run_name == "nli":
+        return {r["id"]: max(r["probs"], key=r["probs"].get) == "contradiction"
+                for r in load_run("nli")["results"] if r["set"] == "statements"}
+    return {r["id"]: r["verdict"] == "CONTRADICT" for r in load_run(run_name)["results"]}
+
+
+judges = {"Qwen3.5-9B": says_contradict("statements.large"), "Qwen3.5-4B": says_contradict("statements.small"),
+          "NLI model": says_contradict("nli")}
+`;
+
+export const JUDGES_DEMO = STATEMENT_JUDGES + String.raw`print("pairs each judge called a contradiction:")
+print(f"{'':<12}{'altered':>18}{'reworded':>18}{'compatible':>18}")
+print(f"{'':<12}{'(contradict)':>18}{'(consistent)':>18}{'(consistent)':>18}")
+for name, flagged in judges.items():
+    count = Counter(p["kind"] for p in statement_pairs if flagged[p["id"]])
+    print(f"{name:<12}{count['altered']:>12} of 40{count['reworded']:>12} of 40{count['compatible']:>12} of 40")
+`;
+
+export const JUDGES_SETUP = LOAD_VERIFICATION + STATEMENT_JUDGES;
+
+export const MISSED_DEMO = String.raw`missed = [p for p in statement_pairs if p["kind"] == "altered" and not judges["Qwen3.5-9B"][p["id"]]]
+for pair in missed:
+    print(f"A: {pair['a']}")
+    print(f"B: {pair['b']}")
+    print()
+`;
+
+export const FALSE_ALARM_DEMO = String.raw`nli = {r["id"]: r["probs"] for r in load_run("nli")["results"] if r["set"] == "statements"}
+for pair_id in ("v09-compatible", "v21-compatible"):
+    pair = next(p for p in statement_pairs if p["id"] == pair_id)
+    print(f"A: {pair['a']}")
+    print(f"B: {pair['b']}")
+    print(f"   contradiction {nli[pair_id]['contradiction']:.2f}, "
+          f"entailment {nli[pair_id]['entailment']:.2f}, neutral {nli[pair_id]['neutral']:.2f}")
+    print()
+`;
+
+export const STARTER = String.raw`def find_conflicts(statements: list[str], related, judge) -> dict:
+    """Pairs of statements that contradict each other. related(a, b) is a cheap check in code for
+    whether two statements are about the same thing; judge(a, b), a model call, is asked only about
+    pairs that are. Each pair is considered once."""
+    ...
+
+
+def related(a: str, b: str) -> bool:
+    """A cheap stand-in: two statements are related if they mention the same agent or the rate limit."""
+    def subjects(text):
+        return set(re.findall(r"[a-z]+_agent|requests per minute", text))
+    return bool(subjects(a) & subjects(b))
+
+
+def stand_in_judge(a: str, b: str) -> bool:
+    """A stand-in for a model judge, for trying your code: related statements with different numbers conflict."""
+    numbers_a, numbers_b = set(re.findall(r"\d+", a)), set(re.findall(r"\d+", b))
+    return bool(numbers_a and numbers_b and numbers_a != numbers_b)
+
+
+statements = [
+    "Each key may make 60 requests per minute.",
+    "research_agent moves to claude-sonnet before the switch-off.",
+    "The registry allows 100 requests per minute per key.",
+    "The default page size is 20.",
+    "notes_agent moves to claude-haiku.",
+]
+print(find_conflicts(statements, related, stand_in_judge))
+`;
+
+export const REFERENCE_FN = String.raw`def find_conflicts(statements: list[str], related, judge) -> dict:
+    """Pairs of statements that contradict each other. related(a, b) is a cheap check in code for
+    whether two statements are about the same thing; judge(a, b), a model call, is asked only about
+    pairs that are. Each pair is considered once."""
+    conflicts, judge_calls = [], 0
+    for i in range(len(statements)):
+        for j in range(i + 1, len(statements)):
+            a, b = statements[i], statements[j]
+            if not related(a, b):
+                continue
+            judge_calls += 1
+            if judge(a, b):
+                conflicts.append((i, j))
+    return {"conflicts": conflicts, "judge_calls": judge_calls}
+`;
+
+export const REFERENCE = REFERENCE_FN + STARTER.slice(STARTER.indexOf("\n\ndef related"));
+
+export const TEST_HELPERS = String.raw`import re
+
+judged = []
+
+
+def subjects(text: str) -> set[str]:
+    return set(re.findall(r"[a-z]+_agent|limit|tier", text))
+
+
+def related(a: str, b: str) -> bool:
+    return bool(subjects(a) & subjects(b))
+
+
+def judge(a: str, b: str) -> bool:
+    """A stand-in judge: two statements about the same subject contradict if their numbers differ."""
+    judged.append((a, b))
+    numbers_a, numbers_b = set(re.findall(r"\d+", a)), set(re.findall(r"\d+", b))
+    return bool(numbers_a and numbers_b and numbers_a != numbers_b)
+`;
+
+export const TESTS = [
+// each hidden test runs in its own copy of the learner's namespace, so every test repeats the helpers it uses
+TEST_HELPERS + String.raw`
+
+statements = [
+    "The limit is 60 requests per minute.",
+    "research_agent runs on claude-sonnet.",
+    "The limit is 100 requests per minute.",
+    "notes_agent moves to claude-haiku.",
+    "The limit applies per key, which allows 60 requests per minute.",
+]
+report = find_conflicts(statements, related, judge)
+assert isinstance(report, dict) and set(report) == {"conflicts", "judge_calls"}, "return {'conflicts': ..., 'judge_calls': ...}"
+assert report["conflicts"] == [(0, 2), (2, 4)], (
+    f"conflicts {report['conflicts']}: 60 against 100 in statements 0 and 2, and 100 against 60 in 2 and 4, as "
+    "(i, j) index pairs with i < j, in order")
+assert report["judge_calls"] == 3, (
+    f"judge_calls {report['judge_calls']}: only the three pairs about the limit are related, so only they "
+    "should reach the judge")
+assert len(judged) == 3, f"the judge was called {len(judged)} times but judge_calls says {report['judge_calls']}"
+assert len(set(judged)) == 3 and all((b, a) not in judged for a, b in judged), (
+    "each pair once: after judging (a, b), don't judge (b, a) as well")
+assert all(a != b for a, b in judged), "never judge a statement against itself"
+`,
+TEST_HELPERS + String.raw`
+
+assert find_conflicts(["only one statement"], related, judge) == {"conflicts": [], "judge_calls": 0}, (
+    "one statement has no pairs")
+assert find_conflicts([], related, judge) == {"conflicts": [], "judge_calls": 0}, "no statements, no pairs"
+`,
+TEST_HELPERS + String.raw`
+
+same = ["The limit is 60.", "The limit is 60."]
+assert find_conflicts(same, related, judge) == {"conflicts": [], "judge_calls": 1}, (
+    "two identical statements are one related pair; the judge finds no conflict")
+`,
+];
+
+<Subsection title="Beyond one kind of fact" variant="a">
+
+[Module 5's check for sources that disagree](/05-rag-systems/10-grounded-answers/04-sources-that-disagree/#a-targeted-check-for-facts-that-matter)
+looked for one phrase, a number of requests per minute, and flagged the
+answer when the sources sent stated different values. It said plainly what
+it would miss: "sixty calls a minute", a limit given per hour, and every
+kind of disagreement that isn't about a number. Finding contradictions in
+general means reading two statements and deciding whether both can be true,
+which needs a model, and Module 5 left that to this module.
+
+Deciding whether one statement contradicts another is one of the three
+labels of natural language inference, alongside entailment (one supports
+the other) and neutral (neither). Research on how well language models do it
+over real documents is sobering. Li, Raheja and Kumar's
+[ContraDoc](https://arxiv.org/abs/2311.09182) (NAACL 2024) had people
+annotate contradictions in long documents from several domains and tested
+GPT-3.5, GPT-4, PaLM 2 and Llama 2 on finding them. GPT-4 did best, and
+could outperform people at the task, but the authors still found it
+unreliable, and weakest on contradictions that need nuance and context to
+see.
+
+</Subsection>
+
+<Subsection title="Three judges on 120 statement pairs" variant="b">
+
+This lesson's set V holds 120 pairs of statements, built from the same 40
+facts as the support pairs. Each fact, as the document states it, is paired
+three ways:
+
+- **with its altered version,** one thing changed, which contradicts it
+- **with its reworded version,** the same fact in different words, which
+  doesn't
+- **with another claim from the same document,** a different fact that's
+  compatible with it
+
+The reworded and compatible pairs are there to measure false alarms. Here's
+what the same three judges said, the model judges asked whether both
+statements could be true at once about the same system:
+
+<LiveDemo client:load dataFiles={STATEMENTS_DATA} setupCode={LOAD_VERIFICATION} code={JUDGES_DEMO} />
+
+*(Real verdicts from the committed runs.)*
+
+On these pairs, the model judges' failures went one way: they missed
+contradictions, 5 for the 9B and 15 for the 4B, and raised no false alarms.
+The small inference model did both, missing 8 contradictions and calling 7
+compatible pairs contradictory. That's what happened on 120 pairs with these
+judges. ContraDoc is the evidence that missed contradictions are a general
+weakness; the absence of false alarms here is only this data.
+
+</Subsection>
+
+<Subsection title="What the 9B missed" variant="a">
+
+Here are the 9B's five misses:
+
+<LiveDemo client:load dataFiles={STATEMENTS_DATA} setupCode={JUDGES_SETUP} code={MISSED_DEMO} />
+
+*(`statement_pairs` and `judges` from the demo above are already loaded
+here.)*
+
+They're worth reading one by one, because they aren't all the judge's
+fault:
+
+- **The first needs a step of reasoning.** A doesn't say standard-tier
+  agents can't use `claude-opus`; it says an agent must move to priority
+  first. The contradiction follows, but only by inference.
+- **The second is a clear miss.** Two definitions of the same alert, with
+  different thresholds, can't both be true.
+- **The last three hinge on whether the statements are about the same
+  thing,** and the label assumed they are. A certificate expiring at 06:00
+  doesn't rule out a memory problem at 06:00 unless both are the cause of the
+  same incident, which A doesn't say. "A configuration change" in B needn't
+  be the one in A. And a failover that *should* take 5 minutes can still
+  *normally* take an hour. The judge was asked whether both could be true,
+  and read strictly, they could.
+
+That last group is the nuance and context ContraDoc describes. Two
+statements only contradict each other if they're about the same thing, and
+deciding that is part of the task, for the judge and for whoever writes the
+labels. It's also a reminder that built labels are only as good as the
+statements they're built from: three of these five are arguably this set's
+mistakes, not the model's.
+
+</Subsection>
+
+<Subsection title="False alarms on unrelated statements" variant="b">
+
+The small inference model's false alarms look different:
+
+<LiveDemo client:load dataFiles={STATEMENTS_DATA} setupCode={JUDGES_SETUP} code={FALSE_ALARM_DEMO} />
+
+*(`statement_pairs` from the first demo is already loaded here.)*
+
+These are about entirely different things, and the model called them
+contradictions with near-certainty. Whatever the cause, the practical
+lesson is the same for any judge: only ask it about pairs that are about
+the same subject.
+
+That's also what keeps the check affordable. Comparing every statement with
+every other grows with the square of their number: 20 statements, say four
+from each of five retrieved chunks, make 190 pairs, and each would be a
+model call. A cheap test in code for whether two statements share a subject,
+such as the same agent, error code or setting, cuts that to the few pairs
+where a contradiction is possible. That's the exercise below.
+
+</Subsection>
+
+<Subsection title="When a contradiction is found" variant="a">
+
+Finding the conflict is half the job. What to do with it is what
+[Module 5 set up](/05-rag-systems/10-grounded-answers/04-sources-that-disagree/#giving-the-model-what-it-needs-to-choose):
+give the model each source's date and type, prefer the newer official
+source, and say in the answer that the sources disagree. The general check
+adds one thing: it can flag the conflict whatever the model then writes, so
+an answer that quietly follows the older source can be caught, and so can the
+documents, which someone should reconcile.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "Why couldn't Module 5's rate-limit check find contradictions in general?",
+    "options": [
+      "Because it only ran on the first source",
+      "Because it matched one phrase for one kind of fact",
+      "Because contradictions never involve numbers",
+      "Because it ran after the answer was written"
+    ],
+    "correctIndex": 1,
+    "explanation": "A pattern for \"requests per minute\" can't see \"sixty calls a minute\", a limit per hour, or any disagreement that isn't a number. General contradiction checking means comparing what two statements claim, which needs a model."
+  },
+  {
+    "question": "What did ContraDoc find about GPT-4 and contradictions in long documents?",
+    "options": [
+      "It found every contradiction that people had found",
+      "It did best, but was still unreliable on subtle ones",
+      "It raised a false alarm on almost every document",
+      "It couldn't process documents longer than a page"
+    ],
+    "correctIndex": 1,
+    "explanation": "GPT-4 led the models tested and could outperform people, but the authors found it unreliable, weakest on contradictions needing nuance and context."
+  },
+  {
+    "question": "\"An intermediate certificate expired at 06:00\" and \"the incident started when auth-service ran out of memory at 06:00.\" Why is calling these a contradiction debatable?",
+    "options": [
+      "Because both statements give the same time of day",
+      "Because they only conflict if both name the same cause",
+      "Because certificates can't expire at 06:00 exactly",
+      "Because one of the statements is from a changelog"
+    ],
+    "correctIndex": 1,
+    "explanation": "Two statements contradict only if they're about the same thing. Nothing in the first says it caused the incident, so both could be true. Deciding what a pair refers to is part of the task."
+  },
+  {
+    "question": "Why check whether two statements share a subject before asking a judge whether they conflict?",
+    "options": [
+      "Because judges can't read two statements at once",
+      "It cuts calls and avoids alarms on unrelated pairs",
+      "Because related statements never contradict each other",
+      "Because the judge needs the subject passed as an argument"
+    ],
+    "correctIndex": 1,
+    "explanation": "20 statements make 190 pairs. A cheap filter in code sends only the plausible ones to the model, and in this data it would also have kept the small inference model away from its false alarms."
+  }
+]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Write find_conflicts(statements, related, judge). related(a, b) is a cheap check in code for whether two statements are about the same thing; judge(a, b) is a model call that returns True if they contradict each other. Consider each pair of statements once, never a statement with itself, and call the judge only for related pairs. Return {\"conflicts\": [(i, j), ...], \"judge_calls\": n}, where each conflict is a pair of indices with i < j, in order."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  namespaceSetup={LOAD_VERIFICATION}
+  runnable
+  hint={"Two nested loops, the inner one starting at i + 1, visit each pair once. Check related first and continue if it's false, so the judge, and the count of its calls, only sees the pairs that pass."}
+  correctAnswer={{
+    code: REFERENCE,
+    explanation: "Starting the inner loop at i + 1 gives each unordered pair once, which halves the calls compared with checking both orders, and skips a statement's comparison with itself. Checking related first means the model is only asked about pairs where a contradiction is possible. That saves calls, and it also keeps the judge away from exactly the unrelated pairs the small inference model called contradictions. In the starter's example, 5 statements make 10 pairs, but only one is related, so one judge call finds the conflict. The cost of the filter is its own false-block rate: two statements that conflict without sharing any subject term the filter knows are never judged at all.",
+  }}
+/>
+
+</CheckpointZone>

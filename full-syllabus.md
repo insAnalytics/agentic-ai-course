@@ -4971,9 +4971,27 @@ architecture.md §3.1).
    swapped, agreement as a count). Callbacks: concept 1 (page link), Lesson
    2's `#a-refusal-can-be-a-reliability-failure`, Lesson 1's
    `#how-sure-can-we-be-of-these-numbers` (both verified against the built
-   HTML) and Lesson 2's equal-budgets concept (page link). Concepts 3 on
-   (the next checks sources against each other) and bookends not yet
-   written.
+   HTML) and Lesson 2's equal-budgets concept (page link). Concept 3
+   (sources that disagree) is built: beyond Module 5's one-phrase check
+   (its "sixty calls a minute" / per-hour caveat confirmed in its page),
+   ContraDoc, the three judges on the 120 statement pairs (9B 35/0/0, 4B
+   25/0/0, NLI 32/0/7 called contradictions, as altered/reworded/
+   compatible), the 9B's five misses (three arguably the set's labels), the
+   NLI model's near-certain false alarms on unrelated pairs, and the
+   subject filter that keeps pairwise checking affordable. All three demos
+   and the starter's printout reproduce the mockup byte for byte in real
+   Pyodide 0.26.4 against the committed `statements.*` and `nli` runs. 4
+   quiz cards and a graded `find_conflicts(statements, related, judge)`
+   exercise (`runnable`; `LOAD_VERIFICATION` as `namespaceSetup` also gives
+   the starter its `re`). Tests split into 3 self-contained tests; through
+   the real `TEST_HARNESS` the reference passes all 3 and six wrong
+   versions each fail (the bare starter, both orders, including self,
+   judging every pair, counting only conflicts as calls, statements instead
+   of indices). Callbacks: Module 5 Lesson 10's
+   `#a-targeted-check-for-facts-that-matter` and
+   `#giving-the-model-what-it-needs-to-choose` (verified against the built
+   HTML). Concepts 4 on (the next checks an answer's figures and ids
+   against tool results, in code) and bookends not yet written.
 
 ---
 
