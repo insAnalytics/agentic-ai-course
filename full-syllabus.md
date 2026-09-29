@@ -4350,8 +4350,8 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    and build cleanly. Lesson 1's forward references to Lesson 11 stay plain
    prose.
 
-12. **Graph RAG** (provisional title) — **Building** (folder
-   `12-graph-rag`, named while the title is provisional). Shared setup is
+12. **GraphRAG** — **Locked** (folder `12-graph-rag`, named while the
+   title was provisional; the title comes from the bookends mockup). Shared setup is
    Lesson 11's recap `lib.py` (the Lesson 11 setup through
    `QUERY_DATABASE`), then `REACT_FAKE_CLIENT + RECORDING_CLIENT`; data
    `RAG_CONTEXTUAL_DATA` so far (later concepts will add `graph.json`, and
@@ -4417,8 +4417,31 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    (two flaws, unrelated questions and evaluation biases; three GraphRAG
    methods' gains "much more moderate than reported previously"). 4 quiz
    cards; no exercise, as in the mockup. No changes from the mockup.
-   The lesson's other concepts and the bookends aren't drafted yet. Lesson
-   1's and Lesson 2's forward references to Lesson 12 stay plain prose.
+   Bookends are built: intro (3 outcomes, why it matters, verbatim from the
+   mockup), 8 quiz cards, and the multi-file `find_dependents` /
+   `answer_with_graph` sandbox (`lib.py` read-only, `graph_tool.py` entry,
+   hidden tests prefixed with `REACT_FAKE_CLIENT + RECORDING_CLIENT`, data
+   `RAG_GRAPH_DATA`). Starter and reference byte-identical to the mockup.
+   **Change from the mockup's `lib.py`:** the same stale lesson numbers as
+   Lesson 11's recap (headers Lessons 5 to 9, "as in Lesson 5", "Lesson 8's
+   best retrieval"), renumbered to match the site; otherwise it matches the
+   Lesson 12 setup line for line, apart from the merged `collections`
+   import. **Changes from the mockup's hidden tests:** three mutations
+   passed them, so test 3 gains a backticked name that must come back
+   canonical in the nothing-depends message, test 5 requires the search
+   result to be exactly `contextual_search`'s, and a new test 6 makes calls
+   across two responses, which must all be listed. Verified with the real
+   `runMultiFileAgainstHiddenTests`: the reference passes (about 2.5 s in
+   Node), the starter fails, and fourteen mutations each fail (no
+   `canonical`, the unknown name unstripped, every entity listed as known,
+   known names unsorted, the raw name in the nothing-depends message, the
+   listing unsorted, sources joined with spaces, cited chunks unsorted, no
+   source chunks, plain keyword search, calls from the first response only,
+   cited ids unfiltered, no unknown ids, `max_steps` ignored).
+
+   Lesson 12 is now **Locked**: all five concepts plus both bookends exist
+   and build cleanly. Lesson 1's and Lesson 2's forward references to
+   Lesson 12 stay plain prose.
 
 ---
 
