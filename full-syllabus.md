@@ -4404,6 +4404,19 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    from a security-only report checked (D12's access is `["security"]`).
    Edge et al.'s paper linked again. 4 quiz cards; no exercise, as in the
    mockup. No changes from the mockup.
+   Concept 5 (what it costs, and when it's worth it) is built: no new
+   shared code, setup as concept 4's. One live demo, code and output exact
+   match in real Pyodide (25 extraction calls, 7,876 input tokens; 1,968
+   calls and 682,083 input tokens for the whole corpus, 2.94 times its
+   232,241 tokens). Claims checked against their sources and linked:
+   Microsoft Research's LazyGraphRAG post (indexing "identical to vector
+   RAG and 0.1% of the costs of full GraphRAG", all model use deferred to
+   query time, comparable quality to GraphRAG global search at "more than
+   700 times lower query cost", on 5,590 AP news articles judged by a
+   model comparing answer pairs) and Zeng et al. 2025, arXiv 2506.06331
+   (two flaws, unrelated questions and evaluation biases; three GraphRAG
+   methods' gains "much more moderate than reported previously"). 4 quiz
+   cards; no exercise, as in the mockup. No changes from the mockup.
    The lesson's other concepts and the bookends aren't drafted yet. Lesson
    1's and Lesson 2's forward references to Lesson 12 stay plain prose.
 
