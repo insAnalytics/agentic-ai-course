@@ -4251,6 +4251,23 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    q27 to q29, where only two hops answer q29). The Lesson 9 link goes to
    "The subject is somewhere else", anchor checked in the built HTML; 4
    quiz cards; no exercise, as in the mockup. No changes from the mockup.
+   Concept 3 (searching again, and stopping) is built: no new shared code;
+   two live demos, code and output exact matches in real Pyodide (the stuck
+   model spending all five steps; the two-hop run's per-call input tokens
+   against Lesson 10's single request); the prose's "3 of the 43
+   answerable" checked against `queries.json` (q27 to q29 in the main
+   set); 4 quiz cards; graded `SearchBudget` exercise, reference exported
+   as `SEARCH_BUDGET` for later pages. **Changes from the mockup's hidden
+   tests:** tests 2 and 3 reused test 1's `budget` and `calls`, so each now
+   starts from the shared fixture and replays the earlier searches it needs;
+   test 3 gains a `max_searches=2` budget, because a message hard-coding
+   "3 searches" passed every original test. Verified with the real
+   `runAgainstHiddenTests`: the reference passes, the starter fails all
+   four, and twelve mutations each fail (no normalising, lowercase only,
+   limit checked before repeats, `>` for `>=`, raw query recorded, `k`
+   dropped, the normalised query searched, query unstripped or normalised
+   in the message, a repeat still searching, a repeat counted, "3"
+   hard-coded).
    The lesson's other concepts and the bookends aren't drafted yet. Lesson 1's forward
    references to Lesson 11 stay plain prose.
 

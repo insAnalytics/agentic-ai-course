@@ -1149,3 +1149,31 @@ def contextual_search(query: str, k: int = 5) -> str:
     sources = [SOURCE_CHUNKS[(c["doc_id"], c["chunk"])] for c in results]
     return "\n\n".join(format_source(f"{c['doc_id']}:{c['chunk']}", c) for c in sources)
 `;
+
+/**
+ * Module 5 Lesson 11 concept 3 graded exercise, reference solution verbatim
+ * (SearchBudget). Joins the Lesson 11 setup for every page AFTER concept 3
+ * (append after CONTEXTUAL_SEARCH) and must never load on concept 3 itself,
+ * or the exercise would start already solved.
+ */
+export const SEARCH_BUDGET = String.raw`
+class SearchBudget:
+    """Wraps a search tool: refuses a repeated query and stops searching after a limit,
+    telling the model why in both cases, so it answers with what it has."""
+
+    def __init__(self, search, max_searches: int = 3):
+        self.search = search
+        self.max_searches = max_searches
+        self.queries = []
+
+    def __call__(self, query: str, k: int = 5) -> str:
+        normalized = " ".join(query.lower().split())
+        if normalized in self.queries:
+            return (f"You already searched for {query.strip()!r}; its results are above. "
+                    "Search with different words, or answer with what you have.")
+        if len(self.queries) >= self.max_searches:
+            return (f"Search limit reached ({self.max_searches} searches). "
+                    "Answer from the results you have, or say that the sources don't say.")
+        self.queries.append(normalized)
+        return self.search(query, k)
+`;

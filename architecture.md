@@ -490,7 +490,9 @@ exercise reference: pages *after* concept 1 only, appended after
 `CONTEXT_INDEX` over Lesson 9's contextual text, `SOURCE_CHUNKS`,
 `contextual_search`, which finds chunks by their context but returns source
 text; shown verbatim on that page), with `RAG_CONTEXTUAL_DATA`, which also
-covers `AnswerRetriever`.
+covers `AnswerRetriever`. `SEARCH_BUDGET` (`SearchBudget`) is Lesson 11
+concept 3's exercise reference: pages *after* concept 3 only, appended
+after `CONTEXTUAL_SEARCH`.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.
