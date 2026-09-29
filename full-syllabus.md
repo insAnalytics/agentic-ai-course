@@ -4348,8 +4348,7 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
 
    Lesson 11 is now **Locked**: all five concepts plus both bookends exist
    and build cleanly. Lesson 1's forward references to Lesson 11 stay plain
-   prose. Lesson 1's forward
-   references to Lesson 11 stay plain prose.
+   prose.
 
 ---
 
