@@ -1419,3 +1419,45 @@ class PermittedRetriever:
                                   lambda c: self._scores.score(query["id"], c), k=k)
         return [{**originals[(r["doc_id"], r["chunk"])], "score": self._scores.score(query["id"], r)} for r in results]
 `;
+
+/**
+ * Module 5 Lesson 13 concept 2 CHUNK_ACCESS and readable, shown verbatim on
+ * that page (keep the two byte-identical). Joins the Lesson 13 setup from
+ * concept 2 on: append after PERMITTED_RETRIEVER.
+ */
+export const READABLE = String.raw`
+CHUNK_ACCESS = {f"{c['doc_id']}:{c['chunk']}": set(c["access"])
+                for d in load_documents() for c in structured_chunks(d, 200)}
+
+def readable(chunk_id: str, groups) -> bool:
+    """Whether a reader with these groups may read the chunk with this id."""
+    return bool(set(groups) & CHUNK_ACCESS[chunk_id])
+`;
+
+/**
+ * Module 5 Lesson 13 concept 2 graded exercise, reference solution verbatim
+ * (graph_for_reader, summaries_for_reader). Joins the Lesson 13 setup for
+ * every page AFTER concept 2 (append after READABLE) and must never load on
+ * concept 2 itself, or the exercise would start already solved.
+ */
+export const READER_VIEWS = String.raw`
+def graph_for_reader(graph: dict, groups) -> dict:
+    """The graph as this reader may see it: each edge keeps only the sources they may read,
+    and an edge with no readable source is dropped."""
+    visible = {}
+    for edge, sources in graph.items():
+        permitted = [s for s in sources if readable(s, groups)]
+        if permitted:
+            visible[edge] = permitted
+    return visible
+
+def summaries_for_reader(graph: dict, groups, summaries: dict) -> dict:
+    """The community summaries this reader may see: only those whose every source they may read,
+    since a summary can repeat anything it was written from. Keyed like ${"`"}summaries${"`"}."""
+    shown = {}
+    for community in graph_communities(graph):
+        anchor = next((name for name in summaries if name in community), None)
+        if anchor and all(readable(s, groups) for s in community_sources(graph, community)):
+            shown[anchor] = summaries[anchor]
+    return shown
+`;

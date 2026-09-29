@@ -4465,8 +4465,28 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    starter fails all five, and nine mutations each fail (filtering
    afterwards, a tuple cache key, no cache, contextual text returned, no
    `None` for unreadable groups, no score, `k` ignored, an unfiltered
-   pipeline, plain chunks instead of contextual ones). The lesson's other
-   concepts and the bookends aren't drafted yet. Earlier lessons' forward
+   pipeline, plain chunks instead of contextual ones). Concept 2 (derived
+   data carries its sources' permissions) is built: setup now appends
+   `PERMITTED_RETRIEVER` and the new `READABLE` (`CHUNK_ACCESS`,
+   `readable`), shown as a static block byte-identical to the export and
+   the mockup. One live demo, code and output exact match in real Pyodide
+   (17 restricted contexts, 2 SEC-014 edges, INC-2093's summary resting on
+   2 restricted chunks). Morris et al. (EMNLP 2023, arXiv 2310.06816)
+   linked, its 92%-of-32-token-inputs figure checked. 4 quiz cards; graded
+   `graph_for_reader` / `summaries_for_reader` exercise, reference
+   exported as `READER_VIEWS`. The task adds "already loaded" after
+   `readable(chunk_id, groups)`, since the mockup's wording could read as if
+   it were one of the two functions to write. **Changes from the mockup's
+   hidden tests:** each test starts with the shared fixtures, since each
+   runs alone; test 3 gains a summaries dict with two keys in one community,
+   because taking the last matching key passed every original test.
+   Verified with the real `runAgainstHiddenTests`: the reference passes,
+   the starter fails all three, and nine mutations each fail (every source
+   kept, an edge needing every source readable, empty edges kept, sources
+   reordered, a summary shown if any source is readable, communities or
+   sources taken from the filtered graph, no check for a missing summary,
+   the last matching key). The lesson's other concepts and the bookends
+   aren't drafted yet. Earlier lessons' forward
    references to Lesson 13 stay plain prose.
 
 ---

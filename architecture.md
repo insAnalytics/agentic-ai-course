@@ -545,7 +545,11 @@ Lesson 13's setup is Lesson 12's recap `lib.py` (the Lesson 12 setup through
 `GRAPH_COMMUNITIES`), then `REACT_FAKE_CLIENT + RECORDING_CLIENT`, with
 `RAG_GRAPH_DATA`. `PERMITTED_RETRIEVER` (`PermittedRetriever`) is Lesson 13
 concept 1's exercise reference: pages *after* concept 1 only, appended after
-`RECORDING_CLIENT`.
+`RECORDING_CLIENT`. From Lesson 13 concept 2 on the setup appends
+`PERMITTED_RETRIEVER` and then `READABLE` (`CHUNK_ACCESS`, `readable`, shown
+verbatim on that page); `READER_VIEWS` (`graph_for_reader`,
+`summaries_for_reader`) is concept 2's exercise reference, for pages *after*
+concept 2 only, appended after `READABLE`.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.
