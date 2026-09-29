@@ -4842,8 +4842,8 @@ architecture.md §3.1).
    code strings were generated from the verified files and compared byte
    for byte.
 
-3. **Checks in the Loop** (provisional title; folder
-   `03-checks-in-the-loop`) — **Building**. Concept 1 (where a check can
+3. **Checks in the Loop** — **Locked** (folder `03-checks-in-the-loop`;
+   the bookends confirmed the title). Concept 1 (where a check can
    sit in the loop) is built: the four hook points (before a model call,
    on a tool call, on a tool result, on the final answer) with what each
    can and can't catch, `Checks` and `run_checked_agent` (Module 2's loop
@@ -4910,8 +4910,23 @@ architecture.md §3.1).
    step, a side-effecting step run alongside, first failure in list order,
    no `finally`). Logged in architecture.md 4.1. Tests split into 6
    self-contained tests, one per numbered section. Callback: Module 3
-   Lesson 4's concurrent-tool-calls concept (page link). This is the
-   lesson's last concept; only the bookends remain.
+   Lesson 4's concurrent-tool-calls concept (page link). Bookends built
+   from `lesson-6-3-bookends.md`: an intro (3 outcomes, why-it-matters) and
+   a `recap-practice` page with a 7-question comprehensive quiz and a
+   `MultiFileGradedExercise`: read-only `lib.py` (the fake client classes
+   and `CHECKED_AGENT` verbatim, the registry tools, four checks and seven
+   labelled scripted runs) and `measure.py`'s `measure(cases, checks)`,
+   which counts each check point's catches, misses and false blocks.
+   Verified in real Pyodide 0.26.4 with real imports: the reference's Run
+   output matches the mockup byte for byte (the scope check shows one
+   catch, one miss and one false block), the hidden tests pass, and six
+   wrong versions each fail with the intended message (mutating the given
+   Checks, counting firings not runs, a fired-set or tools shared across
+   runs, miss and false block swapped, no zero rows). The reference's
+   docstring backticks and `lib.py`'s `` regex are escaped for
+   String.raw, and every template was evaluated in JS to confirm it equals
+   the verified file. The explanation's callback is a real link, rendered
+   by `LinkedText`.
 
 ---
 

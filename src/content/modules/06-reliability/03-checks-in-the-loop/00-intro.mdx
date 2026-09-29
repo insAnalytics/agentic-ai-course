@@ -1,0 +1,24 @@
+---
+title: "Intro"
+lesson: "03-checks-in-the-loop"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Place a check at the right point in the agent loop, before a model call, on a tool call, on a tool result or on the final answer, knowing what each can and can't see",
+    "Turn a tool result that reports success but can't be used into a marked error the model can act on, without blocking good results",
+    "Choose what a failed check does, and when a check may run in parallel with the work it guards",
+  ]}
+/>
+
+<WhyItMatters>
+  Lesson 2 said where reliability is worth spending. This lesson is where the
+  spending happens: small pieces of code at fixed points in the loop, each
+  catching one kind of failure. Placed well, they catch the wrong value,
+  the empty result and the leaked key before they do damage. Placed badly, or
+  written carelessly, they block good work, and a check that nobody measures
+  does both without anyone noticing.
+</WhyItMatters>
