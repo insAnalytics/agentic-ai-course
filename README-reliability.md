@@ -41,10 +41,14 @@ Face, find its recommended sampling settings for thinking and non-thinking mode,
 with `SAMPLING` at the top of `scripts/generate-reliability-samples.py`. If they differ, edit the
 script. Whatever is used is saved with the run.
 
-**Smoke test (a few minutes):**
+**Smoke test.** On a fresh session, startup takes about 10 minutes (compiling kernels and
+capturing CUDA graphs); the GPU shows 0% use during it, which is normal. The engine args below are
+what fits a T4: `language_model_only` skips the vision encoder, `max_num_batched_tokens` shrinks the
+startup memory profile, and `max_num_seqs` stays under the model's per-sequence state budget
+(the default 256 fails with "exceeds available Mamba cache blocks").
 
 ```bash
-!python scripts/generate-reliability-samples.py --condition plain --limit 5
+!python scripts/generate-reliability-samples.py --condition plain --limit 5 --engine-args '{"language_model_only": true, "max_num_batched_tokens": 2048, "max_num_seqs": 128}'
 !python -c "import json; d=json.load(open('public/data/reliability/runs/plain.limit5.json')); [print(s['text'][-300:], '->', s['correct'], chr(10)) for s in d['results'][0]['samples'][:3]]"
 ```
 
@@ -60,10 +64,10 @@ The replies should be readable text ending in `ANSWER: ...`. Things that can go 
 **The runs.** Each condition is its own command, so a session limit never loses finished work:
 
 ```bash
-!python scripts/generate-reliability-samples.py --condition plain
-!python scripts/generate-reliability-samples.py --condition wordings
-!python scripts/generate-reliability-samples.py --condition thinking
-!python scripts/generate-reliability-samples.py --condition stronger --engine-args '{"tensor_parallel_size": 2}'
+!python scripts/generate-reliability-samples.py --condition plain --engine-args '{"language_model_only": true, "max_num_batched_tokens": 2048, "max_num_seqs": 128}'
+!python scripts/generate-reliability-samples.py --condition wordings --engine-args '{"language_model_only": true, "max_num_batched_tokens": 2048, "max_num_seqs": 128}'
+!python scripts/generate-reliability-samples.py --condition thinking --engine-args '{"language_model_only": true, "max_num_batched_tokens": 2048, "max_num_seqs": 128}'
+!python scripts/generate-reliability-samples.py --condition stronger --engine-args '{"language_model_only": true, "max_num_batched_tokens": 2048, "max_num_seqs": 128, "tensor_parallel_size": 2}'
 ```
 
 - `stronger` uses Qwen3.5-9B, which needs both T4s in float16 (the flag splits it across them).
