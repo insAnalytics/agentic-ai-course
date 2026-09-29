@@ -485,7 +485,12 @@ agent writes its own queries and only keyword search runs on unseen text in
 the browser; nothing in the setup reads stored vectors, so the data is just
 `RAG_DATA`. `SEARCH_DOCUMENTS` (`search_documents`) is Lesson 11 concept 1's
 exercise reference: pages *after* concept 1 only, appended after
-`AGENT_SEARCH`.
+`AGENT_SEARCH`. From Lesson 11 concept 2 on the setup appends
+`SEARCH_DOCUMENTS` and then `CONTEXTUAL_SEARCH` (`CONTEXTS`, a BM25
+`CONTEXT_INDEX` over Lesson 9's contextual text, `SOURCE_CHUNKS`,
+`contextual_search`, which finds chunks by their context but returns source
+text; shown verbatim on that page), with `RAG_CONTEXTUAL_DATA`, which also
+covers `AnswerRetriever`.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.

@@ -1,0 +1,208 @@
+---
+title: "Multi-hop questions"
+lesson: "11-agentic-rag"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { COUNT_TOKENS, REACT_FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, SIGN_TEST, FIXED_CHUNKS, STRUCTURE_HELPERS, STRUCTURED_CHUNKS, WITHIN_BUDGET, VECTORS, VECTOR_INDEX, MEANING_SEARCH, TERMS, BM25_INDEX, RERANK_SCORES, RERANK, LISTWISE_RERANK, MODULE_PIPELINE, REWRITE_QUERY, SPLIT_QUERY, INTERLEAVE, HYDE, WITH_HEADER, VERSIONED_PIPELINE, WITH_CONTEXT, EXPAND_NEIGHBOURS, ANSWER_RETRIEVER, ANSWER_INSTRUCTIONS, ASSEMBLE_REQUEST, CHECK_CITATIONS, DECLINED, AGENT_SEARCH, SEARCH_DOCUMENTS, CONTEXTUAL_SEARCH, RAG_CONTEXTUAL_DATA } from "../../../../lib/ragCorpus";
+
+export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION + METRICS + SIGN_TEST + FIXED_CHUNKS + STRUCTURE_HELPERS + STRUCTURED_CHUNKS + WITHIN_BUDGET + VECTORS + VECTOR_INDEX + MEANING_SEARCH + TERMS + BM25_INDEX + RERANK_SCORES + RERANK + LISTWISE_RERANK + MODULE_PIPELINE + REWRITE_QUERY + SPLIT_QUERY + INTERLEAVE + HYDE + WITH_HEADER + VERSIONED_PIPELINE + WITH_CONTEXT + EXPAND_NEIGHBOURS + ANSWER_RETRIEVER + ANSWER_INSTRUCTIONS + ASSEMBLE_REQUEST + CHECK_CITATIONS + DECLINED + REACT_FAKE_CLIENT + RECORDING_CLIENT + AGENT_SEARCH + SEARCH_DOCUMENTS + CONTEXTUAL_SEARCH;
+
+export const MISSING_DEMO = String.raw`query = next(q for q in load_queries()["main"] if q["id"] == "q27")
+print(query["query"])
+print("chunks containing 'INC-2067':", [f"{c['doc_id']}:{c['chunk']}" for c in CORPUS_CHUNKS if "INC-2067" in c["text"]])
+print("\nsearch_documents('INC-2067 affected agent'), sources returned:")
+print(re.findall(r'<source id="([^"]+)"[^>]*section="([^"]+)"', search_documents("INC-2067 affected agent")))
+`;
+
+export const HOPS_DEMO = String.raw`client = RecordingClient([
+    [ToolUseBlock("search_documents", {"query": "INC-2067 affected agent"})],
+    [ToolUseBlock("search_documents", {"query": "research_agent claude-legacy target model switched off"})],
+    [TextBlock("INC-2067 affected research_agent [D10:0]. It must move from claude-legacy to claude-sonnet "
+               "[D07:1] before claude-legacy is switched off on 2026-10-31 [D07:0].")],
+])
+messages = [{"role": "user", "content": "What model does the agent affected by INC-2067 need to move to, and by when?"}]
+answer = run_agent(client, messages, {"search_documents": contextual_search})
+
+for message in messages:
+    for block in message["content"] if isinstance(message["content"], list) else []:
+        if getattr(block, "type", None) == "tool_use":
+            print(f"search: {block.input['query']!r}")
+        elif isinstance(block, dict) and block["type"] == "tool_result":
+            ids = re.findall(r'<source id="([^"]+)"', block["content"])
+            print(f"  got {ids}")
+print(f"\nanswer: {answer}")
+`;
+
+export const MEASURED_DEMO = String.raw`labelled = {q["id"]: q for q in load_queries()["main"]}
+# the queries a model writes after reading each first search's results, as in the run above
+hops = {
+    "q27": ["INC-2067 affected agent", "research_agent claude-legacy target model switched off"],
+    "q28": ["INC-2093 unavailable", "monitoring can't reach Registry API error code"],
+    "q29": ["INC-2041 alert fired first", "AgentErrorRateHigh"],
+}
+pipeline = AnswerRetriever()
+# single searches return 10 results, the same number as two hops of 5
+print(f"{'':<6}{'keyword, once':>15}{'contextual keyword, once':>26}{'full pipeline, once':>21}{'contextual keyword, two hops':>30}")
+for query_id, (first, second) in hops.items():
+    query = labelled[query_id]
+    two_hops = CONTEXT_INDEX.search(first, 5) + CONTEXT_INDEX.search(second, 5)
+    row = [answerable(CORPUS_INDEX.search(query["query"], 10), query),
+           answerable(CONTEXT_INDEX.search(query["query"], 10), query),
+           answerable(pipeline.search(query, 10), query),
+           answerable(two_hops, query)]
+    print(f"{query_id:<6}" + "".join(f"{str(v):>{w}}" for v, w in zip(row, (15, 26, 21, 30))))
+`;
+
+<Subsection title="A question that needs two answers" variant="a">
+
+"What model does the agent affected by INC-2067 need to move to, and by
+when?" No single passage answers it. The incident report says which agent was
+affected. The migration runbook says where that agent must move and by when.
+The runbook never mentions INC-2067, and the incident report never mentions
+the migration. To find the second passage you need the answer from the first:
+the agent's name. Questions like this are called **multi-hop**, and they're
+where an agent that can search more than once has a real advantage.
+
+There's a problem before the first hop, though:
+
+<LiveDemo client:load dataFiles={RAG_CONTEXTUAL_DATA} setupCode={SETUP} code={MISSING_DEMO} />
+
+No chunk contains "INC-2067", because the id is only in the incident report's
+title, which is exactly [Lesson 9's problem](/05-rag-systems/09-contextual-chunks/01-chunks-that-dont-say-what-theyre-about/#the-subject-is-somewhere-else).
+The keyword tool can't find the report however many times the agent tries,
+because the words it would need aren't in the index. Searching harder doesn't
+fix a gap in what was indexed.
+
+So from here on, the tool searches Lesson 9's contextual text, where every
+internal chunk carries its model-written context, and every vendor chunk its
+header. It still sends the model source text only, as Lesson 9 required. It's
+defined once here and already loaded for every demo and exercise from here to
+the end of this lesson:
+
+```python
+CONTEXTS = json.loads((DATA / "chunk-contexts.json").read_text())["contexts"]
+CONTEXT_INDEX = BM25Index()
+CONTEXT_INDEX.add([with_context(c, CONTEXTS) for c in CORPUS_CHUNKS])
+SOURCE_CHUNKS = {(c["doc_id"], c["chunk"]): c for c in CORPUS_CHUNKS}
+
+def contextual_search(query: str, k: int = 5) -> str:
+    """search_documents over Lesson 9's contextual text: chunks are found by their header or
+    context, but the model is sent the source text only."""
+    query = query.strip()
+    if not query:
+        return "Error: the query is empty. Search with a few specific words, such as a name, an error code or an incident id."
+    results = CONTEXT_INDEX.search(query, min(max(int(k), 1), 10))
+    if not results:
+        return f"No documents matched {query!r}. Try different words, such as a synonym or a more specific term."
+    sources = [SOURCE_CHUNKS[(c["doc_id"], c["chunk"])] for c in results]
+    return "\n\n".join(format_source(f"{c['doc_id']}:{c['chunk']}", c) for c in sources)
+```
+
+</Subsection>
+
+<Subsection title="Two hops" variant="b">
+
+Here's the agent answering the question with that tool. The model's tool
+calls and answer are scripted; every search runs for real:
+
+<LiveDemo client:load dataFiles={RAG_CONTEXTUAL_DATA} setupCode={SETUP} code={HOPS_DEMO} />
+
+The first search finds the incident report. Its chunks name `research_agent`,
+and even the chunks that don't are tagged with the report's title, which
+`format_source` includes. So the model writes its second query with a word the
+user never said: the agent's name. That search finds the runbook's table and
+its deadline. The answer cites both hops.
+
+</Subsection>
+
+<Subsection title="Measured" variant="a">
+
+Here are the module's three multi-hop questions, with the scripted two-hop
+queries written the same way. For a fair comparison, single searches return
+ten results, as many as two hops of five. The demo builds Lesson 10's
+`AnswerRetriever` for the full pipeline, so allow a few seconds:
+
+<LiveDemo client:load dataFiles={RAG_CONTEXTUAL_DATA} setupCode={SETUP} code={MEASURED_DEMO} />
+
+Three things to read from this, with the obvious caution that three questions
+is a very small sample:
+
+- **Plain keyword search, once, answered none.** The identifiers these
+  questions start from are in titles, not text.
+- **The full pipeline, once, answered two.** Search by meaning, contextual
+  chunks and reranking together found both hops' passages in one search for
+  q27 and q28. A good single search can cover two hops when both passages are
+  close enough in meaning to the question.
+- **Only two hops answered q29,** "What does the alert that fired first in
+  INC-2041 actually measure?" The alert's definition is in the monitoring
+  guide, which shares almost no words with the question. It's found by the alert's
+  name, `AgentErrorRateHigh`, and the only way to learn that name from this
+  question is to read the incident report first. No single search, however
+  good, can use a word the question doesn't contain.
+
+Keep in mind what's scripted here. The model's queries were written to be
+what a model plausibly writes after reading the first results, and the
+searches are real. A real model might write better or worse queries, or stop
+after one hop. Measuring that needs a live model, and it's the kind of
+evaluation Module 7 covers.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "What makes a question multi-hop?",
+      "options": [
+        "Its answer needs information that can only be found using an earlier answer",
+        "It has more than one clause",
+        "Its answer is in more than one document",
+        "It needs more than five results"
+      ],
+      "correctIndex": 0,
+      "explanation": "In q27, the agent's name comes from the incident report, and only with that name can the runbook's answer be found. The second search depends on the first."
+    },
+    {
+      "question": "The keyword tool couldn't find the INC-2067 report however it was asked. Why, and what fixed it?",
+      "options": [
+        "The id wasn't in any chunk's text; indexing Lesson 9's contextual text put it there",
+        "BM25 ignores identifiers; switching to search by meaning fixed it",
+        "The report was restricted; removing the filter fixed it",
+        "The agent searched too few times; searching more fixed it"
+      ],
+      "correctIndex": 0,
+      "explanation": "An agent can only find words that are in the index. Contexts written from the whole document put the incident's id next to every chunk of its report."
+    },
+    {
+      "question": "Why could no single search answer q29, even the full pipeline?",
+      "options": [
+        "The alert's definition is found by its name, which only the incident report contains",
+        "The monitoring guide is too long to be retrieved",
+        "The reranker scores alert definitions too low",
+        "q29 uses a word that's a stopword"
+      ],
+      "correctIndex": 0,
+      "explanation": "The question says \"the alert that fired first\", never AgentErrorRateHigh. The name has to be read from the first search's results before the second search can use it."
+    },
+    {
+      "question": "In the measurement, what's real and what's scripted?",
+      "options": [
+        "The searches and their results are real; the model's queries and answer are scripted",
+        "Everything is real, including the model's queries",
+        "The results are scripted; the queries are real",
+        "Everything is scripted, so the comparison shows nothing"
+      ],
+      "correctIndex": 0,
+      "explanation": "The retrieval results are real, so they show that two well-chosen searches find what one can't. Whether a real model chooses those searches needs a live evaluation."
+    }
+  ]}
+/>
+
+</CheckpointZone>

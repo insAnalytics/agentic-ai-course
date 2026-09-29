@@ -4241,8 +4241,17 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    the starter fails all four, and eleven mutations each fail (no strip,
    raising on an empty query, no `int`, no upper or lower clamp, quotes
    instead of `repr`, a single newline between results, `doc_id` alone as
-   the id, raising when nothing matches, `k` ignored). The lesson's other
-   concepts and the bookends aren't drafted yet. Lesson 1's forward
+   the id, raising when nothing matches, `k` ignored). Concept 2 (multi-hop
+   questions) is built: setup now appends `SEARCH_DOCUMENTS` and the new
+   `CONTEXTUAL_SEARCH`, shown as a static block byte-identical to the
+   export and the mockup; data `RAG_CONTEXTUAL_DATA` (chunk contexts, and
+   everything `AnswerRetriever` reads). Three live demos, code and output
+   exact matches in real Pyodide (no chunk contains "INC-2067"; the
+   scripted two-hop run on q27 with real searches; the four-way table for
+   q27 to q29, where only two hops answer q29). The Lesson 9 link goes to
+   "The subject is somewhere else", anchor checked in the built HTML; 4
+   quiz cards; no exercise, as in the mockup. No changes from the mockup.
+   The lesson's other concepts and the bookends aren't drafted yet. Lesson 1's forward
    references to Lesson 11 stay plain prose.
 
 ---

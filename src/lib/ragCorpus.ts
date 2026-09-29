@@ -1124,3 +1124,28 @@ def search_documents(query: str, k: int = 5) -> str:
         return f"No documents matched {query!r}. Try different words, such as a synonym or a more specific term."
     return "\n\n".join(format_source(f"{c['doc_id']}:{c['chunk']}", c) for c in results)
 `;
+
+/**
+ * Module 5 Lesson 11 concept 2 CONTEXTS, CONTEXT_INDEX, SOURCE_CHUNKS and
+ * contextual_search, shown verbatim on that page (keep the two
+ * byte-identical). Joins the Lesson 11 setup from concept 2 on: append after
+ * SEARCH_DOCUMENTS. Needs chunk-contexts.json (RAG_CONTEXTUAL_DATA).
+ */
+export const CONTEXTUAL_SEARCH = String.raw`
+CONTEXTS = json.loads((DATA / "chunk-contexts.json").read_text())["contexts"]
+CONTEXT_INDEX = BM25Index()
+CONTEXT_INDEX.add([with_context(c, CONTEXTS) for c in CORPUS_CHUNKS])
+SOURCE_CHUNKS = {(c["doc_id"], c["chunk"]): c for c in CORPUS_CHUNKS}
+
+def contextual_search(query: str, k: int = 5) -> str:
+    """search_documents over Lesson 9's contextual text: chunks are found by their header or
+    context, but the model is sent the source text only."""
+    query = query.strip()
+    if not query:
+        return "Error: the query is empty. Search with a few specific words, such as a name, an error code or an incident id."
+    results = CONTEXT_INDEX.search(query, min(max(int(k), 1), 10))
+    if not results:
+        return f"No documents matched {query!r}. Try different words, such as a synonym or a more specific term."
+    sources = [SOURCE_CHUNKS[(c["doc_id"], c["chunk"])] for c in results]
+    return "\n\n".join(format_source(f"{c['doc_id']}:{c['chunk']}", c) for c in sources)
+`;
