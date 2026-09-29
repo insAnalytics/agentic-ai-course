@@ -4775,8 +4775,8 @@ architecture.md §3.1).
    bootstrap in log order, `<= 0.5`, no k check). The page's code strings
    were generated from the verified files and compared byte for byte.
 
-2. **What Reliability Costs** (provisional title; folder
-   `02-reliability-tradeoffs`) — **Building**. Concept 1 (four things every
+2. **Accuracy, Latency, Cost, and False Refusals** — **Locked** (folder
+   `02-reliability-tradeoffs`, named before the title existed). Concept 1 (four things every
    technique trades) is built, prose and quiz only: accuracy, latency, cost
    and false refusals; Kapoor et al. on accuracy without cost; OR-Bench,
    XSTest and AgentDojo's two-defence table on false refusals; the
@@ -4827,8 +4827,20 @@ architecture.md §3.1).
    output exactly in real Pyodide 0.26.4. Callbacks: this lesson's concept
    1 and Lesson 1's concept 1 (page links), and Module 3 Lesson 11's
    `#not-all-tools-carry-the-same-risk` (verified against the built HTML).
-   4 quiz cards. This is the lesson's last concept; only the bookends
-   remain.
+   4 quiz cards. Bookends built from `lesson-6-2-bookends.md`: an intro
+   (3 outcomes, why-it-matters) and a `recap-practice` page with a
+   7-question comprehensive quiz and a `MultiFileGradedExercise`:
+   read-only `lib.py` (concept 3's `pareto_frontier`) and `plan.py`'s
+   `plan_agent(steps, max_latency, max_false_blocks)` on made-up
+   measurements. Verified in real Pyodide 0.26.4 with real imports: the
+   reference's Run output matches the mockup byte for byte (total cost
+   9.0, latency 2.8 s), the hidden tests pass, and eight wrong versions
+   each fail with the intended message (frontier before filtering,
+   choosing from every allowed option, exclusive limits, no name
+   tie-break, a ValueError without the step name, most-accurate or
+   cheapest everywhere, totals over every allowed option). The page's
+   code strings were generated from the verified files and compared byte
+   for byte.
 
 ---
 
