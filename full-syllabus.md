@@ -4692,7 +4692,8 @@ All 14 lessons are **Locked** (Lesson 14's recap is the module's last page).
 
 Folder `06-reliability` (module title and description provisional). Data:
 `public/data/reliability/` (set E and the four Qwen3.5 runs, generated per
-`README-reliability.md`; no page loads it yet).
+`README-reliability.md`; loaded from Lesson 1 concept 2 on, see
+architecture.md §3.1).
 
 1. **Per-Step Reliability** (provisional title; folder
    `01-per-step-reliability`) — **Building**. Concept 1 (small errors
@@ -4707,8 +4708,21 @@ Folder `06-reliability` (module title and description provisional). Data:
    observations concept (page link). One quiz fix: the mockup's Q1
    distractor read "About 75%" but its explanation treats 75% as the
    failure rate, so the option now reads "About 25%, since 25 steps at 3%
-   failure each add up to 75% failure". Concepts 2+ and the bookends
-   aren't drafted yet.
+   failure each add up to 75% failure". Concept 2 (the same question, run
+   twice) is built: the first page to load the Qwen3.5 runs, via the new
+   `src/lib/reliabilityData.ts` (`LOAD_RUNS` shown verbatim as a static
+   block). Five live demos (e41's 13/7 split, how its replies open,
+   per-question clustering for both models, naive vs question-bootstrap
+   intervals, the paired sign test at 1.3e-07) all reproduce the mockup's
+   output exactly in real Pyodide 0.26.4 against the committed `plain` and
+   `plain.smaller` runs; the prose's claims about runs 1 and 5 and "none
+   cut off" were checked against the reply texts. The sign-test demo
+   preloads `SUCCESSES`, since demos don't share state. Callbacks: Module
+   1's predicts-not-knows, greedy-vs-sampling and nondeterminism concepts
+   (page links), concept 1's `#where-the-model-breaks` and Module 5
+   Lesson 2's `#which-questions-moved` (where the sign test is; both
+   verified against the built HTML). 5 quiz cards. Next per the mockup:
+   pass^k, then the wordings concept. Bookends not drafted yet.
 
 ---
 

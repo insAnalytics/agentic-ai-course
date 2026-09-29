@@ -369,7 +369,29 @@ served as plain static files. Module 5 (RAG) uses `public/data/rag/`:
   model, keys match the texts' hashes and the task ids, vectors unit
   length, no NaNs, every file valid UTF-8.
 
-**Loading rule (every Module 5 page):** fetch these files at runtime, on the
+Module 6 (Reliability) uses `public/data/reliability/`, generated offline
+per `README-reliability.md` (real Qwen3.5 replies, sampled once on a Colab
+G4 with vLLM 0.30.0 in bfloat16; each run records its full setup):
+
+- `set-e.json` (~0.3 MB) — set E, 84 hand-written questions with exact
+  answers, four wordings each and a fixed five-chunk context, built by
+  `scripts/build-reliability-sets.py` from
+  `scripts/reliability/set_e_source.py`. Currently **version 3**.
+- `runs/<condition>[.<model>].json` (1-2.5 MB each) — every reply, graded
+  by `scripts/reliability/grading.py`: `plain`, `wordings`, `thinking`
+  (Qwen3.5-4B), `stronger` (9B), and `plain.smaller`, `wordings.smaller`,
+  `thinking.smaller` (2B). The 4B `plain`/`thinking`/`stronger` files say
+  set E version 2; the only v3 change is a wording they don't use.
+- `runs/v1/` — the first sampling, kept on purpose: an answer-instruction
+  bug made the model look inconsistent. Not loaded by any page yet.
+
+Shared setup is in `src/lib/reliabilityData.ts`: `reliabilityData(...runs)`
+builds a demo's `dataFiles` list (set E plus only the named runs, since the
+files are large), `LOAD_RUNS` (`load_run`, `load_questions`; shown verbatim
+in Module 6 Lesson 1 concept 2) and `SUCCESSES` (per-question right counts,
+for demos that use it without defining it).
+
+**Loading rule (every Module 5 and Module 6 page):** fetch these files at runtime, on the
 learner's first Run click, and let the browser cache them — never `import`
 them into page or component code, which would inline megabytes into the JS
 bundle. Build the URL from `import.meta.env.BASE_URL` so it works under the
