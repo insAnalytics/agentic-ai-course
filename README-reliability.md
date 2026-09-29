@@ -24,6 +24,21 @@ Real model replies for Module 6's reliability lessons, sampled once and committe
    Delete the `*.dry-run.json` files afterwards; don't commit them.
 4. Commit the scripts and `set-e.json`, and push, so Kaggle can clone them.
 
+## What the committed runs actually used (2026-09-29)
+
+The committed `runs/*.json` were sampled on **Colab (Pro), G4 runtime** (NVIDIA RTX PRO 6000
+Blackwell, 96 GB), not Kaggle: one GPU for all four conditions, `--dtype bfloat16`,
+`--engine-args '{"language_model_only": true}'`, vLLM 0.30.0, torch 2.13.0+cu130. Two setup
+fixes were needed that the saved `setup` blocks don't show:
+
+- `!pip uninstall -y torchaudio` after installing vLLM (Colab's preinstalled torchaudio is built
+  for a different CUDA than the torch vLLM pulls in, and transformers imports it).
+- `%env VLLM_USE_FLASHINFER_SAMPLER=0` before the runs (FlashInfer's arch check rejects this
+  Blackwell GPU; vLLM's own sampler draws from the same distribution).
+
+Throughput was about 5,000 tokens/s; all four runs took under 10 minutes of generation. The
+Kaggle T4 instructions below also work (the smoke test passed there) but are several times slower.
+
 ## Step 2: Simar, on Kaggle
 
 Create a notebook with **Accelerator: GPU T4 x2** and **Internet: on** (Internet needs a
