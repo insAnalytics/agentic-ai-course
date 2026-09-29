@@ -4238,7 +4238,7 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    single quote, which must come back in `repr`'s double quotes, because
    `'{query}'` passed every original test though the task asks for `repr`.
    Verified with the real `runAgainstHiddenTests`: the reference passes,
-   the starter fails all four, and eleven mutations each fail (no strip,
+   the starter fails all four, and ten mutations each fail (no strip,
    raising on an empty query, no `int`, no upper or lower clamp, quotes
    instead of `repr`, a single newline between results, `doc_id` alone as
    the id, raising when nothing matches, `k` ignored). Concept 2 (multi-hop
@@ -4268,6 +4268,28 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    dropped, the normalised query searched, query unstripped or normalised
    in the message, a repeat still searching, a repeat counted, "3"
    hard-coded).
+   Concept 4 (when the answer is in a table) is built: setup now appends
+   `SEARCH_BUDGET` and the new `REGISTRY_DB` (the SQLite snapshot and
+   `SQL_TOOL`), shown as a static block byte-identical to the export and
+   the mockup; `sqlite3` loads from the setup's import alone. Two live
+   demos, code and output exact matches in real Pyodide (the naive tool
+   reading `api_keys` and deleting every agent on a throwaway copy; both
+   tools routed from one response). Links to Module 3's "The shift in
+   thinking" and, in the exercise explanation, "Allowlists: bound what a
+   tool can act on", anchors checked in the built HTML. The explanation's
+   claim that `ATTACH`, `PRAGMA` and recursive queries come back as "not
+   authorized" was checked in Pyodide. 4 quiz cards; graded
+   `query_database` exercise, reference exported as `QUERY_DATABASE`.
+   **Change from the mockup's hidden tests:** test 3 gains a spy on
+   `sqlite3.connect` requiring the `mode=ro` URI, because dropping the
+   read-only connection passed every original test (the authorizer alone
+   refuses writes), though the task and explanation require both locks.
+   Verified with the real `runAgainstHiddenTests`: the reference passes,
+   the starter fails all six, and ten mutations each fail (no
+   authorizer, no read-only connection, any table readable, functions
+   denied, errors raised, no header row, commas between values, every row
+   returned without the note, rows uncapped, an empty string for no rows).
+   One more, fetching a fixed 21 rows, passes and is equivalent in output.
    The lesson's other concepts and the bookends aren't drafted yet. Lesson 1's forward
    references to Lesson 11 stay plain prose.
 

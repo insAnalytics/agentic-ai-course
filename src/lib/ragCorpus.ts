@@ -1177,3 +1177,100 @@ class SearchBudget:
         self.queries.append(normalized)
         return self.search(query, k)
 `;
+
+/**
+ * Module 5 Lesson 11 concept 4 REGISTRY_DB, DB_TABLES, build_registry_db
+ * and SQL_TOOL, shown verbatim on that page (keep the two byte-identical).
+ * Joins the Lesson 11 setup from concept 4 on: append after SEARCH_BUDGET.
+ * Builds /tmp/registry.db in Pyodide's in-memory file system each time the
+ * setup runs. Its `import sqlite3` is what makes loadPackagesFromImports
+ * fetch Pyodide's separate sqlite3 package.
+ */
+export const REGISTRY_DB = String.raw`
+import sqlite3
+
+REGISTRY_DB = "/tmp/registry.db"
+DB_TABLES = {"agents", "incidents", "incident_agents"}
+
+def build_registry_db(path: str = REGISTRY_DB) -> None:
+    """A snapshot of the registry and the incident log as a SQLite database, consistent with the documents."""
+    Path(path).unlink(missing_ok=True)
+    with sqlite3.connect(path) as db:
+        db.executescript("""
+            CREATE TABLE agents (agent_id TEXT PRIMARY KEY, model TEXT, tier TEXT, owner TEXT, status TEXT);
+            CREATE TABLE incidents (incident_id TEXT PRIMARY KEY, started TEXT, title TEXT,
+                                    failed_service TEXT, duration_minutes INTEGER);
+            CREATE TABLE incident_agents (incident_id TEXT, agent_id TEXT);
+            CREATE TABLE api_keys (agent_id TEXT, scope TEXT, key_hash TEXT);
+        """)
+        db.executemany("INSERT INTO agents VALUES (?, ?, ?, ?, ?)", [
+            ("support_agent", "claude-sonnet", "standard", "support-team", "active"),
+            ("triage_agent", "claude-haiku", "standard", "support-team", "active"),
+            ("research_agent", "claude-legacy", "standard", "research-team", "active"),
+            ("notes_agent", "claude-legacy", "standard", "support-team", "active"),
+            ("billing_agent", "claude-opus", "priority", "finance-team", "active"),
+        ])
+        db.executemany("INSERT INTO incidents VALUES (?, ?, ?, ?, ?)", [
+            ("INC-2041", "2026-04-08", "billing_agent unable to issue invoices", "auth-service", 135),
+            ("INC-2067", "2026-06-15", "research_agent returning outdated results", "kb-search", 10080),
+            ("INC-2093", "2026-08-27", "registry outage during database failover", "registry-db", 42),
+        ])
+        db.executemany("INSERT INTO incident_agents VALUES (?, ?)", [
+            ("INC-2041", "billing_agent"), ("INC-2067", "research_agent"),
+            ("INC-2093", "support_agent"), ("INC-2093", "triage_agent"),
+        ])
+        db.executemany("INSERT INTO api_keys VALUES (?, ?, ?)", [
+            ("support_agent", "write", "sha256:9f2c1e..."), ("billing_agent", "write", "sha256:4b7a0d..."),
+        ])
+
+build_registry_db()
+
+SQL_TOOL = {
+    "name": "query_database",
+    "description": (
+        "Runs one read-only SQL query (SQLite) on the registry snapshot and incident log, and returns up to 20 "
+        "rows. Use it for lists, counts and comparisons across agents or incidents; use search_documents for "
+        "explanations, procedures and anything written in prose. Tables:\n"
+        "agents(agent_id, model, tier, owner, status)\n"
+        "incidents(incident_id, started, title, failed_service, duration_minutes)\n"
+        "incident_agents(incident_id, agent_id): which agents each incident affected"),
+    "input_schema": {
+        "type": "object",
+        "properties": {"sql": {"type": "string", "description": "One SELECT statement."}},
+        "required": ["sql"],
+    },
+}
+`;
+
+/**
+ * Module 5 Lesson 11 concept 4 graded exercise, reference solution verbatim
+ * (query_database). Joins the Lesson 11 setup for every page AFTER concept 4
+ * (append after REGISTRY_DB) and must never load on concept 4 itself, or the
+ * exercise would start already solved.
+ */
+export const QUERY_DATABASE = String.raw`
+def query_database(sql: str, max_rows: int = 20) -> str:
+    """The SQL tool: one query, on a read-only connection that can read only the allowed tables,
+    with at most max_rows rows back. Errors come back as text."""
+    def authorize(action, arg1, arg2, database, trigger):
+        if action == sqlite3.SQLITE_READ:
+            return sqlite3.SQLITE_OK if arg1 in DB_TABLES else sqlite3.SQLITE_DENY
+        return sqlite3.SQLITE_OK if action in (sqlite3.SQLITE_SELECT, sqlite3.SQLITE_FUNCTION) else sqlite3.SQLITE_DENY
+
+    db = sqlite3.connect(f"file:{REGISTRY_DB}?mode=ro", uri=True)
+    db.set_authorizer(authorize)
+    try:
+        cursor = db.execute(sql)
+        rows = cursor.fetchmany(max_rows + 1)
+        columns = [c[0] for c in cursor.description]
+    except sqlite3.Error as error:
+        return f"Error: {error}"
+    finally:
+        db.close()
+    if not rows:
+        return "No rows."
+    lines = [" | ".join(columns)] + [" | ".join(str(v) for v in row) for row in rows[:max_rows]]
+    if len(rows) > max_rows:
+        lines.append(f"(more than {max_rows} rows; narrow the query with WHERE or LIMIT)")
+    return "\n".join(lines)
+`;

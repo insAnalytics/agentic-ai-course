@@ -492,7 +492,22 @@ exercise reference: pages *after* concept 1 only, appended after
 text; shown verbatim on that page), with `RAG_CONTEXTUAL_DATA`, which also
 covers `AnswerRetriever`. `SEARCH_BUDGET` (`SearchBudget`) is Lesson 11
 concept 3's exercise reference: pages *after* concept 3 only, appended
-after `CONTEXTUAL_SEARCH`.
+after `CONTEXTUAL_SEARCH`. From Lesson 11 concept 4 on the setup appends
+`SEARCH_BUDGET` and then `REGISTRY_DB` (`REGISTRY_DB`, `DB_TABLES`,
+`build_registry_db`, `SQL_TOOL`, shown verbatim on that page), which
+builds `/tmp/registry.db` in Pyodide's in-memory file system every time
+the setup runs. **SQLite in Pyodide:** 0.26.4 ships `sqlite3` as a separate
+package, and the setup's `import sqlite3` is enough for
+`loadPackagesFromImports` to fetch it (checked in Node against the real
+CDN); the URI form `file:...?mode=ro` with `uri=True`, `set_authorizer`,
+and CPython 3.12's error texts ("not authorized", "access to T.C is
+prohibited", "You can only execute one statement at a time.") all behave
+as in desktop Python. A hidden test can spy on `sqlite3.connect` by
+replacing the module attribute, since the learner's code calls it through
+the shared module; restore it in `finally`, because the module outlives the
+test's namespace copy. `QUERY_DATABASE` (`query_database`) is Lesson 11
+concept 4's exercise reference: pages *after* concept 4 only, appended
+after `REGISTRY_DB`.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.
