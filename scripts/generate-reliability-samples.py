@@ -51,6 +51,7 @@ SET_E = ROOT / "public" / "data" / "reliability" / "set-e.json"
 RUNS = ROOT / "public" / "data" / "reliability" / "runs"
 
 MODELS = {
+    "smaller": "Qwen/Qwen3.5-2B",
     "small": "Qwen/Qwen3.5-4B",
     "large": "Qwen/Qwen3.5-9B",
 }
@@ -331,6 +332,8 @@ def main() -> None:
     parser.add_argument("--condition", choices=CONDITIONS, required=True)
     parser.add_argument("--dry-run", action="store_true", help="use a stand-in model: no GPU, meaningless replies")
     parser.add_argument("--limit", type=int, help="only the first N questions (a smoke test)")
+    parser.add_argument("--model", choices=MODELS, help="run the condition on a different model than its default; "
+                        "the output file name then includes the model, e.g. plain.smaller.json")
     parser.add_argument("--revision", default=None, help="model revision (commit) to pin; recorded either way")
     parser.add_argument("--dtype", default="float16", help="T4 and P100 GPUs have no bfloat16")
     parser.add_argument("--max-model-len", type=int, default=8192)
@@ -340,7 +343,9 @@ def main() -> None:
     spec = CONDITIONS[args.condition]
     data = json.loads(SET_E.read_text(encoding="utf-8"))
     questions = data["questions"][: args.limit] if args.limit else data["questions"]
-    model = MODELS[spec["model"]]
+    model_key = args.model or spec["model"]
+    model = MODELS[model_key]
+    tag = "" if model_key == spec["model"] else f".{model_key}"
     sampling = SAMPLING["on" if spec["thinking"] else "off"]
     engine_args = json.loads(args.engine_args)
     if args.revision:
@@ -351,7 +356,7 @@ def main() -> None:
 
     budgets = None
     if spec["thinking"]:
-        plain = RUNS / ("plain.dry-run.json" if args.dry_run else "plain.json")
+        plain = RUNS / f"plain{tag}{'.dry-run' if args.dry_run else ''}.json"
         if not plain.exists():
             sys.exit(f"Run --condition plain first: thinking budgets are set from its reply lengths ({plain}).")
         lengths = [s["tokens"] for r in json.loads(plain.read_text(encoding="utf-8"))["results"] for s in r["samples"]]
@@ -369,6 +374,7 @@ def main() -> None:
         "condition": args.condition,
         "dry_run": args.dry_run,
         "model": model,
+        "model_key": model_key,
         "revision": args.revision,
         "thinking": spec["thinking"],
         "samples_per_wording": spec["samples"],
@@ -386,7 +392,7 @@ def main() -> None:
         "results": records,
     }
     RUNS.mkdir(parents=True, exist_ok=True)
-    out = RUNS / f"{args.condition}{'.dry-run' if args.dry_run else ''}{f'.limit{args.limit}' if args.limit else ''}.json"
+    out = RUNS / f"{args.condition}{tag}{'.dry-run' if args.dry_run else ''}{f'.limit{args.limit}' if args.limit else ''}.json"
     out.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
 
     graded = [s for r in records for s in r["samples"]]

@@ -69,7 +69,7 @@ QUESTIONS = [
          evidence=[("D01", "It needs a `write` key; a `read` key gets `REG-1004`.")],
          wordings=["What error code does a read key get when it tries to PATCH an agent?",
                    "If I update an agent using a read-only key, which error code comes back?",
-                   "Which code is returned when a key's scope doesn't allow a change?",
+                   "Changing an agent with a read key fails with which error code?",
                    "A PATCH /agents request is made with a read key. What's the error code?"]),
     dict(id="e10", kind="lookup", type="text", answer="/agents/me", accept=["GET /agents/me"],
          evidence=[("D01", "`GET /agents/me` returns the agent that owns the key making the request.")],
