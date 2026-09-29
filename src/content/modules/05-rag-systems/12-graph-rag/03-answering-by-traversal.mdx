@@ -1,0 +1,199 @@
+---
+title: "Answering by traversal"
+lesson: "12-graph-rag"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { COUNT_TOKENS, REACT_FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, SIGN_TEST, FIXED_CHUNKS, STRUCTURE_HELPERS, STRUCTURED_CHUNKS, WITHIN_BUDGET, VECTORS, VECTOR_INDEX, MEANING_SEARCH, TERMS, BM25_INDEX, RERANK_SCORES, RERANK, LISTWISE_RERANK, MODULE_PIPELINE, REWRITE_QUERY, SPLIT_QUERY, INTERLEAVE, HYDE, WITH_HEADER, VERSIONED_PIPELINE, WITH_CONTEXT, EXPAND_NEIGHBOURS, ANSWER_RETRIEVER, ANSWER_INSTRUCTIONS, ASSEMBLE_REQUEST, CHECK_CITATIONS, DECLINED, AGENT_SEARCH, SEARCH_DOCUMENTS, CONTEXTUAL_SEARCH, SEARCH_BUDGET, REGISTRY_DB, QUERY_DATABASE, GRAPH_DATA, BUILD_GRAPH, AFFECTED_BY, RAG_GRAPH_DATA } from "../../../../lib/ragCorpus";
+
+export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION + METRICS + SIGN_TEST + FIXED_CHUNKS + STRUCTURE_HELPERS + STRUCTURED_CHUNKS + WITHIN_BUDGET + VECTORS + VECTOR_INDEX + MEANING_SEARCH + TERMS + BM25_INDEX + RERANK_SCORES + RERANK + LISTWISE_RERANK + MODULE_PIPELINE + REWRITE_QUERY + SPLIT_QUERY + INTERLEAVE + HYDE + WITH_HEADER + VERSIONED_PIPELINE + WITH_CONTEXT + EXPAND_NEIGHBOURS + ANSWER_RETRIEVER + ANSWER_INSTRUCTIONS + ASSEMBLE_REQUEST + CHECK_CITATIONS + DECLINED + AGENT_SEARCH + SEARCH_DOCUMENTS + CONTEXTUAL_SEARCH + SEARCH_BUDGET + REGISTRY_DB + QUERY_DATABASE + REACT_FAKE_CLIENT + RECORDING_CLIENT + GRAPH_DATA + BUILD_GRAPH;
+
+export const HOP_DEMO = String.raw`graph = build_graph(load_graph_data()["triples"])
+print(f"{len({e for s, _, o in graph for e in (s, o)})} entities, {len(graph)} edges\n")
+print("edges pointing at auth-service:")
+for (subject, relation, obj), sources in graph.items():
+    if obj == "auth-service":
+        print(f"  {subject} -[{relation}]-> {obj}   from {sources}")
+print("\nedges pointing at registry-api:")
+for (subject, relation, obj), sources in graph.items():
+    if obj == "registry-api":
+        print(f"  {subject} -[{relation}]-> {obj}   from {sources}")
+`;
+
+export const STARTER = String.raw`def affected_by(graph: dict, failed: str, relations: tuple = ("depends_on", "hands_work_to")) -> dict[str, list[str]]:
+    """Everything that stops working when ${"`"}failed${"`"} does: every entity with a chain of ${"`"}relations${"`"}
+    edges leading to it. Maps each one to the sorted chunk ids of the edges on the way."""
+    # TODO
+    ...
+`;
+
+export const TESTS = [
+  String.raw`# 1. a chain: everything upstream of the failure, each with the sources of every edge on its way
+chain = {("a", "depends_on", "b"): ["X:1"], ("b", "depends_on", "c"): ["X:2", "Y:0"]}
+found = affected_by(chain, "c")
+assert isinstance(found, dict), f"affected_by should return a dict; got {found!r}"
+assert found == {"b": ["X:2", "Y:0"], "a": ["X:1", "X:2", "Y:0"]}, \
+    f"b depends on c directly, a through b, with every source on the way; got {found}"
+assert affected_by(chain, "a") == {}, "nothing depends on a"
+`,
+  String.raw`# 2. only the dependency relations are followed, unless others are asked for
+edges = {("a", "hands_work_to", "b"): ["H:0"], ("alert", "watches", "b"): ["W:0"], ("INC-1", "affected", "b"): ["I:0"]}
+assert affected_by(edges, "b") == {"a": ["H:0"]}, "follow depends_on and hands_work_to only"
+assert affected_by(edges, "b", relations=("watches",)) == {"alert": ["W:0"]}, "use the relations passed in"
+`,
+  String.raw`# 3. cycles end, and the failed entity isn't listed as affected by itself
+loop = {("a", "depends_on", "b"): ["L:0"], ("b", "depends_on", "a"): ["L:1"]}
+assert affected_by(loop, "a") == {"b": ["L:1"]}, f"stop at a cycle; got {affected_by(loop, 'a')}"
+`,
+  String.raw`# 4. an entity reachable by two routes keeps the shortest (search breadth-first)
+routes = {("d", "depends_on", "base"): ["R:1"], ("a", "depends_on", "base"): ["R:2"],
+          ("b", "depends_on", "a"): ["R:3"], ("c", "depends_on", "b"): ["R:4"], ("c", "depends_on", "d"): ["R:5"]}
+found = affected_by(routes, "base")
+assert found["c"] == ["R:1", "R:5"], f"c is two edges away through d, not three through a and b; got {found['c']}"
+`,
+  String.raw`# 5. the real graph answers the questions similarity search couldn't, citing its sources
+graph = build_graph(load_graph_data()["triples"])
+auth = affected_by(graph, "auth-service")
+assert sorted(e for e in auth if e.endswith("_agent")) == ["billing_agent", "support_agent", "triage_agent"], auth
+chunks = {f"{c['doc_id']}:{c['chunk']}": c for d in load_documents() for c in structured_chunks(d, 200)}
+labelled = {q["id"]: q for q in load_queries()["main"] + load_queries()["held_out"]}
+for query_id, failed in [("q30", "auth-service"), ("q31", "kb-search"), ("q32", "registry-db"), ("h07", "registry-api")]:
+    cited = sorted({s for sources in affected_by(graph, failed).values() for s in sources})
+    assert answerable([chunks[s] for s in cited], labelled[query_id]), f"{query_id}: the cited chunks should answer it"
+`,
+];
+
+<Subsection title="One hop isn't enough" variant="a">
+
+With the graph built, "which agents stop working if auth-service goes down?"
+starts with the edges that point at auth-service:
+
+<LiveDemo client:load dataFiles={RAG_GRAPH_DATA} setupCode={SETUP} code={HOP_DEMO} />
+
+auth-service's direct dependents are two services, registry-api and
+payments-gateway, and neither is an agent. The agents are one step further
+out: `support_agent` depends on registry-api. That's the chain similarity
+search couldn't follow, and in a graph, following it is just a loop. Notice
+also what isn't a dependency: `RegistryUnreachable` watches the registry and
+INC-2093 affected it, but neither stops working when it fails. The
+traversal has to follow only the relations that mean "needs".
+
+</Subsection>
+
+<Subsection title="Walking the chain backwards" variant="b">
+
+"What stops working if X fails?" means following dependency edges backwards,
+from X to whatever depends on it, then to whatever depends on those, until
+nothing new turns up. That's a **breadth-first search**:
+
+- Start from the failed entity. For each entity reached, look at every edge
+  whose object it is, with a dependency relation, `depends_on` or
+  `hands_work_to`.
+- Each subject found that hasn't been seen before is affected. Record it, and
+  explore it in turn.
+- Keep a record of *why*: the source chunks of every edge on the way from the
+  failure to that entity. That's what the answer cites.
+- Stop when there's nothing left to explore. Remembering what's been seen is
+  what stops a cycle from looping forever.
+
+Searching breadth-first, nearest entities first, means each entity is reached
+by its shortest chain, which is also the shortest explanation of why it's
+affected. That's this concept's exercise.
+
+</Subsection>
+
+<Subsection title="What the graph says, and what it doesn't" variant="a">
+
+A traversal answers exactly, and cites every link, but it can only be as good
+as the graph it walks:
+
+- **It can't see a dependency that wasn't extracted.** If no chunk says that
+  `notes_agent` uses the registry, no traversal will find that it does. The
+  graph is a summary of what the documents state, filtered through the
+  extraction prompt.
+- **It treats every dependency as total.** An edge records that one thing
+  needs another, not how badly. If kb-search goes down, `support_agent` loses
+  its help-article search but can still look things up in the registry; the
+  graph says it's affected, and so is everything that depends on it.
+- **Mistakes compound.** A single wrong edge, or a wrong merge, can pull a
+  whole branch of the graph into an answer, and a longer chain has more links
+  that could be wrong. The cited chunks are what let someone check.
+
+So the traversal's output isn't the final answer. It's a list of affected
+entities and the chunks that justify each one, and those chunks go to the
+model, through Lesson 10's answer step, like any other retrieved text.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "Why doesn't following the edges pointing at auth-service answer the question?",
+      "options": [
+        "Its direct dependents are services; the agents depend on those services, one step further",
+        "Those edges point the wrong way",
+        "auth-service has no edges",
+        "The agents are in a different graph"
+      ],
+      "correctIndex": 0,
+      "explanation": "The agents are two or three links away. A traversal keeps going until nothing new is found, which one lookup can't."
+    },
+    {
+      "question": "Why does the traversal follow only depends_on and hands_work_to?",
+      "options": [
+        "Other relations, like an alert watching a service, don't mean the subject stops working",
+        "The other relations have no sources",
+        "Graph searches can only follow two relations",
+        "It makes the search faster"
+      ],
+      "correctIndex": 0,
+      "explanation": "RegistryUnreachable watches the registry, and an incident affected it. Following those would call them \"affected\", which is wrong for this question."
+    },
+    {
+      "question": "What does searching breadth-first guarantee?",
+      "options": [
+        "Each entity is reached by its shortest chain, the shortest explanation of why it's affected",
+        "Every chain in the graph is found",
+        "The search never visits an entity twice, even in a cycle",
+        "The results come back in alphabetical order"
+      ],
+      "correctIndex": 0,
+      "explanation": "Exploring nearest entities first means the first route to each one is the shortest. Remembering what's been seen is what stops cycles, in either search order."
+    },
+    {
+      "question": "The graph says triage_agent is affected if kb-search fails. Why should that be read with care?",
+      "options": [
+        "An edge records that a dependency exists, not how much it matters, so the traversal over-reaches",
+        "triage_agent isn't in the graph",
+        "kb-search has no owner",
+        "Traversals can't cross hands_work_to edges"
+      ],
+      "correctIndex": 0,
+      "explanation": "Support_agent needs kb-search only for help articles. The graph treats every dependency as total, which the cited chunks let a reader, or the answering model, correct."
+    }
+  ]}
+/>
+
+<GradedExercise
+  client:load
+  task={"Write affected_by(graph, failed, relations=(\"depends_on\", \"hands_work_to\")). graph is what build_graph returns: (subject, relation, object) mapped to source chunk ids. Return a dict mapping every entity that depends on failed, directly or through a chain of edges with a relation in relations, to the sorted list of chunk ids of every edge on its way from failed. An edge (subject, relation, object) means subject depends on object, so search from failed to the subjects of edges whose object it is. Search breadth-first, with a queue, so each entity is recorded by its first, shortest route. An entity's sources are its predecessor's sources plus the edge's own. Never list failed itself, and don't revisit an entity already recorded."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  namespaceSetup={SETUP}
+  dataFiles={RAG_GRAPH_DATA}
+  hint={"First build a lookup from each object to the (subject, sources) pairs that point at it, keeping only the wanted relations. Then keep a list used as a queue, pop(0) from the front and append to the back, and a dict of what's been found. sorted(set(a) | set(b)) combines two source lists."}
+  correctAnswer={{
+    code: AFFECTED_BY.trimStart(),
+    explanation: "On the real graph, auth-service's failure reaches registry-api and payments-gateway directly, then monitoring, support_agent, triage_agent and billing_agent through them: the three agents q30 asks about, each with the chunks that justify the chain. The last test checks that the chunks each traversal cites contain the labelled answer, for all four relationship questions: the three in the main set and the held-out one about registry-api. All four are answerable from the cited chunks alone. The full pipeline, given ten results, answered three of the four and missed the auth-service chain. And the traversal cites 9 chunks for q30, each one a link in the chain, rather than ten chunks chosen for resembling the question."
+  }}
+/>
+
+</CheckpointZone>

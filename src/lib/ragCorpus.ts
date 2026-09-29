@@ -1330,3 +1330,30 @@ def build_graph(triples_by_chunk: dict, aliases: dict = ALIASES) -> dict[tuple, 
                 edges[(subject, relation, obj)].add(chunk_id)
     return {edge: sorted(sources) for edge, sources in edges.items()}
 `;
+
+/**
+ * Module 5 Lesson 12 concept 3 graded exercise, reference solution verbatim
+ * (affected_by). Joins the Lesson 12 setup for every page AFTER concept 3
+ * (append after BUILD_GRAPH) and must never load on concept 3 itself, or the
+ * exercise would start already solved.
+ */
+export const AFFECTED_BY = String.raw`
+def affected_by(graph: dict, failed: str, relations: tuple = ("depends_on", "hands_work_to")) -> dict[str, list[str]]:
+    """Everything that stops working when ${"`"}failed${"`"} does: every entity with a chain of ${"`"}relations${"`"}
+    edges leading to it. Maps each one to the sorted chunk ids of the edges on the way."""
+    dependents = defaultdict(list)
+    for (subject, relation, obj), sources in graph.items():
+        if relation in relations:
+            dependents[obj].append((subject, sources))
+    found, frontier = {}, [failed]
+    while frontier:
+        current = frontier.pop(0)
+        for entity, sources in dependents[current]:
+            if entity == failed:
+                continue
+            path = sorted(set(found.get(current, [])) | set(sources))
+            if entity not in found:
+                found[entity] = path
+                frontier.append(entity)
+    return found
+`;

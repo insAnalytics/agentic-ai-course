@@ -4378,6 +4378,20 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    canonical, self-loops kept, self-loops checked before merging, the
    relation dropped, repeated sources, unsorted sources). No changes from
    the mockup.
+   Concept 3 (answering by traversal) is built: setup now appends
+   `BUILD_GRAPH`, no other new shared code. One live demo, code and output
+   exact matches in real Pyodide (29 entities, 35 edges; the edges pointing
+   at auth-service and at registry-api). The explanation's claims checked
+   in Pyodide: auth-service's failure reaches billing_agent, monitoring,
+   payments-gateway, registry-api, support_agent and triage_agent; the
+   traversal cites 9 chunks for q30; the full pipeline's top ten answers
+   q31, q32 and h07 but not q30. 4 quiz cards; graded `affected_by`
+   exercise, reference exported as `AFFECTED_BY`. Verified with the real
+   `runAgainstHiddenTests`: the reference passes, the starter fails all
+   five, and eight mutations each fail (relations ignored, edges followed
+   the wrong way, depth-first, the edge's own sources only, the failed
+   entity listed, a later route overwriting the first, unsorted sources,
+   direct dependents only). No changes from the mockup.
    The lesson's other concepts and the bookends aren't drafted yet. Lesson
    1's and Lesson 2's forward references to Lesson 12 stay plain prose.
 

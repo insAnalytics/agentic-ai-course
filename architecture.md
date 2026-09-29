@@ -533,7 +533,9 @@ Lesson 12's setup is Lesson 11's recap `lib.py` (the Lesson 11 setup through
 that page), with `RAG_GRAPH_DATA` (`RAG_CONTEXTUAL_DATA` plus
 `graph.json`). `BUILD_GRAPH` (`build_graph`) is Lesson 12 concept 2's
 exercise reference: pages *after* concept 2 only, appended after
-`GRAPH_DATA`.
+`GRAPH_DATA`. From Lesson 12 concept 3 on the setup appends `BUILD_GRAPH`;
+`AFFECTED_BY` (`affected_by`) is concept 3's exercise reference, for pages
+*after* concept 3 only, appended after `BUILD_GRAPH`.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.
