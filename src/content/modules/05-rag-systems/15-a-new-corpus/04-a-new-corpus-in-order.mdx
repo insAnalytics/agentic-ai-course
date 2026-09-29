@@ -1,0 +1,150 @@
+---
+title: "A new corpus, in order"
+lesson: "15-a-new-corpus"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="Before any retrieval code" variant="a">
+
+A team handed a new corpus and an agent that should answer from it faces the
+same choices this module made, without the lessons in between. The order
+matters as much as the choices. Three things come first, and none of them is
+a search.
+
+1. **Write the questions.** Thirty to sixty real questions, of every type the
+   agent will meet, each labelled with the passages that answer it, and a
+   held-out set put aside
+   ([Lesson 2](/05-rag-systems/02-measuring-retrieval/00-intro/)). Take them
+   from real users where possible. Model-written questions can add volume,
+   reported separately, since they share their source's words. Without this
+   set, every later decision is a guess.
+2. **Ask whether retrieval is needed at all.** A small, stable corpus that
+   every reader may see can go into the prompt whole, behind a prefix cache
+   ([Lesson 1](/05-rag-systems/01-why-retrieval/02-what-pasting-everything-costs/)).
+   Anthropic's
+   [guidance on contextual retrieval](https://www.anthropic.com/engineering/contextual-retrieval)
+   puts the line at about 200,000 tokens, roughly 500 pages. This module's
+   corpus, at 232,241 tokens, is just past it. Retrieval wins on cost per
+   question, on freshness, on permissions, and above all once the corpus
+   outgrows any window.
+3. **Decide who may see what, and who may add what.** Access lists on every
+   chunk, applied before ranking, from the reader's identity; and a gate on
+   what reaches the index
+   ([Lesson 13](/05-rag-systems/13-permissions/00-intro/)). Adding permissions
+   to a running system means re-indexing everything with the fields that
+   were left out, and the leaks in between can't be taken back.
+
+</Subsection>
+
+<Subsection title="The baseline" variant="b">
+
+Next, the part every retrieval system needs, built once and measured:
+
+4. **Get clean text, with its structure.** Parse PDFs and scans into
+   headings, paragraphs and tables, check the output for pages that came out
+   empty or garbled, and keep page numbers for citations
+   ([Lesson 5](/05-rag-systems/05-document-parsing/00-intro/)).
+5. **Chunk at the author's boundaries,** about 200 tokens, each chunk
+   carrying its source, section path, date, type and access list
+   ([Lesson 3](/05-rag-systems/03-chunking/00-intro/)). Check every chunk
+   against the embedding model's input limit.
+6. **Search two ways and fuse.** BM25 for identifiers and exact terms,
+   search by meaning for paraphrases, combined with RRF
+   ([Lessons 4](/05-rag-systems/04-search-by-meaning/00-intro/) and
+   [6](/05-rag-systems/06-hybrid-search/00-intro/)). Both are cheap, and
+   between them they cover each other's blind spots.
+7. **Answer with citations code can check,** and decline below a measured
+   score ([Lesson 10](/05-rag-systems/10-grounded-answers/00-intro/)).
+
+Then measure it on the labelled questions, at rank 1 and in the top five,
+and read the misses one by one. The misses decide what comes next.
+
+</Subsection>
+
+<Subsection title="What each later stage waits for" variant="a">
+
+Every later technique fixes a particular kind of miss, and costs something
+whether or not the corpus has that kind. Add each when the misses call for
+it, then measure again at an equal budget:
+
+| When the misses look like this | Add | From |
+|---|---|---|
+| The answer is in the candidates but not near the top | a reranker over the top 30 | [Lesson 7](/05-rag-systems/07-reranking/00-intro/) |
+| A chunk never names what it's about; its subject is in a title or heading | section paths, then contextual chunks | [Lesson 9](/05-rag-systems/09-contextual-chunks/00-intro/) |
+| The right chunk is found, but the answer runs on past it | neighbouring chunks, at an equal budget | [Lesson 9](/05-rag-systems/09-contextual-chunks/03-returning-more-than-was-matched/) |
+| Follow-up questions fail; questions carry versions, dates or document types | rewriting follow-ups; filters from the question | [Lesson 8](/05-rag-systems/08-query-transformation/00-intro/) |
+| The second half of an answer needs a word from the first half's result | an agent that searches again, with a budget | [Lesson 11](/05-rag-systems/11-agentic-rag/00-intro/) |
+| Questions about records: counts, lists, comparisons | a guarded SQL tool | [Lesson 11](/05-rag-systems/11-agentic-rag/04-when-the-answer-is-in-a-table/) |
+| Chains of relationships, or questions about the whole collection | a graph, if the relationships aren't already data | [Lesson 12](/05-rag-systems/12-graph-rag/00-intro/) |
+| The agent runs long and its search results fill the window | Module 4's context step over the search tool | [Lesson 14](/05-rag-systems/14-context-step/00-intro/) |
+
+Two rules run through the table:
+
+- **A technique's reputation isn't a measurement.** HyDE and hybrid search
+  both come with strong published results. On this corpus, HyDE changed
+  nothing in the full pipeline, and fusion traded an answer in the top five
+  for five more at rank 1. The labelled questions decide.
+- **Order by cost as well as gain.** A reranker adds about a tenth of a
+  second per question on a laptop GPU, and nothing to indexing. Contextual chunks add nothing per
+  question and a model call per chunk, again with every edit. An agent adds a
+  model call per step on every question it handles. When two stages would
+  fix the same misses, the cheaper one goes first.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "A team wants to start their new retrieval system by comparing embedding models. What should come first?",
+    "options": [
+      "A labelled set of real questions, with a held-out set put aside",
+      "A vector database that can hold every chunk they'll ever need",
+      "The largest embedding model they can afford to run on their corpus",
+      "A reranker, since it gave this module's largest single gain"
+    ],
+    "correctIndex": 0,
+    "explanation": "Without labelled questions there's no way to tell whether one model is better on this corpus. Leaderboards shortlist models; the team's own questions decide between them."
+  },
+  {
+    "question": "Why do permissions come before the baseline search, not after it works?",
+    "options": [
+      "Filtering before ranking makes every search noticeably faster",
+      "Missing access fields mean re-indexing, and a leak can't be undone",
+      "Permission checks are required before an embedding model can be used",
+      "The reranker needs access lists to score candidates correctly"
+    ],
+    "correctIndex": 1,
+    "explanation": "Access lists have to be on every chunk and every derived item from the start, and a leak to a reader who shouldn't see a document can't be recalled. Adding them later means rebuilding the index anyway."
+  },
+  {
+    "question": "Most of a corpus's misses are chunks from incident reports whose subject is only in the report's title. What should the team add first?",
+    "options": [
+      "An agent, so it can search again with the incident's name",
+      "Section paths, then contextual chunks if paths aren't enough",
+      "HyDE, so the search uses a passage that names the incident",
+      "A larger k, so more of each report's chunks come back each time"
+    ],
+    "correctIndex": 1,
+    "explanation": "The miss is a chunk that doesn't say what it's about, which is exactly what section paths and contexts fix, once at indexing. An agent or HyDE pays on every question for a problem that's in the index."
+  },
+  {
+    "question": "Two stages would each fix the same set of misses. How should a team choose between them?",
+    "options": [
+      "Pick the one with the better published benchmark results",
+      "Add both, since two fixes are more reliable than one",
+      "Measure both, and take the cheaper one if they tie",
+      "Pick the newer one, since it builds on the older one"
+    ],
+    "correctIndex": 2,
+    "explanation": "Published results come from other corpora, and each stage costs something on every question or at every re-index. Measure both on the labelled questions at an equal budget, and pay only for the gain that's actually there."
+  }
+  ]}
+/>
+
+</CheckpointZone>

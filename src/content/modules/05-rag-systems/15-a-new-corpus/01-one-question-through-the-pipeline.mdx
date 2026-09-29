@@ -1,0 +1,179 @@
+---
+title: "One question through the whole pipeline"
+lesson: "15-a-new-corpus"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { COUNT_TOKENS, REACT_FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, SIGN_TEST, FIXED_CHUNKS, STRUCTURE_HELPERS, STRUCTURED_CHUNKS, WITHIN_BUDGET, VECTORS, VECTOR_INDEX, MEANING_SEARCH, TERMS, BM25_INDEX, RERANK_SCORES, RERANK, LISTWISE_RERANK, MODULE_PIPELINE, REWRITE_QUERY, SPLIT_QUERY, INTERLEAVE, HYDE, WITH_HEADER, VERSIONED_PIPELINE, WITH_CONTEXT, EXPAND_NEIGHBOURS, ANSWER_RETRIEVER, ANSWER_INSTRUCTIONS, ASSEMBLE_REQUEST, CHECK_CITATIONS, DECLINED, AGENT_SEARCH, SEARCH_DOCUMENTS, CONTEXTUAL_SEARCH, SEARCH_BUDGET, REGISTRY_DB, QUERY_DATABASE, GRAPH_DATA, BUILD_GRAPH, AFFECTED_BY, GRAPH_COMMUNITIES, PERMITTED_RETRIEVER, READABLE, READER_VIEWS, RAG_GRAPH_DATA } from "../../../../lib/ragCorpus";
+export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION + METRICS + SIGN_TEST + FIXED_CHUNKS + STRUCTURE_HELPERS + STRUCTURED_CHUNKS + WITHIN_BUDGET + VECTORS + VECTOR_INDEX + MEANING_SEARCH + TERMS + BM25_INDEX + RERANK_SCORES + RERANK + LISTWISE_RERANK + MODULE_PIPELINE + REWRITE_QUERY + SPLIT_QUERY + INTERLEAVE + HYDE + WITH_HEADER + VERSIONED_PIPELINE + WITH_CONTEXT + EXPAND_NEIGHBOURS + ANSWER_RETRIEVER + ANSWER_INSTRUCTIONS + ASSEMBLE_REQUEST + CHECK_CITATIONS + DECLINED + AGENT_SEARCH + SEARCH_DOCUMENTS + CONTEXTUAL_SEARCH + SEARCH_BUDGET + REGISTRY_DB + QUERY_DATABASE + GRAPH_DATA + BUILD_GRAPH + AFFECTED_BY + GRAPH_COMMUNITIES + REACT_FAKE_CLIENT + RECORDING_CLIENT + PERMITTED_RETRIEVER + READABLE;
+
+export const TRACE_DEMO = String.raw`query = next(q for q in load_queries()["main"] if q["id"] == "q11")
+reader = {"all-staff"}
+chunks = [c for d in load_documents() for c in structured_chunks(d, 200)]
+permitted = [c for c in chunks if reader & set(c["access"])]
+vector = query_vectors()[query["id"]]
+
+def where(results: list[dict]) -> str:
+    """Where the first chunk holding part of the answer sits in a ranked list."""
+    rank = next((i for i, c in enumerate(results, 1) if is_relevant_to_query(c, query)), None)
+    return f"first answer at rank {rank}" if rank else "no answer in the list"
+
+print(f"{query['query']}  (reader: all-staff, {len(permitted):,} of {len(chunks):,} chunks readable)\n")
+plain = ModulePipeline(permitted)
+keyword = plain.bm25.search(query["query"], 100)
+meaning = plain.meaning.search(vector, 100)
+fused = rrf([keyword, meaning])[:30]
+scores = CrossEncoderScores()
+reranked = sorted(fused, key=lambda c: scores.score(query["id"], c), reverse=True)
+print(f"BM25, top 100                 {where(keyword)}")
+print(f"search by meaning, top 100    {where(meaning)}")
+print(f"the two fused, top 30         {where(fused)}")
+print(f"reranked                      {where(reranked)}")
+results = PermittedRetriever().search(query, reader, k=5)
+print(f"contextual chunks, reranked   {where(results)}\n")
+for c in results:
+    print(f"  {c['score']:6.2f}  {c['doc_id']} | {c['section']}")
+best = results[0]["score"]
+print(f"\nbest score {best:.2f}: {'answer' if best >= 0 else 'abstain'} (threshold 0)")
+request = assemble_request(query["query"], results, budget=1500)
+print(f"request: {count_tokens(request['system'])} tokens of instructions, "
+      f"then {len(request['sources'])} sources and the question in {count_tokens(request['messages'])} tokens")
+`;
+
+<Subsection title="Two halves, fourteen lessons" variant="a">
+
+[Lesson 1](/05-rag-systems/01-why-retrieval/04-the-pipelines-two-halves/)
+split retrieval into two halves on two schedules, and every lesson since has
+improved one of them. Here is the whole system, in the order its parts run.
+
+**Indexing,** once per document, and again whenever it changes:
+
+1. **Get text and structure out of each document**, from PDFs, tables,
+   images and scans ([Lesson 5](/05-rag-systems/05-document-parsing/00-intro/)).
+2. **Decide who may add it.** Untrusted edits wait in quarantine until
+   someone reviews them
+   ([Lesson 13](/05-rag-systems/13-permissions/04-defences-by-design/)).
+3. **Cut it into chunks** at the author's own boundaries, about 200 tokens
+   each, every chunk carrying its document, section path, date, type and
+   access list ([Lesson 3](/05-rag-systems/03-chunking/00-intro/)).
+4. **Write a context for each chunk**, so a chunk that never names its
+   subject can still be found by it
+   ([Lesson 9](/05-rag-systems/09-contextual-chunks/00-intro/)).
+5. **Index every chunk two ways:** as a vector for search by meaning
+   ([Lesson 4](/05-rag-systems/04-search-by-meaning/00-intro/)) and as word
+   counts for BM25 ([Lesson 6](/05-rag-systems/06-hybrid-search/00-intro/)).
+   Anything derived from a chunk, from its context to a graph edge or a
+   summary, keeps its sources' permissions
+   ([Lesson 13](/05-rag-systems/13-permissions/02-derived-data-carries-its-sources-permissions/)).
+
+**Querying,** for every question:
+
+1. **Fix what the reader may see** from who they are, before anything is
+   ranked ([Lesson 13](/05-rag-systems/13-permissions/01-permissions-at-retrieval-time/)).
+2. **Prepare the question:** rewrite a follow-up so it stands alone, and
+   turn "since August" or "in v2.4" into filters
+   ([Lesson 8](/05-rag-systems/08-query-transformation/00-intro/)).
+3. **Search both indexes and fuse the rankings**
+   ([Lesson 6](/05-rag-systems/06-hybrid-search/03-fusing-rankings/)).
+4. **Rerank the top 30**, reading question and chunk together
+   ([Lesson 7](/05-rag-systems/07-reranking/00-intro/)).
+5. **Grade the result.** Below a measured score, decline rather than answer
+   ([Lesson 10](/05-rag-systems/10-grounded-answers/03-abstaining-when-retrieval-is-weak/)).
+6. **Assemble the request, answer, and check the answer:** stable
+   instructions first, sources tagged and cited, citations checked by code
+   ([Lesson 10](/05-rag-systems/10-grounded-answers/00-intro/)).
+
+**Around both, the agent.** Search becomes a tool the agent calls when it
+decides to, alongside a SQL tool for records and a graph for chains, each
+with budgets and guardrails
+([Lessons 11](/05-rag-systems/11-agentic-rag/00-intro/) and
+[12](/05-rag-systems/12-graph-rag/00-intro/)). Its results are managed by
+Module 4's context step like any other tool result
+([Lesson 14](/05-rag-systems/14-context-step/00-intro/)).
+
+</Subsection>
+
+<Subsection title="One question, stage by stage" variant="b">
+
+"What happened in INC-2093?" shows most of the module in a single question.
+Here it is through the querying half, for a reader in the all-staff group,
+with the rank of the first chunk that holds part of the answer after each
+stage. It builds several indexes, so allow a few seconds:
+
+<LiveDemo client:load dataFiles={RAG_GRAPH_DATA} setupCode={SETUP} code={TRACE_DEMO} />
+
+Every stage left its mark:
+
+- **Permissions first.** 17 chunks the all-staff group may not read were
+  never candidates, before any search ran.
+- **BM25 finds nothing.** The question's one distinctive word is the
+  incident's identifier, and none of the report's four chunks contains it:
+  "INC-2093" is only in the document's title. Word matching can't find a
+  word that isn't there.
+- **Search by meaning finds it at rank 4.** The question and the report
+  are about the same outage, whatever words each uses.
+- **Fusion pushes it down, to rank 12.** Reciprocal Rank Fusion gives both
+  rankings a vote, and BM25's top results, none of them relevant, took the
+  places above it. Fusion helps when both rankings have something to offer,
+  and here only one did.
+- **The reranker brings it back, to rank 2**, reading the question and each
+  candidate together.
+- **Contextual chunks put it first.** Each chunk's context names the
+  incident, so every stage could see what the chunk was about. All four of
+  the report's chunks fill the top four places.
+- **The best score, 7.53, is well above the threshold,** so the system
+  answers. The request is 140 tokens of instructions, then five tagged
+  sources and the question.
+
+No single stage got this question right on its own. That's typical of the
+module's results, and it's why the next concept measures the stages one
+after another rather than one at a time.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "BM25 found none of the INC-2093 report's chunks in its top 100. Why?",
+    "options": [
+      "The identifier is only in the document's title, not in the chunks",
+      "BM25 gives identifiers such as INC-2093 almost no weight in its scores",
+      "The incident report is readable only by the security team's members",
+      "Hyphenated words like INC-2093 are dropped when the index is built"
+    ],
+    "correctIndex": 0,
+    "explanation": "BM25 matches the words in a chunk's own text. The chunks describe the outage without naming it, so there was nothing to match. Rare words like identifiers actually get high weights in BM25, which is why it usually finds them; here the word simply wasn't there, and contextual chunks put it back."
+  },
+  {
+    "question": "Search by meaning had the answer at rank 4, and fusing it with BM25 moved it to rank 12. What does that show about fusion?",
+    "options": [
+      "Fusion should be removed from the pipeline, since it lost ground here",
+      "A ranking with nothing relevant still takes places when fused",
+      "RRF ignores search by meaning whenever BM25 is confident in its results",
+      "The fused list was cut too short at 30 to include the answer"
+    ],
+    "correctIndex": 1,
+    "explanation": "RRF gives every ranking a vote by rank, whether or not its results are any good. When one ranking has nothing relevant, its top results still take high places. Over all the questions fusion was a close call, and on this one the reranker, which reads each candidate, repaired the damage."
+  },
+  {
+    "question": "Where in the querying half is a reader's permission applied, and why there?",
+    "options": [
+      "After reranking, so that the reranker can see every candidate first",
+      "At assembly, by leaving restricted sources out of the request",
+      "Before any search, so restricted chunks are never candidates",
+      "In the instructions, by telling the model what the reader may see"
+    ],
+    "correctIndex": 2,
+    "explanation": "A chunk the reader can't see must never compete for a place, or it takes a place from a permitted chunk, and anything after that point, from the reranker to the model, has seen it. Instructions to the model aren't a control at all."
+  }
+  ]}
+/>
+
+</CheckpointZone>

@@ -3368,7 +3368,7 @@ below describe each lesson as first converted; see the git log
 ## Module 5 — RAG Systems
 
 Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
-Lessons 1 to 14 are **Locked**. Lesson 15 (below) is **Planned**, and will be the module's last lesson.
+All 15 lessons are **Locked** (Lesson 15's recap is the module's last page).
 **Final audit (2026-09-29), all against the built site and real Pyodide:**
 - **Callbacks:** no `(→ ...)` left in any Module 5 source. Every internal
   link on the 88 built pages resolves to a built page, and all 54 anchored
@@ -4857,22 +4857,65 @@ Open, for the author:
    Lesson 14 is now **Locked**: all five concepts plus both bookends exist
    and build cleanly, and with it Module 5 is complete.
 
-15. **(Title to come): a RAG system for a new corpus** — **Planned**
-   (decided 2026-09-29, after the module's content review). A standalone
-   closing lesson that pulls the module together:
-   - an ordered decision guide for a new corpus (paste with a cache, or
-     retrieve; then baseline, hybrid, rerank, contexts, query changes,
-     agentic search and SQL, a graph only for chains and global questions),
-     with what each step gained and cost on this corpus;
-   - one end-to-end picture of the pipeline;
-   - the final held-out measurement Lesson 2 describes, run once on the
-     finished system (Lesson 10 has since run the held-out questions once,
-     to confirm its unchanged threshold; Lesson 15's measurement is of the
-     finished pipeline);
-   - where the module leaves off, pointing to the topics promised to
-     Modules 6, 7, 9 and 10 (listed under "Modules 4–11 — current plan").
+15. **A Retrieval System for a New Corpus** — **Locked** (folder
+   `15-a-new-corpus`, written in Claude Code on 2026-09-29, after the
+   module's content review, at the author's request; no mockups). Five
+   concepts plus bookends:
+   - **1. One question through the whole pipeline.** The indexing and
+     querying halves, mapped to the lessons that built each step. A live
+     trace of q11, "What happened in INC-2093?", for an all-staff reader:
+     - 1,951 of 1,968 chunks readable;
+     - BM25 has no answer in its top 100, because none of the four D11
+       chunks contains "INC-2093";
+     - search by meaning ranks it 4th, fusion 12th, the reranker 2nd, and
+       contextual chunks 1st;
+     - the best score is 7.53, and the request is 140 tokens of
+       instructions plus 5 sources.
+   - **2. What each stage bought.** A live ledger on the 43 main
+     questions, at rank 1 and in the top 5: word overlap 17/23, BM25 17/25,
+     meaning 15/28, fused 20/27, reranked 22/32, contextual 26/36. No
+     single step has a sign test below 0.12; the first row to the last is
+     +13 -0, sign test 0.0002. Also a table of results measured in other
+     lessons (PDFs, rewriting, filters, neighbours, the threshold, agent
+     retries, the graph, permissions) and a cost table (at indexing and per
+     question).
+   - **3. One honest number.** The finished pipeline on the held-out
+     questions, run once, with Lesson 10's threshold of 0:
+     - top 5: 9 of 10 (Wilson 0.60 to 0.98), against 36 of 43 (0.70 to
+       0.92) on the main set;
+     - rank 1: 5 of 10, against 26 of 43;
+     - the threshold keeps 7 of 9 and declines h09, the one held-out
+       question with no answer;
+     - h06 is multi-hop and only partly found; h05 and h11 are answered but
+       score below 0.
 
-   When it's built, Lesson 1's module map (concept 4) needs a line for it.
+     It explains why the threshold isn't lowered on these questions, and
+     points to Module 7 for live traffic.
+   - **4. A new corpus, in order.** A quiz-only design guide:
+     - first, questions, whether retrieval is needed at all (Anthropic's
+       200,000-token guidance, checked; this corpus is 232,241 tokens) and
+       permissions;
+     - then the baseline;
+     - then a table of which misses call for which later stage.
+   - **5. Where the module leaves off.** Quiz-only. What Modules 10, 7, 6
+     and 9 take over, and semantic caching with its three risks (close in
+     meaning isn't the same question, staleness, permissions), set against
+     prompt caching.
+   - **Recap.** 8 mixed questions, and a multi-file sandbox. `lib.py` is
+     Lesson 13's recap `LIB_PY` (imported from that page) plus `wilson`.
+     The learner writes `ledger(stages, questions, k)` and
+     `final_check(search, labelled, threshold, k)` in `report.py`.
+     - 5 hidden tests: fixtures with exact counts, comparison with the row
+       before and not the first, no-evidence questions never searched,
+       held-out-only searching, and the real corpus (23/17 to 36/26, +13 -0,
+       and held-out 9 of 10, (0.6, 0.98), kept 7, declined 1 of 1).
+     - The reference passes and the starter fails. A wrong-answer matrix of
+       12 all fail with clear messages, including a no-evidence question
+       counted through `answerable`'s vacuous `all()`.
+
+   Every demo was checked from the page in the CPython stand-in
+   (architecture.md §4.1), all links were checked against the build, and
+   Lesson 1's module map gained a line for this lesson.
 
 ---
 

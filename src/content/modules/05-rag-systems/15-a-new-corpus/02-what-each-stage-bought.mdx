@@ -1,0 +1,173 @@
+---
+title: "What each stage bought"
+lesson: "15-a-new-corpus"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { COUNT_TOKENS, REACT_FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, SIGN_TEST, FIXED_CHUNKS, STRUCTURE_HELPERS, STRUCTURED_CHUNKS, WITHIN_BUDGET, VECTORS, VECTOR_INDEX, MEANING_SEARCH, TERMS, BM25_INDEX, RERANK_SCORES, RERANK, LISTWISE_RERANK, MODULE_PIPELINE, REWRITE_QUERY, SPLIT_QUERY, INTERLEAVE, HYDE, WITH_HEADER, VERSIONED_PIPELINE, WITH_CONTEXT, EXPAND_NEIGHBOURS, ANSWER_RETRIEVER, ANSWER_INSTRUCTIONS, ASSEMBLE_REQUEST, CHECK_CITATIONS, DECLINED, AGENT_SEARCH, SEARCH_DOCUMENTS, CONTEXTUAL_SEARCH, SEARCH_BUDGET, REGISTRY_DB, QUERY_DATABASE, GRAPH_DATA, BUILD_GRAPH, AFFECTED_BY, GRAPH_COMMUNITIES, PERMITTED_RETRIEVER, READABLE, READER_VIEWS, RAG_GRAPH_DATA } from "../../../../lib/ragCorpus";
+export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION + METRICS + SIGN_TEST + FIXED_CHUNKS + STRUCTURE_HELPERS + STRUCTURED_CHUNKS + WITHIN_BUDGET + VECTORS + VECTOR_INDEX + MEANING_SEARCH + TERMS + BM25_INDEX + RERANK_SCORES + RERANK + LISTWISE_RERANK + MODULE_PIPELINE + REWRITE_QUERY + SPLIT_QUERY + INTERLEAVE + HYDE + WITH_HEADER + VERSIONED_PIPELINE + WITH_CONTEXT + EXPAND_NEIGHBOURS + ANSWER_RETRIEVER + ANSWER_INSTRUCTIONS + ASSEMBLE_REQUEST + CHECK_CITATIONS + DECLINED + AGENT_SEARCH + SEARCH_DOCUMENTS + CONTEXTUAL_SEARCH + SEARCH_BUDGET + REGISTRY_DB + QUERY_DATABASE + GRAPH_DATA + BUILD_GRAPH + AFFECTED_BY + GRAPH_COMMUNITIES + REACT_FAKE_CLIENT + RECORDING_CLIENT + PERMITTED_RETRIEVER + READABLE;
+
+export const LEDGER_DEMO = String.raw`main = [q for q in load_queries()["main"] if q["evidence"]]
+chunks = [c for d in load_documents() for c in structured_chunks(d, 200)]
+vectors = query_vectors()
+overlap = KeywordIndex()
+overlap.add(chunks)
+plain = ModulePipeline(chunks)
+plain_scores = CrossEncoderScores()
+answers = AnswerRetriever()
+
+# each stage adds one lesson's technique to the one before, except BM25 and meaning, which are alternatives
+stages = {
+    "word overlap (Lesson 1)": lambda q, k: overlap.search(q["query"], k),
+    "BM25 (Lesson 6)": lambda q, k: plain.bm25.search(q["query"], k),
+    "meaning (Lesson 4)": lambda q, k: plain.meaning.search(vectors[q["id"]], k),
+    "both, fused (Lesson 6)": lambda q, k: rrf([plain.bm25.search(q["query"], 100),
+                                                plain.meaning.search(vectors[q["id"]], 100)])[:k],
+    "+ reranked (Lesson 7)": lambda q, k: plain.search(q["query"], vectors[q["id"]],
+                                                       lambda c: plain_scores.score(q["id"], c), k=k),
+    "+ contextual (Lesson 9)": lambda q, k: answers.search(q, k),
+}
+print(f"{'stage':<26}{'rank 1':>8}{'top 5':>8}   against the row above, top 5")
+answered = {}
+for name, search in stages.items():
+    at1 = {q["id"] for q in main if answerable(search(q, 1), q)}
+    at5 = {q["id"] for q in main if answerable(search(q, 5), q)}
+    change = ""
+    if answered:
+        before = list(answered.values())[-1]
+        gained, lost = at5 - before, before - at5
+        change = f"+{len(gained)} -{len(lost)}, sign test {sign_test(len(gained), len(lost)):.2f}"
+    print(f"{name:<26}{len(at1):>5}/43{len(at5):>5}/43   {change}")
+    answered[name] = at5
+
+first, last = list(answered.values())[0], list(answered.values())[-1]
+print(f"\nfirst row to last: +{len(last - first)} -{len(first - last)}, "
+      f"sign test {sign_test(len(last - first), len(first - last)):.4f}")
+`;
+
+<Subsection title="The ledger" variant="a">
+
+Every lesson measured its own change against the pipeline it started from.
+Here are the core stages again, one after another, on the same 43 labelled
+questions, counting a question as answered when every part of its answer is
+in the results. Each row is compared with the row above it. The demo
+rebuilds every stage, so allow several seconds:
+
+<LiveDemo client:load dataFiles={RAG_GRAPH_DATA} setupCode={SETUP} code={LEDGER_DEMO} />
+
+Read down the last column first. No single step is convincing on its own:
+the best sign test is 0.12, and fusion's +2 −3 is no evidence either way. Read
+the first and last rows instead: 13 questions gained and none lost, a sign
+test of 0.0002. Each lesson's change was too small to prove on 43 questions,
+and the changes together are unmistakable. That's the usual shape of
+retrieval work, and the reason Lesson 2 insisted on keeping every change's
+gains and losses, not just its total: small steps are only worth trusting in
+a direction the others confirm.
+
+Two more things the table shows:
+
+- **Rank 1 and the top five tell different stories.** Search by meaning
+  answers more in the top five than BM25 does, 28 to 25, and fewer at rank
+  1, 15 to 17. Fusion loses one in the top five and gains five at rank 1.
+  Which column matters depends on how many results the model reads, as
+  [Lesson 6 concluded](/05-rag-systems/06-hybrid-search/04-hybrid-search-measured-honestly/#what-to-use-then).
+- **The two largest steps are the two that read more.** The reranker reads
+  each candidate with the question, and contextual chunks read each chunk's
+  whole document once, at indexing. Both spend model work to see what a
+  vector or a word count can't.
+
+</Subsection>
+
+<Subsection title="What the other lessons added" variant="b">
+
+Not every technique fits a single table. These were measured in their own
+lessons, each against the pipeline of its time, so their numbers don't add
+to the ledger's:
+
+| Technique | Measured result | Lesson |
+|---|---|---|
+| PDFs parsed, tables as rows, images described | 7 to 9 of the PDFs' 10 questions answered | [5](/05-rag-systems/05-document-parsing/00-intro/) |
+| Rewriting every question | 32 to 36 answered, one lost to drift | [8](/05-rag-systems/08-query-transformation/01-the-question-as-asked/) |
+| Filters from the question | 32 to 33 answered, none lost | [8](/05-rag-systems/08-query-transformation/05-filters-in-the-question/) |
+| Neighbours of each result | 36 to 39 answered within 1,000 tokens | [9](/05-rag-systems/09-contextual-chunks/04-recap-practice/) |
+| Declining below a score of 0 | 2 of 3 unanswerable questions declined, 3 of 36 answers lost | [10](/05-rag-systems/10-grounded-answers/03-abstaining-when-retrieval-is-weak/) |
+| An agent retrying keyword search | 31 answered, against the pipeline's 36 | [11](/05-rag-systems/11-agentic-rag/05-keyword-tools-against-the-full-pipeline/) |
+| A graph, for chains and whole-corpus questions | the pipeline answered 2 of 5 structural questions; the graph walks the chain exactly, and its summaries held all four parts of a whole-corpus answer, against three in the top ten | [12](/05-rag-systems/12-graph-rag/00-intro/) |
+| Filtering by the reader's permissions | restricted documents reached an all-staff reader for 20 of 57 questions without it, and none with it | [13](/05-rag-systems/13-permissions/01-permissions-at-retrieval-time/) |
+
+The last row isn't a gain in answers at all. Permissions and the ingestion
+gate are what make the system safe to point at real documents, and they
+belong in it from the first day, not at the end.
+
+</Subsection>
+
+<Subsection title="What each stage costs" variant="a">
+
+A gain is only half a ledger entry. Each stage also costs something, at
+indexing, on every question, or both:
+
+| Stage | At indexing | On every question |
+|---|---|---|
+| Word overlap, BM25 | count words, no model | no model |
+| Search by meaning | embed every chunk once, again for a new model | embed the question |
+| Reranking the top 30 | nothing | 30 reranker runs, about a tenth of a second on a laptop GPU |
+| Contextual chunks | a model call per chunk: about 2 million tokens read for this corpus with caching, 14 million without, and again when a document changes | nothing extra |
+| Query rewriting or filters | nothing | one model call before the search |
+| An agent | nothing | a model call per step, with earlier results sent again each time |
+| A graph | a model call per chunk to extract, plus summaries | a model call per batch of summaries, for global questions |
+
+The pattern is worth remembering. The indexing column is paid once per
+change to the documents, and the per-question column is paid on every
+question for as long as the system runs. A stage that costs a lot at
+indexing and nothing per question, like contextual chunks, is cheap for a
+stable corpus with many questions, and expensive for one that changes every
+hour.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "No single step in the ledger has a sign test below 0.12, yet the first row to the last is 0.0002. What should a team conclude?",
+    "options": [
+      "Only the last step mattered, since it produced the final result",
+      "Each step alone is uncertain, but together they clearly helped",
+      "The labelled questions were too easy, which inflates the final number",
+      "Sign tests don't work for comparing more than two searches at once"
+    ],
+    "correctIndex": 1,
+    "explanation": "Small changes are hard to prove on 43 questions, which is why each lesson looked at gains and losses rather than totals. A consistent direction across steps, and a first-to-last comparison with 13 gains and no losses, is strong evidence that the sequence as a whole helped."
+  },
+  {
+    "question": "Contextual chunks cost a model call per chunk at indexing and nothing per question. When is that a poor trade?",
+    "options": [
+      "When there are few questions and frequent edits",
+      "When the corpus is mostly Markdown rather than PDFs",
+      "When each question is answered from a single chunk",
+      "When the answering model has a large context window"
+    ],
+    "correctIndex": 0,
+    "explanation": "An indexing cost is repaid by every question that benefits, and paid again for every document that changes. Few questions and frequent edits mean paying often and benefiting rarely."
+  },
+  {
+    "question": "Why does the ledger treat permission filtering as a different kind of row from the others?",
+    "options": [
+      "It lowers the answered count, so it is usually added last",
+      "It's required for safety, whatever it does to scores",
+      "It only matters for questions about restricted documents",
+      "It was measured on the held-out questions instead"
+    ],
+    "correctIndex": 1,
+    "explanation": "The other rows trade cost for answers. Permission filtering decides what a reader may be shown at all, and a system that leaks restricted documents isn't a better or worse search, it's unusable. It goes in from the start."
+  }
+  ]}
+/>
+
+</CheckpointZone>
