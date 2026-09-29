@@ -3483,6 +3483,88 @@ exercises or quiz cards, only paragraphs:
   Lesson 14 (clearing old results).
 - **Recorded in this file:** the Module 6/7/9/10 promises, and Lesson 15.
 
+**Content additions from the review (2026-09-29).** Written directly in
+Claude Code (no mockups, at the author's request), one lesson per commit.
+Each lesson's demos and exercises were checked from the page text in the
+CPython stand-in (architecture.md §4.1), every new exercise has a
+wrong-answer matrix, and every link and anchor was checked against the
+build.
+- **L2:**
+  - where real questions come from;
+  - model-written questions and their wording bias (`generated-questions.json`:
+    18 of 20 answerable when written in the passage's words, 0 of 20
+    paraphrased, against 19 of 43 for the set's own);
+  - a model as the relevance judge;
+  - nDCG, hit rate and the RAGAS names;
+  - Wilson intervals, McNemar and the paired bootstrap;
+  - latency and tokens as metrics.
+- **L4:**
+  - choosing a model beyond one page (MTEB and its limits);
+  - vectors from different models don't mix. The mixed pairings still
+    answer 19 and 17 of 43, so a mixed index looks like a worse search,
+    not a broken one; the reordered control answers 0;
+  - the index records what made its vectors;
+  - 8-bit and 1-bit storage, 1-bit shortlists rescored with full vectors,
+    and Matryoshka.
+- **L5:**
+  - vision-language models as parsers, with a check against the text layer
+    and a comparison table;
+  - page numbers kept per chunk (a demo-only helper);
+  - ColPali reframed, and single-vector page embedders;
+  - DOCX, HTML, PPTX and spreadsheets.
+- **L8:** a new concept, "Filters hidden in the question"
+  (`05-filters-in-the-question`, with the `validate_filters` and
+  `filtered_search` exercise and `query-filters.json`). Filters gain one
+  question (32 to 33); a model-written access filter is stripped by the
+  schema; a wrong filter hides answers, so the search falls back when
+  nothing passes. The recap moved to `06`, and the agents paragraph moved
+  from HyDE to the new concept.
+- **L10:**
+  - quote-backed citations checked by code;
+  - built-in citation features (Anthropic citations and `search_result`
+    blocks, OpenAI annotations);
+  - the threshold confirmed on the held-out questions (run once, with
+    nothing chosen on them);
+  - partial answers;
+  - the recap's `fact_pattern` disagreement flag.
+- **L11:**
+  - a new concept, "Whether, where and how hard to search"
+    (`06-whether-where-and-how-hard-to-search`): adaptive retrieval,
+    Adaptive-RAG, CRAG and Self-RAG, a demo of the reranker-score grade
+    as a second-attempt trigger (at 0 it catches 4 of 10 failures and
+    re-sends 3 of 36 good answers), and choosing between sources,
+    including MCP and web search;
+  - the recap, moved to `07`, reworked so the agent gets grounding rules as
+    a system prompt, cites SQL rows by id, and reports uncited statements,
+    declines and answers that cite nothing.
+- **L12:**
+  - finding where to start, with fuzzy entity linking over the 20 named
+    entities;
+  - graphs and vectors together (local search, DRIFT, LightRAG, HippoRAG
+    1 and 2);
+  - a graph database as an agent's tool (text-to-Cypher guardrails);
+  - incremental indexing.
+- **L13:**
+  - the answer as an exfiltration channel, with EchoLeak and an allowlist
+    output filter;
+  - deletion reaching every derived store (demo on D11);
+  - permission changes at the source (a two-layer check, Zanzibar-style
+    systems);
+  - detection classifiers and their limits;
+  - links to Module 3's `as_untrusted` and Module 4's memory poisoning;
+  - the recap's graph now built only from indexed documents (a
+    quarantined document's edges had reached the tool; test 8).
+- **L10 to L14 recap libraries:** `format_source` neutralises a planted
+  `</source>` (architecture.md §4.1).
+
+Open, for the author:
+- `run_agent`'s unknown-tool crash (`tools[call.name](**call.input)`) is
+  shared by Modules 2 to 5 and should become an `is_error` result
+  everywhere at once.
+- Lesson 12's stored triples are keyed by chunk id, which an approved edit
+  that re-chunks a document would invalidate. That belongs with Module 10's
+  index maintenance.
+
 1. **Why Retrieval, When the Window Is Huge** — **Locked** (folder
    `01-why-retrieval`; the title comes from the bookends mockup).
    Concept 1 (what the model can't know) is built: the kinds of knowledge a
@@ -4784,7 +4866,9 @@ exercises or quiz cards, only paragraphs:
      with what each step gained and cost on this corpus;
    - one end-to-end picture of the pipeline;
    - the final held-out measurement Lesson 2 describes, run once on the
-     finished system;
+     finished system (Lesson 10 has since run the held-out questions once,
+     to confirm its unchanged threshold; Lesson 15's measurement is of the
+     finished pipeline);
    - where the module leaves off, pointing to the topics promised to
      Modules 6, 7, 9 and 10 (listed under "Modules 4–11 — current plan").
 
