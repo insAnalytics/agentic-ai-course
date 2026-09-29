@@ -593,6 +593,17 @@ assert len(answered(plain)) == 7, f"without summaries and descriptions, 7 of 10;
       "explanation": "A cell means something only through its column. Rows written as \"Week starting: 21 Dec; Primary: Tomás Reyes; ...\" keep their meaning wherever the chunker puts them."
     },
     {
+      "question": "A user wants to check a cited PDF chunk against the original. What should the ingester have kept, and where does it come from?",
+      "options": [
+        "The chunk's page, known from the page-by-page extraction",
+        "The chunk's character offset, which pypdf reports for every line",
+        "Nothing extra: the section name is enough to find it in any PDF",
+        "The page, which the structure-aware chunker adds to every chunk"
+      ],
+      "correctIndex": 0,
+      "explanation": "The extraction is stored page by page, so every word's page is known, but to_markdown returns one string and the page is lost. A production ingester records each block's page as it builds it and carries it into every chunk, so a citation can say \"page 2\" and a reader can open it."
+    },
+    {
       "question": "A table summary didn't help find a value in one of the table's cells. What is a summary good for?",
       "options": [
         "Questions about what a table covers, rather than a specific value",
@@ -635,6 +646,17 @@ assert len(answered(plain)) == 7, f"without summaries and descriptions, 7 of 10;
       ],
       "correctIndex": 0,
       "explanation": "A scanned page is a picture. OCR turns the picture back into text, which then needs the same cleaning, and checking, as any extracted text."
+    },
+    {
+      "question": "A vision-language model turns a born-digital PDF into clean Markdown. What's the sensible way to trust its output?",
+      "options": [
+        "Trust it, since the Markdown's structure shows the page was read",
+        "Run it twice, and keep the output only where both runs agree",
+        "Compare it with the PDF's text layer, and sample pages by eye",
+        "Ask the same model afterwards whether its transcript is correct"
+      ],
+      "correctIndex": 2,
+      "explanation": "A VLM can write plausible text that isn't on the page: an invented number, a completed sentence, a filled-in cell. It needs checking against something independent of it. For a born-digital PDF, the text layer is exactly that; its own second opinion isn't."
     },
     {
       "question": "OCR at 72 dpi turned \"1 business day\" into \"'business day\". Why does this matter more than it looks?",

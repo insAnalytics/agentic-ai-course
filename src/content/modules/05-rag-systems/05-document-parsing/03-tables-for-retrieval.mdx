@@ -44,6 +44,36 @@ for name, chunks in versions.items():
     print(f"{name:<22}" + "".join(f"{rank:>6}" for rank in ranks))
 `;
 
+export const PAGES_DEMO = String.raw`def page_markdown(extracted: dict, number: int, render_table=table_as_markdown) -> str:
+    """One page's share of to_markdown's text. The other pages still count towards the body size,
+    but a height of 0 puts all their words in the margin, so they add no blocks."""
+    pages = [page if page["number"] == number else {**page, "height": 0, "tables": []}
+             for page in extracted["pages"]]
+    return to_markdown({"pages": pages}, render_table)
+
+def with_pages(chunks: list[dict], extracted: dict, render_table=table_as_markdown) -> list[dict]:
+    """Tag each chunk with the pages its lines came from, not counting the heading it starts with."""
+    by_page = {page["number"]: page_markdown(extracted, page["number"], render_table)
+               for page in extracted["pages"]}
+    tagged = []
+    for chunk in chunks:
+        body = chunk["text"].split("\n\n", 1)[-1] if re.match(r"#{1,6} ", chunk["text"]) else chunk["text"]
+        lines = [line for line in body.splitlines() if line.strip()]
+        pages = [number for number, markdown in by_page.items() if any(line in markdown for line in lines)]
+        tagged.append({**chunk, "pages": pages})
+    return tagged
+
+review, document = load_pdf_extraction()["P01"], load_pdf_corpus()["documents"]["P01"]
+text = to_markdown(review, table_as_rows)
+joined = "\n\n".join(page_markdown(review, page["number"], table_as_rows) for page in review["pages"])
+print("the pages, joined, give to_markdown's text:", joined == text, "\n")
+
+chunks = with_pages(structured_chunks({**document, "text": text}, 200), review, table_as_rows)
+for chunk in chunks:
+    print(f"chunk {chunk['chunk']}  pages {chunk['pages']}  {chunk['section']}")
+print(f"\n{chunks[3]['text']}\n    ({chunks[3]['title']}, page {chunks[3]['pages'][0]})")
+`;
+
 <Subsection title="A new rule for what counts as relevant" variant="a">
 
 Lesson 2 labelled each question with quotes from the documents, and counted a
@@ -182,6 +212,48 @@ the unit that matters.
 
 </Subsection>
 
+<Subsection title="Keeping the page number" variant="a">
+
+Every chunk so far records its document and its section, and that's what
+[Lesson 10's citations](/05-rag-systems/10-grounded-answers/02-citations-that-point-back/#checking-what-can-be-checked)
+resolve to. For a PDF, a reader checking a source wants one more thing: the
+page. "Quarterly operations review, page 2" is something they can open and
+look at. The extraction knows every word's page, since it's stored page by
+page, but `to_markdown` returns one string for the whole document, and the
+pages are gone.
+
+`to_markdown` is shared by the rest of this module, so rather than change
+what it returns, this demo recovers the pages alongside it. Two things make
+that possible. `to_markdown` ends every paragraph with its page, so no block
+runs across a page break. And it can be run one page at a time:
+`page_markdown` keeps the other pages' words, so the body size is still the
+whole document's, but gives those pages a height of 0, which puts every one
+of their words in the margin, so they add nothing. A chunk's pages are then
+the pages whose Markdown contains its lines:
+
+<LiveDemo client:load dataFiles={RAG_PDF_DATA} setupCode={SETUP} code={PAGES_DEMO} />
+
+*This runs on the stored extraction.*
+
+The first line is the check that matters: the pages' Markdown, joined, is
+exactly `to_markdown`'s text, so the tags describe the chunks the index
+actually holds. The operations review's page break falls between its
+incidents and rate-limiting sections, so each chunk here comes from a single
+page. A section that ran across the break would give a chunk tagged
+`[1, 2]`, and its citation would say pages 1–2. The heading a chunk starts
+with isn't counted, because a section's heading is repeated at the top of
+every chunk in it, including chunks whose text is on a later page.
+
+This is a recovery after the fact, and it has a weakness: a line repeated
+word for word on two pages would be claimed by both. A production ingester
+would record the page as it builds each block, carry it into every chunk and
+store it next to the document and section, so a citation can show it. Added
+chunks can carry a page too, since the extraction records which page each
+table and image is on. The rest of this module keeps its chunks as they are,
+citing document and section.
+
+</Subsection>
+
 <CheckpointZone>
 
 <QuizGroup
@@ -230,6 +302,28 @@ the unit that matters.
     ],
     "correctIndex": 0,
     "explanation": "A summary describes the table as a whole, so it matches questions about its subject. It rarely states every cell, so value lookups need the rows themselves."
+  },
+  {
+    "question": "Why does page_markdown give the other pages a height of 0, rather than rebuilding each page on its own?",
+    "options": [
+      "Rebuilding one page at a time would put its paragraphs out of order",
+      "to_markdown can only be called on a document with more than one page",
+      "On its own, a page might have another body size, and so other headings",
+      "A height of 0 keeps the other pages' tables in the text, in their place"
+    ],
+    "correctIndex": 2,
+    "explanation": "to_markdown measures the body size over the whole document. A page that's mostly large type, rebuilt alone, could take its title's size as the body and lose its headings. Keeping the other pages' words, all in the margin, keeps the document's body size while adding none of their blocks."
+  },
+  {
+    "question": "Why is the heading a chunk starts with left out when finding the chunk's pages?",
+    "options": [
+      "A heading is never printed on the same page as the text below it",
+      "Every chunk in a section repeats its heading, even on later pages",
+      "page_markdown removes the headings from each page's Markdown",
+      "Headings use a larger font, so their words aren't in the extraction"
+    ],
+    "correctIndex": 1,
+    "explanation": "structured_chunks puts a section's heading at the top of every chunk it makes from that section. A chunk made from the part of a section on page 2 still starts with a heading printed on page 1, so counting it would tag the chunk with a page its text isn't on."
   }
 ]}
 />
