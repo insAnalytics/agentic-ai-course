@@ -4495,8 +4495,26 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    Security 2025, arXiv 2402.07867) linked, its figures checked against the
    abstract (five texts per target question, millions of texts, 90% attack
    success, defences insufficient). 4 quiz cards; no exercise, as in the
-   mockup. No changes from the mockup. The lesson's other concepts and the
-   bookends aren't drafted yet. Earlier lessons' forward
+   mockup. No changes from the mockup. Concept 4 (defences by design) is
+   built: no new shared code, setup as concept 3's. One live demo, code and
+   output exact match in real Pyodide (the planted page displacing D08, D01
+   and D14 for q21, q35 and q36). Links to Lesson 11's "Guardrails: allow,
+   don't ban", Lesson 10's "What each source carries, and what the model is
+   told" and Module 3's "One injected instruction needs somewhere to send
+   the data", anchors checked in the built HTML. 4 quiz cards; graded
+   `IngestionGate` exercise, reference exported as `INGESTION_GATE`.
+   **Change from the mockup's hidden tests:** tests 2 and 3 continued test
+   1's `gate`, so each test starts with the shared fixtures, and tests 2 and
+   3 replay what they need (D01 indexed and W1 quarantined by j.doe, then W1
+   approved). Verified with the real `runAgainstHiddenTests`: the
+   reference passes (test 4 indexes all 119 documents and keeps W99 out of
+   the top five until it's approved), the starter fails all four, and eight
+   mutations each fail (the document's own author kept, a pending edit not
+   discarded, an edit replacing the indexed version, authors approving
+   their own, an unknown source type trusting everyone, approval leaving a
+   copy in quarantine, quarantine searchable, a writer trusted for any
+   source type). The lesson's other concepts and the bookends aren't
+   drafted yet. Earlier lessons' forward
    references to Lesson 13 stay plain prose.
 
 ---

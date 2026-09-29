@@ -1461,3 +1461,42 @@ def summaries_for_reader(graph: dict, groups, summaries: dict) -> dict:
             shown[anchor] = summaries[anchor]
     return shown
 `;
+
+/**
+ * Module 5 Lesson 13 concept 4 graded exercise, reference solution verbatim
+ * (IngestionGate). Joins the Lesson 13 setup for every page AFTER concept 4
+ * (append after READER_VIEWS) and must never load on concept 4 itself, or the
+ * exercise would start already solved.
+ */
+export const INGESTION_GATE = String.raw`
+class IngestionGate:
+    """Decides what reaches the index. A document from a writer trusted for its source type is indexed;
+    anything else waits in quarantine until someone other than its author approves it. A quarantined
+    edit never replaces the version already indexed."""
+
+    def __init__(self, trusted_writers: dict[str, set]):
+        self.trusted_writers = trusted_writers
+        self.indexed = {}
+        self.quarantine = {}
+
+    def submit(self, document: dict, author: str) -> str:
+        document = {**document, "author": author}
+        if author in self.trusted_writers.get(document["source_type"], set()):
+            self.indexed[document["doc_id"]] = document
+            self.quarantine.pop(document["doc_id"], None)
+            return "indexed"
+        self.quarantine[document["doc_id"]] = document
+        return "quarantined"
+
+    def approve(self, doc_id: str, reviewer: str) -> str:
+        if doc_id not in self.quarantine:
+            return "not in quarantine"
+        if reviewer == self.quarantine[doc_id]["author"]:
+            return "an author can't approve their own document"
+        self.indexed[doc_id] = self.quarantine.pop(doc_id)
+        return "indexed"
+
+    def searchable(self) -> list[dict]:
+        """The documents retrieval may index: approved or trusted versions only."""
+        return list(self.indexed.values())
+`;
