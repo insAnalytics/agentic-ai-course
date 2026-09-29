@@ -1,0 +1,630 @@
+---
+title: "Checking a tool result before the model reads it"
+lesson: "03-checks-in-the-loop"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+import { CHECKED_AGENT } from "../../../../lib/reliabilityData";
+
+export const SETUP = REACT_FAKE_CLIENT + RECORDING_CLIENT + CHECKED_AGENT;
+
+export const RECORD_CHECK_DEMO = String.raw`import json
+
+REQUIRED = {"agent_name", "model", "tier", "owner"}
+PLACEHOLDERS = {"", "[REDACTED]", "N/A", "unknown"}
+
+
+def check_agent_record(call, output: str):
+    """A result check for get_agent: turn an unusable 'success' into a marked error."""
+    try:
+        record = json.loads(output)
+    except json.JSONDecodeError:
+        return f"get_agent returned text that isn't valid JSON, possibly cut off: {output[:40]!r}"
+    if not record:
+        return f"get_agent returned no record for {call.input['agent_name']}; check the spelling of the name"
+    if missing := REQUIRED - record.keys():
+        return f"get_agent's record is missing {sorted(missing)}; don't infer them"
+    unusable = [field for field in sorted(REQUIRED) if record[field] in PLACEHOLDERS]
+    if unusable:
+        return f"get_agent returned no usable value for {unusable}; report that instead of guessing"
+    return None
+
+
+call = ToolUseBlock(name="get_agent", input={"agent_name": "research_agent"})
+returned = {
+    "complete": '{"agent_name": "research_agent", "model": "claude-legacy", "tier": "standard", "owner": "research-team"}',
+    "empty": "{}",
+    "missing a field": '{"agent_name": "research_agent", "tier": "standard", "owner": "research-team"}',
+    "redacted": '{"agent_name": "research_agent", "model": "[REDACTED]", "tier": "standard", "owner": "research-team"}',
+    "cut off": '{"agent_name": "research_agent", "model": "claude-leg',
+}
+for label, output in returned.items():
+    print(f"{label:<16} {check_agent_record(call, output) or 'passes'}")
+`;
+
+export const STARTER = String.raw`import json
+from datetime import datetime, timedelta, timezone
+
+REQUIRED = ("agent_name", "error_rate", "p95_ms", "checked_at")
+MAX_AGE = timedelta(minutes=15)
+
+
+def check_health_result(output: str, now: datetime) -> str | None:
+    """None if a get_health result is usable; otherwise a short reason, for an is_error observation."""
+    ...
+
+
+now = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+print(check_health_result('{"agent_name": "research_agent", "error_rate": 0.0, "p95_ms": 610, "checked_at": "2026-09-29T11:58:00+00:00"}', now))
+print(check_health_result('{"agent_name": "research_agent", "error_rate": 0.03, "p95_ms": 900, "checked_at": "2026-09-29T09:10:00+00:00"}', now))
+`;
+
+export const REFERENCE = String.raw`import json
+from datetime import datetime, timedelta, timezone
+
+REQUIRED = ("agent_name", "error_rate", "p95_ms", "checked_at")
+MAX_AGE = timedelta(minutes=15)
+
+
+def check_health_result(output: str, now: datetime) -> str | None:
+    """None if a get_health result is usable; otherwise a short reason, for an is_error observation."""
+    try:
+        record = json.loads(output)
+    except json.JSONDecodeError:
+        return "get_health returned text that isn't valid JSON, possibly cut off"
+    if not isinstance(record, dict) or not record:
+        return "get_health returned no health record"
+    if missing := [field for field in REQUIRED if field not in record]:
+        return f"get_health's record is missing {missing}"
+    if empty := [field for field in REQUIRED if record[field] is None]:
+        return f"get_health returned no usable value for {empty}"
+    if not 0 <= record["error_rate"] <= 1:
+        return f"error_rate {record['error_rate']} is outside 0 to 1"
+    if record["p95_ms"] < 0:
+        return f"p95_ms {record['p95_ms']} is negative"
+    age = now - datetime.fromisoformat(record["checked_at"])
+    if age > MAX_AGE:
+        return f"the health check is stale: taken {age} ago, more than {MAX_AGE} allowed"
+    return None
+`;
+
+export const TESTS = [
+// each hidden test runs in its own copy of the learner's namespace, so every test repeats the helpers it uses
+String.raw`import json
+from datetime import datetime, timezone
+
+NOW = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+
+
+def health(**changes) -> str:
+    record = {"agent_name": "research_agent", "error_rate": 0.02, "p95_ms": 840,
+              "checked_at": "2026-09-29T11:55:00+00:00"}
+    record.update(changes)
+    return json.dumps({k: v for k, v in record.items() if v != "DROP"})
+
+
+def verdict(output: str):
+    try:
+        return check_health_result(output, NOW)
+    except Exception as error:
+        raise AssertionError(f"check_health_result raised {type(error).__name__} on {output!r}: "
+                             "a check should return a reason, not crash the loop") from None
+
+
+def blocked(output: str, *words: str) -> bool:
+    reason = verdict(output)
+    return isinstance(reason, str) and all(w in reason for w in words)
+
+
+assert verdict(health()) is None, "a complete, fresh, in-range record should pass"
+`,
+String.raw`import json
+from datetime import datetime, timezone
+
+NOW = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+
+
+def health(**changes) -> str:
+    record = {"agent_name": "research_agent", "error_rate": 0.02, "p95_ms": 840,
+              "checked_at": "2026-09-29T11:55:00+00:00"}
+    record.update(changes)
+    return json.dumps({k: v for k, v in record.items() if v != "DROP"})
+
+
+def verdict(output: str):
+    try:
+        return check_health_result(output, NOW)
+    except Exception as error:
+        raise AssertionError(f"check_health_result raised {type(error).__name__} on {output!r}: "
+                             "a check should return a reason, not crash the loop") from None
+
+
+def blocked(output: str, *words: str) -> bool:
+    reason = verdict(output)
+    return isinstance(reason, str) and all(w in reason for w in words)
+
+
+assert verdict(health(error_rate=0.0, p95_ms=0)) is None, (
+    "error_rate 0.0 and p95_ms 0 are real values, not missing ones: test for None, not for falsiness, "
+    "or the check wrongly blocks a perfectly healthy agent")
+`,
+String.raw`import json
+from datetime import datetime, timezone
+
+NOW = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+
+
+def health(**changes) -> str:
+    record = {"agent_name": "research_agent", "error_rate": 0.02, "p95_ms": 840,
+              "checked_at": "2026-09-29T11:55:00+00:00"}
+    record.update(changes)
+    return json.dumps({k: v for k, v in record.items() if v != "DROP"})
+
+
+def verdict(output: str):
+    try:
+        return check_health_result(output, NOW)
+    except Exception as error:
+        raise AssertionError(f"check_health_result raised {type(error).__name__} on {output!r}: "
+                             "a check should return a reason, not crash the loop") from None
+
+
+def blocked(output: str, *words: str) -> bool:
+    reason = verdict(output)
+    return isinstance(reason, str) and all(w in reason for w in words)
+
+
+assert verdict(health(error_rate=1.0)) is None, "error_rate 1.0 is within 0 to 1"
+`,
+String.raw`import json
+from datetime import datetime, timezone
+
+NOW = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+
+
+def health(**changes) -> str:
+    record = {"agent_name": "research_agent", "error_rate": 0.02, "p95_ms": 840,
+              "checked_at": "2026-09-29T11:55:00+00:00"}
+    record.update(changes)
+    return json.dumps({k: v for k, v in record.items() if v != "DROP"})
+
+
+def verdict(output: str):
+    try:
+        return check_health_result(output, NOW)
+    except Exception as error:
+        raise AssertionError(f"check_health_result raised {type(error).__name__} on {output!r}: "
+                             "a check should return a reason, not crash the loop") from None
+
+
+def blocked(output: str, *words: str) -> bool:
+    reason = verdict(output)
+    return isinstance(reason, str) and all(w in reason for w in words)
+
+
+assert verdict(health(checked_at="2026-09-29T11:45:00+00:00")) is None, (
+    "a check exactly 15 minutes old is still within the limit")
+`,
+String.raw`import json
+from datetime import datetime, timezone
+
+NOW = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+
+
+def health(**changes) -> str:
+    record = {"agent_name": "research_agent", "error_rate": 0.02, "p95_ms": 840,
+              "checked_at": "2026-09-29T11:55:00+00:00"}
+    record.update(changes)
+    return json.dumps({k: v for k, v in record.items() if v != "DROP"})
+
+
+def verdict(output: str):
+    try:
+        return check_health_result(output, NOW)
+    except Exception as error:
+        raise AssertionError(f"check_health_result raised {type(error).__name__} on {output!r}: "
+                             "a check should return a reason, not crash the loop") from None
+
+
+def blocked(output: str, *words: str) -> bool:
+    reason = verdict(output)
+    return isinstance(reason, str) and all(w in reason for w in words)
+
+
+assert verdict(health(region="eu-west")) is None, "extra fields don't make a result unusable"
+`,
+String.raw`import json
+from datetime import datetime, timezone
+
+NOW = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+
+
+def health(**changes) -> str:
+    record = {"agent_name": "research_agent", "error_rate": 0.02, "p95_ms": 840,
+              "checked_at": "2026-09-29T11:55:00+00:00"}
+    record.update(changes)
+    return json.dumps({k: v for k, v in record.items() if v != "DROP"})
+
+
+def verdict(output: str):
+    try:
+        return check_health_result(output, NOW)
+    except Exception as error:
+        raise AssertionError(f"check_health_result raised {type(error).__name__} on {output!r}: "
+                             "a check should return a reason, not crash the loop") from None
+
+
+def blocked(output: str, *words: str) -> bool:
+    reason = verdict(output)
+    return isinstance(reason, str) and all(w in reason for w in words)
+
+
+assert blocked('{"agent_name": "research_agent", "error_ra', "JSON"), "text that isn't JSON: say so"
+`,
+String.raw`import json
+from datetime import datetime, timezone
+
+NOW = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+
+
+def health(**changes) -> str:
+    record = {"agent_name": "research_agent", "error_rate": 0.02, "p95_ms": 840,
+              "checked_at": "2026-09-29T11:55:00+00:00"}
+    record.update(changes)
+    return json.dumps({k: v for k, v in record.items() if v != "DROP"})
+
+
+def verdict(output: str):
+    try:
+        return check_health_result(output, NOW)
+    except Exception as error:
+        raise AssertionError(f"check_health_result raised {type(error).__name__} on {output!r}: "
+                             "a check should return a reason, not crash the loop") from None
+
+
+def blocked(output: str, *words: str) -> bool:
+    reason = verdict(output)
+    return isinstance(reason, str) and all(w in reason for w in words)
+
+
+assert blocked("{}", "record") and blocked("null", "record") and blocked("[]", "record"), (
+    "an empty result, null or an empty list: report that no health record came back")
+`,
+String.raw`import json
+from datetime import datetime, timezone
+
+NOW = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+
+
+def health(**changes) -> str:
+    record = {"agent_name": "research_agent", "error_rate": 0.02, "p95_ms": 840,
+              "checked_at": "2026-09-29T11:55:00+00:00"}
+    record.update(changes)
+    return json.dumps({k: v for k, v in record.items() if v != "DROP"})
+
+
+def verdict(output: str):
+    try:
+        return check_health_result(output, NOW)
+    except Exception as error:
+        raise AssertionError(f"check_health_result raised {type(error).__name__} on {output!r}: "
+                             "a check should return a reason, not crash the loop") from None
+
+
+def blocked(output: str, *words: str) -> bool:
+    reason = verdict(output)
+    return isinstance(reason, str) and all(w in reason for w in words)
+
+
+assert blocked(health(p95_ms="DROP"), "p95_ms"), "a missing field: name it in the reason"
+`,
+String.raw`import json
+from datetime import datetime, timezone
+
+NOW = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+
+
+def health(**changes) -> str:
+    record = {"agent_name": "research_agent", "error_rate": 0.02, "p95_ms": 840,
+              "checked_at": "2026-09-29T11:55:00+00:00"}
+    record.update(changes)
+    return json.dumps({k: v for k, v in record.items() if v != "DROP"})
+
+
+def verdict(output: str):
+    try:
+        return check_health_result(output, NOW)
+    except Exception as error:
+        raise AssertionError(f"check_health_result raised {type(error).__name__} on {output!r}: "
+                             "a check should return a reason, not crash the loop") from None
+
+
+def blocked(output: str, *words: str) -> bool:
+    reason = verdict(output)
+    return isinstance(reason, str) and all(w in reason for w in words)
+
+
+assert blocked(health(error_rate=None), "error_rate"), "a field that's present but null: name it"
+`,
+String.raw`import json
+from datetime import datetime, timezone
+
+NOW = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+
+
+def health(**changes) -> str:
+    record = {"agent_name": "research_agent", "error_rate": 0.02, "p95_ms": 840,
+              "checked_at": "2026-09-29T11:55:00+00:00"}
+    record.update(changes)
+    return json.dumps({k: v for k, v in record.items() if v != "DROP"})
+
+
+def verdict(output: str):
+    try:
+        return check_health_result(output, NOW)
+    except Exception as error:
+        raise AssertionError(f"check_health_result raised {type(error).__name__} on {output!r}: "
+                             "a check should return a reason, not crash the loop") from None
+
+
+def blocked(output: str, *words: str) -> bool:
+    reason = verdict(output)
+    return isinstance(reason, str) and all(w in reason for w in words)
+
+
+assert blocked(health(error_rate=1.4), "error_rate"), "error_rate above 1 is out of range"
+`,
+String.raw`import json
+from datetime import datetime, timezone
+
+NOW = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+
+
+def health(**changes) -> str:
+    record = {"agent_name": "research_agent", "error_rate": 0.02, "p95_ms": 840,
+              "checked_at": "2026-09-29T11:55:00+00:00"}
+    record.update(changes)
+    return json.dumps({k: v for k, v in record.items() if v != "DROP"})
+
+
+def verdict(output: str):
+    try:
+        return check_health_result(output, NOW)
+    except Exception as error:
+        raise AssertionError(f"check_health_result raised {type(error).__name__} on {output!r}: "
+                             "a check should return a reason, not crash the loop") from None
+
+
+def blocked(output: str, *words: str) -> bool:
+    reason = verdict(output)
+    return isinstance(reason, str) and all(w in reason for w in words)
+
+
+assert blocked(health(error_rate=-0.1), "error_rate"), "error_rate below 0 is out of range"
+`,
+String.raw`import json
+from datetime import datetime, timezone
+
+NOW = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+
+
+def health(**changes) -> str:
+    record = {"agent_name": "research_agent", "error_rate": 0.02, "p95_ms": 840,
+              "checked_at": "2026-09-29T11:55:00+00:00"}
+    record.update(changes)
+    return json.dumps({k: v for k, v in record.items() if v != "DROP"})
+
+
+def verdict(output: str):
+    try:
+        return check_health_result(output, NOW)
+    except Exception as error:
+        raise AssertionError(f"check_health_result raised {type(error).__name__} on {output!r}: "
+                             "a check should return a reason, not crash the loop") from None
+
+
+def blocked(output: str, *words: str) -> bool:
+    reason = verdict(output)
+    return isinstance(reason, str) and all(w in reason for w in words)
+
+
+assert blocked(health(p95_ms=-3), "p95_ms"), "a negative p95_ms is out of range"
+`,
+String.raw`import json
+from datetime import datetime, timezone
+
+NOW = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+
+
+def health(**changes) -> str:
+    record = {"agent_name": "research_agent", "error_rate": 0.02, "p95_ms": 840,
+              "checked_at": "2026-09-29T11:55:00+00:00"}
+    record.update(changes)
+    return json.dumps({k: v for k, v in record.items() if v != "DROP"})
+
+
+def verdict(output: str):
+    try:
+        return check_health_result(output, NOW)
+    except Exception as error:
+        raise AssertionError(f"check_health_result raised {type(error).__name__} on {output!r}: "
+                             "a check should return a reason, not crash the loop") from None
+
+
+def blocked(output: str, *words: str) -> bool:
+    reason = verdict(output)
+    return isinstance(reason, str) and all(w in reason for w in words)
+
+
+assert blocked(health(checked_at="2026-09-29T11:44:00+00:00"), "stale"), (
+    "a check 16 minutes old is stale; the reason should say so")
+`,
+];
+
+<Subsection title="A success that isn't" variant="a">
+
+[Module 2](/02-the-agent-loop/06-termination-failure-and-control/05-tool-errors-as-observations/)
+taught the loop to catch a tool that fails loudly, with an exception or an
+error status, and pass it to the model as an error observation. The harder
+case is a tool that reports success and returns nothing usable: an empty
+record, a field replaced by a placeholder, a reading from hours ago, JSON
+cut off halfway. Nothing crashes, and the model is handed something that
+looks like an answer.
+
+Two studies show why this case matters:
+
+- **Most tool failures are silent.** Sun et al.,
+  [*Tools Fail: Detecting Silent Errors in Faulty Tools*](https://arxiv.org/abs/2406.19228)
+  (EMNLP 2024), point out that a malformed call usually produces an error
+  message, but a well-formed call with the wrong content, or a tool that is
+  simply wrong, produces a wrong result with no signal at all, and the
+  mistake carries into the steps that follow. They tested whether models
+  notice such results without an explicit error, and framed the problem as
+  models trusting their tools too much.
+- **Whether a failure is signalled decides what the model says.** A
+  preprint from September 2026 by Sethi et al.,
+  [*Fabrication After Tool Failure*](https://arxiv.org/abs/2609.14758), not
+  yet peer-reviewed, forced a tool call and then returned a payload that
+  couldn't answer the question. When the tool reported an error, the model's
+  answer was never dishonest in their main condition. When it reported
+  success with an empty, cut-off, stale, corrupted or redacted value, the
+  model sometimes stated a value it didn't have, or gave a made-up reason
+  for not answering: up to 45.3% of the time for redacted values. The main
+  experiments used one model and stub tools, so the rates themselves won't
+  carry over.
+
+The authors suggest the fix this concept builds: turn a failure the tool
+didn't signal into one it did, at the tool boundary, before the model reads
+it. They predict this would work, from their results, but didn't test it
+directly. A result check in code is exactly that step.
+
+</Subsection>
+
+<Subsection title="What a result check looks for" variant="b">
+
+A result check doesn't judge whether the answer is right. It checks whether
+the result is usable at all, which is a much easier question, and one code
+can answer. The usual kinds, several of which match the failure types in
+Sethi et al.'s study:
+
+- **Empty:** `{}`, `null`, an empty list, when the tool promises a record.
+- **Missing a field** the next step needs.
+- **A placeholder** where a value should be: `"[REDACTED]"`, `"N/A"`, `null`.
+- **Cut off:** text that no longer parses, because something upstream
+  truncated it without saying so.
+- **Out of range:** a rate above 1, a negative count, a date in the future.
+- **Stale:** a reading older than the task can use.
+
+When one fails, the check returns a reason, and the loop from the previous
+concept sends it back as an `is_error` observation. The reason should say
+what failed and what to do instead, as
+[Module 3's error messages did](/03-tool-design-for-agents/03-shaping-what-tools-return/03-structured-results-and-useful-error-messages/#useful-error-messages-say-what-failed-and-what-to-do-next).
+
+Here's a result check for the registry's `get_agent` tool, run on five
+results it might return:
+
+<LiveDemo client:load setupCode={SETUP} code={RECORD_CHECK_DEMO} />
+
+*(The results are written by hand to show each kind of failure.)*
+
+In the loop, this goes in the `after_tool` slot of `Checks`. Each failing
+result reaches the model as an error that names the problem and says not
+to fill in the gap, which is the signalled failure the research found
+models handle honestly.
+
+</Subsection>
+
+<Subsection title="A result check can block good results too" variant="a">
+
+Like every check, this one has a false-block rate, and two mistakes cause
+most of it:
+
+- **"Nothing found" isn't always a failure.** A search for incidents in the
+  last hour that finds none has answered the question. If the tool returns
+  `{"incidents": []}` for that and `null` when the search itself failed, a
+  check can tell them apart. If it returns an empty list for both, no check
+  can, which is a reason to design tools that way from the start, as
+  [Module 3 argued](/03-tool-design-for-agents/03-shaping-what-tools-return/03-structured-results-and-useful-error-messages/#the-fix-return-structured-data-as-json-text).
+- **Zero isn't missing.** An error rate of `0.0` is the best possible
+  reading, and a check written as `if not value` treats it as absent. Test
+  for `None` explicitly.
+
+The exercise below includes both kinds of test: bad results the check has
+to catch, and good ones it must let through.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "A tool returns {\"status\": \"ok\", \"data\": {\"balance\": \"[REDACTED]\"}}. Why is that riskier than a tool that raises an error?",
+    "options": [
+      "Because redacted values cost more tokens than an error message",
+      "Because nothing signals failure, so it may be taken as an answer",
+      "Because the model can't read JSON that has nested objects in it",
+      "Because a raised error would have stopped the whole run cleanly"
+    ],
+    "correctIndex": 1,
+    "explanation": "In Sethi et al.'s preprint, a signalled error was reported honestly, while a success status wrapped around an unusable value led the model to state a value it didn't have, or invent a reason, far more often. A result check turns the second case into the first."
+  },
+  {
+    "question": "What does a result check decide?",
+    "options": [
+      "Whether the tool's answer is actually correct",
+      "Whether the result is usable at all",
+      "Whether the model will understand the result",
+      "Whether the tool should be called once more"
+    ],
+    "correctIndex": 1,
+    "explanation": "Correctness usually needs knowledge the agent doesn't have, but usability can be checked in code: whether it parses, whether fields are present and non-null, whether values are in range and recent enough."
+  },
+  {
+    "question": "A search tool returns an empty list both when it found nothing and when its index was unavailable. What's the problem for a result check?",
+    "options": [
+      "Empty lists can't be parsed as JSON by the check",
+      "It can't tell a real \"nothing found\" from a failure",
+      "The model will always retry the search regardless",
+      "Result checks can't look inside lists at all"
+    ],
+    "correctIndex": 1,
+    "explanation": "A check can only tell apart what the tool distinguishes. A tool that returns an empty list for \"none found\" and an error for \"search failed\" makes the check easy; one that returns the same thing for both leaves the check to guess."
+  },
+  {
+    "question": "A result check tests if not record[\"error_rate\"] to spot a missing value. What goes wrong?",
+    "options": [
+      "Nothing, since it catches None correctly and nothing else",
+      "It raises an exception whenever the value is a float",
+      "A healthy error rate of exactly 0.0 is treated as missing",
+      "It lets negative error rates through without a reason"
+    ],
+    "correctIndex": 2,
+    "explanation": "0.0 is falsy in Python, so not 0.0 is True. The check would block the healthiest agents, a false block that's easy to miss because the tests you think of first use non-zero values. Comparing with is None avoids it."
+  }
+]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"The registry's get_health tool returns JSON text like {\"agent_name\": \"research_agent\", \"error_rate\": 0.02, \"p95_ms\": 840, \"checked_at\": \"2026-09-29T11:55:00+00:00\"}. Write check_health_result(output, now). It returns None if the result is usable, and otherwise a short reason. Check, in this order: (1) the text is valid JSON; if not, say so, mentioning \"JSON\". (2) It's a non-empty object; if not, say no health record came back, mentioning \"record\". (3) Every field in REQUIRED is present; if not, name the missing ones. (4) No required field is null; if one is, name it. (5) error_rate is between 0 and 1 inclusive, and p95_ms isn't negative; if not, name the field. (6) checked_at is no more than MAX_AGE before now; if it's older, say the reading is \"stale\". A check should never crash the loop: every problem comes back as a reason."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  hint={"Catch json.JSONDecodeError around json.loads. For step 2, null parses to None and [] to an empty list, so check isinstance(record, dict) as well as emptiness. For step 4, compare with is None, never with not, since 0.0 and 0 are real readings. datetime.fromisoformat reads the timestamp, and subtracting two datetimes gives a timedelta you can compare with MAX_AGE."}
+  correctAnswer={{
+    code: REFERENCE,
+    explanation: "The order matters, because each step assumes the ones before it passed: you can't look up a field in text that didn't parse, or compare a value that's null. Each failure returns a reason instead of raising, so the loop can hand it to the model as an error observation instead of crashing. The tests check both directions. The bad results have to be caught, and a perfectly healthy agent, with an error rate of exactly 0 and a reading exactly 15 minutes old, has to pass. A version that tests fields with not blocks the healthiest agents in the registry, which is a false block that would look, from outside, like a flaky tool.",
+  }}
+/>
+
+</CheckpointZone>

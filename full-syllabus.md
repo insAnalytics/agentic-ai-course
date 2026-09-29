@@ -4860,8 +4860,27 @@ architecture.md §3.1).
    (`#a-refusal-can-be-a-reliability-failure`), Module 2's ReAct pattern
    (`#the-fix-gather-every-tool-call-act-on-all-of-them-reply-once`) and
    tool-errors-as-observations, Lesson 1's concept 5, and Module 3's
-   validate-and-return-failures concept. 4 quiz cards. Next per the
-   mockup: checking a tool's result before the model reads it.
+   validate-and-return-failures concept. 4 quiz cards. Concept 2
+   (checking a tool result before the model reads it) is built: silent
+   tool failures (Sun et al., Sethi et al.'s preprint), what a result
+   check looks for, a `check_agent_record` demo on five hand-written
+   results, the false-block traps ("nothing found" and zero), 4 quiz
+   cards, and a graded `check_health_result(output, now)` exercise. The
+   demo and the starter's printout reproduce the mockup's output exactly
+   in real Pyodide 0.26.4. The mockup's test block was split into 13
+   self-contained tests (each repeats the shared helpers); verified from
+   the page's own strings: the reference passes all 13, and nine wrong
+   versions each fail the test aimed at them (falsiness instead of `is
+   None`, `>=` at exactly 15 minutes, an exclusive error-rate range,
+   raising instead of returning, no stale check, missing fields not
+   named, no p95 range check). Known gaps, not bugs: the bare starter
+   passes the 5 "should pass" tests, and dropping `isinstance` still
+   passes all 13 (only a non-container like `42` would need it; no test
+   sends one). Callbacks: Module 2's tool-errors-as-observations (page
+   link) and Module 3 Lesson 3's
+   `#useful-error-messages-say-what-failed-and-what-to-do-next` and
+   `#the-fix-return-structured-data-as-json-text` (verified against the
+   built HTML). Next per the mockup: what a failed check does.
 
 ---
 
