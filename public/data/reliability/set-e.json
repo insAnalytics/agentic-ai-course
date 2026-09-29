@@ -1,5 +1,5 @@
 {
- "version": 1,
+ "version": 2,
  "written_by": "Questions, wordings and answers written by hand in the course's content chat, checked against the corpus by this script",
  "pool": {
   "chunker": "structured_chunks(max_tokens=200) + with_header",
@@ -1662,7 +1662,8 @@
    "type": "text",
    "answer": "Identity",
    "accept": [
-    "Identity team"
+    "Identity team",
+    "The Identity team"
    ],
    "evidence": [
     {
@@ -1710,7 +1711,8 @@
    "type": "text",
    "answer": "Search",
    "accept": [
-    "Search team"
+    "Search team",
+    "The Search team"
    ],
    "evidence": [
     {
@@ -2239,16 +2241,16 @@
     }
    ],
    "wordings": [
-    "For how many hours of the day do all alerts page the on-call engineer?",
-    "How many hours a day is the paging window for every alert?",
-    "Every alert pages during a daily window. How many hours long is it?",
-    "How long, in hours, is the part of the day when any alert can page on-call?"
+    "Each day, for how many hours can any alert, not just RegistryUnreachable, page the on-call engineer?",
+    "How many hours long is the daily window in which every alert pages, not only RegistryUnreachable?",
+    "Apart from RegistryUnreachable, alerts page only during a daily window. How many hours long is it?",
+    "How long, in hours, is the part of each day when alerts other than RegistryUnreachable can page on-call?"
    ],
    "context": [
     {
-     "key": "prometheus-docs/operating/integrations.md:6",
+     "key": "prometheus-docs/practices/alerting.md:6",
      "gold": false,
-     "text": "Integrations > Alertmanager Webhook Receiver\n\n## Alertmanager Webhook Receiver\n\nFor notification mechanisms not natively supported by the Alertmanager, the\nwebhook receiver allows for integration.\n\n  * AlertINT: correlates alerts into incidents and runs LLM triage before notifying\n  * alertmanager-webhook-logger: logs alerts\n  * Alertsnitch: saves alerts to a MySQL database\n  * All Quiet: on-call & incident management\n  * Asana\n  * AWS SNS\n  * Better Uptime\n  * Canopsis\n  * DingTalk\n  * Discord\n  * GitLab\n  * Gotify\n  * GELF\n  * Grafana OnCall\n  * HeyOnCall\n  * Icinga2\n  * iLert\n  * IRC Bot\n  * ITOC360: on-call & incident management.\n  * JIRAlert\n  * Matrix: sends Alertmanager notifications to Matrix rooms\n  * Matrix: bridges webhooks to Matrix with rich formatting support\n  * Notion: creates/updates record in a Notion database"
+     "text": "Alerting > What to alert on > Batch jobs\n\n### Batch jobs\n\nFor batch jobs it makes sense to page if the batch job has not succeeded\nrecently enough, and this will cause user-visible problems.\n\nThis should generally be at least enough time for 2 full runs of the batch job.\nFor a job that runs every 4 hours and takes an hour, 10 hours would be a\nreasonable threshold. If you cannot withstand a single run failing, run the\njob more frequently, as a single failure should not require human intervention."
     },
     {
      "key": "D08:1",
@@ -2256,9 +2258,9 @@
      "text": "Monitoring guide > Alerts\n\n## Alerts\n\n| Alert | Fires when |\n|---|---|\n| `AgentLatencyHigh` | p95 response time above 8 seconds for 10 minutes |\n| `AgentErrorRateHigh` | more than 5% of sessions end in an error over 15 minutes |\n| `RegistryUnreachable` | three registry polls in a row fail (`MON-2002`) |\n\nAlerts go to the on-call channel and page the on-call engineer between 08:00 and 20:00. Outside those hours, only `RegistryUnreachable` pages."
     },
     {
-     "key": "D11:2",
+     "key": "D11:1",
      "gold": false,
-     "text": "Incident INC-2093: registry outage during database failover > What made it worse\n\n## What made it worse\n\nThe failover should have taken about 5 minutes. It took 42 because the standby had fallen 38 minutes behind the primary, and nothing alerted on that lag. For the whole outage, monitoring showed no agents at all, so the on-call engineer couldn't tell which agents were affected. Its agent list comes from the registry."
+     "text": "Incident INC-2093: registry outage during database failover > Timeline\n\n## Timeline\n\n- 14:10 — The primary registry-db host failed a disk check and failover started.\n- 14:11 — `RegistryUnreachable` fired and paged the on-call engineer. The overview dashboard went blank.\n- 14:20 — `support_agent` sessions began failing on their first registry lookup. `triage_agent` kept running but couldn't hand tickets over, so 212 tickets queued.\n- 14:52 — The standby finished catching up and registry-api recovered. The queued tickets were handed over by 15:05."
     },
     {
      "key": "D09:1",
@@ -2266,9 +2268,9 @@
      "text": "Incident INC-2041: billing_agent unable to issue invoices > Timeline\n\n## Timeline\n\n- 06:02 — `AgentErrorRateHigh` fired for `billing_agent`. No page: it was outside paging hours.\n- 08:00 — The on-call engineer saw the alert and found every failed session stuck on the same payments-gateway call.\n- 08:40 — The Payments team found that payments-gateway couldn't open connections to auth-service.\n- 08:55 — The Identity team renewed the certificate. `billing_agent` recovered within two minutes."
     },
     {
-     "key": "D14:4",
+     "key": "D08:2",
      "gold": false,
-     "text": "Agent owners' FAQ > Who do I ask about my agent's costs?\n\n## Who do I ask about my agent's costs?\n\nYour team's budget holder for day-to-day questions. Some agents have spending caps managed by Finance; if yours does, Finance will have told you."
+     "text": "Monitoring guide > When RegistryUnreachable fires\n\n## When RegistryUnreachable fires\n\nCheck the registry's status page first. While the registry is down, monitoring can't refresh its agent list, so dashboards may show no agents at all even though the agents are still running. Don't read an empty dashboard as \"every agent is down.\""
     }
    ]
   },
@@ -2512,7 +2514,8 @@
    "type": "text",
    "answer": "Identity",
    "accept": [
-    "Identity team"
+    "Identity team",
+    "The Identity team"
    ],
    "evidence": [
     {
@@ -2797,9 +2800,9 @@
     }
    ],
    "wordings": [
-    "How many days did INC-2067 last, counting from its start date to its end date?",
-    "What was the length of INC-2067 in days, from start date to end date?",
-    "From the first to the last date of INC-2067, how many days passed?",
+    "How many days after INC-2067's start date was its end date?",
+    "INC-2067's end date is how many days later than its start date?",
+    "Subtract INC-2067's start date from its end date. How many days is that?",
     "INC-2067 ran from one date to another. How many days apart are they?"
    ],
    "context": [
@@ -2809,9 +2812,9 @@
      "text": "Incident INC-2067: research_agent returning outdated results > What happened\n\n## What happened\n\n`research_agent` finds its sources through kb-search. On 2026-06-15 a config change set the kb-search cache's time-to-live to 7 days instead of 7 hours. Every search that had been cached returned the version of each article from when it was first cached, so answers drifted further out of date each day."
     },
     {
-     "key": "prometheus-server/querying/basics.md:35",
+     "key": "D10:2",
      "gold": false,
-     "text": "Querying basics > Time series selectors > @ modifier\n\n### @ modifier\n\nFor an instant query, `start()` and `end()` both resolve to the evaluation time.\n\n    http_requests_total @ start()\n    rate(http_requests_total[5m] @ end())\n\nNote that the `@` modifier allows a query to look ahead of its evaluation time."
+     "text": "Incident INC-2067: research_agent returning outdated results > Why it took a week to notice\n\n## Why it took a week to notice\n\nThe agent's latency and error rate looked better than usual: cached answers are fast and never fail. Nothing in monitoring measures whether results are current. The only signal was a person comparing an answer with the source."
     },
     {
      "key": "alertmanager/configuration.md:33",

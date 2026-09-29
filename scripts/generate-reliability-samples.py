@@ -32,6 +32,7 @@ Seeds are derived from the question id, wording and condition, so a rerun asks f
 
 import argparse
 import hashlib
+import os
 import json
 import math
 import platform
@@ -70,10 +71,12 @@ INSTRUCTIONS = (
     "Answer the question using only these sources. If it needs a count or a calculation, work it "
     "out in a few short lines first. Then give the final answer on its own last line, as:\n"
     f"{MARKER} <answer>\n"
-    "Give a number as digits only, in the unit the question asks for, with no unit after it. "
+    "If the answer is a number, give it as digits only, in the unit the question asks for, with no "
+    "unit after it. If it's anything else, such as a name, a code or a date, give it exactly as the "
+    "sources write it. Never answer with the number of a source. "
     f"If the sources don't contain the answer, write {MARKER} unknown"
 )
-ANSWER_TOKENS = 400
+ANSWER_TOKENS = 1024
 CLOSE_THINKING = "\n</think>\n\n"
 
 CONDITIONS = {
@@ -126,7 +129,8 @@ class VLLMBackend:
         self.info = {"engine": "vllm", "engine_version": vllm.__version__, "torch": torch.__version__,
                      "gpus": gpus, "gpus_used": engine_args.get("tensor_parallel_size", 1),
                      "dtype": dtype, "max_model_len": max_model_len, "engine_args": engine_args,
-                     "model_commit": resolved}
+                     "model_commit": resolved,
+                     "env": {key: value for key, value in os.environ.items() if key.startswith("VLLM_")}}
 
     def render(self, messages: list[dict], thinking: bool) -> str:
         return self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True,

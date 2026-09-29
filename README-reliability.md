@@ -24,12 +24,18 @@ Real model replies for Module 6's reliability lessons, sampled once and committe
    Delete the `*.dry-run.json` files afterwards; don't commit them.
 4. Commit the scripts and `set-e.json`, and push, so Kaggle can clone them.
 
-## What the committed runs actually used (2026-09-29)
+## Colab G4 setup, and the v1 runs (2026-09-29)
 
-The committed `runs/*.json` were sampled on **Colab (Pro), G4 runtime** (NVIDIA RTX PRO 6000
+**v1 runs (`runs/v1/`)** are the first sampling, kept rather than deleted: its answer instructions
+didn't say how to give a non-number answer or forbid answering with a source's number, 400
+answer tokens could cut replies short, and two questions (e47, e59) had ambiguous wordings, which makes the model look less consistent than it is. They're a real example of
+an instruction bug showing up as inconsistency. **v2** (set E version 2, fixed instructions,
+1,024 answer tokens) goes in `runs/` with the same setup, and is what the lessons use.
+
+The v1 `runs/v1/*.json` were sampled on **Colab (Pro), G4 runtime** (NVIDIA RTX PRO 6000
 Blackwell, 96 GB), not Kaggle: one GPU for all four conditions, `--dtype bfloat16`,
 `--engine-args '{"language_model_only": true}'`, vLLM 0.30.0, torch 2.13.0+cu130. Two setup
-fixes were needed that the saved `setup` blocks don't show:
+fixes were needed (from v2 on, the `VLLM_` variables are saved in `setup.env`):
 
 - `!pip uninstall -y torchaudio` after installing vLLM (Colab's preinstalled torchaudio is built
   for a different CUDA than the torch vLLM pulls in, and transformers imports it).

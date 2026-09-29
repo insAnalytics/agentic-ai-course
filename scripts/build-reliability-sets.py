@@ -126,7 +126,7 @@ def main() -> None:
         sys.exit(1)
     OUT.parent.mkdir(parents=True, exist_ok=True)
     payload = {
-        "version": 1,
+        "version": 2,
         "written_by": "Questions, wordings and answers written by hand in the course's content chat, checked against the corpus by this script",
         "pool": {"chunker": "structured_chunks(max_tokens=200) + with_header", "distractors": DISTRACTORS,
                  "excluded_docs": sorted(EXCLUDED_DOCS), "access": "all-staff"},
