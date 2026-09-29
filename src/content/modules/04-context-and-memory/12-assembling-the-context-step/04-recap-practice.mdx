@@ -88,7 +88,7 @@ def trim_to_fit(messages: list, budget: int) -> list:
 
 
 def clear_old_results(messages: list, keep_last: int) -> list:
-    """Replace the content of all but the newest \`keep_last\` successful tool results with a placeholder.
+    """Replace the content of all but the newest ${"`"}keep_last${"`"} successful tool results with a placeholder.
     Tool calls, failed results, and every message stay where they are."""
     names = {}
     for message in messages:
@@ -155,7 +155,7 @@ def serialize(x) -> str:
     return json.dumps(_plain(x))
 
 def first_divergence(previous: dict, current: dict) -> dict:
-    """Where does \`current\` stop matching \`previous\`, and how much of it could be read from the cache?"""
+    """Where does ${"`"}current${"`"} stop matching ${"`"}previous${"`"}, and how much of it could be read from the cache?"""
     reusable = 0
     if serialize(current["tools"]) != serialize(previous["tools"]):
         return {"diverges_at": "tools", "reusable_tokens": 0}
@@ -291,7 +291,7 @@ def changes_ledger(messages: list, write_tools: list) -> list:
     return lines
 
 def anchor_from_history(history: list, messages: list, write_tools: list) -> list:
-    """Restate the plan, the rules and every change made, all read from the full history, at the end of \`messages\`."""
+    """Restate the plan, the rules and every change made, all read from the full history, at the end of ${"`"}messages${"`"}."""
     parts = []
     plan = latest_plan(history)
     if plan:
@@ -359,7 +359,7 @@ def read_result(store: ResultStore, handle: str, offset: int = 0, limit: int = 5
 
 
 def find_in_result(store: ResultStore, handle: str, text: str, max_matches: int = 20) -> str:
-    """The lines of a stored result that contain \`text\`, with their line numbers."""
+    """The lines of a stored result that contain ${"`"}text${"`"}, with their line numbers."""
     content = store.get(handle)
     if content is None:
         return f"Error: no stored result called {handle}. Use a handle exactly as it appears in an earlier result."
@@ -491,7 +491,7 @@ STOPWORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "is",
              "with", "as", "at", "by", "be", "i", "you", "my", "me", "we", "our", "please", "about", "from", "last"}
 
 def keywords(text: str) -> set:
-    """The words in \`text\` worth matching on: lowercased, punctuation removed, common and one-letter words dropped."""
+    """The words in ${"`"}text${"`"} worth matching on: lowercased, punctuation removed, common and one-letter words dropped."""
     text = text.lower()
     for mark in ".,;:!?()'\"":
         text = text.replace(mark, " ")
@@ -499,7 +499,7 @@ def keywords(text: str) -> set:
     return {word for word in text.split() if len(word) > 1} - STOPWORDS
 
 def recall(memories: list, task: str, limit: int = 3) -> list:
-    """The memories sharing the most keywords with the task, best first, at most \`limit\`."""
+    """The memories sharing the most keywords with the task, best first, at most ${"`"}limit${"`"}."""
     wanted = keywords(task)
     scored = []
     for memory in memories:
@@ -585,7 +585,7 @@ Reply with only a JSON list of objects with the keys content, type, quote and en
 def parse_candidates(reply: str) -> tuple:
     """The candidate memories in an extraction reply, and a note for each item that had to be skipped."""
     # models sometimes wrap JSON in a code fence despite being asked not to, so drop fence lines
-    lines = [line for line in reply.strip().split("\n") if not line.startswith("\`\`\`")]
+    lines = [line for line in reply.strip().split("\n") if not line.startswith("${"`"}${"`"}${"`"}")]
     text = "\n".join(lines)
     try:
         items = json.loads(text)
@@ -1051,7 +1051,7 @@ export const AGENT_STARTER = String.raw`from lib import ContextManager, Notes, R
 
 def run_session(llm, memory, blocks: dict, user_id: str, task: str, now: str, base: str, tools: list, make_impls,
                 window: int, max_tokens: int = 1000, write_tools: list = (), max_steps: int = 200):
-    # TODO: 1) fresh notes and result store for this task; this user's block from \`blocks\`
+    # TODO: 1) fresh notes and result store for this task; this user's block from ${"`"}blocks${"`"}
     #       2) a ContextManager for the session, and the tools from make_impls(notes, results, block)
     #       3) the canonical loop, with every request from context.build(history)
     #       4) after the loop: remember_long_session with a budget that fits the window, then forget
@@ -1064,7 +1064,7 @@ export const AGENT_REFERENCE = String.raw`from lib import ContextManager, Notes,
 def run_session(llm, memory, blocks: dict, user_id: str, task: str, now: str, base: str, tools: list, make_impls,
                 window: int, max_tokens: int = 1000, write_tools: list = (), max_steps: int = 200):
     """One session with the whole module's context management, then the write path.
-    Returns (answer, history, sent, after), where \`after\` reports what memory kept and let go."""
+    Returns (answer, history, sent, after), where ${"`"}after${"`"} reports what memory kept and let go."""
     notes, results = Notes(), ResultStore()
     block = blocks.setdefault(user_id, CoreBlock(""))
     context = ContextManager(llm, base, tools, window=window, max_tokens=max_tokens, memory=memory, user_id=user_id, task=task,

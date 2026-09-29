@@ -3352,6 +3352,17 @@ below describe each lesson as first converted; see the git log
     Lesson 12 is now **Locked**: all three concepts plus both bookends
     exist and build cleanly.
 
+   **Fix (2026-09-29, found while building Module 5 Lesson 14):** the recap's
+   `String.raw` exports wrote backticks as `\``, which `String.raw` keeps, so
+   `lib.py` had a literal backslash before backticks in 21 places: docstrings
+   (a Python 3.12 `SyntaxWarning` on import) and `parse_candidates`'
+   `startswith("\`\`\`")`, which never matched a real code fence, so a
+   fenced extraction reply went to `json.loads` unstripped. All are now
+   `${"`"}`. Re-verified from the built page: no backslash-backticks left,
+   the reference passes, the starter fails, `lib` imports with no
+   warnings, and a fenced reply parses. Module 5 Lesson 14 imports these
+   files and was re-checked too.
+
 ---
 
 ## Module 5 — RAG Systems
@@ -4639,14 +4650,14 @@ All 14 lessons are **Locked** (Lesson 14's recap is the module's last page).
    turn, `keep_last` ignored, no context step, the tool bound to every
    group, only the first call answered, `read_result`'s limit ignored,
    `measure_tool` over the top 10 or with held-out questions, `max_tokens`
-   ignored, `window` ignored). **Found, not fixed (outside this
-   conversion):** Module 4 Lesson 12's recap `LIB_PY` writes backticks as
-   `\``, which `String.raw` keeps, so its `m4.py` (and so this sandbox's)
-   has a literal backslash before backticks in 7 places: six docstrings,
-   which only print a Python 3.12 `SyntaxWarning` on import, and one real
-   line, `if not line.startswith("\`\`\`")`, which no longer recognises a
-   code fence. Fixing it means editing Module 4's page, which this mockup
-   says to use unchanged.
+   ignored, `window` ignored). **Found and fixed in Module 4:** Lesson 12's
+   recap wrote backticks inside its `String.raw` exports as `\``, which
+   `String.raw` keeps, so its `m4.py` (and so this sandbox's) had a literal
+   backslash before backticks: six docstrings printed a Python 3.12
+   `SyntaxWarning` on import, and `parse_candidates`' fence check,
+   `startswith("\`\`\`")`, never recognised a code fence. All 21 are now
+   `${"`"}` (see Module 4 Lesson 12's entry); this sandbox imports the
+   fixed files, and its checks were re-run with the same results.
 
    Lesson 14 is now **Locked**: all five concepts plus both bookends exist
    and build cleanly, and with it Module 5 is complete.
