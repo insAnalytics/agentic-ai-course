@@ -549,7 +549,8 @@ concept 1's exercise reference: pages *after* concept 1 only, appended after
 `PERMITTED_RETRIEVER` and then `READABLE` (`CHUNK_ACCESS`, `readable`, shown
 verbatim on that page); `READER_VIEWS` (`graph_for_reader`,
 `summaries_for_reader`) is concept 2's exercise reference, for pages *after*
-concept 2 only, appended after `READABLE`.
+concept 2 only, appended after `READABLE`. From Lesson 13 concept 3 on the
+setup appends `READER_VIEWS`.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.

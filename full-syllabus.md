@@ -4485,8 +4485,18 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    kept, an edge needing every source readable, empty edges kept, sources
    reordered, a summary shown if any source is readable, communities or
    sources taken from the filtered graph, no check for a missing summary,
-   the last matching key). The lesson's other concepts and the bookends
-   aren't drafted yet. Earlier lessons' forward
+   the last matching key). Concept 3 (retrieved text is untrusted input)
+   is built: setup now appends `READER_VIEWS`, no other new shared code.
+   Two live demos, code and output exact matches in real Pyodide (the
+   planted wiki page W99 ranking first and second in a keyword index; the
+   assembled request with W99 as S1 and a scripted reply passing every
+   citation check). Link to Module 3's "Two sources of instructions",
+   anchor checked in the built HTML; PoisonedRAG (Zou et al., USENIX
+   Security 2025, arXiv 2402.07867) linked, its figures checked against the
+   abstract (five texts per target question, millions of texts, 90% attack
+   success, defences insufficient). 4 quiz cards; no exercise, as in the
+   mockup. No changes from the mockup. The lesson's other concepts and the
+   bookends aren't drafted yet. Earlier lessons' forward
    references to Lesson 13 stay plain prose.
 
 ---
