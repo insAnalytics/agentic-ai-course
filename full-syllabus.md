@@ -4238,7 +4238,7 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    single quote, which must come back in `repr`'s double quotes, because
    `'{query}'` passed every original test though the task asks for `repr`.
    Verified with the real `runAgainstHiddenTests`: the reference passes,
-   the starter fails all four, and ten mutations each fail (no strip,
+   the starter fails all four, and eleven mutations each fail (no strip,
    raising on an empty query, no `int`, no upper or lower clamp, quotes
    instead of `repr`, a single newline between results, `doc_id` alone as
    the id, raising when nothing matches, `k` ignored). Concept 2 (multi-hop
