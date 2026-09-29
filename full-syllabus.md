@@ -4775,6 +4775,18 @@ architecture.md §3.1).
    bootstrap in log order, `<= 0.5`, no k check). The page's code strings
    were generated from the verified files and compared byte for byte.
 
+2. **What Reliability Costs** (provisional title; folder
+   `02-reliability-tradeoffs`) — **Building**. Concept 1 (four things every
+   technique trades) is built, prose and quiz only: accuracy, latency, cost
+   and false refusals; Kapoor et al. on accuracy without cost; OR-Bench,
+   XSTest and AgentDojo's two-defence table on false refusals; the
+   report-every-check-as-a-pair habit; and a nine-row table of the module's
+   levers by lesson (later lessons named as plain text). Callbacks: Lesson
+   1's pass^k concept (page link) and Module 5 Lesson 10's
+   `#choosing-a-threshold` (verified against the built HTML). 5 quiz cards.
+   Next per the mockup: measuring what reliability costs on parts of the
+   agent already built.
+
 ---
 
 ## Modules 4–11 — current plan
