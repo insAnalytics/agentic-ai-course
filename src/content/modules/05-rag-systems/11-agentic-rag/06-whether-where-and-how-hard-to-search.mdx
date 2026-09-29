@@ -1,0 +1,304 @@
+---
+title: "Whether, where and how hard to search"
+lesson: "11-agentic-rag"
+order: 6
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { COUNT_TOKENS, REACT_FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, SIGN_TEST, FIXED_CHUNKS, STRUCTURE_HELPERS, STRUCTURED_CHUNKS, WITHIN_BUDGET, VECTORS, VECTOR_INDEX, MEANING_SEARCH, TERMS, BM25_INDEX, RERANK_SCORES, RERANK, LISTWISE_RERANK, MODULE_PIPELINE, REWRITE_QUERY, SPLIT_QUERY, INTERLEAVE, HYDE, WITH_HEADER, VERSIONED_PIPELINE, WITH_CONTEXT, EXPAND_NEIGHBOURS, ANSWER_RETRIEVER, ANSWER_INSTRUCTIONS, ASSEMBLE_REQUEST, CHECK_CITATIONS, DECLINED, AGENT_SEARCH, SEARCH_DOCUMENTS, CONTEXTUAL_SEARCH, SEARCH_BUDGET, REGISTRY_DB, QUERY_DATABASE, RAG_CONTEXTUAL_DATA } from "../../../../lib/ragCorpus";
+
+export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION + METRICS + SIGN_TEST + FIXED_CHUNKS + STRUCTURE_HELPERS + STRUCTURED_CHUNKS + WITHIN_BUDGET + VECTORS + VECTOR_INDEX + MEANING_SEARCH + TERMS + BM25_INDEX + RERANK_SCORES + RERANK + LISTWISE_RERANK + MODULE_PIPELINE + REWRITE_QUERY + SPLIT_QUERY + INTERLEAVE + HYDE + WITH_HEADER + VERSIONED_PIPELINE + WITH_CONTEXT + EXPAND_NEIGHBOURS + ANSWER_RETRIEVER + ANSWER_INSTRUCTIONS + ASSEMBLE_REQUEST + CHECK_CITATIONS + DECLINED + REACT_FAKE_CLIENT + RECORDING_CLIENT + AGENT_SEARCH + SEARCH_DOCUMENTS + CONTEXTUAL_SEARCH + SEARCH_BUDGET + REGISTRY_DB + QUERY_DATABASE;
+
+export const GRADE_DEMO = String.raw`retriever = AnswerRetriever()
+THRESHOLD = 0  # Lesson 10's choice: below it, retrieval counts as weak
+graded = []
+for query in load_queries()["main"]:
+    results = retriever.search(query, k=5)
+    failed = not query["evidence"] or not answerable(results, query)
+    graded.append({"id": query["id"], "type": query["type"], "top": results[0]["score"], "failed": failed})
+
+def show(title: str, rows: list, total: int) -> None:
+    print(f"{title}: {len(rows)} of {total}")
+    for row in sorted(rows, key=lambda r: r["top"]):
+        print(f"  {row['top']:>5.2f}  {row['id']}  {row['type']}")
+
+failures = [row for row in graded if row["failed"]]
+answered = [row for row in graded if not row["failed"]]
+show("failures the grade catches", [r for r in failures if r["top"] < THRESHOLD], len(failures))
+show("failures it lets through", [r for r in failures if r["top"] >= THRESHOLD], len(failures))
+show("good answers it sends for a second attempt", [r for r in answered if r["top"] < THRESHOLD], len(answered))
+`;
+
+export const SWEEP_DEMO = String.raw`retriever = AnswerRetriever()
+graded = []
+for query in load_queries()["main"]:
+    results = retriever.search(query, k=5)
+    failed = not query["evidence"] or not answerable(results, query)
+    graded.append((results[0]["score"], failed))
+
+failures = sum(failed for _, failed in graded)
+answered = len(graded) - failures
+print(f"{'second attempt below':>20}{'failures caught':>17}{'good answers sent again':>25}")
+for threshold in (0, 1, 2, 3, 4, 5):
+    caught = sum(failed for score, failed in graded if score < threshold)
+    again = sum(not failed for score, failed in graded if score < threshold)
+    print(f"{threshold:>20}{f'{caught} of {failures}':>17}{f'{again} of {answered}':>25}")
+`;
+
+<Subsection title="Not every question needs a search" variant="a">
+
+A pipeline makes the same decision for every question: retrieve once, then
+answer. An agent makes three decisions instead. Whether to search at all,
+which source to search, and how hard: once, several times, or again after a
+first attempt came back weak. This concept looks at each, and at how
+production systems make them without leaving everything to the model.
+
+The first decision was already in
+[the first concept's demo](/05-rag-systems/11-agentic-rag/01-from-pipeline-to-tool/#the-model-decides).
+"Put that in one line for a Slack message" made no search, because the
+previous answer already held everything it needed. Deciding per question
+whether to retrieve is called **adaptive retrieval**. In an agent, three
+things decide it:
+
+- **The question.** "What does REG-1009 mean?" asks about the company's own
+  facts. "Rewrite that more politely" doesn't.
+- **The conversation.** A follow-up whose answer is already in an earlier
+  tool result needs no new search. One that moves to a new subject does.
+- **The tools' descriptions.** The model only knows what a search could find
+  from what the tool says it covers. `SEARCH_TOOL` names the internal
+  documents and the vendor docs, so a question about something else gives the
+  model no reason to search.
+
+The risk runs the other way too: a model that answers a company question from
+general knowledge, without searching, produces exactly the unsourced answer
+[Lesson 10](/05-rag-systems/10-grounded-answers/03-abstaining-when-retrieval-is-weak/#the-answer-that-shouldn-t-be-given)
+warned about. The instructions should say that questions about the company
+are answered from the tools, and the final exercise of this lesson checks the
+answer's citations in code.
+
+</Subsection>
+
+<Subsection title="Routing by complexity" variant="b">
+
+[Earlier in this lesson](/05-rag-systems/11-agentic-rag/03-searching-again-and-stopping/#what-each-search-costs),
+the agent's two-hop answer sent two and a half times the pipeline's input
+tokens, over three model calls. For a question one search answers, that's
+pure cost. So many systems use a pipeline by default and an agent only when a
+question needs one. There are two ways to decide which questions those are.
+
+**Predict it before retrieving.**
+[Adaptive-RAG](https://arxiv.org/abs/2403.14403) (Jeong and colleagues,
+NAACL 2024) trains a small language model as a classifier that reads the
+question and predicts its complexity: simple enough to answer with no
+retrieval, answerable with one retrieval step, or needing several steps. Each
+prediction is routed to the matching strategy. The training labels were
+collected automatically, from which strategy actually answered each training
+question correctly, and, where none did, from whether its dataset was one of
+single-hop or multi-hop questions. On open-domain question-answering
+benchmarks, the authors report better overall accuracy and efficiency than
+the baselines they compared, including other adaptive approaches. A router
+like that is cheap, but it only sees the question, so it can't tell when an
+easy-looking question will retrieve badly.
+
+**React after retrieving.** Run the pipeline first, grade what came back,
+and only when the grade is poor, make a second attempt. That's the approach
+the rest of this concept measures, because this corpus has everything needed
+to test it: the reranker's scores and the labelled questions.
+
+</Subsection>
+
+<Subsection title="Grading what came back" variant="a">
+
+The corrective approach adds one step between retrieval and the answer. The
+results are graded, and the grade picks one of three actions:
+
+- **Answer,** when the results look good.
+- **Search again, differently,** when they don't: other words, several hops,
+  a different source. That's the agent loop from the earlier concepts, with
+  [its budgets](/05-rag-systems/11-agentic-rag/03-searching-again-and-stopping/#telling-the-model-to-stop),
+  used only where it's needed.
+- **Decline,** when a budgeted second attempt still finds nothing, with the
+  phrase [Lesson 10's answer step](/05-rag-systems/10-grounded-answers/03-abstaining-when-retrieval-is-weak/#what-a-threshold-can-t-see)
+  already recognises.
+
+Two well-known papers put the grade in different places.
+[CRAG](https://arxiv.org/abs/2401.15884), Corrective Retrieval Augmented
+Generation (Yan and colleagues, 2024), adds a lightweight retrieval evaluator,
+a fine-tuned T5-large model, that scores how relevant the retrieved documents
+are to the question. Its confidence triggers one of three actions: keep the
+documents, filtered to their relevant parts; discard them and search the web
+instead; or, when it's unsure, use both.
+[Self-RAG](https://arxiv.org/abs/2310.11511) (Asai and colleagues, 2023)
+trains the answering model itself to emit special reflection tokens as it
+writes: whether to retrieve at all, whether each retrieved passage is
+relevant, whether its own output is supported by the passage, and how useful
+the response is. So it retrieves on demand, zero, one or several times, and
+critiques its own output as it goes.
+
+This module already has a grader.
+[Lesson 10 measured](/05-rag-systems/10-grounded-answers/03-abstaining-when-retrieval-is-weak/#choosing-a-threshold)
+the reranker's top score as a signal of weak retrieval, and chose to abstain
+below 0. The reranker plays the role of CRAG's evaluator: a model that scores
+how well each result answers the question. Here it is again, with one change
+in what a low score means: not "abstain", but "try again".
+
+<LiveDemo client:load dataFiles={RAG_CONTEXTUAL_DATA} setupCode={SETUP} code={GRADE_DEMO} />
+
+This runs every labelled question through the lesson's best pipeline, so
+allow several seconds. A "failure" is a question the pipeline gets wrong:
+one of the 7 whose answer isn't in the top five, or one of the 3 with no
+answer in the corpus at all.
+
+- **The grade catches 4 of the 10 failures,** the two global questions and
+  two unanswerable ones. The global questions need a summary across every
+  incident report, which no single passage gives, so their best scores are
+  far below zero.
+- **It lets 6 through.** Among them is q29, the multi-hop question about the
+  alert that fired first in INC-2041, at 4.38. Its top result is the first
+  hop's passage, the incident's timeline, and that passage really is
+  relevant. What's missing is the second hop, the alert's definition, and a
+  score for what came back can't show what didn't. q39, the on-call engineer
+  question, is the same case Lesson 10 found: the right document, without the
+  fact. The other two multi-hop questions, q27 and q28, were answered in the
+  top five, so the grade had nothing to catch there.
+- **It sends 3 good answers for a second attempt:** two follow-up questions
+  searched exactly as asked, and a paraphrase. Their answers were in the top
+  five despite the low scores, so for these three a second attempt only adds
+  cost.
+
+</Subsection>
+
+<Subsection title="A trigger can sit higher than a refusal" variant="b">
+
+A threshold for abstaining and a threshold for trying again cost different
+things when they're wrong. An abstention below the threshold loses a good
+answer. A needless second attempt only costs time and tokens: the answer is
+still there, one search later. So a trigger can reasonably sit higher than the
+abstention threshold Lesson 10 chose. Here's the same grade at several
+thresholds. Allow several seconds again:
+
+<LiveDemo client:load dataFiles={RAG_CONTEXTUAL_DATA} setupCode={SETUP} code={SWEEP_DEMO} />
+
+Raising the threshold from 0 to 2 catches 7 of the 10 failures instead of 4,
+at the cost of 7 good answers sent for a second attempt instead of 3. At 5,
+every failure is caught, but so are 12 of the 36 good answers: a third of the
+questions the pipeline answers well would pay for a second attempt. Where to
+stop depends on what an extra attempt costs against what a wrong answer costs,
+and the labelled set shows that trade in numbers, as it did for abstaining.
+
+Two limits on what this measures:
+
+- **Catching a failure isn't fixing it.** The demo measures the grade as a
+  trigger. Whether a second attempt then answers q29, or rightly declines q39,
+  depends on the queries a live model writes, and that's the kind of
+  measurement Module 7 makes. The multi-hop concept's scripted hops suggest
+  it can, for q29.
+- **The grade needs scores for the question.** This page has reranker scores
+  only for the labelled questions, which is why the demo uses them. A
+  deployed system would score every question live, with
+  [Lesson 7's reranker](/05-rag-systems/07-reranking/01-two-stages/#precise-but-too-slow-for-everything)
+  running on a server.
+
+</Subsection>
+
+<Subsection title="Choosing between sources" variant="a">
+
+"Search again, differently" can also mean a different source. This lesson's
+agent has two: `search_documents` for prose, and
+[`query_database`](/05-rag-systems/11-agentic-rag/04-when-the-answer-is-in-a-table/#two-tools-and-the-model-routes)
+for records. Real agents often have more:
+
+- **Web search,** for public and current information, such as a vendor's
+  latest release notes.
+  [Module 3's web lesson](/03-tool-design-for-agents/09-web-interaction/01-search-and-fetch-two-tools-two-jobs/#search-then-fetch)
+  built it as two tools, search then fetch, and treated
+  [everything it returns as untrusted input](/03-tool-design-for-agents/09-web-interaction/04-everything-from-the-web-is-untrusted-input/#tool-results-are-written-by-someone).
+  It's the wrong source for the company's own facts, such as what happened
+  in INC-2093.
+- **MCP servers,** which put another system's data behind a standard
+  interface: a ticket tracker, a wiki, a code host.
+  [Module 3 connected an agent to several](/03-tool-design-for-agents/07-connecting-an-agent-to-mcp-servers/01-discovering-tools-from-several-servers/#from-servers-to-a-tool-list-the-model-can-use),
+  and each server's tools arrive in the same list as the agent's own. An MCP
+  server can also offer
+  [resources](/03-tool-design-for-agents/05-the-model-context-protocol/04-what-a-server-offers-tools-resources-and-prompts/#three-kinds-of-thing-sorted-by-who-decides),
+  documents the host application chooses to load, rather than the model.
+
+In an agent, the router between these sources is the tool list itself: each
+tool's name and description. The model picks a source by reading them, which
+is why `SQL_TOOL`'s description says what belongs to it and what belongs to
+`search_documents`. Two tools whose descriptions overlap leave the model
+guessing, the problem
+[Module 3 opened with](/03-tool-design-for-agents/01-designing-tools-a-model-can-use-well/01-names-and-descriptions-as-prompts/#two-tools-that-overlap),
+and every source added makes every request longer and every choice harder.
+Give an agent the sources its questions need, each described by what it
+holds and what it's not for.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "An agent answers \"put that in one line for Slack\" without searching. What lets it decide that correctly?",
+      "options": [
+        "A rule in the loop that skips the search tool on every follow-up turn",
+        "The question, the conversation so far, and what the tools say they cover",
+        "The reranker's score for the previous turn's search results",
+        "The step limit, which stops further searches after the first answer"
+      ],
+      "correctIndex": 1,
+      "explanation": "Adaptive retrieval is a judgement per question. The previous answer is already in the conversation, the request asks only for a rewrite, and nothing in the search tool's description suggests it would add anything."
+    },
+    {
+      "question": "Adaptive-RAG routes each question before retrieving. What does its router base the decision on, and what's the catch?",
+      "options": [
+        "The retrieved passages; it can't decide anything until retrieval has finished",
+        "The question alone; it can't tell when an easy-looking question will retrieve badly",
+        "The model's final answer; it can only help with the next question that arrives",
+        "The user's past questions; it needs several questions from each user before it works"
+      ],
+      "correctIndex": 1,
+      "explanation": "A classifier reads the question and predicts whether it needs no retrieval, one step or several. That's cheap, but it sees nothing of what retrieval will return. Grading the results after retrieving catches what a prediction can't."
+    },
+    {
+      "question": "Why can a threshold that triggers a second attempt sit higher than one that abstains?",
+      "options": [
+        "A needless second attempt costs time and tokens; a needless abstention loses the answer",
+        "Second attempts use a stronger reranker, so their scores naturally run higher",
+        "A higher threshold catches more failures, and good answers are never affected",
+        "Abstaining always needs the lowest threshold that catches anything at all"
+      ],
+      "correctIndex": 0,
+      "explanation": "The two thresholds make different mistakes. Refusing a good answer throws it away; trying again on a good answer only spends another search. The demo showed the price: every failure caught at 5, but also 12 of 36 good answers sent round again."
+    },
+    {
+      "question": "The grade passed q29, a multi-hop question the pipeline got wrong, at 4.38. Why?",
+      "options": [
+        "The reranker has no scores for multi-hop questions, so it defaults high",
+        "Its top result, the first hop, is relevant; a score can't show the missing second hop",
+        "The threshold of 0 was chosen for the unanswerable questions only",
+        "Multi-hop questions always score high, whatever retrieval actually found"
+      ],
+      "correctIndex": 1,
+      "explanation": "A grade judges what came back. The incident timeline really does answer part of the question, so it scores well; the alert's definition, which retrieval never found, isn't there to be scored."
+    },
+    {
+      "question": "An agent has a documents tool, a SQL tool, web search and two MCP servers. What decides which one it uses for a question?",
+      "options": [
+        "The order the tools are listed in, since the model tries the first one first",
+        "Which tool returned results fastest when it answered earlier questions",
+        "The tools' names and descriptions, which the model reads to pick a source",
+        "The MCP servers, which answer every question they recognise first"
+      ],
+      "correctIndex": 2,
+      "explanation": "In an agent, the tool list is the router. Descriptions that say what each source holds, and what it's not for, let the model choose; overlapping ones leave it guessing, and every extra source makes every request longer."
+    }
+  ]}
+/>
+
+</CheckpointZone>

@@ -159,7 +159,11 @@ def run_agent(client, messages: list, tools: dict, max_steps: int = 8) -> str:
   every tool call, answers each by id in one message, and stops when there are
   none. It works on a conversation, so a follow-up question sees earlier turns.
   A real client would also be sent `tools=[SEARCH_TOOL]`; the fake client
-  doesn't need it.
+  doesn't need it. To stay short, it also leaves out two things a production
+  loop has: a system prompt, which the lesson's final exercise adds, and a
+  check for a tool name that isn't in `tools`, which here would raise a
+  `KeyError` instead of coming back as
+  [an `is_error` result the model can act on](/02-the-agent-loop/06-termination-failure-and-control/05-tool-errors-as-observations/#the-fix-catch-it-and-let-the-model-see-it).
 - **The index is BM25, and that's a deliberate constraint of this page.** An
   agent writes its own queries, and search by meaning or reranking would need
   their models running to handle a query nobody wrote in advance. This page's
