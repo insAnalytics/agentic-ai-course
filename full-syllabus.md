@@ -4290,6 +4290,21 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    denied, errors raised, no header row, commas between values, every row
    returned without the note, rows uncapped, an empty string for no rows).
    One more, fetching a fixed 21 rows, passes and is equivalent in output.
+   **Mockup revision (same day):** the setup block now imports `time`; a
+   new subsection, "Guardrails: allow, don't ban", with a live deny-list
+   demo (exact match in real Pyodide: `DELETE` refused, `UPDATE` let
+   through, an innocent "dropped" search refused) and a link to Module 3's
+   "The split", anchor checked; a fifth quiz card; and the exercise gains
+   `timeout` via `set_progress_handler`, with a new test 6 (old 6 is now 7).
+   The read-only spy in test 3 is kept. **One more change from the
+   mockup's hidden tests:** test 6 also times the stopped query and
+   requires under half a second, because hard-coding a 1-second deadline
+   while reporting the requested timeout passed the message check (the
+   unstopped nine-way cross join, 1,953,125 rows, takes about 1.2 s in
+   Node). Re-verified: the reference passes all seven, the starter fails
+   all seven, and fourteen mutations each fail, adding no progress handler,
+   a handler that never stops, the timeout ignored, and an interrupt
+   reported as a plain error; the 21-row fetch still passes, equivalently.
    The lesson's other concepts and the bookends aren't drafted yet. Lesson 1's forward
    references to Lesson 11 stay plain prose.
 

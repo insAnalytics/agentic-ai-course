@@ -502,7 +502,9 @@ package, and the setup's `import sqlite3` is enough for
 CDN); the URI form `file:...?mode=ro` with `uri=True`, `set_authorizer`,
 and CPython 3.12's error texts ("not authorized", "access to T.C is
 prohibited", "You can only execute one statement at a time.") all behave
-as in desktop Python. A hidden test can spy on `sqlite3.connect` by
+as in desktop Python, and so does `set_progress_handler` (a true return
+raises `OperationalError("interrupted")`), which the concept 4 exercise uses
+for its timeout. A hidden test can spy on `sqlite3.connect` by
 replacing the module attribute, since the learner's code calls it through
 the shared module; restore it in `finally`, because the module outlives the
 test's namespace copy. `QUERY_DATABASE` (`query_database`) is Lesson 11

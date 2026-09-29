@@ -1188,6 +1188,7 @@ class SearchBudget:
  */
 export const REGISTRY_DB = String.raw`
 import sqlite3
+import time
 
 REGISTRY_DB = "/tmp/registry.db"
 DB_TABLES = {"agents", "incidents", "incident_agents"}
@@ -1249,20 +1250,27 @@ SQL_TOOL = {
  * exercise would start already solved.
  */
 export const QUERY_DATABASE = String.raw`
-def query_database(sql: str, max_rows: int = 20) -> str:
+def query_database(sql: str, max_rows: int = 20, timeout: float = 1.0) -> str:
     """The SQL tool: one query, on a read-only connection that can read only the allowed tables,
-    with at most max_rows rows back. Errors come back as text."""
+    stopped after ${"`"}timeout${"`"} seconds, with at most max_rows rows back. Errors come back as text."""
     def authorize(action, arg1, arg2, database, trigger):
         if action == sqlite3.SQLITE_READ:
             return sqlite3.SQLITE_OK if arg1 in DB_TABLES else sqlite3.SQLITE_DENY
         return sqlite3.SQLITE_OK if action in (sqlite3.SQLITE_SELECT, sqlite3.SQLITE_FUNCTION) else sqlite3.SQLITE_DENY
 
+    deadline = time.monotonic() + timeout
     db = sqlite3.connect(f"file:{REGISTRY_DB}?mode=ro", uri=True)
     db.set_authorizer(authorize)
+    # SQLite calls this every 10,000 steps of work; a true result stops the query
+    db.set_progress_handler(lambda: time.monotonic() > deadline, 10_000)
     try:
         cursor = db.execute(sql)
         rows = cursor.fetchmany(max_rows + 1)
         columns = [c[0] for c in cursor.description]
+    except sqlite3.OperationalError as error:
+        if str(error) == "interrupted":
+            return f"Error: the query ran for more than {timeout} seconds and was stopped. Narrow it with WHERE or LIMIT."
+        return f"Error: {error}"
     except sqlite3.Error as error:
         return f"Error: {error}"
     finally:

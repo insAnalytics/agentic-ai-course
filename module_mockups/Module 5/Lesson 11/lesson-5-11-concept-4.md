@@ -5,7 +5,8 @@
 >   solution, `SearchBudget`.
 > - **New shared code** for every demo and exercise from this concept to the
 >   end of the lesson: `REGISTRY_DB`, `DB_TABLES`, `build_registry_db` and
->   `SQL_TOOL`, exactly as in the first code block below. It calls
+>   `SQL_TOOL`, exactly as in the first code block below. It imports
+>   `sqlite3` and `time`. It calls
 >   `build_registry_db()` once, writing `/tmp/registry.db` in Pyodide's
 >   in-memory file system.
 > - **Check that `sqlite3` imports in the sandbox.** Recent Pyodide builds ship
@@ -38,6 +39,7 @@ everything the documents say:
 
 ```python
 import sqlite3
+import time
 
 REGISTRY_DB = "/tmp/registry.db"
 DB_TABLES = {"agents", "incidents", "incident_agents"}
@@ -141,6 +143,73 @@ the model can't be the security boundary. The tool has to be.
 
 ---
 
+## Guardrails: allow, don't ban
+
+Nothing here stops the model from writing its own SQL. That's the point of the
+tool: it can ask questions nobody wrote a query for in advance. The guardrails
+belong around the tool, in code the model can't change. The first instinct is
+usually a list of banned words. Here's one, on the same throwaway copy:
+
+```python
+BANNED = ("DELETE", "DROP")
+
+def run_sql_with_ban(sql: str) -> str:
+    """A deny-list guardrail: refuse any query containing a banned word."""
+    if any(word in sql.upper() for word in BANNED):
+        return "Error: that statement isn't allowed."
+    with sqlite3.connect("/tmp/registry-copy.db") as db:
+        return "\n".join(" | ".join(map(str, row)) for row in db.execute(sql).fetchall())
+
+build_registry_db("/tmp/registry-copy.db")
+for sql in ("DELETE FROM agents",
+            "UPDATE agents SET tier = 'priority', model = 'claude-opus'",
+            "SELECT agent_id, tier FROM agents WHERE agent_id = 'notes_agent'",
+            "SELECT incident_id FROM incidents WHERE title LIKE '%dropped%'"):
+    print(f"{sql}\n  -> {run_sql_with_ban(sql)!r}")
+```
+```
+DELETE FROM agents
+  -> "Error: that statement isn't allowed."
+UPDATE agents SET tier = 'priority', model = 'claude-opus'
+  -> ''
+SELECT agent_id, tier FROM agents WHERE agent_id = 'notes_agent'
+  -> 'notes_agent | priority'
+SELECT incident_id FROM incidents WHERE title LIKE '%dropped%'
+  -> "Error: that statement isn't allowed."
+```
+*(runs live, shows output — read-only demo snippet, not graded. The queries are fixed examples.)*
+
+The ban caught `DELETE`, then let an `UPDATE` through that moved every agent to
+the priority tier, because nobody put `UPDATE` on the list. It also refused an
+innocent search for incidents with "dropped" in the title. That's the
+weakness of any deny-list: it has to name every dangerous thing in advance, a
+single omission undoes it, and it blocks harmless requests that happen to
+contain a banned word. An **allowlist** works the other way round. It names
+what's permitted, and refuses everything else, including tricks nobody thought
+of.
+
+A SQL tool for an agent usually stacks several guardrails, each doing a
+different job:
+
+- **Read-only access,** so no statement can change anything, whatever words it
+  contains. Here that's a read-only connection. On a database server, it's a
+  dedicated account that has only been granted `SELECT`.
+- **An allowlist of what can be read.** Here that's SQLite's authorizer, which
+  the database engine consults for every table a query touches. On a server,
+  it's permission grants on specific tables, and **views** that expose only
+  safe columns, so a sensitive column can't be selected at all.
+- **A row limit,** so one broad query can't flood the model's context.
+- **A timeout,** so one expensive query can't tie up the database. A cross join
+  of a few tables can mean millions of rows.
+- **A query budget,** limiting how many queries one question, or one user, can
+  run, the same idea as the search budget in the previous concept.
+
+These are [Module 3's least-privilege rules](→ Module 3, designing for least privilege lesson, separate reads from writes and gate the writes concept)
+applied to data: the tool gets exactly the access answering questions needs.
+The exercise builds the first four into the tool itself.
+
+---
+
 ## Two tools, and the model routes
 
 With a tool for each kind of question, a single response can use both. Here's
@@ -226,6 +295,17 @@ say it came from the registry, the same way Lesson 10 made sources traceable.
 > For a database, that's the table or system it was read from, not a
 > passage.*
 
+> **Q5.** A SQL tool bans queries containing `DELETE` or `DROP`. What's
+> wrong with that guardrail?
+> - It lets through anything nobody listed, like `UPDATE`, and blocks harmless queries containing a banned word ✅
+> - It's too slow to check every query
+> - Banned words can't be detected in SQL
+> - Nothing: a ban on destructive keywords is enough
+>
+> *Explanation: a deny-list has to name every dangerous thing in advance.
+> An allowlist, such as a read-only connection and permitted tables,
+> refuses everything not explicitly allowed.*
+
 ---
 
 ## Applied sandbox exercise
@@ -233,19 +313,25 @@ say it came from the registry, the same way Lesson 10 made sources traceable.
 
 **Task shown to learner:**
 
-Write `query_database(sql, max_rows=20)`, the function behind `SQL_TOOL`:
+Write `query_database(sql, max_rows=20, timeout=1.0)`, the function behind `SQL_TOOL`:
 
 - **Open the database read-only:** `sqlite3.connect(f"file:{REGISTRY_DB}?mode=ro",
   uri=True)`.
+- **Stop long queries:** record a deadline, `time.monotonic() + timeout`, and
+  install `connection.set_progress_handler(handler, 10_000)`. SQLite calls the
+  handler every 10,000 steps of work, and stops the query when it returns a true
+  value, so return whether the deadline has passed.
 - **Install an authorizer** with `connection.set_authorizer(...)`. SQLite
   calls it for every action a statement would take. Return
   `sqlite3.SQLITE_OK` for `sqlite3.SQLITE_SELECT` and `sqlite3.SQLITE_FUNCTION`
   actions, and for `sqlite3.SQLITE_READ` actions only when the table, the
   authorizer's second argument, is in `DB_TABLES`. Return
   `sqlite3.SQLITE_DENY` for everything else.
-- **Run the query and fetch at most `max_rows + 1` rows.** If any
-  `sqlite3.Error` is raised, return `f"Error: {error}"`. Always close the
-  connection.
+- **Run the query and fetch at most `max_rows + 1` rows.** A stopped query
+  raises `sqlite3.OperationalError` with the message `"interrupted"`: return
+  `f"Error: the query ran for more than {timeout} seconds and was stopped.
+  Narrow it with WHERE or LIMIT."`. For any other `sqlite3.Error`, return
+  `f"Error: {error}"`. Always close the connection.
 - **No rows:** return `"No rows."`.
 - **Otherwise** return the column names joined by `" | "`, then each row the
   same way, one per line. If there were more than `max_rows` rows, show
@@ -255,9 +341,9 @@ Write `query_database(sql, max_rows=20)`, the function behind `SQL_TOOL`:
 **Starter code:**
 
 ```python
-def query_database(sql: str, max_rows: int = 20) -> str:
+def query_database(sql: str, max_rows: int = 20, timeout: float = 1.0) -> str:
     """The SQL tool: one query, on a read-only connection that can read only the allowed tables,
-    with at most max_rows rows back. Errors come back as text."""
+    stopped after `timeout` seconds, with at most max_rows rows back. Errors come back as text."""
     # TODO
     ...
 ```
@@ -300,7 +386,15 @@ assert len(lines) == 22 and lines[-1] == "(more than 20 rows; narrow the query w
     f"a header, 20 rows and the note; got {len(lines)} lines ending {lines[-1]!r}"
 assert len(query_database("SELECT agent_id FROM agents", max_rows=3).split("\n")) == 5
 
-# 6. in the loop, next to search, answering both calls from one response
+# 6. a query that runs too long is stopped, with a message the model can act on
+tables = ", ".join(f"agents t{i}" for i in range(9))
+lengths = " + ".join(f"length(t{i}.agent_id)" for i in range(9))
+stopped = query_database(f"SELECT SUM({lengths}) FROM {tables}", timeout=0.05)
+assert stopped == "Error: the query ran for more than 0.05 seconds and was stopped. Narrow it with WHERE or LIMIT.", \
+    f"stop a query at its timeout and say so; got {stopped[:100]!r}"
+assert query_database("SELECT COUNT(*) FROM agents", timeout=0.05) == "COUNT(*)\n5", "a quick query isn't affected by the timeout"
+
+# 7. in the loop, next to search, answering both calls from one response
 client = RecordingClient([
     [ToolUseBlock("query_database", {"sql": "SELECT agent_id FROM agents WHERE owner = 'support-team' AND model = 'claude-legacy'"}),
      ToolUseBlock("search_documents", {"query": "claude-legacy switched off date"})],
@@ -317,25 +411,34 @@ assert results[0]["content"] == "agent_id\nnotes_agent" and results[1]["content"
 The authorizer is called as `authorize(action, arg1, arg2, database,
 trigger)`; for a read, `arg1` is the table name. `cursor.description` gives
 the column names after `execute`: `[c[0] for c in cursor.description]`. A
-`try`/`except`/`finally` keeps the connection closed on every path.
+`try`/`except`/`finally` keeps the connection closed on every path. Catch
+`sqlite3.OperationalError` before `sqlite3.Error`, since it's a subclass, and
+check `str(error) == "interrupted"`.
 
 **Reference solution:**
 
 ```python
-def query_database(sql: str, max_rows: int = 20) -> str:
+def query_database(sql: str, max_rows: int = 20, timeout: float = 1.0) -> str:
     """The SQL tool: one query, on a read-only connection that can read only the allowed tables,
-    with at most max_rows rows back. Errors come back as text."""
+    stopped after `timeout` seconds, with at most max_rows rows back. Errors come back as text."""
     def authorize(action, arg1, arg2, database, trigger):
         if action == sqlite3.SQLITE_READ:
             return sqlite3.SQLITE_OK if arg1 in DB_TABLES else sqlite3.SQLITE_DENY
         return sqlite3.SQLITE_OK if action in (sqlite3.SQLITE_SELECT, sqlite3.SQLITE_FUNCTION) else sqlite3.SQLITE_DENY
 
+    deadline = time.monotonic() + timeout
     db = sqlite3.connect(f"file:{REGISTRY_DB}?mode=ro", uri=True)
     db.set_authorizer(authorize)
+    # SQLite calls this every 10,000 steps of work; a true result stops the query
+    db.set_progress_handler(lambda: time.monotonic() > deadline, 10_000)
     try:
         cursor = db.execute(sql)
         rows = cursor.fetchmany(max_rows + 1)
         columns = [c[0] for c in cursor.description]
+    except sqlite3.OperationalError as error:
+        if str(error) == "interrupted":
+            return f"Error: the query ran for more than {timeout} seconds and was stopped. Narrow it with WHERE or LIMIT."
+        return f"Error: {error}"
     except sqlite3.Error as error:
         return f"Error: {error}"
     finally:
@@ -360,5 +463,7 @@ refuses everything that isn't a plain read, which is why `DELETE`, `ATTACH`,
 applied to data: the tool can do exactly what answering questions needs, and
 nothing else. The row limit is Module 3's advice on tool results: an agent's
 query can match thousands of rows, and a note telling the model to narrow it
-beats flooding its context. The final test runs both tools in one response,
+beats flooding its context. The timeout test builds a nine-way cross join, nearly two
+million rows to add up, and stops it at 0.05 seconds; a normal query under the
+same limit is unaffected. The final test runs both tools in one response,
 routed by the model, answered in one message.
