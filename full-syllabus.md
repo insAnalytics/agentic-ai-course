@@ -4554,8 +4554,23 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    5 in the tools' own words, 1 of 7 otherwise, by luck; the "on" tie
    across all 40 tools; recall: 5 of 5 and 4 of 7; keyword overlap for
    duplicates, related pairs and contradictions). 4 quiz cards; no
-   exercise, as in the mockup. No changes from the mockup. The lesson's
-   other concepts and the bookends aren't drafted yet.
+   exercise, as in the mockup. No changes from the mockup. Concept 2
+   (meaning alongside keywords, fused) is built: setup now appends the new
+   `FUSE_HELPERS` (`text_vectors`, `task_vectors`, `fuse`, `by_meaning`,
+   `by_keywords`), shown as a static block byte-identical to the export
+   and the mockup. Two live demos, code and output exact matches in real
+   Pyodide (tool-finding four ways, fused with keywords 5 of 5 and 4 of 7;
+   recall three ways, meaning and fused 5 of 5 and 6 of 7). Link to Lesson
+   6's "Reciprocal Rank Fusion", anchor checked in the built HTML. 4 quiz
+   cards; graded `hybrid_search` exercise, reference exported as
+   `HYBRID_SEARCH`. **Change from the mockup's hidden tests:** each test
+   starts with the shared fixtures, since each runs alone. Verified with
+   the real `runAgainstHiddenTests`: the reference passes (11 of 12 recall
+   tasks), the starter fails all four, and nine mutations each fail (kind
+   ignored, every tag required, oldest first, keywords over content only,
+   meaning only, keywords only, `limit` ignored with or without a query,
+   no newest-first order). The lesson's other concepts and the bookends
+   aren't drafted yet.
 
 ---
 

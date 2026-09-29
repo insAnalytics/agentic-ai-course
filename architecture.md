@@ -569,7 +569,12 @@ Lesson 14's setup is Lesson 13's recap `lib.py` (the Lesson 13 setup through
 `INGESTION_GATE`, without the fake client), then `CONTEXT_STEP`
 (`load_context_step` and Module 4's matchers as `m4_keywords`,
 `m4_find_tools`, `m4_recall`, `m4_overlap`, renamed so they don't clash with
-Module 5's own `keywords`), with `RAG_CONTEXT_STEP_DATA`.
+Module 5's own `keywords`), with `RAG_CONTEXT_STEP_DATA`. From Lesson 14
+concept 2 on the setup appends `FUSE_HELPERS` (`text_vectors`, which looks
+up the stored `context-step-texts` vectors through `vectors_for`,
+`task_vectors`, `fuse`, `by_meaning`, `by_keywords`, shown verbatim on that
+page); `HYBRID_SEARCH` (`hybrid_search`) is concept 2's exercise reference,
+for pages *after* concept 2 only, appended after `FUSE_HELPERS`.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.

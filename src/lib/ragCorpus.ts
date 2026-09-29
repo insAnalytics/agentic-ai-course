@@ -1549,3 +1549,60 @@ def m4_overlap(a: str, b: str) -> float:
     union = m4_keywords(a) | m4_keywords(b)
     return len(m4_keywords(a) & m4_keywords(b)) / len(union) if union else 0.0
 `;
+
+/**
+ * Module 5 Lesson 14 concept 2 text_vectors, task_vectors, fuse, by_meaning and
+ * by_keywords, shown verbatim on that page (keep the two byte-identical).
+ * Joins the Lesson 14 setup from concept 2 on: append after CONTEXT_STEP.
+ */
+export const FUSE_HELPERS = String.raw`
+def text_vectors(texts: list[str]) -> np.ndarray:
+    """bge-small's stored embeddings of the lesson's texts, as documents, looked up by exact text."""
+    return vectors_for([{"text": t} for t in texts], chunking="context-step-texts")
+
+def task_vectors() -> dict[str, np.ndarray]:
+    """bge-small's embeddings of the lesson's tasks, with its retrieval instruction, by task id."""
+    stored = json.loads((EMBEDDINGS / "bge-small-en-v1.5" / "context-step-queries.json").read_text())
+    return dict(zip(stored["keys"], _unpack(stored["instructed"], stored["dim"])))
+
+def fuse(rankings: list[list[str]], k: int = 60) -> list[str]:
+    """Reciprocal rank fusion (Lesson 6) over rankings of ids: each id scores 1 / (k + rank) per ranking."""
+    scores = defaultdict(float)
+    for ranking in rankings:
+        for rank, item in enumerate(ranking, 1):
+            scores[item] += 1 / (k + rank)
+    return sorted(scores, key=lambda item: -scores[item])
+
+def by_meaning(query_vector: np.ndarray, items: list[str], vectors: np.ndarray) -> list[str]:
+    """Every item, most similar in meaning to the query first."""
+    order = np.argsort(-(vectors @ query_vector), kind="stable")
+    return [items[i] for i in order]
+
+def by_keywords(query: str, items: dict[str, str]) -> list[str]:
+    """Items sharing at least one of Module 4's keywords with the query, most shared first, ties in order."""
+    wanted = m4_keywords(query)
+    scored = [(len(wanted & m4_keywords(text)), item) for item, text in items.items()]
+    return [item for score, item in sorted([p for p in scored if p[0]], key=lambda p: -p[0])]
+`;
+
+/**
+ * Module 5 Lesson 14 concept 2 graded exercise, reference solution verbatim
+ * (hybrid_search). Joins the Lesson 14 setup for every page AFTER concept 2
+ * (append after FUSE_HELPERS) and must never load on concept 2 itself, or the
+ * exercise would start already solved.
+ */
+export const HYBRID_SEARCH = String.raw`
+def hybrid_search(memories: list[dict], query: str, query_vector, vectors: dict, limit: int = 5,
+                  kind: str | None = None, tags: list | None = None) -> list[dict]:
+    """Module 4's store search with meaning alongside keywords: filter by kind and tags, then fuse a
+    keyword ranking (content and tags) with a ranking by meaning (content). No query: newest first."""
+    candidates = [m for m in memories
+                  if (kind is None or m["type"] == kind) and (not tags or set(tags) & set(m["tags"]))]
+    newest_first = sorted(candidates, key=lambda m: m["created"], reverse=True)
+    if not query or not newest_first:
+        return newest_first[:limit]
+    by_id = {m["id"]: m for m in newest_first}
+    keyword_ranking = by_keywords(query, {m["id"]: m["content"] + " " + " ".join(m["tags"]) for m in newest_first})
+    meaning_ranking = by_meaning(query_vector, list(by_id), np.array([vectors[m["content"]] for m in newest_first]))
+    return [by_id[i] for i in fuse([keyword_ranking, meaning_ranking])[:limit]]
+`;

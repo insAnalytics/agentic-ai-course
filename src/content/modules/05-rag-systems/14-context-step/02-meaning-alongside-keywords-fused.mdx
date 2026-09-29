@@ -1,0 +1,276 @@
+---
+title: "Meaning alongside keywords, fused"
+lesson: "14-context-step"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { COUNT_TOKENS } from "../../../../lib/fakeClient";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, SIGN_TEST, FIXED_CHUNKS, STRUCTURE_HELPERS, STRUCTURED_CHUNKS, WITHIN_BUDGET, VECTORS, VECTOR_INDEX, MEANING_SEARCH, TERMS, BM25_INDEX, RERANK_SCORES, RERANK, LISTWISE_RERANK, MODULE_PIPELINE, REWRITE_QUERY, SPLIT_QUERY, INTERLEAVE, HYDE, WITH_HEADER, VERSIONED_PIPELINE, WITH_CONTEXT, EXPAND_NEIGHBOURS, ANSWER_RETRIEVER, ANSWER_INSTRUCTIONS, ASSEMBLE_REQUEST, CHECK_CITATIONS, DECLINED, AGENT_SEARCH, SEARCH_DOCUMENTS, CONTEXTUAL_SEARCH, SEARCH_BUDGET, REGISTRY_DB, QUERY_DATABASE, GRAPH_DATA, BUILD_GRAPH, AFFECTED_BY, GRAPH_COMMUNITIES, PERMITTED_RETRIEVER, READABLE, READER_VIEWS, INGESTION_GATE, CONTEXT_STEP, FUSE_HELPERS, HYBRID_SEARCH, RAG_CONTEXT_STEP_DATA } from "../../../../lib/ragCorpus";
+
+export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION + METRICS + SIGN_TEST + FIXED_CHUNKS + STRUCTURE_HELPERS + STRUCTURED_CHUNKS + WITHIN_BUDGET + VECTORS + VECTOR_INDEX + MEANING_SEARCH + TERMS + BM25_INDEX + RERANK_SCORES + RERANK + LISTWISE_RERANK + MODULE_PIPELINE + REWRITE_QUERY + SPLIT_QUERY + INTERLEAVE + HYDE + WITH_HEADER + VERSIONED_PIPELINE + WITH_CONTEXT + EXPAND_NEIGHBOURS + ANSWER_RETRIEVER + ANSWER_INSTRUCTIONS + ASSEMBLE_REQUEST + CHECK_CITATIONS + DECLINED + AGENT_SEARCH + SEARCH_DOCUMENTS + CONTEXTUAL_SEARCH + SEARCH_BUDGET + REGISTRY_DB + QUERY_DATABASE + GRAPH_DATA + BUILD_GRAPH + AFFECTED_BY + GRAPH_COMMUNITIES + PERMITTED_RETRIEVER + READABLE + READER_VIEWS + INGESTION_GATE + CONTEXT_STEP + FUSE_HELPERS;
+
+export const TOOLS_FUSED_DEMO = String.raw`data = load_context_step()
+tools, vectors = data["tools"], task_vectors()
+tool_vectors = text_vectors(list(tools.values()))
+approaches = {
+    "Module 4's find_tools": lambda t: m4_find_tools(tools, t["task"]),
+    "by meaning": lambda t: by_meaning(vectors[t["id"]], list(tools), tool_vectors)[:3],
+    "fused with find_tools": lambda t: fuse([m4_find_tools(tools, t["task"], limit=40),
+                                             by_meaning(vectors[t["id"]], list(tools), tool_vectors)])[:3],
+    "fused with keywords": lambda t: fuse([by_keywords(t["task"], tools),
+                                           by_meaning(vectors[t["id"]], list(tools), tool_vectors)])[:3],
+}
+print(f"{'':<24}{'own words':>11}{'other words':>13}   (right service in the top 3)")
+for name, find in approaches.items():
+    hits = [t for t in data["tool_tasks"] if any(n.startswith(t["server"] + "__") for n in find(t))]
+    own = sum(t["worded"] for t in hits)
+    print(f"{name:<24}{f'{own} of 5':>11}{f'{len(hits) - own} of 7':>13}")
+`;
+
+export const RECALL_FUSED_DEMO = String.raw`data = load_context_step()
+memories = {m["id"]: m["content"] for m in data["memories"]}
+vectors, memory_vectors = task_vectors(), text_vectors(list(memories.values()))
+approaches = {
+    "Module 4's recall": lambda t: m4_recall(list(memories.values()), t["task"]),
+    "by meaning": lambda t: by_meaning(vectors[t["id"]], list(memories.values()), memory_vectors)[:3],
+    "fused": lambda t: fuse([[memories[i] for i in by_keywords(t["task"], memories)],
+                             by_meaning(vectors[t["id"]], list(memories.values()), memory_vectors)])[:3],
+}
+print(f"{'':<20}{'own words':>11}{'other words':>13}   (a relevant memory in the top 3)")
+for name, recall in approaches.items():
+    hits = [t for t in data["recall_tasks"] if set(recall(t)) & {memories[i] for i in t["relevant"]}]
+    own = sum(t["worded"] for t in hits)
+    print(f"{name:<20}{f'{own} of 5':>11}{f'{len(hits) - own} of 7':>13}")
+task = next(t for t in data["recall_tasks"] if t["id"] == "r12")
+print(f"\n{task['task']!r}, fused -> {approaches['fused'](task)}")
+`;
+
+export const STARTER = String.raw`def hybrid_search(memories: list[dict], query: str, query_vector, vectors: dict, limit: int = 5,
+                  kind: str | None = None, tags: list | None = None) -> list[dict]:
+    """Module 4's store search with meaning alongside keywords: filter by kind and tags, then fuse a
+    keyword ranking (content and tags) with a ranking by meaning (content). No query: newest first."""
+    # TODO
+    ...
+`;
+
+export const TESTS = [
+  String.raw`# shared by the tests below
+data = load_context_step()
+memories = data["memories"]
+vectors = dict(zip([m["content"] for m in memories], text_vectors([m["content"] for m in memories])))
+tasks = task_vectors()
+ids = lambda found: [m["id"] for m in found]
+
+# 1. no query: newest first, filtered, at most limit
+found = hybrid_search(memories, "", None, vectors, limit=3)
+assert isinstance(found, list), f"hybrid_search should return a list; got {found!r}"
+assert ids(found) == ["m24", "m10", "m19"], f"with no query, the newest first; got {ids(found)}"
+assert ids(hybrid_search(memories, "", None, vectors, kind="procedural", limit=2)) == ["m22", "m20"], \
+    "kind filters by type, newest first"
+assert ids(hybrid_search(memories, "", None, vectors, tags=["kb-search"])) == ["m13", "m12"], \
+    "tags filter: any shared tag"
+assert ids(hybrid_search(memories, "", None, vectors, tags=["incident", "registry"])) == ["m10", "m19", "m09", "m23", "m22"], \
+    "a memory with any one of the tags counts"
+`,
+  String.raw`# shared by the tests below
+data = load_context_step()
+memories = data["memories"]
+vectors = dict(zip([m["content"] for m in memories], text_vectors([m["content"] for m in memories])))
+tasks = task_vectors()
+ids = lambda found: [m["id"] for m in found]
+
+# 2. with a query: the two rankings fused, by Lesson 6's rule
+task = next(t for t in data["recall_tasks"] if t["id"] == "r06")
+found = hybrid_search(memories, task["task"], tasks["r06"], vectors, limit=3)
+assert ids(found) == ["m08", "m07", "m04"], \
+    f"keywords put the model memory first and meaning finds the deadline; got {ids(found)}"
+assert all(isinstance(m, dict) and "content" in m for m in found), "return the memory records"
+
+assert hybrid_search(memories, "units", tasks["t09"], vectors, limit=3)[0]["id"] == "m20", \
+    "keywords match tags as well as content, as Module 4's store did"
+`,
+  String.raw`# shared by the tests below
+data = load_context_step()
+memories = data["memories"]
+vectors = dict(zip([m["content"] for m in memories], text_vectors([m["content"] for m in memories])))
+tasks = task_vectors()
+ids = lambda found: [m["id"] for m in found]
+
+# 3. filters apply before ranking
+procedural = hybrid_search(memories, "How should I format my reply to this user?", tasks["r07"], vectors,
+                           kind="procedural", limit=5)
+assert all(m["type"] == "procedural" for m in procedural) and len(procedural) == 5, ids(procedural)
+assert hybrid_search(memories, "anything", tasks["r01"], vectors, tags=["no-such-tag"]) == []
+`,
+  String.raw`# shared by the tests below
+data = load_context_step()
+memories = data["memories"]
+vectors = dict(zip([m["content"] for m in memories], text_vectors([m["content"] for m in memories])))
+tasks = task_vectors()
+ids = lambda found: [m["id"] for m in found]
+
+# 4. the recall tasks: a relevant memory in the top 3 for 11 of 12
+hits = sum(bool(set(ids(hybrid_search(memories, t["task"], tasks[t["id"]], vectors, limit=3))) & set(t["relevant"]))
+           for t in data["recall_tasks"])
+assert hits == 11, f"fused store search should find a relevant memory for 11 of the 12 recall tasks; got {hits}"
+`,
+];
+
+<Subsection title="One helper, two rankings" variant="a">
+
+Lesson 6 answered the question this lesson asks: when keyword search and search
+by meaning each catch what the other misses, run both and
+[fuse their rankings](/05-rag-systems/06-hybrid-search/03-fusing-rankings/#reciprocal-rank-fusion)
+with reciprocal rank fusion. Nothing about that is specific to document
+chunks. Tools, memories and anything else with text can be ranked both ways
+and fused, so the same few functions upgrade every matcher in Module 4. They're
+defined once here and already loaded for every demo and exercise from here to
+the end of this lesson:
+
+```python
+def text_vectors(texts: list[str]) -> np.ndarray:
+    """bge-small's stored embeddings of the lesson's texts, as documents, looked up by exact text."""
+    return vectors_for([{"text": t} for t in texts], chunking="context-step-texts")
+
+def task_vectors() -> dict[str, np.ndarray]:
+    """bge-small's embeddings of the lesson's tasks, with its retrieval instruction, by task id."""
+    stored = json.loads((EMBEDDINGS / "bge-small-en-v1.5" / "context-step-queries.json").read_text())
+    return dict(zip(stored["keys"], _unpack(stored["instructed"], stored["dim"])))
+
+def fuse(rankings: list[list[str]], k: int = 60) -> list[str]:
+    """Reciprocal rank fusion (Lesson 6) over rankings of ids: each id scores 1 / (k + rank) per ranking."""
+    scores = defaultdict(float)
+    for ranking in rankings:
+        for rank, item in enumerate(ranking, 1):
+            scores[item] += 1 / (k + rank)
+    return sorted(scores, key=lambda item: -scores[item])
+
+def by_meaning(query_vector: np.ndarray, items: list[str], vectors: np.ndarray) -> list[str]:
+    """Every item, most similar in meaning to the query first."""
+    order = np.argsort(-(vectors @ query_vector), kind="stable")
+    return [items[i] for i in order]
+
+def by_keywords(query: str, items: dict[str, str]) -> list[str]:
+    """Items sharing at least one of Module 4's keywords with the query, most shared first, ties in order."""
+    wanted = m4_keywords(query)
+    scored = [(len(wanted & m4_keywords(text)), item) for item, text in items.items()]
+    return [item for score, item in sorted([p for p in scored if p[0]], key=lambda p: -p[0])]
+```
+
+The vectors are stored, as everywhere in this module: the lesson's tools,
+memories and tasks were embedded with bge-small in advance, since this page's
+browser can't run the embedding model on new text. A deployed agent would
+embed a memory when it's saved and a task when it arrives.
+
+</Subsection>
+
+<Subsection title="Finding tools, fused" variant="b">
+
+Here are four ways to find tools for the twelve tasks:
+
+<LiveDemo client:load dataFiles={RAG_CONTEXT_STEP_DATA} setupCode={SETUP} code={TOOLS_FUSED_DEMO} />
+
+Search by meaning alone finds five of the seven tasks in other words, but it
+loses one in the tools' own words: "What alerts are firing?" lands on registry
+tools. Fusing it with Module 4's `find_tools` barely helps, and the reason is
+worth seeing. `find_tools` gives almost every tool a point, as the previous
+concept showed, so its "ranking" is the catalog order, and fusing a ranking
+with noise mostly adds noise. Fusing with a ranking that means something,
+Module 4's own `keywords` from Lesson 8, whole words with common ones dropped,
+keeps every own-words task and gains four in other words.
+
+Fusion is only as good as the rankings it combines, which is also why Lesson 6
+fused BM25 rather than raw word counts. With twelve tasks, one either way is
+within noise; the pattern is what matters.
+
+</Subsection>
+
+<Subsection title="Recalling memories, fused" variant="a">
+
+The same helpers upgrade `recall`:
+
+<LiveDemo client:load dataFiles={RAG_CONTEXT_STEP_DATA} setupCode={SETUP} code={RECALL_FUSED_DEMO} />
+
+Meaning and fusion both find a relevant memory for eleven of twelve tasks,
+where keywords found nine. The twelfth shows what fusion doesn't fix. Module 4's
+`recall` returned nothing for "Who do I report to?", which was at least honest.
+Search by meaning always returns its top three, however weak, and here they're
+three memories about support_agent and reports, none of them the manager. A
+ranking has no notion of "nothing relevant". The fix is the one Lesson 10 used:
+a floor on similarity, measured on labelled examples, below which the answer is
+"nothing found". The next concept chooses exactly that kind of threshold, for
+duplicates.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "Why did fusing with Module 4's find_tools barely help?",
+      "options": [
+        "Its ranking was nearly the catalog order, and fusing with noise adds noise",
+        "Fusion only works on documents",
+        "find_tools returns too few tools to fuse",
+        "Search by meaning was already perfect"
+      ],
+      "correctIndex": 0,
+      "explanation": "Almost every tool scored one point, so the order carried no information. A keyword ranking with real signal, like whole-word overlap, fused well."
+    },
+    {
+      "question": "Search by meaning alone missed \"What alerts are firing?\". Why keep keywords at all?",
+      "options": [
+        "Tasks using the exact words, like \"alerts\", are what keywords catch reliably",
+        "Keywords are cheaper to store",
+        "Meaning search can't handle questions",
+        "Fusion needs at least two rankings of any kind"
+      ],
+      "correctIndex": 0,
+      "explanation": "The same trade as Lesson 6. Each method catches what the other misses, and fusing them keeps both strengths."
+    },
+    {
+      "question": "For \"Who do I report to?\", keyword recall returned nothing and search by meaning returned three irrelevant memories. Which was better, and what's the fix?",
+      "options": [
+        "Nothing was more honest; a similarity floor lets meaning search say \"nothing found\" too",
+        "The three memories, since some answer beats none",
+        "Neither; recall should always return all memories",
+        "Keywords, and meaning search should be removed"
+      ],
+      "correctIndex": 0,
+      "explanation": "A ranking always has a top three. A threshold, measured on labelled examples, is what separates relevant from merely nearest."
+    },
+    {
+      "question": "Why are the tasks' vectors stored rather than computed?",
+      "options": [
+        "The page's browser can't run the embedding model, so everything was embedded in advance",
+        "Tasks can't be embedded at run time",
+        "Stored vectors are more accurate",
+        "Fusion needs identical vectors every run"
+      ],
+      "correctIndex": 0,
+      "explanation": "A deployed agent embeds memories when they're saved and tasks as they arrive. The page stands in for that with stored vectors."
+    }
+  ]}
+/>
+
+<GradedExercise
+  client:load
+  task={"Write hybrid_search(memories, query, query_vector, vectors, limit=5, kind=None, tags=None), Module 4's MemoryStore.search with search by meaning added. Each memory is a dict with \"id\", \"content\", \"type\", \"tags\" and \"created\"; vectors maps a memory's content to its vector. Filter first: keep memories of kind (when given) sharing at least one of tags (when given), and order them newest first by \"created\". With no query, or nothing left, return the first limit of those. Otherwise, make two rankings of the memories' ids, both over the filtered, newest-first list: by keywords, with by_keywords, over each memory's content and tags joined with spaces, as Module 4's store matched them; and by meaning, with by_meaning, over each memory's content vector. Fuse them with fuse and return the first limit memories, as records."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  namespaceSetup={SETUP}
+  dataFiles={RAG_CONTEXT_STEP_DATA}
+  hint={"Build a dict from id to memory for the filtered list, so the fused ids turn back into records. np.array([vectors[m[\"content\"]] for m in newest_first]) gives by_meaning its matrix in the same order as the ids. Filtering before ranking matters for the same reason as Lesson 13's permissions: filtering afterwards would leave fewer than limit results."}
+  correctAnswer={{
+    code: HYBRID_SEARCH.trimStart(),
+    explanation: "On the twelve recall tasks, the fused store search finds a relevant memory in the top three for eleven, against nine for Module 4's keyword search. Test 2 shows fusion at work on \"What deadline do we have for moving off the old model?\": keywords rank notes_agent's model first, because it shares \"model\", and meaning brings research_agent's migration deadline in second, which is the answer. Neither ranking alone gets both in the top two. The tags matter too: a query for \"units\" finds the memory tagged units, whose content never uses the word, because keywords match tags as Module 4's store did."
+  }}
+/>
+
+</CheckpointZone>
