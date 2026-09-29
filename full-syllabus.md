@@ -4842,6 +4842,27 @@ architecture.md §3.1).
    code strings were generated from the verified files and compared byte
    for byte.
 
+3. **Checks in the Loop** (provisional title; folder
+   `03-checks-in-the-loop`) — **Building**. Concept 1 (where a check can
+   sit in the loop) is built: the four hook points (before a model call,
+   on a tool call, on a tool result, on the final answer) with what each
+   can and can't catch, `Checks` and `run_checked_agent` (Module 2's loop
+   with a check at each point; a failed tool check becomes an `is_error`
+   observation, a failed input or answer check stops the run), a
+   migration demo where three scripted mistakes are caught (an empty
+   lookup, an unrequested change, a key in the request), and the OpenAI
+   Agents SDK's matching guardrails. The demo reproduces the mockup's
+   output exactly in real Pyodide 0.26.4 against the real `fakeClient.ts`
+   classes. New shared `CHECKED_AGENT` in `reliabilityData.ts`, shown
+   verbatim as a static block; the demo's `rk-` regex was written by
+   script and checked to round-trip through String.raw. Callbacks (all
+   verified against the built HTML): Lesson 2's concepts 4 and 1
+   (`#a-refusal-can-be-a-reliability-failure`), Module 2's ReAct pattern
+   (`#the-fix-gather-every-tool-call-act-on-all-of-them-reply-once`) and
+   tool-errors-as-observations, Lesson 1's concept 5, and Module 3's
+   validate-and-return-failures concept. 4 quiz cards. Next per the
+   mockup: checking a tool's result before the model reads it.
+
 ---
 
 ## Modules 4–11 — current plan

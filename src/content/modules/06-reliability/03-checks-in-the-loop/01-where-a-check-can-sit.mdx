@@ -1,0 +1,289 @@
+---
+title: "Where a check can sit in the loop"
+lesson: "03-checks-in-the-loop"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+import { CHECKED_AGENT } from "../../../../lib/reliabilityData";
+
+export const SETUP = REACT_FAKE_CLIENT + RECORDING_CLIENT + CHECKED_AGENT;
+
+export const MIGRATION_DEMO = String.raw`import json
+import re
+
+REGISTRY = {
+    "research_agent": {"model": "claude-legacy", "tier": "standard", "owner": "research-team"},
+    "notes_agent": {"model": "claude-legacy", "tier": "standard", "owner": "support-team"},
+}
+KEY = re.compile(r"\brk-[A-Za-z0-9]{8,}")
+
+
+def get_agent(agent_name: str) -> str:
+    return json.dumps(REGISTRY.get(agent_name, {}))
+
+
+def set_model(agent_name: str, model: str) -> str:
+    REGISTRY[agent_name]["model"] = model
+    return json.dumps({"agent_name": agent_name, "model": model})
+
+
+def request_text(messages: list) -> str:
+    return messages[0]["content"]
+
+
+def no_keys_in_input(messages: list):
+    return "the request contains a registry key" if KEY.search(request_text(messages)) else None
+
+
+def stays_in_scope(call, messages: list):
+    # a write may only touch an agent the user named in the request
+    if call.name == "set_model" and call.input["agent_name"] not in request_text(messages):
+        return f"{call.input['agent_name']} isn't named in the request, so it can't be changed"
+    return None
+
+
+def result_not_empty(call, output: str):
+    return f"{call.name} found nothing for {call.input['agent_name']}" if output in ("{}", "") else None
+
+
+def no_keys_in_answer(answer: str):
+    return "the answer contains a registry key" if KEY.search(answer) else None
+
+
+checks = Checks(before_model=no_keys_in_input, before_tool=stays_in_scope,
+                after_tool=result_not_empty, before_answer=no_keys_in_answer)
+tools = {"get_agent": get_agent, "set_model": set_model}
+
+conversation = [{"role": "user", "content": "Move research_agent off claude-legacy onto claude-sonnet."}]
+client = RecordingClient(scripted_responses=[
+    [ToolUseBlock(name="get_agent", input={"agent_name": "research-agent"})],
+    [ToolUseBlock(name="get_agent", input={"agent_name": "research_agent"})],
+    [ToolUseBlock(name="set_model", input={"agent_name": "research_agent", "model": "claude-sonnet"}),
+     ToolUseBlock(name="set_model", input={"agent_name": "notes_agent", "model": "claude-sonnet"})],
+    [TextBlock(text="research_agent now runs on claude-sonnet. I couldn't change notes_agent, which you didn't ask about.")],
+])
+print(run_checked_agent(client, conversation, tools, checks))
+print()
+for message in conversation[1:]:
+    if message["role"] == "user":
+        for result in message["content"]:
+            flag = "ERROR" if result.get("is_error") else "ok"
+            print(f"  {flag:<5} {result['content']}")
+print()
+print("registry now:", {name: record["model"] for name, record in REGISTRY.items()})
+print()
+print(run_checked_agent(RecordingClient([]), [{"role": "user", "content": "Use key rk-7f3a9c21b4 to check notes_agent."}], tools, checks))
+`;
+
+<Subsection title="Four points, four different views" variant="a">
+
+[Lesson 2](/06-reliability/02-reliability-tradeoffs/04-spend-reliability-where-the-risk-is/)
+argued for spending checks where the risk is. This lesson is about where in
+the agent's code a check can actually go. The canonical loop from
+[Module 2](/02-the-agent-loop/05-react-and-reasoning-in-the-loop/01-the-react-pattern/#the-fix-gather-every-tool-call-act-on-all-of-them-reply-once)
+has four natural points, and each sees something different:
+
+| Where | What it sees | What it can catch | What it can't |
+|---|---|---|---|
+| **Before a model call** | The conversation about to be sent | Input that shouldn't reach the model, such as a secret, or a request outside the agent's job | Anything the model hasn't said yet |
+| **On a tool call, before it runs** | The tool's name and arguments, and the conversation so far | A call that's well-formed but wrong: the wrong record, an action nobody asked for | Whether the tool will return something sensible |
+| **On a tool result, before the model reads it** | What the tool returned | Results that are empty, cut short, stale or out of range | Side effects: by now, the tool has already run |
+| **On the final answer** | The text about to reach the user | A leaked secret, a missing part, an unsupported claim | Anything that happened earlier in the run |
+
+The second and third rows are the ones most agents need most. τ-bench's most
+common failure, as
+[Lesson 1 found](/06-reliability/01-per-step-reliability/05-where-agents-fail/),
+was a right tool called with a wrong value, which is exactly what a check
+on the call can catch. The last column matters just as much: a check on a
+tool's result can't take back what the tool did. For a tool that changes
+something, the check has to come before the call.
+
+</Subsection>
+
+<Subsection title="The loop, with a check at each point" variant="b">
+
+This is Module 2's loop with four hooks added. Each check returns `None` if
+all is well, or a short reason if not. What the loop does with that reason
+depends on where it came from:
+
+- **A failed check on a tool call or result** becomes an error observation,
+  marked `is_error`, answering that call by its id, as
+  [Module 2 taught](/02-the-agent-loop/06-termination-failure-and-control/05-tool-errors-as-observations/).
+  The model sees it and can try again.
+- **A failed check before the model or on the answer** stops the run, since
+  there's nothing for the model to react to.
+
+The loop's shape doesn't change: the assistant's response is appended once,
+every tool call gets its own result, and all the results go back in one
+message, blocked calls included.
+
+```python
+from dataclasses import dataclass
+from typing import Callable
+
+
+def no_problem(*_) -> None:
+    return None
+
+
+@dataclass
+class Checks:
+    """Four places a check can sit. Each returns None if all is well, or a short reason if not."""
+    before_model: Callable = no_problem
+    before_tool: Callable = no_problem
+    after_tool: Callable = no_problem
+    before_answer: Callable = no_problem
+
+
+def run_checked_agent(client, messages: list, tools: dict, checks: Checks, max_steps: int = 8) -> str:
+    """Module 2's loop, with a check at each of the four points. A failed tool check becomes an
+    error observation the model can react to; a failed check on the input or the answer stops the run."""
+    for _ in range(max_steps):
+        if reason := checks.before_model(messages):
+            return f"stopped before calling the model: {reason}"
+        response = client.create(messages=messages)
+        messages.append({"role": "assistant", "content": response.content})
+        calls = [block for block in response.content if block.type == "tool_use"]
+        if not calls:
+            answer = "".join(block.text for block in response.content if block.type == "text")
+            if reason := checks.before_answer(answer):
+                return f"answer withheld: {reason}"
+            return answer
+        results = []
+        for call in calls:
+            if reason := checks.before_tool(call, messages):
+                results.append({"type": "tool_result", "tool_use_id": call.id, "content": reason, "is_error": True})
+                continue
+            output = tools[call.name](**call.input)
+            if reason := checks.after_tool(call, output):
+                results.append({"type": "tool_result", "tool_use_id": call.id, "content": reason, "is_error": True})
+                continue
+            results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+        messages.append({"role": "user", "content": results})
+    return f"stopped after {max_steps} steps without an answer"
+```
+
+*(defined once here and already loaded for every demo in this lesson)*
+
+</Subsection>
+
+<Subsection title="Four checks on a migration" variant="a">
+
+Here the user asks to move one agent off `claude-legacy`. The model's
+replies are scripted to make three mistakes along the way: a misspelled
+agent name, a change to an agent nobody mentioned, and, in a second
+request, a registry key pasted into the message.
+
+<LiveDemo client:load setupCode={SETUP} code={MIGRATION_DEMO} />
+
+*(The model's replies are scripted to trigger the checks; a real model would
+make these mistakes only some of the time.)*
+
+What each check did:
+
+- **The result check caught an empty lookup.** `get_agent` for
+  "research-agent", with a hyphen, returned `{}`. Instead of the model
+  reading an empty record and perhaps concluding the agent has no model,
+  it got an error saying nothing was found, and tried the right name.
+- **The call check stopped a change nobody asked for.** The model tried to
+  migrate `notes_agent` as well. That call is well-formed, uses a real
+  agent and a valid model, and would pass
+  [Module 3's argument validation](/03-tool-design-for-agents/02-tool-schemas-and-argument-validation/03-validate-and-return-failures-as-observations/),
+  but the user only named `research_agent`. The registry shows it untouched.
+- **The input check never let the key reach the model.** The second request
+  was stopped before any call was made.
+- **The answer check didn't fire** in this run, and nothing in this
+  conversation would have made it.
+
+Two things about these checks matter more than their details:
+
+- **They're all plain code.** Each one is a few lines that give the same
+  verdict every time, which is why they come first. Some things can't be
+  checked that way, such as whether a claim is supported by its source, and
+  Lesson 4 uses a model to judge those. Even then, the model only gives a
+  verdict; code decides what happens next.
+- **Each has a false-block rate.** The scope check refuses any change to an
+  agent the user didn't name, which is right here, and wrong for a request
+  like "migrate everything on claude-legacy". A real check is measured on
+  cases where the right outcome is known, as
+  [Lesson 2 said](/06-reliability/02-reliability-tradeoffs/01-four-things-every-technique-trades/#a-refusal-can-be-a-reliability-failure).
+
+</Subsection>
+
+<Subsection title="The same four points in an agent framework" variant="b">
+
+These points aren't specific to this course's loop. The OpenAI Agents SDK,
+for example, has
+[guardrails](https://openai.github.io/openai-agents-python/guardrails/) at
+matching places, with some differences worth knowing:
+
+- **Input guardrails** check the user's initial input for the first agent in
+  a run, not every model call. By default they run in parallel with the
+  agent; a later concept in this lesson returns to what that means.
+- **Tool guardrails** run before and after each call to a guarded function
+  tool. Before, they can skip the call or replace its output with a message;
+  after, they can replace the output. Either can also stop the run.
+- **Output guardrails** check the final output after the agent finishes.
+
+Other frameworks name and wire these differently. The four points are the
+part that carries over.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "A tool that deletes a record returns an unexpected result. Why is a check on that result too late to protect the record?",
+    "options": [
+      "Because result checks only ever look at the output's format",
+      "Because the tool has already run by the time its result arrives",
+      "Because the model always reads a result before any check can",
+      "Because tools that delete things never return any result"
+    ],
+    "correctIndex": 1,
+    "explanation": "A result check sees what the tool did after it did it. For a tool that changes something, the check that can prevent harm is the one on the call, before it runs. Checking the result afterwards is still useful, for confirming what happened, which is Lesson 7's subject."
+  },
+  {
+    "question": "In the demo, the model tried to change notes_agent, a real agent, to a valid model. Why didn't argument validation stop it?",
+    "options": [
+      "Because the fake client skips validation for scripted calls",
+      "Because the call was well-formed; the user just never asked for it",
+      "Because validation only ever runs on the first call of a run",
+      "Because notes_agent was already running on claude-sonnet"
+    ],
+    "correctIndex": 1,
+    "explanation": "Validation asks whether arguments are the right shape and refer to things that exist. This call passed all of that. The scope check asked a different question, whether this change was requested, which needs the conversation as well as the arguments."
+  },
+  {
+    "question": "Why does a failed check on a tool call return an error observation instead of stopping the run?",
+    "options": [
+      "Because stopping the run would lose the whole conversation",
+      "Because the model can read the error and correct its next call",
+      "Because errors must always be kept hidden from the user",
+      "Because a tool call can't be blocked once the model makes it"
+    ],
+    "correctIndex": 1,
+    "explanation": "A blocked call answered with an is_error result keeps the loop's shape intact and gives the model something to act on. A failed check before the model call or on the final answer has no later step to correct it, so the run stops there."
+  },
+  {
+    "question": "Why do plain-code checks come before checks that ask a model to judge?",
+    "options": [
+      "Because code checks are always more accurate than any model",
+      "Because they're cheap, fast and give the same verdict every time",
+      "Because models can't read tool results the way code can",
+      "Because agent frameworks don't support model-based checks"
+    ],
+    "correctIndex": 1,
+    "explanation": "A deterministic check adds almost no latency and never varies. A model-based check costs a call and can be wrong in either direction, so it's reserved for questions like \"does this source support the claim\", which Lesson 4 covers. Either way, code decides what happens."
+  }
+]}
+/>
+
+</CheckpointZone>
