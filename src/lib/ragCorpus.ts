@@ -1357,3 +1357,27 @@ def affected_by(graph: dict, failed: str, relations: tuple = ("depends_on", "han
                 frontier.append(entity)
     return found
 `;
+
+/**
+ * Module 5 Lesson 12 concept 4 graph_communities and community_sources,
+ * shown verbatim on that page (keep the two byte-identical). Joins the
+ * Lesson 12 setup from concept 4 on: append after AFFECTED_BY. Its
+ * `import networkx as nx` is what makes loadPackagesFromImports fetch
+ * Pyodide's networkx (3.3 in Pyodide 0.26.4).
+ */
+export const GRAPH_COMMUNITIES = String.raw`
+import networkx as nx
+
+def graph_communities(graph: dict, seed: int = 0) -> list[set]:
+    """Groups of closely connected entities (Louvain community detection on the undirected graph),
+    largest first."""
+    undirected = nx.Graph()
+    undirected.add_edges_from((subject, obj) for subject, _, obj in graph)
+    communities = nx.community.louvain_communities(undirected, seed=seed)
+    return sorted(communities, key=lambda c: (-len(c), sorted(c)))
+
+def community_sources(graph: dict, community: set) -> list[str]:
+    """The chunks behind every edge inside a community: what its summary, and any answer from it, rests on."""
+    return sorted({s for (subject, _, obj), sources in graph.items()
+                   if subject in community and obj in community for s in sources})
+`;

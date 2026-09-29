@@ -4392,6 +4392,18 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    the wrong way, depth-first, the edge's own sources only, the failed
    entity listed, a later route overwriting the first, unsorted sources,
    direct dependents only). No changes from the mockup.
+   Concept 4 (communities and summaries) is built: setup now appends
+   `AFFECTED_BY` and the new `GRAPH_COMMUNITIES` (`graph_communities`,
+   `community_sources`), shown as a static block byte-identical to the
+   export and the mockup; its `import networkx as nx` alone loads
+   networkx. Three live demos, code and output exact matches in real
+   Pyodide with networkx 3.3 (the four Louvain communities, which match
+   the mockup's 3.6.1 output; the four stored summaries and their chunk
+   counts; the scripted map-reduce over them, 5 calls, 13 source chunks
+   holding all of q33's evidence). The prose's claim that SEC-014 comes
+   from a security-only report checked (D12's access is `["security"]`).
+   Edge et al.'s paper linked again. 4 quiz cards; no exercise, as in the
+   mockup. No changes from the mockup.
    The lesson's other concepts and the bookends aren't drafted yet. Lesson
    1's and Lesson 2's forward references to Lesson 12 stay plain prose.
 

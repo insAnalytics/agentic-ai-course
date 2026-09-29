@@ -535,7 +535,12 @@ that page), with `RAG_GRAPH_DATA` (`RAG_CONTEXTUAL_DATA` plus
 exercise reference: pages *after* concept 2 only, appended after
 `GRAPH_DATA`. From Lesson 12 concept 3 on the setup appends `BUILD_GRAPH`;
 `AFFECTED_BY` (`affected_by`) is concept 3's exercise reference, for pages
-*after* concept 3 only, appended after `BUILD_GRAPH`.
+*after* concept 3 only, appended after `BUILD_GRAPH`. From Lesson 12
+concept 4 on the setup appends `AFFECTED_BY` and then `GRAPH_COMMUNITIES`
+(`graph_communities`, `community_sources`, shown verbatim on that page),
+whose `import networkx as nx` is enough for `loadPackagesFromImports` to
+load networkx 3.3; its Louvain communities on the lesson's graph match the
+mockup's networkx 3.6.1 output exactly.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.

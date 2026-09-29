@@ -1,0 +1,214 @@
+---
+title: "Communities and summaries"
+lesson: "12-graph-rag"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { COUNT_TOKENS, REACT_FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, SIGN_TEST, FIXED_CHUNKS, STRUCTURE_HELPERS, STRUCTURED_CHUNKS, WITHIN_BUDGET, VECTORS, VECTOR_INDEX, MEANING_SEARCH, TERMS, BM25_INDEX, RERANK_SCORES, RERANK, LISTWISE_RERANK, MODULE_PIPELINE, REWRITE_QUERY, SPLIT_QUERY, INTERLEAVE, HYDE, WITH_HEADER, VERSIONED_PIPELINE, WITH_CONTEXT, EXPAND_NEIGHBOURS, ANSWER_RETRIEVER, ANSWER_INSTRUCTIONS, ASSEMBLE_REQUEST, CHECK_CITATIONS, DECLINED, AGENT_SEARCH, SEARCH_DOCUMENTS, CONTEXTUAL_SEARCH, SEARCH_BUDGET, REGISTRY_DB, QUERY_DATABASE, GRAPH_DATA, BUILD_GRAPH, AFFECTED_BY, GRAPH_COMMUNITIES, RAG_GRAPH_DATA } from "../../../../lib/ragCorpus";
+
+export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION + METRICS + SIGN_TEST + FIXED_CHUNKS + STRUCTURE_HELPERS + STRUCTURED_CHUNKS + WITHIN_BUDGET + VECTORS + VECTOR_INDEX + MEANING_SEARCH + TERMS + BM25_INDEX + RERANK_SCORES + RERANK + LISTWISE_RERANK + MODULE_PIPELINE + REWRITE_QUERY + SPLIT_QUERY + INTERLEAVE + HYDE + WITH_HEADER + VERSIONED_PIPELINE + WITH_CONTEXT + EXPAND_NEIGHBOURS + ANSWER_RETRIEVER + ANSWER_INSTRUCTIONS + ASSEMBLE_REQUEST + CHECK_CITATIONS + DECLINED + AGENT_SEARCH + SEARCH_DOCUMENTS + CONTEXTUAL_SEARCH + SEARCH_BUDGET + REGISTRY_DB + QUERY_DATABASE + REACT_FAKE_CLIENT + RECORDING_CLIENT + GRAPH_DATA + BUILD_GRAPH + AFFECTED_BY + GRAPH_COMMUNITIES;
+
+export const COMMUNITIES_DEMO = String.raw`graph = build_graph(load_graph_data()["triples"])
+for number, community in enumerate(graph_communities(graph), 1):
+    print(f"community {number}, {len(community)} entities: {', '.join(sorted(community))}\n")
+`;
+
+export const SUMMARIES_DEMO = String.raw`graph_data = load_graph_data()
+graph = build_graph(graph_data["triples"])
+print(graph_data["community_prompt"].split("\n\n")[0], "\n")
+for community in graph_communities(graph):
+    anchor = next(name for name in graph_data["community_summaries"] if name in community)
+    print(f"[{anchor}'s community, from {len(community_sources(graph, community))} chunks]")
+    print(graph_data["community_summaries"][anchor], "\n")
+`;
+
+export const MAP_REDUCE_DEMO = String.raw`graph_data = load_graph_data()
+graph = build_graph(graph_data["triples"])
+question = "What recurring causes run through our incidents?"
+MAP_PROMPT = ("Using only this summary of part of our documents, answer the question as far as it can. "
+              "End with a line 'Score: N', from 0 to 100, for how much the summary helps answer it.\n\n"
+              "Summary: {summary}\n\nQuestion: {question}")
+REDUCE_PROMPT = "Combine these partial answers into one answer to the question.\n\n{partials}\n\nQuestion: {question}"
+
+client = RecordingClient([
+    [TextBlock("An expired certificate in auth-service, which nothing flagged before it failed (INC-2041). Score: 90")],
+    [TextBlock("Standby replication lag that nothing alerted on (INC-2093), and a debug flag left on "
+               "after an investigation (SEC-014). Score: 95")],
+    [TextBlock("A cache setting changed without review (INC-2067). Score: 85")],
+    [TextBlock("This part describes how services depend on each other, not what caused incidents. Score: 0")],
+    [TextBlock("Two causes recur. Changes that were made and never checked or undone: a cache setting "
+               "changed without review (INC-2067) and a debug flag left on (SEC-014). And conditions that "
+               "drifted with nothing watching them: a certificate that expired (INC-2041) and standby "
+               "replication lag (INC-2093). In each case, nothing alerted before the failure.")],
+])
+partials, used = [], []
+for community in graph_communities(graph):
+    anchor = next(name for name in graph_data["community_summaries"] if name in community)
+    prompt = MAP_PROMPT.format(summary=graph_data["community_summaries"][anchor], question=question)
+    reply = "".join(b.text for b in client.create([{"role": "user", "content": prompt}]).content if b.type == "text")
+    score = int(reply.rsplit("Score:", 1)[1])
+    print(f"map, {anchor}'s community: score {score}")
+    if score > 0:
+        partials.append((score, reply.rsplit("Score:", 1)[0].strip()))
+        used.append(community)
+partials.sort(reverse=True)
+prompt = REDUCE_PROMPT.format(partials="\n".join(text for _, text in partials), question=question)
+answer = "".join(b.text for b in client.create([{"role": "user", "content": prompt}]).content if b.type == "text")
+sources = sorted({s for community in used for s in community_sources(graph, community)})
+print(f"\nreduce: {answer}\n\nmodel calls: {client.call_count}; sources behind the answer: {sources}")
+
+chunks = {f"{c['doc_id']}:{c['chunk']}": c for d in load_documents() for c in structured_chunks(d, 200)}
+query = next(q for q in load_queries()["main"] if q["id"] == "q33")
+print("those sources hold every labelled piece of the answer:", answerable([chunks[s] for s in sources], query))
+`;
+
+<Subsection title="Groups in the graph" variant="a">
+
+"What recurring causes run through our incidents?" isn't answered by any
+edge or any chain. It needs a view of the whole collection. GraphRAG's
+approach, from [Edge and colleagues' paper](https://arxiv.org/abs/2404.16130),
+is to divide the graph into **communities**, groups of entities more tightly
+connected to each other than to the rest, and to summarise each one in
+advance. A global question is then answered from the summaries, not from the
+raw chunks.
+
+Communities are found by **community detection**, a standard family of graph
+algorithms. The Louvain method, used here from the networkx library, looks
+for the grouping that puts as many edges as possible inside groups rather than
+between them. It involves some randomness, so it's given a fixed seed to make
+the result repeatable. These two helpers are defined once here and already
+loaded for every demo and exercise from here to the end of this lesson:
+
+```python
+import networkx as nx
+
+def graph_communities(graph: dict, seed: int = 0) -> list[set]:
+    """Groups of closely connected entities (Louvain community detection on the undirected graph),
+    largest first."""
+    undirected = nx.Graph()
+    undirected.add_edges_from((subject, obj) for subject, _, obj in graph)
+    communities = nx.community.louvain_communities(undirected, seed=seed)
+    return sorted(communities, key=lambda c: (-len(c), sorted(c)))
+
+def community_sources(graph: dict, community: set) -> list[str]:
+    """The chunks behind every edge inside a community: what its summary, and any answer from it, rests on."""
+    return sorted({s for (subject, _, obj), sources in graph.items()
+                   if subject in community and obj in community for s in sources})
+```
+
+<LiveDemo client:load dataFiles={RAG_GRAPH_DATA} setupCode={SETUP} code={COMMUNITIES_DEMO} />
+
+Nobody told the algorithm about incidents, but each incident ended up at the
+centre of its own community, with the services, agents, causes and monitoring
+gaps around it. The fourth community is the platform's core. Community 2
+joins INC-2093 and SEC-014, because both affected `support_agent`. The paper
+goes further than this: it builds a *hierarchy* of communities, groups of
+groups, and summarises each level, so a question can be answered at whatever
+level of detail it needs. With 29 entities, one level is enough to see the
+idea.
+
+</Subsection>
+
+<Subsection title="A summary for each community" variant="b">
+
+Each community is summarised once, at indexing time, by a model given its
+entities and relationships. The prompt starts like this, and here are the four
+summaries, model-written for the course and replayed as stored text:
+
+<LiveDemo client:load dataFiles={RAG_GRAPH_DATA} setupCode={SETUP} code={SUMMARIES_DEMO} />
+
+Each summary is built from the edges inside its community, and
+`community_sources` keeps the chunk ids behind those edges, so anything said
+from a summary can still be traced to the documents.
+
+</Subsection>
+
+<Subsection title="Answering from every summary: map and reduce" variant="a">
+
+The question goes to every community summary separately, the **map** step:
+answer as far as this summary allows, and score how much it helps. The
+partial answers that help are then combined, the **reduce** step. This is how
+the paper's global search works. Every model reply here is scripted: four
+partial answers with scores, and a final answer:
+
+<LiveDemo client:load dataFiles={RAG_GRAPH_DATA} setupCode={SETUP} code={MAP_REDUCE_DEMO} />
+
+Three communities contributed and one was scored 0 and left out. The final
+answer names a pattern no single document states: changes nobody checked,
+and conditions nobody watched. Its sources are every chunk behind the three
+communities used, and they contain all four labelled pieces of the answer,
+where the pipeline's top ten contained three.
+
+Three things to weigh, with this corpus's tiny size in mind:
+
+- **It costs a model call per community, per question.** Here that's five
+  calls. The paper's corpora have hundreds or thousands of communities, and
+  it answers from a chosen level of the hierarchy to keep that manageable.
+- **The summaries are fixed at indexing time.** A question they didn't
+  anticipate gets whatever the summaries happened to include. The map step can
+  only work with what each summary says.
+- **Summaries mix sources, including restricted ones.** SEC-014 comes from a
+  security-team report that only the security team may read. Its cause is now
+  in a community summary, and in an answer anyone could have asked for.
+  Derived data carries the permissions problem with it. Lesson 13 deals with
+  that.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "What does community detection look for?",
+      "options": [
+        "Groups of entities with more edges inside the group than between groups",
+        "The entities mentioned most often",
+        "Chains of dependencies from one entity to another",
+        "Entities with the same relation type"
+      ],
+      "correctIndex": 0,
+      "explanation": "A community is a tightly connected group. Here each incident's services, agents, causes and gaps formed one, without the algorithm being told anything about incidents."
+    },
+    {
+      "question": "In the map step, why is each partial answer given a score?",
+      "options": [
+        "So summaries that don't help can be left out, and the best combined first",
+        "The score decides which community to summarise next",
+        "It measures how long the summary is",
+        "Scores replace the citations"
+      ],
+      "correctIndex": 0,
+      "explanation": "The platform community scored 0 for a question about incident causes, so it didn't dilute the final answer."
+    },
+    {
+      "question": "What's the main cost of answering a global question this way?",
+      "options": [
+        "A model call for every community, for every question, on top of summarising them all in advance",
+        "Rebuilding the graph for each question",
+        "Re-embedding every chunk",
+        "Nothing: summaries make global questions free"
+      ],
+      "correctIndex": 0,
+      "explanation": "The summaries are paid for once, at indexing time, and each global question then pays a call per community used. The paper uses a hierarchy of communities to control that."
+    },
+    {
+      "question": "Why does SEC-014 appearing in a community summary matter?",
+      "options": [
+        "It comes from a restricted document, and the summary could reach people not allowed to read it",
+        "SEC-014 isn't an incident",
+        "Summaries can't mention security reports",
+        "It makes the community too large"
+      ],
+      "correctIndex": 0,
+      "explanation": "A summary is new text derived from its sources, and it doesn't carry their permissions unless someone makes it. Retrieval has to filter derived data too.*"
+    }
+  ]}
+/>
+
+</CheckpointZone>
