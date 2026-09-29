@@ -1606,3 +1606,19 @@ def hybrid_search(memories: list[dict], query: str, query_vector, vectors: dict,
     meaning_ranking = by_meaning(query_vector, list(by_id), np.array([vectors[m["content"]] for m in newest_first]))
     return [by_id[i] for i in fuse([keyword_ranking, meaning_ranking])[:limit]]
 `;
+
+/**
+ * Module 5 Lesson 14 concept 3 graded exercise, reference solution verbatim
+ * (duplicate_candidates). Joins the Lesson 14 setup for every page AFTER
+ * concept 3 (append after HYBRID_SEARCH) and must never load on concept 3
+ * itself, or the exercise would start already solved.
+ */
+export const DUPLICATE_CANDIDATES = String.raw`
+def duplicate_candidates(new: str, memories: list[dict], vectors: dict, threshold: float = 0.8,
+                         kind: str | None = None) -> list[tuple[float, dict]]:
+    """Stored memories (of ${"`"}kind${"`"}, when given) at least ${"`"}threshold${"`"} similar in meaning to ${"`"}new${"`"}, most
+    similar first, each with its similarity. Candidates for Module 4's decision, not verdicts."""
+    scored = [(round(float(vectors[new] @ vectors[m["content"]]), 3), m) for m in memories
+              if kind is None or m["type"] == kind]
+    return sorted([pair for pair in scored if pair[0] >= threshold], key=lambda pair: -pair[0])
+`;

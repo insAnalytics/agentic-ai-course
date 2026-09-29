@@ -574,7 +574,10 @@ concept 2 on the setup appends `FUSE_HELPERS` (`text_vectors`, which looks
 up the stored `context-step-texts` vectors through `vectors_for`,
 `task_vectors`, `fuse`, `by_meaning`, `by_keywords`, shown verbatim on that
 page); `HYBRID_SEARCH` (`hybrid_search`) is concept 2's exercise reference,
-for pages *after* concept 2 only, appended after `FUSE_HELPERS`.
+for pages *after* concept 2 only, appended after `FUSE_HELPERS`. From
+Lesson 14 concept 3 on the setup appends `HYBRID_SEARCH`;
+`DUPLICATE_CANDIDATES` (`duplicate_candidates`) is concept 3's exercise
+reference, for pages *after* concept 3 only, appended after `HYBRID_SEARCH`.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.

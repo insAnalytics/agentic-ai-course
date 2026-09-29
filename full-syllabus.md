@@ -4569,8 +4569,21 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    tasks), the starter fails all four, and nine mutations each fail (kind
    ignored, every tag required, oldest first, keywords over content only,
    meaning only, keywords only, `limit` ignored with or without a query,
-   no newest-first order). The lesson's other concepts and the bookends
-   aren't drafted yet.
+   no newest-first order). Concept 3 (duplicates in different words) is
+   built: setup now appends `HYBRID_SEARCH`, no other new shared code. Two
+   live demos, code and output exact matches in real Pyodide (similarity for
+   every labelled pair; counts at thresholds 0.75 to 0.9). Link to Module
+   4's "Contradictions need judgment", anchor checked in the built HTML. 4
+   quiz cards; graded `duplicate_candidates` exercise, reference exported as
+   `DUPLICATE_CANDIDATES`. **Change from the mockup's hidden tests:** test 3
+   reused test 2's `memories` and `vectors`, so it rebuilds them, since
+   each test runs alone. Verified with the real `runAgainstHiddenTests`:
+   the reference passes (0.967 and 0.858 for "support_agent belongs to
+   Priya.", 0.839 for "Tom owns support_agent.", as the explanation says),
+   the starter fails all three, and seven mutations each fail (not rounded,
+   rounded to 2, strictly above the threshold, kind ignored, least similar
+   first, memories without their similarity, the threshold ignored). The
+   lesson's other concepts and the bookends aren't drafted yet.
 
 ---
 
