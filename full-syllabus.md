@@ -3357,6 +3357,7 @@ below describe each lesson as first converted; see the git log
 ## Module 5 — RAG Systems
 
 Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
+All 14 lessons are **Locked** (Lesson 14's recap is the module's last page).
 
 1. **Why Retrieval, When the Window Is Huge** — **Locked** (folder
    `01-why-retrieval`; the title comes from the bookends mockup).
@@ -4540,8 +4541,9 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    and build cleanly. Earlier lessons' forward references to Lesson 13 stay
    plain prose.
 
-14. **Retrieval for the Context Step** (provisional title) — **Building**
-   (folder `14-context-step`, named while the title is provisional). Shared
+14. **Putting It Together: Retrieval in the Context Step** — **Locked**
+   (folder `14-context-step`, named while the title was provisional; the
+   title comes from the bookends mockup). Shared
    setup is Lesson 13's recap `lib.py` (the Lesson 13 setup through
    `INGESTION_GATE`, without the fake client, which this lesson's mockup
    doesn't list), then the new `CONTEXT_STEP` (`load_context_step` and
@@ -4615,8 +4617,39 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    `keep_last` 2 trimming, 1 clearing), and the written modules identical
    to the recap's files. Link to Module 4's "Putting a number on it",
    anchor checked in the built HTML. 4 quiz cards; no exercise, as in the
-   mockup. No changes from the mockup. The lesson's other concepts and the
-   bookends aren't drafted yet.
+   mockup. No changes from the mockup. Bookends are built: intro (3
+   outcomes, why it matters, verbatim from the mockup), 8 quiz cards, and
+   the multi-file `run_session` / `measure_tool` sandbox (`agent.py` entry;
+   read-only `fake.py`, `tokens.py` and `m4.py` imported from Module 4
+   Lesson 12's recap page, unchanged, and `lib.py`; hidden tests
+   unprefixed, as the mockup says; data `RAG_CONTEXT_STEP_DATA`). Starter
+   and reference byte-identical to the mockup. **Change from the mockup's
+   `lib.py`:** the same stale lesson numbers as Lessons 11 to 13's recaps,
+   renumbered; otherwise it matches the Lesson 14 setup line for line, plus
+   concept 5's `search_tool_for` and `READ_RESULT_TOOL` (the scripted
+   investigation stays page-only), apart from the merged `collections`
+   import. **Changes from the mockup's hidden tests:** test 2 also requires
+   `read_result`'s `limit` to reach the store ("lines 0-3 of"), and a check
+   before test 4 requires `max_tokens` to reach the context step (the
+   steps differ at 1,000), because ignoring either passed every original
+   test. Verified against the built page's serialised props with the real
+   `runMultiFileAgainstHiddenTests`: the three Module 4 files identical to
+   that recap's, the reference passes (about 5.5 s in Node), the starter
+   fails, and eleven mutations each fail (the context step rebuilt every
+   turn, `keep_last` ignored, no context step, the tool bound to every
+   group, only the first call answered, `read_result`'s limit ignored,
+   `measure_tool` over the top 10 or with held-out questions, `max_tokens`
+   ignored, `window` ignored). **Found, not fixed (outside this
+   conversion):** Module 4 Lesson 12's recap `LIB_PY` writes backticks as
+   `\``, which `String.raw` keeps, so its `m4.py` (and so this sandbox's)
+   has a literal backslash before backticks in 7 places: six docstrings,
+   which only print a Python 3.12 `SyntaxWarning` on import, and one real
+   line, `if not line.startswith("\`\`\`")`, which no longer recognises a
+   code fence. Fixing it means editing Module 4's page, which this mockup
+   says to use unchanged.
+
+   Lesson 14 is now **Locked**: all five concepts plus both bookends exist
+   and build cleanly, and with it Module 5 is complete.
 
 ---
 
