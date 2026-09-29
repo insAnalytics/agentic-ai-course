@@ -23,9 +23,10 @@ for per_step in (0.99, 0.95, 0.90):
 *(runs live, shows output — read-only demo snippet, not graded)*
 
 At 95% per step, a 20-step task succeeds about a third of the time. At
-50 steps it almost never does. Agents run for 20 or 50 steps routinely:
-every tool call, every reading of a result and every decision about what
-to do next is a step.
+50 steps it almost never does. Agent tasks run to tens of steps: τ-bench,
+a benchmark later in this lesson, allows its agent up to 30 actions per
+task, and every tool call, every reading of a result and every decision
+about what to do next counts.
 
 You've seen this arithmetic before, from the other side.
 [Module 3's attacker calculation](→ Module 3, the tool threat model lesson, why the model can't be the security boundary concept, the "mitigations help, but aren't boundaries" subsection)
@@ -110,9 +111,13 @@ tasks came largely from models getting more reliable and from getting
 better at adapting to mistakes.
 
 **Steps don't fail independently.** A task that's hard for the model at
-step 3 is usually hard at step 7 too: the same confusing document, the same
-ambiguous request, the same gap in what the model knows. Some tasks fail
-almost every time, and others almost never.
+step 3 tends to stay hard at step 7: the same confusing document, the same
+ambiguous request, the same gap in what the model knows. Published results
+point this way. τ-bench found success rates varying widely from task to
+task, including tasks its agent never solved, and a study of failed agent
+runs covered later in this lesson names early mistakes cascading into
+later ones as the main reason runs fail, which is the opposite of
+independent steps.
 
 A small simulation shows both effects on a 20-step task. The first line is
 the pure model. The second catches 60% of mistakes before they do damage.
@@ -158,9 +163,10 @@ measured from a model.)*
 
 Catching 60% of mistakes turns a 5% chance of a fatal step into a 2%
 chance (5% × 40% uncaught), and the task succeeds about twice as often.
-Recovery is one of the strongest levers there is, and several lessons in
-this module are about building it: checks that catch a bad step before it
-does damage, and escalation when the agent can't tell.
+METR's authors credit much of models' progress on longer tasks to getting
+better at adapting to mistakes, and several lessons in this module are about
+building recovery into the agent itself: checks that catch a bad step before
+it does damage, and escalation when the agent can't tell.
 
 The easy/hard split shows something subtler. The overall success rate,
 48%, is *higher* than the 36% that 0.95²⁰ predicts. But no task actually
@@ -175,15 +181,18 @@ them.
 The *p*ⁿ model is worth keeping as a way of thinking, not as a formula to
 predict with:
 
-- **Length is a risk in itself.** Every extra step is another chance to
-  fail, so shorter paths to the goal are more reliable paths.
+- **Length is a risk in itself.** In the model, every extra step is
+  another chance to fail, and METR's results agree: success falls as tasks
+  get longer. Other things being equal, a shorter path to the goal is a
+  safer one.
 - **"Right 95% of the time" isn't good enough for a step.** Agents need
   far higher per-step reliability than a single answer does, or recovery
   that makes up the difference.
 - **Averages hide the tasks that fail.** Because difficulty clusters, the
   question to ask isn't only "how often does the agent succeed?" but "on
-  which tasks, and how consistently?" The rest of this lesson measures
-  exactly that, on a real model.
+  which tasks, and how consistently?" The rest of this lesson shows how
+  to measure that, with the research behind it and real runs to practise
+  on.
 
 ---
 

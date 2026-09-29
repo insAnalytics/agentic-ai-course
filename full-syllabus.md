@@ -4721,8 +4721,25 @@ architecture.md §3.1).
    1's predicts-not-knows, greedy-vs-sampling and nondeterminism concepts
    (page links), concept 1's `#where-the-model-breaks` and Module 5
    Lesson 2's `#which-questions-moved` (where the sign test is; both
-   verified against the built HTML). 5 quiz cards. Next per the mockup:
-   pass^k, then the wordings concept. Bookends not drafted yet.
+   verified against the built HTML). 5 quiz cards. Concept 3 (reliability
+   as pass^k) is built: pass@k vs pass^k, τ-bench, the C(c,k)/C(n,k)
+   estimator, per-task averaging vs mean ** k (made-up agents, then the
+   real `plain`/`plain.smaller` runs), reading a pass^k curve, 5 quiz cards,
+   and the lesson's first graded exercise, `pass_hat_k(results, k)`. All
+   four demos reproduce the mockup's output exactly in real Pyodide 0.26.4.
+   The mockup's hidden tests were split into 7 self-contained tests (each
+   runs in its own namespace copy); verified in Pyodide from the page's own
+   strings: the reference passes all 7, and every wrong turn the
+   explanation names fails, with exactly the first-test values it quotes
+   (0.25, 0.4167, 0.6111, 0.3333), as do skipping short tasks, pooling runs
+   across tasks and omitting the checks. Callbacks: Module 1's
+   nondeterminism concept (page link), concept 1's
+   `#where-the-model-breaks` and concept 2's
+   `#failures-cluster-on-particular-questions` (verified against the built
+   HTML). Concept 1's prose was later revised from its mockup (τ-bench's
+   30-action cap, cascading early mistakes, METR on adapting to mistakes);
+   its Q1 fix stands. Next per the mockups: the wordings concept. Bookends
+   not drafted yet.
 
 ---
 

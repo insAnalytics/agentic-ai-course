@@ -1,0 +1,441 @@
+---
+title: "Reliability as pass^k"
+lesson: "01-per-step-reliability"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { LOAD_RUNS, reliabilityData } from "../../../../lib/reliabilityData";
+
+export const BOTH_DATA = reliabilityData("plain", "plain.smaller");
+
+export const PICKS_DEMO = String.raw`from itertools import combinations
+
+runs = [True, False, True, True, False, True, True, True]
+k = 3
+
+samples = list(combinations(runs, k))
+all_right = sum(all(sample) for sample in samples)
+print(f"{len(samples)} ways to pick {k} of the {len(runs)} runs; all {k} succeeded in {all_right} of them")
+print(f"estimated pass^{k} for this task: {all_right / len(samples):.3f}")
+`;
+
+export const FORMULA_DEMO = String.raw`from math import comb
+
+
+def task_pass_hat_k(successes: int, runs: int, k: int) -> float:
+    """The chance that k runs, picked from these without replacement, all succeeded."""
+    return comb(successes, k) / comb(runs, k)
+
+
+def task_pass_at_k(successes: int, runs: int, k: int) -> float:
+    """The chance that at least one of k runs, picked from these, succeeded."""
+    return 1 - comb(runs - successes, k) / comb(runs, k)
+
+
+print(f"formula, 6 of 8 runs, k=3: {task_pass_hat_k(6, 8, 3):.3f}")
+print(f"(6/8) ** 3 for comparison:  {(6 / 8) ** 3:.3f}")
+print()
+for k in (1, 2, 4, 8):
+    print(f"k={k}: pass^k {task_pass_hat_k(6, 8, k):.3f}   pass@k {task_pass_at_k(6, 8, k):.3f}")
+`;
+
+export const TWO_AGENTS_DEMO = String.raw`from math import comb
+
+
+def task_pass_hat_k(successes: int, runs: int, k: int) -> float:
+    return comb(successes, k) / comb(runs, k)
+
+
+# ten tasks, ten runs each: how many runs of each task succeeded
+agents = {
+    "all or nothing": [10] * 7 + [0] * 3,
+    "every task 7/10": [7] * 10,
+}
+for name, counts in agents.items():
+    mean = sum(counts) / (10 * len(counts))
+    for k in (1, 5):
+        measured = sum(task_pass_hat_k(c, 10, k) for c in counts) / len(counts)
+        print(f"{name:<16} k={k}: pass^k {measured:.3f}   mean ** k {mean ** k:.3f}")
+`;
+
+export const REAL_RUNS_DEMO = String.raw`from math import comb
+
+
+def task_pass_hat_k(successes: int, runs: int, k: int) -> float:
+    return comb(successes, k) / comb(runs, k)
+
+
+for name in ("plain", "plain.smaller"):
+    run = load_run(name)
+    runs = run["samples_per_wording"]
+    counts = [sum(reply["correct"] for reply in r["samples"]) for r in run["results"]]
+    mean = sum(counts) / (runs * len(counts))
+    print(run["model"])
+    for k in (1, 5, 10, 20):
+        measured = sum(task_pass_hat_k(c, runs, k) for c in counts) / len(counts)
+        print(f"  k={k:>2}: pass^k {measured:.3f}   mean ** k {mean ** k:.3f}")
+`;
+
+export const STARTER = String.raw`from math import comb
+
+
+def pass_hat_k(results: dict[str, list[bool]], k: int) -> float:
+    """pass^k over a set of tasks: for each task, the chance that k of its runs, picked without
+    replacement, all succeeded; then the average over tasks."""
+    ...
+
+
+results = {
+    "a": [True, True, True, True],
+    "b": [True, False, True, False],
+    "c": [False, False, False, False],
+}
+for k in (1, 2, 4):
+    print(k, round(pass_hat_k(results, k), 4))
+`;
+
+export const REFERENCE = String.raw`from math import comb
+
+
+def pass_hat_k(results: dict[str, list[bool]], k: int) -> float:
+    """pass^k over a set of tasks: for each task, the chance that k of its runs, picked without
+    replacement, all succeeded; then the average over tasks."""
+    if k < 1:
+        raise ValueError("k must be at least 1")
+    if not results:
+        raise ValueError("no tasks")
+    estimates = []
+    for task, runs in results.items():
+        if len(runs) < k:
+            raise ValueError(f"{task} has {len(runs)} runs, fewer than k={k}")
+        estimates.append(comb(sum(runs), k) / comb(len(runs), k))
+    return sum(estimates) / len(estimates)
+`;
+
+export const TESTS = [
+// each hidden test runs in its own copy of the learner's namespace, so every test defines the helpers and fixtures it uses
+String.raw`import math
+
+T, F = True, False
+
+
+def close(a, b):
+    return math.isclose(a, b, abs_tol=1e-9)
+
+
+mixed = {"a": [T, T, T, T], "b": [T, F, T, F], "c": [F, F, F, F]}
+got = pass_hat_k(mixed, 2)
+assert close(got, (1 + 1 / 6 + 0) / 3), (
+    f"got {got:.4f} for k=2: task b has 2 successes in 4 runs, so only 1 of its 6 pairs is all "
+    "successes; expected (1 + 1/6 + 0) / 3 = 0.3889")
+`,
+String.raw`import math
+
+T, F = True, False
+
+
+def close(a, b):
+    return math.isclose(a, b, abs_tol=1e-9)
+
+
+mixed = {"a": [T, T, T, T], "b": [T, F, T, F], "c": [F, F, F, F]}
+assert close(pass_hat_k(mixed, 1), 0.5), "at k=1, pass^k is just the average success rate over tasks"
+`,
+String.raw`import math
+
+T, F = True, False
+
+
+def close(a, b):
+    return math.isclose(a, b, abs_tol=1e-9)
+
+
+uneven = {"a": [T, T, F], "b": [T, T, T, T, T, F]}
+got = pass_hat_k(uneven, 2)
+assert close(got, (1 / 3 + 2 / 3) / 2), (
+    f"got {got:.4f}: each task has its own number of runs (3 and 6), and each task counts once "
+    "in the average, however many runs it has; expected 0.5")
+`,
+String.raw`import math
+
+T, F = True, False
+
+
+def close(a, b):
+    return math.isclose(a, b, abs_tol=1e-9)
+
+
+full = {"a": [T, T, T], "b": [T, T, F]}
+assert close(pass_hat_k(full, 3), 0.5), "with k equal to a task's run count, only a task that succeeded every time counts"
+`,
+String.raw`T, F = True, False
+
+
+def raises(fn, *args):
+    try:
+        fn(*args)
+    except ValueError:
+        return True
+    except Exception:
+        return False
+    return False
+
+
+uneven = {"a": [T, T, F], "b": [T, T, T, T, T, F]}
+assert raises(pass_hat_k, uneven, 4), "task a has only 3 runs, so pass^4 can't be estimated: raise ValueError"
+`,
+String.raw`T, F = True, False
+
+
+def raises(fn, *args):
+    try:
+        fn(*args)
+    except ValueError:
+        return True
+    except Exception:
+        return False
+    return False
+
+
+mixed = {"a": [T, T, T, T], "b": [T, F, T, F], "c": [F, F, F, F]}
+assert raises(pass_hat_k, mixed, 0), "k must be at least 1: raise ValueError"
+`,
+String.raw`def raises(fn, *args):
+    try:
+        fn(*args)
+    except ValueError:
+        return True
+    except Exception:
+        return False
+    return False
+
+
+assert raises(pass_hat_k, {}, 1), "with no tasks there's nothing to average: raise ValueError"
+`,
+];
+
+<Subsection title="Two ways to count repeated runs" variant="a">
+
+Run the same task several times and you can ask two different questions
+of the results:
+
+- **Did it succeed at least once?** That's **pass@k**: the chance that at
+  least one of *k* runs succeeds. It's the standard measure for code
+  generation, where unit tests can check each attempt and you keep the one
+  that passes. It measures what an agent *can* do.
+- **Did it succeed every time?** That's **pass^k** (read "pass hat k"):
+  the chance that all *k* runs succeed. It measures what an agent *will*
+  do, run after run.
+
+An agent serving users doesn't get to keep its best attempt. Each user
+gets one run, and a thousand users asking the same thing get a thousand
+runs. What matters is how often *every* one of them goes right, and that's
+pass^k.
+
+The metric comes from
+[τ-bench](https://arxiv.org/abs/2406.12045) (Yao et al., 2024), a benchmark
+where an agent helps a simulated customer through an airline or retail
+task, calling real tools and following a written policy. Success is
+checked in code: the database at the end of the conversation either
+matches the correct outcome or it doesn't. The paper's best agent at the
+time succeeded on about 61% of retail tasks in a single run, and its pass^8
+fell below 25%: most tasks it could solve, it couldn't solve eight times in
+a row. Notably, the agent ran at temperature 0. The variation came from the
+simulated customer, sampled at temperature 1, phrasing the same request
+differently each time, and from the
+[nondeterminism that remains even at temperature 0](/01-llm-foundations/05-decoding-strategies-and-generation-controls/06-stop-sequences-and-nondeterminism/).
+
+At *k* = 1 the two measures are the same thing: the success rate. They
+split apart as *k* grows. pass@k rises toward 1 for any task the agent
+ever gets right, and pass^k falls toward 0 for any task it ever gets wrong.
+
+</Subsection>
+
+<Subsection title="Estimating pass^k from runs you already have" variant="b">
+
+Suppose a task was run 8 times and succeeded 6. What's its pass^3?
+
+One direct way to estimate it: consider every way of picking 3 of those 8
+runs, and count how many of those picks are all successes.
+
+<LiveDemo client:load code={PICKS_DEMO} />
+
+You don't need to list the picks. There are C(8, 3) ways to pick 3 runs of
+8, and C(6, 3) of them use only the 6 successes. So for a task with *c*
+successes in *n* runs, the estimate is C(*c*, *k*) / C(*n*, *k*). That's the
+estimator τ-bench uses, and pass@k has a matching one:
+
+<LiveDemo client:load code={FORMULA_DEMO} />
+
+Why not just take the success rate, 6/8, to the power *k*? Because that
+treats 0.75 as the task's true success rate, when it's only an estimate
+from 8 runs, and the error doesn't cancel out. Picking without replacement
+counts only what was actually observed: at *k* = 8 there's exactly one
+pick, all 8 runs, and it included two failures, so the estimate is 0. The
+power formula still says 10%, which the runs you have don't support.
+
+Two practical consequences:
+
+- **You can't estimate pass^k with fewer than *k* runs.** There's no way to
+  pick 8 runs out of 5. To report pass^8, run each task at least 8 times,
+  and more runs give a steadier estimate.
+- **`math.comb(c, k)` is 0 when *c* < *k*,** which is exactly right: with 3
+  successes, no pick of 4 runs can be all successes.
+
+</Subsection>
+
+<Subsection title="Average per task, never the average to the power k" variant="a">
+
+A benchmark has many tasks. pass^k for the whole set is the average of each
+task's pass^k. The tempting shortcut is to take the overall success rate
+and raise it to the power *k*, which is what "one in three succeeds, so
+three in a row happens about 4% of the time" does. That shortcut is right
+for a single task. For a set of tasks it's wrong, and it can be wrong in
+either direction.
+
+Here are two made-up agents with the same overall success rate, 70%, on ten
+tasks run ten times each:
+
+<LiveDemo client:load code={TWO_AGENTS_DEMO} />
+
+*(Both agents are made up to show the two extremes.)*
+
+At *k* = 1 the agents look identical. At *k* = 5 they're nothing alike:
+
+- **The all-or-nothing agent is perfectly consistent.** Its pass^5 stays at
+  70%, because the tasks it solves, it solves every time. Raising the mean
+  to the fifth power says 17%, far too pessimistic.
+- **The agent that gets every task 7 times in 10 is a coin flip everywhere.**
+  Its pass^5 is 8%, and the shortcut's 17% is twice too optimistic.
+
+The shortcut assumes every task has the same success rate, which is the
+same assumption behind
+[the easy/hard split in the compounding concept](/06-reliability/01-per-step-reliability/01-small-errors-compound/#where-the-model-breaks),
+and real task sets don't satisfy it: τ-bench's per-task success rates, and
+the clustering you saw in [the previous concept](/06-reliability/01-per-step-reliability/02-the-same-question-run-twice/#failures-cluster-on-particular-questions),
+both show tasks differing widely. Estimate per task, then average.
+
+Here's the same comparison on the real runs from the previous concept, 84
+questions and 20 runs each:
+
+<LiveDemo client:load dataFiles={BOTH_DATA} setupCode={LOAD_RUNS} code={REAL_RUNS_DEMO} />
+
+*(Real runs from both models, loaded with the lesson's shared setup.)*
+
+Both models look like the all-or-nothing agent more than the coin-flip one,
+because most of their questions never fail: the shortcut underestimates
+pass^k for both, and by a factor of more than two for the 2B at *k* = 20.
+Its measured pass^20 means that about three questions in five were answered
+correctly all twenty times. These are two small models on 84 questions;
+the point that carries over is the method, not the numbers.
+
+</Subsection>
+
+<Subsection title="Reading a pass^k curve" variant="b">
+
+Plot pass^k against *k* and the shape tells you something the success rate
+can't:
+
+- **pass^1 is the success rate.** Every curve starts there.
+- **The curve never rises.** Each extra run is one more chance for a
+  failure to appear.
+- **A flat curve means consistency.** The tasks the agent solves, it keeps
+  solving; improving it means solving new tasks.
+- **A steep curve means coin flips.** Many tasks succeed sometimes and fail
+  sometimes; improving it means making the agent consistent on tasks it
+  can already do.
+- **The curve levels off at the share of tasks the agent never fails.**
+  For large *k*, only those tasks are left.
+
+This is why the module measures reliability as pass^k. Two changes to an
+agent can raise the success rate by the same amount, and only pass^k shows
+whether either made it more dependable. Measuring it across a whole suite,
+and tracking it as the agent changes, is Module 7's job; in this module
+it's the yardstick for each technique.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "A support agent will answer the same question for thousands of users. Which measure of its repeated runs matters for them, and why?",
+    "options": [
+      "pass@k, because it shows the best the agent can do on each question",
+      "pass^k, because each user gets one run, and what matters is how often every run goes right",
+      "The success rate alone, because pass^k and pass@k are both derived from it",
+      "pass@k, because users can ask again if the first answer is wrong"
+    ],
+    "correctIndex": 1,
+    "explanation": "pass@k credits an agent for succeeding at least once in k tries, which suits settings where you can check every attempt and keep the good one, such as code with unit tests. Users don't get to pick the best of several runs, so consistency across runs is what they experience. The success rate can't be the whole story, because two agents with the same success rate can have very different pass^k."
+  },
+  {
+    "question": "A task succeeded in 6 of 8 runs. Why is its pass^3 estimated as C(6,3)/C(8,3) ≈ 0.36 rather than 0.75³ ≈ 0.42?",
+    "options": [
+      "C(6,3)/C(8,3) counts the picks of 3 runs, out of the 8 observed, that are all successes; 0.75³ treats an estimate from 8 runs as the true rate, which overstates pass^k",
+      "The two are the same number rounded differently",
+      "0.75³ is correct, and C(6,3)/C(8,3) is a faster approximation",
+      "The combination formula corrects for the model's temperature"
+    ],
+    "correctIndex": 0,
+    "explanation": "The estimator averages over every way of picking k of the runs you actually have. At k = 8 the difference is stark: the only pick is all 8 runs, which included failures, so the estimate is 0, while 0.75⁸ still claims 10%."
+  },
+  {
+    "question": "Two agents both succeed on 70% of runs overall. Agent X solves 7 of 10 tasks every time and never solves the other 3. Agent Y solves every task 7 times in 10. What are their pass^5 values, roughly?",
+    "options": [
+      "Both about 17%, since 0.7⁵ ≈ 0.17",
+      "Both 70%, since pass^k starts at the success rate",
+      "X about 70%, Y about 8%: X is consistent and Y is a coin flip on every task",
+      "X about 8%, Y about 70%: X fails some tasks completely"
+    ],
+    "correctIndex": 2,
+    "explanation": "pass^k is computed per task. X's solved tasks survive any number of runs, so its pass^5 stays at 70%; Y's tasks each have a C(7,5)/C(10,5) ≈ 8% chance of five straight successes. Raising the overall rate to the fifth power gives the same 17% for both, too pessimistic for X and too optimistic for Y."
+  },
+  {
+    "question": "You ran each task 5 times. A colleague asks for pass^8. What do you tell them?",
+    "options": [
+      "Estimate it as the success rate to the eighth power",
+      "It can't be estimated from 5 runs per task; each task needs at least 8 runs",
+      "Use pass^5, since pass^k stays the same once k is large enough",
+      "Run the estimator with k = 8; math.comb returns 0 when k is larger than n, which is the right answer"
+    ],
+    "correctIndex": 1,
+    "explanation": "pass^8 asks about picks of 8 runs, and there are none among 5. math.comb(5, 8) is 0, so the formula would divide by zero rather than give an answer. Substituting the power of the success rate brings back the bias the estimator exists to avoid."
+  },
+  {
+    "question": "An agent's pass^k curve starts at 80% for k = 1 and falls to 78% by k = 16. Another starts at 80% and falls to 40%. What does that tell you?",
+    "options": [
+      "The first agent is consistent on the tasks it solves; the second succeeds on many tasks only some of the time",
+      "The first agent was run more times than the second",
+      "The second agent is better, because its curve shows more variation to improve on",
+      "Nothing, since both have the same success rate"
+    ],
+    "correctIndex": 0,
+    "explanation": "A flat curve means the solved tasks keep being solved; a steep one means many tasks are coin flips. By k = 16 only tasks that survived 16 straight runs still count, so the first agent almost never fails the tasks it can do, while about half of what the second agent solves on a single run fails at least once within 16 runs."
+  }
+]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Write pass_hat_k(results, k). results maps each task's id to the outcomes of its runs, True for a success, and different tasks may have been run a different number of times. Return pass^k for the set: for each task, the chance that k of its runs, picked without replacement, all succeeded, averaged over the tasks so each task counts once. Raise ValueError if k is less than 1, if there are no tasks, or if any task has fewer than k runs."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  hint={"For one task, sum(runs) is its number of successes and len(runs) its number of runs, so its estimate is comb(sum(runs), k) / comb(len(runs), k). Work that out for each task separately, with that task's own run count, and average the results. Don't compute an overall success rate first."}
+  correctAnswer={{
+    code: REFERENCE,
+    explanation: "Each task gets its own estimate, C(successes, k) / C(runs, k), using its own number of runs, and the estimates are averaged so every task counts once. Summing True values counts them, since True is 1. The checks come first: pass^k is undefined for k below 1, an empty set has nothing to average, and a task with fewer than k runs has no pick of k runs at all. Skipping such a task instead of raising would quietly report pass^k over a different set of tasks than the one you asked about. The common wrong turns each give a different number on the first test: raising the average to the power k gives 0.25, raising each task's rate to the power k gives 0.4167, pass@k gives 0.6111, and integer division (//) gives 0.3333 because it rounds every task but the perfect one down to 0.",
+  }}
+/>
+
+</CheckpointZone>
