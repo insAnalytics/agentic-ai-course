@@ -1,0 +1,707 @@
+---
+title: "Filters hidden in the question"
+lesson: "08-query-transformation"
+order: 5
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { COUNT_TOKENS, REACT_FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, SIGN_TEST, FIXED_CHUNKS, STRUCTURE_HELPERS, STRUCTURED_CHUNKS, WITHIN_BUDGET, VECTORS, VECTOR_INDEX, MEANING_SEARCH, TERMS, BM25_INDEX, RERANK_SCORES, RERANK, LISTWISE_RERANK, MODULE_PIPELINE, REWRITE_QUERY, SPLIT_QUERY, INTERLEAVE, HYDE, RAG_VARIANTS_DATA } from "../../../../lib/ragCorpus";
+
+export const FILTER_CODE = String.raw`
+def load_filter_replies() -> dict:
+    """The model-written filter extractions for this concept, with the prompt that asked for them."""
+    return json.loads((DATA / "query-filters.json").read_text())
+
+def extract_filters(client, prompt: str, question: str) -> str:
+    """Ask the model which documents the question limits the search to. Returns its reply, unchecked."""
+    response = client.create([{"role": "user", "content": f"{prompt}\n\nQuestion: {question}"}])
+    return "".join(block.text for block in response.content if block.type == "text").strip()
+
+# what the model may filter on, and how
+FILTER_SCHEMA = {
+    "title": {"ops": ["contains"]},
+    "section": {"ops": ["contains"]},
+    "source_type": {"ops": ["="], "values": ["official", "wiki", "vendor"]},
+    "date": {"ops": [">=", "<="], "type": "date"},
+}
+
+MATCHES = {
+    "=": lambda have, want: have == want,
+    "contains": lambda have, want: want.lower() in have.lower(),
+    # dates are compared as YYYY-MM-DD text, which sorts in date order
+    ">=": lambda have, want: have >= want,
+    "<=": lambda have, want: have <= want,
+}
+
+def passes(chunk: dict, filters: list[dict]) -> bool:
+    """True if the chunk meets every filter. It checks nothing: an unknown field or operator raises."""
+    return all(MATCHES[f["op"]](chunk[f["field"]], f["value"]) for f in filters)
+
+def filtered_pipeline_search(pipeline: ModulePipeline, text: str, vector: np.ndarray, score, filters: list[dict],
+                             k: int = 5, depth: int = 30) -> list[dict]:
+    """ModulePipeline.search, with the filters applied before each stage takes its top results."""
+    everything = len(pipeline.bm25)
+    keyword = [c for c in pipeline.bm25.search(text, everything) if passes(c, filters)][:100]
+    meaning = [c for c in pipeline.meaning.search(vector, everything) if passes(c, filters)][:100]
+    candidates = rrf([keyword, meaning])[:depth]
+    return sorted(candidates, key=score, reverse=True)[:k]
+`;
+
+export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION + METRICS + SIGN_TEST + FIXED_CHUNKS + STRUCTURE_HELPERS + STRUCTURED_CHUNKS + WITHIN_BUDGET + VECTORS + VECTOR_INDEX + MEANING_SEARCH + TERMS + BM25_INDEX + RERANK_SCORES + RERANK + LISTWISE_RERANK + MODULE_PIPELINE + REWRITE_QUERY + SPLIT_QUERY + INTERLEAVE + HYDE + FILTER_CODE;
+
+export const SETUP_WITH_CLIENT = SETUP + REACT_FAKE_CLIENT + RECORDING_CLIENT;
+
+export const FILTER_DATA = [...RAG_VARIANTS_DATA, "rag/query-filters.json"];
+
+export const LABELLED_DEMO = String.raw`replies = load_filter_replies()
+queries = [q for q in load_queries()["main"] if q["evidence"]]
+chunks = [c for d in load_documents() for c in structured_chunks(d, 200)]
+pipeline = ModulePipeline(chunks)
+question_vectors, question_scores = query_vectors(), CrossEncoderScores()
+# the fake client replays the model-written extractions, one per call
+client = FakeLLMClient([[TextBlock(replies["labelled"][q["id"]])] for q in queries])
+
+def describe(filters: list[dict]) -> str:
+    return "; ".join(f"{f['field']} {f['op']} {f['value']}" for f in filters)
+
+def first_answer(results: list[dict], query: dict) -> str:
+    rank = next((r for r, c in enumerate(results, 1) if is_relevant_to_query(c, query)), None)
+    return f"rank {rank}" if rank else "not in the 30"
+
+answered = {"unfiltered": 0, "filtered": 0}
+for query in queries:
+    # every reply here is well-formed, so it's applied as written; the next section is about replies that aren't
+    filters = json.loads(extract_filters(client, replies["prompt"], query["query"]))["filters"]
+    vector, score = question_vectors[query["id"]], lambda c: question_scores.score(query["id"], c)
+    unfiltered = pipeline.search(query["query"], vector, score, k=30)
+    filtered = filtered_pipeline_search(pipeline, query["query"], vector, score, filters, k=30) if filters else unfiltered
+    answered["unfiltered"] += answerable(unfiltered[:5], query)
+    answered["filtered"] += answerable(filtered[:5], query)
+    if filters:
+        excluded = sum(not passes(c, filters) for c in chunks)
+        freed = sum(not passes(c, filters) for c in unfiltered[:5])
+        print(f"{query['id']} {query['query']}")
+        print(f"    {describe(filters)}: "
+              f"excludes {excluded:,} of {len(chunks):,} chunks, {freed} of the unfiltered top 5")
+        print(f"    first answering chunk {first_answer(unfiltered, query)} -> {first_answer(filtered, query)}, "
+              f"answered in the top 5: {answerable(unfiltered[:5], query)} -> {answerable(filtered[:5], query)}")
+print(f"\nall {len(queries)} questions, answered in the top 5: {answered['unfiltered']} unfiltered, {answered['filtered']} filtered")
+`;
+
+export const UNTRUSTED_DEMO = String.raw`replies = load_filter_replies()
+chunks = [c for d in load_documents() for c in structured_chunks(d, 200)]
+
+def show(filters) -> str:
+    return "; ".join(f"{f.get('field')} {f.get('op')} {f.get('value')}" for f in filters)
+
+for item in replies["untrusted"]:
+    print(item["question"])
+    try:
+        filters = json.loads(item["reply"])["filters"]
+    except ValueError as error:
+        print(f"  reply: {item['reply']}\n  not JSON ({error}): the search fails\n")
+        continue
+    print(f"  reply: {show(filters)}")
+    try:
+        outcome = f"{sum(passes(c, filters) for c in chunks):,} of {len(chunks):,} chunks pass"
+    except Exception as error:
+        outcome = f"the search fails with {type(error).__name__}: {error}"
+    print(f"  applied as written: {outcome}")
+    dropped = [f for f in filters if f["field"] not in FILTER_SCHEMA]
+    print(f"  on a field the schema doesn't list: {show(dropped) or 'none'}\n")
+`;
+
+export const WRONG_DEMO = String.raw`replies = load_filter_replies()
+queries = {q["id"]: q for q in load_queries()["main"]}
+chunks = [c for d in load_documents() for c in structured_chunks(d, 200)]
+pipeline = ModulePipeline(chunks)
+question_vectors, question_scores = query_vectors(), CrossEncoderScores()
+mistaken = {item["id"]: item for item in replies["mistaken"]}
+
+def describe(filters: list[dict]) -> str:
+    return "; ".join(f"{f['field']} {f['op']} {f['value']}" for f in filters)
+
+def searches(query_id: str, filters: list[dict]) -> tuple[list[dict], list[dict]]:
+    query, score = queries[query_id], lambda c: question_scores.score(query_id, c)
+    return (pipeline.search(query["query"], question_vectors[query_id], score, k=30),
+            filtered_pipeline_search(pipeline, query["query"], question_vectors[query_id], score, filters, k=30))
+
+# a mistaken extraction for a multi-hop question: the report of INC-2093, then the error code
+query, filters = queries["q28"], json.loads(mistaken["q28"]["reply"])["filters"]
+unfiltered, filtered = searches("q28", filters)
+print(f"q28 {query['query']}\n    filter (mistaken): title contains INC-2093")
+for number, group in enumerate(query["evidence"], 1):
+    documents = sorted({span["doc_id"] for span in group})
+    allowed = [d for d in documents if any(passes(c, filters) for c in chunks if c["doc_id"] == d)]
+    found = [any(is_relevant(c, span) for c in results[:5] for span in group) for results in (unfiltered, filtered)]
+    print(f"    part {number} ({', '.join(documents)}): passes the filter in {', '.join(allowed) or 'none'}, "
+          f"found in the top 5: unfiltered {found[0]}, filtered {found[1]}")
+
+# can the reranker's scores tell a right filter from a wrong one?
+for query_id, reply in [("q15", replies["labelled"]["q15"]), ("q28", mistaken["q28"]["reply"])]:
+    unfiltered, filtered = searches(query_id, json.loads(reply)["filters"])
+    best = [question_scores.score(query_id, results[0]) for results in (unfiltered, filtered)]
+    print(f"{query_id}: best reranker score {best[0]:.2f} unfiltered, {best[1]:.2f} filtered")
+
+# questions written for this demo: keyword search only, since new text has no precomputed vectors
+bm25 = pipeline.bm25
+restart = queries["q18"]  # its evidence is the latency runbook's advice on restarting
+# (the second has no answer to rank: no incident report is dated after August)
+cases = [(replies["own"][0], lambda c: c["doc_id"] == "D11"),
+         (replies["own"][1], None),
+         (mistaken["x3"], lambda c: is_relevant_to_query(c, restart))]
+print()
+for item, is_answer in cases:
+    filters = json.loads(item["reply"])["filters"]
+    print(f"{item['question']}\n    {describe(filters)}: {sum(passes(c, filters) for c in chunks)} chunks pass")
+    if is_answer:
+        ranked = bm25.search(item["question"], len(bm25))
+        kept = [c for c in ranked if passes(c, filters)]
+        rank = lambda results: next((r for r, c in enumerate(results, 1) if is_answer(c)), None)
+        print(f"    answer at rank {rank(ranked)} unfiltered, {rank(kept) or 'nowhere'} filtered")
+`;
+
+export const STARTER = String.raw`import json
+from datetime import date
+
+def validate_filters(reply: str, schema: dict) -> list[dict]:
+    """The filters in the model's JSON reply that are safe to apply, normalised. Anything else is dropped."""
+    # TODO
+    ...
+
+def filtered_search(bm25: BM25Index, text: str, filters: list[dict], k: int = 5) -> list[dict]:
+    """BM25's ranking for text, keeping only chunks that pass every filter before the top k is taken.
+    If no chunk passes, the unfiltered top k instead."""
+    # TODO
+    ...
+`;
+
+export const REFERENCE = String.raw`import json
+from datetime import date
+
+def validate_filters(reply: str, schema: dict) -> list[dict]:
+    """The filters in the model's JSON reply that are safe to apply, normalised. Anything else is dropped."""
+    try:
+        parsed = json.loads(reply)
+    except ValueError:
+        return []
+    items = parsed.get("filters") if isinstance(parsed, dict) else None
+    if not isinstance(items, list):
+        return []
+    safe = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        field, op, value = item.get("field"), item.get("op"), item.get("value")
+        # permissions come from the reader, never from the model, whatever the schema says
+        if field == "access" or not isinstance(field, str) or field not in schema:
+            continue
+        rules = schema[field]
+        if op not in rules["ops"] or not isinstance(value, str) or not value.strip():
+            continue
+        value = value.strip()
+        if "values" in rules:
+            value = value.lower()
+            if value not in rules["values"]:
+                continue
+        if rules.get("type") == "date":
+            try:
+                value = date.fromisoformat(value).isoformat()
+            except ValueError:
+                continue
+        safe.append({"field": field, "op": op, "value": value})
+    return safe
+
+def filtered_search(bm25: BM25Index, text: str, filters: list[dict], k: int = 5) -> list[dict]:
+    """BM25's ranking for text, keeping only chunks that pass every filter before the top k is taken.
+    If no chunk passes, the unfiltered top k instead."""
+    kept = [chunk for chunk in bm25.search(text, len(bm25)) if passes(chunk, filters)]
+    return kept[:k] or bm25.search(text, k)
+`;
+
+export const CHECKS = String.raw`
+def checked(reply, schema=FILTER_SCHEMA):
+    try:
+        return validate_filters(reply, schema)
+    except Exception as error:
+        raise AssertionError(f"validate_filters should drop what it can't use, never raise; "
+                             f"{reply!r} raised {type(error).__name__}: {error}")
+
+def as_reply(*filters):
+    return json.dumps({"filters": list(filters)})
+
+def f(field, op, value):
+    return {"field": field, "op": op, "value": value}
+`;
+
+export const TESTS = [
+  CHECKS + String.raw`
+# 1. well-formed filters come back, normalised
+got = checked(as_reply(f("section", "contains", "v2.4")))
+assert isinstance(got, list), f"validate_filters should return a list; got {got!r}"
+assert got == [f("section", "contains", "v2.4")], f"a valid filter comes back as a field/op/value dict; got {got!r}"
+got = checked(as_reply(f("section", "contains", " v2.4 "), f("date", ">=", "2026-08-01"), f("date", "<=", "20260831")))
+assert got == [f("section", "contains", "v2.4"), f("date", ">=", "2026-08-01"), f("date", "<=", "2026-08-31")], \
+    f"strip text values, and write every date as YYYY-MM-DD, so it compares correctly with the chunks' dates; got {got!r}"
+`,
+  CHECKS + String.raw`
+# 2. access is never the model's to set
+reply = as_reply(f("access", "contains", "security"), f("date", ">=", "2026-07-01"))
+got = checked(reply)
+assert isinstance(got, list), f"validate_filters should return a list; got {got!r}"
+assert all(item.get("field") != "access" for item in got), \
+    f"never accept a filter on access: permissions come from the reader, not the model; got {got!r}"
+assert got == [f("date", ">=", "2026-07-01")], f"drop only the access filter and keep the date; got {got!r}"
+wider = {**FILTER_SCHEMA, "access": {"ops": ["contains", "="]}}
+got = checked(reply, wider)
+assert got == [f("date", ">=", "2026-07-01")], \
+    f"access is never accepted, even from a schema that lists it; got {got!r}"
+`,
+  CHECKS + String.raw`
+# 3. a bad filter is dropped on its own; the rest of the reply still counts
+good = f("title", "contains", "Runbook")
+bad = [f("author", "=", "platform team"), f("doc_id", "=", "D06"), f("title", "=", "Runbook"),
+       f("source_type", "contains", "wiki"), f("title", "contains", 5), f("title", "contains", "   "),
+       {"field": "title", "op": "contains"}, {"op": "contains", "value": "Runbook"}, "title contains Runbook"]
+for item in bad:
+    got = checked(as_reply(item, good))
+    assert got == [good], f"drop {item!r} (unknown field, wrong operator, or unusable value) and keep the rest; got {got!r}"
+`,
+  CHECKS + String.raw`
+# 4. a date that doesn't parse is dropped, not compared
+for value in ["last August", "end of July", "2026-13-01", "2026-08", 20260801, None]:
+    got = checked(as_reply(f("date", ">=", value), f("source_type", "=", "official")))
+    assert got == [f("source_type", "=", "official")], \
+        f"a date filter with value {value!r} can't be applied, so drop it; got {got!r}"
+`,
+  CHECKS + String.raw`
+# 5. source types are matched without regard to case, and only known ones are kept
+for value in ["vendor", "Vendor", " VENDOR "]:
+    got = checked(as_reply(f("source_type", "=", value)))
+    assert got == [f("source_type", "=", "vendor")], \
+        f"{value!r} is the vendor source type: normalise it to lower case; got {got!r}"
+for value in ["blog", "vendors"]:
+    assert checked(as_reply(f("source_type", "=", value))) == [], f"{value!r} isn't a known source type"
+`,
+  CHECKS + String.raw`
+# 6. a reply that isn't the expected JSON means no filters, not a failed search
+for reply in ["Here are the filters: " + as_reply(f("title", "contains", "Runbook")), "", "null", "[]",
+              '{"filters": "none"}', '{"filters": null}', '{"filter": []}']:
+    got = checked(reply)
+    assert got == [], f"{reply!r} holds no usable filters, so return []; got {got!r}"
+`,
+  String.raw`
+# 7. filtered_search on the real corpus
+chunks = [c for d in load_documents() for c in structured_chunks(d, 200)]
+bm25 = BM25Index()
+bm25.add(chunks)
+ids = lambda results: [(c["doc_id"], c["chunk"]) for c in results]
+
+v24 = [{"field": "section", "op": "contains", "value": "v2.4"}]
+got = filtered_search(bm25, "What changed in v2.4?", v24, 5)
+assert isinstance(got, list), f"filtered_search should return a list; got {got!r}"
+assert ids(got) == [("D03", 2)], \
+    f"filter before taking the top k: the v2.4 entry is 24th unfiltered, and the only chunk that passes; got {ids(got)}"
+
+since_august = [{"field": "title", "op": "contains", "value": "Incident"}, {"field": "date", "op": ">=", "value": "2026-08-01"}]
+got = filtered_search(bm25, "What went wrong in incidents since August?", since_august, 5)
+assert got and all(c["doc_id"] == "D11" for c in got), \
+    f"a chunk must pass every filter, not just one: only INC-2093's report is an incident dated since August; got {ids(got)}"
+incidents = since_august[:1]
+got = filtered_search(bm25, "What went wrong in incidents?", incidents, 2)
+assert len(got) == 2 and all("Incident" in c["title"] for c in got), f"return up to k chunks that pass; got {ids(got)}"
+`,
+  String.raw`
+# 8. when nothing passes, fall back to the unfiltered search
+chunks = [c for d in load_documents() for c in structured_chunks(d, 200)]
+bm25 = BM25Index()
+bm25.add(chunks)
+ids = lambda results: [(c["doc_id"], c["chunk"]) for c in results]
+text = "What does the latency runbook say about restarting an agent?"
+nothing = [{"field": "title", "op": "contains", "value": "latency runbook"}]
+got = filtered_search(bm25, text, nothing, 5)
+assert isinstance(got, list) and ids(got) == ids(bm25.search(text, 5)), \
+    f"no chunk passes, so return the unfiltered top 5 rather than nothing; got {ids(got) if isinstance(got, list) else got!r}"
+assert ids(filtered_search(bm25, text, [], 3)) == ids(bm25.search(text, 3)), "no filters means the plain top k"
+`,
+  CHECKS + String.raw`
+# 9. the scripted replies from this page
+replies = load_filter_replies()
+kept = [checked(item["reply"]) for item in replies["untrusted"]]
+assert all(isinstance(filters, list) for filters in kept), f"validate_filters should return a list; got {kept!r}"
+assert [len(filters) for filters in kept] == [2, 0, 1, 0, 0, 0], \
+    f"filters kept from each untrusted reply should number 2, 0, 1, 0, 0, 0; got {kept!r}"
+assert kept[0] == [f("date", ">=", "2026-07-01"), f("date", "<=", "2026-07-31")], \
+    f"the first reply keeps its two dates and loses its access filter; got {kept[0]!r}"
+assert kept[2] == [f("source_type", "=", "official")], f"\"Official\" is the official source type; got {kept[2]!r}"
+for query_id, reply in replies["labelled"].items():
+    assert checked(reply) == json.loads(reply)["filters"], f"{query_id}'s reply is valid as written; got {checked(reply)!r}"
+`,
+];
+
+<Subsection title="Some words say which documents count" variant="a">
+
+Part of a question often isn't about meaning at all. "What changed in
+v2.4?" is about one version's entry in the changelog. "Incidents since
+August" names a period, "what the vendor docs say" a kind of source, "in
+the runbook" a document. Those words say which documents count, and every
+search in this module treats them as more words to match. Keyword search
+fares worst: as
+[Lesson 9 found](/05-rag-systems/09-contextual-chunks/02-contextual-retrieval/#measured-through-the-pipeline),
+BM25 splits "v2.4" at the dot and searches for "v2", which every changelog
+entry contains. Search by meaning ranks other versions' entries far above
+v2.4's, because a version number is a small part of what a passage means,
+and here it's the part that matters.
+
+The chunks already carry what's needed to apply those limits exactly.
+[Every chunk has carried its document's metadata since Lesson 3](/05-rag-systems/03-chunking/03-structure-aware-splitting/#what-every-chunk-carries):
+its title, its section path, its date and its source type. A limit on those
+is a **filter**, and a filter is exact: a chunk's section either contains
+"v2.4" or it doesn't. So the technique is one more model call, which reads
+the question and writes filters on the metadata, and a search that applies
+them
+[before ranking, as Lesson 4 set out](/05-rag-systems/04-search-by-meaning/04-what-a-vector-store-adds/#filtering-and-filtering-in-the-wrong-place),
+so that only chunks that pass compete for the places. It's usually called
+**self-querying**, LangChain's name for it, or metadata extraction.
+
+The prompt tells the model which fields it may use and what their values
+look like:
+
+```text
+Some questions limit which documents count: a version, a period, a kind of source or a particular document. Reply with those limits as filters on the documents' metadata, as JSON and nothing else, like {"filters": [{"field": "title", "op": "contains", "value": "Runbook"}]}. The fields are:
+- title (op "contains"): titles look like "Incident INC-2041: billing_agent unable to issue invoices" or "Runbook: rotating a registry key".
+- section (op "contains"): the heading path, like "Registry changelog > v2.6 — 2026-08-18".
+- source_type (op "="): official for the company's own documentation, wiki for the staff wiki, vendor for third-party product documentation such as Prometheus, Alertmanager and PostgreSQL.
+- date (op ">=" or "<="): YYYY-MM-DD, the date the document was last updated.
+Add a filter only when the question limits which documents count, not for everything it mentions. If it limits nothing, reply {"filters": []}.
+```
+
+The last rule matters as much as the fields. A question that mentions an
+incident on the way to asking about something else isn't limited to that
+incident's report. This code is loaded for every demo and exercise on this
+page:
+
+```python
+def load_filter_replies() -> dict:
+    """The model-written filter extractions for this concept, with the prompt that asked for them."""
+    return json.loads((DATA / "query-filters.json").read_text())
+
+def extract_filters(client, prompt: str, question: str) -> str:
+    """Ask the model which documents the question limits the search to. Returns its reply, unchecked."""
+    response = client.create([{"role": "user", "content": f"{prompt}\n\nQuestion: {question}"}])
+    return "".join(block.text for block in response.content if block.type == "text").strip()
+
+# what the model may filter on, and how
+FILTER_SCHEMA = {
+    "title": {"ops": ["contains"]},
+    "section": {"ops": ["contains"]},
+    "source_type": {"ops": ["="], "values": ["official", "wiki", "vendor"]},
+    "date": {"ops": [">=", "<="], "type": "date"},
+}
+
+MATCHES = {
+    "=": lambda have, want: have == want,
+    "contains": lambda have, want: want.lower() in have.lower(),
+    # dates are compared as YYYY-MM-DD text, which sorts in date order
+    ">=": lambda have, want: have >= want,
+    "<=": lambda have, want: have <= want,
+}
+
+def passes(chunk: dict, filters: list[dict]) -> bool:
+    """True if the chunk meets every filter. It checks nothing: an unknown field or operator raises."""
+    return all(MATCHES[f["op"]](chunk[f["field"]], f["value"]) for f in filters)
+
+def filtered_pipeline_search(pipeline: ModulePipeline, text: str, vector: np.ndarray, score, filters: list[dict],
+                             k: int = 5, depth: int = 30) -> list[dict]:
+    """ModulePipeline.search, with the filters applied before each stage takes its top results."""
+    everything = len(pipeline.bm25)
+    keyword = [c for c in pipeline.bm25.search(text, everything) if passes(c, filters)][:100]
+    meaning = [c for c in pipeline.meaning.search(vector, everything) if passes(c, filters)][:100]
+    candidates = rrf([keyword, meaning])[:depth]
+    return sorted(candidates, key=score, reverse=True)[:k]
+```
+
+`filtered_pipeline_search` is the module's pipeline with the filter in front
+of every stage that takes a top k: keyword search, search by meaning, and
+the 30 candidates the reranker reads. `passes` does no checking of its own,
+which the third section of this page comes back to.
+
+The question is still what gets searched, because only the labelled
+questions have precomputed vectors. A full self-querying setup also takes
+the filter's words out of the query: once the filter has kept only v2.4's
+entry, "v2.4" has nothing left to do in the search.
+
+</Subsection>
+
+<Subsection title="Measured on the labelled questions" variant="b">
+
+The replies below were written by Claude for this course, following the
+prompt above, one per labelled question, and the demo replays them through
+the fake client. Most questions limit nothing and get no filters. Here is
+every one that got some, through the full pipeline, with and without its
+filters. The demo runs the pipeline for every question, so allow a few
+seconds:
+
+<LiveDemo client:load dataFiles={FILTER_DATA} setupCode={SETUP_WITH_CLIENT} code={LABELLED_DEMO} />
+
+*The extractions are model-written and replayed as scripted replies.*
+
+Seven of the 43 questions got filters, and one more question was answered:
+33 against 32, with none lost. That one is v2.4. Unfiltered, its entry wasn't even
+among the reranker's 30 candidates; filtered, it's the only chunk that
+passes, so it comes first. The other six:
+
+- **"What happened in INC-2093?"** was answered already. The filter moved
+  the incident report from third to first by removing the four chunks from
+  other documents in the top five, two of them above it.
+- **The two questions about "our incidents"** moved furthest, from 28th and
+  9th to first. Unfiltered, not one of their top five came from an incident
+  report. They're still not answered, because each needs a piece of every
+  incident report, which makes them
+  [the global questions Lesson 12 takes on](/05-rag-systems/12-graph-rag/01-when-similarity-search-is-the-wrong-shape/#a-question-about-everything).
+- **"Rotated in July"** was first either way. Its date filter passed the
+  security postmortem because the postmortem is dated 14 July, three days
+  after the leak it describes was found. The filter tests when a document
+  was last updated, not when the events in it happened, and a report about
+  July that was edited in August would have been excluded.
+- **The two vendor questions** changed nothing. Vendor documentation is
+  1,893 of the 1,968 chunks, so the filter removed only the company's own 75,
+  none of which were in the top five.
+
+On this corpus, then, filters help little overall: one question gained. It
+has one changelog with five versions and three incident reports, and search
+by meaning with a reranker usually finds the right one anyway. Filters
+matter where the documents are many and alike, the subject of the last
+section.
+
+</Subsection>
+
+<Subsection title="The reply is untrusted" variant="a">
+
+The filters come from a model, and they reach code that decides what the
+search may see. The replies above were well-formed, so the demo applied them
+as written. These six weren't. They were scripted for this page, each
+showing a kind of reply a real model can give, whether by mistake or
+because a question steered it:
+
+<LiveDemo client:load dataFiles={FILTER_DATA} setupCode={SETUP} code={UNTRUSTED_DEMO} />
+
+*These replies are scripted to show what can go wrong.*
+
+None of them is caught by `passes`, which applies whatever it's given:
+
+- **Three fail the whole search.** A field the chunks don't have raises
+  `KeyError`, a sentence in front of the JSON makes the reply unreadable,
+  and the access filter raises only because `access` holds a list. One bad
+  filter shouldn't cost the question its search.
+- **Three fail silently.** "Official" isn't `official`, so nothing passes.
+  A date that doesn't parse is compared as text, and whether that keeps
+  nothing or everything depends only on the operator: "last July" sorts
+  after every date, and so does "end of July".
+- **The access filter matters most.** Whatever it would have done, it has
+  no business in the reply. Permissions
+  [come from who the reader is](/05-rag-systems/13-permissions/01-permissions-at-retrieval-time/#where-a-reader-s-groups-come-from),
+  never from the question or from a model, and this reply is both: a model
+  following a question that claims its asker is on the security team. A
+  system that builds its permission check from the same list of conditions,
+  or merges them field by field, would let the reply replace the reader's
+  groups. Checking fields against the schema drops it before anything runs.
+
+Checking fields is the first rule. The full set, which is this concept's
+exercise:
+
+- **Only fields the schema lists, and never `access`,** even if someone
+  later adds it to the schema. Permissions are applied separately, from the
+  reader's identity, always.
+- **Only the operators each field allows.**
+- **Only values that can be applied:** a known source type, lower-cased; a
+  date that parses, written as `YYYY-MM-DD` so it compares correctly; text
+  that isn't empty.
+- **Drop what fails and keep the rest.** A reply with nothing usable means
+  no filters, not no search, the same rule as `split_query` falling back to
+  the question.
+
+Structured outputs, which
+[Module 1 covered](/01-llm-foundations/10-structured-output-and-tool-calling/02-constrained-decoding/#a-hard-guarantee-not-a-soft-nudge),
+can hold the reply to a JSON schema, with the field names and operators as
+fixed lists. That removes the malformed replies. It can't remove the wrong
+ones, since the guarantee covers the reply's shape and not whether its
+values are right, and it doesn't hold for a reply cut off at the token
+limit. The checks stay either way.
+
+</Subsection>
+
+<Subsection title="A filter can hide the answer" variant="b">
+
+A valid filter can still be the wrong one. A filter doesn't lower an
+excluded chunk's rank; it removes the chunk, and nothing reports that it
+did. The "our incidents" filter above already does this once: the security
+postmortem is part of that question's answer, and its title says "Security
+postmortem", not "Incident", so no search of any depth can find it. The
+filter matched the metadata's words, not the idea of an incident.
+
+Here is a mistaken extraction for a labelled question, with the full
+pipeline, then three questions written for this demo, with keyword search
+only, since new text has no precomputed vectors. This demo builds the
+pipeline, so allow a few seconds:
+
+<LiveDemo client:load dataFiles={FILTER_DATA} setupCode={SETUP} code={WRONG_DEMO} />
+
+*The q28 and latency runbook extractions are scripted mistakes; the other
+two follow the prompt.*
+
+- **q28 asks a multi-hop question** that mentions INC-2093 on the way to
+  asking about an error code. The prompt says not to filter on that, but
+  it's an easy mistake. Filtered, the incident's part of the answer comes
+  into the top five, and the error code's part, in the error-code reference
+  and the monitoring guide, goes out of reach at any depth.
+- **"Since August"** works as intended: four chunks pass, all from
+  INC-2093's report, and the answer moves from sixth to first.
+- **"Since September"** leaves nothing, and here nothing is the truth: no
+  incident report is dated after August.
+- **"The latency runbook"** leaves nothing by mistake. The model
+  paraphrased the title, which is "Runbook: agent latency spike", so no
+  title contains the words it wrote.
+
+An empty result is the easy failure to catch: **fall back to the unfiltered
+search**. For the runbook question, that gets back the unfiltered results,
+no better and no worse than not filtering at all. For September, it returns
+older incidents, so the step that writes the answer needs to know the filter
+was dropped, or it will present August's incident as September's.
+
+A filter that's wrong but not empty, like q28's, is harder. It would be
+convenient if its results were visibly weak, and the demo checks the most
+obvious sign: the reranker's best score. Both filters lowered it, the
+correct one for v2.4 as well as the mistaken one for q28, so falling back
+whenever the filtered best is lower would have thrown away the one question
+filters gained. A larger drop separates these two, but two questions can't
+set a threshold. Like every other setting in this module, it would be chosen
+by measuring on labelled questions, and a question type like q28's, which
+names one thing to ask about another, belongs in them.
+
+</Subsection>
+
+<Subsection title="When filters earn their place" variant="a">
+
+Filters gained one question here, and they're the only change in this lesson
+that can make an exact promise: "only v2.4", "only since August". That
+matters more as a corpus grows:
+
+- **Many versions and dates.** Release notes for every version, documents
+  for each product release, tickets going back years. Search by meaning
+  can't reliably tell v2.3 from v2.4, or March from August; a filter can.
+- **Many similar documents.** A thousand incident reports look alike to
+  every search in this module. A filter on the one named in the question
+  cuts through them.
+
+Two limits carry over from this page. A filter is only as good as the
+metadata it tests: here, dates belong to documents, so the changelog's
+entries all share its August date, and a filter for changes "since July"
+keeps every one of them, back to January's v2.2. And each extraction is
+another model call before every search, though it can share a call with the
+rewrite: self-querying usually asks for the search query and the filters in
+one reply.
+
+Every change in this lesson sits in a fixed pipeline, between the user's
+words and the search. An agent that calls search as a tool, as in
+[Lesson 11](/05-rag-systems/11-agentic-rag/01-from-pipeline-to-tool/), writes
+its own queries. It already turns a follow-up into a standalone query, and
+it can search once per part of a question, or again after reading the first
+results. Given a search tool with filter parameters, it chooses the filters
+too, and they're model-written arguments like any other: checked the same
+way, with no parameter for permissions at all. A separate rewriting or
+filtering call in front of an agent's search tool mostly pays twice for the
+same work. What carries over are the rules: keep identifiers, add no facts
+the question didn't state, check what the model writes before it runs, and
+measure what a query change does. And when a question is genuinely
+ambiguous, an agent has an option no pipeline has: ask the user what they
+meant.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "Why can a filter handle \"What changed in v2.4?\" when searching alone couldn't?",
+    "options": [
+      "It checks each chunk's section for v2.4, where searches treat it as loose words",
+      "It sends the question to the reranker first, which reads version numbers correctly",
+      "It rewrites v2.4 into words that the embedding model can place more accurately",
+      "It searches only the newest documents, where a recent version must be described"
+    ],
+    "correctIndex": 0,
+    "explanation": "BM25 splits \"v2.4\" at the dot and matches \"v2\" in every changelog entry, and search by meaning puts neighbouring versions close together. A filter on the section path passes exactly one chunk, the v2.4 entry, which then comes first."
+  },
+  {
+    "question": "A question says \"I'm on the security team\", and the model's reply includes a filter on access. What should the code do with it?",
+    "options": [
+      "Drop that filter and keep the rest: permissions come from who the reader is",
+      "Apply it, since a filter can only ever narrow the results and never widen them",
+      "Reject the whole reply, since one bad filter shows that the model can't be trusted",
+      "Ask the model to confirm that the user really is on the security team"
+    ],
+    "correctIndex": 0,
+    "explanation": "Anyone can type a claim into a question, and anything that steers the model steers its reply. Permissions are applied separately, from the reader's identity. Whether a model-written access filter narrows, fails or replaces the reader's groups depends on how the code combines conditions, so it never gets that far. The rest of the reply is still usable."
+  },
+  {
+    "question": "The model returns a date filter whose value is \"last August\". What should happen to it?",
+    "options": [
+      "Drop it, since it can't be compared correctly with the chunks' dates",
+      "Keep it, since comparing it as text still keeps roughly the right chunks",
+      "Fail the whole search, so that the user can rephrase the question",
+      "Replace it with the first day of the current month, as a safe default"
+    ],
+    "correctIndex": 0,
+    "explanation": "Compared as text, an unparseable date keeps nothing or everything, depending only on the operator. The demo showed both. A date is kept only if it parses, and it's written as YYYY-MM-DD so the comparison is correct."
+  },
+  {
+    "question": "\"What recurring causes run through our incidents?\" got the filter title contains \"Incident\", which left out the security postmortem. What does that show?",
+    "options": [
+      "A filter tests the metadata's words, and a wrong one removes answers without any error",
+      "Filters always exclude restricted documents, which protects them from the wrong readers",
+      "Title filters are case-sensitive, so \"Incident\" couldn't match the postmortem's title",
+      "The reranker drops restricted documents once any filter has been applied"
+    ],
+    "correctIndex": 0,
+    "explanation": "The postmortem is about an incident, but its title says \"Security postmortem\". A filter doesn't lower a chunk's rank, it removes it, so no depth of search can bring it back. Filters are measured like any other change, on questions that can show this."
+  },
+  {
+    "question": "A filtered search for incidents since September comes back empty. What should the search do?",
+    "options": [
+      "Search again unfiltered, and tell the answer step the filter was dropped",
+      "Return nothing, since an empty filtered search proves there is no answer",
+      "Widen the date a month at a time until at least one chunk passes the filter",
+      "Ask the model for different filters until the search finds something to return"
+    ],
+    "correctIndex": 0,
+    "explanation": "An empty result is often a wrong filter, like the paraphrased runbook title, and the unfiltered search recovers from that. Sometimes it's the truth, as it is for September, so the answer step needs to know it's reading unfiltered results rather than a list of September's incidents."
+  }
+]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Write two functions. (1) validate_filters(reply, schema) turns the model's reply into filters that are safe to apply. The reply should be JSON like {\"filters\": [{\"field\": ..., \"op\": ..., \"value\": ...}]}; if it isn't valid JSON, or has no \"filters\" list, return []. Check each filter on its own, and drop any that fails while keeping the rest. A filter must be a dict. Its field must be in schema and must never be \"access\", even if the schema lists it. Its op must be one of schema[field][\"ops\"]. Its value must be a non-empty string; strip it. If the field's rules have \"values\", lower-case the value and keep it only if it's one of them. If the rules have \"type\": \"date\", keep it only if date.fromisoformat(value) accepts it, and store date.fromisoformat(value).isoformat(). Return the kept filters as {\"field\", \"op\", \"value\"} dicts, in order. (2) filtered_search(bm25, text, filters, k=5) ranks every chunk with bm25.search(text, len(bm25)), keeps the chunks for which passes(chunk, filters) is true, and returns the first k of them. If none pass, it returns bm25.search(text, k) instead. FILTER_SCHEMA and passes are already loaded."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  namespaceSetup={SETUP}
+  dataFiles={FILTER_DATA}
+  hint={"json.loads raises ValueError (JSONDecodeError is a kind of ValueError) on text that isn't JSON, and a reply can be valid JSON without being a dict, so check isinstance before calling .get. In the loop, continue drops one filter without leaving the others. date.fromisoformat also raises ValueError. For the search, filter the whole ranking and then slice it: kept[:k] or bm25.search(text, k)."}
+  correctAnswer={{
+    code: REFERENCE,
+    explanation: "Each rule in validate_filters answers one of this page's untrusted replies: a field the schema doesn't list, an operator the field doesn't allow, a value that isn't a string, \"Official\" for official, a date that doesn't parse, text in front of the JSON. Each is dropped on its own, so one bad filter never costs the question its search, and a reply with nothing usable means an ordinary unfiltered search. The access rule is separate from the schema check on purpose. Permissions come from the reader's identity, applied by code the model can't reach, so no schema change should ever let the model write one. In filtered_search, the order matters twice. Filtering the whole ranking before taking k is what puts the v2.4 entry first, from 24th in BM25's ranking, where filtering the top 5 would leave nothing. Falling back when nothing passes means a filter that fails in the obvious way, like the paraphrased runbook title, costs nothing. A production version would also say which of the two it returned, so the answer step knows. A filter that is wrong without being empty, like q28's, gets past both functions; only measuring on labelled questions catches that."
+  }}
+/>
+
+</CheckpointZone>

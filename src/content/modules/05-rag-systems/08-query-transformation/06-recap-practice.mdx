@@ -1,7 +1,7 @@
 ---
 title: "Recap & Practice"
 lesson: "08-query-transformation"
-order: 5
+order: 6
 ---
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
@@ -683,6 +683,17 @@ assert (sorted(answered - as_asked), sorted(as_asked - answered)) == (["q25", "q
       "explanation": "\"incident\" matched Alertmanager's settings for an integration called incident.io. Searching with both the question and its rewrite, fused, protects against a rewrite that drifts."
     },
     {
+      "question": "A model's filter reply includes a filter on access. Why is it dropped, even when the schema lists access?",
+      "options": [
+        "Permissions come from the reader's identity, and the question can steer the reply",
+        "Access filters are too slow to apply before ranking, so they're left to a later step",
+        "The model can't know which groups exist, so any access filter it writes will be wrong",
+        "Access is checked after ranking, where a filter from the model is harmless"
+      ],
+      "correctIndex": 0,
+      "explanation": "A question that claims \"I'm on the security team\" can lead a model to write that filter. Permissions are applied separately, before ranking, from who the reader is, so a model-written condition on access has no legitimate use, and depending on how conditions are combined it could replace the reader's groups. The rest of the reply is kept."
+    },
+    {
       "question": "Why does pasting a long conversation in front of a follow-up question tend to go wrong?",
       "options": [
         "Words from earlier, finished topics pull the search towards them",
@@ -725,6 +736,17 @@ assert (sorted(answered - as_asked), sorted(as_asked - answered)) == (["q25", "q
       ],
       "correctIndex": 0,
       "explanation": "\"models a standard-tier agent can use\" put a near-miss first. The whole question, through a strong pipeline, had already found both parts. Splitting earns its cost when the search is weak relative to the question's parts."
+    },
+    {
+      "question": "A filter took \"What changed in v2.4?\" from outside the reranker's candidates to first. Why can't a fallback based on the reranker's best score be trusted to catch wrong filters?",
+      "options": [
+        "The correct v2.4 filter lowered the best score, just as a mistaken one did",
+        "A wrong filter raises the best score, so it looks stronger than a right one",
+        "The reranker gives every chunk that passes a filter exactly the same score",
+        "Wrong filters always return an empty list, which has no score to compare"
+      ],
+      "correctIndex": 0,
+      "explanation": "Both filters lowered the best score, the right one and the wrong one: 1.30 to 0.79 for v2.4, 0.90 to -4.33 for the mistaken INC-2093 filter on q28. An empty result is easy to catch and fall back from; a wrong but non-empty one has to be found by measuring on labelled questions."
     },
     {
       "question": "A HyDE passage says the rate limit is \"1,000 requests per hour\", which is false. When is that a problem?",
@@ -772,7 +794,7 @@ assert (sorted(answered - as_asked), sorted(as_asked - answered)) == (["q25", "q
     { name: "stages.py", readOnly: true, code: STAGES_PY },
     { name: "route.py", code: ROUTE_REFERENCE },
   ]}
-  explanation={"The router spends exactly one model call per question, and chooses what that call is for from something already known: whether the question comes with a conversation. Follow-ups are rewritten, because they can't be searched otherwise; everything else is offered for splitting, and a single-part question comes back as itself. On the labelled set, that takes the pipeline from 32 answered questions to 34, gaining the two follow-ups the plain pipeline missed and losing nothing, for 43 model calls. The multi-part questions keep their answers because interleaving within the top five leaves room for more than one result per part. The router deliberately leaves out HyDE and rewriting standalone questions, and they aren't equally safe to leave out. HyDE changed nothing in the full pipeline. Rewriting every question did better than this router, 36 answered to 34, for the same one call per question: it gained three standalone questions and lost INC-2093 to drift. The router takes the conservative side of that trade, rewriting only where a rewrite is needed to search at all. Three gains against one loss on 43 questions isn't strong evidence either way, so on your own questions, measure both before choosing."}
+  explanation={"The router spends exactly one model call per question, and chooses what that call is for from something already known: whether the question comes with a conversation. Follow-ups are rewritten, because they can't be searched otherwise; everything else is offered for splitting, and a single-part question comes back as itself. On the labelled set, that takes the pipeline from 32 answered questions to 34, gaining the two follow-ups the plain pipeline missed and losing nothing, for 43 model calls. The multi-part questions keep their answers because interleaving within the top five leaves room for more than one result per part. The router deliberately leaves out HyDE and rewriting standalone questions, and they aren't equally safe to leave out. HyDE changed nothing in the full pipeline. Rewriting every question did better than this router, 36 answered to 34, for the same one call per question: it gained three standalone questions and lost INC-2093 to drift. The router takes the conservative side of that trade, rewriting only where a rewrite is needed to search at all. Three gains against one loss on 43 questions isn't strong evidence either way, so on your own questions, measure both before choosing. It also leaves out filters, which gained one question, v2.4, for another model call per question, and bring a risk the router doesn't have: a filter that is wrong without being empty."}
 />
 
 </CheckpointZone>
