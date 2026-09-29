@@ -528,7 +528,12 @@ concept 4's exercise reference: pages *after* concept 4 only, appended
 after `REGISTRY_DB`.
 Lesson 12's setup is Lesson 11's recap `lib.py` (the Lesson 11 setup through
 `QUERY_DATABASE`), then `REACT_FAKE_CLIENT + RECORDING_CLIENT`, with
-`RAG_CONTEXTUAL_DATA`.
+`RAG_CONTEXTUAL_DATA`. From Lesson 12 concept 2 on the setup appends
+`GRAPH_DATA` (`load_graph_data`, `ALIASES`, `canonical`, shown verbatim on
+that page), with `RAG_GRAPH_DATA` (`RAG_CONTEXTUAL_DATA` plus
+`graph.json`). `BUILD_GRAPH` (`build_graph`) is Lesson 12 concept 2's
+exercise reference: pages *after* concept 2 only, appended after
+`GRAPH_DATA`.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.

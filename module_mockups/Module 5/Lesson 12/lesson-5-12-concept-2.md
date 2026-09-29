@@ -1,0 +1,298 @@
+# Module 5, Lesson 12 — Concept 2: Extracting entities and relationships
+
+> **Note for the site build:**
+> - **New shared code** for every demo and exercise from this concept to the
+>   end of the lesson: `load_graph_data`, `ALIASES` and `canonical`, exactly
+>   as in the first code block below. Data: `graph.json`.
+> - The first demo needs the fake client (`REACT_FAKE_CLIENT` then
+>   `RECORDING_CLIENT`); its reply is the stored, model-written extraction.
+> - **The exercise's reference solution** (`build_graph`) joins the shared
+>   setup only for pages *after* this concept.
+
+---
+
+## From passages to facts
+
+A graph is made of **entities**, the things documents talk about, and
+**relationships** between them. GraphRAG gets both the same way it gets
+everything else: by asking a model, once per chunk. This lesson ran the
+extraction over the six documents about how things connect: the architecture
+overview, the monitoring guide, and the incident and security reports. Every
+chunk got this prompt:
+
+```
+Extract the entities and relationships in this passage, as a JSON list of
+[subject, relation, object] triples. Use only these relations:
+
+- depends_on: a service or agent calls, or needs, another service to work
+- hands_work_to: an agent passes work to another agent
+- owned_by: a service belongs to a team
+- affected: an incident affected a service or agent
+- fired: an alert fired during an incident
+- watches: an alert watches a service
+- root_cause: the cause of an incident, in a short phrase
+- monitoring_gap: something monitoring missed during an incident, in a short phrase
+
+Name entities as the passage names them. The passage comes from the document and section below,
+which may name things the passage itself doesn't. Return [] if there are none.
+
+<document>{title}</document>
+<section>{section}</section>
+<passage>
+{chunk}
+</passage>
+```
+
+Three choices in that prompt matter:
+
+- **A fixed list of relations.** A model left to name relationships freely
+  writes "calls", "uses", "relies on" and "talks to" for the same thing. A
+  small vocabulary keeps the graph queryable, since a question can only follow
+  an edge type it knows exists.
+- **Names as written.** The model isn't asked to resolve names, because it
+  sees only one chunk and can't know what another chunk calls the same thing.
+  That's done afterwards, across the whole extraction.
+- **The document title and section are included.** A chunk from the INC-2041
+  report never says "INC-2041"; only its title does. Without the title, the
+  model couldn't name the incident, which is
+  [Lesson 9's problem](→ this module, Lesson 9, chunks that don't say what they're about concept)
+  again, solved the same way.
+
+Here's one chunk and what came back for it:
+
+```python
+def load_graph_data() -> dict:
+    """The extraction prompt, the model-written triples for each chunk, and the community summaries."""
+    return json.loads((DATA / "graph.json").read_text(encoding="utf-8"))
+
+# how the names that mean the same thing are merged, keyed by lowercase name
+ALIASES = {
+    "the registry": "registry-api", "registry api": "registry-api", "monitoring": "monitoring",
+    "platform": "Platform team", "identity": "Identity team",
+    "observability": "Observability team", "search": "Search team",
+}
+
+def canonical(name: str, aliases: dict = ALIASES) -> str:
+    """One name for one entity: strip spaces and backticks, then apply the alias table."""
+    name = name.strip().strip("`")
+    return aliases.get(name.lower(), name)
+```
+*(defined once here and already loaded for every demo and exercise from here to the end of this lesson)*
+
+```python
+graph_data = load_graph_data()
+chunk = next(c for d in load_documents() if d["doc_id"] == "D04" for c in structured_chunks(d, 200) if c["chunk"] == 3)
+prompt = graph_data["extraction_prompt"].format(title=chunk["title"], section=chunk["section"], chunk=chunk["text"])
+client = FakeLLMClient([[TextBlock(json.dumps(graph_data["triples"]["D04:3"]))]])
+reply = client.create([{"role": "user", "content": prompt}])
+triples = json.loads("".join(b.text for b in reply.content if b.type == "text"))
+
+print(chunk["text"], "\n")
+for subject, relation, obj in triples:
+    print(f"({subject}) -[{relation}]-> ({obj})")
+```
+```
+## The agents that use them
+
+`support_agent` answers customer questions. It looks up agent and account configuration through registry-api and searches help articles through kb-search. `triage_agent` reads incoming tickets and hands the ones it can't close to `support_agent`. 
+
+(support_agent) -[depends_on]-> (registry-api)
+(support_agent) -[depends_on]-> (kb-search)
+(triage_agent) -[hands_work_to]-> (support_agent)
+```
+*(runs live, shows output — read-only demo snippet, not graded. The extraction is model-written for the course and replayed as a scripted reply.)*
+
+The passage becomes three facts: two dependencies and a hand-off. Everything
+else in it, what `support_agent` is for, is left out, because it isn't one of
+the relations the prompt asked for.
+
+---
+
+## Names that don't match
+
+Across all the chunks, the same entity turns up under different names:
+
+```python
+triples = load_graph_data()["triples"]
+raw_names = sorted({name for found in triples.values() for s, _, o in found for name in (s, o)})
+merged = defaultdict(set)
+for name in raw_names:
+    merged[canonical(name)].add(name)
+print(f"{sum(len(t) for t in triples.values())} triples from {len(triples)} chunks, "
+      f"{sum(1 for t in triples.values() if not t)} of them with none")
+print(f"{len(raw_names)} names as written, {len(merged)} entities after merging:")
+for entity, names in sorted(merged.items()):
+    if len(names) > 1:
+        print(f"  {entity:<20} <- {sorted(names)}")
+```
+```
+47 triples from 25 chunks, 7 of them with none
+35 names as written, 29 entities after merging:
+  Identity team        <- ['Identity', 'Identity team']
+  Observability team   <- ['Observability', 'Observability team']
+  Platform team        <- ['Platform', 'Platform team']
+  Search team          <- ['Search', 'Search team']
+  monitoring           <- ['Monitoring', 'monitoring']
+  registry-api         <- ['registry-api', 'the registry']
+```
+*(runs live, shows output — read-only demo snippet, not graded)*
+
+"The registry" in the monitoring guide is the service the architecture
+overview calls `registry-api`. "Platform" and "Platform team" are the same
+team. "Monitoring" at the start of a sentence is the same service as
+"monitoring". Left unmerged, each variant becomes its own node, and the graph
+splits one entity's relationships between several. A question about
+registry-api would then miss everything recorded against "the registry".
+
+Merging them is called **entity resolution**. Here it's a small alias table,
+written by hand after looking at the extracted names, plus stripping
+backticks, applied by `canonical`. At a larger scale, systems generate
+candidate merges automatically, by string similarity or by comparing
+embeddings of the names, and have a person review them. A wrong merge is
+worse than a missed one: two different services joined into one node make
+the graph say things no document says.
+
+---
+
+## Every edge keeps its sources
+
+When the triples become a graph, each edge should remember every chunk it was
+extracted from. `monitoring depends_on registry-api` is stated in four places,
+and they're what an answer built from that edge will cite. A graph that
+forgets its sources gives answers nobody can check, which undoes everything
+Lesson 10 built.
+
+---
+
+## Quiz cards
+
+> **Q1.** Why does the extraction prompt allow only a fixed list of
+> relations?
+> - So the same relationship always gets the same name, and questions can follow it ✅
+> - Models can only output eight relation types
+> - It makes the extraction cheaper per chunk
+> - Graph libraries require it
+>
+> *Explanation: without a fixed vocabulary, one dependency could be
+> recorded as "calls", "uses" or "relies on", and a traversal looking for
+> one name would miss the others.*
+
+> **Q2.** Why does the prompt include the chunk's document title?
+> - The chunk may never name what its document is about, such as the incident id ✅
+> - Titles make the model extract more triples
+> - The title is needed to count tokens
+> - It stops the model from inventing relations
+>
+> *Explanation: a chunk from the INC-2041 report doesn't contain "INC-2041".
+> With the title in view, the model can name the incident an edge belongs
+> to.*
+
+> **Q3.** "The registry" and "registry-api" were left as separate nodes.
+> What goes wrong?
+> - The entity's relationships are split, so a question about one name misses the other's ✅
+> - The graph can't be drawn
+> - Every edge is duplicated
+> - Nothing, since traversal ignores names
+>
+> *Explanation: unmerged names turn one entity into several partial ones.
+> That's why entity resolution comes between extraction and use.*
+
+> **Q4.** Why is a wrong merge worse than a missed one?
+> - It joins different entities, so the graph states relationships no document contains ✅
+> - It takes longer to compute
+> - It removes edges from the graph
+> - It changes the relation names
+>
+> *Explanation: a missed merge loses connections; a wrong merge invents
+> them. Invented facts are harder to notice and more harmful.*
+
+---
+
+## Applied sandbox exercise
+*(graded — build the graph from the extracted triples)*
+
+**Task shown to learner:**
+
+Write `build_graph(triples_by_chunk, aliases=ALIASES)`. `triples_by_chunk`
+maps a chunk id, like `"D04:3"`, to the list of `[subject, relation, object]`
+triples extracted from it. Return a dict mapping each edge, a tuple
+`(subject, relation, object)`, to the sorted list of chunk ids it came from:
+
+- Make both names canonical with `canonical(name, aliases)`.
+- Drop a triple whose subject and object are the same after that, a self-loop.
+- The same edge from several chunks, or twice from one chunk, is one entry,
+  with each chunk id listed once.
+
+**Starter code:**
+
+```python
+def build_graph(triples_by_chunk: dict, aliases: dict = ALIASES) -> dict[tuple, list[str]]:
+    """Merge every chunk's triples into one set of edges, names made canonical, each edge
+    keeping the sorted list of chunks it was extracted from. Self-loops are dropped."""
+    # TODO
+    ...
+```
+
+**Hidden tests:**
+
+```python
+# 1. names are made canonical, and the same edge from several chunks is one edge with every source
+graph = build_graph({
+    "A:0": [["`support_agent`", "depends_on", "the registry"]],
+    "A:1": [["support_agent", "depends_on", "Registry API"], ["Monitoring", "depends_on", "registry-api"]],
+    "B:2": [],
+})
+assert isinstance(graph, dict), f"build_graph should return a dict; got {graph!r}"
+assert graph == {("support_agent", "depends_on", "registry-api"): ["A:0", "A:1"],
+                 ("monitoring", "depends_on", "registry-api"): ["A:1"]}, graph
+
+# 2. the relation is part of the edge, and sources are sorted and not repeated
+graph = build_graph({"C:3": [["x", "owned_by", "Platform"], ["x", "owned_by", "Platform"]],
+                     "C:1": [["x", "depends_on", "Platform team"]]})
+assert graph == {("x", "owned_by", "Platform team"): ["C:3"], ("x", "depends_on", "Platform team"): ["C:1"]}, graph
+
+# 3. a triple that becomes a self-loop after merging names is dropped, and the aliases can be replaced
+assert build_graph({"D:0": [["the registry", "depends_on", "registry-api"]]}) == {}, "drop self-loops"
+assert build_graph({"E:0": [["svc-a", "depends_on", "svc-b"]]}, aliases={"svc-b": "svc-a"}) == {}, \
+    "use the aliases passed in"
+
+# 4. the real extraction
+graph = build_graph(load_graph_data()["triples"])
+assert len(graph) == 35, f"35 distinct edges; got {len(graph)}"
+assert graph[("registry-api", "depends_on", "registry-db")] == ["D04:1", "D04:2", "D11:0"]
+assert graph[("monitoring", "depends_on", "registry-api")] == ["D04:2", "D08:0", "D08:2", "D11:2"], \
+    "'Monitoring' and 'the registry' merge into the same edge as 'monitoring' and 'registry-api'"
+assert graph[("SEC-014", "affected", "support_agent")] == ["D12:0"]
+```
+
+**Hint (shown on request):**
+
+A `defaultdict(set)` keyed by the edge tuple collects chunk ids without
+repeats; turn each set into a sorted list at the end. Pass `aliases` through
+to `canonical`, so a caller can use a different table.
+
+**Reference solution:**
+
+```python
+def build_graph(triples_by_chunk: dict, aliases: dict = ALIASES) -> dict[tuple, list[str]]:
+    """Merge every chunk's triples into one set of edges, names made canonical, each edge
+    keeping the sorted list of chunks it was extracted from. Self-loops are dropped."""
+    edges = defaultdict(set)
+    for chunk_id, triples in triples_by_chunk.items():
+        for subject, relation, obj in triples:
+            subject, obj = canonical(subject, aliases), canonical(obj, aliases)
+            if subject != obj:
+                edges[(subject, relation, obj)].add(chunk_id)
+    return {edge: sorted(sources) for edge, sources in edges.items()}
+```
+
+**Explanation:**
+
+The 47 extracted triples become 35 distinct edges. Some are exact repeats,
+such as registry-api's dependency on registry-db, stated in three chunks; the
+merging adds more. `monitoring depends_on registry-api` gathers four sources,
+because the architecture overview says "Monitoring" and the monitoring guide
+and incident report say "the registry", and after `canonical` they're all one
+fact. Those four chunk ids are what an answer about monitoring's dependency on
+the registry will cite, in the next concept, where the graph finally answers
+the question similarity search couldn't.

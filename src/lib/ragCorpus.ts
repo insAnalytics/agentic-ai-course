@@ -1282,3 +1282,51 @@ def query_database(sql: str, max_rows: int = 20, timeout: float = 1.0) -> str:
         lines.append(f"(more than {max_rows} rows; narrow the query with WHERE or LIMIT)")
     return "\n".join(lines)
 `;
+
+/** RAG_CONTEXTUAL_DATA plus graph.json: the model-written extraction and community summaries (Lesson 12 concept 2 onwards). */
+export const RAG_GRAPH_DATA = [
+  ...RAG_CONTEXTUAL_DATA,
+  "rag/graph.json",
+];
+
+/**
+ * Module 5 Lesson 12 concept 2 load_graph_data, ALIASES and canonical, shown
+ * verbatim on that page (keep the two byte-identical). Joins the Lesson 12
+ * setup from concept 2 on: append after RECORDING_CLIENT. Data RAG_GRAPH_DATA.
+ */
+export const GRAPH_DATA = String.raw`
+def load_graph_data() -> dict:
+    """The extraction prompt, the model-written triples for each chunk, and the community summaries."""
+    return json.loads((DATA / "graph.json").read_text(encoding="utf-8"))
+
+# how the names that mean the same thing are merged, keyed by lowercase name
+ALIASES = {
+    "the registry": "registry-api", "registry api": "registry-api", "monitoring": "monitoring",
+    "platform": "Platform team", "identity": "Identity team",
+    "observability": "Observability team", "search": "Search team",
+}
+
+def canonical(name: str, aliases: dict = ALIASES) -> str:
+    """One name for one entity: strip spaces and backticks, then apply the alias table."""
+    name = name.strip().strip("${"`"}")
+    return aliases.get(name.lower(), name)
+`;
+
+/**
+ * Module 5 Lesson 12 concept 2 graded exercise, reference solution verbatim
+ * (build_graph). Joins the Lesson 12 setup for every page AFTER concept 2
+ * (append after GRAPH_DATA) and must never load on concept 2 itself, or the
+ * exercise would start already solved.
+ */
+export const BUILD_GRAPH = String.raw`
+def build_graph(triples_by_chunk: dict, aliases: dict = ALIASES) -> dict[tuple, list[str]]:
+    """Merge every chunk's triples into one set of edges, names made canonical, each edge
+    keeping the sorted list of chunks it was extracted from. Self-loops are dropped."""
+    edges = defaultdict(set)
+    for chunk_id, triples in triples_by_chunk.items():
+        for subject, relation, obj in triples:
+            subject, obj = canonical(subject, aliases), canonical(obj, aliases)
+            if subject != obj:
+                edges[(subject, relation, obj)].add(chunk_id)
+    return {edge: sorted(sources) for edge, sources in edges.items()}
+`;

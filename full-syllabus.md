@@ -4362,6 +4362,22 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    paper (Edge et al., arXiv 2404.16130) linked, its "global questions" and
    query-focused summarisation framing checked against the abstract; 4
    quiz cards; no exercise, as in the mockup. No changes from the mockup.
+   Concept 2 (extracting entities and relationships) is built: setup now
+   appends the new `GRAPH_DATA` (`load_graph_data`, `ALIASES`,
+   `canonical`), shown as a static block byte-identical to the export and
+   the mockup; data is the new `RAG_GRAPH_DATA` (`RAG_CONTEXTUAL_DATA` plus
+   `graph.json`). The extraction prompt is shown as a static block,
+   checked identical to `graph.json`'s. Two live demos, code and output
+   exact matches in real Pyodide (D04:3's three triples, replayed through
+   the fake client; 35 names merging to 29 entities); the Lesson 9 link
+   reuses the anchor from Lesson 11 concept 2; 4 quiz cards; graded
+   `build_graph` exercise, reference exported as `BUILD_GRAPH`. Verified
+   with the real `runAgainstHiddenTests`: the reference passes (35 edges on
+   the real extraction), the starter fails all four, and eight mutations
+   each fail (no `canonical`, aliases not passed, only the subject made
+   canonical, self-loops kept, self-loops checked before merging, the
+   relation dropped, repeated sources, unsorted sources). No changes from
+   the mockup.
    The lesson's other concepts and the bookends aren't drafted yet. Lesson
    1's and Lesson 2's forward references to Lesson 12 stay plain prose.
 
