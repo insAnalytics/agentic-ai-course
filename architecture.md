@@ -340,6 +340,22 @@ served as plain static files. Module 5 (RAG) uses `public/data/rag/`:
   pypdf 6.19.0, pdfplumber 0.11.10, reportlab 5.0.1, matplotlib 3.11.2;
   checked when generated: the two `extracted.json` copies match, keys match
   the chunk texts, vectors unit length, no NaNs.
+- Graph data (Lesson 12), from `scripts/generate-rag-graph.py` (see
+  `README-graph.md`): `graph.json` (~7 KB) holds the extraction prompt, the
+  model-written `[subject, relation, object]` triples for each structured
+  200-token chunk of D04, D08 and D09 to D12 (25 chunks, 47 triples,
+  entity names left as each chunk writes them), the community-summary
+  prompt and 4 community summaries, all from
+  `scripts/rag_corpus/graph_src.py` and served as scripted model replies.
+  No model runs to generate it. The lesson needs **networkx** in the
+  sandbox: Pyodide 0.26.4 ships networkx **3.3** (the lesson's outputs were
+  written with 3.6.1), and `loadPackage("networkx")`, or an `import
+  networkx` seen by `loadPackagesFromImports`, loads it. Checked in Node:
+  `networkx.community.louvain_communities(graph, seed=0)` runs, and on the
+  raw triples graph (35 nodes, 42 edges) 3.3 in Pyodide, 3.3 on desktop and
+  3.6.1 on desktop give the same five communities. Any Louvain output in
+  the lesson should still be rechecked in Pyodide when it's converted,
+  since the lesson's graph (after normalising names) is a different graph.
 
 **Loading rule (every Module 5 page):** fetch these files at runtime, on the
 learner's first Run click, and let the browser cache them — never `import`
