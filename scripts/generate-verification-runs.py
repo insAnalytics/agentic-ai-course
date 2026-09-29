@@ -408,7 +408,9 @@ def summarize(condition: str, records: list[dict]) -> None:
 
     if condition in ("support", "statements", "draft-support"):
         print("verdicts:", dict(Counter(r["verdict"] for r in records)))
-        truth = {p["id"]: p["label"] for key in ("support_pairs", "statement_pairs") for p in load("set-v.json")[key]}
+        # the two pair sets share ids (e.g. "v01-altered"), so look only in the one this condition ran
+        pairs_key = "statement_pairs" if condition == "statements" else "support_pairs"
+        truth = {p["id"]: p["label"] for p in load("set-v.json")[pairs_key]}
         wanted = {"supported": "SUPPORTED", "not_supported": "NOT SUPPORTED", "contradict": "CONTRADICT",
                   "consistent": "CONSISTENT"}
         labelled = [r for r in records if r["id"] in truth]
