@@ -4801,7 +4801,24 @@ architecture.md §3.1).
    reranking-measured concept (page links), Module 5's
    `#what-reading-together-costs` (where the 3.55 ms figure is; the mockup
    named only the concept) and Module 1's autoregressive-generation
-   concept. 4 quiz cards. Next per the mockup: what "the same budget" means.
+   concept. 4 quiz cards. Concept 3 (equal budgets need a stated unit) is
+   built: the five budget units and Kapoor et al.'s scientist/builder
+   split, five options from the committed runs costed in tokens,
+   GPU-seconds and wait (three different orders), Kapoor et al.'s Table A1
+   frontier by plain dominance, two cautions, 5 quiz cards, and a graded
+   `pareto_frontier(options, cost_key)` exercise. Both demos and the
+   starter's printout reproduce the mockup's output exactly in real
+   Pyodide 0.26.4 (the cost demo against the `plain.smaller`,
+   `thinking.smaller`, `plain` and `stronger` runs). The mockup's tests
+   were split into 5 self-contained tests: the reference passes all 5, and
+   seven wrong versions each fail at least one (a fixed "tokens" field, no
+   strict-improvement clause, strict on both, the single-pass sort the
+   explanation warns about, sorting by cost only, no ValueError, and the
+   bare starter). The frontier demo's f"${...}" is written as `${"$"}{` in
+   the String.raw template, and every template was evaluated in JS to
+   confirm it round-trips to the verified Python. Callback: Lesson 1
+   concept 2's `#how-sure-can-we-be-of-these-numbers` (verified against
+   the built HTML). Next per the mockup: where to spend.
 
 ---
 
