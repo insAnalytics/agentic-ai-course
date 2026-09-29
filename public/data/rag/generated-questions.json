@@ -1,0 +1,170 @@
+{
+  "written_by": "Claude, for the course, with each passage in view; served in the lessons as model-written questions",
+  "sampling": "20 sections drawn with Python's random.Random(2).sample from the 70 sections of the company's official documents (D01 to D14) that have text beyond their heading",
+  "prompts": {
+    "generated": "Write one question a user might ask that this passage answers. Reply with the question only.",
+    "paraphrased": "Write one question a user might ask that this passage answers. Don't reuse the passage's key terms: ask it the way someone who hasn't read the passage would. Reply with the question only."
+  },
+  "questions": [
+    {
+      "id": "g01",
+      "doc_id": "D01",
+      "section": "Listing agents",
+      "quote": "pass it back as `cursor` to get the next page",
+      "generated": "When listing agents with GET /agents, how do I get the next page of results?",
+      "paraphrased": "My request only returned some of the entries. How do I fetch the remainder?"
+    },
+    {
+      "id": "g02",
+      "doc_id": "D01",
+      "section": "Tiers and models",
+      "quote": "Moving an agent to `claude-opus` therefore means moving it to the `priority` tier first, which needs approval from its owner's budget holder.",
+      "generated": "What is required to move an agent to claude-opus?",
+      "paraphrased": "What do I need before switching my bot to the top-end LLM?"
+    },
+    {
+      "id": "g03",
+      "doc_id": "D02",
+      "section": "Authentication errors",
+      "quote": "The key was valid but has been revoked.",
+      "generated": "What does the REG-1003 KEY_REVOKED error mean?",
+      "paraphrased": "My credential worked yesterday and is now refused as withdrawn. Can I get it back?"
+    },
+    {
+      "id": "g04",
+      "doc_id": "D02",
+      "section": "Monitoring errors",
+      "quote": "Monitoring failed to reach the Registry API three times in a row.",
+      "generated": "What does the MON-2002 REGISTRY_UNREACHABLE error mean?",
+      "paraphrased": "What does it mean when the metrics system says it can't contact the configuration service?"
+    },
+    {
+      "id": "g05",
+      "doc_id": "D02",
+      "section": "Request errors",
+      "quote": "An agent with this `agent_id` already exists, including a retired one.",
+      "generated": "When does the REG-1006 AGENT_NAME_TAKEN error occur?",
+      "paraphrased": "Why am I refused when I register a new bot under a name an old, decommissioned one used?"
+    },
+    {
+      "id": "g06",
+      "doc_id": "D04",
+      "section": "How requests flow",
+      "quote": "If auth-service is slow, every registry request is slow; if registry-db is unavailable, registry-api can't answer at all.",
+      "generated": "What happens to registry requests if auth-service is slow or registry-db is unavailable?",
+      "paraphrased": "Why would lookups of bot settings crawl when the credential-checking component is sluggish?"
+    },
+    {
+      "id": "g07",
+      "doc_id": "D05",
+      "section": "Step 1: Confirm it on the dashboard",
+      "quote": "If p95 is back under 8 seconds, note it in the alert thread and stop.",
+      "generated": "What should I do if p95 is back under 8 seconds when I check the dashboard?",
+      "paraphrased": "The slowness warning went off, but response times have recovered by the time I look. Do I keep investigating?"
+    },
+    {
+      "id": "g08",
+      "doc_id": "D05",
+      "section": "Step 3: Check the cache hit rate",
+      "quote": "Below 40% usually means the cache was flushed or restarted, and it refills on its own within about 10 minutes.",
+      "generated": "What does a cache hit rate below 40% usually mean during a latency spike?",
+      "paraphrased": "Suddenly most lookups miss the stored copies. Should I escalate straight away?"
+    },
+    {
+      "id": "g09",
+      "doc_id": "D06",
+      "section": "Step 2: Deploy it",
+      "quote": "New sessions pick up the new key; sessions already running finish on the old one.",
+      "generated": "After deploying the new key, do sessions already running pick up the new key?",
+      "paraphrased": "Once I swap in a fresh credential, do conversations already underway switch over immediately?"
+    },
+    {
+      "id": "g10",
+      "doc_id": "D07",
+      "section": "Step 1: Check the target is allowed",
+      "quote": "Both target models are allowed on the `standard` tier, so neither agent needs a tier change.",
+      "generated": "Do the agents migrating off claude-legacy need a tier change for their target models?",
+      "paraphrased": "For the two bots being moved off the retiring LLM, must their service level be upgraded first?"
+    },
+    {
+      "id": "g11",
+      "doc_id": "D07",
+      "section": "Step 2: Compare before you switch",
+      "quote": "Run 20 recent tasks through the target model and compare the results with what `claude-legacy` produced.",
+      "generated": "How should I compare the target model with claude-legacy before I switch?",
+      "paraphrased": "How do I check that a replacement LLM behaves acceptably before cutting over?"
+    },
+    {
+      "id": "g12",
+      "doc_id": "D07",
+      "section": "Step 3: Switch",
+      "quote": "Set the new model with `PATCH /agents/{agent_id}`.",
+      "generated": "How do I set the new model when switching an agent off claude-legacy?",
+      "paraphrased": "Which call actually changes the LLM a bot runs on during the move?"
+    },
+    {
+      "id": "g13",
+      "doc_id": "D07",
+      "section": "Step 4: Roll back if needed",
+      "quote": "If the new model misbehaves, set the agent's `status` to `paused` while you fix the problem, and tell its users.",
+      "generated": "What should I do if the new model misbehaves after switching off claude-legacy?",
+      "paraphrased": "The replacement LLM is giving bad output after the move. Can I just go back to the old one?"
+    },
+    {
+      "id": "g14",
+      "doc_id": "D08",
+      "section": "When RegistryUnreachable fires",
+      "quote": "While the registry is down, monitoring can't refresh its agent list, so dashboards may show no agents at all even though the agents are still running.",
+      "generated": "Why may dashboards show no agents at all when RegistryUnreachable fires?",
+      "paraphrased": "Every bot vanished from the graphs, yet they seem to be working. What's going on?"
+    },
+    {
+      "id": "g15",
+      "doc_id": "D09",
+      "section": "Summary",
+      "quote": "On 2026-04-08, `billing_agent` failed to issue invoices for 2 hours 15 minutes.",
+      "generated": "How long did billing_agent fail to issue invoices in INC-2041?",
+      "paraphrased": "How long was the finance bot unable to bill customers during the April outage?"
+    },
+    {
+      "id": "g16",
+      "doc_id": "D10",
+      "section": "What happened",
+      "quote": "On 2026-06-15 a config change set the kb-search cache's time-to-live to 7 days instead of 7 hours.",
+      "generated": "What config change caused research_agent's kb-search results to go out of date?",
+      "paraphrased": "Why did the bot that looks things up for reports keep quoting old versions of pages in June?"
+    },
+    {
+      "id": "g17",
+      "doc_id": "D13",
+      "section": "Raising the limit",
+      "quote": "Raises up to $6,000 are approved by the Finance operations lead.",
+      "generated": "Who approves raising billing_agent's monthly limit up to $6,000?",
+      "paraphrased": "Who signs off if the invoicing bot needs a bigger monthly allowance?"
+    },
+    {
+      "id": "g18",
+      "doc_id": "D13",
+      "section": "Why the cap exists",
+      "quote": "In March, a loop bug made `billing_agent` retry failed invoices without a step limit, and it used $2,900 of model calls in one night.",
+      "generated": "Why does the cap on billing_agent's model usage exist?",
+      "paraphrased": "What went wrong that led finance to put a ceiling on what the invoicing bot can spend?"
+    },
+    {
+      "id": "g19",
+      "doc_id": "D14",
+      "section": "How do I find out which model my agent is on?",
+      "quote": "Look it up in the registry: its record has a `model` field.",
+      "generated": "How do I find out which model my agent is on?",
+      "paraphrased": "Where can I see which LLM powers a particular bot?"
+    },
+    {
+      "id": "g20",
+      "doc_id": "D14",
+      "section": "Why does my agent get told to slow down?",
+      "quote": "Each key gets a fixed number of registry calls per minute.",
+      "generated": "Why does my agent get told to slow down?",
+      "paraphrased": "Why is my bot being throttled?"
+    }
+  ]
+}

@@ -25,6 +25,32 @@ print(f"relevant sections per query: {min(relevant_counts)} to {max(relevant_cou
 print(f"the best precision@5 any search could reach: {best_precision:.3f}")
 `;
 
+export const RANK_DEMO = String.raw`import math
+
+def dcg(gains: list[int]) -> float:
+    """Each result's relevance grade, divided by log2(position + 1), summed."""
+    return sum(gain / math.log2(position + 1) for position, gain in enumerate(gains, 1))
+
+def ndcg(gains: list[int]) -> float:
+    """DCG divided by the DCG of the best possible order of the same results."""
+    return dcg(gains) / dcg(sorted(gains, reverse=True))
+
+def context_precision(gains: list[int]) -> float:
+    """RAGAS's formula: precision@k at each relevant position, averaged over the relevant results."""
+    at_hits = [sum(gains[:position]) / position for position, gain in enumerate(gains, 1) if gain]
+    return sum(at_hits) / len(at_hits)
+
+rankings = {
+    "relevant at 1 and 2": [1, 1, 0, 0, 0],
+    "relevant at 2 and 4": [0, 1, 0, 1, 0],
+    "relevant at 4 and 5": [0, 0, 0, 1, 1],
+    "relevant at 1 only":  [1, 0, 0, 0, 0],
+}
+print(f"{'top 5 results':<22}{'precision@5':>12}{'nDCG@5':>8}{'context precision':>19}")
+for name, gains in rankings.items():
+    print(f"{name:<22}{sum(gains) / 5:>12.2f}{ndcg(gains):>8.3f}{context_precision(gains):>19.3f}")
+`;
+
 export const STARTER = String.raw`def is_relevant_to_query(chunk: dict, query: dict) -> bool:
     return any(is_relevant(chunk, span) for group in query["evidence"] for span in group)
 
@@ -194,6 +220,58 @@ the keyword search.
 
 </Subsection>
 
+<Subsection title="The same ideas under other names" variant="a">
+
+Evaluation tools report close relatives of these metrics, under their own
+names:
+
+- **Hit rate**, also called **success@k**: the share of questions with at
+  least one relevant result in the top *k*. LlamaIndex's retrieval
+  evaluator reports it next to MRR. For a one-part question it's exactly
+  answerable@k. For a multi-part question it's looser, since finding one
+  part is enough.
+- **nDCG**, normalised discounted cumulative gain (Järvelin and
+  Kekäläinen, 2002). Each result earns its relevance grade, say 2 for a
+  passage that answers fully, 1 for a partial answer and 0 for nothing,
+  divided by log2 of its position plus one: first place counts in full,
+  second about 0.63, fifth about 0.39. The sum is the DCG. Dividing it by
+  the DCG of the best possible order gives a score from 0 to 1. With graded
+  labels it rewards putting full answers above partial ones; with yes/no
+  labels it still rewards earlier hits.
+- **Context recall and context precision**, in RAGAS, a RAG evaluation
+  library. Its model-based context recall splits a reference answer into
+  claims, asks a model whether the retrieved context supports each, and
+  reports the share supported. That's this lesson's recall, which counts
+  the answer's parts, with a model deciding the parts and their support
+  instead of labelled quotes. Its context precision is a different
+  measure from precision@k: it takes precision at each position that
+  holds a relevant result, averages those, and divides by the number of
+  relevant results retrieved, not by *k*. So it measures ranking, like MRR
+  and nDCG, and irrelevant results after the last relevant one cost it
+  nothing.
+
+Here are four result lists, scored all three ways:
+
+<LiveDemo client:load code={RANK_DEMO} />
+
+Precision@5 can't tell the first three lists apart: each has two relevant
+results in five. nDCG and context precision both drop as the hits move
+down. The last row shows where they differ from precision: one relevant
+result, in first place, scores 1.000 on both, and 0.20 on precision@5. For
+nDCG that's partly an artefact of this demo, whose best order is just
+the same results rearranged. A full nDCG builds its best order from every
+relevant passage in the collection, so a search that missed a second
+relevant passage would score less.
+
+This module doesn't use nDCG because its labels are yes or no, and
+[when the labels are wrong](/05-rag-systems/02-measuring-retrieval/05-when-the-labels-are-wrong/#what-labels-can-t-settle)
+explains why grading them would cost more. With yes/no labels, MRR already
+rewards an early first hit, and answerable@k says whether the whole
+answer arrived. When you meet one of these names in a tool, check what it
+counts and what it divides by before comparing it with anything here.
+
+</Subsection>
+
 <CheckpointZone>
 
 <QuizGroup
@@ -242,6 +320,28 @@ the keyword search.
     ],
     "correctIndex": 2,
     "explanation": "More slots give more chances to include the answer, and most of the extra slots are noise, so precision drops. MRR can only rise or stay the same, since a first relevant result at position 7 now counts. The top five results are the same either way."
+  },
+  {
+    "question": "A tool reports a hit rate@5 of 0.9 for your search. How does that relate to its answerable@5?",
+    "options": [
+      "It's the same measure, only reported under a different name",
+      "It can only be lower, since a hit also has to be in first place",
+      "It can be higher, since finding one part of a multi-part answer is a hit",
+      "It can be higher, since hit rate divides by the results actually returned"
+    ],
+    "correctIndex": 2,
+    "explanation": "Hit rate asks whether anything relevant came back; answerable@k asks whether every part did. For one-part questions they're the same, so any gap between them is multi-part questions with a part missing. Neither depends on position within the top k."
+  },
+  {
+    "question": "RAGAS's context precision scores a list with one relevant chunk, in first place, at 1.0. Why does precision@5 score the same list 0.2?",
+    "options": [
+      "Context precision divides by the relevant results found, not by the slots",
+      "Context precision uses a model to judge relevance, which is more generous",
+      "Precision@5 penalises a list for putting its only relevant chunk first",
+      "Context precision looks only at the first result and ignores the rest"
+    ],
+    "correctIndex": 0,
+    "explanation": "It averages precision at each relevant position, and here there's one, at position 1, where precision is 1. The four irrelevant chunks after it cost nothing, where precision@5 counts every slot. It measures ranking, closer to MRR than to precision@k. It can use a model to judge relevance, but that isn't why the numbers differ."
   }
 ]}
 />

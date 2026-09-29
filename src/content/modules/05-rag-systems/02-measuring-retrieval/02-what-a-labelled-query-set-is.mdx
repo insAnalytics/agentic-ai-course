@@ -60,6 +60,35 @@ problems = [span for span in spans if documents[span["doc_id"]].count(normalize(
 print(f"{len(spans)} quotes checked, {len(problems)} not found exactly once")
 `;
 
+export const GENERATED_DATA = [...RAG_EVAL_DATA, "rag/generated-questions.json"];
+
+export const GENERATED_DEMO = String.raw`generated = json.loads(Path("/data/rag/generated-questions.json").read_text(encoding="utf-8"))
+sections = load_sections()
+index = KeywordIndex()
+index.add(sections)
+
+def words_shared(query: dict) -> float:
+    """The share of the question's keywords found in the labelled section it shares most words with."""
+    words = keywords(query["query"])
+    labelled = [s for s in sections if any(is_relevant(s, span) for group in query["evidence"] for span in group)]
+    return max(len(words & keywords(s["text"])) for s in labelled) / len(words)
+
+def report(name: str, queries: list[dict]) -> None:
+    answered = sum(answerable(index.search(q["query"], 5), q) for q in queries)
+    shared = sum(words_shared(q) for q in queries) / len(queries)
+    print(f"{name:<31}{answered:>5} of {len(queries):<5}{shared:>13.0%}")
+
+own = [q for q in load_queries()["main"] if q["evidence"]]
+print(f"{'':<31}{'answerable@5':>13}{'words shared':>14}")
+report("this set, every scored question", own)
+report("this set, one-part questions", [q for q in own if len(q["evidence"]) == 1])
+for style in ["generated", "paraphrased"]:
+    # each model-written question is labelled with a quote from the section it was written from
+    questions = [{"query": g[style], "evidence": [[{"doc_id": g["doc_id"], "quote": g["quote"]}]]}
+                 for g in generated["questions"]]
+    report(f"model-written, {style}", questions)
+`;
+
 <Subsection title="Questions, with their answers written down first" variant="a">
 
 A labelled query set is a list of questions, each paired with where its
@@ -180,6 +209,103 @@ How the set was made matters as much as its contents:
 
 </Subsection>
 
+<Subsection title="Where real questions come from" variant="a">
+
+This module's 57 questions were written by one author reading the corpus.
+That's where a set starts, not where a team's set should end. An author
+writes the questions they can imagine; users ask the ones nobody
+imagined, in words nobody chose. Once a system has users, there are
+better sources:
+
+- **Query logs.** What people actually typed, misspellings included, in
+  the proportions they type it. Logs are also personal data: people paste
+  names, account details and secrets into search boxes. Use them only as
+  far as your users agreed to, remove or mask what identifies people
+  before anyone reads them for labelling, and give the labelled set the
+  same access rules as the logs it came from.
+- **Support tickets and escalations.** Questions that already went wrong
+  once, often with a person's answer attached, which makes labelling
+  faster. They over-represent the hard cases, which is useful as long as
+  you know it.
+- **Fresh samples, on a schedule.** What people ask drifts: a new feature,
+  a new error code, a migration everyone is suddenly doing. A set frozen
+  at launch slowly turns into a measure of last year's traffic. Add new
+  questions regularly and keep the old ones, so each version still covers
+  what the last one did.
+
+Each refresh is a new version of the set, and the versioning rule above
+still holds: numbers from different versions aren't compared.
+
+</Subsection>
+
+<Subsection title="Questions a model writes" variant="b">
+
+Writing questions by hand is slow, so a common shortcut is to have a model
+write them: show it a chunk, ask for a question the chunk answers, and
+label the question with that chunk. It's cheap, it scales to every chunk
+in the index, and the labels come for free.
+
+It has a known bias. A model that has just read a passage tends to ask
+about it in the passage's own words, and keyword search rewards exactly
+that. The effect was documented before models wrote questions, with people
+who wrote questions while looking at the answer: Lee, Chang and Toutanova
+(2019) found that on question sets where the person asking already knew
+the answer, a traditional keyword search such as BM25 was enough, while on
+questions from people genuinely looking for an answer, learned retrieval
+beat it by up to 19 points of exact match.
+
+To see the bias on this corpus, 20 sections were drawn at random from the
+company's own documents, and for each one a model was given the section
+and the prompt "Write one question a user might ask that this passage
+answers." These questions are **model-written**: Claude wrote them for the
+course with each section in view, and they're stored with their prompts in
+`generated-questions.json`. A second batch, for the same 20 sections, adds
+the instruction generators use against this bias: "Don't reuse the
+passage's key terms." Each question is labelled with a quote from the
+section it was written from, and its quotes pass the same exactly-once
+check as the set's own. Everything is scored as before, with Lesson 1's
+keyword search at *k* = 5. The last column is the share of a question's
+keywords that appear in its labelled section; for a question with several,
+the one it shares most with:
+
+<LiveDemo client:load dataFiles={GENERATED_DATA} setupCode={SETUP} code={GENERATED_DEMO} />
+
+The questions written in the passage's own words were answerable 18 times
+out of 20. That's far above this set's 19 of 43, and above its 19 of
+31 one-part questions, the fairer comparison, since every generated
+question has one part. The paraphrased batch, asking about the same 20
+sections, found none. The overlap column shows the mechanism: 61% of the
+first batch's keywords are in the section, against 45% for this set's
+own questions and 9% for the paraphrases. One pair shows it: "Why does my agent
+get told to slow down?" copies the FAQ's heading, while "Why is my bot
+being throttled?" asks the same thing and shares only "why" with it.
+
+Read this as a demonstration of a documented bias on 20 questions, not as
+a benchmark. Neither batch estimates how this search does for real users.
+The first flatters keyword search. The second overshoots the other way: it
+calls every agent a "bot" and every model an "LLM", words the company's
+documents never use. This set's own questions sit between the two: they
+were written by someone who knew the documents too, but deliberately in
+several shapes, paraphrases included. What follows for a team using
+generated questions:
+
+- **Don't let them stand alone.** Mix them with real questions and report
+  the two separately, so a flattering batch can't lift the total.
+- **Measure the overlap.** It's a few lines of code, and a generated batch
+  sharing far more words with its sources than real questions do is a
+  warning.
+- **Expect missing labels.** A generated question is labelled with the
+  chunk it came from, but other passages may answer it too: the API
+  reference and the FAQ both explain rate limits. Those are the missing
+  labels of
+  [when the labels are wrong](/05-rag-systems/02-measuring-retrieval/05-when-the-labels-are-wrong/#a-label-that-was-right-and-incomplete).
+
+Search by meaning, from Lesson 4, is built to close exactly the gap
+between those two batches. These questions have no precomputed vectors, so
+this page can't test that.
+
+</Subsection>
+
 <Subsection title="What the set can't score" variant="a">
 
 Some query types are in the set for later lessons, and don't fit a
@@ -250,6 +376,28 @@ low. Later lessons report the types separately.
     ],
     "correctIndex": 1,
     "explanation": "If you label what your search found, every passage it missed is missing from the labels too, and the search looks perfect. Labels written independently, from the documents, can catch what the search misses."
+  },
+  {
+    "question": "A team has a model write one question per chunk, then scores its keyword search on those questions. Why might the score be too high?",
+    "options": [
+      "Models only write questions about the easiest chunks in an index",
+      "They tend to reuse their chunk's words, which keyword search matches",
+      "Each generated question is labelled with several answering chunks",
+      "Model-written questions are shorter, so fewer of their words can mismatch"
+    ],
+    "correctIndex": 1,
+    "explanation": "On this corpus, questions in their passages' own words were answerable 18 times out of 20, and the same questions asked without the passages' key terms 0 times. The overlap column shows the mechanism: shared words. A generated question is labelled only with the chunk it came from, which if anything misses answers rather than adding them."
+  },
+  {
+    "question": "Why should a team keep adding questions from recent queries, rather than keep the set it built at launch?",
+    "options": [
+      "Old questions stop being answerable whenever the index is rebuilt",
+      "Logged queries come with their answers, so they need no labelling",
+      "What users ask drifts, so a frozen set measures old traffic",
+      "A query set has to be rebuilt whenever a metric is added to it"
+    ],
+    "correctIndex": 2,
+    "explanation": "New features, error codes and migrations change what people ask. Adding fresh questions, keeping the old ones and versioning the set keeps the measurement pointed at current use. Logged questions still need labelling, and anything that identifies a person removed before anyone reads them."
   }
 ]}
 />

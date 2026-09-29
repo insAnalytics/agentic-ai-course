@@ -66,6 +66,31 @@ print(f"gained {len(gained)}, lost {len(lost)}, unchanged {len(before & after)} 
 print(f"chance of a split this lopsided with no real effect: {sign_test(len(gained), len(lost)):.2f}")
 `;
 
+export const INTERVAL_DEMO = String.raw`def wilson(successes: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    """A 95% confidence interval for successes out of n: the Wilson score interval."""
+    rate = successes / n
+    centre = (rate + z * z / (2 * n)) / (1 + z * z / n)
+    spread = z / (1 + z * z / n) * math.sqrt(rate * (1 - rate) / n + z * z / (4 * n * n))
+    return centre - spread, centre + spread
+
+index = KeywordIndex()
+index.add(load_sections())
+labelled = load_queries()
+main = [q for q in labelled["main"] if q["evidence"]]
+answered = sum(answerable(index.search(q["query"], 5), q) for q in main)
+
+# the held-out questions are counted here, never searched: their score waits for the last lesson
+held_out = sum(1 for q in labelled["held_out"] if q["evidence"])
+rate = answered / len(main)
+
+print(f"{'answerable@5':<32}{'score':<12}{'95% interval':<14}{'one question':>12}")
+for name, hits, n in [("main set", answered, len(main)),
+                      ("held out, at the same rate", round(rate * held_out), held_out),
+                      ("ten times the main set", answered * 10, len(main) * 10)]:
+    low, high = wilson(hits, n)
+    print(f"{name:<30}{hits:>4} of {n:<4}  {low:.3f} to {high:.3f}{1 / n:>12.3f}")
+`;
+
 <Subsection title="The baseline, at several depths" variant="a">
 
 Here are the previous concept's metrics for Lesson 1's keyword search, at
@@ -142,6 +167,14 @@ habits follow:
   worth more than 2 points of answerable@5. A gain of one or two questions
   is well within noise.
 
+The sign test is the exact form of **McNemar's test**, the standard test
+for two systems scored yes or no on the same items. Questions both
+searches answer, or both miss, say nothing about which is better, so only
+the flips count. For a metric that isn't yes or no, like MRR, the usual
+tool is a **paired bootstrap**: resample the questions with replacement
+many times, compute the difference in MRR between the two searches on
+each resample, and see how often it comes out at zero or below.
+
 </Subsection>
 
 <Subsection title="The held-out set" variant="b">
@@ -159,6 +192,62 @@ only where a count should cover every question, like the leaks Lesson 13
 counts, and never to pick a setting. Run on a finished system, they give one
 honest number. If it's much worse than the main set's, the tuning fitted the
 questions rather than the problem.
+
+</Subsection>
+
+<Subsection title="How uncertain one number is" variant="a">
+
+Every score so far has been a single figure, like 0.442, written as if it
+were exact. It's 19 questions out of 43, and another 43 questions of the
+same kinds would have given a somewhat different figure. A **confidence
+interval** puts a range on that: the rates this search could plausibly
+have on questions like these, given what was observed. The one below is
+the Wilson score interval, a standard formula for a rate of yes/no
+outcomes that stays sensible on small samples:
+
+<LiveDemo client:load dataFiles={RAG_EVAL_DATA} setupCode={SETUP} code={INTERVAL_DEMO} />
+
+- **The main set's 0.442 is consistent with anything from about 0.30 to
+  0.59.** That range is about 28 points wide, and one question is worth 2.3
+  points.
+- **The held-out set is much blunter.** It has 10 scored questions, so each
+  is worth 10 points. At the same rate, 4 of 10, the interval runs from
+  0.168 to 0.687, more than half the scale. The demo counts the held-out
+  questions without searching them, since their score is saved for the
+  module's last lesson. That score will be coarse: it can reveal a large
+  gap from the main set, and can't resolve a small one.
+- **More questions help, slowly.** Ten times the questions at the same
+  rate narrows the interval to 0.396 to 0.489, about a third of the width,
+  because the width shrinks with the square root of the number of
+  questions.
+
+A **bootstrap** is the other common way to get an interval: resample the
+questions with replacement many times, recompute the metric on each
+resample, and take the middle 95% of the results. It needs no formula, so
+it works for any metric.
+
+Separate intervals are the wrong tool for comparing two searches on the
+same questions, though. Both are wide, so they overlap easily, and much of
+their width comes from which questions happened to be chosen, which
+affects both searches alike. A paired comparison, like the sign test
+above, looks only at the questions that changed, and can detect a
+difference that two overlapping intervals would hide.
+
+</Subsection>
+
+<Subsection title="Speed and size are numbers too" variant="b">
+
+Relevance isn't the only thing worth measuring. In an agent loop,
+retrieval can run several times in one task, so two more numbers belong
+next to the relevance metrics: **latency**, reported as the median (p50)
+and the 95th percentile (p95) of how long a search takes, because the
+slow tail is what users wait for and it adds up across calls; and
+**tokens sent**, the size of what the top *k* adds to each model call,
+paid for on every call and taking room in the context window, as
+[Module 4](/04-context-and-memory/01-the-context-budget/03-watching-it-grow-across-the-loop/#measure-first)
+measured. A change that answers one more question and doubles the tokens
+per call is a trade, not a win, so record relevance, latency and tokens
+together, on the same questions.
 
 </Subsection>
 
@@ -210,6 +299,28 @@ questions rather than the problem.
     ],
     "correctIndex": 0,
     "explanation": "The main set is used to make decisions, so scores on it drift upwards as the system fits its quirks. The held-out set is the same kind of question, never used for a decision, so the gap between the two shows how much of the improvement was fitting."
+  },
+  {
+    "question": "The held-out set has 10 scored questions. What can its one score, at the end of the module, show?",
+    "options": [
+      "The exact rate the finished system will reach for real users",
+      "A large gap from the main set's score, but not a small one",
+      "Nothing at all, since 10 questions can't give a valid interval",
+      "Which of the module's techniques produced the final score"
+    ],
+    "correctIndex": 1,
+    "explanation": "Each held-out question is worth 10 points, and 4 of 10 has a 95% interval from 0.168 to 0.687. A difference of a question or two from the main set is noise; a much lower score is still a clear sign that the tuning fitted the main set. Ten questions give a wide interval, not a meaningless one."
+  },
+  {
+    "question": "Two searches' answerable@5 intervals on the same 43 questions overlap heavily. How can a sign test still find a real difference?",
+    "options": [
+      "It uses a 90% interval, which is narrower than a 95% one",
+      "It adds the held-out questions, which makes the sample larger",
+      "It weights each question by how hard the question is",
+      "It pairs each question with itself and counts only the flips"
+    ],
+    "correctIndex": 3,
+    "explanation": "Much of each interval's width comes from which questions happened to be chosen, and that affects both searches alike. The sign test, the exact form of McNemar's test, compares the two on the same questions and looks only at those that changed, so that shared variation drops out."
   }
 ]}
 />
