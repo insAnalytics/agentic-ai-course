@@ -578,6 +578,10 @@ for pages *after* concept 2 only, appended after `FUSE_HELPERS`. From
 Lesson 14 concept 3 on the setup appends `HYBRID_SEARCH`;
 `DUPLICATE_CANDIDATES` (`duplicate_candidates`) is concept 3's exercise
 reference, for pages *after* concept 3 only, appended after `HYBRID_SEARCH`.
+From Lesson 14 concept 4 on the setup appends `DUPLICATE_CANDIDATES` and then
+`SCORE_MEMORIES` (`days_between`, `min_max`, `score_memories`, shown verbatim
+on that page); `RECALL_SCORED` (`recall_scored`) is concept 4's exercise
+reference, for pages *after* concept 4 only, appended after `SCORE_MEMORIES`.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.

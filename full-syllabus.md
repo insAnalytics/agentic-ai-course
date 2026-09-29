@@ -4582,8 +4582,22 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    Priya.", 0.839 for "Tom owns support_agent.", as the explanation says),
    the starter fails all three, and seven mutations each fail (not rounded,
    rounded to 2, strictly above the threshold, kind ignored, least similar
-   first, memories without their similarity, the threshold ignored). The
-   lesson's other concepts and the bookends aren't drafted yet.
+   first, memories without their similarity, the threshold ignored).
+   Concept 4 (relevance in the recall score) is built: setup now appends
+   `DUPLICATE_CANDIDATES` and the new `SCORE_MEMORIES` (`days_between`,
+   `min_max`, `score_memories`), shown as a static block byte-identical to
+   the export and the mockup. Two live demos, code and output exact matches
+   in real Pyodide (keywords 7 at every relevance weight, meaning 6 at 1
+   and 9 from 1.5; r08's score parts at equal weights). Link to Module 4's
+   "Three signals", anchor checked in the built HTML. 4 quiz cards; graded
+   `recall_scored` exercise, reference exported as `RECALL_SCORED`. **Change
+   from the mockup's hidden tests:** each test starts with the shared
+   fixtures, since each runs alone. Verified with the real
+   `runAgainstHiddenTests`: the reference passes (9 of 10 eligible tasks),
+   the starter fails all three, and six mutations each fail (procedures
+   competing, weights ignored, `limit` ignored, lowest first, relevance
+   only, no check for no candidates). The lesson's other concepts and the
+   bookends aren't drafted yet.
 
 ---
 

@@ -1622,3 +1622,51 @@ def duplicate_candidates(new: str, memories: list[dict], vectors: dict, threshol
               if kind is None or m["type"] == kind]
     return sorted([pair for pair in scored if pair[0] >= threshold], key=lambda pair: -pair[0])
 `;
+
+/**
+ * Module 5 Lesson 14 concept 4 days_between, min_max and score_memories, shown
+ * verbatim on that page (keep the two byte-identical). Joins the Lesson 14
+ * setup from concept 4 on: append after DUPLICATE_CANDIDATES.
+ */
+export const SCORE_MEMORIES = String.raw`
+from datetime import datetime
+
+def days_between(earlier: str, later: str) -> float:
+    return (datetime.fromisoformat(later) - datetime.fromisoformat(earlier)).total_seconds() / 86400
+
+def min_max(values: list) -> list:
+    """Module 4 Lesson 11's scaling to between 0 and 1; all equal means all 0.5."""
+    low, high = min(values), max(values)
+    if high == low:
+        return [0.5 for v in values]
+    return [(v - low) / (high - low) for v in values]
+
+def score_memories(memories: list[dict], relevance: list[float], now: str, weights: tuple = (1.0, 1.0, 1.0),
+                   decay: float = 0.99) -> list[float]:
+    """Module 4 Lesson 11's score, with the relevance values passed in: recency, importance and relevance,
+    each scaled to 0-1, then weighted and added."""
+    recency = [decay ** days_between(m["created"], now) for m in memories]
+    importance = [m["importance"] for m in memories]
+    r, i, v = min_max(recency), min_max(importance), min_max(relevance)
+    w_recency, w_importance, w_relevance = weights
+    return [w_recency * r[k] + w_importance * i[k] + w_relevance * v[k] for k in range(len(memories))]
+`;
+
+/**
+ * Module 5 Lesson 14 concept 4 graded exercise, reference solution verbatim
+ * (recall_scored). Joins the Lesson 14 setup for every page AFTER concept 4
+ * (append after SCORE_MEMORIES) and must never load on concept 4 itself, or the
+ * exercise would start already solved.
+ */
+export const RECALL_SCORED = String.raw`
+def recall_scored(memories: list[dict], task_vector, vectors: dict, now: str, limit: int = 3,
+                  weights: tuple = (1.0, 1.0, 1.5)) -> list[dict]:
+    """Module 4's scored recall with relevance by meaning: facts and episodes only (procedures are always
+    loaded), scored on recency, importance and similarity to the task, best first."""
+    candidates = [m for m in memories if m["type"] != "procedural"]
+    if not candidates:
+        return []
+    relevance = [float(vectors[m["content"]] @ task_vector) for m in candidates]
+    scores = score_memories(candidates, relevance, now, weights)
+    return [candidates[k] for k in sorted(range(len(candidates)), key=lambda k: -scores[k])[:limit]]
+`;
