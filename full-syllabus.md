@@ -4220,8 +4220,9 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    Lesson 10 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
 
-11. **Agentic RAG** (provisional title) — **Building** (folder
-   `11-agentic-rag`, named while the title is provisional). Shared setup is
+11. **Retrieval as a Tool** — **Locked** (folder `11-agentic-rag`, named
+   while the title was provisional; the title comes from the bookends
+   mockup). Shared setup is
    Lesson 10's recap `lib.py`, then `REACT_FAKE_CLIENT + RECORDING_CLIENT`,
    then the new `AGENT_SEARCH` (`CORPUS_CHUNKS`, a BM25 `CORPUS_INDEX`,
    `SEARCH_TOOL`, `run_agent`); data `RAG_DATA`, since nothing in the setup
@@ -4321,7 +4322,33 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    and Gemini CLI; grep generally higher; scores depending strongly on the
    harness and tool-result delivery). Both paper titles link to arXiv. 4
    quiz cards; no exercise, as in the mockup. No changes from the mockup.
-   The lesson's other concepts and the bookends aren't drafted yet. Lesson 1's forward
+   Bookends are built: intro (3 outcomes, why it matters, verbatim from the
+   mockup), 8 quiz cards, and the multi-file `CallBudget` /
+   `answer_with_tools` sandbox (`lib.py` read-only, `agent.py` entry,
+   hidden tests prefixed with `REACT_FAKE_CLIENT + RECORDING_CLIENT`, data
+   `RAG_CONTEXTUAL_DATA`). Starter and reference byte-identical to the
+   mockup. **Change from the mockup's `lib.py`:** it was written with the
+   lesson numbers from before the PDF lesson was inserted, so its section
+   headers read Lessons 5 to 9 and two docstrings said "as in Lesson 5"
+   and "Lesson 8's best retrieval"; those seven lines are renumbered to
+   match the site (Lessons 6 to 10). Otherwise `lib.py` matches the Lesson
+   11 setup line for line, apart from the merged `collections` import, and
+   extends Lesson 10's recap `lib.py` exactly, imports aside. **Changes
+   from the mockup's hidden tests:** every limit in them was 2 and test 5's
+   `max_calls=20` never mattered, so a hard-coded "(2 calls)" and a search
+   budget ignoring `max_calls` both passed; test 1 gains a `max_calls=3`
+   budget and test 5 requires four recorded calls. Verified with the real
+   `runMultiFileAgainstHiddenTests`: the reference passes (about 1 s in
+   Node), the starter fails, and fifteen mutations each fail (limit
+   checked before repeats, repeats counted, `>` for `>=`, a hard-coded
+   limit, budgets shared across questions, one budget for both tools,
+   plain keyword search, `max_calls` ignored for either tool, `max_steps`
+   ignored, SQL calls listed first, cited ids unfiltered, no unknown ids,
+   `stopped` always false, sources unsorted).
+
+   Lesson 11 is now **Locked**: all five concepts plus both bookends exist
+   and build cleanly. Lesson 1's forward references to Lesson 11 stay plain
+   prose. Lesson 1's forward
    references to Lesson 11 stay plain prose.
 
 ---
