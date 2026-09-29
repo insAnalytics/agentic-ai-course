@@ -4990,8 +4990,27 @@ architecture.md §3.1).
    of indices). Callbacks: Module 5 Lesson 10's
    `#a-targeted-check-for-facts-that-matter` and
    `#giving-the-model-what-it-needs-to-choose` (verified against the built
-   HTML). Concepts 4 on (the next checks an answer's figures and ids
-   against tool results, in code) and bookends not yet written.
+   HTML). Concept 4 (figures traced to tool results, in code) is built,
+   with no run data: a scripted two-tool conversation whose answer has two
+   ungrounded facts (940 against 840, and `claude-sonnet`, correct but
+   looked up by nothing), `FACT_ID`/`NUMBER` with ids taken out before
+   numbers, `tool_results_in` skipping `is_error` results, matching by
+   value (2.3% = 0.023, 1,212 = 1212), and the derived-number and
+   non-fact false flags. The demo and the starter's printout reproduce the
+   mockup byte for byte in real Pyodide 0.26.4 (the demo preloads
+   `LOAD_VERIFICATION` for its `re`), and the hint's `1.1 / 100` claim was
+   checked. 4 quiz cards and a graded `ungrounded(answer, tool_results)`
+   exercise (`runnable`). Tests split into 8 self-contained tests; through
+   the real `TEST_HARNESS` the reference passes all 8 and nine wrong
+   versions each fail the test aimed at them (the bare starter, exact string
+   matching, `==` instead of `math.isclose`, no percentage-as-fraction, ids
+   left in the answer or in the results, no dedupe, `sorted(set(...))`, the
+   `%` stripped). Callbacks: Lesson 3's where-a-check-can-sit and
+   checking-a-tool-result concepts (page links) and
+   `#the-loop-with-a-check-at-each-point` (verified against the built
+   HTML); "this lesson's first concept" stays plain text, as the mockup
+   doesn't mark it. Concepts 5 on (the next is about false premises) and
+   bookends not yet written.
 
 ---
 
