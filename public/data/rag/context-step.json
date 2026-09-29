@@ -1,0 +1,620 @@
+{
+ "written_by": "Written for the course; tasks and pairs are labelled by hand",
+ "tools": {
+  "registry__list": "registry__list List agent records in the registry service. Use this when the task needs to list agent records; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "registry__get": "registry__get Get agent records in the registry service. Use this when the task needs to get agent records; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "registry__search": "registry__search Search agent records in the registry service. Use this when the task needs to search agent records; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "registry__update": "registry__update Update agent records in the registry service. Use this when the task needs to update agent records; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "registry__delete": "registry__delete Delete agent records in the registry service. Use this when the task needs to delete agent records; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "monitoring__list": "monitoring__list List health checks and alerts in the monitoring service. Use this when the task needs to list health checks and alerts; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "monitoring__get": "monitoring__get Get health checks and alerts in the monitoring service. Use this when the task needs to get health checks and alerts; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "monitoring__search": "monitoring__search Search health checks and alerts in the monitoring service. Use this when the task needs to search health checks and alerts; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "monitoring__update": "monitoring__update Update health checks and alerts in the monitoring service. Use this when the task needs to update health checks and alerts; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "monitoring__delete": "monitoring__delete Delete health checks and alerts in the monitoring service. Use this when the task needs to delete health checks and alerts; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "billing__list": "billing__list List usage and invoices in the billing service. Use this when the task needs to list usage and invoices; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "billing__get": "billing__get Get usage and invoices in the billing service. Use this when the task needs to get usage and invoices; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "billing__search": "billing__search Search usage and invoices in the billing service. Use this when the task needs to search usage and invoices; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "billing__update": "billing__update Update usage and invoices in the billing service. Use this when the task needs to update usage and invoices; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "billing__delete": "billing__delete Delete usage and invoices in the billing service. Use this when the task needs to delete usage and invoices; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "deploy__list": "deploy__list List releases and rollbacks in the deploy service. Use this when the task needs to list releases and rollbacks; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "deploy__get": "deploy__get Get releases and rollbacks in the deploy service. Use this when the task needs to get releases and rollbacks; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "deploy__search": "deploy__search Search releases and rollbacks in the deploy service. Use this when the task needs to search releases and rollbacks; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "deploy__update": "deploy__update Update releases and rollbacks in the deploy service. Use this when the task needs to update releases and rollbacks; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "deploy__delete": "deploy__delete Delete releases and rollbacks in the deploy service. Use this when the task needs to delete releases and rollbacks; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "tickets__list": "tickets__list List support tickets in the tickets service. Use this when the task needs to list support tickets; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "tickets__get": "tickets__get Get support tickets in the tickets service. Use this when the task needs to get support tickets; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "tickets__search": "tickets__search Search support tickets in the tickets service. Use this when the task needs to search support tickets; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "tickets__update": "tickets__update Update support tickets in the tickets service. Use this when the task needs to update support tickets; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "tickets__delete": "tickets__delete Delete support tickets in the tickets service. Use this when the task needs to delete support tickets; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "github__list": "github__list List code and pull requests in the github service. Use this when the task needs to list code and pull requests; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "github__get": "github__get Get code and pull requests in the github service. Use this when the task needs to get code and pull requests; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "github__search": "github__search Search code and pull requests in the github service. Use this when the task needs to search code and pull requests; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "github__update": "github__update Update code and pull requests in the github service. Use this when the task needs to update code and pull requests; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "github__delete": "github__delete Delete code and pull requests in the github service. Use this when the task needs to delete code and pull requests; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "slack__list": "slack__list List team messages in the slack service. Use this when the task needs to list team messages; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "slack__get": "slack__get Get team messages in the slack service. Use this when the task needs to get team messages; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "slack__search": "slack__search Search team messages in the slack service. Use this when the task needs to search team messages; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "slack__update": "slack__update Update team messages in the slack service. Use this when the task needs to update team messages; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "slack__delete": "slack__delete Delete team messages in the slack service. Use this when the task needs to delete team messages; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "calendar__list": "calendar__list List schedules in the calendar service. Use this when the task needs to list schedules; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "calendar__get": "calendar__get Get schedules in the calendar service. Use this when the task needs to get schedules; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "calendar__search": "calendar__search Search schedules in the calendar service. Use this when the task needs to search schedules; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "calendar__update": "calendar__update Update schedules in the calendar service. Use this when the task needs to update schedules; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission.",
+  "calendar__delete": "calendar__delete Delete schedules in the calendar service. Use this when the task needs to delete schedules; for other services use their own tools. Returns JSON. Fails with a clear error if the item doesn't exist or you lack permission."
+ },
+ "tool_tasks": [
+  {
+   "id": "t01",
+   "server": "monitoring",
+   "worded": true,
+   "task": "What alerts are firing for support_agent?"
+  },
+  {
+   "id": "t02",
+   "server": "billing",
+   "worded": false,
+   "task": "How much did billing_agent cost us last month?"
+  },
+  {
+   "id": "t03",
+   "server": "github",
+   "worded": true,
+   "task": "Is there an open pull request for the retry fix?"
+  },
+  {
+   "id": "t04",
+   "server": "calendar",
+   "worded": false,
+   "task": "When is the next on-call handover meeting?"
+  },
+  {
+   "id": "t05",
+   "server": "slack",
+   "worded": false,
+   "task": "Did anyone post in the channel about the outage?"
+  },
+  {
+   "id": "t06",
+   "server": "deploy",
+   "worded": true,
+   "task": "Roll back the release that broke the dashboard"
+  },
+  {
+   "id": "t07",
+   "server": "tickets",
+   "worded": false,
+   "task": "Which customer complaints are still unresolved?"
+  },
+  {
+   "id": "t08",
+   "server": "registry",
+   "worded": false,
+   "task": "Change which model support_agent runs on"
+  },
+  {
+   "id": "t09",
+   "server": "billing",
+   "worded": true,
+   "task": "Show me the latest invoices"
+  },
+  {
+   "id": "t10",
+   "server": "monitoring",
+   "worded": false,
+   "task": "Is the registry up, or is it down right now?"
+  },
+  {
+   "id": "t11",
+   "server": "calendar",
+   "worded": true,
+   "task": "What's on my schedule tomorrow?"
+  },
+  {
+   "id": "t12",
+   "server": "github",
+   "worded": false,
+   "task": "Find where the retry limit is set in the source"
+  }
+ ],
+ "memories": [
+  {
+   "id": "m01",
+   "content": "Priya owns support_agent.",
+   "type": "semantic",
+   "source": "user",
+   "created": "2026-06-02T09:10:00",
+   "tags": [
+    "support_agent",
+    "ownership"
+   ],
+   "importance": 8
+  },
+  {
+   "id": "m02",
+   "content": "The billing dashboard is checked daily.",
+   "type": "semantic",
+   "source": "user",
+   "created": "2026-06-05T11:00:00",
+   "tags": [
+    "billing"
+   ],
+   "importance": 4
+  },
+  {
+   "id": "m03",
+   "content": "support_agent status notes go to Priya weekly.",
+   "type": "procedural",
+   "source": "user",
+   "created": "2026-06-09T15:30:00",
+   "tags": [
+    "support_agent",
+    "reporting"
+   ],
+   "importance": 6
+  },
+  {
+   "id": "m04",
+   "content": "Status of search_agent: migrating.",
+   "type": "semantic",
+   "source": "tool",
+   "created": "2026-06-11T08:45:00",
+   "tags": [
+    "search_agent"
+   ],
+   "importance": 3
+  },
+  {
+   "id": "m05",
+   "content": "The user wants summaries as bullet points.",
+   "type": "procedural",
+   "source": "user",
+   "created": "2026-06-12T10:00:00",
+   "tags": [
+    "preferences",
+    "format"
+   ],
+   "importance": 7
+  },
+  {
+   "id": "m06",
+   "content": "The user prefers short answers without a preamble.",
+   "type": "procedural",
+   "source": "user",
+   "created": "2026-06-12T10:02:00",
+   "tags": [
+    "preferences",
+    "format"
+   ],
+   "importance": 7
+  },
+  {
+   "id": "m07",
+   "content": "research_agent moves from claude-legacy to claude-sonnet before 31 October.",
+   "type": "semantic",
+   "source": "tool",
+   "created": "2026-07-03T14:20:00",
+   "tags": [
+    "research_agent",
+    "migration"
+   ],
+   "importance": 9
+  },
+  {
+   "id": "m08",
+   "content": "notes_agent's target model is claude-haiku.",
+   "type": "semantic",
+   "source": "tool",
+   "created": "2026-07-03T14:22:00",
+   "tags": [
+    "notes_agent",
+    "migration"
+   ],
+   "importance": 6
+  },
+  {
+   "id": "m09",
+   "content": "On 27 August the registry was down for 42 minutes during a database failover.",
+   "type": "episodic",
+   "source": "tool",
+   "created": "2026-08-27T15:10:00",
+   "tags": [
+    "incident",
+    "registry"
+   ],
+   "importance": 8
+  },
+  {
+   "id": "m10",
+   "content": "The user was paged for the registry outage and asked for the timeline afterwards.",
+   "type": "episodic",
+   "source": "agent",
+   "created": "2026-08-27T16:00:00",
+   "tags": [
+    "incident",
+    "oncall"
+   ],
+   "importance": 5
+  },
+  {
+   "id": "m11",
+   "content": "The user is on the platform on-call rota.",
+   "type": "semantic",
+   "source": "user",
+   "created": "2026-06-01T09:00:00",
+   "tags": [
+    "oncall"
+   ],
+   "importance": 7
+  },
+  {
+   "id": "m12",
+   "content": "Tom is the Search team's contact for kb-search.",
+   "type": "semantic",
+   "source": "user",
+   "created": "2026-06-20T13:00:00",
+   "tags": [
+    "kb-search",
+    "contacts"
+   ],
+   "importance": 5
+  },
+  {
+   "id": "m13",
+   "content": "kb-search's cache TTL change caused research_agent's stale answers in June.",
+   "type": "episodic",
+   "source": "tool",
+   "created": "2026-06-24T10:30:00",
+   "tags": [
+    "incident",
+    "kb-search"
+   ],
+   "importance": 6
+  },
+  {
+   "id": "m14",
+   "content": "billing_agent's monthly spending cap is a finance matter; the user can't see it.",
+   "type": "semantic",
+   "source": "agent",
+   "created": "2026-07-15T09:40:00",
+   "tags": [
+    "billing_agent"
+   ],
+   "importance": 4
+  },
+  {
+   "id": "m15",
+   "content": "The user's team deploys on Tuesdays and Thursdays.",
+   "type": "semantic",
+   "source": "user",
+   "created": "2026-06-15T12:00:00",
+   "tags": [
+    "deploy",
+    "schedule"
+   ],
+   "importance": 6
+  },
+  {
+   "id": "m16",
+   "content": "Rotate a leaked registry key first, investigate second.",
+   "type": "procedural",
+   "source": "user",
+   "created": "2026-07-14T17:00:00",
+   "tags": [
+    "security",
+    "keys"
+   ],
+   "importance": 9
+  },
+  {
+   "id": "m17",
+   "content": "The user drafts incident reports in the team's wiki template.",
+   "type": "procedural",
+   "source": "user",
+   "created": "2026-07-01T09:30:00",
+   "tags": [
+    "incident",
+    "writing"
+   ],
+   "importance": 5
+  },
+  {
+   "id": "m18",
+   "content": "triage_agent hands tickets it can't close to support_agent.",
+   "type": "semantic",
+   "source": "tool",
+   "created": "2026-06-18T11:15:00",
+   "tags": [
+    "triage_agent",
+    "support_agent"
+   ],
+   "importance": 5
+  },
+  {
+   "id": "m19",
+   "content": "The overview dashboard showed no agents during the registry outage.",
+   "type": "episodic",
+   "source": "tool",
+   "created": "2026-08-27T15:20:00",
+   "tags": [
+    "incident",
+    "monitoring"
+   ],
+   "importance": 6
+  },
+  {
+   "id": "m20",
+   "content": "The user asked for latency figures in milliseconds, not seconds.",
+   "type": "procedural",
+   "source": "user",
+   "created": "2026-07-22T10:10:00",
+   "tags": [
+    "preferences",
+    "units"
+   ],
+   "importance": 6
+  },
+  {
+   "id": "m21",
+   "content": "The user's manager is Grace Okafor.",
+   "type": "semantic",
+   "source": "user",
+   "created": "2026-06-01T09:05:00",
+   "tags": [
+    "people"
+   ],
+   "importance": 5
+  },
+  {
+   "id": "m22",
+   "content": "Dashboards should use their own registry keys, not an agent's.",
+   "type": "procedural",
+   "source": "agent",
+   "created": "2026-08-20T14:00:00",
+   "tags": [
+    "registry",
+    "keys",
+    "dashboards"
+   ],
+   "importance": 7
+  },
+  {
+   "id": "m23",
+   "content": "Asked about the rate limit on 21 August; it is 60 requests per minute per key.",
+   "type": "episodic",
+   "source": "tool",
+   "created": "2026-08-21T09:00:00",
+   "tags": [
+    "registry",
+    "rate limit"
+   ],
+   "importance": 4
+  },
+  {
+   "id": "m24",
+   "content": "The user is writing a proposal to move billing_agent to the priority tier.",
+   "type": "episodic",
+   "source": "user",
+   "created": "2026-09-10T16:45:00",
+   "tags": [
+    "billing_agent",
+    "tiers"
+   ],
+   "importance": 6
+  }
+ ],
+ "recall_tasks": [
+  {
+   "id": "r01",
+   "worded": true,
+   "task": "Draft the weekly status note on support_agent",
+   "relevant": [
+    "m01",
+    "m03"
+   ]
+  },
+  {
+   "id": "r02",
+   "worded": false,
+   "task": "Who should I send the update about the customer-facing assistant to?",
+   "relevant": [
+    "m01",
+    "m03"
+   ]
+  },
+  {
+   "id": "r03",
+   "worded": true,
+   "task": "Summarise the registry outage timeline",
+   "relevant": [
+    "m09",
+    "m10",
+    "m19"
+   ]
+  },
+  {
+   "id": "r04",
+   "worded": false,
+   "task": "What happened when the database failed over in August?",
+   "relevant": [
+    "m09",
+    "m19"
+   ]
+  },
+  {
+   "id": "r05",
+   "worded": true,
+   "task": "Which model is research_agent migrating to?",
+   "relevant": [
+    "m07"
+   ]
+  },
+  {
+   "id": "r06",
+   "worded": false,
+   "task": "What deadline do we have for moving off the old model?",
+   "relevant": [
+    "m07"
+   ]
+  },
+  {
+   "id": "r07",
+   "worded": false,
+   "task": "How should I format my reply to this user?",
+   "relevant": [
+    "m05",
+    "m06",
+    "m20"
+   ]
+  },
+  {
+   "id": "r08",
+   "worded": true,
+   "task": "Who is the contact for kb-search?",
+   "relevant": [
+    "m12"
+   ]
+  },
+  {
+   "id": "r09",
+   "worded": false,
+   "task": "Someone found a credential in the logs. What do I do first?",
+   "relevant": [
+    "m16"
+   ]
+  },
+  {
+   "id": "r10",
+   "worded": false,
+   "task": "Which days does the team ship changes?",
+   "relevant": [
+    "m15"
+   ]
+  },
+  {
+   "id": "r11",
+   "worded": true,
+   "task": "What is the registry rate limit per key?",
+   "relevant": [
+    "m23"
+   ]
+  },
+  {
+   "id": "r12",
+   "worded": false,
+   "task": "Who do I report to?",
+   "relevant": [
+    "m21"
+   ]
+  }
+ ],
+ "pairs": [
+  {
+   "id": "p01",
+   "label": "duplicate",
+   "a": "Priya owns support_agent.",
+   "b": "support_agent belongs to Priya."
+  },
+  {
+   "id": "p02",
+   "label": "duplicate",
+   "a": "The user wants summaries as bullet points.",
+   "b": "Summaries for this user should be bulleted lists."
+  },
+  {
+   "id": "p03",
+   "label": "duplicate",
+   "a": "The user's team deploys on Tuesdays and Thursdays.",
+   "b": "Releases from this team go out every Tuesday and Thursday."
+  },
+  {
+   "id": "p04",
+   "label": "duplicate",
+   "a": "The user's manager is Grace Okafor.",
+   "b": "Grace Okafor is the person the user reports to."
+  },
+  {
+   "id": "p05",
+   "label": "duplicate",
+   "a": "Rotate a leaked registry key first, investigate second.",
+   "b": "If a registry key leaks, rotate it before investigating."
+  },
+  {
+   "id": "p06",
+   "label": "duplicate",
+   "a": "The user prefers short answers without a preamble.",
+   "b": "Keep replies brief and skip the introduction."
+  },
+  {
+   "id": "p07",
+   "label": "duplicate",
+   "a": "The billing dashboard is checked daily.",
+   "b": "Someone looks at the billing dashboard every day."
+  },
+  {
+   "id": "p08",
+   "label": "related",
+   "a": "Priya owns support_agent.",
+   "b": "Priya owns billing_agent."
+  },
+  {
+   "id": "p09",
+   "label": "related",
+   "a": "The user wants summaries as bullet points.",
+   "b": "The user wants latency figures in milliseconds."
+  },
+  {
+   "id": "p10",
+   "label": "related",
+   "a": "research_agent moves to claude-sonnet before 31 October.",
+   "b": "notes_agent's target model is claude-haiku."
+  },
+  {
+   "id": "p11",
+   "label": "related",
+   "a": "The registry was down for 42 minutes on 27 August.",
+   "b": "The overview dashboard showed no agents during the registry outage."
+  },
+  {
+   "id": "p12",
+   "label": "related",
+   "a": "Tom is the Search team's contact for kb-search.",
+   "b": "kb-search's cache change caused stale answers in June."
+  },
+  {
+   "id": "p13",
+   "label": "related",
+   "a": "The user's team deploys on Tuesdays and Thursdays.",
+   "b": "The user's team holds its planning meeting on Mondays."
+  },
+  {
+   "id": "p14",
+   "label": "contradiction",
+   "a": "Tom owns support_agent.",
+   "b": "Priya owns support_agent."
+  },
+  {
+   "id": "p15",
+   "label": "contradiction",
+   "a": "The user wants summaries as bullet points.",
+   "b": "The user wants summaries as flowing paragraphs, never bullets."
+  },
+  {
+   "id": "p16",
+   "label": "contradiction",
+   "a": "The registry rate limit is 60 requests per minute per key.",
+   "b": "The registry rate limit is 100 requests per minute per key."
+  },
+  {
+   "id": "p17",
+   "label": "contradiction",
+   "a": "The user's team deploys on Tuesdays and Thursdays.",
+   "b": "The user's team deploys on Mondays and Wednesdays."
+  },
+  {
+   "id": "p18",
+   "label": "contradiction",
+   "a": "notes_agent's target model is claude-haiku.",
+   "b": "notes_agent's target model is claude-sonnet."
+  }
+ ]
+}

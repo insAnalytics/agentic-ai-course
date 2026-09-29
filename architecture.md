@@ -356,6 +356,18 @@ served as plain static files. Module 5 (RAG) uses `public/data/rag/`:
   3.6.1 on desktop give the same five communities. Any Louvain output in
   the lesson should still be rechecked in Pyodide when it's converted,
   since the lesson's graph (after normalising names) is a different graph.
+- Context-step data (Lesson 14), from `scripts/generate-rag-context-step.py`
+  (see `README-context-step.md`): `context-step.json` (~24 KB) holds Module
+  4's tool catalog as text (40 tools), one user's 24 memories, 12
+  tool-finding and 12 recall tasks and 18 labelled memory pairs, all from
+  `scripts/rag_corpus/context_step_src.py`, labelled by hand.
+  `embeddings/bge-small-en-v1.5/context-step-texts.json` (83 distinct
+  texts: tools, memories and pair texts, keyed by text hash) and
+  `context-step-queries.json` (24 instructed tasks, keyed by task id).
+  Generated with sentence-transformers 6.1.0 on CPU (torch 2.14.0) from the
+  cached bge-small; checked when generated: both model fields are the real
+  model, keys match the texts' hashes and the task ids, vectors unit
+  length, no NaNs, every file valid UTF-8.
 
 **Loading rule (every Module 5 page):** fetch these files at runtime, on the
 learner's first Run click, and let the browser cache them — never `import`
