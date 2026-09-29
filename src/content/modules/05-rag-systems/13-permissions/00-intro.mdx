@@ -1,0 +1,24 @@
+---
+title: "Intro"
+lesson: "13-permissions"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Enforce a reader's permissions before every stage of retrieval, with groups taken from who the reader is, never from the question or the model",
+    "Carry permissions onto everything derived from documents: contexts, vectors, graph edges, summaries and caches",
+    "Treat retrieved text as untrusted input, and defend by design: a gate on what gets indexed, visible provenance, and limits on what the model can do after reading",
+  ]}
+/>
+
+<WhyItMatters>
+  A retrieval system hands the model whatever its index contains. Unfiltered,
+  this module's pipeline put restricted documents in front of an all-staff
+  reader for 20 of 57 questions, and a single planted wiki edit ranked first
+  for the rate-limit question and passed every citation check. Neither problem
+  can be fixed by instructing the model. Both are fixed in code and process:
+  what each reader's search can see, and who can put text into the index.
+</WhyItMatters>

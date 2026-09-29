@@ -4443,8 +4443,9 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    and build cleanly. Lesson 1's and Lesson 2's forward references to
    Lesson 12 stay plain prose.
 
-13. **Permissions** (provisional title) — **Building** (folder
-   `13-permissions`, named while the title is provisional). Shared setup is
+13. **Access Control and Poisoned Documents** — **Locked** (folder
+   `13-permissions`, named while the title was provisional; the title comes
+   from the bookends mockup). Shared setup is
    Lesson 12's recap `lib.py` (the Lesson 12 setup through
    `GRAPH_COMMUNITIES`), then `REACT_FAKE_CLIENT + RECORDING_CLIENT`; data
    `RAG_GRAPH_DATA`. Concept 1 (permissions at retrieval time) is built: two
@@ -4513,8 +4514,31 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    discarded, an edit replacing the indexed version, authors approving
    their own, an unknown source type trusting everyone, approval leaving a
    copy in quarantine, quarantine searchable, a writer trusted for any
-   source type). The lesson's other concepts and the bookends aren't
-   drafted yet. Earlier lessons' forward
+   source type). Bookends are built: intro (3 outcomes, why it matters,
+   verbatim from the mockup), 8 quiz cards, and the multi-file
+   `make_tools` / `answer_securely` sandbox (`lib.py` read-only,
+   `secure_tools.py` entry, hidden tests prefixed with `REACT_FAKE_CLIENT +
+   RECORDING_CLIENT`, data `RAG_GRAPH_DATA`). Starter and reference
+   byte-identical to the mockup. **Change from the mockup's `lib.py`:** the
+   same stale lesson numbers as Lessons 11 and 12's recaps, renumbered;
+   otherwise it matches the Lesson 13 setup plus `INGESTION_GATE` line for
+   line, apart from the merged `collections` import. **Changes from the
+   mockup's hidden tests:** three mutations passed them, so a new test 7
+   checks incidents in sorted order (with a two-incident toy graph swapped
+   in on `secure_tools.GRAPH` and restored), `k` kept between 1 and 10, and
+   search over the contextual text ("INC-2067 affected agent" must find
+   D10). Verified with the real `runMultiFileAgainstHiddenTests`: the
+   reference passes (about 6 s in Node; test 2 searches all 57 questions),
+   the starter fails, and thirteen mutations each fail (a `groups`
+   parameter, no access filter, every document instead of the gate's, the
+   full graph for incidents, no `canonical`, any relation counted as an
+   incident, incidents unsorted, no source chunks, `k` unclamped, plain
+   chunks indexed, cited ids unfiltered, no unknown ids, tools built for
+   the wrong reader).
+
+   Lesson 13 is now **Locked**: all four concepts plus both bookends exist
+   and build cleanly. Earlier lessons' forward references to Lesson 13 stay
+   plain prose. Earlier lessons' forward
    references to Lesson 13 stay plain prose.
 
 ---
