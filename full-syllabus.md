@@ -4695,8 +4695,8 @@ Folder `06-reliability` (module title and description provisional). Data:
 `README-reliability.md`; loaded from Lesson 1 concept 2 on, see
 architecture.md §3.1).
 
-1. **Per-Step Reliability** (provisional title; folder
-   `01-per-step-reliability`) — **Building**. Concept 1 (small errors
+1. **Why Agents Fail, and What "Reliable" Means** — **Locked** (folder
+   `01-per-step-reliability`, named before the title existed). Concept 1 (small errors
    compound over many steps) is built: *p*ⁿ and three live demos (the
    compounding table, the per-step reliability a 90% task needs, and a
    seeded simulation of recovery and clustered difficulty), METR's
@@ -4759,8 +4759,21 @@ architecture.md §3.1).
    `#a-deterministic-check-on-real-state` and
    `#sycophancy-a-real-documented-side-effect` anchors; later Module 6
    lessons (3 to 9) are named as plain text, since they don't exist yet.
-   5 quiz cards. This is the lesson's last concept; only the bookends
-   (intro, comprehensive quiz and sandbox) remain.
+   5 quiz cards. Bookends built from `lesson-6-1-bookends.md`: an intro
+   (3 outcomes, why-it-matters) and a `recap-practice` page with an
+   8-question comprehensive quiz (Q2's explanation names the pass@5 formula
+   instead of "the last option", since options are shuffled) and a
+   `MultiFileGradedExercise`: read-only `lib.py` (load_run,
+   task_pass_hat_k, pass_hat_k, question_bootstrap) and `report.py`'s
+   `reliability_report(log, k)` over the real `plain`/`wordings` runs of
+   both models. Verified in real Pyodide 0.26.4 with real imports: the
+   reference's Run output matches the mockup byte for byte (4B 98.6%,
+   97.4-99.5%, pass^5 0.904, 7 unreliable; 2B 92.0%, 88.8-94.7%, 0.564, 37
+   unreliable), the hidden tests pass, and eight wrong variants each fail
+   with the intended message (pooled accuracy, original wording only,
+   pooled wordings, worst wording, a per-question run-count check,
+   bootstrap in log order, `<= 0.5`, no k check). The page's code strings
+   were generated from the verified files and compared byte for byte.
 
 ---
 
