@@ -1,0 +1,244 @@
+---
+title: "What reliability costs, on things already built"
+lesson: "02-reliability-tradeoffs"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, RECORDING_CLIENT, COUNT_TOKENS } from "../../../../lib/fakeClient";
+import { EVALUATOR_LOOP_COST, LOAD_RUN_ONLY, reliabilityData } from "../../../../lib/reliabilityData";
+
+export const SETUP = REACT_FAKE_CLIENT + RECORDING_CLIENT + COUNT_TOKENS + EVALUATOR_LOOP_COST + LOAD_RUN_ONLY;
+export const TIMING_DATA = reliabilityData("plain", "thinking");
+
+export const REFLECTION_DEMO = String.raw`PROMPT = "Summarise incident INC-2093 for the on-call channel in two sentences."
+FIRST = ("The registry was down for a while because the database failed over. "
+         "It is fixed now.")
+SECOND = ("On 2026-08-27 registry-api was unavailable for 42 minutes while registry-db failed over, "
+          "because the standby had fallen 38 minutes behind. An alert now fires on standby lag above 60 seconds.")
+CRITIQUE = "Too vague: give the date, how long it lasted, the cause and what changed."
+
+# no reflection: one generation, used as it is
+plain = RecordingClient([[TextBlock(FIRST)]])
+plain.create(messages=[{"role": "user", "content": PROMPT}])
+
+# reflection, where the evaluator accepts the first draft
+gen_a, judge_a = RecordingClient([[TextBlock(SECOND)]]), RecordingClient([[EvaluationBlock(True)]])
+run_evaluator_optimizer(gen_a, judge_a, PROMPT)
+
+# reflection, where the evaluator rejects the first draft once
+gen_b = RecordingClient([[TextBlock(FIRST)], [TextBlock(SECOND)]])
+judge_b = RecordingClient([[EvaluationBlock(False, CRITIQUE)], [EvaluationBlock(True)]])
+run_evaluator_optimizer(gen_b, judge_b, PROMPT)
+
+for label, clients in (("no reflection", [plain]), ("reflection, accepted first time", [gen_a, judge_a]),
+                       ("reflection, one revision", [gen_b, judge_b])):
+    u = usage(*clients)
+    print(f"{label:<32} calls: {u['calls']}, tokens sent: ~{u['sent']}, received: ~{u['received']}")
+`;
+
+export const TIMING_DEMO = String.raw`from statistics import median
+
+probes = [
+    ("plain", "samples_1", "one sample"),
+    ("plain", "samples_5", "five samples, one request"),
+    ("thinking", "thinking_then_answer", "thinking, then answering"),
+]
+for name, key, label in probes:
+    run = load_run(name)
+    timings = run["timing"]["latency_probe"][key]
+    seconds = median(t["seconds"] for t in timings)
+    tokens = median(t["tokens"] for t in timings)
+    print(f"{label:<27} median {seconds:5.2f} s for {tokens:6.0f} generated tokens  ({run['model']}, {len(timings)} questions)")
+`;
+
+<Subsection title="Measuring before arguing" variant="a">
+
+[The previous concept](/06-reliability/02-reliability-tradeoffs/01-four-things-every-technique-trades/)
+named what reliability spends. This one measures it on three things the
+course has already built or run: Module 2's reflection loop, Module 5's
+reranker, and this module's own model runs. The first is a structural count
+that holds for any model; the other two are measurements of particular
+setups, and are labelled as such.
+
+```python
+class EvaluationBlock:
+    def __init__(self, passed: bool, critique: str = ""):
+        self.type = "evaluation"
+        self.passed = passed
+        self.critique = critique
+
+
+def run_evaluator_optimizer(generator, evaluator, prompt: str, max_attempts: int = 3) -> str:
+    """Module 2's evaluator-optimizer loop: generate, have a model judge it, revise with the critique."""
+    current_prompt = prompt
+    for attempt in range(max_attempts):
+        candidate = generator.create(messages=[{"role": "user", "content": current_prompt}]).content[0].text
+        verdict = evaluator.create(messages=[{"role": "user", "content": f"Evaluate this: {candidate}"}]).content[0]
+        if verdict.passed:
+            return candidate
+        current_prompt = f"{prompt}\n\nPrevious attempt: {candidate}\nCritique: {verdict.critique}\nPlease revise."
+    return f"Error: no passing candidate produced after {max_attempts} attempts"
+
+
+def usage(*clients) -> dict:
+    """Calls made, and tokens sent and received, across recording clients (the course's ~4 characters per token estimate)."""
+    return {
+        "calls": sum(len(c.seen) for c in clients),
+        "sent": sum(count_tokens(messages) for c in clients for messages in c.seen),
+        "received": sum(count_tokens(c.scripted_responses[i]) for c in clients for i in range(c.call_count)),
+    }
+```
+
+```python
+import json
+from pathlib import Path
+
+DATA = Path("/data/reliability")
+
+
+def load_run(name: str) -> dict:
+    """One committed run file, such as "plain" (Qwen3.5-4B) or "plain.smaller" (Qwen3.5-2B)."""
+    return json.loads((DATA / "runs" / f"{name}.json").read_text(encoding="utf-8"))
+```
+
+*(defined once here and already loaded for every demo in this lesson)*
+
+</Subsection>
+
+<Subsection title="Reflection: the calls are certain, the benefit isn't" variant="b">
+
+[Module 2's evaluator-optimizer loop](/02-the-agent-loop/09-reflection-and-self-critique/01-the-evaluator-optimizer-pattern/)
+has a model draft an answer, a second call judge it, and, if the judge
+rejects it, another draft that includes the critique. Here's what it costs
+on the same task, counted with recording clients:
+
+<LiveDemo client:load setupCode={SETUP} code={REFLECTION_DEMO} />
+
+*(The drafts and verdicts are scripted, so this counts the loop's shape, not
+a model's behaviour. Tokens use the course's estimate of about four
+characters per token.)*
+
+Two things are certain from the loop's shape alone:
+
+- **Reflection at least doubles the calls,** even when the first draft is
+  accepted, because the judge always runs.
+- **Each revision costs more than the draft before it,** because the new
+  prompt carries the old draft and the critique. One revision here took four
+  calls and more than seven times the tokens sent of a single answer.
+
+What the extra calls buy is not certain. Huang et al.,
+[*Large Language Models Cannot Self-Correct Reasoning Yet*](https://arxiv.org/abs/2310.01798)
+(ICLR 2024), tested models revising their own answers with no outside
+feedback and found they struggled to improve, and that performance sometimes
+got worse after self-correction. Later papers have argued that newer models
+do better at it, so treat it as a question to measure for your own model and
+task, not a given. It's the effect
+[Module 2 called shared blind spots](/02-the-agent-loop/09-reflection-and-self-critique/03-the-limits-shared-blind-spots/):
+a judge that is the same model tends to accept the same mistakes. A check
+that brings in something new, such as a tool result, a source document or a
+rule in code, is a different matter, and it's what Lessons 3 and 4 build.
+
+</Subsection>
+
+<Subsection title="Reranking: latency that grows with the candidates" variant="a">
+
+[Module 5 measured its cross-encoder reranker](/05-rag-systems/07-reranking/01-two-stages/#what-reading-together-costs)
+on the course's laptop GPU, an RTX 3070 Ti: 3.55 ms per question-chunk pair,
+or 97 ms to rerank 30 candidates for one question. That cost is paid on
+every search, and it grows with the number of candidates, which is why
+Module 5 reranked a shortlist rather than the whole corpus. What it bought,
+[measured on that module's questions](/05-rag-systems/07-reranking/03-reranking-measured/),
+was more answers at rank 1 from every first stage.
+
+That's the shape of a good trade: a known, bounded latency cost per call,
+set against a measured gain. Both numbers belong to that GPU and those
+questions, and both would need measuring again for a different setup.
+
+</Subsection>
+
+<Subsection title="Parallel samples and sequential thinking" variant="b">
+
+The model runs behind Lesson 1 also timed a few requests one at a time, the
+way a user would wait for them: one sample, five samples in a single
+request, and thinking before answering, with the model thinking as long as
+it liked up to 4,096 tokens.
+
+<LiveDemo client:load dataFiles={TIMING_DATA} setupCode={SETUP} code={TIMING_DEMO} />
+
+*(Real timings from the committed runs: ten questions each, one request at a
+time, on one Colab G4 GPU with vLLM. Other hardware, engines and loads will
+give different numbers.)*
+
+Five samples produced about six times the tokens of one, and took under
+twice as long. Thinking produced about four times the tokens of the five
+samples and took about thirteen times as long. The difference is in how
+the tokens are generated, which
+[Module 1 explained](/01-llm-foundations/04-how-llms-generate-text/02-autoregressive-generation/):
+each token depends on the one before it, so a long chain of thought has to
+be produced one token after another, while five separate samples can be
+generated side by side.
+
+So "more tokens" isn't one kind of cost. Samples that run in parallel cost
+compute more than they cost the user's time; tokens that run in sequence
+cost both. A technique's latency and its token cost can rank it very
+differently against the alternatives, which is the subject of the next
+concept.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "An evaluator-optimizer loop accepts the first draft. How many model calls did it make, compared with answering directly?",
+    "options": [
+      "One, the same as answering directly, since nothing was revised",
+      "Two: the draft and the judge's verdict, which runs even when it accepts",
+      "Three: the draft, the verdict and a confirmation",
+      "It depends on the model's temperature"
+    ],
+    "correctIndex": 1,
+    "explanation": "The judge has to run to know the draft is acceptable, so reflection always at least doubles the calls. Each rejection adds two more, with a longer prompt each time because it carries the previous draft and the critique."
+  },
+  {
+    "question": "What did Huang et al. find about models revising their own reasoning without outside feedback?",
+    "options": [
+      "Revisions reliably fixed most errors",
+      "Models struggled to improve their answers, and performance sometimes got worse",
+      "Revisions only helped larger models",
+      "Revisions always made answers longer but never changed them"
+    ],
+    "correctIndex": 1,
+    "explanation": "With no new information, the judge is the same model with the same knowledge, so it tends to accept the same mistakes. Later work has argued newer models do better, which is why the cost of reflection is certain and its benefit is something to measure."
+  },
+  {
+    "question": "Module 5's reranker took 3.55 ms per question-chunk pair on a laptop GPU. Why rerank only a shortlist of 30 candidates?",
+    "options": [
+      "Because the reranker can only read 30 chunks",
+      "Because its latency grows with every candidate, so scoring the whole corpus on every question would cost far more time than scoring a shortlist",
+      "Because the first stage is always right about everything outside the top 30",
+      "Because shortlists are more accurate than full rankings"
+    ],
+    "correctIndex": 1,
+    "explanation": "The cost is per pair, so it scales with the number of candidates. A cheap first stage narrows the field and the expensive reranker reads only what's left; the gain it buys is measured on that shortlist."
+  },
+  {
+    "question": "In the timed runs, five samples in one request took under twice as long as one sample, but thinking took about thirteen times as long as the five samples. Why?",
+    "options": [
+      "Thinking uses a larger model",
+      "The five samples were cached, and thinking wasn't",
+      "Separate samples can be generated side by side, while a chain of thought has to be generated one token after another",
+      "Thinking tokens are more expensive to compute than answer tokens"
+    ],
+    "correctIndex": 2,
+    "explanation": "Autoregressive generation makes each token wait for the one before it within a sequence, but separate sequences can run in parallel. So parallel samples mostly cost compute, and long sequential reasoning costs the user's time as well. The exact ratios belong to that GPU and engine."
+  }
+]}
+/>
+
+</CheckpointZone>

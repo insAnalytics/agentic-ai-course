@@ -4784,8 +4784,24 @@ architecture.md §3.1).
    levers by lesson (later lessons named as plain text). Callbacks: Lesson
    1's pass^k concept (page link) and Module 5 Lesson 10's
    `#choosing-a-threshold` (verified against the built HTML). 5 quiz cards.
-   Next per the mockup: measuring what reliability costs on parts of the
-   agent already built.
+   Concept 2 (what reliability costs, on things already built) is built:
+   the reflection loop's calls and tokens counted with recording clients
+   (1 / 2 / 4 calls, ~26 / 86 / 197 tokens sent), Huang et al. on
+   self-correction, Module 5's reranker latency, and the committed runs'
+   latency probes (one sample 0.48 s, five samples 0.86 s, thinking 11.21 s,
+   medians over 10 questions). Both demos reproduce the mockup's output
+   exactly in real Pyodide 0.26.4, against the exact `fakeClient.ts` classes
+   and the committed `plain`/`thinking` runs; the prose's ratios were
+   checked. New shared setup in `reliabilityData.ts`: `EVALUATOR_LOOP_COST`
+   and `LOAD_RUN_ONLY`, shown verbatim as static blocks and written by
+   script so the f-string's `
+` escapes stay literal (checked in the
+   source and the rendered HTML). Callbacks: concept 1, Module 2's
+   evaluator-optimizer and shared-blind-spots concepts, Module 5's
+   reranking-measured concept (page links), Module 5's
+   `#what-reading-together-costs` (where the 3.55 ms figure is; the mockup
+   named only the concept) and Module 1's autoregressive-generation
+   concept. 4 quiz cards. Next per the mockup: what "the same budget" means.
 
 ---
 
