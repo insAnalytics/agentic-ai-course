@@ -708,6 +708,16 @@ real syntax highlighting and Python-aware completions, not a plain
   - `LiveDemo` (`runCapturingOutput`): applies the text rewrite, then runs
     the whole thing through `runPythonAsync`, which supports top-level
     `await` natively.
+  - **The rewrite is textual, so `asyncio.run(` must only appear at top
+    level** (found converting Module 6 Lesson 3 concept 4). Hidden tests
+    that wrap it in a plain helper, `def run(...): return asyncio.run(go())`,
+    become `await` inside a non-async `def` after the rewrite, a SyntaxError
+    that fails every test even for a correct solution: the mockup's tests
+    scored 0/6 for its own reference in the real `TEST_HARNESS`. The fix is
+    to make the helper itself `async def run(...)` and call it as
+    `asyncio.run(run(...))` at top level, which is identical in plain Python
+    and survives the rewrite (6/6). Check any async exercise's tests through
+    the real harness, not just in plain CPython.
   - `GradedExercise` (`TEST_HARNESS`, both the learner's own code and each
     hidden test): a plain `exec(compile(src, ..., "exec"))` can't contain a
     top-level `await` at all (`SyntaxError`), so the harness instead

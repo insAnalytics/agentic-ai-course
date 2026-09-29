@@ -1,0 +1,432 @@
+# Module 6, Lesson 3 — Concept 4: Running checks in parallel, and tripwires
+
+---
+
+## A check adds its latency to every request
+
+Every check so far ran in line: the loop called it, waited for its verdict,
+and only then carried on. For a few lines of code that's free. For a check
+that calls a model, such as a classifier or a second model reading the
+input, it adds that call's latency to every request, whether the check
+passes or not, and most of the time it passes.
+
+The alternative is to start the check and the model call together, and
+cancel the model call if the check fails. The cancellation is the
+**tripwire**. Here are both, with a model call that takes 0.6 seconds and a
+check that takes 0.3:
+
+```python
+import asyncio
+import time
+
+start = time.monotonic()
+
+
+def stamp(event: str) -> None:
+    print(f"{time.monotonic() - start:4.1f}s  {event}")
+
+
+async def model_call() -> str:
+    stamp("model call starts")
+    await asyncio.sleep(0.6)
+    stamp("model call finishes")
+    return "Here's the migration plan..."
+
+
+async def input_check(reason: str | None) -> str | None:
+    stamp("input check starts")
+    await asyncio.sleep(0.3)
+    stamp(f"input check done: {reason or 'passes'}")
+    return reason
+
+
+async def one_after_the_other(reason):
+    if await input_check(reason):
+        stamp("stopped before the model call")
+        return
+    stamp(f"answer: {await model_call()!r}")
+
+
+async def side_by_side(reason):
+    model = asyncio.create_task(model_call())
+    if await input_check(reason):
+        model.cancel()
+        stamp("tripwire: model call cancelled")
+        return
+    stamp(f"answer: {await model!r}")
+
+
+async def main():
+    global start
+    for runner in (one_after_the_other, side_by_side):
+        for reason in (None, "the request contains a registry key"):
+            print(f"-- {runner.__name__}, check {'trips' if reason else 'passes'}")
+            start = time.monotonic()
+            await runner(reason)
+            print()
+
+asyncio.run(main())
+```
+```
+-- one_after_the_other, check passes
+ 0.0s  input check starts
+ 0.3s  input check done: passes
+ 0.3s  model call starts
+ 0.9s  model call finishes
+ 0.9s  answer: "Here's the migration plan..."
+
+-- one_after_the_other, check trips
+ 0.0s  input check starts
+ 0.3s  input check done: the request contains a registry key
+ 0.3s  stopped before the model call
+
+-- side_by_side, check passes
+ 0.0s  input check starts
+ 0.0s  model call starts
+ 0.3s  input check done: passes
+ 0.6s  model call finishes
+ 0.6s  answer: "Here's the migration plan..."
+
+-- side_by_side, check trips
+ 0.0s  input check starts
+ 0.0s  model call starts
+ 0.3s  input check done: the request contains a registry key
+ 0.3s  tripwire: model call cancelled
+
+```
+*(runs live, shows output — read-only demo snippet, not graded. The sleeps
+stand in for a model call and a model-based check; the timings on your run
+may differ by a few hundredths of a second.)*
+
+When the check passes, running side by side saves the check's whole 0.3
+seconds. When it trips, both versions stop at 0.3 seconds, but the parallel
+one had already spent 0.3 seconds of a model call on a request that was
+going to be refused.
+
+`create_task` starts a coroutine running without waiting for it, as in
+[Module 3's concurrent tool calls](→ Module 3, tools that call the outside world lesson, running independent tool calls concurrently concept),
+and `cancel()` stops it at its next `await`.
+
+---
+
+## What parallel costs: speculative work
+
+The OpenAI Agents SDK makes the same trade explicit. Its
+[input guardrails](https://openai.github.io/openai-agents-python/guardrails/)
+run in parallel with the agent by default, for the best latency, and its
+documentation warns that if one trips, the agent may already have used
+tokens and run tools before it's cancelled. A blocking mode instead runs
+the guardrail to completion first, so a tripped check means the agent never
+starts, which the documentation recommends for saving cost and for avoiding
+side effects from tool calls.
+
+The difference between those two risks matters:
+
+- **Wasted tokens are a cost.** A cancelled model call may still be billed
+  for what it generated, but nothing in the world has changed.
+- **A tool that already ran is a fact.** Cancelling a task stops it at its
+  next `await`, but a request it had already sent, such as a payment, an
+  email or a registry update, has been sent. There's no taking it back.
+
+That gives the rule for the whole lesson: **a step without side effects can
+run alongside its checks; a step with side effects waits until every check
+has passed.** The deciding question isn't how slow the check is, but what
+the step would do if it ran before the check finished. Model calls and
+reads can go speculatively. Writes can't.
+
+One more thing follows. Even a step that runs in parallel mustn't hand back
+its result before its checks have passed. If the step finishes first, it
+waits for them; the speed-up is in starting early, not in skipping the
+check.
+
+---
+
+## Applied sandbox exercise
+*(graded — a guarded step with tripwires)*
+
+**Task shown to learner:** Write `guarded(step, checks, has_side_effects)`.
+`step` is an async function that does the work; `checks` is a list of async
+functions, each returning `None` if all is well or a reason if not. When a
+check fails, raise `Tripwire(reason)`.
+
+- **Without side effects,** start the step and all the checks at once. If a
+  check fails, cancel the step. If the step finishes first, still wait for
+  the checks before returning its result.
+- **With side effects,** run the checks first, all at once, and start the
+  step only if every one passes.
+- **Either way,** when several checks fail, report the one that failed first
+  in time, and as soon as one fails, cancel the checks still running and
+  raise straight away.
+
+**Starter code:**
+```python
+import asyncio
+
+
+class Tripwire(Exception):
+    def __init__(self, reason: str):
+        super().__init__(reason)
+        self.reason = reason
+
+
+async def guarded(step, checks: list, has_side_effects: bool):
+    """Run step() with its checks. A step without side effects runs alongside the checks and is
+    cancelled if one fails; a step with side effects starts only after every check has passed.
+    Either way, the result is returned only once all the checks have passed."""
+    ...
+
+
+async def lookup():
+    await asyncio.sleep(0.2)
+    return {"agent_name": "research_agent", "model": "claude-legacy"}
+
+
+async def scope_check():
+    await asyncio.sleep(0.1)
+    return None
+
+
+async def key_check():
+    await asyncio.sleep(0.05)
+    return "the request contains a registry key"
+
+
+async def main():
+    print(await guarded(lookup, [scope_check], has_side_effects=False))
+    try:
+        await guarded(lookup, [scope_check, key_check], has_side_effects=True)
+    except Tripwire as tripped:
+        print("tripwire:", tripped.reason)
+
+asyncio.run(main())
+```
+
+**Hidden tests:**
+```python
+import asyncio
+import time
+
+
+def make_step(log: list, name: str = "step", seconds: float = 0.2, result="done"):
+    async def step():
+        log.append(f"{name} starts")
+        try:
+            await asyncio.sleep(seconds)
+        except asyncio.CancelledError:
+            log.append(f"{name} cancelled")
+            raise
+        log.append(f"{name} finishes")
+        return result
+    return step
+
+
+def make_check(log: list, name: str, seconds: float, reason=None):
+    async def check():
+        log.append(f"{name} starts")
+        try:
+            await asyncio.sleep(seconds)
+        except asyncio.CancelledError:
+            log.append(f"{name} cancelled")
+            raise
+        log.append(f"{name} done")
+        return reason
+    return check
+
+
+def run(step, checks, side_effects, log=None):
+    """Run guarded; return (result or Tripwire, seconds taken, the log shortly after it returned).
+    Then keep the event loop going a while, so work that wasn't cancelled shows up in the log."""
+    async def go():
+        began = time.monotonic()
+        try:
+            outcome = await guarded(step, checks, side_effects)
+        except Tripwire as tripped:
+            outcome = tripped
+        took = time.monotonic() - began
+        await asyncio.sleep(0.05)
+        snapshot = list(log or [])
+        await asyncio.sleep(0.4)
+        return outcome, took, snapshot
+    return asyncio.run(go())
+
+
+# 1. checks pass, no side effects: the step runs alongside the checks
+log = []
+outcome, took, _ = run(make_step(log, seconds=0.2), [make_check(log, "check", 0.2)], False)
+assert outcome == "done", f"all checks passed, so return the step's result; got {outcome!r}"
+assert took < 0.35, (f"took {took:.2f}s: a step without side effects should run alongside its checks "
+                     "(about 0.2s here), not after them (about 0.4s)")
+
+# 2. a check fails, no side effects: the step is cancelled
+log = []
+outcome, _, _ = run(make_step(log, seconds=0.3), [make_check(log, "check", 0.1, "bad input")], False)
+assert isinstance(outcome, Tripwire) and outcome.reason == "bad input", (
+    f"a failing check should raise Tripwire with its reason; got {outcome!r}")
+assert "step cancelled" in log and "step finishes" not in log, (
+    f"log {log}: when a check trips, cancel the step that's running alongside it")
+
+# 3. the step finishes first, then a check fails: its result must not be returned
+log = []
+outcome, _, _ = run(make_step(log, seconds=0.05), [make_check(log, "slow check", 0.2, "stale data")], False)
+assert isinstance(outcome, Tripwire), (
+    f"got {outcome!r}: the step finished before its check, but the check then failed. "
+    "Wait for every check before returning the result")
+
+# 4. side effects: the step starts only after every check has passed
+log = []
+outcome, _, _ = run(make_step(log, seconds=0.05), [make_check(log, "a", 0.1), make_check(log, "b", 0.15)], True)
+assert outcome == "done", f"checks passed; got {outcome!r}"
+assert log.index("step starts") > max(log.index("a done"), log.index("b done")), (
+    f"log {log}: a step with side effects must not start until every check has passed")
+
+log = []
+outcome, _, _ = run(make_step(log), [make_check(log, "a", 0.1, "not allowed")], True)
+assert isinstance(outcome, Tripwire) and "step starts" not in log, (
+    f"log {log}: when a check fails, a step with side effects must never start")
+
+# 5. several checks fail: report the first to fail, not the first in the list
+log = []
+checks = [make_check(log, "slow", 0.3, "slow reason"), make_check(log, "fast", 0.05, "fast reason")]
+for side_effects in (False, True):
+    outcome, _, _ = run(make_step(log), checks, side_effects)
+    assert isinstance(outcome, Tripwire) and outcome.reason == "fast reason", (
+        f"has_side_effects={side_effects}: got {getattr(outcome, 'reason', outcome)!r}; "
+        "raise with the reason from the check that failed first in time")
+
+# 6. once one check fails, stop waiting for the others
+for side_effects in (False, True):
+    log = []
+    checks = [make_check(log, "fast", 0.05, "fast reason"), make_check(log, "very slow", 1.0)]
+    outcome, took, soon_after = run(make_step(log, seconds=1.0), checks, side_effects, log)
+    assert isinstance(outcome, Tripwire) and took < 0.5, (
+        f"has_side_effects={side_effects}: took {took:.2f}s; once a check fails, raise straight away")
+    assert "very slow cancelled" in soon_after, (
+        f"has_side_effects={side_effects}: log {soon_after}: cancel the checks still running after one fails")
+```
+
+**Hint (shown on request):** A helper that runs the checks and returns the
+first reason to arrive covers both modes. Create a task per check, and loop
+over `asyncio.as_completed(tasks)`, which gives you results in the order
+they finish. In a `finally`, cancel every check task: cancelling one that
+has finished does nothing. Without side effects, create the step's task
+before awaiting the helper, and cancel it if the helper returns a reason.
+
+**Reference solution:**
+```python
+import asyncio
+
+
+class Tripwire(Exception):
+    def __init__(self, reason: str):
+        super().__init__(reason)
+        self.reason = reason
+
+
+async def first_failure(checks: list) -> str | None:
+    """Run the checks concurrently and return the first reason to arrive, or None if all pass.
+    Checks still running when one fails are cancelled."""
+    tasks = [asyncio.create_task(check()) for check in checks]
+    try:
+        for finished in asyncio.as_completed(tasks):
+            if reason := await finished:
+                return reason
+        return None
+    finally:
+        for task in tasks:
+            task.cancel()
+
+
+async def guarded(step, checks: list, has_side_effects: bool):
+    """Run step() with its checks. A step without side effects runs alongside the checks and is
+    cancelled if one fails; a step with side effects starts only after every check has passed.
+    Either way, the result is returned only once all the checks have passed."""
+    if has_side_effects:
+        if reason := await first_failure(checks):
+            raise Tripwire(reason)
+        return await step()
+    work = asyncio.create_task(step())
+    try:
+        reason = await first_failure(checks)
+    except BaseException:
+        work.cancel()
+        raise
+    if reason:
+        work.cancel()
+        raise Tripwire(reason)
+    return await work
+```
+```
+{'agent_name': 'research_agent', 'model': 'claude-legacy'}
+tripwire: the request contains a registry key
+```
+*(the starter's printout, with the reference in place)*
+
+**Explanation:** `first_failure` is shared by both modes, and its
+`finally` is what stops a slow check from holding up a run that has already
+failed. It runs whether the helper returns a reason, returns `None`, or is
+itself cancelled. In the parallel mode, the step's task is created before
+the checks are awaited, so the two overlap, and its result is only awaited
+after `first_failure` returns `None`, so a check that fails after the step
+finishes still wins. The `except BaseException` catches cancellation of
+`guarded` itself, for example by a timeout around it, and makes sure the
+step doesn't keep running with nobody waiting for it. The tests check
+behaviour through timings and an event log: that the parallel mode
+overlaps, that a tripped step is cancelled, that a side-effecting step
+never starts early, and that a slow check doesn't delay a failure. The
+tempting shortcut, `asyncio.gather` over the step and the checks, fails the
+second of those, because `gather` waits for everything, including a step
+that should have been stopped.
+
+---
+
+## Quiz cards
+
+> **Q1.** When does running a check in parallel with the model call save
+> time?
+> - A) Only when the check fails, since the model is then stopped early
+> - B) When the check passes, since its time overlaps the model call ✅
+> - C) Never, since the check still has to finish before anything else
+> - D) Only when the check is slower than the model call it guards
+>
+> *Explanation: when the check passes, which is most of the time, the run
+> takes as long as the slower of the two instead of their sum. When it
+> fails, the parallel version has spent some model time on a request that's
+> then refused.*
+
+> **Q2.** Why must a step with side effects wait for its checks instead of
+> running alongside them?
+> - A) Because steps with side effects are always slower to run
+> - B) Because cancelling can't undo an action already sent ✅
+> - C) Because checks can't run while any tool is running
+> - D) Because the model needs the check's result before it acts
+>
+> *Explanation: cancellation stops the task, not the effect. A payment,
+> email or registry update that was sent before the tripwire fired has
+> happened. Wasted tokens are a cost; an unwanted action is harm.*
+
+> **Q3.** A step with no side effects finishes in 0.1 seconds; its check
+> takes 0.3 and then fails. What should the runner do?
+> - A) Return the step's result straight away, since it finished first
+> - B) Wait for the check, then raise the tripwire and drop the result ✅
+> - C) Run the step a second time, once the check has finished
+> - D) Return the step's result together with the check's reason
+>
+> *Explanation: running in parallel is about starting early, not about
+> skipping the check. The result is only used once every check has passed.*
+
+> **Q4.** Why does `asyncio.gather(step(), *checks)` get the parallel mode
+> wrong?
+> - A) Because gather runs its arguments one after another
+> - B) Because gather waits for the step even after a check fails ✅
+> - C) Because gather can't return values from async functions
+> - D) Because gather cancels the checks once the step finishes
+>
+> *Explanation: gather returns once everything it was given has finished.
+> A failing check can't stop the step early, so the step runs to completion
+> and its work is wasted, or worse. The reference uses tasks and
+> `as_completed` so the first failure can cancel the rest.*
+
+---
+
+*(End of this concept, and the last in this lesson. The recap page brings
+the lesson together.)*

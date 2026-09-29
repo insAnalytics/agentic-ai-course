@@ -4892,8 +4892,26 @@ architecture.md §3.1).
    HTML): concept 2, Lesson 2's concepts 1
    (`#a-refusal-can-be-a-reliability-failure`), 3 and 4, and Module 3
    Lesson 4's retry concept and its `#retrying-a-write-can-do-it-twice`.
-   4 quiz cards. Next per the mockup: running checks in parallel, and the
-   tripwire.
+   4 quiz cards. Concept 4 (running checks in parallel, and tripwires) is
+   built: in-line vs side-by-side checks with a timing demo, speculative
+   work and the side-effects rule (the OpenAI Agents SDK's parallel vs
+   blocking input guardrails), 4 quiz cards, and a graded async
+   `guarded(step, checks, has_side_effects)` exercise. The demo (timings
+   included) and the starter's printout reproduce the mockup's output
+   exactly in real Pyodide 0.26.4. **The mockup's hidden tests were broken
+   in the course harness:** their `run()` helper called `asyncio.run(...)`
+   inside a plain `def`, which the harness's textual `asyncio.run(` ->
+   `await (` rewrite turns into a SyntaxError, so the reference scored 0/6
+   in the real `TEST_HARNESS`. Fixed by making `run` an `async def` called
+   as `asyncio.run(run(...))` at top level (identical in plain Python); the
+   page's own test strings then score 6/6 for the reference through the
+   real harness, and six wrong versions each fail the test aimed at them
+   (the `gather` shortcut, no cancel on a trip, checks in line before the
+   step, a side-effecting step run alongside, first failure in list order,
+   no `finally`). Logged in architecture.md 4.1. Tests split into 6
+   self-contained tests, one per numbered section. Callback: Module 3
+   Lesson 4's concurrent-tool-calls concept (page link). This is the
+   lesson's last concept; only the bookends remain.
 
 ---
 
