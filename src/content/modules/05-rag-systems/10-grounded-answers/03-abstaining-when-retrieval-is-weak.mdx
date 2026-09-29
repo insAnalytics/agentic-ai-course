@@ -53,6 +53,34 @@ for threshold in (-3, -1, 0, 1, 2):
     print(f"{threshold:>13}{f'{lost} of 36':>14}{f'{caught} of 3':>18}{f'{misses} of 7':>15}")
 `;
 
+export const HELD_OUT_DEMO = String.raw`retriever = AnswerRetriever()
+labelled = load_queries()
+threshold = 0   # chosen on the main questions above, and not changed here
+
+def share(kind: str, below: list, rows: list) -> str:
+    return f"{sum(k == kind for _, k, _ in below)} of {sum(k == kind for _, k, _ in rows)}"
+
+for name in ("main", "held_out"):
+    rows = []
+    for query in labelled[name]:
+        results = retriever.search(query, k=5)
+        if not query["evidence"]:
+            kind = "no answer in corpus"
+        elif answerable(results, query):
+            kind = "answer retrieved"
+        else:
+            kind = "answer missed"
+        rows.append((results[0]["score"], kind, query))
+    below = [row for row in rows if row[0] < threshold]
+    print(f"{name:<9} answers lost {share('answer retrieved', below, rows):<8} "
+          f"no-answer caught {share('no answer in corpus', below, rows):<7} "
+          f"misses caught {share('answer missed', below, rows)}")
+
+print(f"\nheld-out questions below {threshold}:")
+for score, kind, query in sorted(below, key=lambda row: row[0]):
+    print(f"  {score:>5.2f}  {query['id']}  {kind:<20} {query['query']}")
+`;
+
 export const DECLINE_DEMO = String.raw`query = next(q for q in load_queries()["main"] if q["id"] == "q39")
 results = AnswerRetriever().search(query, k=5)
 print(f"{query['query']}\ntop score {results[0]['score']:.2f}: {results[0]['doc_id']} | {results[0]['section']}")
@@ -125,7 +153,49 @@ trade in numbers rather than guess at it.
 
 </Subsection>
 
-<Subsection title="What a threshold can't see" variant="b">
+<Subsection title="A threshold is a setting to confirm" variant="b">
+
+Those numbers flatter the threshold a little. It was chosen by looking at
+these 46 questions, and every setting chosen on a set of questions fits them
+a little, which is why
+[Lesson 2 held questions out](/05-rag-systems/02-measuring-retrieval/04-reading-the-numbers-honestly/#the-held-out-set).
+And only 3 of the 46 have no answer in the corpus, so "declines 2 of 3"
+rests on three examples: one more or one fewer caught would move it by a
+third.
+
+So a threshold chosen on the main questions is a setting to confirm on
+questions it wasn't chosen on. Here it is, unchanged, on the 11 held-out
+questions as well. Nothing is chosen from them: the threshold stays at 0
+whatever they show, which keeps Lesson 2's rule. This also runs every
+labelled question through retrieval:
+
+<LiveDemo client:load dataFiles={RAG_EXPANSION_DATA} setupCode={SETUP} code={HELD_OUT_DEMO} />
+
+On the held-out questions, the threshold declines the one question with no
+answer in the corpus, and loses 2 of the 9 whose answer was retrieved,
+against 3 of 36 on the main set. One of those two, h11, is another follow-up
+question searched exactly as asked, like q24 and q25. With so few questions,
+neither difference means much. One caught out of one isn't evidence that the
+threshold does better on new questions, and 2 of 9 against 3 of 36 isn't
+firm evidence that it does worse. Across both sets there are only four
+questions with no answer, far too few to put a rate on. What a team would do
+is what Lesson 2 did for retrieval: collect many more questions the corpus
+can't answer, from real traffic where possible, label them, and keep some
+aside to check the threshold on.
+
+The number itself belongs to this reranker. As
+[Lesson 7 noted](/05-rag-systems/07-reranking/01-two-stages/#scores-computed-ahead-of-time),
+its scores are raw numbers, not probabilities. On the main questions the top
+scores run from -5.58 to 9.57, and 0 was chosen because that's where these
+questions split, not because it means anything in itself. Another reranker
+scores on its own scale, and even this one gives different scores to
+different text: the scores here are for chunks with Lesson 9's contexts at
+the top, not the plain chunks Lesson 7 scored. Change the reranker or what
+it reads, and the threshold has to be chosen and confirmed again.
+
+</Subsection>
+
+<Subsection title="What a threshold can't see" variant="a">
 
 The highest-scoring question with no answer in the corpus is "Which on-call
 engineer handled INC-2093?", at 4.93, well above any sensible threshold. A
@@ -165,6 +235,14 @@ with an explicit field, such as `"answerable": false`, so the decision is data
 rather than wording. The phrase check keeps this lesson's code short; the
 principle is the same.
 
+Some replies are neither an answer nor a decline. Asked a two-part question
+whose sources cover only one part, a good reply answers that part, with its
+citation, and says the sources don't say the rest. `declined` finds the
+phrase and calls the whole reply a decline, so the part that was answered
+would be handled as a decline too: a status that's either answered or
+declined has no way to say "partly". Structured output can, with a field for
+each part of the question.
+
 </Subsection>
 
 <CheckpointZone>
@@ -193,6 +271,28 @@ principle is the same.
     ],
     "correctIndex": 0,
     "explanation": "Every threshold trades refused good answers for caught bad ones. The labelled set shows the trade in numbers; the system's purpose decides which side to favour."
+  },
+  {
+    "question": "A threshold of 0 declined 2 of the 3 unanswerable main questions. Why isn't that a rate to rely on?",
+    "options": [
+      "It was chosen on those questions, and three examples are far too few",
+      "The reranker's scores change every time the questions are run again",
+      "Unanswerable questions always score lower on the held-out set",
+      "A threshold only works once the model has also declined the question"
+    ],
+    "correctIndex": 0,
+    "explanation": "A setting chosen on a set of questions fits them a little, and one question more or less would move 2 of 3 by a third. It needs confirming on questions it wasn't chosen on, and many more unanswerable examples than three."
+  },
+  {
+    "question": "A team swaps in a newer reranker and keeps the threshold of 0. What's the problem?",
+    "options": [
+      "Its scores are on its own scale, so 0 may not separate anything",
+      "Newer rerankers can't be combined with a score threshold at all",
+      "The threshold must rise, because newer rerankers always score higher",
+      "Nothing, since 0 is the natural boundary for every cross-encoder"
+    ],
+    "correctIndex": 0,
+    "explanation": "Cross-encoder scores are raw numbers, not probabilities, and 0 was chosen because it's where these questions split for this reranker. A new reranker needs its threshold chosen, and confirmed, again."
   },
   {
     "question": "\"Which on-call engineer handled INC-2093?\" scored 4.93. Why can't a score threshold catch it?",
