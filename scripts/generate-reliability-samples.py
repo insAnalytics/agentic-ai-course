@@ -58,7 +58,7 @@ MODELS = {
 # "Best Practices" section on the day of the run, and edit them here if they differ: the values
 # used are saved with every run, so the pages will report whatever was actually used.
 SAMPLING = {
-    "off": dict(temperature=0.7, top_p=0.8, top_k=20, min_p=0.0, presence_penalty=0.0),
+    "off": dict(temperature=0.7, top_p=0.8, top_k=20, min_p=0.0, presence_penalty=1.5),
     "on": dict(temperature=1.0, top_p=0.95, top_k=20, min_p=0.0, presence_penalty=1.5),
 }
 
