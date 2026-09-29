@@ -1,0 +1,189 @@
+---
+title: "Spend reliability where the risk is"
+lesson: "02-reliability-tradeoffs"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+export const RULE_DEMO = String.raw`# a migration task as five steps: how often each goes wrong, and what a wrong step costs if nothing
+# catches it, in the same made-up units as the check's cost
+steps = [
+    ("look up the agent's record",        0.03, 1),
+    ("search the migration runbook",      0.05, 1),
+    ("draft the migration plan",          0.05, 5),
+    ("change the agent's model",          0.02, 200),
+    ("post a summary to the team",        0.03, 80),
+]
+# one kind of check: catches 90% of wrong steps, costs 1 unit to run, and wrongly blocks 2% of
+# correct steps, each false block costing 3 units (a retry, or a person looking at it)
+CATCHES, COST, FALSE_BLOCKS, FALSE_BLOCK_COST = 0.90, 1.0, 0.02, 3.0
+
+total_all = total_chosen = 0.0
+for name, wrong, harm in steps:
+    saved = wrong * harm * CATCHES
+    spent = COST + (1 - wrong) * FALSE_BLOCKS * FALSE_BLOCK_COST
+    worth = saved > spent
+    total_all += saved - spent
+    total_chosen += (saved - spent) if worth else 0.0
+    print(f"{name:<30} saves {saved:5.2f}, costs {spent:4.2f}  ->  {'check it' if worth else 'skip'}")
+print()
+print(f"net gain, checking every step:         {total_all:5.2f}")
+print(f"net gain, checking only where it pays: {total_chosen:5.2f}")
+`;
+
+<Subsection title="Checking everything is its own failure" variant="a">
+
+[The first concept in this lesson](/06-reliability/02-reliability-tradeoffs/01-four-things-every-technique-trades/)
+showed that every check costs latency, calls and false blocks.
+[Lesson 1's arithmetic](/06-reliability/01-per-step-reliability/01-small-errors-compound/)
+shows why that matters at the scale of an agent: a check on every one of
+twenty steps pays its cost twenty times, and its false blocks compound the
+same way errors do. An agent that verifies everything uniformly can end up
+slower, more expensive and more likely to refuse than one with no checks at
+all, while spending most of its effort on steps where a mistake was cheap.
+
+The alternative is to spend unevenly: more where a mistake is costly, less
+where it isn't. This is a design principle rather than a measured law, so
+here's what supports it, and then how to apply it.
+
+</Subsection>
+
+<Subsection title="The evidence: uneven spending beats even spending" variant="b">
+
+No study has measured "reliability spending by risk" for agents directly.
+The closest evidence is about spending effort unevenly by something else:
+
+- **By difficulty.** Snell et al.,
+  [*Scaling LLM Test-Time Compute Optimally*](https://arxiv.org/abs/2408.03314)
+  (2024), found that how much extra computation helps depends heavily on how
+  hard a prompt is. Choosing the strategy and amount per prompt, based on
+  its difficulty, matched a uniform best-of-N baseline while using about four
+  times less computation.
+- **By a failed check.** In Kapoor et al.'s HumanEval results from the
+  previous concept, the "Escalation" baseline ran a cheap model first and
+  moved up to more expensive models only when the code failed its example
+  tests. It reached 85.0% accuracy at $0.27 for the whole benchmark, against
+  89.6% at $1.93 for calling GPT-4 on every problem: a bit less accurate, at
+  about a seventh of the cost. Lesson 6 covers this kind of escalation.
+
+Neither is about risk. Both show the same thing, which is what the principle
+rests on: effort spent only where it's needed buys more than the same effort
+spread evenly.
+
+</Subsection>
+
+<Subsection title="What makes a step risky" variant="a">
+
+Module 3 already drew the first line:
+[not all tools carry the same risk](/03-tool-design-for-agents/11-designing-for-least-privilege/02-separate-reads-from-writes-and-gate-the-writes/#not-all-tools-carry-the-same-risk),
+and writes whose mistakes are costly get a gate. For reliability, four
+properties raise the cost of a wrong step:
+
+- **It can't be undone.** A deleted record, a payment, a sent message. A
+  wrong read can be repeated; a wrong irreversible action can only be
+  compensated for, if at all. Lesson 7 is about these steps.
+- **It reaches outside the system.** Emails, posts, calls to other
+  services: anything other people or systems see and act on.
+- **The user sees it and acts on it.** A final answer that states a figure
+  or cites a source is where an unsupported claim does its damage. Lesson 4
+  checks those.
+- **It comes after untrusted input.** Once the agent has read a web page or
+  a retrieved document, what it does next may have been steered by it.
+  Lesson 9 restricts what's allowed from that point.
+
+Two consequences follow.
+
+**Check at the point of no return.** Because mistakes propagate, a wrong
+read early in a run usually does its damage later, at the first
+irreversible step. A check just before that step can catch the result of
+many earlier mistakes at once, which is often cheaper than checking each of
+them.
+
+**Cheap steps can go unchecked.** Reading a record, searching a runbook or
+drafting a plan that the agent will act on later are all steps where a
+mistake shows up downstream and costs little to redo.
+
+</Subsection>
+
+<Subsection title="A rough rule, with made-up numbers" variant="b">
+
+One way to decide is an expected-value comparison per step: check when the
+harm a check is expected to prevent is larger than what the check costs,
+including its false blocks. Here's that rule applied to a five-step task:
+
+<LiveDemo client:load code={RULE_DEMO} />
+
+*(Every rate and cost here is invented to show how the rule works; in a real
+agent they come from measuring your own runs.)*
+
+With these numbers, checking every step still comes out slightly ahead of
+not checking at all, but checking only the two risky steps gains nearly five
+times as much, because the three cheap steps each cost more to check than
+they could save.
+
+The rule is only as good as its inputs, and they're hard to get. The harm of
+a wrong step is often a judgement, and a check's catch rate and false-block
+rate have to be measured, as the first concept's habit says. So treat it as
+a way of reasoning about where to spend, not a formula to trust blindly.
+When the numbers are unknown, the four properties above are a reasonable
+default: gate the irreversible, the external and the user-facing, and leave
+the rest light.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "Why can checking every step of an agent make it less reliable, not just slower?",
+    "options": [
+      "Because every check adds new bugs to the agent's code",
+      "Because each check's false blocks add up over many steps, like errors",
+      "Because models perform worse when they know they're being checked",
+      "Because a check can only run once per task, so later steps go bare"
+    ],
+    "correctIndex": 1,
+    "explanation": "A check with a small false-block rate, applied to twenty steps, blocks some correct runs that would otherwise have finished. Those are false refusals, and they count against reliability as surely as failures do."
+  },
+  {
+    "question": "What evidence supports spending reliability unevenly?",
+    "options": [
+      "A study of agents that checked only their risky steps",
+      "Studies where effort spent only where needed beat even spending",
+      "A mathematical proof that uniform checking is never worthwhile",
+      "There's no evidence either way, so it's purely a matter of taste"
+    ],
+    "correctIndex": 1,
+    "explanation": "Snell et al. allocated compute per prompt by difficulty and matched a uniform baseline with about four times less; Kapoor et al.'s escalation baseline used expensive models only after a failed test. Neither measured risk directly, which is why the page calls this a principle."
+  },
+  {
+    "question": "An agent reads three records, drafts a plan, then updates a customer's billing. With one check to spend, where should it go?",
+    "options": [
+      "On the first read, since errors are best caught as early as possible",
+      "Spread evenly, as a lighter check on every one of the five steps",
+      "Just before the billing update, the first step that can't be undone",
+      "After the billing update, to confirm what actually happened"
+    ],
+    "correctIndex": 2,
+    "explanation": "The reads and the draft are cheap to redo; the billing update is irreversible and external. A check before it catches a wrong update however it came about. Reading back afterwards is also valuable, and it's Lesson 7's subject, but it can't prevent the harm."
+  },
+  {
+    "question": "In the demo, the rule said to skip checking the step \"draft the migration plan\". What would change that verdict?",
+    "options": [
+      "Nothing, since drafting steps should never be checked at all",
+      "A lower false-block rate alone, since false blocks are the whole cost",
+      "A costlier or likelier wrong draft, or a cheaper check",
+      "Running the same check twice on the draft to be more certain"
+    ],
+    "correctIndex": 2,
+    "explanation": "The rule compares the harm a check is expected to prevent with what the check costs. With these made-up numbers the draft saves 0.23 against a cost of 1.06; different measurements could flip it, which is why the inputs have to come from your own runs."
+  }
+]}
+/>
+
+</CheckpointZone>

@@ -4818,7 +4818,17 @@ architecture.md §3.1).
    the String.raw template, and every template was evaluated in JS to
    confirm it round-trips to the verified Python. Callback: Lesson 1
    concept 2's `#how-sure-can-we-be-of-these-numbers` (verified against
-   the built HTML). Next per the mockup: where to spend.
+   the built HTML). Concept 4 (spend reliability where the risk is) is
+   built: why uniform checking fails, Snell et al. and Kapoor et al.'s
+   escalation as evidence for uneven spending, the four properties that
+   make a step risky, checking at the point of no return, and an
+   expected-value rule demo (net 0.77 checking everything vs 3.64 checking
+   only where it pays, made-up numbers). The demo reproduces the mockup's
+   output exactly in real Pyodide 0.26.4. Callbacks: this lesson's concept
+   1 and Lesson 1's concept 1 (page links), and Module 3 Lesson 11's
+   `#not-all-tools-carry-the-same-risk` (verified against the built HTML).
+   4 quiz cards. This is the lesson's last concept; only the bookends
+   remain.
 
 ---
 
