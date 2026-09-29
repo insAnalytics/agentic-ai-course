@@ -1,0 +1,369 @@
+---
+title: "Checking the checker"
+lesson: "04-verifying-claims"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { LOAD_VERIFICATION, verificationData } from "../../../../lib/reliabilityData";
+
+export const SET_DATA = verificationData();
+export const JUDGES_DATA = verificationData("support.large", "support.small", "nli");
+export const EXERCISE_DATA = verificationData("support.large", "support.small");
+
+export const PAIRS_DEMO = String.raw`for pair in load_set("set-v")["support_pairs"]:
+    if pair["item"] == "v36":
+        print(f"{pair['kind']:<13} label: {pair['label']:<14} source {pair['source']['key']}")
+        print(f"              claim: {pair['claim']}")
+`;
+
+export const JUDGES_DEMO = String.raw`from collections import Counter
+
+pairs = load_set("set-v")["support_pairs"]
+
+
+def model_verdicts(model: str) -> dict:
+    return {r["id"]: r["verdict"] == "SUPPORTED" for r in load_run(f"support.{model}")["results"]}
+
+
+def nli_verdicts() -> dict:
+    # the small model says "supported" when entailment is its most likely label
+    return {r["id"]: max(r["probs"], key=r["probs"].get) == "entailment"
+            for r in load_run("nli")["results"] if r["set"] == "support"}
+
+
+judges = {"Qwen3.5-9B": model_verdicts("large"), "Qwen3.5-4B": model_verdicts("small"), "NLI model": nli_verdicts()}
+print("pairs each judge passed as supported:")
+print(f"{'':<12}{'restated':>18}{'altered':>18}{'other source':>18}")
+print(f"{'':<12}{'(should pass)':>18}{'(should flag)':>18}{'(should flag)':>18}")
+for name, said_supported in judges.items():
+    passed = Counter(p["kind"] for p in pairs if said_supported[p["id"]])
+    print(f"{name:<12}{passed['restated']:>12} of 40{passed['altered']:>12} of 40{passed['other_source']:>12} of 40")
+`;
+
+export const BOUND_DEMO = String.raw`def upper_bound_when_none(n: int, confidence: float = 0.95) -> float:
+    """The highest error rate that would still give zero errors in n tries at least (1 - confidence) of the time."""
+    return 1 - (1 - confidence) ** (1 / n)
+
+
+for n, what in [(40, "supported pairs (false flags)"), (80, "unsupported pairs (false passes)"),
+                (40, "facts those 80 pairs were built from")]:
+    print(f"0 errors in {n:>2} {what:<38} -> the true rate could still be {upper_bound_when_none(n):.1%}")
+`;
+
+export const COST_DEMO = String.raw`for name, run_name, pairs_timed in [("Qwen3.5-9B", "support.large", 120), ("Qwen3.5-4B", "support.small", 120),
+                                    ("NLI model", "nli", 240)]:
+    timing = load_run(run_name)["timing"]
+    per_pair = 1000 * timing["wall_seconds"] / pairs_timed
+    print(f"{name:<11} {per_pair:5.1f} ms per pair  ({timing['wall_seconds']:.2f} s for {pairs_timed} pairs, batched)")
+`;
+
+export const STARTER = String.raw`def score_checker(labels: list[bool], verdicts: list[bool]) -> dict:
+    """How a support check did against known answers. labels[i] is True if the source really supports
+    claim i; verdicts[i] is True if the check said it does."""
+    ...
+
+pairs = load_set("set-v")["support_pairs"]
+labels = [pair["label"] == "supported" for pair in pairs]
+for model in ("large", "small"):
+    said = {r["id"]: r["verdict"] == "SUPPORTED" for r in load_run(f"support.{model}")["results"]}
+    print(model, score_checker(labels, [said[pair["id"]] for pair in pairs]))
+`;
+
+export const REFERENCE = String.raw`def score_checker(labels: list[bool], verdicts: list[bool]) -> dict:
+    """How a support check did against known answers. labels[i] is True if the source really supports
+    claim i; verdicts[i] is True if the check said it does."""
+    if len(labels) != len(verdicts) or not labels:
+        raise ValueError("need one verdict per label, and at least one of each")
+    supported = [v for label, v in zip(labels, verdicts) if label]
+    unsupported = [v for label, v in zip(labels, verdicts) if not label]
+    false_flags = supported.count(False)
+    false_passes = unsupported.count(True)
+    return {
+        "agreement": sum(label == v for label, v in zip(labels, verdicts)) / len(labels),
+        "false_flags": false_flags,
+        "false_passes": false_passes,
+        "false_flag_rate": false_flags / len(supported) if supported else None,
+        "false_pass_rate": false_passes / len(unsupported) if unsupported else None,
+    }
+
+pairs = load_set("set-v")["support_pairs"]
+labels = [pair["label"] == "supported" for pair in pairs]
+for model in ("large", "small"):
+    said = {r["id"]: r["verdict"] == "SUPPORTED" for r in load_run(f"support.{model}")["results"]}
+    print(model, score_checker(labels, [said[pair["id"]] for pair in pairs]))
+`;
+
+export const TESTS = [
+// each hidden test runs in its own copy of the learner's namespace, so every test repeats what it uses
+String.raw`import math
+
+labels = [True] * 4 + [False] * 6
+verdicts = [True, True, True, False] + [False, False, False, False, True, True]
+report = score_checker(labels, verdicts)
+assert isinstance(report, dict), "return a dict"
+assert report["false_flags"] == 1, f"false_flags {report['false_flags']}: supported claims the check rejected; there's 1"
+assert report["false_passes"] == 2, f"false_passes {report['false_passes']}: unsupported claims the check passed; there are 2"
+assert math.isclose(report["agreement"], 0.7), f"agreement {report['agreement']}: 7 of the 10 verdicts match"
+assert math.isclose(report["false_flag_rate"], 0.25), (
+    f"false_flag_rate {report['false_flag_rate']}: 1 false flag out of the 4 supported claims, not out of all 10. "
+    "A rate is out of the cases where that mistake was possible")
+assert math.isclose(report["false_pass_rate"], 2 / 6), (
+    f"false_pass_rate {report['false_pass_rate']}: 2 false passes out of the 6 unsupported claims")
+`,
+String.raw`perfect = score_checker([True, False, True], [True, False, True])
+assert perfect["false_flag_rate"] == 0 and perfect["false_pass_rate"] == 0 and perfect["agreement"] == 1, (
+    "a check that gets everything right has both rates at 0")
+`,
+String.raw`import math
+
+only_supported = score_checker([True, True], [True, False])
+assert only_supported["false_pass_rate"] is None, (
+    "with no unsupported claims, the false-pass rate can't be measured: return None, not 0. A 0 would claim "
+    "the check never passes bad claims, which nothing here tested")
+assert math.isclose(only_supported["false_flag_rate"], 0.5), "1 of the 2 supported claims was flagged"
+assert score_checker([False], [True])["false_flag_rate"] is None, "no supported claims: false_flag_rate is None"
+`,
+String.raw`def raises(fn, *args):
+    try:
+        fn(*args)
+    except ValueError:
+        return True
+    except Exception:
+        return False
+    return False
+
+
+assert raises(score_checker, [True, False], [True]), "different lengths: raise ValueError"
+assert raises(score_checker, [], []), "no labels: raise ValueError"
+`,
+];
+
+<Subsection title="A check you haven't measured is a guess" variant="a">
+
+The support check from
+[the previous concept](/06-reliability/04-verifying-claims/01-checking-each-claim/)
+is itself a model, and it can be wrong in both directions: passing a claim
+the source doesn't support, or flagging one it does. Shipping it without
+knowing how often each happens would undo the point of
+[Lesson 2's habit](/06-reliability/02-reliability-tradeoffs/01-four-things-every-technique-trades/#a-refusal-can-be-a-reliability-failure):
+a check is known by what it catches and what it wrongly blocks.
+
+Measuring a model-based judge against cases with known answers is standard
+practice. Zheng et al.'s
+[study of LLM judges](https://arxiv.org/abs/2306.05685) (NeurIPS 2023),
+which made the approach common, validated their judges by how often they
+agreed with human ratings. Evaluation guides from tooling vendors such as
+[Arize](https://arize.com/guides/llm-as-a-judge/) give the same advice: run
+the judge on a labelled "golden" set, compare its labels with yours, and
+only rely on it once they agree.
+
+The research also says what to expect. Li et al.'s
+[AttributionBench](https://arxiv.org/abs/2402.15089) (ACL Findings 2024)
+collected existing datasets of claims labelled as supported or not by their
+evidence, and found the task hard: even a fine-tuned GPT-3.5 reached only
+about 80% macro-F1, a score that weighs catching unsupported claims and
+passing supported ones equally. Difficulty depended on length. Zero-shot,
+GPT-3.5 and GPT-4 scored over 80% on datasets with short claims and evidence,
+and around 60–70% where the evidence was long. Models trained for natural
+language inference, the task of deciding whether one text supports or
+contradicts another, often did as well as the fine-tuned GPT-3.5.
+
+</Subsection>
+
+<Subsection title="Labels without a labelling team" variant="b">
+
+A golden set usually means people labelling examples. This lesson's set
+takes a shortcut that works for this one question. For each of 40 facts
+from the course's documents, it pairs three claims with sources, and the
+right answer follows from how each pair was made:
+
+<LiveDemo client:load dataFiles={SET_DATA} setupCode={LOAD_VERIFICATION} code={PAIRS_DEMO} />
+
+*(One of the 40 facts in set V.)*
+
+- **Restated:** the fact in new words, with the chunk it came from. The
+  source supports it.
+- **Altered:** the fact with one thing changed, with the same chunk. The
+  source contradicts it.
+- **Other source:** the restated claim with a chunk from another document
+  that doesn't state it. The source is silent on it.
+
+One of these needed a person. The corpus repeats facts across documents, so
+the best-matching chunk from another document often did state the claim.
+Each "other source" was chosen by reading candidates in full and picking one
+that doesn't.
+
+</Subsection>
+
+<Subsection title="How the three judges did" variant="a">
+
+The same 120 pairs went to three judges: Qwen3.5-9B and Qwen3.5-4B with
+the prompt from the previous concept, and `cross-encoder/nli-deberta-v3-base`,
+a small language-inference model that scores a pair as entailment,
+contradiction or neutral. It counts as saying "supported" when entailment
+is its most likely label.
+
+<LiveDemo client:load dataFiles={JUDGES_DATA} setupCode={LOAD_VERIFICATION} code={JUDGES_DEMO} />
+
+*(Real verdicts from the committed runs: the model judges greedy, one call
+per pair.)*
+
+- **The 9B agreed with every label.**
+- **The 4B flagged 3 claims its source supports,** and passed nothing it
+  shouldn't have.
+- **The small model flagged 4 supported claims and passed 1 altered one.**
+
+On these pairs, then, the model judges' mistakes were all false flags: they
+passed nothing unsupported. That's what happened on 120 pairs with these
+two models, not a general property of model judges.
+
+</Subsection>
+
+<Subsection title="Zero errors isn't a zero error rate" variant="b">
+
+The 9B's perfect score doesn't mean it never errs. A judge that is wrong 5%
+of the time will still get 40 cases in a row right about one time in eight.
+The standard way to read a clean record is Hanley and Lippman-Hand's
+[rule of three](https://jhanley.biostat.mcgill.ca/c607/ch08/zero_numerator.pdf)
+(JAMA, 1983): after zero failures in n independent tries, the true failure
+rate could still be as high as about 3/n, at 95% confidence. Here's the
+exact version:
+
+<LiveDemo client:load code={BOUND_DEMO} />
+
+The third line matters. The 80 unsupported pairs came from only 40 facts,
+and pairs built from the same fact aren't independent tries: a judge that
+misreads a fact may misread both its pairs. Counting facts instead of pairs
+is the same correction
+[Lesson 1 made](/06-reliability/01-per-step-reliability/02-the-same-question-run-twice/#how-sure-can-we-be-of-these-numbers)
+when it resampled whole questions. With 40 facts, the honest reading of the
+9B's result is "wrong less than about 7% of the time, on pairs like these".
+
+</Subsection>
+
+<Subsection title="Why this is the easy end" variant="a">
+
+"Pairs like these" is doing a lot of work. Each built pair is one short
+claim against one chunk, and each unsupported claim differs from the truth
+in one clear way, or sits beside an unrelated chunk. That's the easy end of
+what AttributionBench measured.
+
+Real answers are harder, and the previous concept already showed it. On the
+4B's own drafts, the 9B and 4B judges disagreed on 33 of 390 cited claims.
+On each of those, at least one judge is wrong, so on real drafts at least
+one of them erred on at least 33 claims, about 8.5%, where on the built pairs
+the two made 3 mistakes between them, across 120 pairs each. The drafts have
+no labels, so that's a floor on the errors, not a measurement of them.
+
+The built set is still worth having: a judge that fails it is certainly not
+ready. But a judge that passes it has only cleared the first bar. Checking
+it on a sample of real outputs, labelled by a person, is the step after.
+
+</Subsection>
+
+<Subsection title="What each judge costs" variant="b">
+
+Agreement is one of
+[Lesson 2's four quantities](/06-reliability/02-reliability-tradeoffs/03-equal-budgets-need-a-stated-unit/).
+Here are the other judges' costs on the same GPU:
+
+<LiveDemo client:load dataFiles={JUDGES_DATA} setupCode={LOAD_VERIFICATION} code={COST_DEMO} />
+
+*(Real timings on one Colab G4 GPU, each run batching all its pairs
+together; model loading isn't included, and other hardware will differ.)*
+
+The small inference model is about seven times cheaper per pair than the
+9B, and made 5 mistakes where the 9B made none. Which is right depends on
+where the check sits: a cheap first pass over every claim, with the 9B only
+on the claims it flags or on answers that lead to an action, is one way to
+spend where the risk is.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "Why validate a support check against labelled cases before relying on it?",
+    "options": [
+      "Because model judges are always less accurate than code",
+      "Because only known cases show how often it's wrong, each way",
+      "Because labelled cases make the judge itself more accurate",
+      "Because agent frameworks require it before deployment"
+    ],
+    "correctIndex": 1,
+    "explanation": "A judge can flag good claims and pass bad ones. Comparing its verdicts with known answers measures both, which is why guides and research on LLM judges validate them against labelled sets first."
+  },
+  {
+    "question": "Qwen3.5-9B made no mistakes on 40 supported pairs. What can you say about its false-flag rate?",
+    "options": [
+      "It's zero",
+      "It's probably under about 7%, at 95% confidence",
+      "It's exactly 1 in 40",
+      "Nothing at all, since there were no mistakes to count"
+    ],
+    "correctIndex": 1,
+    "explanation": "Zero failures in n tries still leaves room for a rate up to about 3/n. With 40 cases that's about 7%. More cases tighten the bound; none can prove the rate is zero."
+  },
+  {
+    "question": "The 80 unsupported pairs came from 40 facts. Why use 40, not 80, when bounding the false-pass rate?",
+    "options": [
+      "Because only 40 of the 80 pairs were labelled correctly",
+      "Because pairs from the same fact aren't independent tries",
+      "Because the other 40 of those pairs were really supported",
+      "Because the rule of three only works for up to 40 tries"
+    ],
+    "correctIndex": 1,
+    "explanation": "A judge that misreads a fact may get both of its pairs wrong, so the two pairs carry less than two tries' worth of evidence. Counting facts is the cautious choice, as Lesson 1's question-level bootstrap was."
+  },
+  {
+    "question": "A judge scores perfectly on the built pairs. Why isn't that enough to trust it on real answers?",
+    "options": [
+      "Because the built pairs were labelled by a model",
+      "Because built pairs are short and cleanly wrong: the easy end",
+      "Because a perfect score always means the test set leaked",
+      "Because real answers never contain unsupported claims"
+    ],
+    "correctIndex": 1,
+    "explanation": "AttributionBench found judges do worse as evidence gets longer and messier. On the 4B's real drafts, the two judges disagreed on 33 of 390 claims, so at least one was wrong on each."
+  },
+  {
+    "question": "Why does score_checker return None for the false-pass rate when there are no unsupported claims?",
+    "options": [
+      "Because the rate would come out as infinite",
+      "Because 0 would claim something nothing here tested",
+      "Because Python can't divide a number by zero",
+      "Because unsupported claims are always rare in practice"
+    ],
+    "correctIndex": 1,
+    "explanation": "A rate needs cases where the mistake was possible. With none, the honest answer is \"not measured\", and None says exactly that."
+  }
+]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Write score_checker(labels, verdicts). labels[i] is True if claim i's source really supports it, and verdicts[i] is True if the check said it does. Return a dict with: \"agreement\", the fraction of verdicts that match their labels; \"false_flags\", supported claims the check rejected; \"false_passes\", unsupported claims the check passed; \"false_flag_rate\", false flags as a fraction of the supported claims; and \"false_pass_rate\", false passes as a fraction of the unsupported claims. A rate that can't be measured, because there are no claims of that kind, is None. Raise ValueError if the lists differ in length or are empty. When you click Run, the code at the bottom scores the two model judges on the 120 built pairs."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  namespaceSetup={LOAD_VERIFICATION}
+  dataFiles={EXERCISE_DATA}
+  runnable
+  hint={"Split the verdicts by label first: one list for the supported claims, one for the unsupported. Each mistake can only happen in one of them, so each rate divides by that list's length, not by the total."}
+  correctAnswer={{
+    code: REFERENCE,
+    explanation: "The two rates answer different questions, so they need different denominators. \"How often does it flag a good claim?\" is out of the good claims; \"how often does it let a bad one through?\" is out of the bad ones. Dividing both by the total makes them depend on the mix of the test set, so the same judge would score differently on a set with more unsupported claims. Returning None when a kind is missing matters for the same reason: a set with no unsupported claims says nothing about false passes, and 0 would claim it did. In the Run output, the 4B's false-flag rate of 7.5% is 3 of 40, the rate the 9B's clean record can't rule out for the 9B either.",
+  }}
+/>
+
+</CheckpointZone>

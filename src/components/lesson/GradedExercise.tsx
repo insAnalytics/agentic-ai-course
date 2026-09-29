@@ -35,6 +35,14 @@ interface GradedExerciseProps {
    * before grading, fetched on the first Submit. Same as LiveDemo's prop.
    */
   dataFiles?: string[];
+  /**
+   * Adds a Run button that runs the editor's code (after `namespaceSetup`)
+   * and shows what it prints, ungraded — for exercises whose starter prints
+   * something the task or explanation refers to. Opt-in, so exercises
+   * without a meaningful printout keep just Submit. First needed by Module 6
+   * Lesson 4 concept 2.
+   */
+  runnable?: boolean;
 }
 
 type Reveal = "none" | "hint" | "answer";
@@ -48,10 +56,12 @@ export default function GradedExercise({
   setupCode,
   namespaceSetup,
   dataFiles,
+  runnable,
 }: GradedExerciseProps) {
   const [code, setCode] = useState(starterCode);
   const [pyodide, setPyodide] = useState<PyodideInterface | null>(null);
-  const [status, setStatus] = useState<"loading" | "ready" | "grading">("loading");
+  const [status, setStatus] = useState<"loading" | "ready" | "grading" | "running">("loading");
+  const [output, setOutput] = useState<string | null>(null);
   const [results, setResults] = useState<{ error: string | null; results: boolean[] } | null>(null);
   const [reveal, setReveal] = useState<Reveal>("none");
 
@@ -69,6 +79,24 @@ export default function GradedExercise({
 
   const passed = results && results.error === null && results.results.every(Boolean);
   const passCount = results?.results.filter(Boolean).length ?? 0;
+
+  const run = async () => {
+    if (!pyodide) return;
+    setStatus("running");
+    if (dataFiles?.length) {
+      try {
+        await writeCourseData(pyodide, dataFiles);
+      } catch (err) {
+        setOutput(String(err));
+        setStatus("ready");
+        return;
+      }
+    }
+    if (setupCode) await runCapturingOutput(pyodide, setupCode);
+    const { output, error } = await runCapturingOutput(pyodide, (namespaceSetup ?? "") + "\n" + code);
+    setOutput(error ? output + error : output);
+    setStatus("ready");
+  };
 
   const submit = async () => {
     if (!pyodide) return;
@@ -106,6 +134,15 @@ export default function GradedExercise({
           <CodeEditor value={code} onChange={setCode} />
         </div>
         <div className="my-3 flex gap-2">
+          {runnable && (
+            <button
+              onClick={run}
+              disabled={status !== "ready"}
+              className="rounded-md bg-[var(--color-bg-subtle)] px-4 py-1.5 text-sm font-medium text-[var(--color-ink)] disabled:opacity-50"
+            >
+              {status === "running" ? "Running…" : "Run"}
+            </button>
+          )}
           <button
             onClick={submit}
             disabled={status !== "ready"}
@@ -130,6 +167,12 @@ export default function GradedExercise({
             </>
           )}
         </div>
+
+        {output !== null && (
+          <pre className="mt-0 mb-3 rounded-md bg-[var(--color-bg-subtle)] p-3 font-mono text-sm whitespace-pre-wrap text-[var(--color-ink)]">
+            {output || "(no output)"}
+          </pre>
+        )}
 
         {results && (
           <div

@@ -2002,6 +2002,16 @@ and mutations each fail their target test (keywords recomputed in search →
 the whole pair (dict comparison on ties) → 3, 6; zero scores kept → 2, 3;
 `k` ignored → 3, 6; ties reversed → 3, 6).
 
+**`runnable` (Module 6 Lesson 4 concept 2): a Run button on a single-file
+exercise.** `GradedExercise` used to have only Submit, which reports
+pass/fail and never shows what the code prints, so a starter whose bottom
+lines print something (a report, a score) printed into the void. With
+`runnable`, a Run button writes `dataFiles`, runs `setupCode`, then runs
+`namespaceSetup + code` through `runCapturingOutput`, as `LiveDemo` does,
+and shows the output. It's opt-in, because most starters have nothing
+worth printing; Lesson 4's concepts 1 and 2 use it, and concept 2's task
+refers to it by name.
+
 **Module 4 token counting (`COUNT_TOKENS` in `src/lib/fakeClient.ts`).**
 `count_tokens(x)` (about 4 characters per token, `math.ceil`; non-strings
 counted by their JSON form, with content-block objects flattened via

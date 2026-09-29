@@ -4950,8 +4950,30 @@ architecture.md §3.1).
    checks). Callbacks: Module 5's citations-that-point-back concept, Lesson
    3's what-a-failed-check-does and Lesson 2's
    spend-reliability-where-the-risk-is (page links, as the mockup names no
-   subsection). Concepts 2 on (the next measures the judge on labelled
-   pairs) and bookends not yet written.
+   subsection). Concept 2 (checking the checker) is built: why a judge must
+   be measured (Zheng et al., Arize, AttributionBench), set V's three pair
+   kinds on v36, the three judges on the 120 support pairs (9B 40/0/0, 4B
+   37/0/0, NLI 36/1/0 passed as restated/altered/other source), the exact
+   rule-of-three bound (7.2% / 3.7% / 7.2%, counting facts not pairs), why
+   built pairs are the easy end (33 of 390 real disagreements), and per-pair
+   cost (11.8 / 7.3 / 1.7 ms). All four demos and the exercise's Run output
+   reproduce the mockup byte for byte in real Pyodide 0.26.4 against the
+   committed `support.*` and `nli` runs; the prose's figures (one in eight,
+   seven times cheaper, 8.5%) were checked. 5 quiz cards and a graded
+   `score_checker(labels, verdicts)` exercise over the real verdicts. Its
+   task says "when you click Run", but single-file exercises had no Run
+   button, so `GradedExercise` gained an opt-in `runnable` prop
+   (architecture.md 4.1), also turned on for concept 1's exercise, whose
+   starter prints a report too. Tests split into 4 self-contained tests;
+   through the real `TEST_HARNESS` the reference passes all 4 and seven
+   wrong versions each fail (the bare starter, rates over the total, 0
+   instead of None, no empty check, no length check, flags and passes
+   swapped, agreement as a count). Callbacks: concept 1 (page link), Lesson
+   2's `#a-refusal-can-be-a-reliability-failure`, Lesson 1's
+   `#how-sure-can-we-be-of-these-numbers` (both verified against the built
+   HTML) and Lesson 2's equal-budgets concept (page link). Concepts 3 on
+   (the next checks sources against each other) and bookends not yet
+   written.
 
 ---
 
