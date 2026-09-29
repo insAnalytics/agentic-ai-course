@@ -64,6 +64,16 @@ its title and its section. But extraction isn't the whole bill:
   step with changing documents is Module 10's subject; a graph is one of the
   more expensive indexes to keep in step.
 
+  One detail matters from the first build. This lesson files each chunk's
+  triples, and so every edge's sources, under ids like `D11:1`: the chunk's
+  place in its document. An edit that adds a paragraph near the top renumbers
+  every chunk after it, and an edge extracted before the edit then cites a
+  different passage, with nothing to say so. Filing extractions under a hash
+  of the chunk's text instead, the way
+  [Lesson 4 files vectors](/05-rag-systems/04-search-by-meaning/01-from-similarity-to-search/#vectors-computed-ahead-of-time),
+  turns that silent mismatch into a visible gap: a changed chunk has a new
+  hash, finds no stored triples, and is extracted again.
+
 </Subsection>
 
 <Subsection title="What Microsoft has published since" variant="b">

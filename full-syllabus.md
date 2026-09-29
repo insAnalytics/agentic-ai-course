@@ -3557,13 +3557,22 @@ build.
 - **L10 to L14 recap libraries:** `format_source` neutralises a planted
   `</source>` (architecture.md §4.1).
 
-Open, for the author:
-- `run_agent`'s unknown-tool crash (`tools[call.name](**call.input)`) is
-  shared by Modules 2 to 5 and should become an `is_error` result
-  everywhere at once.
-- Lesson 12's stored triples are keyed by chunk id, which an approved edit
-  that re-chunks a document would invalidate. That belongs with Module 10's
-  index maintenance.
+Decided by the author (2026-09-29):
+- **Unknown-tool shortcut.** The agent loops that run tools with a bare
+  `tools[call.name](**call.input)` stay as they are, each with a one-line
+  comment saying a production loop returns an unknown tool or bad arguments
+  as an `is_error` result. The loops are: Module 2 Lesson 11's framework
+  demo; Module 4 Lesson 6's offloading demo and Lesson 9's recap reference;
+  and Module 5's shared `run_agent` (`ragCorpus.ts`, Lesson 11's page and
+  the Lesson 11 to 14 recap libraries, kept byte-identical). Module 3's
+  least-privilege loop already handles it properly.
+- **Position-keyed graph triples.** Lesson 12's "Keeping it current" now
+  explains that triples filed under `D11:1`-style positions go silently
+  wrong when an edit renumbers chunks, and that filing them under a hash of
+  the chunk's text, as Lesson 4 does for vectors, makes the change visible.
+  Doing it on a live system is still Module 10's.
+- **Cache lifetime.** Module 4 Lesson 3 concept 1 now says five minutes by
+  default on Anthropic's API, with longer lifetimes at a higher write price.
 
 1. **Why Retrieval, When the Window Is Huge** — **Locked** (folder
    `01-why-retrieval`; the title comes from the bookends mockup).
