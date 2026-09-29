@@ -3669,7 +3669,7 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    Lesson 4 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
 
-5. **Documents That Aren't Clean Text** (provisional title) — **Building**
+5. **Documents That Aren't Clean Text** (provisional title) — **Locked**
    (folder `05-document-parsing`; inserted on 2026-09-28). Data: the PDF
    corpus under `public/data/rag/pdf/` (architecture.md §3.1). Shared setup
    is Lesson 4's recap `lib.py` plus the new `PDF_LOADERS`; data
@@ -3754,7 +3754,23 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    checked against its README (IBM Research, MIT licence, layout, reading
    order, tables, OCR, Markdown and JSON output, local execution); the
    support-tiers PDF linked; 4 quiz cards. No changes from the mockup.
-   The bookends are not drafted yet. Inserting it moved the lessons after it up by one: folders
+   Bookends are built: intro (3 outcomes, why it matters, verbatim from
+   the mockup), 8 quiz cards, and the multi-file `ingest_pdf` sandbox
+   (`lib.py` read-only, `ingest.py` entry, data `RAG_PDF_DATA`). `lib.py`,
+   starter and reference are byte-identical to the mockup, and `lib.py`
+   matches the Lesson 5 setup line for line (Lesson 4's recap `lib.py` plus
+   `from collections import Counter` and the Lesson 5 section). Verified
+   with the real `runMultiFileAgainstHiddenTests`: the reference passes
+   (under a second, including the two whole-corpus indexes), the starter
+   fails, and 12 mutations fail. **Change from the mockup's hidden tests:**
+   three mutations passed the mockup's tests (early return when *any* page
+   is blank, images counted on page 1 only, and "missing of total"
+   swapped), since no test document was partly scanned or had more than
+   one image. A new test 5 (the old 5 is
+   now 6) ingests P01 with page 2 blanked and its image also copied onto
+   page 1, expecting `["P01 page 2: no text layer, needs OCR", "P01: 1 of
+   2 images not described"]` and some text chunks. Lesson 5 is now
+   **Locked**. Inserting it moved the lessons after it up by one: folders
    `06-hybrid-search` to `10-grounded-answers`, every Module 5 lesson number
    of 5 or more in the pages, code and shared files, and the forward
    references to the planned Lessons 10 to 13, which are now 11 to 14. The

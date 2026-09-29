@@ -1,0 +1,718 @@
+# Documents that aren't clean text
+
+> **Note for the site build:**
+> - **This lesson is the new Lesson 5,** between search by meaning and hybrid
+>   search.
+> - **Comprehensive sandbox:** multi-file, with `lib.py` read-only and
+>   **`ingest.py` as the entry file**. `lib.py` is the module's code up to this
+>   lesson in one file, exactly as shown below. numpy must be loaded.
+> - **Hidden tests** are one block and need no fake client.
+> - **Data for grading:** the documents, bge-small's `structured-200.json`,
+>   and this lesson's PDF files (`pdf/extracted.json`, `pdf/corpus.json`,
+>   `pdf-chunks.json`, `pdf-queries.json`). Test 5 builds two indexes over the
+>   whole corpus; allow several seconds.
+
+> **You'll be able to**
+> - Explain what a PDF actually stores, and rebuild a document's structure
+>   from positioned words: page furniture, headings, paragraphs and tables
+> - Write tables and images into chunks that search can find, and measure the
+>   choices: whole tables, rows with headers, summaries and image descriptions
+> - Choose an ingestion approach for scans and complex layouts, and know what
+>   each one costs and misses
+
+**Why it matters**
+Real document collections are PDFs, scans, slides and spreadsheets, not
+Markdown. Everything retrieval does depends on the text it was given, and a
+PDF gives back words without structure, tables without meaning and images
+without words. On this lesson's four PDFs, adding table rows and image
+descriptions took the labelled questions from 7 answered to 9. The tenth, an
+exact value in a chart, shows that some answers need the source itself.
+
+---
+
+## Comprehensive quiz
+
+*(end of lesson, conceptual — spans all five concepts, mixed order)*
+
+> **Q1.** A PDF's page number appears first in its extracted text, though
+> it's printed at the bottom. Why?
+> - A PDF is a list of drawing instructions, and plain extractors read them in drawing order ✅
+> - Page numbers are always stored as a document's metadata
+> - The extractor sorts lines by font size
+> - The PDF was scanned upside down
+>
+> *Explanation: a PDF stores where to draw each piece of text, not a
+> document's structure. The order things were drawn in is not the order a
+> reader reads them.*
+
+> **Q2.** Why are headings recovered from font size rather than read from
+> the PDF?
+> - The PDF doesn't mark headings; only the size and weight of their text differ ✅
+> - Font sizes are faster to read than text
+> - Extractors remove heading markers on purpose
+> - Headings are stored as images
+>
+> *Explanation: nothing in a PDF says "this is a heading". Larger, bolder
+> text is a convention, and rebuilding structure means inferring it from
+> conventions like that.*
+
+> **Q3.** A 13-row table is split across two chunks. What does the second
+> chunk lose, and what fixes it?
+> - The header row, so its cells lose their meaning; writing each row with its headers fixes it ✅
+> - The last rows, which are dropped; a larger chunk size fixes it
+> - The table's title; a table summary fixes it
+> - Nothing, since every cell is still present
+>
+> *Explanation: a cell means something only through its column. Rows
+> written as "Week starting: 21 Dec; Primary: Tomás Reyes; ..." keep their
+> meaning wherever the chunker puts them.*
+
+> **Q4.** A table summary didn't help find a value in one of the table's
+> cells. What is a summary good for?
+> - Questions about what a table covers, rather than a specific value ✅
+> - Every question about the table, since summaries are prose
+> - Only tables too large to chunk
+> - Replacing the table, so it can be dropped
+>
+> *Explanation: a summary describes the table as a whole and rarely
+> states every cell. Value lookups need the rows; questions about the
+> table's subject can match its summary.*
+
+> **Q5.** An image description says "about 300" where the chart shows 310.
+> How should a question needing the exact value be answered?
+> - From the chart's underlying data, or by giving the image itself to a model that can read it ✅
+> - By trusting the description, since 300 is close enough
+> - By re-describing the image until it gives 310
+> - It can't be answered from a PDF
+>
+> *Explanation: descriptions capture an image's shape and round its
+> values. They're good for finding the image; the image, or its data, is
+> the source for exact answers.*
+
+> **Q6.** After adding the PDFs, an old question lost its labelled answer to
+> a new document that also answers it. What does that call for?
+> - Reviewing the labels, because they were written before the new document existed ✅
+> - Removing the new document from the index
+> - Lowering the new document's scores
+> - Ignoring it, since only one question changed
+>
+> *Explanation: when a corpus grows, answers can appear in new places.
+> Labels that don't know about them undercount, so they need reviewing
+> alongside the corpus.*
+
+> **Q7.** A text extractor returns an empty string for every page of a PDF.
+> What's the likely cause, and the fix?
+> - It's a scan with no text layer; run OCR ✅
+> - The PDF is encrypted; ask for a password
+> - The pages are blank; skip the document
+> - The extractor is too old; update it
+>
+> *Explanation: a scanned page is a picture. OCR turns the picture back
+> into text, which then needs the same cleaning, and checking, as any
+> extracted text.*
+
+> **Q8.** OCR at 72 dpi turned "1 business day" into "'business day". Why
+> does this matter more than it looks?
+> - A one-character error changes an answer without anything looking broken ✅
+> - It makes the whole page unsearchable
+> - It doubles the size of the index
+> - It means OCR can't read tables at all
+>
+> *Explanation: small OCR errors look like ordinary text. Low-resolution
+> scans produce more of them, so OCR output has to be sampled before it's
+> trusted.*
+
+---
+
+## Comprehensive sandbox
+*(graded, multi-file — one PDF in, tagged chunks and warnings out)*
+
+**Task shown to learner:**
+
+`lib.py` holds the module's code up to this lesson, including `to_markdown`,
+`table_as_rows`, `added_chunks` and `structured_chunks`. It's read-only. In
+`ingest.py`, write `ingest_pdf(document, extracted, corpus,
+render_table=table_as_rows)`, returning `{"chunks": [...], "warnings": [...]}`.
+
+1. **Scan check first.** For every page with no words, add the warning
+   `"<doc_id> page <n>: no text layer, needs OCR"`. If *no* page has words,
+   return no chunks and those warnings straight away.
+2. **Text chunks.** Rebuild the document with `to_markdown(extracted,
+   render_table)`, chunk it with `structured_chunks(..., 200)`, and tag each
+   chunk `"kind": "text"`.
+3. **Added chunks.** Take this document's summaries, then its descriptions,
+   from `corpus["summaries"]` and `corpus["descriptions"]` (each a list of
+   `(doc_id, label, text)`), and add them with `added_chunks`, tagged
+   `"kind": "table summary"` or `"kind": "image description"`.
+4. **Image check.** If the document has more images, across all its pages,
+   than descriptions, add the warning `"<doc_id>: <missing> of <images>
+   images not described"`.
+
+**Tab: `lib.py`** (read-only)
+```python
+# code from this module's earlier lessons, from their concepts -- read-only
+import json
+import math
+import re
+from collections import Counter
+from pathlib import Path
+
+def _plain(x):
+    # turn content-block objects into plain dicts, so everything can be written as JSON
+    if isinstance(x, (str, int, float, bool)) or x is None:
+        return x
+    if isinstance(x, dict):
+        return {key: _plain(value) for key, value in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [_plain(value) for value in x]
+    return _plain(vars(x))
+
+def count_tokens(x) -> int:
+    """Approximate token count: about 4 characters per token. Deterministic, not a real tokenizer."""
+    if isinstance(x, str):
+        return math.ceil(len(x) / 4)
+    return math.ceil(len(json.dumps(_plain(x))) / 4)
+
+def load_documents() -> list[dict]:
+    """Every document in the corpus, with its metadata and its text as Markdown."""
+    return json.loads(Path("/data/rag/documents.json").read_text(encoding="utf-8"))
+
+# three backticks, built rather than typed, so this code can sit inside a Markdown code block
+FENCE = "`" * 3
+
+def split_sections(document: dict) -> list[dict]:
+    """Split a document at its Markdown headings, ignoring '#' lines inside code blocks.
+    Each section keeps the document's metadata and records the heading it sits under."""
+    sections, lines, heading, in_code = [], [], document["title"], False
+
+    def close():
+        text = "\n".join(lines).strip()
+        if text:
+            meta = {key: value for key, value in document.items() if key != "text"}
+            sections.append({**meta, "section": heading, "text": text})
+
+    for line in document["text"].splitlines():
+        if line.startswith(FENCE):
+            in_code = not in_code
+        if not in_code and re.match(r"#{1,6} ", line):
+            close()
+            lines, heading = [], line.lstrip("#").strip()
+        lines.append(line)
+    close()
+    return sections
+
+def load_sections() -> list[dict]:
+    return [section for document in load_documents() for section in split_sections(document)]
+
+STOPWORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "is", "was", "it", "this", "that",
+             "with", "as", "at", "by", "be", "i", "you", "my", "me", "we", "our", "please", "about", "from", "last"}
+PUNCTUATION = str.maketrans({mark: " " for mark in ".,;:!?()'\"`"})
+
+def keywords(text: str) -> set:
+    """The words in text worth matching on: lowercased, punctuation removed, common and one-letter words dropped."""
+    words = text.lower().translate(PUNCTUATION).split()
+    return {word for word in words if len(word) > 1} - STOPWORDS
+
+class KeywordIndex:
+    """Sections indexed by their keywords, worked out once, when each section is added."""
+
+    def __init__(self):
+        self._entries = []
+
+    def __len__(self) -> int:
+        return len(self._entries)
+
+    def add(self, sections: list[dict]) -> None:
+        for section in sections:
+            if not section.get("doc_id") or not section.get("section"):
+                raise ValueError("every section needs a doc_id and a section heading, so an answer can cite it")
+            self._entries.append((keywords(section["text"]), section))
+
+    def search(self, question: str, k: int = 3) -> list[dict]:
+        wanted = keywords(question)
+        scored = [(len(wanted & words), section) for words, section in self._entries]
+        # sorting is stable, so sections with equal scores keep the order they were added in
+        ranked = sorted((pair for pair in scored if pair[0] > 0), key=lambda pair: pair[0], reverse=True)
+        return [{**section, "score": score} for score, section in ranked[:k]]
+
+def build_prompt(question: str, passages: list[dict]) -> str:
+    sources = "\n\n".join(f'<source doc="{p["doc_id"]}" section="{p["section"]}">\n{p["text"]}\n</source>'
+                          for p in passages)
+    return f"Answer using only these sources, and name the source you used.\n\n{sources}\n\nQuestion: {question}"
+
+
+# --- Lesson 2 ---
+
+def load_queries() -> dict:
+    """The labelled query set: main and held-out queries, each with its evidence."""
+    return json.loads(Path("/data/rag/queries.json").read_text(encoding="utf-8"))
+
+def normalize(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
+
+def is_relevant(chunk: dict, span: dict) -> bool:
+    """True if the chunk comes from the span's document and holds at least half of the quote, unbroken."""
+    if chunk["doc_id"] != span["doc_id"]:
+        return False
+    text, quote = normalize(chunk["text"]), normalize(span["quote"])
+    half = math.ceil(len(quote) / 2)
+    return any(quote[start:start + half] in text for start in range(len(quote) - half + 1))
+
+def answerable(results: list[dict], query: dict) -> bool:
+    """True if, for every evidence group, at least one result is relevant to one of its spans."""
+    return all(any(is_relevant(chunk, span) for chunk in results for span in group)
+               for group in query["evidence"])
+
+def is_relevant_to_query(chunk: dict, query: dict) -> bool:
+    return any(is_relevant(chunk, span) for group in query["evidence"] for span in group)
+
+def precision_at_k(results: list[dict], query: dict, k: int) -> float:
+    """The share of the k result slots filled by relevant chunks."""
+    return sum(is_relevant_to_query(chunk, query) for chunk in results[:k]) / k
+
+def recall_at_k(results: list[dict], query: dict, k: int) -> float:
+    """The share of the answer's parts (evidence groups) found in the top k."""
+    top = results[:k]
+    found = [any(is_relevant(chunk, span) for chunk in top for span in group) for group in query["evidence"]]
+    return sum(found) / len(found)
+
+def reciprocal_rank(results: list[dict], query: dict, k: int) -> float:
+    """1 / the position of the first relevant chunk in the top k, or 0 if there's none."""
+    for position, chunk in enumerate(results[:k], 1):
+        if is_relevant_to_query(chunk, query):
+            return 1 / position
+    return 0.0
+
+def evaluate(search, queries: list[dict], k: int) -> dict:
+    """Average each metric over the queries that have evidence. search(question, k) returns ranked chunks."""
+    scored = [q for q in queries if q["evidence"]]
+    totals = {"recall": 0.0, "precision": 0.0, "mrr": 0.0, "answerable": 0.0}
+    for query in scored:
+        results = search(query["query"], k)
+        totals["recall"] += recall_at_k(results, query, k)
+        totals["precision"] += precision_at_k(results, query, k)
+        totals["mrr"] += reciprocal_rank(results, query, k)
+        totals["answerable"] += recall_at_k(results, query, k) == 1
+    return {name: round(total / len(scored), 3) for name, total in totals.items()}
+
+def sign_test(gains: int, losses: int) -> float:
+    """If a change made no real difference, the chance of a split at least this lopsided, either way."""
+    n = gains + losses
+    tail = sum(math.comb(n, i) for i in range(max(gains, losses), n + 1)) / 2 ** n
+    return min(1.0, 2 * tail)
+
+
+# --- Lesson 3 ---
+
+CHARS_PER_TOKEN = 4
+
+def fixed_chunks(document: dict, size: int, overlap: int = 0) -> list[dict]:
+    """Cut a document every `size` tokens (by the course's estimate). Each chunk
+    starts with the last `overlap` tokens of the one before."""
+    if not 0 <= overlap < size:
+        raise ValueError("overlap must be at least 0 and smaller than size")
+    text = document["text"]
+    width, step = size * CHARS_PER_TOKEN, (size - overlap) * CHARS_PER_TOKEN
+    metadata = {key: value for key, value in document.items() if key != "text"}
+    chunks = []
+    for start in range(0, len(text), step):
+        piece = text[start:start + width]
+        if piece.strip():
+            chunks.append({**metadata, "section": f"characters {start}-{start + len(piece)}", "text": piece})
+        # the last window reached the end; another would only repeat its tail
+        if start + width >= len(text):
+            break
+    return chunks
+
+def split_blocks(text: str) -> list[str]:
+    """Paragraphs and whole code blocks: split at blank lines, except inside a code block."""
+    blocks, lines, in_code = [], [], False
+    for line in text.splitlines():
+        if line.startswith(FENCE):
+            in_code = not in_code
+        if not line.strip() and not in_code:
+            if lines:
+                blocks.append("\n".join(lines))
+                lines = []
+        else:
+            lines.append(line)
+    if lines:
+        blocks.append("\n".join(lines))
+    return blocks
+
+def heading_sections(document: dict) -> list[dict]:
+    """Split at Markdown headings (not inside code blocks), recording each section's heading path.
+    A section with nothing under its heading is dropped: its heading lives on in the paths below it."""
+    sections, stack, heading, body, in_code = [], [], "", [], False
+
+    def close():
+        text = "\n".join(body).strip()
+        if text:
+            path = " > ".join([document["title"], *(title for _, title in stack)])
+            sections.append({"heading": heading, "path": path, "body": text})
+
+    for line in document["text"].splitlines():
+        if line.startswith(FENCE):
+            in_code = not in_code
+        match = None if in_code else re.match(r"(#{1,6}) (.+)", line)
+        if match:
+            close()
+            level = len(match.group(1))
+            # a heading replaces any heading at its level or deeper; level 1 is the document's title
+            stack = [(lvl, title) for lvl, title in stack if lvl < level]
+            if level > 1:
+                stack.append((level, match.group(2).strip()))
+            heading, body = line, []
+        else:
+            body.append(line)
+    close()
+    return sections
+
+def pack_lines(lines: list[str], max_tokens: int) -> list[str]:
+    """Group lines into parts of at most max_tokens; a line longer than that is cut into fixed-size pieces."""
+    width = max_tokens * CHARS_PER_TOKEN
+    lines = [line[start:start + width] for line in lines for start in range(0, max(len(line), 1), width)]
+    parts, current = [], []
+    for line in lines:
+        if current and count_tokens("\n".join([*current, line])) > max_tokens:
+            parts.append("\n".join(current))
+            current = []
+        current.append(line)
+    if current:
+        parts.append("\n".join(current))
+    return parts
+
+def pack_blocks(blocks: list[str], max_tokens: int) -> list[str]:
+    """Group consecutive blocks into pieces of at most max_tokens, joined by blank lines.
+    A block too big on its own is split at line breaks, and a line still too big is cut every max_tokens."""
+    pieces, current = [], []
+    for block in blocks:
+        if count_tokens(block) > max_tokens:
+            parts = pack_lines(block.splitlines(), max_tokens)
+        else:
+            parts = [block]
+        for part in parts:
+            if current and count_tokens("\n\n".join([*current, part])) > max_tokens:
+                pieces.append("\n\n".join(current))
+                current = []
+            current.append(part)
+    if current:
+        pieces.append("\n\n".join(current))
+    return pieces
+
+def structured_chunks(document: dict, max_tokens: int = 200) -> list[dict]:
+    """Chunks that follow the document's structure: headings, then paragraphs and whole code blocks,
+    each chunk starting with its section's heading and carrying the document's metadata."""
+    metadata = {key: value for key, value in document.items() if key != "text"}
+    chunks = []
+    for section in heading_sections(document):
+        heading = section["heading"]
+        # the heading line and the blank line after it come out of each chunk's budget
+        room = max_tokens - count_tokens(heading + "\n\n") if heading else max_tokens
+        for piece in pack_blocks(split_blocks(section["body"]), room):
+            text = f"{heading}\n\n{piece}" if heading else piece
+            chunks.append({**metadata, "section": section["path"], "chunk": len(chunks), "text": text})
+    return chunks
+
+def within_budget(search, budget: int):
+    """A search that returns ranked chunks until the next one would take the total over budget tokens."""
+    def budgeted(question: str, k: int) -> list[dict]:
+        results, used = [], 0
+        for chunk in search(question, 100):
+            size = count_tokens(chunk["text"])
+            if used + size > budget:
+                break
+            results.append(chunk)
+            used += size
+        return results
+    return budgeted
+
+
+# --- Lesson 4 ---
+
+import base64
+import hashlib
+
+import numpy as np
+
+EMBEDDINGS = Path("/data/rag/embeddings")
+
+def text_key(text: str) -> str:
+    """How a chunk's vector is filed: the first 16 hex digits of the SHA-256 of its text."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+def _unpack(encoded: str, dim: int) -> np.ndarray:
+    return np.frombuffer(base64.b64decode(encoded), dtype="<f2").reshape(-1, dim).astype(np.float32)
+
+def vectors_for(chunks: list[dict], model: str = "bge-small-en-v1.5", chunking: str = "structured-200") -> np.ndarray:
+    """The precomputed embedding of each chunk, one row per chunk, in the chunks' order."""
+    stored = json.loads((EMBEDDINGS / model / f"{chunking}.json").read_text())
+    matrix = _unpack(stored["vectors"], stored["dim"])
+    rows = {key: row for row, key in enumerate(stored["keys"])}
+    missing = [c for c in chunks if text_key(c["text"]) not in rows]
+    if missing:
+        raise KeyError(f"{len(missing)} chunks have no precomputed vector in {model}/{chunking}; "
+                       f"their text differs from the text that was embedded")
+    return matrix[[rows[text_key(c["text"])] for c in chunks]]
+
+def query_vectors(model: str = "bge-small-en-v1.5", kind: str = "instructed") -> dict[str, np.ndarray]:
+    """The precomputed embedding of every labelled query, by query id. kind is "instructed" or "plain"."""
+    stored = json.loads((EMBEDDINGS / model / "queries.json").read_text())
+    return dict(zip(stored["keys"], _unpack(stored[kind], stored["dim"])))
+
+class VectorIndex:
+    """Chunks with their embeddings, searched by cosine similarity to a query vector."""
+
+    def __init__(self, dim: int = 384):
+        self._chunks = []
+        self._matrix = np.empty((0, dim), dtype=np.float32)
+
+    def __len__(self) -> int:
+        return len(self._chunks)
+
+    def add(self, chunks: list[dict], vectors: np.ndarray) -> None:
+        vectors = np.asarray(vectors, dtype=np.float32)
+        if vectors.ndim != 2 or len(vectors) != len(chunks):
+            raise ValueError(f"need one vector per chunk: got {len(chunks)} chunks and vectors of shape {vectors.shape}")
+        for chunk in chunks:
+            if not chunk.get("doc_id") or not chunk.get("section"):
+                raise ValueError("every chunk needs a doc_id and a section, so an answer can cite it")
+        # stored at length 1, so a dot product with a length-1 query is the cosine
+        unit = vectors / np.linalg.norm(vectors, axis=1, keepdims=True)
+        self._chunks.extend(chunks)
+        self._matrix = np.vstack([self._matrix, unit])
+
+    def search(self, query_vector: np.ndarray, k: int = 3) -> list[dict]:
+        query = np.asarray(query_vector, dtype=np.float32)
+        scores = self._matrix @ (query / np.linalg.norm(query))
+        # a stable sort keeps equal scores in the order the chunks were added
+        best = np.argsort(-scores, kind="stable")[:k]
+        return [{**self._chunks[row], "score": float(scores[row])} for row in best]
+
+def meaning_search(chunks: list[dict], queries: list[dict], model: str = "bge-small-en-v1.5", kind: str = "instructed"):
+    """search(question, k) by meaning over precomputed vectors. Works only for the labelled questions."""
+    index = VectorIndex()
+    index.add(chunks, vectors_for(chunks, model=model))
+    vectors = query_vectors(model, kind)
+    by_question = {q["query"]: vectors[q["id"]] for q in queries}
+    return lambda question, k: index.search(by_question[question], k)
+
+def answered_ids(search, queries: list[dict], k: int = 5) -> set:
+    """The ids of questions with evidence whose top k results hold every part of the answer."""
+    return {q["id"] for q in queries if q["evidence"] and answerable(search(q["query"], k), q)}
+
+
+# --- Lesson 5 ---
+
+PDF_DATA = Path("/data/rag/pdf")
+
+def load_pdf_extraction() -> dict:
+    """What two free extractors returned for each of the lesson's PDFs, run offline and stored."""
+    return json.loads((PDF_DATA / "extracted.json").read_text())
+
+def load_pdf_corpus() -> dict:
+    """The PDFs' metadata, the model-written table summaries and image descriptions, and the labelled questions."""
+    return json.loads((PDF_DATA / "corpus.json").read_text())
+
+def page_lines(page: dict) -> list[dict]:
+    """Group a page's words into lines by vertical position, left to right."""
+    lines = []
+    for word in sorted(page["words"], key=lambda w: (round(w["top"]), w["x0"])):
+        if lines and abs(lines[-1]["top"] - word["top"]) < 2:
+            lines[-1]["words"].append(word)
+        else:
+            lines.append({"top": word["top"], "size": word["size"], "words": [word]})
+    for line in lines:
+        line["text"] = " ".join(w["text"] for w in line["words"])
+    return lines
+
+def inside(word: dict, bbox: list[float]) -> bool:
+    x0, top, x1, bottom = bbox
+    return x0 - 1 <= word["x0"] <= x1 and top - 1 <= word["top"] <= bottom
+
+def table_as_markdown(rows: list[list[str]]) -> str:
+    header, *body = rows
+    lines = ["| " + " | ".join(header) + " |", "|" + "---|" * len(header)]
+    return "\n".join(lines + ["| " + " | ".join(row) + " |" for row in body])
+
+def to_markdown(extracted: dict, render_table=table_as_markdown, margin: float = 45) -> str:
+    """Rebuild a document from positioned words: drop page furniture, mark headings by size,
+    rejoin wrapped lines into paragraphs, and put each table back where it was."""
+    body = Counter(w["size"] for p in extracted["pages"] for w in p["words"]).most_common(1)[0][0]
+    blocks = []
+    for page in extracted["pages"]:
+        tables = sorted(page["tables"], key=lambda t: t["bbox"][1])
+        words = [w for w in page["words"] if margin < w["top"] < page["height"] - margin
+                 and not any(inside(w, t["bbox"]) for t in tables)]
+        items = [(line["top"], "line", line) for line in page_lines({**page, "words": words})]
+        items += [(t["bbox"][1], "table", t) for t in tables]
+        paragraph, last_top = [], None
+        for top, kind, item in sorted(items, key=lambda i: i[0]):
+            new_block = kind == "table" or item["size"] > body or (
+                last_top is not None and top - last_top > 1.6 * body)
+            if new_block and paragraph:
+                blocks.append(" ".join(paragraph))
+                paragraph = []
+            if kind == "table":
+                blocks.append(render_table(item["rows"]))
+                last_top = item["bbox"][3]
+            elif item["size"] > body:
+                blocks.append(f"{'#' if item['size'] >= 1.6 * body else '##'} {item['text']}")
+                last_top = top
+            else:
+                paragraph.append(item["text"])
+                last_top = top
+        if paragraph:
+            blocks.append(" ".join(paragraph))
+    return "\n\n".join(blocks)
+
+def table_as_rows(rows: list[list[str]]) -> str:
+    """Each row as its own line of 'header: value' pairs, so a row keeps its meaning on its own."""
+    header, *body = rows
+    return "\n\n".join("; ".join(f"{h}: {v}" for h, v in zip(header, row)) + "." for row in body)
+
+def pdf_query_vectors() -> dict[str, np.ndarray]:
+    """bge-small's embeddings of the PDF questions, with its retrieval instruction, by question id."""
+    stored = json.loads((EMBEDDINGS / "bge-small-en-v1.5" / "pdf-queries.json").read_text())
+    return dict(zip(stored["keys"], _unpack(stored["instructed"], stored["dim"])))
+
+def contains_facts(chunk: dict, query: dict) -> bool:
+    """A PDF question's relevance rule: the chunk is from the right document and states every fact."""
+    return chunk["doc_id"] == query["doc_id"] and all(
+        normalize(fact).lower() in normalize(chunk["text"]).lower() for fact in query["facts"])
+
+def plain_text(extracted: dict) -> str:
+    """What a plain extractor returns: every page's text, pages separated by a blank line."""
+    return "\n\n".join(page["plain_text"] for page in extracted["pages"])
+
+def added_chunks(document: dict, chunks: list[dict], texts: list[tuple[str, str]]) -> list[dict]:
+    """Extra chunks for one document (table summaries or image descriptions), numbered after its chunks."""
+    start = max((c["chunk"] for c in chunks), default=-1) + 1
+    metadata = {k: v for k, v in document.items() if k != "text"}
+    return [{**metadata, "section": f"{document['title']} > {label}", "chunk": start + n, "text": text}
+            for n, (label, text) in enumerate(texts)]
+
+def pdf_chunks(render_table=table_as_markdown, added: list = (), plain: bool = False) -> list[dict]:
+    """Chunks for all four PDFs: rebuilt Markdown with tables written by render_table (or the plain
+    extracted text), plus any added (doc_id, label, text) chunks such as table summaries."""
+    extraction, chunks = load_pdf_extraction(), []
+    for doc_id, document in load_pdf_corpus()["documents"].items():
+        text = plain_text(extraction[doc_id]) if plain else to_markdown(extraction[doc_id], render_table)
+        made = structured_chunks({**document, "text": text}, 200)
+        extra = [(label, content) for owner, label, content in added if owner == doc_id]
+        chunks += made + added_chunks({**document, "text": text}, made, extra)
+    return chunks
+
+def index_with_pdfs(pdf: list[dict]) -> VectorIndex:
+    """Search by meaning over the whole corpus plus a version of the PDFs' chunks."""
+    corpus = [c for d in load_documents() for c in structured_chunks(d, 200)]
+    index = VectorIndex()
+    index.add(corpus + pdf, np.vstack([vectors_for(corpus), vectors_for(pdf, chunking="pdf-chunks")]))
+    return index
+```
+
+**Tab: `ingest.py`** (starter, entry file)
+```python
+from lib import added_chunks, structured_chunks, table_as_rows, to_markdown
+
+def ingest_pdf(document: dict, extracted: dict, corpus: dict, render_table=table_as_rows) -> dict:
+    """One PDF's chunks, each tagged with its kind, plus warnings about anything search won't see."""
+    # TODO
+    ...
+```
+
+**Hidden tests:**
+```python
+import lib
+from ingest import ingest_pdf
+
+# shared by the tests below
+corpus, extraction = lib.load_pdf_corpus(), lib.load_pdf_extraction()
+documents = corpus["documents"]
+
+# 1. text chunks, then the document's summaries, then its image descriptions, each tagged with its kind
+result = ingest_pdf(documents["P01"], extraction["P01"], corpus)
+assert isinstance(result, dict) and set(result) == {"chunks", "warnings"}, f"return chunks and warnings; got {result!r}"
+kinds = [c["kind"] for c in result["chunks"]]
+assert kinds == ["text"] * 5 + ["table summary", "image description"], f"got kinds {kinds}"
+assert result["warnings"] == [], f"P01 has one image and one description, so no warnings; got {result['warnings']}"
+rows = lib.to_markdown(extraction["P01"], lib.table_as_rows)
+expected = lib.structured_chunks({**documents["P01"], "text": rows}, 200)
+assert [c["text"] for c in result["chunks"][:5]] == [c["text"] for c in expected], \
+    "text chunks come from to_markdown with render_table, chunked with structured_chunks"
+assert result["chunks"][6]["section"] == "Quarterly operations review, Q3 2026 > Image 1 (description)" \
+       and result["chunks"][6]["chunk"] == 6, "added chunks are numbered and labelled by added_chunks"
+
+# 2. render_table is passed through
+markdown = ingest_pdf(documents["P03"], extraction["P03"], corpus, render_table=lib.table_as_markdown)
+assert any("| 21 Dec |" in c["text"] for c in markdown["chunks"]), "use render_table to write the tables"
+
+# 3. an image without a description is flagged
+bare = {**corpus, "descriptions": []}
+warnings = ingest_pdf(documents["P04"], extraction["P04"], bare)["warnings"]
+assert warnings == ["P04: 1 of 1 images not described"], f"flag images without descriptions; got {warnings}"
+
+# 4. a scanned document is flagged, and produces no chunks
+scanned = {"pages": [{**page, "words": [], "tables": []} for page in extraction["P02"]["pages"]]}
+result = ingest_pdf(documents["P02"], scanned, corpus)
+assert result == {"chunks": [], "warnings": ["P02 page 1: no text layer, needs OCR"]}, \
+    f"a document with no text layer gives no chunks and one warning per page; got {result}"
+
+# 5. the four PDFs, ingested and searched with the rest of the corpus
+vectors = lib.pdf_query_vectors()
+def answered(chunks):
+    index = lib.index_with_pdfs(chunks)
+    return sorted(q["id"] for q in corpus["queries"] if any(lib.contains_facts(c, q) for c in index.search(vectors[q["id"]], 5)))
+full = [c for doc_id, d in documents.items() for c in ingest_pdf(d, extraction[doc_id], corpus)["chunks"]]
+plain = [c for doc_id, d in documents.items()
+         for c in ingest_pdf(d, extraction[doc_id], {**corpus, "summaries": [], "descriptions": []})["chunks"]]
+assert answered(full) == ["p01", "p02", "p03", "p04", "p06", "p07", "p08", "p09", "p10"], answered(full)
+assert len(answered(plain)) == 7, f"without summaries and descriptions, 7 of 10; got {answered(plain)}"
+```
+
+**Hint (shown on request):**
+
+`added_chunks(document, chunks, texts)` numbers the new chunks after the
+existing ones, so pass it the text chunks and the summaries followed by the
+descriptions in one list. The first `len(summaries)` results are summaries.
+`to_markdown` needs at least one word to find the body size, which is why the
+scan check comes first.
+
+**Reference solution:**
+
+**Tab: `ingest.py`**
+```python
+from lib import added_chunks, structured_chunks, table_as_rows, to_markdown
+
+def ingest_pdf(document: dict, extracted: dict, corpus: dict, render_table=table_as_rows) -> dict:
+    """One PDF's chunks, each tagged with its kind, plus warnings about anything search won't see."""
+    warnings = [f"{document['doc_id']} page {page['number']}: no text layer, needs OCR"
+                for page in extracted["pages"] if not page["words"]]
+    if len(warnings) == len(extracted["pages"]):
+        return {"chunks": [], "warnings": warnings}
+    text = to_markdown(extracted, render_table)
+    chunks = [{**c, "kind": "text"} for c in structured_chunks({**document, "text": text}, 200)]
+    summaries = [(label, t) for doc_id, label, t in corpus["summaries"] if doc_id == document["doc_id"]]
+    descriptions = [(label, t) for doc_id, label, t in corpus["descriptions"] if doc_id == document["doc_id"]]
+    added = added_chunks({**document, "text": text}, chunks, summaries + descriptions)
+    chunks += [{**c, "kind": "table summary" if n < len(summaries) else "image description"}
+               for n, c in enumerate(added)]
+
+    images = sum(len(page["images"]) for page in extracted["pages"])
+    if images > len(descriptions):
+        warnings.append(f"{document['doc_id']}: {images - len(descriptions)} of {images} images not described")
+    return {"chunks": chunks, "warnings": warnings}
+```
+
+**Explanation:**
+
+The kind tag and the warnings are what make ingestion inspectable. The tag
+lets an answer say whether a statement came from the document's text, a
+table's summary or an image's description, and the last two are model-written,
+so they deserve that distinction. The warnings turn silent gaps into visible
+ones: a scanned page or an undescribed image doesn't fail, it just never
+appears in any search, which is the hardest kind of problem to notice. On the
+real PDFs, ingesting everything answers 9 of the 10 labelled questions in the
+top five, against 7 with the text alone. The two gained are the image
+questions. The one still missing is the chart's exact last value, which a description that rounds it to "about 300"
+can't supply.
