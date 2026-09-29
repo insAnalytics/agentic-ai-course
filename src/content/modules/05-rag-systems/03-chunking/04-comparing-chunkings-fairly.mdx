@@ -163,6 +163,22 @@ was consistently strong, and that a popular default of 800-token chunks
 with 400 tokens of overlap did poorly. The big differences are between
 sensible choices and bad ones, not among the sensible ones.
 
+Other chunkers bet that better boundaries will help. **Semantic chunking**
+embeds each sentence and cuts where neighbouring sentences stop resembling
+each other. **Proposition chunking** has a model rewrite the text as short,
+self-contained statements, one fact each. **LLM chunking** asks a model where
+to cut. **Late chunking** embeds the whole document with a long-input model
+first, then splits its token vectors into chunks, so each chunk's vector has
+seen its surroundings. Libraries offer most of these, and each costs more to
+index: an embedding per sentence, or a model call per document. Chroma's
+report built a semantic chunker and a model-driven one. The semantic one did
+well, and the report recommends it only where its extra complexity is
+acceptable, with a simple splitter as the default.
+[Qu and colleagues (2024)](https://arxiv.org/abs/2410.13070) found semantic
+chunking's gains over fixed-size chunks inconsistent, and not worth its cost.
+Any of these is worth trying the same way as this lesson's chunkers: against
+a baseline, at an equal token budget.
+
 </Subsection>
 
 <Subsection title="The module's choice, and what's left open" variant="b">

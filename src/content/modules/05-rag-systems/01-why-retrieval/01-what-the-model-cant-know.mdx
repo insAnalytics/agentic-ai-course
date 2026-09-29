@@ -89,6 +89,17 @@ answer to the first is "nothing reliable", and the second is entirely in
 the agent builder's hands. Every technique in this module is about making
 that choice well.
 
+Why not train the documents into the model instead? Module 1 placed
+[fine-tuning as a way to change behaviour](/01-llm-foundations/07-the-training-pipeline/05-fine-tuning-as-a-builders-option/#three-real-options-and-when-each-one-fits),
+not to add knowledge, and for this job it falls short on every count.
+Facts learned in training are recalled less reliably than the same facts
+read from the prompt; [Ovadia and colleagues (2023)](https://arxiv.org/abs/2312.05934)
+found retrieval beat unsupervised fine-tuning on the documents at adding new knowledge, across several models and tasks. A changed
+document means training again. An answer from the model's weights can't
+point to its source, and nothing in the weights can be kept from a reader
+who isn't allowed to see it. Text in the prompt has none of those
+problems.
+
 </Subsection>
 
 <Subsection title="The corpus this module uses" variant="a">

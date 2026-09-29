@@ -103,6 +103,21 @@ can rerank any first stage's candidates with real scores. In a live system
 you'd only ever score the candidates, for the reason the next section
 shows.
 
+The scores are raw numbers, not probabilities: higher means more relevant,
+but a score of 3 doesn't mean 95% sure. They're still useful beyond
+ordering, and [Lesson 10](/05-rag-systems/10-grounded-answers/03-abstaining-when-retrieval-is-weak/)
+measures which score separates questions the corpus can answer from those it
+can't.
+
+MiniLM was chosen because it's small enough to score every pair offline, and
+it dates from 2021. Current rerankers are larger and trained on far more
+varied data: open models such as bge-reranker-v2-m3 and the Qwen3 rerankers,
+and hosted services from Cohere, Voyage and Jina. The call has the same shape
+everywhere: a question and a list of candidates in, one score per candidate
+out, as in sentence-transformers' `CrossEncoder(name).predict(pairs)`. A
+larger model may well get some of the next concept's misses right. The
+two-stage design, and the need to measure it, stay the same.
+
 </Subsection>
 
 <Subsection title="What reading together costs" variant="a">

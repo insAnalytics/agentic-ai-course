@@ -175,6 +175,19 @@ A fair merge takes turns: the first result from each list, then the second
 from each, skipping any chunk already taken. Every part is guaranteed a
 place before any part gets two. That's this concept's exercise.
 
+Splitting is one of two techniques that search with several queries, and
+they need different merges. **Multi-query** search, sometimes called
+RAG-Fusion, rewrites one question several ways and fuses the lists with RRF.
+Every list is after the same answer, so a chunk that several of them rank
+highly is a good bet. Split sub-queries are after different answers, so
+agreement is the wrong signal, and each part needs its own place.
+
+Splitting also assumes the parts are independent. When the second part
+depends on the answer to the first, as in "What does the alert that fired
+first in INC-2041 actually measure?", no split made up front can help: the
+second search has to wait for the first one's results. That's
+[Lesson 11's multi-hop search](/05-rag-systems/11-agentic-rag/02-multi-hop-questions/).
+
 </Subsection>
 
 <CheckpointZone>

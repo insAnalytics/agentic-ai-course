@@ -282,6 +282,14 @@ These are [Module 3's least-privilege rules](/03-tool-design-for-agents/11-desig
 applied to data: the tool gets exactly the access answering questions needs.
 The exercise builds the first four into the tool itself.
 
+Two things this tool doesn't do yet. It answers every caller the same way,
+though not every caller may see every row;
+[Lesson 13](/05-rag-systems/13-permissions/01-permissions-at-retrieval-time/)
+binds a tool to the reader it's answering for. And its query is written by a
+model that has read retrieved text, which may contain planted instructions.
+The guardrails above are what keep such a query harmless, which is why they
+live in the tool and not in the prompt.
+
 </Subsection>
 
 <Subsection title="Two tools, and the model routes" variant="b">

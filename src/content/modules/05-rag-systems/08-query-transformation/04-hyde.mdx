@@ -184,6 +184,17 @@ meaning worked alone, and disappeared once other stages could compensate.
 - **Be wary of benchmark results on public text,** for the leakage reason.
   The test that matters is your own documents, which the model hasn't read.
 
+Every change in this lesson sits in a fixed pipeline, between the user's
+words and the search. An agent that calls search as a tool, as in
+[Lesson 11](/05-rag-systems/11-agentic-rag/01-from-pipeline-to-tool/), writes
+its own queries. It already turns a follow-up into a standalone query, and
+it can search once per part of a question, or again after reading the first
+results. A separate rewriting call in front of an agent's search tool mostly
+pays twice for the same work. What carries over are the rules: keep
+identifiers, add no facts the question didn't state, and measure what a
+query change does. And when a question is genuinely ambiguous, an agent has
+an option no pipeline has: ask the user what they meant.
+
 </Subsection>
 
 <CheckpointZone>

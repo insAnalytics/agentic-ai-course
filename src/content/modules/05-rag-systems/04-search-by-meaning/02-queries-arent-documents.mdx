@@ -57,7 +57,9 @@ question near its answer rather than near other questions. Many of these
 **asymmetric** models mark which side a text is on, with a short prefix
 before the query, sometimes before the document too. Which prefixes a model
 expects, if any, is part of its documentation, and getting it wrong
-quietly weakens retrieval.
+quietly weakens retrieval. Hosted embedding services often take the side as
+a setting instead, an input type of "query" or "document", which is the same
+idea without the prefix text.
 
 bge-small, this module's model, is the asymmetric kind. Its documentation
 gives one instruction, for queries only: "Represent this sentence for
@@ -66,6 +68,12 @@ question was embedded both ways, and the prefix moves the vectors, though
 not far:
 
 <LiveDemo client:load dataFiles={RAG_BGE_DATA} setupCode={SETUP} code={PREFIX_DEMO} />
+
+The distance between a question and the passage that answers it is where
+two later lessons start. [Lesson 7](/05-rag-systems/07-reranking/02-why-reading-together-scores-better/)
+stops comparing two separately made vectors and has a model read the question
+and passage together, and [Lesson 8's HyDE](/05-rag-systems/08-query-transformation/04-hyde/)
+searches with a model-written answer in place of the question.
 
 </Subsection>
 

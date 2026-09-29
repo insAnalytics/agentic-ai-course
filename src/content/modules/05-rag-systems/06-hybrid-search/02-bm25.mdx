@@ -232,6 +232,13 @@ def terms(text: str) -> list[str]:
 `collections.Counter(terms(text))` then gives each word's count in a chunk,
 and the total of those counts is the chunk's length in words.
 
+`terms` keeps `reg-1007` as one word, because this module's punctuation table
+leaves hyphens alone. A search engine's default text analysis often doesn't:
+Elasticsearch's and OpenSearch's standard analyser splits `REG-1007` into
+`reg` and `1007`, and those match separately, anywhere in the corpus. For
+identifiers, check what the analyser does to them before trusting keyword
+search with them, and configure it to keep them whole if it doesn't.
+
 </Subsection>
 
 <CheckpointZone>

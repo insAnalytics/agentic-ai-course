@@ -3368,7 +3368,7 @@ below describe each lesson as first converted; see the git log
 ## Module 5 — RAG Systems
 
 Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
-All 14 lessons are **Locked** (Lesson 14's recap is the module's last page).
+Lessons 1 to 14 are **Locked**. Lesson 15 (below) is **Planned**, and will be the module's last lesson.
 **Final audit (2026-09-29), all against the built site and real Pyodide:**
 - **Callbacks:** no `(→ ...)` left in any Module 5 source. Every internal
   link on the 88 built pages resolves to a built page, and all 54 anchored
@@ -3453,6 +3453,35 @@ fixes, each checked against the lesson's own code or data:
   - retrieval as a tool is justified by the agent choosing when to search;
   - the clearing explanation is corrected;
   - stray `*` at the ends of explanations are removed.
+
+**Prose additions from the same review (2026-09-29).** No new demos,
+exercises or quiz cards, only paragraphs:
+- **L1:** why fine-tuning doesn't replace retrieval (Ovadia et al. 2023);
+  agents that search files with no index, as a third option.
+- **L3:**
+  - scored and sent pieces can differ (forward reference to Lesson 9);
+  - long-input embedders move the input-limit problem to dilution;
+  - structure has to be recovered first for PDFs and tables (forward
+    reference to Lesson 5);
+  - semantic, proposition, LLM and late chunking, with Chroma's and Qu et
+    al.'s evidence.
+- **L4:** input types as the hosted form of query prefixes; forward
+  references to Lesson 7 and HyDE.
+- **L6:** standard analysers split `REG-1007`; SPLADE, ColBERT, and where
+  hybrid search runs in production.
+- **L7:**
+  - scores aren't probabilities (forward reference to Lesson 10's
+    threshold);
+  - current rerankers and the call's shape;
+  - pointwise vs listwise, and RankGPT's sliding window.
+- **L8:**
+  - multi-query vs splitting;
+  - dependent parts need multi-hop (forward reference to Lesson 11);
+  - an agent writes its own queries, and can ask a clarifying question.
+- **L11:** forward references to Lesson 12 (graphs for chains), Lesson 13
+  (reader-bound tools, queries written after reading untrusted text) and
+  Lesson 14 (clearing old results).
+- **Recorded in this file:** the Module 6/7/9/10 promises, and Lesson 15.
 
 1. **Why Retrieval, When the Window Is Huge** — **Locked** (folder
    `01-why-retrieval`; the title comes from the bookends mockup).
@@ -4746,6 +4775,21 @@ fixes, each checked against the lesson's own code or data:
    Lesson 14 is now **Locked**: all five concepts plus both bookends exist
    and build cleanly, and with it Module 5 is complete.
 
+15. **(Title to come): a RAG system for a new corpus** — **Planned**
+   (decided 2026-09-29, after the module's content review). A standalone
+   closing lesson that pulls the module together:
+   - an ordered decision guide for a new corpus (paste with a cache, or
+     retrieve; then baseline, hybrid, rerank, contexts, query changes,
+     agentic search and SQL, a graph only for chains and global questions),
+     with what each step gained and cost on this corpus;
+   - one end-to-end picture of the pipeline;
+   - the final held-out measurement Lesson 2 describes, run once on the
+     finished system;
+   - where the module leaves off, pointing to the topics promised to
+     Modules 6, 7, 9 and 10 (listed under "Modules 4–11 — current plan").
+
+   When it's built, Lesson 1's module map (concept 4) needs a line for it.
+
 ---
 
 ## Modules 4–11 — current plan
@@ -4766,6 +4810,27 @@ modules (0–11). Modules 0–3 are above; the rest, in order:*
 from the earlier 8-module plan; they're kept for their scope notes, with
 headings updated to the new module numbers. The new modules (Context &
 Memory, Reliability, UX, Capstone) have no outline yet.*
+
+**Promised by Module 5 (2026-09-29).** Module 5's pages hand these topics
+to later modules by name, so each module's plan has to include them:
+- **Module 6 (Reliability):**
+  - checking whether a cited source actually supports its statement (Lesson
+    10, four places);
+  - detecting contradictions between sources in general (Lesson 10, whose
+    check covers one kind of fact).
+- **Module 7 (Evaluation & Observability):**
+  - measuring the answers a model writes from retrieved passages, as
+    opposed to the retrieval itself (Lesson 2);
+  - evaluating agent search loops with a live model (Lesson 11). Lesson
+    11 concept 5 also cites RAGAS faithfulness and answer correctness
+    without defining them.
+- **Module 9 (UX):** presenting citations to users (Lesson 10).
+- **Module 10 (Production):** keeping an index in step with changing
+  documents (Lessons 4, 9, 10 and 12):
+  - adding, changing and deleting chunks without a full rebuild;
+  - regenerating contextual chunks, graph extractions and summaries when
+    a document changes;
+  - re-embedding everything when the embedding model changes.
 
 ---
 
