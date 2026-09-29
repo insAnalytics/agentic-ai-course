@@ -82,11 +82,16 @@ would be a sample, not the whole.
 
 [The GraphRAG paper](https://arxiv.org/abs/2404.16130), by Edge and colleagues
 at Microsoft, calls these **global** questions, and treats them as a
-summarisation task rather than a retrieval task. Its approach, and its answer
-to chains too, starts by turning the documents into a graph: the entities they
-mention and the relationships between them. The rest of this lesson builds one
-from this corpus, answers the chain by walking the graph, and the global
-questions by summarising parts of it, then weighs what that costs.
+summarisation task rather than a retrieval task. Its approach starts by
+turning the documents into a graph: the entities they mention and the
+relationships between them. The paper is about global questions. Microsoft's
+GraphRAG library also answers questions about particular entities, by finding
+the entities a question mentions and gathering their neighbours, relationships
+and source text. Neither walks a chain edge by edge. The rest of this lesson
+builds a graph from this corpus, answers the chain by walking it, which is
+this lesson's own design, closer to a knowledge graph with a fixed schema, and
+answers the global questions by summarising parts of it, as the paper does. Then
+it weighs what that costs.
 
 </Subsection>
 

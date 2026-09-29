@@ -67,9 +67,11 @@ its title and its section. But extraction isn't the whole bill:
 The cost of building summaries up front was the approach's best-known
 drawback, and Microsoft's later work attacks it directly.
 **[LazyGraphRAG](https://www.microsoft.com/en-us/research/blog/lazygraphrag-setting-a-new-standard-for-quality-and-cost/)**,
-from Microsoft Research, builds no summaries in advance and defers model calls
-to query time. They report that its indexing costs the same as vector RAG, and
-0.1% of full GraphRAG. On global questions, they report answer quality
+from Microsoft Research, drops both expensive steps from indexing. It finds
+concepts with ordinary language processing, extracting noun phrases and
+noting which appear together, instead of asking a model, and it builds no
+summaries in advance, deferring model calls to query time. They report that
+its indexing costs the same as vector RAG, and 0.1% of full GraphRAG. On global questions, they report answer quality
 comparable to GraphRAG's global search at more than 700 times lower query
 cost, on their own benchmark of news articles, scored by a model comparing
 answers.
@@ -144,7 +146,7 @@ It's not worth it when:
     {
       "question": "What did LazyGraphRAG change?",
       "options": [
-        "It builds no summaries in advance, deferring model calls to query time, so indexing costs about the same as vector RAG",
+        "It extracts concepts without a model and builds no summaries in advance, so indexing costs about the same as vector RAG",
         "It extracts more relationships per chunk",
         "It replaces the graph with a vector index",
         "It removes global questions from scope"
@@ -161,7 +163,7 @@ It's not worth it when:
         "When answers need citations"
       ],
       "correctIndex": 0,
-      "explanation": "A service catalogue or database that records the relationships is more accurate and cheaper to use directly, as a graph source or as a tool.*"
+      "explanation": "A service catalogue or database that records the relationships is more accurate and cheaper to use directly, as a graph source or as a tool."
     }
   ]}
 />

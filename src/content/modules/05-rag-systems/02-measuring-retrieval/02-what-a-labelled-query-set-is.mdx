@@ -143,8 +143,12 @@ two, and one side should still count if it holds most of it:
 
 The second part holds the core of the answer, "HTTP 429 with error
 REG-1009", and counts. The first part holds only "Requests past the limit
-get", and doesn't. At most one side of a cut can hold more than half, so a
-split quote is never counted twice.
+get", and doesn't. Only one side of a cut can hold more than half, so a
+split quote is counted at most once, except for a cut exactly through the
+middle of a quote with an even number of characters, which leaves both sides
+exactly half. That's rare enough to ignore. The rule is a proxy, too: half of
+a quote's characters usually carries its core, but that's a judgement about
+the labels, not a guarantee.
 
 `answerable` then applies the groups. Here's the rate-limit question
 against Lesson 1's keyword search:
@@ -234,7 +238,7 @@ low. Later lessons report the types separately.
       "When it holds at least half of the quote as one unbroken stretch"
     ],
     "correctIndex": 3,
-    "explanation": "Half, unbroken, means a piece counts only if it has the core of the passage, and at most one side of a cut can qualify. Any shared word would be far too loose; requiring the whole quote would punish a splitter for a cut that left the answer readable."
+    "explanation": "Half, unbroken, means a piece counts only if it has the core of the passage, and only an exact middle cut lets both sides qualify. Any shared word would be far too loose; requiring the whole quote would punish a splitter for a cut that left the answer readable."
   },
   {
     "question": "Why were the labels written before any retrieval was run?",

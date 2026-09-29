@@ -112,7 +112,7 @@ The words are all there, and almost nothing else is:
 
 <Subsection title="What's actually stored in a PDF" variant="a">
 
-A PDF doesn't store paragraphs, headings or tables. It stores instructions to
+A PDF's page content isn't paragraphs, headings or tables. It's instructions to
 draw: this piece of text, in this font, at this size, at this position. Here's
 what pdfplumber recovers from the same page, one example word for each font
 and size it found:
@@ -123,8 +123,15 @@ That's enough to rebuild the structure, with rules. The 18-point bold line is
 the title and the 14-point bold one a heading. The 8-point words at the very
 top and bottom of the page are the header and footer. The body is 10-point,
 and bold 10-point text sits in the table's header row. None of this is stated
-in the PDF; it's inferred from how the page looks, and it holds only as long
+in this PDF; it's inferred from how the page looks, and it holds only as long
 as the document follows its own conventions.
+
+Some PDFs do state it. A **tagged PDF**, which Word and other editors can
+export, carries a structure tree that marks headings, paragraphs and tables,
+and many PDFs carry an outline of bookmarks that names their sections. When
+those exist, read them first: they're the author's structure, not a guess.
+Many PDFs, including this lesson's four and every scan, carry neither, and
+then inference from the page is all there is.
 
 </Subsection>
 

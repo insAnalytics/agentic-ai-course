@@ -115,7 +115,12 @@ one, because each has a trap.
 <Subsection title="Keeping the index" variant="b">
 
 Saving an index means saving what indexing produced: the vectors, and the
-chunks with their metadata. Nothing else about the index needs keeping.
+chunks with their metadata. It also means recording how the vectors were
+made: the embedding model and its version, the query prefix, and the
+chunker's settings. Vectors from two different models can't be compared, so
+a question embedded by a new model can't search chunks embedded by the old
+one. Changing the model means embedding the whole corpus again, and the
+record is what tells you it's needed.
 
 <LiveDemo client:load dataFiles={RAG_BGE_DATA} setupCode={SETUP} code={PERSIST_DEMO} />
 
@@ -142,8 +147,12 @@ back empty even when plenty of permitted chunks exist. Filtering **before**
 ranking lets only permitted chunks compete, so all five places go to text
 this reader may see.
 
-Vector stores offer filters for exactly this, applied during the search.
-Two principles follow, and Lesson 13 builds on both:
+Vector stores offer filters for exactly this, but check where a store
+applies them. With the approximate search described below, some stores find
+a fixed number of nearest candidates first and filter those, which is
+filtering after, with the same short or empty lists. Stores differ, and
+versions of the same store differ, so read the documentation and test it
+with a strict filter. Two principles follow, and Lesson 13 builds on both:
 
 - **The filter runs before the ranking picks its results,** not after.
 - **The filter is code.** The finance chunks were never candidates, so no
@@ -234,10 +243,12 @@ the knob: a wider search is slower and finds more.
 
 <Subsection title="When a plain matrix is enough" variant="b">
 
-For this corpus, none of that is needed. 1,968 chunks is a few million
-multiplications per question, which numpy does in well under a second, and
-the result is exact. That holds well into the tens of thousands of chunks
-on an ordinary machine.
+For this corpus, none of that is needed. 1,968 chunks is under a million
+multiplications per question, which numpy does almost instantly, and
+the result is exact. That holds into the hundreds of thousands of chunks on
+an ordinary machine, as long as the vectors fit in memory: a million vectors
+of 384 numbers take about 1.5 GB as 32-bit floats, and scoring them all takes
+a fraction of a second.
 
 So the order of decisions is: start with exact search and a matrix, measure
 retrieval quality with it, and add approximate search when speed at your

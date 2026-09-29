@@ -3394,6 +3394,66 @@ All 14 lessons are **Locked** (Lesson 14's recap is the module's last page).
   working), networkx 3.3 (Louvain on the lesson graph) and pydantic 2.7.0
   (Module 4's `m4` imports and builds).
 
+**Content review and accuracy pass (2026-09-29).** A full read of all 88
+pages for coverage and accuracy (report kept outside the repo) led to these
+fixes, each checked against the lesson's own code or data:
+- **L10 recap:** the exercise now sends `system=request["system"]`, and the
+  hidden tests check it (architecture.md §4.1).
+- **L8:** the recap explanation and intro no longer claim that rewriting
+  every question gained nothing. It reached 36 against the router's 34; the
+  router is now described as the conservative choice. "Keep the original
+  too" now lowers the drift risk rather than removing it.
+- **L7:** a planted passage can demote the real answer too, and a high
+  rank carries it to the answering model.
+- **L13:** uses Module 3's name, the lethal trifecta. Read-only tools and
+  rendered answers can still leak (Markdown images, EchoLeak). The
+  trifecta doesn't cover planted false facts.
+- **L12:**
+  - the fixed-schema graph and its traversal are labelled as the lesson's
+    own design;
+  - the Leiden vs Louvain note is added;
+  - global search is described as batched calls rather than one call per
+    community;
+  - LazyGraphRAG's saving is credited to model-free concept extraction.
+- **L2:**
+  - the "structural" zeros are softened (the stopword fix gains q21 and
+    q31);
+  - the count reads 43 labelled of 46;
+  - the half-quote "never counted twice" exception (an exact middle cut)
+    is noted;
+  - the held-out rule now reads "never used to choose a setting", matching
+    the later lessons that count over it. No lesson yet reports the final
+    held-out number the rule anticipates.
+- **L4:**
+  - a saved index records its embedding model and settings;
+  - some vector stores filter after approximate search;
+  - the brute-force arithmetic and scale are corrected.
+- **L5:**
+  - tagged PDFs and outlines do mark structure;
+  - the intro credits 7→9 to image descriptions.
+- **L1:**
+  - cache lifetime is five minutes by default, with a paid one-hour option;
+  - the module map lists Lesson 5.
+- **L3:**
+  - the heading path isn't searchable until Lesson 9;
+  - Chroma's is no longer "the one" study.
+- **L6:**
+  - tuned weighted score fusion (Bruch et al.) is added as an alternative
+    to RRF.
+- **L10:**
+  - adds the cache minimum size and lifetime;
+  - recency boosting is narrowed to the across-the-board case.
+- **L11:**
+  - the citation-check claim is corrected;
+  - caching does cut time to first token;
+  - "no single search" and "SQL answers exactly" are softened.
+- **L14:**
+  - cleared results are still citable but no longer visible to the model;
+  - Lesson 10's floor was on the reranker score;
+  - retrieval as a tool is justified by the agent choosing when to search;
+  - the clearing explanation is corrected;
+  - stray `*` at the ends of explanations are removed.
+
 1. **Why Retrieval, When the Window Is Huge** — **Locked** (folder
    `01-why-retrieval`; the title comes from the bookends mockup).
    Concept 1 (what the model can't know) is built: the kinds of knowledge a

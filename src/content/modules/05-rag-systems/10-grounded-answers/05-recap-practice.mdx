@@ -674,7 +674,7 @@ def answer_question(query: dict, retriever, client, threshold: float = 0.0, k: i
     if not results or results[0]["score"] < threshold:
         return {"status": "abstained", "text": "The sources don't say.", "sources": {}, "flags": []}
     request = assemble_request(query["query"], results, budget)
-    response = client.create(request["messages"])
+    response = client.create(request["messages"], system=request["system"])
     text = "".join(block.text for block in response.content if block.type == "text").strip()
     checked = check_citations(text, request["sources"])
     if declined(text):
@@ -688,6 +688,14 @@ export const HIDDEN_TESTS = REACT_FAKE_CLIENT + RECORDING_CLIENT + String.raw`im
 from answer import answer_question
 
 # shared by the tests below
+class AnsweringClient(RecordingClient):
+    """A scripted client that, like a real one, takes the system prompt as system=, and records it."""
+    def __init__(self, scripted_responses):
+        super().__init__(scripted_responses)
+        self.systems = []
+    def create(self, messages, system=""):
+        self.systems.append(system)
+        return super().create(messages)
 def chunk(doc_id, number, text, score):
     return {"doc_id": doc_id, "chunk": number, "title": f"Title {doc_id}", "section": f"Title {doc_id} > Part {number}",
             "date": "2026-08-18", "source_type": "official", "access": ["all-staff"], "text": text, "score": score}
@@ -703,46 +711,47 @@ GOOD = [chunk("D01", 8, "Each key may make 60 requests per minute.", 6.5), chunk
 WEAK = [chunk("D14", 3, "Each key gets a fixed number of calls.", -1.5)]
 
 # 1. weak retrieval abstains without calling the model
-client = RecordingClient([[TextBlock("unused")]])
+client = AnsweringClient([[TextBlock("unused")]])
 result = answer_question(QUERY, FixedRetriever(WEAK), client, threshold=0.0)
 assert isinstance(result, dict), f"answer_question should return a dict; got {result!r}"
 assert result == {"status": "abstained", "text": "The sources don't say.", "sources": {}, "flags": []}, result
 assert client.call_count == 0, "abstaining happens before the model is called"
 assert answer_question(QUERY, FixedRetriever([]), client)["status"] == "abstained", "no results at all also abstains"
 edge = answer_question(QUERY, FixedRetriever([chunk("D01", 8, "Each key may make 60 requests per minute.", 0.0)]),
-                       FakeLLMClient([[TextBlock("The limit is 60 [S1].")]]), threshold=0.0)
+                       AnsweringClient([[TextBlock("The limit is 60 [S1].")]]), threshold=0.0)
 assert edge["status"] == "answered", "abstain only when the score is below the threshold, not equal to it"
 
 # 2. a good answer: the request is assemble_request's, and citations resolve to sources
 retriever = FixedRetriever(GOOD)
-client = RecordingClient([[ThinkingBlock("S1 answers it."), TextBlock("Each key may make 60 requests per minute [S1][S2].")]])
+client = AnsweringClient([[ThinkingBlock("S1 answers it."), TextBlock("Each key may make 60 requests per minute [S1][S2].")]])
 result = answer_question(QUERY, retriever, client, threshold=0.0, k=2, budget=1500)
 assert retriever.calls == [("t1", 2)], f"retrieve with the question and k; got {retriever.calls}"
 expected = lib.assemble_request(QUERY["query"], GOOD, 1500)
 assert client.seen[0] == expected["messages"], "send assemble_request's messages"
+assert client.systems[0] == expected["system"], "send assemble_request's system prompt too, as system=request[\"system\"]: it holds the rules for citing and declining"
 assert result == {"status": "answered", "text": "Each key may make 60 requests per minute [S1][S2].",
                   "sources": {"S1": ("D01", "Title D01 > Part 8"), "S2": ("D03", "Title D03 > Part 2")}, "flags": []}, result
 one_source = lib.count_tokens(lib.format_source("S1", GOOD[0]))
-client = RecordingClient([[TextBlock("  Each key may make 60 requests per minute [S1].  ")]])
+client = AnsweringClient([[TextBlock("  Each key may make 60 requests per minute [S1].  ")]])
 result = answer_question(QUERY, FixedRetriever(GOOD), client, threshold=0.0, k=2, budget=one_source)
 assert client.seen[0] == lib.assemble_request(QUERY["query"], GOOD, one_source)["messages"], "pass the budget to assemble_request"
 assert result["text"] == "Each key may make 60 requests per minute [S1].", "the reply's text is stripped"
 
 # 3. citation problems become flags: unknown ids first, then uncited statements
-client = FakeLLMClient([[TextBlock("The limit is 60 [S1]. It resets hourly [S9]. Dashboards poll often.")]])
+client = AnsweringClient([[TextBlock("The limit is 60 [S1]. It resets hourly [S9]. Dashboards poll often.")]])
 result = answer_question(QUERY, FixedRetriever(GOOD), client)
 assert result["status"] == "answered" and result["flags"] == ["unknown citation S9", "uncited: Dashboards poll often."], \
     f"flag unknown citations, then uncited statements; got {result['flags']}"
 
 # 4. a decline is its own status, and isn't flagged as uncited
-client = FakeLLMClient([[TextBlock("The sources don't say how often it resets.")]])
+client = AnsweringClient([[TextBlock("The sources don't say how often it resets.")]])
 result = answer_question(QUERY, FixedRetriever(GOOD), client)
 assert (result["status"], result["flags"]) == ("declined", []), f"a decline is declined, with no flags; got {result}"
 
 # 5. the real corpus, through AnswerRetriever
 queries = {q["id"]: q for q in lib.load_queries()["main"]}
 retriever = lib.AnswerRetriever()
-client = RecordingClient([[TextBlock("The sources don't say which on-call engineer handled INC-2093.")],
+client = AnsweringClient([[TextBlock("The sources don't say which on-call engineer handled INC-2093.")],
                           [TextBlock("Each registry key may make 60 requests per minute [S1].")]])
 assert answer_question(queries["q37"], retriever, client)["status"] == "abstained" and client.call_count == 0, \
     "q37's best score is below 0, so it abstains without a call"
@@ -854,7 +863,7 @@ assert client.call_count == 2
 
 <MultiFileGradedExercise
   client:load
-  task={"lib.py holds code from this module's earlier lessons, including AnswerRetriever, assemble_request, check_citations and declined. It's read-only. In answer.py, write answer_question(query, retriever, client, threshold=0.0, k=5, budget=1500), returning a dict with \"status\", \"text\", \"sources\" and \"flags\". (1) Get retriever.search(query, k). If there are no results, or the first result's \"score\" is below threshold, return status \"abstained\", text \"The sources don't say.\", empty sources and flags, without calling the model. (2) Otherwise build the request with assemble_request(query[\"query\"], results, budget) and send its messages with client.create(...). The reply's text is the text of every text block, joined and stripped. (3) Check it with check_citations. If declined(text), return status \"declined\" with the cited sources and no flags. (4) Otherwise return status \"answered\", with \"sources\" from the check's \"cited\", and \"flags\": \"unknown citation <id>\" for each unknown id, then \"uncited: <statement>\" for each uncited statement."}
+  task={"lib.py holds code from this module's earlier lessons, including AnswerRetriever, assemble_request, check_citations and declined. It's read-only. In answer.py, write answer_question(query, retriever, client, threshold=0.0, k=5, budget=1500), returning a dict with \"status\", \"text\", \"sources\" and \"flags\". (1) Get retriever.search(query, k). If there are no results, or the first result's \"score\" is below threshold, return status \"abstained\", text \"The sources don't say.\", empty sources and flags, without calling the model. (2) Otherwise build the request with assemble_request(query[\"query\"], results, budget) and send it with client.create(request[\"messages\"], system=request[\"system\"]): the system prompt carries the instructions that make the model cite and decline. The reply's text is the text of every text block, joined and stripped. (3) Check it with check_citations. If declined(text), return status \"declined\" with the cited sources and no flags. (4) Otherwise return status \"answered\", with \"sources\" from the check's \"cited\", and \"flags\": \"unknown citation <id>\" for each unknown id, then \"uncited: <statement>\" for each uncited statement."}
   entry="answer.py"
   files={[
     { name: "lib.py", readOnly: true, code: LIB_PY },

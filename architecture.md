@@ -2024,6 +2024,24 @@ every test. Test 3 gained a 20-chunk, two-way tie that only a stable sort
 passes. **Takeaway:** any hidden test for "ties keep their order" on a
 numpy ranking needs at least 20 tied elements.
 
+**The fake client dropped the system prompt (Module 5 Lesson 10 recap,
+`answer_question`; found in the 2026-09-29 content review).** The shared
+`FakeLLMClient.create(messages)` takes no `system`, so the exercise's
+reference sent only `request["messages"]` and the tests enforced it,
+though the whole lesson builds `request["system"]` (the citing and
+declining rules) and concept 1's test checks it. Learners were taught to
+drop the one part that makes the model cite. The hidden tests now define
+`AnsweringClient(RecordingClient)` with `create(messages, system="")`,
+recording each system prompt; the reference sends
+`system=request["system"]`, and test 2 asserts it matches
+`assemble_request`'s. Verified in CPython 3.11 with numpy 1.26.4 (the
+Pyodide wheel CDN was unreachable from the session): the reference
+passes, and leaving `system` out or sending an empty one fails test 2
+with the new message. The concept demos keep the plain client and their
+comment saying a real client also sends `system`. **Takeaway:** when an
+exercise assembles a request with a `system` part, the grading client
+must accept and record it, as Module 4's `WindowedClient` already does.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped

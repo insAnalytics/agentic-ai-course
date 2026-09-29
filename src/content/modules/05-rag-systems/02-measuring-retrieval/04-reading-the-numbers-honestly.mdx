@@ -100,9 +100,11 @@ Two readings, and they need to be kept apart:
 - **The zeros are structural.** Keyword search sends one question to the
   index and takes what comes back. Questions that need two passages found
   separately, like multi-part, multi-hop and relationship questions, or
-  that make no sense without earlier turns, like follow-ups, fail for
-  reasons no tweak to scoring will fix. They're what Lessons 8, 11 and 12
-  are for.
+  that make no sense without earlier turns, like follow-ups, are
+  systematically hard for a single search. A scoring change can rescue the
+  odd one, as the next subsection's does for one multi-part and one
+  relationship question, but it can't make one search do the work of two.
+  They're what Lessons 8, 11 and 12 are for.
 - **The other rows are too small to rank.** "4 of 8" and "4 of 7" differ
   by a single question. A type with five questions can't tell you that
   keyword search handles out-of-context chunks better than identifiers; it
@@ -151,10 +153,12 @@ works and starts measuring how well it was tuned to this set. It's the
 same problem as testing a model on its training data.
 
 That's why 11 more questions are held out. They have the same types and
-the same kind of labels, and they're not run, looked at or tuned against
-until the module's final lesson. There they give one honest number for
-the finished system. If it's much worse than the main set's, the tuning
-fitted the questions rather than the problem.
+the same kind of labels, and nothing is chosen by looking at them: no
+stopword list, no *k*, no weight or threshold. Later lessons include them
+only where a count should cover every question, like the leaks Lesson 13
+counts, and never to pick a setting. Run on a finished system, they give one
+honest number. If it's much worse than the main set's, the tuning fitted the
+questions rather than the problem.
 
 </Subsection>
 
@@ -183,7 +187,7 @@ fitted the questions rather than the problem.
       "The multi-hop labels are incomplete, so their score doesn't count"
     ],
     "correctIndex": 1,
-    "explanation": "The zero comes from how the search works, not from which questions happened to be in the set, so a bigger sample wouldn't change it. The paraphrase rate, by contrast, is a small sample of a behaviour that varies question by question."
+    "explanation": "The zero comes from how the search works, not from which questions happened to be in the set, so a bigger sample would most likely show the same pattern. The paraphrase rate, by contrast, is a small sample of a behaviour that varies question by question."
   },
   {
     "question": "A change gains 5 questions and loses 1. Why isn't that proof it helps?",

@@ -104,11 +104,15 @@ lessons show where it goes.
 The cached column assumes everything goes the cache's way. Three ordinary
 situations take that away:
 
-- **Questions that arrive far apart.** Cache entries expire when unused
-  for a few minutes, as
-  [Module 4 noted](/04-context-and-memory/03-prompt-caching/01-what-a-prefix-cache-is-worth-to-an-agent/#putting-a-number-on-it).
-  An internal help desk that gets a question every quarter of an hour pays
-  the write, the first row, over and over.
+- **Questions that arrive far apart.** Cache entries expire when unused,
+  as
+  [Module 4 noted](/04-context-and-memory/03-prompt-caching/01-what-a-prefix-cache-is-worth-to-an-agent/#putting-a-number-on-it):
+  after five minutes by default, on Anthropic's API. An internal help desk
+  that gets a question every quarter of an hour pays the write, the first
+  row, over and over. A longer lifetime can be bought, an hour on
+  Anthropic's API for a write at twice the normal input price rather than
+  1.25 times, and other providers set their own terms. That rescues the help
+  desk, but not an assistant asked a handful of questions a day.
 - **A corpus that changes.** The cache matches an identical prefix, so
   adding one document, or editing one line of one, means
   [everything after the change is paid for again](/04-context-and-memory/03-prompt-caching/02-what-makes-an-agent-cache-friendly-and-what-breaks-it/#everything-after-a-change-is-paid-for-again).

@@ -80,7 +80,10 @@ Communities are found by **community detection**, a standard family of graph
 algorithms. The Louvain method, used here from the networkx library, looks
 for the grouping that puts as many edges as possible inside groups rather than
 between them. It involves some randomness, so it's given a fixed seed to make
-the result repeatable. These two helpers are defined once here and already
+the result repeatable. The GraphRAG paper uses Leiden, a refinement of Louvain
+that guarantees every community is connected, and applies it hierarchically,
+splitting large communities into smaller ones. For a graph this size, Louvain
+is enough. These two helpers are defined once here and already
 loaded for every demo and exercise from here to the end of this lesson:
 
 ```python
@@ -145,9 +148,11 @@ where the pipeline's top ten contained three.
 
 Three things to weigh, with this corpus's tiny size in mind:
 
-- **It costs a model call per community, per question.** Here that's five
-  calls. The paper's corpora have hundreds or thousands of communities, and
-  it answers from a chosen level of the hierarchy to keep that manageable.
+- **It costs model calls over the summaries, for every question.** Here
+  that's one call per community, five calls. The paper packs summaries into
+  batches that fill the model's context, one call per batch, and answers from
+  a chosen level of the hierarchy. With hundreds or thousands of communities,
+  that's still many calls per question.
 - **The summaries are fixed at indexing time.** A question they didn't
   anticipate gets whatever the summaries happened to include. The map step can
   only work with what each summary says.
@@ -189,13 +194,13 @@ Three things to weigh, with this corpus's tiny size in mind:
     {
       "question": "What's the main cost of answering a global question this way?",
       "options": [
-        "A model call for every community, for every question, on top of summarising them all in advance",
+        "Model calls over the community summaries for every question, on top of summarising them all in advance",
         "Rebuilding the graph for each question",
         "Re-embedding every chunk",
         "Nothing: summaries make global questions free"
       ],
       "correctIndex": 0,
-      "explanation": "The summaries are paid for once, at indexing time, and each global question then pays a call per community used. The paper uses a hierarchy of communities to control that."
+      "explanation": "The summaries are paid for once, at indexing time, and each global question then pays for calls over the summaries it uses: one per community here, one per batch of summaries in the paper, which also uses a hierarchy of communities to control the count."
     },
     {
       "question": "Why does SEC-014 appearing in a community summary matter?",
@@ -206,7 +211,7 @@ Three things to weigh, with this corpus's tiny size in mind:
         "It makes the community too large"
       ],
       "correctIndex": 0,
-      "explanation": "A summary is new text derived from its sources, and it doesn't carry their permissions unless someone makes it. Retrieval has to filter derived data too.*"
+      "explanation": "A summary is new text derived from its sources, and it doesn't carry their permissions unless someone makes it. Retrieval has to filter derived data too."
     }
   ]}
 />

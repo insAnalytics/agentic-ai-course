@@ -54,7 +54,10 @@ Retrieved documents are different. An agent searches in the middle of its
 work, with queries it writes as it goes, so what it retrieves changes from one
 step to the next. Putting that into the system prompt would change the prefix
 every time and throw away the cache, [the cost Module 4 measured](/04-context-and-memory/03-prompt-caching/01-what-a-prefix-cache-is-worth-to-an-agent/#putting-a-number-on-it).
-So retrieval belongs where Lesson 11 put it: behind a tool, with its results
+Retrieved text belongs after the stable prefix, in the conversation. Lesson 10
+put it in the user's message, which suits a pipeline that searches once, before
+the model is called. An agent decides for itself when to search and what for,
+so retrieval belongs where Lesson 11 put it: behind a tool, with its results
 in the conversation as tool results. That also puts them where Module 4's
 context step already knows how to manage them. Here's the tool, fixed to one
 reader as Lesson 13 required, and a scripted investigation that uses it.
@@ -148,9 +151,18 @@ last request actually contained:
 <LiveDemo client:load dataFiles={RAG_CONTEXT_STEP_DATA} setupCode={SETUP} code={LAST_REQUEST_DEMO} />
 
 The two oldest search results are now 32-token placeholders, each saying where
-the full result is stored. The three most recent are intact. Nothing is lost:
-the model can read a cleared result back with `read_result`, a page at a time,
-exactly as Module 4 designed for any large tool result.
+the full result is stored. The three most recent are intact. Nothing is lost
+from the store: the model can read a cleared result back with `read_result`, a
+page at a time, exactly as Module 4 designed for any large tool result.
+
+What the model can't do is see a cleared result without reading it back. That
+matters for grounded answers. A chunk from an early search can still be cited
+by id, but its text is no longer in front of the model, so the citation rests
+on memory of text it can't check. Three things keep answers grounded: read a
+source back before quoting it, record the facts that matter as the searches
+come in, in [Module 4's notes](/04-context-and-memory/06-offloading-context-to-storage/03-notes-the-agent-keeps/),
+and check citations against the result store rather than only the last
+request, since that's where the cited text now lives.
 
 </Subsection>
 
@@ -220,7 +232,7 @@ in the context step:
         "They were moved into the system prompt"
       ],
       "correctIndex": 0,
-      "explanation": "Clear_to_store keeps every cleared result, and read_result pages through it, so clearing costs tokens now without losing information."
+      "explanation": "clear_to_store keeps every cleared result, and read_result pages through it, so clearing saves tokens now without losing information. The cost comes later: a read_result call if the model needs the text again."
     },
     {
       "question": "At 3,000 tokens with keep_last=2, the context step trimmed whole rounds. Why was that worse than clearing?",
@@ -242,7 +254,7 @@ in the context step:
         "Removing the read_result tool"
       ],
       "correctIndex": 0,
-      "explanation": "Settings tuned for small tool results need re-checking for large ones. Returning fewer chunks per search would have been another fix.*"
+      "explanation": "Settings tuned for small tool results need re-checking for large ones. Returning fewer chunks per search would have been another fix."
     }
   ]}
 />

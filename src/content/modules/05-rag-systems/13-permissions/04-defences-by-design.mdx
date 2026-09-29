@@ -209,19 +209,33 @@ question nobody labelled would pass it.
 Some untrusted text will always reach the model: the open wiki is useful,
 customer emails need answering, and the web is full of pages worth reading. So
 the last defence limits the damage when a planted instruction is followed.
-[Module 3 called it the dangerous combination](/03-tool-design-for-agents/10-the-tool-threat-model/03-the-dangerous-combination/#one-injected-instruction-needs-somewhere-to-send-the-data):
+[Module 3 called it the lethal trifecta](/03-tool-design-for-agents/10-the-tool-threat-model/03-the-dangerous-combination/#one-injected-instruction-needs-somewhere-to-send-the-data):
 untrusted input, access to private data, and a way to act or send data out.
 An agent with all three can be steered by a document into leaking or changing
-things. Remove any one of them and the attack loses its reach:
+things. Cutting one leg is the structural fix, as long as the leg is really
+cut:
 
-- **Keep retrieval tools read-only.** Lesson 11's SQL tool couldn't write;
-  the search tool only reads.
+- **Keep retrieval tools read-only, and count every way out.** Lesson 11's
+  SQL tool couldn't write, and the search tool only reads. But read-only
+  isn't the same as having no way out. A tool that fetches an address the
+  model wrote sends whatever the model put in that address. So does the
+  answer itself, if the interface displays it: a Markdown image whose
+  address carries private data is fetched the moment the answer is shown,
+  with no tool call at all. That was how EchoLeak (CVE-2025-32711), a 2025
+  attack on Microsoft 365 Copilot, sent data out from a retrieved email.
+  Don't load remote images or links in answers automatically, or allow only
+  known addresses.
 - **Put a person in front of actions.** An agent that reads the open wiki
   shouldn't also send messages or change the registry without someone
   confirming.
 - **Keep permissions tied to the reader.** A planted instruction can't widen
   what the agent retrieves if the reader's groups are fixed in code, as in the
   first concept.
+
+The trifecta is about leaks and actions. It does nothing against the
+[previous concept's planted fact](/05-rag-systems/13-permissions/03-retrieved-text-is-untrusted-input/),
+which needs no action at all: the model simply repeats it, faithfully and
+with a citation. Only the gate and the provenance above address that.
 
 </Subsection>
 
@@ -272,7 +286,7 @@ things. Remove any one of them and the attack loses its reach:
         "Shorten the wiki pages it reads"
       ],
       "correctIndex": 0,
-      "explanation": "The three together are Module 3's dangerous combination. Breaking any one of them limits what a planted instruction can achieve."
+      "explanation": "The three together are Module 3's lethal trifecta. Breaking any one of them, fully, limits what a planted instruction can achieve."
     }
   ]}
 />
