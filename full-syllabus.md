@@ -4305,6 +4305,22 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    all seven, and fourteen mutations each fail, adding no progress handler,
    a handler that never stops, the timeout ignored, and an interrupt
    reported as a plain error; the 21-row fetch still passes, equivalently.
+   Concept 5 (keyword tools against the full pipeline) is built: setup now
+   appends `QUERY_DATABASE`, no other new shared code; data
+   `RAG_CONTEXTUAL_DATA` (which includes the query variants). Two live
+   demos, code and output exact matches in real Pyodide (the four-way
+   table, 25/28/31/36 of 43 in the top five, about 8.5 s in Node; the
+   disagreement list, six pipeline-only against one keyword-only, sign test
+   0.12). Both papers' claims checked against their full text: arXiv
+   2602.23368 (AWS; Claude 3 Sonnet in a ReAct agent with rga and pdfgrep;
+   Bedrock baseline with 300-token chunks and top five; RAGAS; averages
+   over five datasets of 94.52%, 88.05% and 91.48%; "generally performed
+   slightly below"; FinanceBench scored separately, answer correctness
+   only, 30.40% against 24.24%; the listed limitations) and arXiv
+   2605.15184 (116 LongMemEval questions; Chronos plus Claude Code, Codex
+   and Gemini CLI; grep generally higher; scores depending strongly on the
+   harness and tool-result delivery). Both paper titles link to arXiv. 4
+   quiz cards; no exercise, as in the mockup. No changes from the mockup.
    The lesson's other concepts and the bookends aren't drafted yet. Lesson 1's forward
    references to Lesson 11 stay plain prose.
 
