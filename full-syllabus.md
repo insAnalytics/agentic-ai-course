@@ -4688,6 +4688,30 @@ All 14 lessons are **Locked** (Lesson 14's recap is the module's last page).
 
 ---
 
+## Module 6 — Reliability
+
+Folder `06-reliability` (module title and description provisional). Data:
+`public/data/reliability/` (set E and the four Qwen3.5 runs, generated per
+`README-reliability.md`; no page loads it yet).
+
+1. **Per-Step Reliability** (provisional title; folder
+   `01-per-step-reliability`) — **Building**. Concept 1 (small errors
+   compound over many steps) is built: *p*ⁿ and three live demos (the
+   compounding table, the per-step reliability a 90% task needs, and a
+   seeded simulation of recovery and clustered difficulty), METR's
+   time-horizon study and Ord's reanalysis (59 against 15 minutes), where
+   the model breaks, and 5 quiz cards. All three demos reproduce the
+   mockup's output exactly in real Pyodide 0.26.4. Callbacks: Module 3's
+   attacker calculation (`#mitigations-help-but-aren-t-boundaries`,
+   verified against the built HTML) and Module 2's tool-errors-as-
+   observations concept (page link). One quiz fix: the mockup's Q1
+   distractor read "About 75%" but its explanation treats 75% as the
+   failure rate, so the option now reads "About 25%, since 25 steps at 3%
+   failure each add up to 75% failure". Concepts 2+ and the bookends
+   aren't drafted yet.
+
+---
+
 ## Modules 4–11 — current plan
 
 *Updated 2026-09-24 from the Module 3 handover. The course now has 12
