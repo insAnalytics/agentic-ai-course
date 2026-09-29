@@ -4750,8 +4750,17 @@ architecture.md §3.1).
    `reliabilityData.ts` (by_wording + rate, verbatim from the first demo)
    preloaded for the two demos that reuse them. Callbacks: concept 2 and
    Module 5 Lesson 2's when-the-labels-are-wrong concept (page links, as
-   the mockup names no subsection). 4 quiz cards. Next per the mockups: a
-   concept sorting the ways agents fail. Bookends not drafted yet.
+   the mockup names no subsection). 4 quiz cards. Concept 5 (where agents
+   fail, and where each failure is handled) is built, prose and quiz only:
+   τ-bench's failure analysis (55/25/19% of 36), Zhu et al.'s
+   AgentErrorTaxonomy and error propagation, a 13-row map from each failure
+   to where the course handles it, and a four-step routine for a failed
+   run. All 11 links in the map resolve in the built HTML, including the
+   `#a-deterministic-check-on-real-state` and
+   `#sycophancy-a-real-documented-side-effect` anchors; later Module 6
+   lessons (3 to 9) are named as plain text, since they don't exist yet.
+   5 quiz cards. This is the lesson's last concept; only the bookends
+   (intro, comprehensive quiz and sandbox) remain.
 
 ---
 
