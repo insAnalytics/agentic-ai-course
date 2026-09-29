@@ -3369,6 +3369,30 @@ below describe each lesson as first converted; see the git log
 
 Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
 All 14 lessons are **Locked** (Lesson 14's recap is the module's last page).
+**Final audit (2026-09-29), all against the built site and real Pyodide:**
+- **Callbacks:** no `(→ ...)` left in any Module 5 source. Every internal
+  link on the 88 built pages resolves to a built page, and all 54 anchored
+  links (5 of them inside exercise text, rendered by `LinkedText` with the
+  base path) find their `id`. All 20 external links respond; the three that
+  return 403 to scripts (two DOIs, Microsoft's LazyGraphRAG post) resolve
+  from a browser, and both DOIs redirect to their publishers.
+- **Lesson numbers after the Lesson 5 insertion:** no link names a lesson
+  other than its target; no mention names a lesson past 14; the 311 prose
+  mentions were checked against each lesson's topic, and every flagged one
+  (including a targeted check for off-by-one references to Lessons 5 to 9)
+  was read and is correct. In all 14 recaps' `lib.py`, section headers run
+  in order and every definition sits under the lesson it comes from;
+  lesson numbers named in shared code are correct. No other module refers
+  to a Module 5 lesson by number.
+- **Data:** all 26 files the pages request exist and parse in Pyodide, with
+  every embedding matrix matching its keys, unit length and NaN-free; every
+  loader runs (the PDF loaders under Lesson 5's own setup, since later
+  setups leave that lesson's code out). The five licence notices under
+  `rag/licenses/` and the six linked PDF-lesson files aren't loaded as
+  data, by design. Packages, loaded from imports as the pages do: Python
+  3.12.1, numpy 1.26.4, sqlite 3.39.0 (read-only URI and authorizer
+  working), networkx 3.3 (Louvain on the lesson graph) and pydantic 2.7.0
+  (Module 4's `m4` imports and builds).
 
 1. **Why Retrieval, When the Window Is Huge** — **Locked** (folder
    `01-why-retrieval`; the title comes from the bookends mockup).
