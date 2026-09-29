@@ -4540,6 +4540,23 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    and build cleanly. Earlier lessons' forward references to Lesson 13 stay
    plain prose.
 
+14. **Retrieval for the Context Step** (provisional title) — **Building**
+   (folder `14-context-step`, named while the title is provisional). Shared
+   setup is Lesson 13's recap `lib.py` (the Lesson 13 setup through
+   `INGESTION_GATE`, without the fake client, which this lesson's mockup
+   doesn't list), then the new `CONTEXT_STEP` (`load_context_step` and
+   Module 4's matchers, renamed `m4_*`); data the new
+   `RAG_CONTEXT_STEP_DATA` (`RAG_GRAPH_DATA` plus `context-step.json` and
+   its two bge-small embedding files, architecture.md §3.1). Concept 1
+   (what Module 4's keyword matching misses) is built: the matchers shown
+   as a static block byte-identical to the export and the mockup; four live
+   demos, code and output exact matches in real Pyodide (tool-finding: 5 of
+   5 in the tools' own words, 1 of 7 otherwise, by luck; the "on" tie
+   across all 40 tools; recall: 5 of 5 and 4 of 7; keyword overlap for
+   duplicates, related pairs and contradictions). 4 quiz cards; no
+   exercise, as in the mockup. No changes from the mockup. The lesson's
+   other concepts and the bookends aren't drafted yet.
+
 ---
 
 ## Modules 4–11 — current plan

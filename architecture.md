@@ -565,6 +565,11 @@ concept 2 only, appended after `READABLE`. From Lesson 13 concept 3 on the
 setup appends `READER_VIEWS`. `INGESTION_GATE` (`IngestionGate`) is concept
 4's exercise reference, for pages *after* concept 4 only, appended after
 `READER_VIEWS`.
+Lesson 14's setup is Lesson 13's recap `lib.py` (the Lesson 13 setup through
+`INGESTION_GATE`, without the fake client), then `CONTEXT_STEP`
+(`load_context_step` and Module 4's matchers as `m4_keywords`,
+`m4_find_tools`, `m4_recall`, `m4_overlap`, renamed so they don't clash with
+Module 5's own `keywords`), with `RAG_CONTEXT_STEP_DATA`.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.

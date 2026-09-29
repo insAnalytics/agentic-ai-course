@@ -1500,3 +1500,52 @@ class IngestionGate:
         """The documents retrieval may index: approved or trusted versions only."""
         return list(self.indexed.values())
 `;
+
+/** RAG_GRAPH_DATA plus the context-step data and its bge-small embeddings (Lesson 14). */
+export const RAG_CONTEXT_STEP_DATA = [
+  ...RAG_GRAPH_DATA,
+  "rag/context-step.json",
+  "rag/embeddings/bge-small-en-v1.5/context-step-texts.json",
+  "rag/embeddings/bge-small-en-v1.5/context-step-queries.json",
+];
+
+/**
+ * Module 5 Lesson 14 concept 1 load_context_step and Module 4's matchers
+ * (m4_keywords, m4_find_tools, m4_recall, m4_overlap), shown verbatim on that
+ * page (keep the two byte-identical). Lesson 14's setup is Lesson 13's recap
+ * lib.py (the Lesson 13 setup through INGESTION_GATE, without the fake
+ * client), then this. Data RAG_CONTEXT_STEP_DATA.
+ */
+export const CONTEXT_STEP = String.raw`
+def load_context_step() -> dict:
+    """Module 4's tool catalog as text, one user's memories, and the labelled tasks and pairs."""
+    return json.loads((DATA / "context-step.json").read_text(encoding="utf-8"))
+
+# Module 4's keyword matching, unchanged apart from the names, which Module 5's own would clash with
+M4_STOPWORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "is", "was", "it", "this", "that",
+                "with", "as", "at", "by", "be", "i", "you", "my", "me", "we", "our", "please", "about", "from", "last"}
+
+def m4_keywords(text: str) -> set:
+    """Module 4 Lesson 8's keywords: lowercased, punctuation removed, common and one-letter words dropped."""
+    text = text.lower()
+    for mark in ".,;:!?()'\"":
+        text = text.replace(mark, " ")
+    return {word for word in text.split() if len(word) > 1} - M4_STOPWORDS
+
+def m4_find_tools(tools: dict, query: str, limit: int = 3) -> list[str]:
+    """Module 4 Lesson 7's find_tools scoring: one point per query word found in a tool's name and description."""
+    words = query.lower().split()
+    scored = [(len([w for w in words if w in text.lower()]), name) for name, text in tools.items()]
+    return [name for score, name in sorted([p for p in scored if p[0]], key=lambda p: p[0], reverse=True)[:limit]]
+
+def m4_recall(memories: list[str], task: str, limit: int = 3) -> list[str]:
+    """Module 4 Lesson 8's recall: the memories sharing the most keywords with the task."""
+    wanted = m4_keywords(task)
+    scored = [(len(wanted & m4_keywords(m)), m) for m in memories]
+    return [m for score, m in sorted([p for p in scored if p[0]], key=lambda p: p[0], reverse=True)[:limit]]
+
+def m4_overlap(a: str, b: str) -> float:
+    """Module 4 Lesson 10's duplicate test: shared keywords over all keywords (0.8 or more was a duplicate)."""
+    union = m4_keywords(a) | m4_keywords(b)
+    return len(m4_keywords(a) & m4_keywords(b)) / len(union) if union else 0.0
+`;

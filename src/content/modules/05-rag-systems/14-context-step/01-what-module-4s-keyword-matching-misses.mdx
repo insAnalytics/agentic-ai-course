@@ -1,0 +1,213 @@
+---
+title: "What Module 4's keyword matching misses"
+lesson: "14-context-step"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { COUNT_TOKENS } from "../../../../lib/fakeClient";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, SIGN_TEST, FIXED_CHUNKS, STRUCTURE_HELPERS, STRUCTURED_CHUNKS, WITHIN_BUDGET, VECTORS, VECTOR_INDEX, MEANING_SEARCH, TERMS, BM25_INDEX, RERANK_SCORES, RERANK, LISTWISE_RERANK, MODULE_PIPELINE, REWRITE_QUERY, SPLIT_QUERY, INTERLEAVE, HYDE, WITH_HEADER, VERSIONED_PIPELINE, WITH_CONTEXT, EXPAND_NEIGHBOURS, ANSWER_RETRIEVER, ANSWER_INSTRUCTIONS, ASSEMBLE_REQUEST, CHECK_CITATIONS, DECLINED, AGENT_SEARCH, SEARCH_DOCUMENTS, CONTEXTUAL_SEARCH, SEARCH_BUDGET, REGISTRY_DB, QUERY_DATABASE, GRAPH_DATA, BUILD_GRAPH, AFFECTED_BY, GRAPH_COMMUNITIES, PERMITTED_RETRIEVER, READABLE, READER_VIEWS, INGESTION_GATE, CONTEXT_STEP, RAG_CONTEXT_STEP_DATA } from "../../../../lib/ragCorpus";
+
+export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION + METRICS + SIGN_TEST + FIXED_CHUNKS + STRUCTURE_HELPERS + STRUCTURED_CHUNKS + WITHIN_BUDGET + VECTORS + VECTOR_INDEX + MEANING_SEARCH + TERMS + BM25_INDEX + RERANK_SCORES + RERANK + LISTWISE_RERANK + MODULE_PIPELINE + REWRITE_QUERY + SPLIT_QUERY + INTERLEAVE + HYDE + WITH_HEADER + VERSIONED_PIPELINE + WITH_CONTEXT + EXPAND_NEIGHBOURS + ANSWER_RETRIEVER + ANSWER_INSTRUCTIONS + ASSEMBLE_REQUEST + CHECK_CITATIONS + DECLINED + AGENT_SEARCH + SEARCH_DOCUMENTS + CONTEXTUAL_SEARCH + SEARCH_BUDGET + REGISTRY_DB + QUERY_DATABASE + GRAPH_DATA + BUILD_GRAPH + AFFECTED_BY + GRAPH_COMMUNITIES + PERMITTED_RETRIEVER + READABLE + READER_VIEWS + INGESTION_GATE + CONTEXT_STEP;
+
+export const TOOLS_DEMO = String.raw`data = load_context_step()
+for worded in (True, False):
+    tasks = [t for t in data["tool_tasks"] if t["worded"] == worded]
+    print("tasks using the tools' own words:" if worded else "\ntasks in other words:")
+    for task in tasks:
+        found = m4_find_tools(data["tools"], task["task"])
+        hit = any(name.startswith(task["server"] + "__") for name in found)
+        print(f"  {'found ' if hit else 'MISSED'} {task['server']:<11} {task['task']:<52} -> {found[:2]}")
+`;
+
+export const LUCK_DEMO = String.raw`tools = load_context_step()["tools"]
+query = "Change which model support_agent runs on"
+matches = {name: [w for w in query.lower().split() if w in text.lower()] for name, text in tools.items()}
+print(f"registry__list matched {matches['registry__list']}")
+print(f"tools by score: {dict(Counter(len(m) for m in matches.values()))}")
+print(f"first three, in catalog order: {list(tools)[:3]}")
+`;
+
+export const RECALL_DEMO = String.raw`data = load_context_step()
+memories = [m["content"] for m in data["memories"]]
+by_id = {m["id"]: m["content"] for m in data["memories"]}
+for worded in (True, False):
+    tasks = [t for t in data["recall_tasks"] if t["worded"] == worded]
+    hits = [t for t in tasks if set(m4_recall(memories, t["task"])) & {by_id[i] for i in t["relevant"]}]
+    print(f"{'own words' if worded else 'other words'}: a relevant memory in the top 3 for {len(hits)} of {len(tasks)} tasks")
+    for task in tasks:
+        if task not in hits:
+            print(f"  missed: {task['task']!r} -> {m4_recall(memories, task['task'])}")
+`;
+
+export const OVERLAP_DEMO = String.raw`pairs = load_context_step()["pairs"]
+for label in ("duplicate", "related", "contradiction"):
+    scores = [round(m4_overlap(p["a"], p["b"]), 2) for p in pairs if p["label"] == label]
+    print(f"{label:<14} keyword overlap {scores}")
+print("\nModule 4 counted 0.8 or more as a duplicate.")
+`;
+
+<Subsection title="Five matchers, one assumption" variant="a">
+
+Module 4 built an agent's context step: the machinery that decides what goes
+into each request. Five parts of it choose things by relevance, and all five
+decide relevance the same way, by shared words:
+
+- **Lesson 7's `find_tools`** picks tool definitions from a catalog, one point
+  per query word found in a tool's name or description.
+- **Lesson 8's `recall`** picks memories sharing the most keywords with the
+  task.
+- **Lesson 9's store search** does the same over stored memory records and
+  their tags.
+- **Lesson 10's duplicate check** calls two memories the same when 80% of
+  their keywords overlap.
+- **Lesson 11's recall score** uses shared keywords as its relevance term.
+
+Each of those lessons said that matching by meaning was this module's subject.
+This lesson delivers it. First, the measurement, on a labelled set written for
+this lesson: Module 4's own tool catalog, one user's memories, and tasks in two
+kinds of wording, the words of what they should find, and other words. Here
+are Module 4's matchers, copied unchanged apart from their names. They're
+defined once here and already loaded for every demo and exercise in this
+lesson:
+
+```python
+def load_context_step() -> dict:
+    """Module 4's tool catalog as text, one user's memories, and the labelled tasks and pairs."""
+    return json.loads((DATA / "context-step.json").read_text(encoding="utf-8"))
+
+# Module 4's keyword matching, unchanged apart from the names, which Module 5's own would clash with
+M4_STOPWORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "on", "for", "is", "was", "it", "this", "that",
+                "with", "as", "at", "by", "be", "i", "you", "my", "me", "we", "our", "please", "about", "from", "last"}
+
+def m4_keywords(text: str) -> set:
+    """Module 4 Lesson 8's keywords: lowercased, punctuation removed, common and one-letter words dropped."""
+    text = text.lower()
+    for mark in ".,;:!?()'\"":
+        text = text.replace(mark, " ")
+    return {word for word in text.split() if len(word) > 1} - M4_STOPWORDS
+
+def m4_find_tools(tools: dict, query: str, limit: int = 3) -> list[str]:
+    """Module 4 Lesson 7's find_tools scoring: one point per query word found in a tool's name and description."""
+    words = query.lower().split()
+    scored = [(len([w for w in words if w in text.lower()]), name) for name, text in tools.items()]
+    return [name for score, name in sorted([p for p in scored if p[0]], key=lambda p: p[0], reverse=True)[:limit]]
+
+def m4_recall(memories: list[str], task: str, limit: int = 3) -> list[str]:
+    """Module 4 Lesson 8's recall: the memories sharing the most keywords with the task."""
+    wanted = m4_keywords(task)
+    scored = [(len(wanted & m4_keywords(m)), m) for m in memories]
+    return [m for score, m in sorted([p for p in scored if p[0]], key=lambda p: p[0], reverse=True)[:limit]]
+
+def m4_overlap(a: str, b: str) -> float:
+    """Module 4 Lesson 10's duplicate test: shared keywords over all keywords (0.8 or more was a duplicate)."""
+    union = m4_keywords(a) | m4_keywords(b)
+    return len(m4_keywords(a) & m4_keywords(b)) / len(union) if union else 0.0
+```
+
+</Subsection>
+
+<Subsection title="Finding tools" variant="b">
+
+<LiveDemo client:load dataFiles={RAG_CONTEXT_STEP_DATA} setupCode={SETUP} code={TOOLS_DEMO} />
+
+Every task using a tool's own words finds it. Of the seven in other words,
+six fail, and the one that succeeds does so by accident:
+
+<LiveDemo client:load dataFiles={RAG_CONTEXT_STEP_DATA} setupCode={SETUP} code={LUCK_DEMO} />
+
+No word of the task means anything to the catalog. Every tool scores one point,
+for "on", which appears inside words in every description, and the tie
+falls to catalog order, where the registry's tools come first. The failures
+return the same registry tools for the same reason. Worse than finding nothing,
+they find the wrong thing confidently: an agent asking "is the registry up?"
+gets registry tools, not monitoring ones.
+
+</Subsection>
+
+<Subsection title="Recalling memories" variant="a">
+
+<LiveDemo client:load dataFiles={RAG_CONTEXT_STEP_DATA} setupCode={SETUP} code={RECALL_DEMO} />
+
+Memory recall does better, because Module 4's keywords drop common words, but
+it fails the same way. "Who do I report to?" shares no word with "The user's
+manager is Grace Okafor." "The old model" and "claude-legacy" are the same
+thing to a person and unrelated to a set of words. And a near miss is worse
+than no match: asked about the deadline for moving off the old model, recall
+returns notes_agent's target model, which shares the word "model" and answers
+nothing.
+
+</Subsection>
+
+<Subsection title="Spotting duplicates" variant="b">
+
+The duplicate check fails in a different way. Here's the keyword overlap for
+pairs of memories labelled as the same fact, related facts, and contradicting
+facts:
+
+<LiveDemo client:load dataFiles={RAG_CONTEXT_STEP_DATA} setupCode={SETUP} code={OVERLAP_DEMO} />
+
+Not one duplicate gets near 0.8: "Keep replies brief and skip the
+introduction" shares no keyword with "The user prefers short answers without a
+preamble". And the pairs that overlap most are the contradictions, because two
+statements that disagree about one detail share every other word. Keyword
+overlap measures shared wording, and that's close to the opposite of what a
+duplicate check needs.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "What do all five of Module 4's matchers have in common?",
+      "options": [
+        "They decide relevance by shared words, so a task in other words finds nothing, or the wrong thing",
+        "They all use the same stopword list",
+        "They all rank by recency first",
+        "They all call a model"
+      ],
+      "correctIndex": 0,
+      "explanation": "Tools, memories, duplicates and relevance scores were all matched on words. Paraphrased tasks fail every one of them."
+    },
+    {
+      "question": "\"Change which model support_agent runs on\" found registry tools. Why was that luck?",
+      "options": [
+        "Every tool scored one point for \"on\", and the tie fell to catalog order",
+        "The word \"model\" is in the registry tools' descriptions",
+        "The registry tools are marked as the default",
+        "find_tools understood the task"
+      ],
+      "correctIndex": 0,
+      "explanation": "Substring matching counted \"on\" inside other words in every description. With all 40 tools tied, the first in the catalog won."
+    },
+    {
+      "question": "Why is a wrong match worse than no match?",
+      "options": [
+        "The agent acts on it confidently, where no match would prompt a different search or a question",
+        "Wrong matches use more tokens",
+        "No match raises an error",
+        "Wrong matches can't be cached"
+      ],
+      "correctIndex": 0,
+      "explanation": "Recall returned notes_agent's target model for a question about a deadline. Nothing in the result says it's irrelevant."
+    },
+    {
+      "question": "Why do contradictions score higher than duplicates on keyword overlap?",
+      "options": [
+        "Two statements disagreeing about one detail share every other word",
+        "Contradictions are always longer",
+        "Duplicates contain more stopwords",
+        "The overlap formula favours negations"
+      ],
+      "correctIndex": 0,
+      "explanation": "\"Tom owns support_agent\" and \"Priya owns support_agent\" differ in one word. A duplicate in other words may share none.*"
+    }
+  ]}
+/>
+
+</CheckpointZone>
