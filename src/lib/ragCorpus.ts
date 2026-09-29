@@ -1670,3 +1670,99 @@ def recall_scored(memories: list[dict], task_vector, vectors: dict, now: str, li
     scores = score_memories(candidates, relevance, now, weights)
     return [candidates[k] for k in sorted(range(len(candidates)), key=lambda k: -scores[k])[:limit]]
 `;
+
+/**
+ * Python that writes read-only module files into `dir` and puts `dir` on
+ * sys.path, so a single-file page's setup can `import` them (first needed by
+ * Module 5 Lesson 14 concept 5, whose demos import Module 4's recap code as
+ * `m4`). Each file's text goes in as a JSON string, which Python reads as the
+ * same string literal. `imports` is written out first, as plain Python, so
+ * loadPackagesFromImports sees packages the modules need (it can't see
+ * imports inside the file text).
+ */
+export function pythonModules(dir: string, files: Record<string, string>, imports = ""): string {
+  const writes = Object.entries(files).map(([name, text]) =>
+    `_pathlib.Path(${JSON.stringify(dir + "/" + name)}).write_text(${JSON.stringify(text)}, encoding="utf-8")`);
+  return [
+    "",
+    imports,
+    "import pathlib as _pathlib, sys as _sys",
+    `_pathlib.Path(${JSON.stringify(dir)}).mkdir(parents=True, exist_ok=True)`,
+    ...writes,
+    `if ${JSON.stringify(dir)} not in _sys.path: _sys.path.insert(0, ${JSON.stringify(dir)})`,
+    "",
+  ].join(String.fromCharCode(10));
+}
+
+/**
+ * Module 5 Lesson 14 concept 5 search_tool_for, READ_RESULT_TOOL, INVESTIGATION,
+ * TASK, BASE and run_investigation, shown verbatim on that page (keep the two
+ * byte-identical). Needs Module 4's code as modules first (pythonModules, on
+ * that page) and the fake client (ToolUseBlock, TextBlock) in the setup.
+ * Joins the Lesson 14 setup from concept 5 on.
+ */
+export const CONTEXT_STEP_RETRIEVAL = String.raw`
+import m4
+from fake import ContextWindowExceeded, WindowedClient
+
+def search_tool_for(groups):
+    """Lesson 13's reader-bound search: keyword search over the contextual text of the chunks these groups
+    may read, returning source text. The groups are fixed here, so the model can't change them."""
+    groups = frozenset(groups)
+    permitted = [c for c in CORPUS_CHUNKS if groups & set(c["access"])]
+    index = BM25Index()
+    index.add([with_context(c, CONTEXTS) for c in permitted])
+    by_key = {(c["doc_id"], c["chunk"]): c for c in permitted}
+
+    def search_documents(query: str, k: int = 5) -> str:
+        results = index.search(query.strip(), min(max(int(k), 1), 10)) if query.strip() else []
+        if not results:
+            return f"No documents matched {query.strip()!r}. Try different words."
+        return "\n\n".join(format_source(f"{c['doc_id']}:{c['chunk']}", by_key[(c["doc_id"], c["chunk"])])
+                           for c in results)
+    return search_documents
+
+READ_RESULT_TOOL = {
+    "name": "read_result",
+    "description": "Read part of an earlier tool result that the context step cleared and stored under a handle.",
+    "input_schema": {"type": "object", "properties": {
+        "handle": {"type": "string"}, "offset": {"type": "integer"}, "limit": {"type": "integer"}},
+        "required": ["handle"]},
+}
+
+INVESTIGATION = ["INC-2093 unavailable", "registry-db failover standby lag", "RegistryUnreachable alert",
+                 "monitoring agent list registry", "support_agent registry lookups failing"]
+TASK = "Write a timeline of the INC-2093 registry outage and what monitoring showed."
+BASE = "You answer questions from the company's documents, citing sources by id."
+
+def run_investigation(window: int, managed: bool, keep_last: int = 2) -> dict:
+    """The canonical loop over a scripted investigation: five real searches, then an answer. Returns
+    the outcome, each request's size, the context step's choices and the last request sent."""
+    search = search_tool_for({"all-staff"})
+    results = m4.ResultStore()
+    impls = {"search_documents": search,
+             "read_result": lambda handle, offset=0, limit=50: m4.read_result(results, handle, offset, limit)}
+    replies = [[ToolUseBlock("search_documents", {"query": q})] for q in INVESTIGATION]
+    llm = WindowedClient(replies + [[TextBlock("At 14:10 registry-db began failing over [D11:1]...")]], window=window)
+    tools = [SEARCH_TOOL, READ_RESULT_TOOL]
+    history = [{"role": "user", "content": TASK}]
+    context = m4.ContextManager(llm, BASE, tools, window=window, max_tokens=500, memory=m4.MemoryStore(),
+                                user_id="u1", task=TASK, now="2026-09-29T09:00:00", block=m4.CoreBlock(""),
+                                notes=m4.Notes(), results=results, write_tools=[], keep_last=keep_last) if managed else None
+    sizes = []
+    for _ in range(10):
+        request = context.build(history) if managed else {"system": BASE, "tools": tools, "messages": history}
+        sizes.append(m4.count_tokens(request["system"]) + m4.count_tokens(request["tools"])
+                     + m4.count_tokens(request["messages"]))
+        try:
+            response = llm.create(messages=request["messages"], tools=request["tools"], system=request["system"])
+        except ContextWindowExceeded as error:
+            return {"outcome": f"refused: {error}", "sizes": sizes, "steps": None, "last": request, "results": results}
+        history.append({"role": "assistant", "content": response.content})
+        calls = [b for b in response.content if b.type == "tool_use"]
+        if not calls:
+            return {"outcome": "answered", "sizes": sizes, "steps": context.steps if managed else None,
+                    "last": request, "results": results}
+        history.append({"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": c.id, "content": impls[c.name](**c.input)} for c in calls]})
+`;

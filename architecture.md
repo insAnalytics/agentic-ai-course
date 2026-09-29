@@ -582,6 +582,21 @@ From Lesson 14 concept 4 on the setup appends `DUPLICATE_CANDIDATES` and then
 `SCORE_MEMORIES` (`days_between`, `min_max`, `score_memories`, shown verbatim
 on that page); `RECALL_SCORED` (`recall_scored`) is concept 4's exercise
 reference, for pages *after* concept 4 only, appended after `SCORE_MEMORIES`.
+From Lesson 14 concept 5 on the setup appends `RECALL_SCORED`, then
+`REACT_FAKE_CLIENT + RECORDING_CLIENT`, then `M4_MODULES`, then
+`CONTEXT_STEP_RETRIEVAL` (`search_tool_for`, `READ_RESULT_TOOL`,
+`run_investigation`, shown verbatim on that page). **Importable modules in
+a single-file page:** that concept's code does `import m4` and `from fake
+import ...`, so the page builds `M4_MODULES` with `pythonModules(dir,
+files, imports)` (in `ragCorpus.ts`), Python that writes each file into
+`dir` and puts `dir` on `sys.path`. Each file's text is embedded with
+`JSON.stringify`, whose string literals Python reads identically, so no
+escaping is needed; `imports` (here `import pydantic`) is written out as
+plain Python first, because `loadPackagesFromImports` can't see imports
+inside the embedded file text. The files come from Module 4 Lesson 12's
+recap by importing its named exports directly (`import { LIB_PY } from
+"../../04-context-and-memory/12-assembling-the-context-step/04-recap-practice.mdx"`),
+which Astro's MDX supports, so `m4.py` can't drift from that recap.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.

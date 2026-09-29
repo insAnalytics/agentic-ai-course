@@ -4596,7 +4596,26 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    `runAgainstHiddenTests`: the reference passes (9 of 10 eligible tasks),
    the starter fails all three, and six mutations each fail (procedures
    competing, weights ignored, `limit` ignored, lowest first, relevance
-   only, no check for no candidates). The lesson's other concepts and the
+   only, no check for no candidates). Concept 5 (retrieval in the context
+   step) is built. It needs Module 4's code as importable modules, so the
+   setup is concept 4's plus `RECALL_SCORED`, then `REACT_FAKE_CLIENT +
+   RECORDING_CLIENT` (the demo code uses `ToolUseBlock` and `TextBlock`),
+   then `M4_MODULES`, then the new `CONTEXT_STEP_RETRIEVAL`
+   (`search_tool_for`, `READ_RESULT_TOOL`, the scripted investigation and
+   `run_investigation`), shown as a static block byte-identical to the
+   export and the mockup. `M4_MODULES` is the new `pythonModules` helper
+   writing `m4.py` (Module 4 Lesson 12's recap `LIB_PY`, imported from that
+   page's `.mdx` and unchanged), `tokens.py` (its `TOKENS_PY`) and
+   `fake.py` (its fake client plus `RecordingClient`, as the mockup lists)
+   to `/m4_modules` on `sys.path`, with `import pydantic` written first so
+   Pyodide loads it. Three live demos, checked from the built page's
+   serialised props in real Pyodide: code and output exact matches (refused
+   at 4,312 tokens without the context step, answered with a clear; the
+   last request's two placeholders and `read_result`; 3,000 tokens with
+   `keep_last` 2 trimming, 1 clearing), and the written modules identical
+   to the recap's files. Link to Module 4's "Putting a number on it",
+   anchor checked in the built HTML. 4 quiz cards; no exercise, as in the
+   mockup. No changes from the mockup. The lesson's other concepts and the
    bookends aren't drafted yet.
 
 ---

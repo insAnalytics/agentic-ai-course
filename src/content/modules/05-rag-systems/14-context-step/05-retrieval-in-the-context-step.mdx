@@ -1,0 +1,250 @@
+---
+title: "Retrieval in the context step"
+lesson: "14-context-step"
+order: 5
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { COUNT_TOKENS, FAKE_CLIENT, REACT_CLIENT_UPGRADE, REACT_FAKE_CLIENT, RECORDING_CLIENT, WINDOWED_CLIENT } from "../../../../lib/fakeClient";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, SIGN_TEST, FIXED_CHUNKS, STRUCTURE_HELPERS, STRUCTURED_CHUNKS, WITHIN_BUDGET, VECTORS, VECTOR_INDEX, MEANING_SEARCH, TERMS, BM25_INDEX, RERANK_SCORES, RERANK, LISTWISE_RERANK, MODULE_PIPELINE, REWRITE_QUERY, SPLIT_QUERY, INTERLEAVE, HYDE, WITH_HEADER, VERSIONED_PIPELINE, WITH_CONTEXT, EXPAND_NEIGHBOURS, ANSWER_RETRIEVER, ANSWER_INSTRUCTIONS, ASSEMBLE_REQUEST, CHECK_CITATIONS, DECLINED, AGENT_SEARCH, SEARCH_DOCUMENTS, CONTEXTUAL_SEARCH, SEARCH_BUDGET, REGISTRY_DB, QUERY_DATABASE, GRAPH_DATA, BUILD_GRAPH, AFFECTED_BY, GRAPH_COMMUNITIES, PERMITTED_RETRIEVER, READABLE, READER_VIEWS, INGESTION_GATE, CONTEXT_STEP, FUSE_HELPERS, HYBRID_SEARCH, DUPLICATE_CANDIDATES, SCORE_MEMORIES, RECALL_SCORED, CONTEXT_STEP_RETRIEVAL, pythonModules, RAG_CONTEXT_STEP_DATA } from "../../../../lib/ragCorpus";
+import { LIB_PY as M4_LIB_PY, TOKENS_PY as M4_TOKENS_PY } from "../../04-context-and-memory/12-assembling-the-context-step/04-recap-practice.mdx";
+
+{/* Module 4 Lesson 12's recap code as importable modules: m4.py is that recap's LIB_PY unchanged, tokens.py its
+    TOKENS_PY, and fake.py its fake client with RecordingClient added. pydantic is imported first so Pyodide loads it. */}
+export const M4_FAKE_PY = "# the fake LLM client used throughout this course, with the windowed-client upgrade -- read-only" + String.fromCharCode(10)
+  + "from tokens import count_tokens" + String.fromCharCode(10) + FAKE_CLIENT.trimStart() + REACT_CLIENT_UPGRADE + RECORDING_CLIENT + WINDOWED_CLIENT;
+export const M4_MODULES = pythonModules("/m4_modules", { "tokens.py": M4_TOKENS_PY, "fake.py": M4_FAKE_PY, "m4.py": M4_LIB_PY }, "import pydantic");
+
+export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION + METRICS + SIGN_TEST + FIXED_CHUNKS + STRUCTURE_HELPERS + STRUCTURED_CHUNKS + WITHIN_BUDGET + VECTORS + VECTOR_INDEX + MEANING_SEARCH + TERMS + BM25_INDEX + RERANK_SCORES + RERANK + LISTWISE_RERANK + MODULE_PIPELINE + REWRITE_QUERY + SPLIT_QUERY + INTERLEAVE + HYDE + WITH_HEADER + VERSIONED_PIPELINE + WITH_CONTEXT + EXPAND_NEIGHBOURS + ANSWER_RETRIEVER + ANSWER_INSTRUCTIONS + ASSEMBLE_REQUEST + CHECK_CITATIONS + DECLINED + AGENT_SEARCH + SEARCH_DOCUMENTS + CONTEXTUAL_SEARCH + SEARCH_BUDGET + REGISTRY_DB + QUERY_DATABASE + GRAPH_DATA + BUILD_GRAPH + AFFECTED_BY + GRAPH_COMMUNITIES + PERMITTED_RETRIEVER + READABLE + READER_VIEWS + INGESTION_GATE + CONTEXT_STEP + FUSE_HELPERS + HYBRID_SEARCH + DUPLICATE_CANDIDATES + SCORE_MEMORIES + RECALL_SCORED + REACT_FAKE_CLIENT + RECORDING_CLIENT + M4_MODULES + CONTEXT_STEP_RETRIEVAL;
+
+export const MANAGED_DEMO = String.raw`for managed in (False, True):
+    run = run_investigation(window=3500, managed=managed)
+    print(f"{'with the context step' if managed else 'without one':<22} {run['outcome']}")
+    print(f"  request sizes: {run['sizes']}" + (f"\n  steps: {run['steps']}" if run["steps"] else ""))
+`;
+
+export const LAST_REQUEST_DEMO = String.raw`run = run_investigation(window=3500, managed=True)
+results = [block for message in run["last"]["messages"] if isinstance(message["content"], list)
+           for block in message["content"] if isinstance(block, dict) and block["type"] == "tool_result"]
+for block in results:
+    print(f"{m4.count_tokens(block['content']):>5} tokens  {block['content'][:88]}...")
+handle = re.search(r'handle="([^"]+)"', results[0]["content"]).group(1)
+print(f"\nread_result({handle!r}, limit=3):\n{m4.read_result(run['results'], handle, 0, 3)}")
+`;
+
+export const SIZING_DEMO = String.raw`for window, keep_last in ((3000, 2), (3000, 1)):
+    run = run_investigation(window=window, managed=True, keep_last=keep_last)
+    kept = [block["content"][:14] for message in run["last"]["messages"] if isinstance(message["content"], list)
+            for block in message["content"] if isinstance(block, dict) and block["type"] == "tool_result"]
+    print(f"window {window}, keep_last {keep_last}: {run['outcome']}, steps {run['steps']}")
+    print(f"  tool results in the last request: {kept}")
+`;
+
+<Subsection title="Where retrieved text goes" variant="a">
+
+Module 4's context step decides what goes into every request, in a fixed
+order: a system prompt that stays the same for the whole session, so a prefix
+cache can reuse it; then the conversation, trimmed or summarised to fit; then
+an anchor at the end. Memories recalled at the start of a session go into the
+fixed prompt, because they're chosen once, for the session's task.
+
+Retrieved documents are different. An agent searches in the middle of its
+work, with queries it writes as it goes, so what it retrieves changes from one
+step to the next. Putting that into the system prompt would change the prefix
+every time and throw away the cache, [the cost Module 4 measured](/04-context-and-memory/03-prompt-caching/01-what-a-prefix-cache-is-worth-to-an-agent/#putting-a-number-on-it).
+So retrieval belongs where Lesson 11 put it: behind a tool, with its results
+in the conversation as tool results. That also puts them where Module 4's
+context step already knows how to manage them. Here's the tool, fixed to one
+reader as Lesson 13 required, and a scripted investigation that uses it.
+Module 4's code is loaded as a module, `m4`, alongside it, and all of this is
+defined once here and already loaded for every demo and exercise from here to
+the end of this lesson:
+
+```python
+import m4
+from fake import ContextWindowExceeded, WindowedClient
+
+def search_tool_for(groups):
+    """Lesson 13's reader-bound search: keyword search over the contextual text of the chunks these groups
+    may read, returning source text. The groups are fixed here, so the model can't change them."""
+    groups = frozenset(groups)
+    permitted = [c for c in CORPUS_CHUNKS if groups & set(c["access"])]
+    index = BM25Index()
+    index.add([with_context(c, CONTEXTS) for c in permitted])
+    by_key = {(c["doc_id"], c["chunk"]): c for c in permitted}
+
+    def search_documents(query: str, k: int = 5) -> str:
+        results = index.search(query.strip(), min(max(int(k), 1), 10)) if query.strip() else []
+        if not results:
+            return f"No documents matched {query.strip()!r}. Try different words."
+        return "\n\n".join(format_source(f"{c['doc_id']}:{c['chunk']}", by_key[(c["doc_id"], c["chunk"])])
+                           for c in results)
+    return search_documents
+
+READ_RESULT_TOOL = {
+    "name": "read_result",
+    "description": "Read part of an earlier tool result that the context step cleared and stored under a handle.",
+    "input_schema": {"type": "object", "properties": {
+        "handle": {"type": "string"}, "offset": {"type": "integer"}, "limit": {"type": "integer"}},
+        "required": ["handle"]},
+}
+
+INVESTIGATION = ["INC-2093 unavailable", "registry-db failover standby lag", "RegistryUnreachable alert",
+                 "monitoring agent list registry", "support_agent registry lookups failing"]
+TASK = "Write a timeline of the INC-2093 registry outage and what monitoring showed."
+BASE = "You answer questions from the company's documents, citing sources by id."
+
+def run_investigation(window: int, managed: bool, keep_last: int = 2) -> dict:
+    """The canonical loop over a scripted investigation: five real searches, then an answer. Returns
+    the outcome, each request's size, the context step's choices and the last request sent."""
+    search = search_tool_for({"all-staff"})
+    results = m4.ResultStore()
+    impls = {"search_documents": search,
+             "read_result": lambda handle, offset=0, limit=50: m4.read_result(results, handle, offset, limit)}
+    replies = [[ToolUseBlock("search_documents", {"query": q})] for q in INVESTIGATION]
+    llm = WindowedClient(replies + [[TextBlock("At 14:10 registry-db began failing over [D11:1]...")]], window=window)
+    tools = [SEARCH_TOOL, READ_RESULT_TOOL]
+    history = [{"role": "user", "content": TASK}]
+    context = m4.ContextManager(llm, BASE, tools, window=window, max_tokens=500, memory=m4.MemoryStore(),
+                                user_id="u1", task=TASK, now="2026-09-29T09:00:00", block=m4.CoreBlock(""),
+                                notes=m4.Notes(), results=results, write_tools=[], keep_last=keep_last) if managed else None
+    sizes = []
+    for _ in range(10):
+        request = context.build(history) if managed else {"system": BASE, "tools": tools, "messages": history}
+        sizes.append(m4.count_tokens(request["system"]) + m4.count_tokens(request["tools"])
+                     + m4.count_tokens(request["messages"]))
+        try:
+            response = llm.create(messages=request["messages"], tools=request["tools"], system=request["system"])
+        except ContextWindowExceeded as error:
+            return {"outcome": f"refused: {error}", "sizes": sizes, "steps": None, "last": request, "results": results}
+        history.append({"role": "assistant", "content": response.content})
+        calls = [b for b in response.content if b.type == "tool_use"]
+        if not calls:
+            return {"outcome": "answered", "sizes": sizes, "steps": context.steps if managed else None,
+                    "last": request, "results": results}
+        history.append({"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": c.id, "content": impls[c.name](**c.input)} for c in calls]})
+```
+
+</Subsection>
+
+<Subsection title="Search results under the context step" variant="b">
+
+The investigation makes five real searches, each returning five chunks, then
+answers. Here it is in a 3,500-token window, with and without Module 4's
+context step. The model's calls are scripted; every search and every token
+count is real, so allow a few seconds:
+
+<LiveDemo client:load dataFiles={RAG_CONTEXT_STEP_DATA} setupCode={SETUP} code={MANAGED_DEMO} />
+
+Search results are big: 550 to 870 tokens each here, and every one stays in
+the conversation for every later request. Without a context step, the sixth
+request is refused. With it, the step sees the fifth request coming in over
+budget, clears the older results, and the rest of the run fits. Here's what the
+last request actually contained:
+
+<LiveDemo client:load dataFiles={RAG_CONTEXT_STEP_DATA} setupCode={SETUP} code={LAST_REQUEST_DEMO} />
+
+The two oldest search results are now 32-token placeholders, each saying where
+the full result is stored. The three most recent are intact. Nothing is lost:
+the model can read a cleared result back with `read_result`, a page at a time,
+exactly as Module 4 designed for any large tool result.
+
+</Subsection>
+
+<Subsection title="Sizing the two together" variant="a">
+
+The context step's settings were chosen in Module 4 for its own tools. Search
+results change the arithmetic, and the settings need checking against them.
+Here's the same investigation in a smaller window:
+
+<LiveDemo client:load dataFiles={RAG_CONTEXT_STEP_DATA} setupCode={SETUP} code={SIZING_DEMO} />
+
+At 3,000 tokens with Module 4's `keep_last` of 2, keeping the two most recent
+results intact already takes more than the step's low-water mark allows, so
+clearing isn't enough and it falls back to trimming whole rounds. The earlier
+searches are gone, placeholders and all, with no handle to read them back.
+Keeping one result intact instead lets clearing do the job: four placeholders,
+one full result, and nothing lost. The same trade could be made on the
+retrieval side, returning three chunks per search instead of five.
+
+The rule is the same one this module keeps applying: size the parts against
+each other on a real run, and check what reaches the model, not only whether
+the request fit.
+
+</Subsection>
+
+<Subsection title="The pieces this lesson upgraded" variant="b">
+
+The earlier concepts replaced Module 4's keyword matching at each point where
+it chose something by relevance, and each replacement plugs into the same place
+in the context step:
+
+- **Tool finding:** fused keywords and meaning, where `find_tools` ranks the
+  catalog.
+- **Memory recall and store search:** fused, where the session start recalls
+  memories and where the agent searches its store.
+- **Duplicates:** similarity of meaning finds candidates, which go to the
+  model's decision, never straight to a skip.
+- **The recall score:** similarity as the relevance term, with the weights
+  re-measured.
+- **Documents:** a retrieval tool, bound to the reader, whose results the
+  context step manages like any other tool result.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "Why do retrieved documents go in tool results rather than the system prompt?",
+      "options": [
+        "They change at every step, and changing the system prompt would break the prefix cache every time",
+        "System prompts can't hold citations",
+        "Tool results are never cleared",
+        "The model ignores the system prompt"
+      ],
+      "correctIndex": 0,
+      "explanation": "Memories recalled once per session can sit in the fixed prompt. Searches made mid-task can't without changing the prefix on every step."
+    },
+    {
+      "question": "What happened to the two oldest search results when the context step cleared them?",
+      "options": [
+        "They were stored under handles and replaced by short placeholders the model can read back from",
+        "They were deleted",
+        "They were summarised into one sentence",
+        "They were moved into the system prompt"
+      ],
+      "correctIndex": 0,
+      "explanation": "Clear_to_store keeps every cleared result, and read_result pages through it, so clearing costs tokens now without losing information."
+    },
+    {
+      "question": "At 3,000 tokens with keep_last=2, the context step trimmed whole rounds. Why was that worse than clearing?",
+      "options": [
+        "Trimmed rounds are gone entirely, with no placeholder or handle to read them back",
+        "Trimming is slower than clearing",
+        "Trimming breaks the prefix cache",
+        "Trimming removes the system prompt"
+      ],
+      "correctIndex": 0,
+      "explanation": "Clearing keeps a pointer to every result. Trimming is the last resort, and here it lost two searches the model had made."
+    },
+    {
+      "question": "What fixed the 3,000-token run?",
+      "options": [
+        "Keeping one recent result intact instead of two, so clearing could bring it under budget",
+        "A larger embedding model",
+        "Moving search results into the system prompt",
+        "Removing the read_result tool"
+      ],
+      "correctIndex": 0,
+      "explanation": "Settings tuned for small tool results need re-checking for large ones. Returning fewer chunks per search would have been another fix.*"
+    }
+  ]}
+/>
+
+</CheckpointZone>
