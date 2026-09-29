@@ -1063,6 +1063,17 @@ assert result["calls"] == [("find_dependents", {"entity": "registry-db"}),
       "explanation": "\"calls\", \"uses\" and \"relies on\" for the same dependency would split the graph's edges, and a traversal following one name would miss the rest."
     },
     {
+      "question": "A question says \"registry\", which scores 0.84 against registry-db and 0.80 against registry-api. What should the linker do?",
+      "options": [
+        "Report both, so the agent can ask which was meant or traverse from each",
+        "Start from registry-db, since the higher similarity score is the better match",
+        "Treat it as naming no entity, and answer the question with search instead",
+        "Merge registry-db and registry-api into one entity, so the question is unambiguous"
+      ],
+      "correctIndex": 0,
+      "explanation": "Two candidates this close mean the question is genuinely ambiguous, and guessing would answer about the wrong service with full confidence. A wrong merge would be worse: it makes the graph say things no document says."
+    },
+    {
       "question": "\"The registry\" and \"registry-api\" are merged into one entity. What's the risk of getting merges wrong?",
       "options": [
         "A wrong merge joins different things, so the graph states relationships no document contains",
@@ -1083,6 +1094,17 @@ assert result["calls"] == [("find_dependents", {"entity": "registry-db"}),
       ],
       "correctIndex": 0,
       "explanation": "Nearest entities first means the first route found to each one is the shortest. Tracking what's been seen is what stops cycles."
+    },
+    {
+      "question": "A CMDB already records which service calls which, and an agent gets a tool that queries it in Cypher. What does that tool need?",
+      "options": [
+        "Read-only access, allowed labels and relationships, row limits and a timeout",
+        "A deny-list of write keywords, so any query that avoids them runs just as written",
+        "An instruction in the system prompt telling the model to write only read queries",
+        "Source chunks for every edge, extracted from the documents that mention it"
+      ],
+      "correctIndex": 0,
+      "explanation": "It's Lesson 11's SQL tool for a graph, and the same guardrails apply, enforced in code the model can't change. A deny-list misses whatever nobody listed, and a prompt can be overridden by text the model has read."
     },
     {
       "question": "In map-reduce over community summaries, what's the map step?",

@@ -56,7 +56,11 @@ its title and its section. But extraction isn't the whole bill:
 - **Global questions** then cost a model call per community used, every time.
 - **Keeping it current.** Edit one incident report, and its chunks need
   extracting again, the new names resolving against the old, the communities
-  recomputing, and every summary touching them rewriting. Keeping indexes in
+  recomputing, and every summary touching them rewriting. Microsoft's GraphRAG
+  library can [update an existing index](https://microsoft.github.io/graphrag/cli/)
+  instead of rebuilding it: new documents are extracted on their own and
+  merged in, and it tries to avoid recomputing communities, though sometimes
+  it has to. Keeping indexes in
   step with changing documents is Module 10's subject; a graph is one of the
   more expensive indexes to keep in step.
 
@@ -87,7 +91,50 @@ measuring on your own questions.
 
 </Subsection>
 
-<Subsection title="When it's worth it" variant="a">
+<Subsection title="Graphs and vectors together" variant="a">
+
+This lesson used its graph in two ways: walking fixed edges for chains, and
+summarising communities for global questions. Published systems also mix a
+graph with vector search in other ways. Here's a short map of some that are
+often compared, not a guide to any of them:
+
+- **GraphRAG's local search**
+  ([Microsoft](https://microsoft.github.io/graphrag/query/local_search/)) is
+  entity-centred. It finds the entities most related to the question by
+  their embedded descriptions, as
+  [the traversal concept's linker](/05-rag-systems/12-graph-rag/03-answering-by-traversal/#finding-where-to-start)
+  would at scale, then puts their neighbours, relationships, source text and
+  community reports into one context. It answers questions about particular
+  things, where global search answers questions about everything.
+- **DRIFT search**
+  ([Microsoft Research, 2024](https://www.microsoft.com/en-us/research/blog/introducing-drift-search-combining-global-and-local-search-methods-to-improve-quality-and-efficiency/))
+  combines the two. It compares the question with the most relevant
+  community reports, drafts a broad first answer with follow-up questions,
+  and answers those with local search.
+- **LightRAG** ([Guo and colleagues, 2024](https://arxiv.org/abs/2410.05779))
+  extracts a graph as GraphRAG does, but finds no communities and writes no
+  summaries. The model pulls specific and broad keywords from the question;
+  vector search matches the specific ones to entities and the broad ones to
+  relationships, and the graph adds their neighbours.
+- **HippoRAG** ([Gutiérrez and colleagues, 2024](https://arxiv.org/abs/2405.14831))
+  builds a graph from triples extracted from every passage, with no fixed
+  list of relations. The question's entities become the starting points of
+  **Personalized PageRank**, which spreads a score outwards along the edges,
+  and passages are ranked by the score their entities collect.
+  **HippoRAG 2** ([2025](https://arxiv.org/abs/2502.14802)) adds the passages
+  themselves to the graph as nodes, and picks the starting points by matching
+  the whole question against the graph's triples.
+
+They share a shape: vectors find where to enter the graph, and the graph
+reaches what the vectors alone wouldn't. They differ in what happens next:
+gathering neighbours, following up with more questions, or spreading a
+score. DRIFT, LightRAG and both HippoRAGs each report gains on their
+authors' own evaluations, and Zeng and colleagues' caution about how such
+gains are measured applies here too.
+
+</Subsection>
+
+<Subsection title="When it's worth it" variant="b">
 
 A graph earns its cost when questions are about **structure**, and the
 structure is only written down in prose:
@@ -113,6 +160,43 @@ It's not worth it when:
   handled two-link chains with a few searches and no index to build. A graph
   pays off when chains are long, or when the same structure is asked about
   again and again.
+
+</Subsection>
+
+<Subsection title="A graph database as an agent's tool" variant="a">
+
+When the relationships live in a system of record, such as a service
+catalogue or a configuration management database (CMDB), there's nothing to
+extract. The catalogue already says which service calls which, and it's kept
+current by the people who change the services. Load those relationships into
+a **graph database**, which stores nodes and edges and follows them
+efficiently, and give the agent a tool that queries it. It's the graph
+counterpart of
+[Lesson 11's SQL tool](/05-rag-systems/11-agentic-rag/04-when-the-answer-is-in-a-table/#guardrails-allow-don-t-ban).
+
+Graph databases have their own query languages. The best known is
+**Cypher**, from Neo4j, which other databases implement as openCypher, and
+on which the ISO's graph query standard, GQL, published in 2024, is largely
+based. A chain is one pattern in it: roughly, "match every agent with a path
+of up to five dependency edges to auth-service". A graph tool can take two
+shapes:
+
+- **A fixed query, with the model supplying a name,** like `find_dependents`,
+  the graph tool at the end of this lesson. You write the query; the model can only choose where it
+  starts. It answers fewer kinds of question, and there's little to guard
+  beyond the name.
+- **The model writes the query,** called text-to-Cypher, the graph version of
+  text-to-SQL. It can answer questions nobody wrote a query for, and it needs
+  every guardrail Lesson 11 built: a **read-only** account; an **allowlist**
+  of the node labels and relationship types the tool can reach (Neo4j, for
+  one, can grant a role access to particular labels and relationship types);
+  a **row limit**; and a **timeout**, with a cap on path length, since a path
+  pattern with no upper bound can explore much of the graph, the graph's
+  version of a runaway join.
+
+Either way, the answer cites the system of record, as Lesson 11's answers
+cited the registry: a graph built from data has no source chunks, but it
+still has a source.
 
 </Subsection>
 
@@ -144,6 +228,17 @@ It's not worth it when:
       "explanation": "Every layer is derived from the one before. That makes a graph one of the more expensive indexes to keep current."
     },
     {
+      "question": "New documents arrive. What does the GraphRAG library's update do, instead of a rebuild?",
+      "options": [
+        "Extracts only the new documents, merges them in, and recomputes communities only when needed",
+        "Extracts from every document again, but keeps every existing community summary exactly as it was",
+        "Re-embeds the new documents and leaves the graph and its summaries as they were",
+        "Appends the new documents' text to the nearest community summary without a model call"
+      ],
+      "correctIndex": 0,
+      "explanation": "Existing documents' extractions are reused, and only the new ones cost extraction calls. Communities and their summaries are recomputed only when the changes demand it, which in the worst case costs as much as indexing again."
+    },
+    {
       "question": "What did LazyGraphRAG change?",
       "options": [
         "It extracts concepts without a model and builds no summaries in advance, so indexing costs about the same as vector RAG",
@@ -155,6 +250,28 @@ It's not worth it when:
       "explanation": "Microsoft reports its indexing at 0.1% of full GraphRAG's cost, with comparable quality on global questions at far lower query cost, on their benchmark."
     },
     {
+      "question": "How does DRIFT search combine GraphRAG's global and local search?",
+      "options": [
+        "It starts from the most relevant community reports, then answers follow-ups with local search",
+        "It runs both searches on every question and keeps whichever of the two answers the model scores higher",
+        "It uses global search while indexing and local search only when answering questions",
+        "It answers from local search first and falls back to global search when no entity matches"
+      ],
+      "correctIndex": 0,
+      "explanation": "The community reports give a broad first answer and suggest follow-up questions; local search then fills in the details about particular entities."
+    },
+    {
+      "question": "In HippoRAG, what happens to the entities a question mentions?",
+      "options": [
+        "They seed Personalized PageRank, and passages are ranked by the score their entities collect",
+        "They're followed along dependency edges breadth-first, as this lesson's traversal does",
+        "Their communities are summarised, and the question is answered from those summaries by map and reduce",
+        "They're looked up in a hand-written alias table, and their source chunks are returned as they are"
+      ],
+      "correctIndex": 0,
+      "explanation": "Personalized PageRank spreads a score from the question's entities along the graph's edges, so passages connected to them through other entities can rank highly even when they don't resemble the question."
+    },
+    {
       "question": "When is extracting a graph from documents the wrong choice?",
       "options": [
         "When the relationships already exist as data in a system of record",
@@ -164,6 +281,28 @@ It's not worth it when:
       ],
       "correctIndex": 0,
       "explanation": "A service catalogue or database that records the relationships is more accurate and cheaper to use directly, as a graph source or as a tool."
+    },
+    {
+      "question": "A service catalogue already records which service calls which. How should an agent get at those relationships?",
+      "options": [
+        "Load them into a graph database and give the agent a guarded query tool",
+        "Have a model extract them again from the design documents, so every edge has a source chunk",
+        "Embed each catalogue entry and let the agent find dependencies by similarity search",
+        "Summarise the catalogue into community reports and answer dependency questions from those"
+      ],
+      "correctIndex": 0,
+      "explanation": "The catalogue is the system of record, kept current by the people who change the services. Extracting from prose adds cost and errors, and similarity search still can't follow a chain."
+    },
+    {
+      "question": "An agent writes its own Cypher queries against the dependency graph. Why cap the path length?",
+      "options": [
+        "An unbounded path pattern can explore much of the graph, like a runaway SQL join",
+        "Cypher refuses to run any path pattern that's longer than five relationships",
+        "Following longer paths needs a read-write account, which the tool should never have",
+        "Capping the path length is what stops a model's query from writing to the graph"
+      ],
+      "correctIndex": 0,
+      "explanation": "The cap joins Lesson 11's guardrails: read-only access and allowlisted labels and relationship types limit what can be reached; the row limit, timeout and path cap limit how much work one query can do."
     }
   ]}
 />
