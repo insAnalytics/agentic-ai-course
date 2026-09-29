@@ -492,6 +492,17 @@ for query in labelled["main"]:
       "explanation": "Indexing embeds each chunk once and stores the vector. Each question then needs one model call for itself, and the comparison with stored vectors is arithmetic."
     },
     {
+      "question": "What can a public embedding leaderboard like MTEB not tell a team choosing a model?",
+      "options": [
+        "How well each model finds the answers in the team's own documents",
+        "Which models score best at retrieval across many public datasets",
+        "How each model's retrieval score compares with its other task scores",
+        "Which of the candidate models have been tested in many languages"
+      ],
+      "correctIndex": 0,
+      "explanation": "The leaderboard measures public, general datasets, some of which models have trained on. It's the place to build a shortlist; the team's labelled questions, over their own corpus, are what decide between the models on it."
+    },
+    {
       "question": "Someone edits the chunker so it trims trailing spaces, without regenerating the stored vectors. What does vectors_for do?",
       "options": [
         "Refuses: the edited chunks' hashes no longer match any stored vector",
@@ -536,6 +547,17 @@ for query in labelled["main"]:
       "explanation": "A bare internal code gives the model no ordinary language to place; keyword search matches the exact string. The others either paraphrase their answers or wrap the code in ordinary words, and search by meaning did as well or better on them."
     },
     {
+      "question": "A deploy moved question embedding to a newer version of the model that built the index. Vectors are the same length, and nothing errored. What should have caught it?",
+      "options": [
+        "A check of the index's recorded model and version before any search",
+        "The matrix product, which fails when vectors come from different models",
+        "The similarity scores, which turn negative for mismatched vectors",
+        "Nothing needed to: a newer version of a model makes compatible vectors"
+      ],
+      "correctIndex": 0,
+      "explanation": "A new version has new weights, so its vectors live in different coordinates, and a product of same-length vectors runs regardless. On this lesson's data, mixed models answered 17 and 19 questions against 28 and 27, with no error. Only the recorded model, version and prefix can flag it, and the fix is to embed every chunk again."
+    },
+    {
       "question": "On this corpus, chunk sizes from 100 to 400 tokens scored within three questions of each other by meaning. What should a team with a different corpus take from that?",
       "options": [
         "Run the same equal-budget comparison on their own corpus before choosing",
@@ -545,6 +567,17 @@ for query in labelled["main"]:
       ],
       "correctIndex": 0,
       "explanation": "This result depends on this corpus, where most sections are short and the two sizes often cut them identically. Long, dense documents might show the dilution this one doesn't. The method transfers; the number doesn't."
+    },
+    {
+      "question": "Memory for bge-small's vectors has become the limit. On this lesson's measurements, which change keeps the most of the exact search's results?",
+      "options": [
+        "Storing 8-bit vectors, which kept every exact result at half the size",
+        "Keeping the first half of each vector, which halves the size the same way",
+        "Storing 1-bit vectors and searching them directly, at a sixteenth of the size",
+        "Switching to a model with more dimensions, so each number matters less"
+      ],
+      "correctIndex": 0,
+      "explanation": "Rounding kept all of the exact top five. Cutting to 192 numbers found 69%, because bge-small isn't a Matryoshka model, and 1 bit alone found 50%. One bit becomes useful as a shortlist rescored with the full vectors, which found 92% with 50 candidates."
     },
     {
       "question": "A search filters out forbidden chunks after taking the top 5, and for one reader returns nothing. What went wrong, and what didn't?",

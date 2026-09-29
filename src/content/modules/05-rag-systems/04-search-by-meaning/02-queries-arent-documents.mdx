@@ -42,6 +42,32 @@ gained, lost = bge_ids - minilm_ids, minilm_ids - bge_ids
 print(f"bge-small gained {sorted(gained)}, lost {sorted(lost)}, sign test {sign_test(len(gained), len(lost)):.2f}")
 `;
 
+export const MIX_DEMO = String.raw`queries = load_queries()["main"]
+chunks = [c for d in load_documents() for c in structured_chunks(d, 200)]
+chunk_vectors = {"bge-small": vectors_for(chunks, model="bge-small-en-v1.5"),
+                 "MiniLM": vectors_for(chunks, model="all-MiniLM-L6-v2")}
+question_vectors = {"bge-small": query_vectors("bge-small-en-v1.5", "instructed"),
+                    "MiniLM": query_vectors("all-MiniLM-L6-v2", "plain")}
+# bge-small's own question vectors, with their 384 numbers in a different order
+order = np.random.default_rng(0).permutation(384)
+question_vectors["reordered"] = {qid: v[order] for qid, v in question_vectors["bge-small"].items()}
+
+pairs = [("bge-small", "bge-small"), ("MiniLM", "MiniLM"),
+         ("MiniLM", "bge-small"), ("bge-small", "MiniLM"), ("bge-small", "reordered")]
+print(f"{'chunks by':<12}{'questions by':<14}{'top score':>10}{'answered':>12}")
+for chunk_model, query_model in pairs:
+    index = VectorIndex()
+    index.add(chunks, chunk_vectors[chunk_model])
+    by_question = {q["query"]: question_vectors[query_model][q["id"]] for q in queries}
+
+    def search(question: str, k: int) -> list[dict]:
+        return index.search(by_question[question], k)
+
+    top = np.mean([search(q["query"], 1)[0]["score"] for q in queries])
+    answered = len(answered_ids(search, queries))
+    print(f"{chunk_model:<12}{query_model:<14}{top:>10.3f}{answered:>6} of 43")
+`;
+
 <Subsection title="Two different kinds of text" variant="a">
 
 A search compares two kinds of text that look nothing alike. A query is
@@ -161,6 +187,117 @@ limit holds every chunk the module's chunker makes.
 
 </Subsection>
 
+<Subsection title="Choosing a model beyond this page" variant="a">
+
+This page compared two small, free models, because they're the two whose
+vectors ship with it. A real choice starts from many more, and there's a
+standard place to find them.
+
+**MTEB**, the Massive Text Embedding Benchmark
+([Muennighoff et al., 2022](https://arxiv.org/abs/2210.07316)), scores
+embedding models on public datasets across several kinds of task:
+retrieval, and also classification, clustering, sentence similarity and
+others. It launched with 8 task types, 58 datasets and 112 languages, and
+its multilingual extension, MMTEB
+([Enevoldsen et al., 2025](https://arxiv.org/abs/2502.13595)), has more than
+500 tasks in over 250 languages. Its public leaderboard is the usual place
+to find candidates. Three things limit what a rank there tells you:
+
+- **The datasets aren't your documents.** They're public collections, such
+  as web search questions, Wikipedia and scientific papers. An internal
+  runbook full of its own error codes isn't among them, and
+  [the bare "MON-2002"](/05-rag-systems/04-search-by-meaning/03-meaning-against-keywords-measured/#gained-lost-and-how-sure)
+  in the next concept shows what that can mean.
+- **Some models have seen them.** Many models are trained on the training
+  portions of the same datasets the benchmark tests, which flatters their
+  scores. The leaderboard now asks for each model's training data and
+  reports how much of the benchmark it overlaps.
+- **The average hides the column you need.** The headline rank averages
+  every kind of task, so a model can rank high on the strength of
+  classification or clustering. For search, read the retrieval column.
+  MTEB's own authors found that no single model was best at every task.
+
+So a leaderboard makes the shortlist, and your own labelled questions make
+the decision, as they did on this page. The shortlist is also shaped by
+things no benchmark ranks:
+
+- **Hosted or open.** A hosted model is an API call for every chunk and
+  every question: priced per token, your text goes to the provider, and the
+  provider decides when the model is updated or retired. An open model,
+  like both on this page, runs on your own hardware, with no price per call and
+  no text leaving your systems, but you run it.
+- **Languages.** bge-small is English-only, as the "en" in its name says.
+  Documents or questions in other languages need a multilingual model, and
+  a multilingual benchmark to shortlist it from.
+- **Input limit.** The check in the previous subsection, done before the
+  choice rather than after. Hosted models often accept several thousand
+  tokens; OpenAI's text-embedding-3 models take about 8,000. A longer limit
+  gives the chunker room. It doesn't make long chunks search better, as
+  [the next concept measures](/05-rag-systems/04-search-by-meaning/03-meaning-against-keywords-measured/#settling-the-chunk-size).
+- **Dimensions.** Every chunk's vector is stored, and every search
+  multiplies through all of them. bge-small makes 384 numbers. OpenAI's
+  text-embedding-3-small makes 1,536 by default and text-embedding-3-large
+  3,072: four and eight times the memory and arithmetic per chunk.
+  [This lesson's last concept](/05-rag-systems/04-search-by-meaning/04-what-a-vector-store-adds/#what-each-vector-costs-to-store)
+  measures what smaller vectors cost.
+- **What indexing costs.** Embedding the corpus is paid once per chunk, and
+  paid again in full whenever the model changes, for the reason the next
+  subsection shows.
+
+</Subsection>
+
+<Subsection title="Vectors from different models don't mix" variant="b">
+
+A vector's numbers mean something only to the model that made it. Each
+model learns its own coordinates during training, and nothing makes the
+17th number of one model's vectors measure what the 17th measures in
+another's. But both models here make 384 numbers, so nothing stops a
+question embedded by one from searching chunks embedded by the other. Here
+is every pairing, on the labelled questions. The last row pairs bge-small's
+chunks with bge-small's own question vectors, their 384 numbers put in a
+different order: what a model that had learned exactly the same things, but
+numbered its coordinates differently, would produce.
+
+<LiveDemo client:load dataFiles={RAG_MINILM_DATA} setupCode={SETUP} code={MIX_DEMO} />
+
+*"top score" is the average score of each question's best result.*
+
+Every row ran, with no error and no warning, and every question got its
+five results. The two correct pairings answer 28 and 27. The mixed ones
+answer 19 and 17: these two small models evidently share some structure,
+so part of each ranking survives. Nothing guarantees that for any other
+pair, and the last row shows the general case. It holds the same
+information as the first row, and answers nothing.
+
+The scores fall too, to about 0.22 for the mixed pairs and 0.08 for the
+reordered one. That's a clue to someone comparing them with the old scores,
+but a score has no fixed scale (MiniLM's correct pairing averages 0.562,
+bge-small's 0.734), so no threshold flags a mixed index by itself. A mixed
+index doesn't look broken. It looks like a somewhat worse search, or like
+one that finds nothing relevant. Only a model with a different number of
+dimensions fails loudly: the matrix product raises an error at the first
+search, which is the better way to fail.
+
+Two things follow:
+
+- **Changing the model means embedding every chunk again.** The new model
+  has to read every chunk itself; the old vectors can't stand in. Until every chunk has a
+  new vector, a question embedded by the new model can't search the index.
+- **The index must record what made its vectors:** the model, its version
+  and the query prefix. A new version of a model has new weights, so it's a
+  new model as far as its vectors are concerned, and
+  [a prefix moves the query vectors](/05-rag-systems/04-search-by-meaning/02-queries-arent-documents/#two-different-kinds-of-text)
+  too. This module's vector files each record the model that made them,
+  and [keeping the index](/05-rag-systems/04-search-by-meaning/04-what-a-vector-store-adds/#keeping-the-index)
+  in this lesson's last concept saves that record alongside the vectors.
+
+On a system that's already serving questions, the swap is a migration:
+build the new index alongside the old one, keep answering from the old one
+until every chunk has its new vector, then switch both the index and the
+query embedding together. Module 10 covers doing that on a live system.
+
+</Subsection>
+
 <CheckpointZone>
 
 <QuizGroup
@@ -209,6 +346,50 @@ limit holds every chunk the module's chunker makes.
     ],
     "correctIndex": 0,
     "explanation": "Truncation happens at the model's real token count, which this corpus's code and identifiers push well above the estimate. Checking with the model's own tokenizer is the only reliable way to know."
+  },
+  {
+    "question": "A model tops a public embedding leaderboard's overall average. What should a team building search do with that?",
+    "options": [
+      "Shortlist it, then compare the shortlist on their own labelled questions",
+      "Adopt it, since a benchmark of dozens of datasets already covers their documents",
+      "Ignore it, since public benchmarks say nothing about any real corpus",
+      "Adopt it if its retrieval score is highest, since that column settles search"
+    ],
+    "correctIndex": 0,
+    "explanation": "A leaderboard is a good way to find candidates, and its retrieval column is the one to read. But its datasets are public and general, some models trained on them, and the headline averages every kind of task. The labelled questions test the corpus the system will actually search, as this page did with two models."
+  },
+  {
+    "question": "Why can a model's leaderboard retrieval score overstate how it will do on an internal corpus?",
+    "options": [
+      "It may have trained on the benchmark's datasets, which are unlike this corpus",
+      "Leaderboards measure retrieval with the query prefix removed, which inflates scores",
+      "Benchmark questions are longer than real ones, so they're easier to match",
+      "Leaderboard scores come from the largest version of each model, not the one deployed"
+    ],
+    "correctIndex": 0,
+    "explanation": "Many models train on the training portions of the datasets MTEB tests, which is why the leaderboard now asks for training data. And the datasets are public, general collections, not a company's runbooks with their own error codes."
+  },
+  {
+    "question": "A team moves to a new embedding model that also makes 384 numbers. It embeds new questions with it but keeps the old chunk vectors. What happens?",
+    "options": [
+      "Every search still runs, and the results quietly get worse or meaningless",
+      "Every search fails with an error, since the vectors came from different models",
+      "Results are unchanged, since both models describe text with 384 numbers",
+      "Results improve for new questions and stay the same for old ones"
+    ],
+    "correctIndex": 0,
+    "explanation": "The product of two 384-number vectors always runs, whatever made them. On this page, mixing bge-small and MiniLM answered 17 and 19 questions against 28 and 27, and the same model's vectors with their numbers reordered answered none. Only a different vector length fails loudly."
+  },
+  {
+    "question": "Why should a saved index record which model, version and query prefix made its vectors?",
+    "options": [
+      "Mixing models raises no error, so only the record shows re-embedding is due",
+      "The search needs the model's name to compute cosine similarity between vectors",
+      "Old vectors can then be converted into the new model's coordinates when it changes",
+      "Vector stores refuse to load vectors unless they know which model made them"
+    ],
+    "correctIndex": 0,
+    "explanation": "The old vectors can't stand in for the new model's, and a mixed index still returns results. Checking the record against the model embedding the questions is the only reliable way to catch it, and a new version or a changed prefix counts as a change."
   }
 ]}
 />
