@@ -384,12 +384,24 @@ G4 with vLLM 0.30.0 in bfloat16; each run records its full setup):
   set E version 2; the only v3 change is a wording they don't use.
 - `runs/v1/` — the first sampling, kept on purpose: an answer-instruction
   bug made the model look inconsistent. Not loaded by any page yet.
+- **Run 2** (`README-verification.md`, same Colab setup): `set-v.json`
+  (~0.2 MB; 40 hand-written facts from `scripts/reliability/set_v_source.py`
+  as support pairs, statement pairs and 29 draft questions), `set-f.json`
+  (false/true premises) and `set-u.json` (pushback), built by
+  `scripts/build-verification-sets.py`; runs `drafts` (4B, cited answers),
+  `draft-support`/`support`/`statements` `.large` (9B judge) and `.small`
+  (4B judge, greedy with top-5 logprobs), `nli` (a DeBERTa cross-encoder),
+  `premises` and `pushback`. Claims are split by
+  `scripts/reliability/claims.py`; a draft-support id is
+  `<question>:<sample>:<claim>:<source number>`. **Support and statement
+  pairs share ids** (`vNN-altered`), so a lookup must use one pair set, never
+  both merged.
 
 Shared setup is in `src/lib/reliabilityData.ts`: `reliabilityData(...runs)`
 builds a demo's `dataFiles` list (set E plus only the named runs, since the
 files are large), `LOAD_RUNS` (`load_run`, `load_questions`; shown verbatim
 in Module 6 Lesson 1 concept 2) and `SUCCESSES` (per-question right counts,
-for demos that use it without defining it), and from concept 4 `BY_WORDING` (`by_wording`, `rate`). Lesson 2 adds `EVALUATOR_LOOP_COST` (Module 2's evaluator-optimizer loop plus a `usage` counter over recording clients) and `LOAD_RUN_ONLY`, appended after `REACT_FAKE_CLIENT + RECORDING_CLIENT + COUNT_TOKENS`. Lesson 3 adds `CHECKED_AGENT` (`Checks` with four hook points and `run_checked_agent`), appended after `REACT_FAKE_CLIENT + RECORDING_CLIENT`.
+for demos that use it without defining it), and from concept 4 `BY_WORDING` (`by_wording`, `rate`). Lesson 2 adds `EVALUATOR_LOOP_COST` (Module 2's evaluator-optimizer loop plus a `usage` counter over recording clients) and `LOAD_RUN_ONLY`, appended after `REACT_FAKE_CLIENT + RECORDING_CLIENT + COUNT_TOKENS`. Lesson 3 adds `CHECKED_AGENT` (`Checks` with four hook points and `run_checked_agent`), appended after `REACT_FAKE_CLIENT + RECORDING_CLIENT`. Lesson 4 adds `verificationData(...runs)` (set V plus the named runs, without set E) and `LOAD_VERIFICATION` (`load_run`, `load_set`, and `split_claims` identical to `claims.py`).
 
 **Loading rule (every Module 5 and Module 6 page):** fetch these files at runtime, on the
 learner's first Run click, and let the browser cache them — never `import`

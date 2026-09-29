@@ -4928,6 +4928,31 @@ architecture.md §3.1).
    the verified file. The explanation's callback is a real link, rendered
    by `LinkedText`.
 
+4. **Verifying Claims** (title provisional) — **Building** (folder
+   `04-verifying-claims`; data from the second offline run,
+   `README-verification.md`). Concept 1 (checking each claim against the
+   source it cites) is built: Liu et al. on verifiability (51.5% / 74.5%),
+   FActScore and sentence-level splitting, the shared `LOAD_VERIFICATION`
+   (`split_claims` byte-identical to `scripts/reliability/claims.py`),
+   q27's draft with its wrong first claim, the Ragas-style support prompt
+   and Qwen3.5-9B's verdicts, all 145 drafts under both judges (286/104/21
+   vs 271/119/21, 357 of 390 agree), the decontextualization flag on q04,
+   and why dropping a claim can mislead. All five demos and the starter's
+   printout reproduce the mockup's output byte for byte in real Pyodide
+   0.26.4 against the committed run 2 files. 5 quiz cards and a graded
+   `verify_claims(claims, sources, judge)` exercise (`LOAD_VERIFICATION` as
+   `namespaceSetup`, for the starter's `split_claims`); the mockup's tests
+   were split into 4 self-contained tests, and through the real
+   `TEST_HARNESS` the reference passes all 4 while seven wrong versions
+   each fail (the bare starter, `any([...])` without early stop, zero-based
+   numbers, bad only if every number is bad, uncited counted as
+   unsupported, every source must support, judging before the citation
+   checks). Callbacks: Module 5's citations-that-point-back concept, Lesson
+   3's what-a-failed-check-does and Lesson 2's
+   spend-reliability-where-the-risk-is (page links, as the mockup names no
+   subsection). Concepts 2 on (the next measures the judge on labelled
+   pairs) and bookends not yet written.
+
 ---
 
 ## Modules 4–11 — current plan

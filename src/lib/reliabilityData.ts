@@ -151,3 +151,58 @@ def run_checked_agent(client, messages: list, tools: dict, checks: Checks, max_s
         messages.append({"role": "user", "content": results})
     return f"stopped after {max_steps} steps without an answer"
 `;
+
+/**
+ * Module 6 Lesson 4's data: set V plus the second offline run's files
+ * (README-verification.md). Unlike reliabilityData, set E isn't included.
+ */
+export function verificationData(...runs: string[]): string[] {
+  return ["reliability/set-v.json", ...runs.map((run) => `reliability/runs/${run}.json`)];
+}
+
+/**
+ * Module 6 Lesson 4's shared setup: load_run, load_set and split_claims.
+ * Shown verbatim in Lesson 4 concept 1 (keep the two byte-identical), and
+ * split_claims must stay identical to scripts/reliability/claims.py, which
+ * built the claims the judges saw.
+ */
+export const LOAD_VERIFICATION = String.raw`
+import json
+import re
+from pathlib import Path
+
+DATA = Path("/data/reliability")
+
+
+def load_run(name: str) -> dict:
+    """One committed run file, such as "drafts" or "draft-support.large"."""
+    return json.loads((DATA / "runs" / f"{name}.json").read_text(encoding="utf-8"))
+
+
+def load_set(name: str) -> dict:
+    """One of the built sets, such as "set-v"."""
+    return json.loads((DATA / f"{name}.json").read_text(encoding="utf-8"))
+
+
+CITATION = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
+LEADING_CITATIONS = re.compile(r"^(?:\s*\[\d+(?:\s*,\s*\d+)*\])+")
+SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+")
+
+
+def cited_numbers(text: str) -> set[int]:
+    return {int(n) for group in CITATION.findall(text) for n in group.split(",")}
+
+
+def split_claims(answer: str) -> list[dict]:
+    """Each sentence of an answer, without its citation marks, and the source numbers it cites."""
+    claims = []
+    for sentence in SENTENCE_BREAK.split(answer.strip()):
+        if claims and (leading := LEADING_CITATIONS.match(sentence)):
+            claims[-1]["cites"] = sorted(set(claims[-1]["cites"]) | cited_numbers(leading.group()))
+            sentence = sentence[leading.end():]
+        text = " ".join(CITATION.sub("", sentence).split())
+        text = re.sub(r"\s+([.,;:!?])", r"\1", text)
+        if text.strip(".!? "):
+            claims.append({"text": text, "cites": sorted(cited_numbers(sentence))})
+    return claims
+`;
