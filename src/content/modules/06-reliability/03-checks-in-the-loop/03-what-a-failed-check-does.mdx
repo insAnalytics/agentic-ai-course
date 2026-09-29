@@ -1,0 +1,195 @@
+---
+title: "What a failed check does"
+lesson: "03-checks-in-the-loop"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+export const REPAIR_DEMO = String.raw`KNOWN_AGENTS = {"research_agent", "notes_agent", "billing_agent"}
+
+
+def repair_agent_name(name: str) -> str | None:
+    """A safe repair: fix case and stray spaces only, and only when that gives exactly one known agent."""
+    fixed = name.strip().lower()
+    return fixed if fixed in KNOWN_AGENTS else None
+
+
+for asked in ["research_agent", "Research_Agent ", "research-agent", "research"]:
+    if asked in KNOWN_AGENTS:
+        print(f"{asked!r:<20} fine as it is")
+    elif fixed := repair_agent_name(asked):
+        print(f"{asked!r:<20} repaired to {fixed!r}; the result tells the model which name was used")
+    else:
+        print(f"{asked!r:<20} not repaired: blocked, and the model is told no agent has that name")
+`;
+
+<Subsection title="Four responses" variant="a">
+
+A check that fails has found a problem, and something has to happen next.
+There are four options, and they differ in what they cost when the check is
+right and, just as important, when it's wrong:
+
+| Response | What happens | Suits | Cost when the check is wrong |
+|---|---|---|---|
+| **Block and tell the model** | The step doesn't go ahead; the model gets an error observation and carries on | Most checks on tool calls and results | One wasted step; the model can usually recover |
+| **Repair** | Code fixes the problem and the step goes ahead | Fixes that are certain and don't change the meaning | A silent change the model and user may not notice |
+| **Retry** | The same step runs again | Failures that may not repeat: a timeout, a stale read | Extra calls and latency; a retried write can happen twice |
+| **Stop or escalate** | The run ends, or a person takes over | Risky steps, and problems the model can't fix | The whole task, or a person's time |
+
+The previous concepts used the first and last: tool-level checks blocked and
+told the model, and checks on the input or the answer stopped the run.
+Repair and retry need more care.
+
+</Subsection>
+
+<Subsection title="What the research shows about each" variant="b">
+
+- **Telling the model works best when the failure is named.** In Sethi et
+  al.'s preprint from
+  [the previous concept](/06-reliability/03-checks-in-the-loop/02-checking-a-tool-result/),
+  models reported a signalled failure honestly. Their best prompt-level
+  defence gave the model an explicit way to say the retrieval failed, which
+  cut dishonest answers from 14.10% to 0.87% in their main condition. A
+  blocked step's error observation should read as plainly: this failed,
+  don't fill the gap.
+- **Retrying pays when the check is a real signal.** In Kapoor et al.'s
+  HumanEval results from
+  [Lesson 2](/06-reliability/02-reliability-tradeoffs/03-equal-budgets-need-a-stated-unit/),
+  calling GPT-4 once solved 89.6% of problems for $1.93 across the
+  benchmark. Retrying up to five times whenever the code failed the
+  problem's example tests reached 92.0% for $2.51. The retries helped
+  because the example tests were an independent check the model couldn't
+  talk its way past.
+- **Stopping the run is expensive when the check is wrong.** The injection
+  detector in
+  [AgentDojo](/06-reliability/02-reliability-tradeoffs/01-four-things-every-technique-trades/#a-refusal-can-be-a-reliability-failure)
+  aborted the whole run whenever it flagged anything. It stopped most
+  attacks, but its false positives cut completed tasks from 69.0% to 41.5%.
+  A check that aborts runs needs a much lower false-block rate than one that
+  just tells the model.
+
+Agent frameworks offer the same choice. The OpenAI Agents SDK's
+[tool guardrails](https://openai.github.io/openai-agents-python/guardrails/),
+for example, can skip a call or replace its output with a message, which
+lets the agent continue, or raise a tripwire, which halts the run.
+
+</Subsection>
+
+<Subsection title="Repair only what's certain" variant="a">
+
+A repair is tempting because it costs nothing: no extra model call, no
+failed step. It's also the one response that can hide a mistake, since the
+step goes ahead with something the model didn't ask for. So a repair has to
+meet two conditions:
+
+- **The fix is certain.** There's exactly one thing the input could have
+  meant.
+- **The fix doesn't change the meaning,** and the result says what was used,
+  so the model and the logs can see it.
+
+Here's a repair that fixes case and stray spaces in an agent name, and
+nothing else:
+
+<LiveDemo client:load code={REPAIR_DEMO} />
+
+"Research_Agent " can only mean one agent. "research-agent" probably means
+`research_agent` too, but "probably" is a guess, and a hyphen could as
+easily be part of a name that doesn't exist yet. The repair leaves it to
+the model, which can see the error and the conversation, to decide. The
+same rule rules out the worst kind of repair: filling a missing field with
+a default, or clamping an out-of-range value into range. Both turn a
+detected failure back into a silent one.
+
+</Subsection>
+
+<Subsection title="Retry only what can safely repeat" variant="b">
+
+A retry sends the same step again, which is only safe if doing it twice has
+the same effect as doing it once. For reads, that's usually true. For a
+write, such as a payment or a sent message, a retry after a timeout can do
+it twice, because the first attempt may have succeeded before the
+connection dropped. Module 3 covered both halves of this:
+[which failures to retry, and how long to wait](/03-tool-design-for-agents/04-tools-that-call-the-outside-world/02-which-failures-to-retry-and-how/),
+and [idempotency keys](/03-tool-design-for-agents/04-tools-that-call-the-outside-world/02-which-failures-to-retry-and-how/#retrying-a-write-can-do-it-twice)
+that make a repeated write harmless. For a failed check, the rule follows:
+retry a read, and retry a write only if it carries an idempotency key.
+Otherwise, block and tell the model, or stop.
+
+</Subsection>
+
+<Subsection title="Choosing, step by step" variant="a">
+
+The choice follows from
+[Lesson 2's rule](/06-reliability/02-reliability-tradeoffs/04-spend-reliability-where-the-risk-is/)
+and from where the check sits:
+
+- **Before the model, or on the final answer:** stop. Nothing later in the
+  run can fix it.
+- **On a tool call:** repair if certain, otherwise block and tell the model.
+  If the step is risky and the check keeps failing, stop and hand to a
+  person.
+- **On a tool result:** retry a read once if the failure might not repeat,
+  such as stale data. Otherwise block and tell the model.
+
+Whatever the response, record it: which check fired, on what, and what
+happened next. Those records are how a check's catches and false blocks
+get counted, and Module 7 builds them into traces.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "Why does a check that stops the whole run need a lower false-block rate than one that returns an error to the model?",
+    "options": [
+      "Because stopping a run is slower than returning an error",
+      "Because each false stop loses the whole task, not just a step",
+      "Because a model can't read error observations reliably",
+      "Because stopping the run hides the problem from the logs"
+    ],
+    "correctIndex": 1,
+    "explanation": "When a check that tells the model is wrong, the model loses a step and usually carries on. When a check that aborts is wrong, the task is gone. AgentDojo's injection detector, which aborted on every flag, cut completed tasks from 69.0% to 41.5%."
+  },
+  {
+    "question": "Which of these is a safe repair?",
+    "options": [
+      "Filling a missing owner field with \"unknown\"",
+      "Clamping an error rate of 1.4 down to 1.0",
+      "Turning \"Billing_Agent \" into billing_agent, which exists",
+      "Turning \"billing\" into billing_agent, the closest name"
+    ],
+    "correctIndex": 2,
+    "explanation": "Only fixing the case and the stray space is certain and meaning-preserving. Filling in \"unknown\" and clamping 1.4 to 1.0 both turn a detected failure into a value that looks real. Turning \"billing\" into billing_agent is a guess: close to one agent's name isn't the same as certain, so the model should be told and left to decide."
+  },
+  {
+    "question": "In Kapoor et al.'s results, why did retrying GPT-4 on failed example tests improve accuracy?",
+    "options": [
+      "Because retries always improve accuracy, whatever triggers them",
+      "Because the example tests were an independent signal of failure",
+      "Because each retry used a larger model",
+      "Because the retries ran at a lower temperature"
+    ],
+    "correctIndex": 1,
+    "explanation": "Running the code against tests is a check the model can't argue with, so a retry happens only when something really failed. A retry triggered by the model judging its own work has no such signal, which is the problem with self-correction the previous lesson described."
+  },
+  {
+    "question": "A tool call that sends an email times out. Why shouldn't a check simply retry it?",
+    "options": [
+      "Because timeouts are always permanent",
+      "Because the first attempt may have sent it, so a retry could send it twice",
+      "Because email tools can't be called twice in one run",
+      "Because the model must approve every retry"
+    ],
+    "correctIndex": 1,
+    "explanation": "A timeout says the reply didn't arrive, not that the action didn't happen. Retrying a read is harmless; retrying a write may repeat it, unless the call carries an idempotency key, as in Module 3."
+  }
+]}
+/>
+
+</CheckpointZone>

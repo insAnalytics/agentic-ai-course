@@ -4880,7 +4880,20 @@ architecture.md §3.1).
    link) and Module 3 Lesson 3's
    `#useful-error-messages-say-what-failed-and-what-to-do-next` and
    `#the-fix-return-structured-data-as-json-text` (verified against the
-   built HTML). Next per the mockup: what a failed check does.
+   built HTML). Concept 3 (what a failed check does) is built: the four
+   responses (block and tell, repair, retry, stop) with their cost when the
+   check is wrong, the research behind each (Sethi et al., Kapoor et al.'s
+   retry baseline, AgentDojo's aborting detector), repairing only what's
+   certain, retrying only what can safely repeat, and choosing by where the
+   check sits. The repair demo reproduces the mockup's output exactly in
+   real Pyodide 0.26.4. One quiz fix: Q2's explanation named options by
+   letter ("only C is certain"), which breaks when options are shuffled, so
+   it now names them by content. Callbacks (all verified against the built
+   HTML): concept 2, Lesson 2's concepts 1
+   (`#a-refusal-can-be-a-reliability-failure`), 3 and 4, and Module 3
+   Lesson 4's retry concept and its `#retrying-a-write-can-do-it-twice`.
+   4 quiz cards. Next per the mockup: running checks in parallel, and the
+   tripwire.
 
 ---
 
