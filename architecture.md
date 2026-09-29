@@ -476,6 +476,16 @@ From Lesson 10 concept 3 on the setup appends `DECLINED` (`DECLINE`,
 inside a `String.raw` export doesn't survive the TypeScript build (it
 arrives as the character itself), so the export writes the backslash as
 `${"\\"}`; the page's static block keeps the escape as typed.
+Lesson 11's setup is Lesson 10's recap `lib.py` (the Lesson 10 setup through
+`DECLINED`), then `REACT_FAKE_CLIENT + RECORDING_CLIENT` (every demo and
+exercise scripts a model), then `AGENT_SEARCH` (`CORPUS_CHUNKS`, a
+`BM25Index` over them as `CORPUS_INDEX`, `SEARCH_TOOL`, `run_agent`, shown
+verbatim on Lesson 11 concept 1). The agent's search tool is BM25 because an
+agent writes its own queries and only keyword search runs on unseen text in
+the browser; nothing in the setup reads stored vectors, so the data is just
+`RAG_DATA`. `SEARCH_DOCUMENTS` (`search_documents`) is Lesson 11 concept 1's
+exercise reference: pages *after* concept 1 only, appended after
+`AGENT_SEARCH`.
 `LiveDemo`, `GradedExercise` and `MultiFileGradedExercise`
 take `dataFiles`; the other graded components don't yet — add the same
 `writeCourseData` call to their run path when a Module 5 exercise needs it.

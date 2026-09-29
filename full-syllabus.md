@@ -4220,6 +4220,31 @@ Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
    Lesson 10 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
 
+11. **Agentic RAG** (provisional title) — **Building** (folder
+   `11-agentic-rag`, named while the title is provisional). Shared setup is
+   Lesson 10's recap `lib.py`, then `REACT_FAKE_CLIENT + RECORDING_CLIENT`,
+   then the new `AGENT_SEARCH` (`CORPUS_CHUNKS`, a BM25 `CORPUS_INDEX`,
+   `SEARCH_TOOL`, `run_agent`); data `RAG_DATA`, since nothing in the setup
+   reads stored vectors (checked in Pyodide with only `documents.json`
+   mounted). Concept 1 (from pipeline to tool) is built: the setup block
+   shown static, byte-identical to the export and the mockup; two live
+   demos, output exact matches in real Pyodide (BM25's top three for
+   "REG-1009 rate limited"; the scripted loop searching for the first
+   question and not the follow-up); links to Module 2's framework page and
+   Module 3's names-and-descriptions page, anchors checked in the built
+   HTML; 4 quiz cards; graded `search_documents` exercise, reference
+   exported as `SEARCH_DOCUMENTS` for later pages. **Change from the
+   mockup's hidden tests:** test 3 gains a no-match query containing a
+   single quote, which must come back in `repr`'s double quotes, because
+   `'{query}'` passed every original test though the task asks for `repr`.
+   Verified with the real `runAgainstHiddenTests`: the reference passes,
+   the starter fails all four, and eleven mutations each fail (no strip,
+   raising on an empty query, no `int`, no upper or lower clamp, quotes
+   instead of `repr`, a single newline between results, `doc_id` alone as
+   the id, raising when nothing matches, `k` ignored). The lesson's other
+   concepts and the bookends aren't drafted yet. Lesson 1's forward
+   references to Lesson 11 stay plain prose.
+
 ---
 
 ## Modules 4–11 — current plan
