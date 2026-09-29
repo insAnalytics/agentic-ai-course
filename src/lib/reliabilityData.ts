@@ -27,6 +27,25 @@ def load_questions() -> dict[str, dict]:
     return {q["id"]: q for q in data["questions"]}
 `;
 
+/**
+ * Module 6 Lesson 1 concept 4's by_wording and rate, verbatim from its first
+ * demo; later demos that use them without defining them append this. Needs
+ * the "plain" and "wordings" runs (plus ".smaller" ones for the 2B).
+ */
+export const BY_WORDING = String.raw`
+def by_wording(name: str) -> dict[str, list[list[bool]]]:
+    """Each question's outcomes, one list per wording: the original first, then the three others."""
+    results = {}
+    for part in (f"plain{name}", f"wordings{name}"):
+        for r in load_run(part)["results"]:
+            results.setdefault(r["id"], [None] * 4)[r["wording"]] = [reply["correct"] for reply in r["samples"]]
+    return results
+
+
+def rate(outcomes: list[bool]) -> float:
+    return sum(outcomes) / len(outcomes)
+`;
+
 /** Module 6 Lesson 1 concept 2's successes, verbatim; later demos that use it without defining it append it. */
 export const SUCCESSES = String.raw`
 def successes(run: dict) -> dict[str, int]:

@@ -4738,8 +4738,20 @@ architecture.md §3.1).
    `#failures-cluster-on-particular-questions` (verified against the built
    HTML). Concept 1's prose was later revised from its mockup (τ-bench's
    30-action cap, cascading early mistakes, METR on adapting to mistakes);
-   its Q1 fix stands. Next per the mockups: the wordings concept. Bookends
-   not drafted yet.
+   its Q1 fix stands. Concept 4 (reliable across wordings) is built:
+   Sclar et al., Mizrahi et al. and τ-bench on phrasing sensitivity,
+   accuracy by wording and the four questions that swing 50+ points, e41's
+   four wordings, pass^10 across all wordings (4B 0.937 -> 0.881, 2B 0.707
+   -> 0.488), and checking the wording before blaming the model (the
+   e09 "scope" story, confirmed from the v2 run in git history: 9 unknown,
+   1 right). All three demos reproduce the mockup's output exactly in real
+   Pyodide 0.26.4 against the committed `plain`/`wordings` runs (v3
+   wordings) for both models. New shared `BY_WORDING` in
+   `reliabilityData.ts` (by_wording + rate, verbatim from the first demo)
+   preloaded for the two demos that reuse them. Callbacks: concept 2 and
+   Module 5 Lesson 2's when-the-labels-are-wrong concept (page links, as
+   the mockup names no subsection). 4 quiz cards. Next per the mockups: a
+   concept sorting the ways agents fail. Bookends not drafted yet.
 
 ---
 

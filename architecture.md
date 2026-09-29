@@ -389,7 +389,7 @@ Shared setup is in `src/lib/reliabilityData.ts`: `reliabilityData(...runs)`
 builds a demo's `dataFiles` list (set E plus only the named runs, since the
 files are large), `LOAD_RUNS` (`load_run`, `load_questions`; shown verbatim
 in Module 6 Lesson 1 concept 2) and `SUCCESSES` (per-question right counts,
-for demos that use it without defining it).
+for demos that use it without defining it), and from concept 4 `BY_WORDING` (`by_wording`, `rate`).
 
 **Loading rule (every Module 5 and Module 6 page):** fetch these files at runtime, on the
 learner's first Run click, and let the browser cache them — never `import`
