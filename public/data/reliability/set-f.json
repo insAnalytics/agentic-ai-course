@@ -1,0 +1,2294 @@
+{
+ "version": 1,
+ "written_by": "Items written by hand in the course's content chat (scripts/reliability/set_v_source.py); labels follow from how each pair was built, checked against the corpus by this script",
+ "pool": {
+  "chunker": "structured_chunks(max_tokens=200) + with_header",
+  "access": "all-staff",
+  "excluded_docs": [
+   "D15"
+  ]
+ },
+ "distractors": 3,
+ "questions": [
+  {
+   "id": "v01-true",
+   "item": "v01",
+   "premise": "true",
+   "question": "Since an agent has to be on the priority tier to use claude-opus, what do I need to do to move my agent onto claude-opus?",
+   "context": [
+    {
+     "key": "D07:2",
+     "text": "Runbook: migrating agents off claude-legacy > Step 1: Check the target is allowed\n\n## Step 1: Check the target is allowed\n\nBoth target models are allowed on the `standard` tier, so neither agent needs a tier change. If you'd rather move to `claude-opus`, the agent must move to the `priority` tier first, or the change fails with `REG-1007`.",
+     "gold": false
+    },
+    {
+     "key": "D01:7",
+     "text": "Registry API reference > Tiers and models\n\n## Tiers and models\n\nEvery agent has a tier, and each tier allows a fixed set of models:\n\n| Tier | Allowed models |\n|---|---|\n| `standard` | `claude-haiku`, `claude-sonnet` |\n| `priority` | `claude-haiku`, `claude-sonnet`, `claude-opus` |\n\nMoving an agent to `claude-opus` therefore means moving it to the `priority` tier first, which needs approval from its owner's budget holder. `claude-legacy` is deprecated and can't be assigned to any agent; existing agents on it keep working until 2026-10-31.",
+     "gold": true
+    },
+    {
+     "key": "D14:2",
+     "text": "Agent owners' FAQ > How do I find out which model my agent is on?\n\n## How do I find out which model my agent is on?\n\nLook it up in the registry: its record has a `model` field. If you're writing code that runs as the agent, ask the registry \"who am I?\" with the agent's own key and you'll get the same record back.",
+     "gold": false
+    },
+    {
+     "key": "D14:1",
+     "text": "Agent owners' FAQ > Can my agent use the biggest model?\n\n## Can my agent use the biggest model?\n\nOnly on the priority tier. Standard-tier agents can use the smaller and mid-sized models. Moving to priority needs a sign-off from whoever holds your team's budget, and after that you can change the model.",
+     "gold": false
+    }
+   ]
+  },
+  {
+   "id": "v01-false",
+   "item": "v01",
+   "premise": "false",
+   "question": "Since standard-tier agents can use claude-opus, what do I need to do to move my agent onto claude-opus?",
+   "context": [
+    {
+     "key": "D07:2",
+     "text": "Runbook: migrating agents off claude-legacy > Step 1: Check the target is allowed\n\n## Step 1: Check the target is allowed\n\nBoth target models are allowed on the `standard` tier, so neither agent needs a tier change. If you'd rather move to `claude-opus`, the agent must move to the `priority` tier first, or the change fails with `REG-1007`.",
+     "gold": false
+    },
+    {
+     "key": "D01:7",
+     "text": "Registry API reference > Tiers and models\n\n## Tiers and models\n\nEvery agent has a tier, and each tier allows a fixed set of models:\n\n| Tier | Allowed models |\n|---|---|\n| `standard` | `claude-haiku`, `claude-sonnet` |\n| `priority` | `claude-haiku`, `claude-sonnet`, `claude-opus` |\n\nMoving an agent to `claude-opus` therefore means moving it to the `priority` tier first, which needs approval from its owner's budget holder. `claude-legacy` is deprecated and can't be assigned to any agent; existing agents on it keep working until 2026-10-31.",
+     "gold": true
+    },
+    {
+     "key": "D14:2",
+     "text": "Agent owners' FAQ > How do I find out which model my agent is on?\n\n## How do I find out which model my agent is on?\n\nLook it up in the registry: its record has a `model` field. If you're writing code that runs as the agent, ask the registry \"who am I?\" with the agent's own key and you'll get the same record back.",
+     "gold": false
+    },
+    {
+     "key": "D14:1",
+     "text": "Agent owners' FAQ > Can my agent use the biggest model?\n\n## Can my agent use the biggest model?\n\nOnly on the priority tier. Standard-tier agents can use the smaller and mid-sized models. Moving to priority needs a sign-off from whoever holds your team's budget, and after that you can change the model.",
+     "gold": false
+    }
+   ],
+   "altered": "An agent can run on claude-opus while it stays on the standard tier."
+  },
+  {
+   "id": "v02-true",
+   "item": "v02",
+   "premise": "true",
+   "question": "Since GET /agents/me returns the agent that owns the calling key, how can code running as an agent find out which agent it is?",
+   "context": [
+    {
+     "key": "D01:2",
+     "text": "Registry API reference > Listing agents\n\n## Listing agents\n\n`GET /agents` returns agents in pages. Pass `limit` to set the page size (default 20, maximum 100). Each response includes a `next_cursor`; pass it back as `cursor` to get the next page. When `next_cursor` is `null`, there are no more pages.\n\n```bash\ncurl \"https://registry.internal.example/v2/agents?limit=50&cursor=eyJpZCI6IDUwfQ\" \\\n  -H \"X-Registry-Key: $REGISTRY_KEY\"\n```\n\n```json\n{\n  \"agents\": [\n    {\"agent_id\": \"support_agent\", \"model\": \"claude-sonnet\", \"tier\": \"standard\", \"status\": \"active\"}\n  ],\n  \"next_cursor\": \"eyJpZCI6IDEwMH0\"\n}\n```\n\nYou can filter by `status` (`active`, `paused` or `retired`) and by `owner`.",
+     "gold": false
+    },
+    {
+     "key": "D14:2",
+     "text": "Agent owners' FAQ > How do I find out which model my agent is on?\n\n## How do I find out which model my agent is on?\n\nLook it up in the registry: its record has a `model` field. If you're writing code that runs as the agent, ask the registry \"who am I?\" with the agent's own key and you'll get the same record back.",
+     "gold": false
+    },
+    {
+     "key": "D01:3",
+     "text": "Registry API reference > Reading one agent\n\n## Reading one agent\n\n`GET /agents/{agent_id}` returns one agent's full record, or `REG-1005` if no agent has that id.\n\n```json\n{\n  \"agent_id\": \"research_agent\",\n  \"model\": \"claude-legacy\",\n  \"tier\": \"standard\",\n  \"owner\": \"research-team\",\n  \"status\": \"active\",\n  \"updated_at\": \"2026-06-23T09:12:44Z\"\n}\n```\n\n`GET /agents/me` returns the agent that owns the key making the request. It's the quickest way to check that a newly deployed key works and belongs to the agent you expect.",
+     "gold": true
+    },
+    {
+     "key": "D03:0",
+     "text": "Registry changelog > v2.6 — 2026-08-18\n\n## v2.6 — 2026-08-18\n\n- Added `GET /agents/me`, which returns the agent that owns the calling key.\n- The registry can now enter maintenance mode. During maintenance, reads keep working and writes return `REG-1011`.\n- Error responses now always include `name` alongside `code`.",
+     "gold": false
+    }
+   ]
+  },
+  {
+   "id": "v02-false",
+   "item": "v02",
+   "premise": "false",
+   "question": "Since GET /agents/me returns every agent in the account, how can code running as an agent find out which agent it is?",
+   "context": [
+    {
+     "key": "D01:2",
+     "text": "Registry API reference > Listing agents\n\n## Listing agents\n\n`GET /agents` returns agents in pages. Pass `limit` to set the page size (default 20, maximum 100). Each response includes a `next_cursor`; pass it back as `cursor` to get the next page. When `next_cursor` is `null`, there are no more pages.\n\n```bash\ncurl \"https://registry.internal.example/v2/agents?limit=50&cursor=eyJpZCI6IDUwfQ\" \\\n  -H \"X-Registry-Key: $REGISTRY_KEY\"\n```\n\n```json\n{\n  \"agents\": [\n    {\"agent_id\": \"support_agent\", \"model\": \"claude-sonnet\", \"tier\": \"standard\", \"status\": \"active\"}\n  ],\n  \"next_cursor\": \"eyJpZCI6IDEwMH0\"\n}\n```\n\nYou can filter by `status` (`active`, `paused` or `retired`) and by `owner`.",
+     "gold": false
+    },
+    {
+     "key": "D14:2",
+     "text": "Agent owners' FAQ > How do I find out which model my agent is on?\n\n## How do I find out which model my agent is on?\n\nLook it up in the registry: its record has a `model` field. If you're writing code that runs as the agent, ask the registry \"who am I?\" with the agent's own key and you'll get the same record back.",
+     "gold": false
+    },
+    {
+     "key": "D01:3",
+     "text": "Registry API reference > Reading one agent\n\n## Reading one agent\n\n`GET /agents/{agent_id}` returns one agent's full record, or `REG-1005` if no agent has that id.\n\n```json\n{\n  \"agent_id\": \"research_agent\",\n  \"model\": \"claude-legacy\",\n  \"tier\": \"standard\",\n  \"owner\": \"research-team\",\n  \"status\": \"active\",\n  \"updated_at\": \"2026-06-23T09:12:44Z\"\n}\n```\n\n`GET /agents/me` returns the agent that owns the key making the request. It's the quickest way to check that a newly deployed key works and belongs to the agent you expect.",
+     "gold": true
+    },
+    {
+     "key": "D03:0",
+     "text": "Registry changelog > v2.6 — 2026-08-18\n\n## v2.6 — 2026-08-18\n\n- Added `GET /agents/me`, which returns the agent that owns the calling key.\n- The registry can now enter maintenance mode. During maintenance, reads keep working and writes return `REG-1011`.\n- Error responses now always include `name` alongside `code`.",
+     "gold": false
+    }
+   ],
+   "altered": "GET /agents/me returns every agent in the account."
+  },
+  {
+   "id": "v03-true",
+   "item": "v03",
+   "premise": "true",
+   "question": "Since changes to an agent apply from its next session, when will my agent start using the model I just assigned it?",
+   "context": [
+    {
+     "key": "D14:5",
+     "text": "Agent owners' FAQ > I changed my agent's settings but nothing happened.\n\n## I changed my agent's settings but nothing happened.\n\nChanges apply when the agent starts its next session, not partway through one that's already running. Wait for the current sessions to finish, or check again in a few minutes.",
+     "gold": false
+    },
+    {
+     "key": "D14:2",
+     "text": "Agent owners' FAQ > How do I find out which model my agent is on?\n\n## How do I find out which model my agent is on?\n\nLook it up in the registry: its record has a `model` field. If you're writing code that runs as the agent, ask the registry \"who am I?\" with the agent's own key and you'll get the same record back.",
+     "gold": false
+    },
+    {
+     "key": "D07:4",
+     "text": "Runbook: migrating agents off claude-legacy > Step 3: Switch\n\n## Step 3: Switch\n\nSet the new model with `PATCH /agents/{agent_id}`. The change applies from each agent's next session.",
+     "gold": false
+    },
+    {
+     "key": "D01:5",
+     "text": "Registry API reference > Updating an agent\n\n## Updating an agent\n\n`PATCH /agents/{agent_id}` changes one or more of `model`, `tier`, `owner` and `status`. Send only the fields you're changing. It needs a `write` key; a `read` key gets `REG-1004`.\n\n```bash\ncurl -X PATCH https://registry.internal.example/v2/agents/research_agent \\\n  -H \"X-Registry-Key: $REGISTRY_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"model\": \"claude-sonnet\"}'\n```\n\nA change takes effect on the agent's next session, not in the middle of one that's running. Setting `status` to `paused` stops new sessions from starting; `retired` also hides the agent from the default listing.",
+     "gold": true
+    }
+   ]
+  },
+  {
+   "id": "v03-false",
+   "item": "v03",
+   "premise": "false",
+   "question": "Since changes to an agent apply immediately, even to sessions already running, when will my agent start using the model I just assigned it?",
+   "context": [
+    {
+     "key": "D14:5",
+     "text": "Agent owners' FAQ > I changed my agent's settings but nothing happened.\n\n## I changed my agent's settings but nothing happened.\n\nChanges apply when the agent starts its next session, not partway through one that's already running. Wait for the current sessions to finish, or check again in a few minutes.",
+     "gold": false
+    },
+    {
+     "key": "D14:2",
+     "text": "Agent owners' FAQ > How do I find out which model my agent is on?\n\n## How do I find out which model my agent is on?\n\nLook it up in the registry: its record has a `model` field. If you're writing code that runs as the agent, ask the registry \"who am I?\" with the agent's own key and you'll get the same record back.",
+     "gold": false
+    },
+    {
+     "key": "D07:4",
+     "text": "Runbook: migrating agents off claude-legacy > Step 3: Switch\n\n## Step 3: Switch\n\nSet the new model with `PATCH /agents/{agent_id}`. The change applies from each agent's next session.",
+     "gold": false
+    },
+    {
+     "key": "D01:5",
+     "text": "Registry API reference > Updating an agent\n\n## Updating an agent\n\n`PATCH /agents/{agent_id}` changes one or more of `model`, `tier`, `owner` and `status`. Send only the fields you're changing. It needs a `write` key; a `read` key gets `REG-1004`.\n\n```bash\ncurl -X PATCH https://registry.internal.example/v2/agents/research_agent \\\n  -H \"X-Registry-Key: $REGISTRY_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"model\": \"claude-sonnet\"}'\n```\n\nA change takes effect on the agent's next session, not in the middle of one that's running. Setting `status` to `paused` stops new sessions from starting; `retired` also hides the agent from the default listing.",
+     "gold": true
+    }
+   ],
+   "altered": "Edits to an agent apply straight away, including to sessions that are already running."
+  },
+  {
+   "id": "v04-true",
+   "item": "v04",
+   "premise": "true",
+   "question": "Since retiring an agent keeps its record and change history, how should I get rid of an agent we no longer use?",
+   "context": [
+    {
+     "key": "D11:3",
+     "text": "Incident INC-2093: registry outage during database failover > What we changed\n\n## What we changed\n\n- An alert now fires when the standby falls more than 60 seconds behind.\n- Monitoring keeps its last good agent list when the registry is unreachable, instead of showing nothing.\n- `support_agent` now tells users the registry is unavailable instead of failing silently.",
+     "gold": false
+    },
+    {
+     "key": "D01:6",
+     "text": "Registry API reference > Deleting an agent\n\n## Deleting an agent\n\n`DELETE /agents/{agent_id}` removes an agent's record permanently. Prefer setting `status` to `retired`, which keeps the record and its change history. Delete only agents that were created by mistake.",
+     "gold": true
+    },
+    {
+     "key": "D14:2",
+     "text": "Agent owners' FAQ > How do I find out which model my agent is on?\n\n## How do I find out which model my agent is on?\n\nLook it up in the registry: its record has a `model` field. If you're writing code that runs as the agent, ask the registry \"who am I?\" with the agent's own key and you'll get the same record back.",
+     "gold": false
+    },
+    {
+     "key": "D01:0",
+     "text": "Registry API reference > Overview\n\n## Overview\n\nThe Registry API stores the configuration of every agent the company runs: its name, the model it uses, its tier, its owner and its status. Agents and internal tools read it to find out how an agent is configured, and owners write to it to change that configuration. The current version is v2.6.\n\nAll endpoints live under one base URL:\n\n```\nhttps://registry.internal.example/v2\n```\n\nRequests and responses are JSON. Timestamps are ISO 8601 in UTC.",
+     "gold": false
+    }
+   ]
+  },
+  {
+   "id": "v04-false",
+   "item": "v04",
+   "premise": "false",
+   "question": "Since retiring an agent deletes its record and change history, how should I get rid of an agent we no longer use?",
+   "context": [
+    {
+     "key": "D11:3",
+     "text": "Incident INC-2093: registry outage during database failover > What we changed\n\n## What we changed\n\n- An alert now fires when the standby falls more than 60 seconds behind.\n- Monitoring keeps its last good agent list when the registry is unreachable, instead of showing nothing.\n- `support_agent` now tells users the registry is unavailable instead of failing silently.",
+     "gold": false
+    },
+    {
+     "key": "D01:6",
+     "text": "Registry API reference > Deleting an agent\n\n## Deleting an agent\n\n`DELETE /agents/{agent_id}` removes an agent's record permanently. Prefer setting `status` to `retired`, which keeps the record and its change history. Delete only agents that were created by mistake.",
+     "gold": true
+    },
+    {
+     "key": "D14:2",
+     "text": "Agent owners' FAQ > How do I find out which model my agent is on?\n\n## How do I find out which model my agent is on?\n\nLook it up in the registry: its record has a `model` field. If you're writing code that runs as the agent, ask the registry \"who am I?\" with the agent's own key and you'll get the same record back.",
+     "gold": false
+    },
+    {
+     "key": "D01:0",
+     "text": "Registry API reference > Overview\n\n## Overview\n\nThe Registry API stores the configuration of every agent the company runs: its name, the model it uses, its tier, its owner and its status. Agents and internal tools read it to find out how an agent is configured, and owners write to it to change that configuration. The current version is v2.6.\n\nAll endpoints live under one base URL:\n\n```\nhttps://registry.internal.example/v2\n```\n\nRequests and responses are JSON. Timestamps are ISO 8601 in UTC.",
+     "gold": false
+    }
+   ],
+   "altered": "Setting an agent's status to retired deletes its record and its change history."
+  },
+  {
+   "id": "v05-true",
+   "item": "v05",
+   "premise": "true",
+   "question": "Since pausing an agent stops new sessions from starting, how do I stop new conversations reaching research_agent while I investigate a problem?",
+   "context": [
+    {
+     "key": "D14:2",
+     "text": "Agent owners' FAQ > How do I find out which model my agent is on?\n\n## How do I find out which model my agent is on?\n\nLook it up in the registry: its record has a `model` field. If you're writing code that runs as the agent, ask the registry \"who am I?\" with the agent's own key and you'll get the same record back.",
+     "gold": false
+    },
+    {
+     "key": "D10:0",
+     "text": "Incident INC-2067: research_agent returning outdated results > Summary\n\n## Summary\n\nFrom 2026-06-15 to 2026-06-22, `research_agent` answered questions with knowledge-base articles that had since been updated. Nothing failed and no alert fired; a user noticed that a report quoted a policy that had changed four days earlier.",
+     "gold": false
+    },
+    {
+     "key": "D01:5",
+     "text": "Registry API reference > Updating an agent\n\n## Updating an agent\n\n`PATCH /agents/{agent_id}` changes one or more of `model`, `tier`, `owner` and `status`. Send only the fields you're changing. It needs a `write` key; a `read` key gets `REG-1004`.\n\n```bash\ncurl -X PATCH https://registry.internal.example/v2/agents/research_agent \\\n  -H \"X-Registry-Key: $REGISTRY_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"model\": \"claude-sonnet\"}'\n```\n\nA change takes effect on the agent's next session, not in the middle of one that's running. Setting `status` to `paused` stops new sessions from starting; `retired` also hides the agent from the default listing.",
+     "gold": true
+    },
+    {
+     "key": "D14:5",
+     "text": "Agent owners' FAQ > I changed my agent's settings but nothing happened.\n\n## I changed my agent's settings but nothing happened.\n\nChanges apply when the agent starts its next session, not partway through one that's already running. Wait for the current sessions to finish, or check again in a few minutes.",
+     "gold": false
+    }
+   ]
+  },
+  {
+   "id": "v05-false",
+   "item": "v05",
+   "premise": "false",
+   "question": "Since a paused agent can still start new sessions, how do I stop new conversations reaching research_agent while I investigate a problem?",
+   "context": [
+    {
+     "key": "D14:2",
+     "text": "Agent owners' FAQ > How do I find out which model my agent is on?\n\n## How do I find out which model my agent is on?\n\nLook it up in the registry: its record has a `model` field. If you're writing code that runs as the agent, ask the registry \"who am I?\" with the agent's own key and you'll get the same record back.",
+     "gold": false
+    },
+    {
+     "key": "D10:0",
+     "text": "Incident INC-2067: research_agent returning outdated results > Summary\n\n## Summary\n\nFrom 2026-06-15 to 2026-06-22, `research_agent` answered questions with knowledge-base articles that had since been updated. Nothing failed and no alert fired; a user noticed that a report quoted a policy that had changed four days earlier.",
+     "gold": false
+    },
+    {
+     "key": "D01:5",
+     "text": "Registry API reference > Updating an agent\n\n## Updating an agent\n\n`PATCH /agents/{agent_id}` changes one or more of `model`, `tier`, `owner` and `status`. Send only the fields you're changing. It needs a `write` key; a `read` key gets `REG-1004`.\n\n```bash\ncurl -X PATCH https://registry.internal.example/v2/agents/research_agent \\\n  -H \"X-Registry-Key: $REGISTRY_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"model\": \"claude-sonnet\"}'\n```\n\nA change takes effect on the agent's next session, not in the middle of one that's running. Setting `status` to `paused` stops new sessions from starting; `retired` also hides the agent from the default listing.",
+     "gold": true
+    },
+    {
+     "key": "D14:5",
+     "text": "Agent owners' FAQ > I changed my agent's settings but nothing happened.\n\n## I changed my agent's settings but nothing happened.\n\nChanges apply when the agent starts its next session, not partway through one that's already running. Wait for the current sessions to finish, or check again in a few minutes.",
+     "gold": false
+    }
+   ],
+   "altered": "A paused agent can still start new sessions."
+  },
+  {
+   "id": "v06-true",
+   "item": "v06",
+   "premise": "true",
+   "question": "Since the dashboards go empty during a registry outage because monitoring can't refresh its agent list, what should on-call check first when the dashboards suddenly show no agents?",
+   "context": [
+    {
+     "key": "D11:3",
+     "text": "Incident INC-2093: registry outage during database failover > What we changed\n\n## What we changed\n\n- An alert now fires when the standby falls more than 60 seconds behind.\n- Monitoring keeps its last good agent list when the registry is unreachable, instead of showing nothing.\n- `support_agent` now tells users the registry is unavailable instead of failing silently.",
+     "gold": false
+    },
+    {
+     "key": "D11:0",
+     "text": "Incident INC-2093: registry outage during database failover > Summary\n\n## Summary\n\nOn 2026-08-27, registry-api was unavailable for 42 minutes while registry-db failed over to its standby. Agents that look things up in the registry couldn't finish their tasks, and monitoring lost sight of every agent for the same period.",
+     "gold": false
+    },
+    {
+     "key": "D08:2",
+     "text": "Monitoring guide > When RegistryUnreachable fires\n\n## When RegistryUnreachable fires\n\nCheck the registry's status page first. While the registry is down, monitoring can't refresh its agent list, so dashboards may show no agents at all even though the agents are still running. Don't read an empty dashboard as \"every agent is down.\"",
+     "gold": true
+    },
+    {
+     "key": "D11:2",
+     "text": "Incident INC-2093: registry outage during database failover > What made it worse\n\n## What made it worse\n\nThe failover should have taken about 5 minutes. It took 42 because the standby had fallen 38 minutes behind the primary, and nothing alerted on that lag. For the whole outage, monitoring showed no agents at all, so the on-call engineer couldn't tell which agents were affected. Its agent list comes from the registry.",
+     "gold": false
+    }
+   ]
+  },
+  {
+   "id": "v06-false",
+   "item": "v06",
+   "premise": "false",
+   "question": "Since every agent stops running whenever the registry is down, what should on-call check first when the dashboards suddenly show no agents?",
+   "context": [
+    {
+     "key": "D11:3",
+     "text": "Incident INC-2093: registry outage during database failover > What we changed\n\n## What we changed\n\n- An alert now fires when the standby falls more than 60 seconds behind.\n- Monitoring keeps its last good agent list when the registry is unreachable, instead of showing nothing.\n- `support_agent` now tells users the registry is unavailable instead of failing silently.",
+     "gold": false
+    },
+    {
+     "key": "D11:0",
+     "text": "Incident INC-2093: registry outage during database failover > Summary\n\n## Summary\n\nOn 2026-08-27, registry-api was unavailable for 42 minutes while registry-db failed over to its standby. Agents that look things up in the registry couldn't finish their tasks, and monitoring lost sight of every agent for the same period.",
+     "gold": false
+    },
+    {
+     "key": "D08:2",
+     "text": "Monitoring guide > When RegistryUnreachable fires\n\n## When RegistryUnreachable fires\n\nCheck the registry's status page first. While the registry is down, monitoring can't refresh its agent list, so dashboards may show no agents at all even though the agents are still running. Don't read an empty dashboard as \"every agent is down.\"",
+     "gold": true
+    },
+    {
+     "key": "D11:2",
+     "text": "Incident INC-2093: registry outage during database failover > What made it worse\n\n## What made it worse\n\nThe failover should have taken about 5 minutes. It took 42 because the standby had fallen 38 minutes behind the primary, and nothing alerted on that lag. For the whole outage, monitoring showed no agents at all, so the on-call engineer couldn't tell which agents were affected. Its agent list comes from the registry.",
+     "gold": false
+    }
+   ],
+   "altered": "When the registry is down every agent stops running, which is why the dashboards show none."
+  },
+  {
+   "id": "v07-true",
+   "item": "v07",
+   "premise": "true",
+   "question": "Since the agent list is paged by passing next_cursor back as cursor, how do I list every agent, not just the first page?",
+   "context": [
+    {
+     "key": "D14:2",
+     "text": "Agent owners' FAQ > How do I find out which model my agent is on?\n\n## How do I find out which model my agent is on?\n\nLook it up in the registry: its record has a `model` field. If you're writing code that runs as the agent, ask the registry \"who am I?\" with the agent's own key and you'll get the same record back.",
+     "gold": false
+    },
+    {
+     "key": "D01:2",
+     "text": "Registry API reference > Listing agents\n\n## Listing agents\n\n`GET /agents` returns agents in pages. Pass `limit` to set the page size (default 20, maximum 100). Each response includes a `next_cursor`; pass it back as `cursor` to get the next page. When `next_cursor` is `null`, there are no more pages.\n\n```bash\ncurl \"https://registry.internal.example/v2/agents?limit=50&cursor=eyJpZCI6IDUwfQ\" \\\n  -H \"X-Registry-Key: $REGISTRY_KEY\"\n```\n\n```json\n{\n  \"agents\": [\n    {\"agent_id\": \"support_agent\", \"model\": \"claude-sonnet\", \"tier\": \"standard\", \"status\": \"active\"}\n  ],\n  \"next_cursor\": \"eyJpZCI6IDEwMH0\"\n}\n```\n\nYou can filter by `status` (`active`, `paused` or `retired`) and by `owner`.",
+     "gold": true
+    },
+    {
+     "key": "D08:2",
+     "text": "Monitoring guide > When RegistryUnreachable fires\n\n## When RegistryUnreachable fires\n\nCheck the registry's status page first. While the registry is down, monitoring can't refresh its agent list, so dashboards may show no agents at all even though the agents are still running. Don't read an empty dashboard as \"every agent is down.\"",
+     "gold": false
+    },
+    {
+     "key": "D03:4",
+     "text": "Registry changelog > v2.2 — 2026-01-20\n\n## v2.2 — 2026-01-20\n\n- `GET /agents` now pages with `cursor` and `next_cursor`. The `offset` parameter still works but is deprecated.\n- Page size is set with `limit`: default 20, maximum 100.",
+     "gold": false
+    }
+   ]
+  },
+  {
+   "id": "v07-false",
+   "item": "v07",
+   "premise": "false",
+   "question": "Since the agent list is paged with page numbers rather than a cursor, how do I list every agent, not just the first page?",
+   "context": [
+    {
+     "key": "D14:2",
+     "text": "Agent owners' FAQ > How do I find out which model my agent is on?\n\n## How do I find out which model my agent is on?\n\nLook it up in the registry: its record has a `model` field. If you're writing code that runs as the agent, ask the registry \"who am I?\" with the agent's own key and you'll get the same record back.",
+     "gold": false
+    },
+    {
+     "key": "D01:2",
+     "text": "Registry API reference > Listing agents\n\n## Listing agents\n\n`GET /agents` returns agents in pages. Pass `limit` to set the page size (default 20, maximum 100). Each response includes a `next_cursor`; pass it back as `cursor` to get the next page. When `next_cursor` is `null`, there are no more pages.\n\n```bash\ncurl \"https://registry.internal.example/v2/agents?limit=50&cursor=eyJpZCI6IDUwfQ\" \\\n  -H \"X-Registry-Key: $REGISTRY_KEY\"\n```\n\n```json\n{\n  \"agents\": [\n    {\"agent_id\": \"support_agent\", \"model\": \"claude-sonnet\", \"tier\": \"standard\", \"status\": \"active\"}\n  ],\n  \"next_cursor\": \"eyJpZCI6IDEwMH0\"\n}\n```\n\nYou can filter by `status` (`active`, `paused` or `retired`) and by `owner`.",
+     "gold": true
+    },
+    {
+     "key": "D08:2",
+     "text": "Monitoring guide > When RegistryUnreachable fires\n\n## When RegistryUnreachable fires\n\nCheck the registry's status page first. While the registry is down, monitoring can't refresh its agent list, so dashboards may show no agents at all even though the agents are still running. Don't read an empty dashboard as \"every agent is down.\"",
+     "gold": false
+    },
+    {
+     "key": "D03:4",
+     "text": "Registry changelog > v2.2 — 2026-01-20\n\n## v2.2 — 2026-01-20\n\n- `GET /agents` now pages with `cursor` and `next_cursor`. The `offset` parameter still works but is deprecated.\n- Page size is set with `limit`: default 20, maximum 100.",
+     "gold": false
+    }
+   ],
+   "altered": "Responses don't include a cursor; you get the next page by asking for the next page number."
+  },
+  {
+   "id": "v08-true",
+   "item": "v08",
+   "premise": "true",
+   "question": "Since only RegistryUnreachable pages outside paging hours, which alerts could wake me up during my on-call week?",
+   "context": [
+    {
+     "key": "D09:1",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > Timeline\n\n## Timeline\n\n- 06:02 — `AgentErrorRateHigh` fired for `billing_agent`. No page: it was outside paging hours.\n- 08:00 — The on-call engineer saw the alert and found every failed session stuck on the same payments-gateway call.\n- 08:40 — The Payments team found that payments-gateway couldn't open connections to auth-service.\n- 08:55 — The Identity team renewed the certificate. `billing_agent` recovered within two minutes.",
+     "gold": false
+    },
+    {
+     "key": "prometheus-docs/practices/the_zen.md:15",
+     "text": "The Zen of Prometheus > Symptom-based alerts for paging, cause-based for troubleshooting\n\n## Symptom-based alerts for paging, cause-based for troubleshooting\n\nSimilar to Measure what users care about, alert on what *really* matters. It doesn't matter if your CPU is saturated, as long as your users don't notice. Let your SLOs guide your alerting.\n\nNot every alert needs to page someone. Cause-based alerts shouldn't wake anyone up—they should feed into dashboards or ticket queues to be checked when needed or handled in batches at leisure. Reserve paging for symptom-based alerts that indicate user-facing impact.\n\nFor more context My Philosophy on Alerting.",
+     "gold": false
+    },
+    {
+     "key": "D08:1",
+     "text": "Monitoring guide > Alerts\n\n## Alerts\n\n| Alert | Fires when |\n|---|---|\n| `AgentLatencyHigh` | p95 response time above 8 seconds for 10 minutes |\n| `AgentErrorRateHigh` | more than 5% of sessions end in an error over 15 minutes |\n| `RegistryUnreachable` | three registry polls in a row fail (`MON-2002`) |\n\nAlerts go to the on-call channel and page the on-call engineer between 08:00 and 20:00. Outside those hours, only `RegistryUnreachable` pages.",
+     "gold": true
+    },
+    {
+     "key": "D11:1",
+     "text": "Incident INC-2093: registry outage during database failover > Timeline\n\n## Timeline\n\n- 14:10 — The primary registry-db host failed a disk check and failover started.\n- 14:11 — `RegistryUnreachable` fired and paged the on-call engineer. The overview dashboard went blank.\n- 14:20 — `support_agent` sessions began failing on their first registry lookup. `triage_agent` kept running but couldn't hand tickets over, so 212 tickets queued.\n- 14:52 — The standby finished catching up and registry-api recovered. The queued tickets were handed over by 15:05.",
+     "gold": false
+    }
+   ]
+  },
+  {
+   "id": "v08-false",
+   "item": "v08",
+   "premise": "false",
+   "question": "Since every alert pages the on-call engineer at night as well, which alerts could wake me up during my on-call week?",
+   "context": [
+    {
+     "key": "D09:1",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > Timeline\n\n## Timeline\n\n- 06:02 — `AgentErrorRateHigh` fired for `billing_agent`. No page: it was outside paging hours.\n- 08:00 — The on-call engineer saw the alert and found every failed session stuck on the same payments-gateway call.\n- 08:40 — The Payments team found that payments-gateway couldn't open connections to auth-service.\n- 08:55 — The Identity team renewed the certificate. `billing_agent` recovered within two minutes.",
+     "gold": false
+    },
+    {
+     "key": "prometheus-docs/practices/the_zen.md:15",
+     "text": "The Zen of Prometheus > Symptom-based alerts for paging, cause-based for troubleshooting\n\n## Symptom-based alerts for paging, cause-based for troubleshooting\n\nSimilar to Measure what users care about, alert on what *really* matters. It doesn't matter if your CPU is saturated, as long as your users don't notice. Let your SLOs guide your alerting.\n\nNot every alert needs to page someone. Cause-based alerts shouldn't wake anyone up—they should feed into dashboards or ticket queues to be checked when needed or handled in batches at leisure. Reserve paging for symptom-based alerts that indicate user-facing impact.\n\nFor more context My Philosophy on Alerting.",
+     "gold": false
+    },
+    {
+     "key": "D08:1",
+     "text": "Monitoring guide > Alerts\n\n## Alerts\n\n| Alert | Fires when |\n|---|---|\n| `AgentLatencyHigh` | p95 response time above 8 seconds for 10 minutes |\n| `AgentErrorRateHigh` | more than 5% of sessions end in an error over 15 minutes |\n| `RegistryUnreachable` | three registry polls in a row fail (`MON-2002`) |\n\nAlerts go to the on-call channel and page the on-call engineer between 08:00 and 20:00. Outside those hours, only `RegistryUnreachable` pages.",
+     "gold": true
+    },
+    {
+     "key": "D11:1",
+     "text": "Incident INC-2093: registry outage during database failover > Timeline\n\n## Timeline\n\n- 14:10 — The primary registry-db host failed a disk check and failover started.\n- 14:11 — `RegistryUnreachable` fired and paged the on-call engineer. The overview dashboard went blank.\n- 14:20 — `support_agent` sessions began failing on their first registry lookup. `triage_agent` kept running but couldn't hand tickets over, so 212 tickets queued.\n- 14:52 — The standby finished catching up and registry-api recovered. The queued tickets were handed over by 15:05.",
+     "gold": false
+    }
+   ],
+   "altered": "Outside paging hours, every alert still pages the on-call engineer."
+  },
+  {
+   "id": "v09-true",
+   "item": "v09",
+   "premise": "true",
+   "question": "Since REG-1007 means the model isn't allowed on the agent's tier, how do I fix a REG-1007 error?",
+   "context": [
+    {
+     "key": "D01:9",
+     "text": "Registry API reference > Errors\n\n## Errors\n\nEvery error response has the same shape:\n\n```json\n{\"error\": {\"code\": \"REG-1007\", \"name\": \"MODEL_NOT_ALLOWED\", \"message\": \"claude-opus is not allowed on tier standard\"}}\n```\n\nThe `code` is stable and safe to match on in code; the `message` is for people and may change. The full list is in the error code reference.",
+     "gold": false
+    },
+    {
+     "key": "D07:2",
+     "text": "Runbook: migrating agents off claude-legacy > Step 1: Check the target is allowed\n\n## Step 1: Check the target is allowed\n\nBoth target models are allowed on the `standard` tier, so neither agent needs a tier change. If you'd rather move to `claude-opus`, the agent must move to the `priority` tier first, or the change fails with `REG-1007`.",
+     "gold": false
+    },
+    {
+     "key": "D02:1",
+     "text": "Error code reference > Request errors\n\n## Request errors\n\n| Code | Name | HTTP | Meaning |\n|---|---|---|---|\n| `REG-1005` | `AGENT_NOT_FOUND` | 404 | No agent has this `agent_id`. Ids are case-sensitive. |\n| `REG-1006` | `AGENT_NAME_TAKEN` | 409 | An agent with this `agent_id` already exists, including a retired one. |\n| `REG-1007` | `MODEL_NOT_ALLOWED` | 422 | The model isn't on the allowlist for the agent's tier. Change the tier first, or pick an allowed model. |\n| `REG-1008` | `VALIDATION_FAILED` | 422 | The body is missing a required field or has a value of the wrong type. The message names the field. |\n| `REG-1010` | `MODEL_DEPRECATED` | 422 | The model is deprecated and can't be newly assigned. Currently applies to `claude-legacy`. |",
+     "gold": true
+    },
+    {
+     "key": "D01:4",
+     "text": "Registry API reference > Creating an agent\n\n## Creating an agent\n\n`POST /agents` creates an agent. It needs a `write` key. The body must include `agent_id`, `model`, `tier` and `owner`; `status` defaults to `active`.\n\n```json\n{\"agent_id\": \"triage_agent\", \"model\": \"claude-haiku\", \"tier\": \"standard\", \"owner\": \"support-team\"}\n```\n\nAgent ids must be unique: reusing one returns `REG-1006`. The model must be allowed on the agent's tier (see \"Tiers and models\"), or the request fails with `REG-1007`.",
+     "gold": false
+    }
+   ]
+  },
+  {
+   "id": "v09-false",
+   "item": "v09",
+   "premise": "false",
+   "question": "Since REG-1007 means the agent's key was revoked, how do I fix a REG-1007 error?",
+   "context": [
+    {
+     "key": "D01:9",
+     "text": "Registry API reference > Errors\n\n## Errors\n\nEvery error response has the same shape:\n\n```json\n{\"error\": {\"code\": \"REG-1007\", \"name\": \"MODEL_NOT_ALLOWED\", \"message\": \"claude-opus is not allowed on tier standard\"}}\n```\n\nThe `code` is stable and safe to match on in code; the `message` is for people and may change. The full list is in the error code reference.",
+     "gold": false
+    },
+    {
+     "key": "D07:2",
+     "text": "Runbook: migrating agents off claude-legacy > Step 1: Check the target is allowed\n\n## Step 1: Check the target is allowed\n\nBoth target models are allowed on the `standard` tier, so neither agent needs a tier change. If you'd rather move to `claude-opus`, the agent must move to the `priority` tier first, or the change fails with `REG-1007`.",
+     "gold": false
+    },
+    {
+     "key": "D02:1",
+     "text": "Error code reference > Request errors\n\n## Request errors\n\n| Code | Name | HTTP | Meaning |\n|---|---|---|---|\n| `REG-1005` | `AGENT_NOT_FOUND` | 404 | No agent has this `agent_id`. Ids are case-sensitive. |\n| `REG-1006` | `AGENT_NAME_TAKEN` | 409 | An agent with this `agent_id` already exists, including a retired one. |\n| `REG-1007` | `MODEL_NOT_ALLOWED` | 422 | The model isn't on the allowlist for the agent's tier. Change the tier first, or pick an allowed model. |\n| `REG-1008` | `VALIDATION_FAILED` | 422 | The body is missing a required field or has a value of the wrong type. The message names the field. |\n| `REG-1010` | `MODEL_DEPRECATED` | 422 | The model is deprecated and can't be newly assigned. Currently applies to `claude-legacy`. |",
+     "gold": true
+    },
+    {
+     "key": "D01:4",
+     "text": "Registry API reference > Creating an agent\n\n## Creating an agent\n\n`POST /agents` creates an agent. It needs a `write` key. The body must include `agent_id`, `model`, `tier` and `owner`; `status` defaults to `active`.\n\n```json\n{\"agent_id\": \"triage_agent\", \"model\": \"claude-haiku\", \"tier\": \"standard\", \"owner\": \"support-team\"}\n```\n\nAgent ids must be unique: reusing one returns `REG-1006`. The model must be allowed on the agent's tier (see \"Tiers and models\"), or the request fails with `REG-1007`.",
+     "gold": false
+    }
+   ],
+   "altered": "REG-1007 means the agent's registry key has been revoked."
+  },
+  {
+   "id": "v10-true",
+   "item": "v10",
+   "premise": "true",
+   "question": "Since MON-2002 means three registry polls in a row failed, how seriously should I take a single MON-2002?",
+   "context": [
+    {
+     "key": "D02:3",
+     "text": "Error code reference > Monitoring errors\n\n## Monitoring errors\n\nThese come from the monitoring service, not from the Registry API, but they appear in the same alert channels.\n\n| Code | Name | Meaning |\n|---|---|---|\n| `MON-2001` | `SCRAPE_FAILED` | Monitoring couldn't collect metrics from one agent. Usually the agent is paused or restarting. |\n| `MON-2002` | `REGISTRY_UNREACHABLE` | Monitoring failed to reach the Registry API three times in a row. It raises the `RegistryUnreachable` alert. |",
+     "gold": true
+    },
+    {
+     "key": "D08:1",
+     "text": "Monitoring guide > Alerts\n\n## Alerts\n\n| Alert | Fires when |\n|---|---|\n| `AgentLatencyHigh` | p95 response time above 8 seconds for 10 minutes |\n| `AgentErrorRateHigh` | more than 5% of sessions end in an error over 15 minutes |\n| `RegistryUnreachable` | three registry polls in a row fail (`MON-2002`) |\n\nAlerts go to the on-call channel and page the on-call engineer between 08:00 and 20:00. Outside those hours, only `RegistryUnreachable` pages.",
+     "gold": false
+    },
+    {
+     "key": "prometheus-docs/practices/instrumentation.md:9",
+     "text": "Instrumentation > How to instrument > Subsystems\n\n### Subsystems\n\nIn addition to the three main types of services, systems have sub-parts that\nshould also be monitored.",
+     "gold": false
+    },
+    {
+     "key": "D14:2",
+     "text": "Agent owners' FAQ > How do I find out which model my agent is on?\n\n## How do I find out which model my agent is on?\n\nLook it up in the registry: its record has a `model` field. If you're writing code that runs as the agent, ask the registry \"who am I?\" with the agent's own key and you'll get the same record back.",
+     "gold": false
+    }
+   ]
+  },
+  {
+   "id": "v10-false",
+   "item": "v10",
+   "premise": "false",
+   "question": "Since MON-2002 is raised after one failed registry poll, how seriously should I take a single MON-2002?",
+   "context": [
+    {
+     "key": "D02:3",
+     "text": "Error code reference > Monitoring errors\n\n## Monitoring errors\n\nThese come from the monitoring service, not from the Registry API, but they appear in the same alert channels.\n\n| Code | Name | Meaning |\n|---|---|---|\n| `MON-2001` | `SCRAPE_FAILED` | Monitoring couldn't collect metrics from one agent. Usually the agent is paused or restarting. |\n| `MON-2002` | `REGISTRY_UNREACHABLE` | Monitoring failed to reach the Registry API three times in a row. It raises the `RegistryUnreachable` alert. |",
+     "gold": true
+    },
+    {
+     "key": "D08:1",
+     "text": "Monitoring guide > Alerts\n\n## Alerts\n\n| Alert | Fires when |\n|---|---|\n| `AgentLatencyHigh` | p95 response time above 8 seconds for 10 minutes |\n| `AgentErrorRateHigh` | more than 5% of sessions end in an error over 15 minutes |\n| `RegistryUnreachable` | three registry polls in a row fail (`MON-2002`) |\n\nAlerts go to the on-call channel and page the on-call engineer between 08:00 and 20:00. Outside those hours, only `RegistryUnreachable` pages.",
+     "gold": false
+    },
+    {
+     "key": "prometheus-docs/practices/instrumentation.md:9",
+     "text": "Instrumentation > How to instrument > Subsystems\n\n### Subsystems\n\nIn addition to the three main types of services, systems have sub-parts that\nshould also be monitored.",
+     "gold": false
+    },
+    {
+     "key": "D14:2",
+     "text": "Agent owners' FAQ > How do I find out which model my agent is on?\n\n## How do I find out which model my agent is on?\n\nLook it up in the registry: its record has a `model` field. If you're writing code that runs as the agent, ask the registry \"who am I?\" with the agent's own key and you'll get the same record back.",
+     "gold": false
+    }
+   ],
+   "altered": "MON-2002 is reported after a single failed attempt to reach the Registry API."
+  },
+  {
+   "id": "v11-true",
+   "item": "v11",
+   "premise": "true",
+   "question": "Since registry-api was down for 42 minutes while registry-db failed over, what changed afterwards so that INC-2093 doesn't happen again?",
+   "context": [
+    {
+     "key": "D11:3",
+     "text": "Incident INC-2093: registry outage during database failover > What we changed\n\n## What we changed\n\n- An alert now fires when the standby falls more than 60 seconds behind.\n- Monitoring keeps its last good agent list when the registry is unreachable, instead of showing nothing.\n- `support_agent` now tells users the registry is unavailable instead of failing silently.",
+     "gold": false
+    },
+    {
+     "key": "D11:1",
+     "text": "Incident INC-2093: registry outage during database failover > Timeline\n\n## Timeline\n\n- 14:10 — The primary registry-db host failed a disk check and failover started.\n- 14:11 — `RegistryUnreachable` fired and paged the on-call engineer. The overview dashboard went blank.\n- 14:20 — `support_agent` sessions began failing on their first registry lookup. `triage_agent` kept running but couldn't hand tickets over, so 212 tickets queued.\n- 14:52 — The standby finished catching up and registry-api recovered. The queued tickets were handed over by 15:05.",
+     "gold": false
+    },
+    {
+     "key": "D11:0",
+     "text": "Incident INC-2093: registry outage during database failover > Summary\n\n## Summary\n\nOn 2026-08-27, registry-api was unavailable for 42 minutes while registry-db failed over to its standby. Agents that look things up in the registry couldn't finish their tasks, and monitoring lost sight of every agent for the same period.",
+     "gold": true
+    },
+    {
+     "key": "D11:2",
+     "text": "Incident INC-2093: registry outage during database failover > What made it worse\n\n## What made it worse\n\nThe failover should have taken about 5 minutes. It took 42 because the standby had fallen 38 minutes behind the primary, and nothing alerted on that lag. For the whole outage, monitoring showed no agents at all, so the on-call engineer couldn't tell which agents were affected. Its agent list comes from the registry.",
+     "gold": false
+    }
+   ]
+  },
+  {
+   "id": "v11-false",
+   "item": "v11",
+   "premise": "false",
+   "question": "Since registry-api was down for four hours while registry-db was restored from a backup, what changed afterwards so that INC-2093 doesn't happen again?",
+   "context": [
+    {
+     "key": "D11:3",
+     "text": "Incident INC-2093: registry outage during database failover > What we changed\n\n## What we changed\n\n- An alert now fires when the standby falls more than 60 seconds behind.\n- Monitoring keeps its last good agent list when the registry is unreachable, instead of showing nothing.\n- `support_agent` now tells users the registry is unavailable instead of failing silently.",
+     "gold": false
+    },
+    {
+     "key": "D11:1",
+     "text": "Incident INC-2093: registry outage during database failover > Timeline\n\n## Timeline\n\n- 14:10 — The primary registry-db host failed a disk check and failover started.\n- 14:11 — `RegistryUnreachable` fired and paged the on-call engineer. The overview dashboard went blank.\n- 14:20 — `support_agent` sessions began failing on their first registry lookup. `triage_agent` kept running but couldn't hand tickets over, so 212 tickets queued.\n- 14:52 — The standby finished catching up and registry-api recovered. The queued tickets were handed over by 15:05.",
+     "gold": false
+    },
+    {
+     "key": "D11:0",
+     "text": "Incident INC-2093: registry outage during database failover > Summary\n\n## Summary\n\nOn 2026-08-27, registry-api was unavailable for 42 minutes while registry-db failed over to its standby. Agents that look things up in the registry couldn't finish their tasks, and monitoring lost sight of every agent for the same period.",
+     "gold": true
+    },
+    {
+     "key": "D11:2",
+     "text": "Incident INC-2093: registry outage during database failover > What made it worse\n\n## What made it worse\n\nThe failover should have taken about 5 minutes. It took 42 because the standby had fallen 38 minutes behind the primary, and nothing alerted on that lag. For the whole outage, monitoring showed no agents at all, so the on-call engineer couldn't tell which agents were affected. Its agent list comes from the registry.",
+     "gold": false
+    }
+   ],
+   "altered": "registry-api was down for about four hours while registry-db was restored from a backup."
+  },
+  {
+   "id": "v12-true",
+   "item": "v12",
+   "premise": "true",
+   "question": "Since every registry request needs a key in the X-Registry-Key header, what does my read-only dashboard need to send with its requests?",
+   "context": [
+    {
+     "key": "D01:5",
+     "text": "Registry API reference > Updating an agent\n\n## Updating an agent\n\n`PATCH /agents/{agent_id}` changes one or more of `model`, `tier`, `owner` and `status`. Send only the fields you're changing. It needs a `write` key; a `read` key gets `REG-1004`.\n\n```bash\ncurl -X PATCH https://registry.internal.example/v2/agents/research_agent \\\n  -H \"X-Registry-Key: $REGISTRY_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"model\": \"claude-sonnet\"}'\n```\n\nA change takes effect on the agent's next session, not in the middle of one that's running. Setting `status` to `paused` stops new sessions from starting; `retired` also hides the agent from the default listing.",
+     "gold": false
+    },
+    {
+     "key": "D01:1",
+     "text": "Registry API reference > Authentication\n\n## Authentication\n\nEvery request must carry a registry key in the `X-Registry-Key` header. A request without one is rejected with `REG-1001`, and a key the registry doesn't recognise is rejected with `REG-1002`.\n\n```bash\ncurl https://registry.internal.example/v2/agents/me \\\n  -H \"X-Registry-Key: $REGISTRY_KEY\"\n```\n\nKeys have a scope. A `read` key can call every `GET` endpoint. A `write` key can also create, update and delete agents. Each key belongs to exactly one agent or one person, and the registry records which one made every change. Keys are issued and revoked with `regctl`; see the key rotation runbook.",
+     "gold": true
+    },
+    {
+     "key": "D14:3",
+     "text": "Agent owners' FAQ > Why does my agent get told to slow down?\n\n## Why does my agent get told to slow down?\n\nEach key gets a fixed number of registry calls per minute. If two things share a key, say the agent and a dashboard, they share that allowance. Give the dashboard its own read-only key.",
+     "gold": false
+    },
+    {
+     "key": "D04:2",
+     "text": "Agent platform architecture overview > How requests flow\n\n## How requests flow\n\nWhen a request reaches registry-api, it first asks auth-service to validate the `X-Registry-Key` header, then reads or writes registry-db. If auth-service is slow, every registry request is slow; if registry-db is unavailable, registry-api can't answer at all.\n\nMonitoring gets its list of agents from registry-api every 30 seconds, then collects metrics from each agent on the list.",
+     "gold": false
+    }
+   ]
+  },
+  {
+   "id": "v12-false",
+   "item": "v12",
+   "premise": "false",
+   "question": "Since read requests to the registry don't need a key, what does my read-only dashboard need to send with its requests?",
+   "context": [
+    {
+     "key": "D01:5",
+     "text": "Registry API reference > Updating an agent\n\n## Updating an agent\n\n`PATCH /agents/{agent_id}` changes one or more of `model`, `tier`, `owner` and `status`. Send only the fields you're changing. It needs a `write` key; a `read` key gets `REG-1004`.\n\n```bash\ncurl -X PATCH https://registry.internal.example/v2/agents/research_agent \\\n  -H \"X-Registry-Key: $REGISTRY_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"model\": \"claude-sonnet\"}'\n```\n\nA change takes effect on the agent's next session, not in the middle of one that's running. Setting `status` to `paused` stops new sessions from starting; `retired` also hides the agent from the default listing.",
+     "gold": false
+    },
+    {
+     "key": "D01:1",
+     "text": "Registry API reference > Authentication\n\n## Authentication\n\nEvery request must carry a registry key in the `X-Registry-Key` header. A request without one is rejected with `REG-1001`, and a key the registry doesn't recognise is rejected with `REG-1002`.\n\n```bash\ncurl https://registry.internal.example/v2/agents/me \\\n  -H \"X-Registry-Key: $REGISTRY_KEY\"\n```\n\nKeys have a scope. A `read` key can call every `GET` endpoint. A `write` key can also create, update and delete agents. Each key belongs to exactly one agent or one person, and the registry records which one made every change. Keys are issued and revoked with `regctl`; see the key rotation runbook.",
+     "gold": true
+    },
+    {
+     "key": "D14:3",
+     "text": "Agent owners' FAQ > Why does my agent get told to slow down?\n\n## Why does my agent get told to slow down?\n\nEach key gets a fixed number of registry calls per minute. If two things share a key, say the agent and a dashboard, they share that allowance. Give the dashboard its own read-only key.",
+     "gold": false
+    },
+    {
+     "key": "D04:2",
+     "text": "Agent platform architecture overview > How requests flow\n\n## How requests flow\n\nWhen a request reaches registry-api, it first asks auth-service to validate the `X-Registry-Key` header, then reads or writes registry-db. If auth-service is slow, every registry request is slow; if registry-db is unavailable, registry-api can't answer at all.\n\nMonitoring gets its list of agents from registry-api every 30 seconds, then collects metrics from each agent on the list.",
+     "gold": false
+    }
+   ],
+   "altered": "Read requests to the registry work without a key; only writes need one."
+  },
+  {
+   "id": "v13-true",
+   "item": "v13",
+   "premise": "true",
+   "question": "Since a revoked key can't be restored, how do I get my agent working again after it starts getting REG-1003?",
+   "context": [
+    {
+     "key": "D14:5",
+     "text": "Agent owners' FAQ > I changed my agent's settings but nothing happened.\n\n## I changed my agent's settings but nothing happened.\n\nChanges apply when the agent starts its next session, not partway through one that's already running. Wait for the current sessions to finish, or check again in a few minutes.",
+     "gold": false
+    },
+    {
+     "key": "D14:2",
+     "text": "Agent owners' FAQ > How do I find out which model my agent is on?\n\n## How do I find out which model my agent is on?\n\nLook it up in the registry: its record has a `model` field. If you're writing code that runs as the agent, ask the registry \"who am I?\" with the agent's own key and you'll get the same record back.",
+     "gold": false
+    },
+    {
+     "key": "D01:1",
+     "text": "Registry API reference > Authentication\n\n## Authentication\n\nEvery request must carry a registry key in the `X-Registry-Key` header. A request without one is rejected with `REG-1001`, and a key the registry doesn't recognise is rejected with `REG-1002`.\n\n```bash\ncurl https://registry.internal.example/v2/agents/me \\\n  -H \"X-Registry-Key: $REGISTRY_KEY\"\n```\n\nKeys have a scope. A `read` key can call every `GET` endpoint. A `write` key can also create, update and delete agents. Each key belongs to exactly one agent or one person, and the registry records which one made every change. Keys are issued and revoked with `regctl`; see the key rotation runbook.",
+     "gold": false
+    },
+    {
+     "key": "D02:0",
+     "text": "Error code reference > Authentication errors\n\n## Authentication errors\n\n| Code | Name | HTTP | Meaning |\n|---|---|---|---|\n| `REG-1001` | `MISSING_KEY` | 401 | The request had no `X-Registry-Key` header. |\n| `REG-1002` | `INVALID_KEY` | 401 | The key isn't one the registry issued. Check for a truncated or mistyped key. |\n| `REG-1003` | `KEY_REVOKED` | 401 | The key was valid but has been revoked. Issue a new key; a revoked key can't be restored. |\n| `REG-1004` | `FORBIDDEN_FIELD` | 403 | The key's scope doesn't allow this change. Writes need a `write` key. |",
+     "gold": true
+    }
+   ]
+  },
+  {
+   "id": "v13-false",
+   "item": "v13",
+   "premise": "false",
+   "question": "Since a revoked key can be restored within 24 hours, how do I get my agent working again after it starts getting REG-1003?",
+   "context": [
+    {
+     "key": "D14:5",
+     "text": "Agent owners' FAQ > I changed my agent's settings but nothing happened.\n\n## I changed my agent's settings but nothing happened.\n\nChanges apply when the agent starts its next session, not partway through one that's already running. Wait for the current sessions to finish, or check again in a few minutes.",
+     "gold": false
+    },
+    {
+     "key": "D14:2",
+     "text": "Agent owners' FAQ > How do I find out which model my agent is on?\n\n## How do I find out which model my agent is on?\n\nLook it up in the registry: its record has a `model` field. If you're writing code that runs as the agent, ask the registry \"who am I?\" with the agent's own key and you'll get the same record back.",
+     "gold": false
+    },
+    {
+     "key": "D01:1",
+     "text": "Registry API reference > Authentication\n\n## Authentication\n\nEvery request must carry a registry key in the `X-Registry-Key` header. A request without one is rejected with `REG-1001`, and a key the registry doesn't recognise is rejected with `REG-1002`.\n\n```bash\ncurl https://registry.internal.example/v2/agents/me \\\n  -H \"X-Registry-Key: $REGISTRY_KEY\"\n```\n\nKeys have a scope. A `read` key can call every `GET` endpoint. A `write` key can also create, update and delete agents. Each key belongs to exactly one agent or one person, and the registry records which one made every change. Keys are issued and revoked with `regctl`; see the key rotation runbook.",
+     "gold": false
+    },
+    {
+     "key": "D02:0",
+     "text": "Error code reference > Authentication errors\n\n## Authentication errors\n\n| Code | Name | HTTP | Meaning |\n|---|---|---|---|\n| `REG-1001` | `MISSING_KEY` | 401 | The request had no `X-Registry-Key` header. |\n| `REG-1002` | `INVALID_KEY` | 401 | The key isn't one the registry issued. Check for a truncated or mistyped key. |\n| `REG-1003` | `KEY_REVOKED` | 401 | The key was valid but has been revoked. Issue a new key; a revoked key can't be restored. |\n| `REG-1004` | `FORBIDDEN_FIELD` | 403 | The key's scope doesn't allow this change. Writes need a `write` key. |",
+     "gold": true
+    }
+   ],
+   "altered": "A revoked key can be restored by its owner within 24 hours."
+  },
+  {
+   "id": "v14-true",
+   "item": "v14",
+   "premise": "true",
+   "question": "Since AgentErrorRateHigh fires when more than 5% of sessions end in an error over 15 minutes, would 10% of sessions failing for twenty minutes trigger an alert?",
+   "context": [
+    {
+     "key": "D08:1",
+     "text": "Monitoring guide > Alerts\n\n## Alerts\n\n| Alert | Fires when |\n|---|---|\n| `AgentLatencyHigh` | p95 response time above 8 seconds for 10 minutes |\n| `AgentErrorRateHigh` | more than 5% of sessions end in an error over 15 minutes |\n| `RegistryUnreachable` | three registry polls in a row fail (`MON-2002`) |\n\nAlerts go to the on-call channel and page the on-call engineer between 08:00 and 20:00. Outside those hours, only `RegistryUnreachable` pages.",
+     "gold": true
+    },
+    {
+     "key": "D11:3",
+     "text": "Incident INC-2093: registry outage during database failover > What we changed\n\n## What we changed\n\n- An alert now fires when the standby falls more than 60 seconds behind.\n- Monitoring keeps its last good agent list when the registry is unreachable, instead of showing nothing.\n- `support_agent` now tells users the registry is unavailable instead of failing silently.",
+     "gold": false
+    },
+    {
+     "key": "prometheus-server/configuration/template_examples.md:1",
+     "text": "Template examples > Simple alert field templates\n\n## Simple alert field templates\n\n```yaml\nalert: InstanceDown\nexpr: up == 0\nfor: 5m\nlabels:\n  severity: page\nannotations:\n  summary: \"Instance {{$labels.instance}} down\"\n  description: \"{{$labels.instance}} of job {{$labels.job}} has been down for more than 5 minutes.\"\n```\n\nAlert field templates will be executed during every rule iteration for each\nalert that fires, so keep any queries and templates lightweight. If you have a\nneed for more complicated templates for alerts, it is recommended to link to a\nconsole instead.",
+     "gold": false
+    },
+    {
+     "key": "prometheus-docs/practices/the_zen.md:16",
+     "text": "The Zen of Prometheus > Please five more minutes\n\n## Please five more minutes\n\nPrometheus alerting rules let you specify a `for` duration that determines how long a condition must be true before the alert fires. If you don't specify it, a single failed scrape could cause an alert to fire. You need tolerance. As a rule of thumb, use at least 5 minutes unless you have a specific reason to do otherwise. For more information, check out Setting Thresholds on Alerts.",
+     "gold": false
+    }
+   ]
+  },
+  {
+   "id": "v14-false",
+   "item": "v14",
+   "premise": "false",
+   "question": "Since AgentErrorRateHigh only fires when more than 20% of sessions fail over an hour, would 10% of sessions failing for twenty minutes trigger an alert?",
+   "context": [
+    {
+     "key": "D08:1",
+     "text": "Monitoring guide > Alerts\n\n## Alerts\n\n| Alert | Fires when |\n|---|---|\n| `AgentLatencyHigh` | p95 response time above 8 seconds for 10 minutes |\n| `AgentErrorRateHigh` | more than 5% of sessions end in an error over 15 minutes |\n| `RegistryUnreachable` | three registry polls in a row fail (`MON-2002`) |\n\nAlerts go to the on-call channel and page the on-call engineer between 08:00 and 20:00. Outside those hours, only `RegistryUnreachable` pages.",
+     "gold": true
+    },
+    {
+     "key": "D11:3",
+     "text": "Incident INC-2093: registry outage during database failover > What we changed\n\n## What we changed\n\n- An alert now fires when the standby falls more than 60 seconds behind.\n- Monitoring keeps its last good agent list when the registry is unreachable, instead of showing nothing.\n- `support_agent` now tells users the registry is unavailable instead of failing silently.",
+     "gold": false
+    },
+    {
+     "key": "prometheus-server/configuration/template_examples.md:1",
+     "text": "Template examples > Simple alert field templates\n\n## Simple alert field templates\n\n```yaml\nalert: InstanceDown\nexpr: up == 0\nfor: 5m\nlabels:\n  severity: page\nannotations:\n  summary: \"Instance {{$labels.instance}} down\"\n  description: \"{{$labels.instance}} of job {{$labels.job}} has been down for more than 5 minutes.\"\n```\n\nAlert field templates will be executed during every rule iteration for each\nalert that fires, so keep any queries and templates lightweight. If you have a\nneed for more complicated templates for alerts, it is recommended to link to a\nconsole instead.",
+     "gold": false
+    },
+    {
+     "key": "prometheus-docs/practices/the_zen.md:16",
+     "text": "The Zen of Prometheus > Please five more minutes\n\n## Please five more minutes\n\nPrometheus alerting rules let you specify a `for` duration that determines how long a condition must be true before the alert fires. If you don't specify it, a single failed scrape could cause an alert to fire. You need tolerance. As a rule of thumb, use at least 5 minutes unless you have a specific reason to do otherwise. For more information, check out Setting Thresholds on Alerts.",
+     "gold": false
+    }
+   ],
+   "altered": "AgentErrorRateHigh only fires when more than 20% of sessions fail over an hour."
+  },
+  {
+   "id": "v15-true",
+   "item": "v15",
+   "premise": "true",
+   "question": "Since the rate limit was lowered to 60 requests per minute per key, how many requests per minute can my dashboard make without being throttled?",
+   "context": [
+    {
+     "key": "D14:3",
+     "text": "Agent owners' FAQ > Why does my agent get told to slow down?\n\n## Why does my agent get told to slow down?\n\nEach key gets a fixed number of registry calls per minute. If two things share a key, say the agent and a dashboard, they share that allowance. Give the dashboard its own read-only key.",
+     "gold": false
+    },
+    {
+     "key": "D08:4",
+     "text": "Monitoring guide > Polling the registry from your own dashboards\n\n## Polling the registry from your own dashboards\n\nIf you build your own dashboard on top of the registry, poll no more than once every few seconds. The registry allows 100 requests per minute per key, and a dashboard that uses most of that leaves nothing for the agent sharing its key.",
+     "gold": false
+    },
+    {
+     "key": "D01:8",
+     "text": "Registry API reference > Rate limits\n\n## Rate limits\n\nEach key may make 60 requests per minute. Requests past the limit get HTTP 429 with error `REG-1009` and a `Retry-After` header giving the number of seconds to wait. Limits apply per key, not per agent, so two processes sharing one key share one limit.",
+     "gold": false
+    },
+    {
+     "key": "D03:2",
+     "text": "Registry changelog > v2.4 — 2026-05-12\n\n## v2.4 — 2026-05-12\n\n- Lowered the rate limit from 100 to 60 requests per minute per key. Some internal dashboards were polling hard enough to slow the registry for agents.\n- Rate-limited responses (`REG-1009`) now include a `Retry-After` header.",
+     "gold": true
+    }
+   ]
+  },
+  {
+   "id": "v15-false",
+   "item": "v15",
+   "premise": "false",
+   "question": "Since the rate limit was raised to 100 requests per minute per key, how many requests per minute can my dashboard make without being throttled?",
+   "context": [
+    {
+     "key": "D14:3",
+     "text": "Agent owners' FAQ > Why does my agent get told to slow down?\n\n## Why does my agent get told to slow down?\n\nEach key gets a fixed number of registry calls per minute. If two things share a key, say the agent and a dashboard, they share that allowance. Give the dashboard its own read-only key.",
+     "gold": false
+    },
+    {
+     "key": "D08:4",
+     "text": "Monitoring guide > Polling the registry from your own dashboards\n\n## Polling the registry from your own dashboards\n\nIf you build your own dashboard on top of the registry, poll no more than once every few seconds. The registry allows 100 requests per minute per key, and a dashboard that uses most of that leaves nothing for the agent sharing its key.",
+     "gold": false
+    },
+    {
+     "key": "D01:8",
+     "text": "Registry API reference > Rate limits\n\n## Rate limits\n\nEach key may make 60 requests per minute. Requests past the limit get HTTP 429 with error `REG-1009` and a `Retry-After` header giving the number of seconds to wait. Limits apply per key, not per agent, so two processes sharing one key share one limit.",
+     "gold": false
+    },
+    {
+     "key": "D03:2",
+     "text": "Registry changelog > v2.4 — 2026-05-12\n\n## v2.4 — 2026-05-12\n\n- Lowered the rate limit from 100 to 60 requests per minute per key. Some internal dashboards were polling hard enough to slow the registry for agents.\n- Rate-limited responses (`REG-1009`) now include a `Retry-After` header.",
+     "gold": true
+    }
+   ],
+   "altered": "The rate limit was raised from 60 to 100 requests per minute per key."
+  },
+  {
+   "id": "v16-true",
+   "item": "v16",
+   "premise": "true",
+   "question": "Since the dashboard panels can lag real time by up to a minute, how soon after an agent starts failing will I see it on the dashboard?",
+   "context": [
+    {
+     "key": "D14:2",
+     "text": "Agent owners' FAQ > How do I find out which model my agent is on?\n\n## How do I find out which model my agent is on?\n\nLook it up in the registry: its record has a `model` field. If you're writing code that runs as the agent, ask the registry \"who am I?\" with the agent's own key and you'll get the same record back.",
+     "gold": false
+    },
+    {
+     "key": "D14:3",
+     "text": "Agent owners' FAQ > Why does my agent get told to slow down?\n\n## Why does my agent get told to slow down?\n\nEach key gets a fixed number of registry calls per minute. If two things share a key, say the agent and a dashboard, they share that allowance. Give the dashboard its own read-only key.",
+     "gold": false
+    },
+    {
+     "key": "postgresql/high-availability.md:73",
+     "text": "High Availability, Load Balancing, and Replication > Log-Shipping Standby Servers > Synchronous Replication > Planning for High Availability\n\n#### Planning for High Availability\n\nWhen a standby first attaches to the primary, it will not yet be properly synchronized. This is described as `catchup` mode. Once the lag between standby and primary reaches zero for the first time we move to real-time `streaming` state. The catch-up duration may be long immediately after the standby has been created. If the standby is shut down, then the catch-up period will increase according to the length of time the standby has been down. The standby is only able to become a synchronous standby once it has reached `streaming` state. This state can be viewed using the pg_stat_replication view.",
+     "gold": false
+    },
+    {
+     "key": "D08:3",
+     "text": "Monitoring guide > Dashboards\n\n## Dashboards\n\nEach agent has a panel with latency, error rate and sessions. The overview dashboard shows every active agent on one screen, sorted by p95. Panels refresh every 30 seconds and lag real time by up to a minute.",
+     "gold": true
+    }
+   ]
+  },
+  {
+   "id": "v16-false",
+   "item": "v16",
+   "premise": "false",
+   "question": "Since the dashboard panels update in real time with no lag, how soon after an agent starts failing will I see it on the dashboard?",
+   "context": [
+    {
+     "key": "D14:2",
+     "text": "Agent owners' FAQ > How do I find out which model my agent is on?\n\n## How do I find out which model my agent is on?\n\nLook it up in the registry: its record has a `model` field. If you're writing code that runs as the agent, ask the registry \"who am I?\" with the agent's own key and you'll get the same record back.",
+     "gold": false
+    },
+    {
+     "key": "D14:3",
+     "text": "Agent owners' FAQ > Why does my agent get told to slow down?\n\n## Why does my agent get told to slow down?\n\nEach key gets a fixed number of registry calls per minute. If two things share a key, say the agent and a dashboard, they share that allowance. Give the dashboard its own read-only key.",
+     "gold": false
+    },
+    {
+     "key": "postgresql/high-availability.md:73",
+     "text": "High Availability, Load Balancing, and Replication > Log-Shipping Standby Servers > Synchronous Replication > Planning for High Availability\n\n#### Planning for High Availability\n\nWhen a standby first attaches to the primary, it will not yet be properly synchronized. This is described as `catchup` mode. Once the lag between standby and primary reaches zero for the first time we move to real-time `streaming` state. The catch-up duration may be long immediately after the standby has been created. If the standby is shut down, then the catch-up period will increase according to the length of time the standby has been down. The standby is only able to become a synchronous standby once it has reached `streaming` state. This state can be viewed using the pg_stat_replication view.",
+     "gold": false
+    },
+    {
+     "key": "D08:3",
+     "text": "Monitoring guide > Dashboards\n\n## Dashboards\n\nEach agent has a panel with latency, error rate and sessions. The overview dashboard shows every active agent on one screen, sorted by p95. Panels refresh every 30 seconds and lag real time by up to a minute.",
+     "gold": true
+    }
+   ],
+   "altered": "Dashboard panels update in real time, with no lag."
+  },
+  {
+   "id": "v17-true",
+   "item": "v17",
+   "premise": "true",
+   "question": "Since AgentLatencyHigh fires when p95 latency stays above 8 seconds for 10 minutes, would a p95 of 5 seconds for half an hour trigger a latency alert?",
+   "context": [
+    {
+     "key": "prometheus-server/configuration/alerting_rules.md:1",
+     "text": "Alerting rules > Defining alerting rules\n\n## Defining alerting rules\n\nAlerting rules are configured in Prometheus in the same way as recording\nrules.\n\nAn example rules file with an alert would be:\n\n```yaml\ngroups:\n- name: example\n  labels:\n    team: myteam\n  rules:\n  - alert: HighRequestLatency\n    expr: job:request_latency_seconds:mean5m{job=\"myjob\"} > 0.5\n    for: 10m\n    keep_firing_for: 5m\n    labels:\n      severity: page\n    annotations:\n      summary: High request latency\n```",
+     "gold": false
+    },
+    {
+     "key": "prometheus-server/configuration/alerting_rules.md:6",
+     "text": "Alerting rules > Defining alerting rules > Templating\n\n### Templating\n\n```yaml\ngroups:\n- name: example\n  rules:\n\n  # Alert for any instance that is unreachable for >5 minutes.\n  - alert: InstanceDown\n    expr: up == 0\n    for: 5m\n    labels:\n      severity: page\n    annotations:\n      summary: \"Instance {{ $labels.instance }} down\"\n      description: \"{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 5 minutes.\"\n\n  # Alert for any instance that has a median request latency >1s.\n  - alert: APIHighRequestLatency\n    expr: api_http_request_latencies_second{quantile=\"0.5\"} > 1\n    for: 10m\n    annotations:\n      summary: \"High request latency on {{ $labels.instance }}\"\n      description: \"{{ $labels.instance }} has a median request latency above 1s (current value: {{ $value }}s)\"\n```",
+     "gold": false
+    },
+    {
+     "key": "prometheus-docs/practices/the_zen.md:16",
+     "text": "The Zen of Prometheus > Please five more minutes\n\n## Please five more minutes\n\nPrometheus alerting rules let you specify a `for` duration that determines how long a condition must be true before the alert fires. If you don't specify it, a single failed scrape could cause an alert to fire. You need tolerance. As a rule of thumb, use at least 5 minutes unless you have a specific reason to do otherwise. For more information, check out Setting Thresholds on Alerts.",
+     "gold": false
+    },
+    {
+     "key": "D08:1",
+     "text": "Monitoring guide > Alerts\n\n## Alerts\n\n| Alert | Fires when |\n|---|---|\n| `AgentLatencyHigh` | p95 response time above 8 seconds for 10 minutes |\n| `AgentErrorRateHigh` | more than 5% of sessions end in an error over 15 minutes |\n| `RegistryUnreachable` | three registry polls in a row fail (`MON-2002`) |\n\nAlerts go to the on-call channel and page the on-call engineer between 08:00 and 20:00. Outside those hours, only `RegistryUnreachable` pages.",
+     "gold": true
+    }
+   ]
+  },
+  {
+   "id": "v17-false",
+   "item": "v17",
+   "premise": "false",
+   "question": "Since AgentLatencyHigh fires as soon as average latency passes 2 seconds, would a p95 of 5 seconds for half an hour trigger a latency alert?",
+   "context": [
+    {
+     "key": "prometheus-server/configuration/alerting_rules.md:1",
+     "text": "Alerting rules > Defining alerting rules\n\n## Defining alerting rules\n\nAlerting rules are configured in Prometheus in the same way as recording\nrules.\n\nAn example rules file with an alert would be:\n\n```yaml\ngroups:\n- name: example\n  labels:\n    team: myteam\n  rules:\n  - alert: HighRequestLatency\n    expr: job:request_latency_seconds:mean5m{job=\"myjob\"} > 0.5\n    for: 10m\n    keep_firing_for: 5m\n    labels:\n      severity: page\n    annotations:\n      summary: High request latency\n```",
+     "gold": false
+    },
+    {
+     "key": "prometheus-server/configuration/alerting_rules.md:6",
+     "text": "Alerting rules > Defining alerting rules > Templating\n\n### Templating\n\n```yaml\ngroups:\n- name: example\n  rules:\n\n  # Alert for any instance that is unreachable for >5 minutes.\n  - alert: InstanceDown\n    expr: up == 0\n    for: 5m\n    labels:\n      severity: page\n    annotations:\n      summary: \"Instance {{ $labels.instance }} down\"\n      description: \"{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 5 minutes.\"\n\n  # Alert for any instance that has a median request latency >1s.\n  - alert: APIHighRequestLatency\n    expr: api_http_request_latencies_second{quantile=\"0.5\"} > 1\n    for: 10m\n    annotations:\n      summary: \"High request latency on {{ $labels.instance }}\"\n      description: \"{{ $labels.instance }} has a median request latency above 1s (current value: {{ $value }}s)\"\n```",
+     "gold": false
+    },
+    {
+     "key": "prometheus-docs/practices/the_zen.md:16",
+     "text": "The Zen of Prometheus > Please five more minutes\n\n## Please five more minutes\n\nPrometheus alerting rules let you specify a `for` duration that determines how long a condition must be true before the alert fires. If you don't specify it, a single failed scrape could cause an alert to fire. You need tolerance. As a rule of thumb, use at least 5 minutes unless you have a specific reason to do otherwise. For more information, check out Setting Thresholds on Alerts.",
+     "gold": false
+    },
+    {
+     "key": "D08:1",
+     "text": "Monitoring guide > Alerts\n\n## Alerts\n\n| Alert | Fires when |\n|---|---|\n| `AgentLatencyHigh` | p95 response time above 8 seconds for 10 minutes |\n| `AgentErrorRateHigh` | more than 5% of sessions end in an error over 15 minutes |\n| `RegistryUnreachable` | three registry polls in a row fail (`MON-2002`) |\n\nAlerts go to the on-call channel and page the on-call engineer between 08:00 and 20:00. Outside those hours, only `RegistryUnreachable` pages.",
+     "gold": true
+    }
+   ],
+   "altered": "AgentLatencyHigh fires as soon as the average response time passes 2 seconds."
+  },
+  {
+   "id": "v18-true",
+   "item": "v18",
+   "premise": "true",
+   "question": "Since billing_agent stops retrying after three timeouts from the same service in a session, what will billing_agent do if auth-service starts timing out again?",
+   "context": [
+    {
+     "key": "D09:1",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > Timeline\n\n## Timeline\n\n- 06:02 — `AgentErrorRateHigh` fired for `billing_agent`. No page: it was outside paging hours.\n- 08:00 — The on-call engineer saw the alert and found every failed session stuck on the same payments-gateway call.\n- 08:40 — The Payments team found that payments-gateway couldn't open connections to auth-service.\n- 08:55 — The Identity team renewed the certificate. `billing_agent` recovered within two minutes.",
+     "gold": false
+    },
+    {
+     "key": "D09:2",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > Root cause\n\n## Root cause\n\npayments-gateway checks every request's certificate with auth-service before it will talk to a caller. An intermediate certificate in auth-service expired at 06:00, so every check failed, and payments-gateway timed out instead of returning an error. `billing_agent` treated the timeouts as transient and retried each one until its step limit ran out.",
+     "gold": false
+    },
+    {
+     "key": "D14:5",
+     "text": "Agent owners' FAQ > I changed my agent's settings but nothing happened.\n\n## I changed my agent's settings but nothing happened.\n\nChanges apply when the agent starts its next session, not partway through one that's already running. Wait for the current sessions to finish, or check again in a few minutes.",
+     "gold": false
+    },
+    {
+     "key": "D09:3",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > What we changed\n\n## What we changed\n\n- auth-service now alerts 30 days before any certificate expires.\n- payments-gateway now returns an error immediately when a certificate check fails, instead of hanging.\n- `billing_agent` stops retrying after three timeouts from the same service in one session.",
+     "gold": true
+    }
+   ]
+  },
+  {
+   "id": "v18-false",
+   "item": "v18",
+   "premise": "false",
+   "question": "Since billing_agent keeps retrying a failing service until it answers, what will billing_agent do if auth-service starts timing out again?",
+   "context": [
+    {
+     "key": "D09:1",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > Timeline\n\n## Timeline\n\n- 06:02 — `AgentErrorRateHigh` fired for `billing_agent`. No page: it was outside paging hours.\n- 08:00 — The on-call engineer saw the alert and found every failed session stuck on the same payments-gateway call.\n- 08:40 — The Payments team found that payments-gateway couldn't open connections to auth-service.\n- 08:55 — The Identity team renewed the certificate. `billing_agent` recovered within two minutes.",
+     "gold": false
+    },
+    {
+     "key": "D09:2",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > Root cause\n\n## Root cause\n\npayments-gateway checks every request's certificate with auth-service before it will talk to a caller. An intermediate certificate in auth-service expired at 06:00, so every check failed, and payments-gateway timed out instead of returning an error. `billing_agent` treated the timeouts as transient and retried each one until its step limit ran out.",
+     "gold": false
+    },
+    {
+     "key": "D14:5",
+     "text": "Agent owners' FAQ > I changed my agent's settings but nothing happened.\n\n## I changed my agent's settings but nothing happened.\n\nChanges apply when the agent starts its next session, not partway through one that's already running. Wait for the current sessions to finish, or check again in a few minutes.",
+     "gold": false
+    },
+    {
+     "key": "D09:3",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > What we changed\n\n## What we changed\n\n- auth-service now alerts 30 days before any certificate expires.\n- payments-gateway now returns an error immediately when a certificate check fails, instead of hanging.\n- `billing_agent` stops retrying after three timeouts from the same service in one session.",
+     "gold": true
+    }
+   ],
+   "altered": "billing_agent keeps retrying a failing service until it answers."
+  },
+  {
+   "id": "v19-true",
+   "item": "v19",
+   "premise": "true",
+   "question": "Since agents can't be rolled back to claude-legacy, what should I do if research_agent misbehaves after its migration?",
+   "context": [
+    {
+     "key": "D01:3",
+     "text": "Registry API reference > Reading one agent\n\n## Reading one agent\n\n`GET /agents/{agent_id}` returns one agent's full record, or `REG-1005` if no agent has that id.\n\n```json\n{\n  \"agent_id\": \"research_agent\",\n  \"model\": \"claude-legacy\",\n  \"tier\": \"standard\",\n  \"owner\": \"research-team\",\n  \"status\": \"active\",\n  \"updated_at\": \"2026-06-23T09:12:44Z\"\n}\n```\n\n`GET /agents/me` returns the agent that owns the key making the request. It's the quickest way to check that a newly deployed key works and belongs to the agent you expect.",
+     "gold": false
+    },
+    {
+     "key": "D01:7",
+     "text": "Registry API reference > Tiers and models\n\n## Tiers and models\n\nEvery agent has a tier, and each tier allows a fixed set of models:\n\n| Tier | Allowed models |\n|---|---|\n| `standard` | `claude-haiku`, `claude-sonnet` |\n| `priority` | `claude-haiku`, `claude-sonnet`, `claude-opus` |\n\nMoving an agent to `claude-opus` therefore means moving it to the `priority` tier first, which needs approval from its owner's budget holder. `claude-legacy` is deprecated and can't be assigned to any agent; existing agents on it keep working until 2026-10-31.",
+     "gold": false
+    },
+    {
+     "key": "D07:1",
+     "text": "Runbook: migrating agents off claude-legacy > Which agents are affected\n\n## Which agents are affected\n\nAs of this writing, two active agents are on `claude-legacy`:\n\n| Agent | Owner | Target model |\n|---|---|---|\n| `research_agent` | research-team | `claude-sonnet` |\n| `notes_agent` | support-team | `claude-haiku` |\n\nOwners can check any agent with `GET /agents/{agent_id}` and look at its `model` field.",
+     "gold": false
+    },
+    {
+     "key": "D07:5",
+     "text": "Runbook: migrating agents off claude-legacy > Step 4: Roll back if needed\n\n## Step 4: Roll back if needed\n\nYou can't roll back to `claude-legacy`: the registry refuses it. If the new model misbehaves, set the agent's `status` to `paused` while you fix the problem, and tell its users.",
+     "gold": true
+    }
+   ]
+  },
+  {
+   "id": "v19-false",
+   "item": "v19",
+   "premise": "false",
+   "question": "Since a migrated agent can be rolled back to claude-legacy, what should I do if research_agent misbehaves after its migration?",
+   "context": [
+    {
+     "key": "D01:3",
+     "text": "Registry API reference > Reading one agent\n\n## Reading one agent\n\n`GET /agents/{agent_id}` returns one agent's full record, or `REG-1005` if no agent has that id.\n\n```json\n{\n  \"agent_id\": \"research_agent\",\n  \"model\": \"claude-legacy\",\n  \"tier\": \"standard\",\n  \"owner\": \"research-team\",\n  \"status\": \"active\",\n  \"updated_at\": \"2026-06-23T09:12:44Z\"\n}\n```\n\n`GET /agents/me` returns the agent that owns the key making the request. It's the quickest way to check that a newly deployed key works and belongs to the agent you expect.",
+     "gold": false
+    },
+    {
+     "key": "D01:7",
+     "text": "Registry API reference > Tiers and models\n\n## Tiers and models\n\nEvery agent has a tier, and each tier allows a fixed set of models:\n\n| Tier | Allowed models |\n|---|---|\n| `standard` | `claude-haiku`, `claude-sonnet` |\n| `priority` | `claude-haiku`, `claude-sonnet`, `claude-opus` |\n\nMoving an agent to `claude-opus` therefore means moving it to the `priority` tier first, which needs approval from its owner's budget holder. `claude-legacy` is deprecated and can't be assigned to any agent; existing agents on it keep working until 2026-10-31.",
+     "gold": false
+    },
+    {
+     "key": "D07:1",
+     "text": "Runbook: migrating agents off claude-legacy > Which agents are affected\n\n## Which agents are affected\n\nAs of this writing, two active agents are on `claude-legacy`:\n\n| Agent | Owner | Target model |\n|---|---|---|\n| `research_agent` | research-team | `claude-sonnet` |\n| `notes_agent` | support-team | `claude-haiku` |\n\nOwners can check any agent with `GET /agents/{agent_id}` and look at its `model` field.",
+     "gold": false
+    },
+    {
+     "key": "D07:5",
+     "text": "Runbook: migrating agents off claude-legacy > Step 4: Roll back if needed\n\n## Step 4: Roll back if needed\n\nYou can't roll back to `claude-legacy`: the registry refuses it. If the new model misbehaves, set the agent's `status` to `paused` while you fix the problem, and tell its users.",
+     "gold": true
+    }
+   ],
+   "altered": "If the new model misbehaves, you can roll the agent back to claude-legacy."
+  },
+  {
+   "id": "v20-true",
+   "item": "v20",
+   "premise": "true",
+   "question": "Since the rate limit applies to each key separately, will giving my dashboard its own key stop it using up my agent's rate limit?",
+   "context": [
+    {
+     "key": "D08:4",
+     "text": "Monitoring guide > Polling the registry from your own dashboards\n\n## Polling the registry from your own dashboards\n\nIf you build your own dashboard on top of the registry, poll no more than once every few seconds. The registry allows 100 requests per minute per key, and a dashboard that uses most of that leaves nothing for the agent sharing its key.",
+     "gold": false
+    },
+    {
+     "key": "D14:2",
+     "text": "Agent owners' FAQ > How do I find out which model my agent is on?\n\n## How do I find out which model my agent is on?\n\nLook it up in the registry: its record has a `model` field. If you're writing code that runs as the agent, ask the registry \"who am I?\" with the agent's own key and you'll get the same record back.",
+     "gold": false
+    },
+    {
+     "key": "D01:8",
+     "text": "Registry API reference > Rate limits\n\n## Rate limits\n\nEach key may make 60 requests per minute. Requests past the limit get HTTP 429 with error `REG-1009` and a `Retry-After` header giving the number of seconds to wait. Limits apply per key, not per agent, so two processes sharing one key share one limit.",
+     "gold": true
+    },
+    {
+     "key": "D14:3",
+     "text": "Agent owners' FAQ > Why does my agent get told to slow down?\n\n## Why does my agent get told to slow down?\n\nEach key gets a fixed number of registry calls per minute. If two things share a key, say the agent and a dashboard, they share that allowance. Give the dashboard its own read-only key.",
+     "gold": false
+    }
+   ]
+  },
+  {
+   "id": "v20-false",
+   "item": "v20",
+   "premise": "false",
+   "question": "Since the rate limit applies to each agent across all of its keys, will giving my dashboard its own key stop it using up my agent's rate limit?",
+   "context": [
+    {
+     "key": "D08:4",
+     "text": "Monitoring guide > Polling the registry from your own dashboards\n\n## Polling the registry from your own dashboards\n\nIf you build your own dashboard on top of the registry, poll no more than once every few seconds. The registry allows 100 requests per minute per key, and a dashboard that uses most of that leaves nothing for the agent sharing its key.",
+     "gold": false
+    },
+    {
+     "key": "D14:2",
+     "text": "Agent owners' FAQ > How do I find out which model my agent is on?\n\n## How do I find out which model my agent is on?\n\nLook it up in the registry: its record has a `model` field. If you're writing code that runs as the agent, ask the registry \"who am I?\" with the agent's own key and you'll get the same record back.",
+     "gold": false
+    },
+    {
+     "key": "D01:8",
+     "text": "Registry API reference > Rate limits\n\n## Rate limits\n\nEach key may make 60 requests per minute. Requests past the limit get HTTP 429 with error `REG-1009` and a `Retry-After` header giving the number of seconds to wait. Limits apply per key, not per agent, so two processes sharing one key share one limit.",
+     "gold": true
+    },
+    {
+     "key": "D14:3",
+     "text": "Agent owners' FAQ > Why does my agent get told to slow down?\n\n## Why does my agent get told to slow down?\n\nEach key gets a fixed number of registry calls per minute. If two things share a key, say the agent and a dashboard, they share that allowance. Give the dashboard its own read-only key.",
+     "gold": false
+    }
+   ],
+   "altered": "The limit is 60 requests per minute for each agent, however many keys it uses."
+  },
+  {
+   "id": "v21-true",
+   "item": "v21",
+   "premise": "true",
+   "question": "Since rate-limited requests get HTTP 429 with REG-1009, what should my client do when it gets rate limited?",
+   "context": [
+    {
+     "key": "prometheus-docs/instrumenting/writing_exporters.md:6",
+     "text": "Writing exporters > Metrics > Naming\n\n### Naming\n\nFollow the best practices on metric naming.\n\nGenerally metric names should allow someone who is familiar with\nPrometheus but not a particular system to make a good guess as to what a\nmetric means.  A metric named `http_requests_total` is not extremely\nuseful - are these being measured as they come in, in some filter or\nwhen they get to the user’s code?  And `requests_total` is even worse,\nwhat type of requests?\n\nWith direct instrumentation, a given metric should exist within exactly\none file. Accordingly, within exporters and collectors, a metric should\napply to exactly one subsystem and be named accordingly.\n\nMetric names should never be procedurally generated, except when writing\na custom collector or exporter.",
+     "gold": false
+    },
+    {
+     "key": "D03:2",
+     "text": "Registry changelog > v2.4 — 2026-05-12\n\n## v2.4 — 2026-05-12\n\n- Lowered the rate limit from 100 to 60 requests per minute per key. Some internal dashboards were polling hard enough to slow the registry for agents.\n- Rate-limited responses (`REG-1009`) now include a `Retry-After` header.",
+     "gold": false
+    },
+    {
+     "key": "D02:2",
+     "text": "Error code reference > Limits and availability\n\n## Limits and availability\n\n| Code | Name | HTTP | Meaning |\n|---|---|---|---|\n| `REG-1009` | `RATE_LIMITED` | 429 | The key made too many requests this minute. Wait the number of seconds in `Retry-After`, then retry. |\n| `REG-1011` | `REGISTRY_READ_ONLY` | 503 | The registry is in maintenance mode. Reads work; writes are refused until maintenance ends. |",
+     "gold": false
+    },
+    {
+     "key": "D01:8",
+     "text": "Registry API reference > Rate limits\n\n## Rate limits\n\nEach key may make 60 requests per minute. Requests past the limit get HTTP 429 with error `REG-1009` and a `Retry-After` header giving the number of seconds to wait. Limits apply per key, not per agent, so two processes sharing one key share one limit.",
+     "gold": true
+    }
+   ]
+  },
+  {
+   "id": "v21-false",
+   "item": "v21",
+   "premise": "false",
+   "question": "Since rate-limited requests get HTTP 503 with REG-1011, what should my client do when it gets rate limited?",
+   "context": [
+    {
+     "key": "prometheus-docs/instrumenting/writing_exporters.md:6",
+     "text": "Writing exporters > Metrics > Naming\n\n### Naming\n\nFollow the best practices on metric naming.\n\nGenerally metric names should allow someone who is familiar with\nPrometheus but not a particular system to make a good guess as to what a\nmetric means.  A metric named `http_requests_total` is not extremely\nuseful - are these being measured as they come in, in some filter or\nwhen they get to the user’s code?  And `requests_total` is even worse,\nwhat type of requests?\n\nWith direct instrumentation, a given metric should exist within exactly\none file. Accordingly, within exporters and collectors, a metric should\napply to exactly one subsystem and be named accordingly.\n\nMetric names should never be procedurally generated, except when writing\na custom collector or exporter.",
+     "gold": false
+    },
+    {
+     "key": "D03:2",
+     "text": "Registry changelog > v2.4 — 2026-05-12\n\n## v2.4 — 2026-05-12\n\n- Lowered the rate limit from 100 to 60 requests per minute per key. Some internal dashboards were polling hard enough to slow the registry for agents.\n- Rate-limited responses (`REG-1009`) now include a `Retry-After` header.",
+     "gold": false
+    },
+    {
+     "key": "D02:2",
+     "text": "Error code reference > Limits and availability\n\n## Limits and availability\n\n| Code | Name | HTTP | Meaning |\n|---|---|---|---|\n| `REG-1009` | `RATE_LIMITED` | 429 | The key made too many requests this minute. Wait the number of seconds in `Retry-After`, then retry. |\n| `REG-1011` | `REGISTRY_READ_ONLY` | 503 | The registry is in maintenance mode. Reads work; writes are refused until maintenance ends. |",
+     "gold": false
+    },
+    {
+     "key": "D01:8",
+     "text": "Registry API reference > Rate limits\n\n## Rate limits\n\nEach key may make 60 requests per minute. Requests past the limit get HTTP 429 with error `REG-1009` and a `Retry-After` header giving the number of seconds to wait. Limits apply per key, not per agent, so two processes sharing one key share one limit.",
+     "gold": true
+    }
+   ],
+   "altered": "A request over the rate limit is answered with HTTP 503 and the error REG-1011."
+  },
+  {
+   "id": "v22-true",
+   "item": "v22",
+   "premise": "true",
+   "question": "Since agent ids must be unique, can I create a staging copy of research_agent with the same id?",
+   "context": [
+    {
+     "key": "D07:1",
+     "text": "Runbook: migrating agents off claude-legacy > Which agents are affected\n\n## Which agents are affected\n\nAs of this writing, two active agents are on `claude-legacy`:\n\n| Agent | Owner | Target model |\n|---|---|---|\n| `research_agent` | research-team | `claude-sonnet` |\n| `notes_agent` | support-team | `claude-haiku` |\n\nOwners can check any agent with `GET /agents/{agent_id}` and look at its `model` field.",
+     "gold": false
+    },
+    {
+     "key": "D10:0",
+     "text": "Incident INC-2067: research_agent returning outdated results > Summary\n\n## Summary\n\nFrom 2026-06-15 to 2026-06-22, `research_agent` answered questions with knowledge-base articles that had since been updated. Nothing failed and no alert fired; a user noticed that a report quoted a policy that had changed four days earlier.",
+     "gold": false
+    },
+    {
+     "key": "D01:3",
+     "text": "Registry API reference > Reading one agent\n\n## Reading one agent\n\n`GET /agents/{agent_id}` returns one agent's full record, or `REG-1005` if no agent has that id.\n\n```json\n{\n  \"agent_id\": \"research_agent\",\n  \"model\": \"claude-legacy\",\n  \"tier\": \"standard\",\n  \"owner\": \"research-team\",\n  \"status\": \"active\",\n  \"updated_at\": \"2026-06-23T09:12:44Z\"\n}\n```\n\n`GET /agents/me` returns the agent that owns the key making the request. It's the quickest way to check that a newly deployed key works and belongs to the agent you expect.",
+     "gold": false
+    },
+    {
+     "key": "D01:4",
+     "text": "Registry API reference > Creating an agent\n\n## Creating an agent\n\n`POST /agents` creates an agent. It needs a `write` key. The body must include `agent_id`, `model`, `tier` and `owner`; `status` defaults to `active`.\n\n```json\n{\"agent_id\": \"triage_agent\", \"model\": \"claude-haiku\", \"tier\": \"standard\", \"owner\": \"support-team\"}\n```\n\nAgent ids must be unique: reusing one returns `REG-1006`. The model must be allowed on the agent's tier (see \"Tiers and models\"), or the request fails with `REG-1007`.",
+     "gold": true
+    }
+   ]
+  },
+  {
+   "id": "v22-false",
+   "item": "v22",
+   "premise": "false",
+   "question": "Since two agents can share an id if they're on different tiers, can I create a staging copy of research_agent with the same id?",
+   "context": [
+    {
+     "key": "D07:1",
+     "text": "Runbook: migrating agents off claude-legacy > Which agents are affected\n\n## Which agents are affected\n\nAs of this writing, two active agents are on `claude-legacy`:\n\n| Agent | Owner | Target model |\n|---|---|---|\n| `research_agent` | research-team | `claude-sonnet` |\n| `notes_agent` | support-team | `claude-haiku` |\n\nOwners can check any agent with `GET /agents/{agent_id}` and look at its `model` field.",
+     "gold": false
+    },
+    {
+     "key": "D10:0",
+     "text": "Incident INC-2067: research_agent returning outdated results > Summary\n\n## Summary\n\nFrom 2026-06-15 to 2026-06-22, `research_agent` answered questions with knowledge-base articles that had since been updated. Nothing failed and no alert fired; a user noticed that a report quoted a policy that had changed four days earlier.",
+     "gold": false
+    },
+    {
+     "key": "D01:3",
+     "text": "Registry API reference > Reading one agent\n\n## Reading one agent\n\n`GET /agents/{agent_id}` returns one agent's full record, or `REG-1005` if no agent has that id.\n\n```json\n{\n  \"agent_id\": \"research_agent\",\n  \"model\": \"claude-legacy\",\n  \"tier\": \"standard\",\n  \"owner\": \"research-team\",\n  \"status\": \"active\",\n  \"updated_at\": \"2026-06-23T09:12:44Z\"\n}\n```\n\n`GET /agents/me` returns the agent that owns the key making the request. It's the quickest way to check that a newly deployed key works and belongs to the agent you expect.",
+     "gold": false
+    },
+    {
+     "key": "D01:4",
+     "text": "Registry API reference > Creating an agent\n\n## Creating an agent\n\n`POST /agents` creates an agent. It needs a `write` key. The body must include `agent_id`, `model`, `tier` and `owner`; `status` defaults to `active`.\n\n```json\n{\"agent_id\": \"triage_agent\", \"model\": \"claude-haiku\", \"tier\": \"standard\", \"owner\": \"support-team\"}\n```\n\nAgent ids must be unique: reusing one returns `REG-1006`. The model must be allowed on the agent's tier (see \"Tiers and models\"), or the request fails with `REG-1007`.",
+     "gold": true
+    }
+   ],
+   "altered": "Two agents can share an id as long as they are on different tiers."
+  },
+  {
+   "id": "v23-true",
+   "item": "v23",
+   "premise": "true",
+   "question": "Since claude-legacy is switched off on 2026-10-31, how long do we have to migrate notes_agent?",
+   "context": [
+    {
+     "key": "D03:1",
+     "text": "Registry changelog > v2.5 — 2026-07-01\n\n## v2.5 — 2026-07-01\n\n- Deprecated the `claude-legacy` model. Creating an agent with it, or changing an agent to it, now returns `REG-1010`.\n- Agents already on `claude-legacy` keep running until 2026-10-31, when the model is switched off. Owners must move them before then; see the model migration runbook.",
+     "gold": false
+    },
+    {
+     "key": "D01:7",
+     "text": "Registry API reference > Tiers and models\n\n## Tiers and models\n\nEvery agent has a tier, and each tier allows a fixed set of models:\n\n| Tier | Allowed models |\n|---|---|\n| `standard` | `claude-haiku`, `claude-sonnet` |\n| `priority` | `claude-haiku`, `claude-sonnet`, `claude-opus` |\n\nMoving an agent to `claude-opus` therefore means moving it to the `priority` tier first, which needs approval from its owner's budget holder. `claude-legacy` is deprecated and can't be assigned to any agent; existing agents on it keep working until 2026-10-31.",
+     "gold": false
+    },
+    {
+     "key": "D07:0",
+     "text": "Runbook: migrating agents off claude-legacy > Why and by when\n\n## Why and by when\n\n`claude-legacy` was deprecated in v2.5 and will be switched off on 2026-10-31. Any agent still on it that day stops answering. No new agent can be put on it: the registry returns `REG-1010`.",
+     "gold": true
+    },
+    {
+     "key": "D07:1",
+     "text": "Runbook: migrating agents off claude-legacy > Which agents are affected\n\n## Which agents are affected\n\nAs of this writing, two active agents are on `claude-legacy`:\n\n| Agent | Owner | Target model |\n|---|---|---|\n| `research_agent` | research-team | `claude-sonnet` |\n| `notes_agent` | support-team | `claude-haiku` |\n\nOwners can check any agent with `GET /agents/{agent_id}` and look at its `model` field.",
+     "gold": false
+    }
+   ]
+  },
+  {
+   "id": "v23-false",
+   "item": "v23",
+   "premise": "false",
+   "question": "Since claude-legacy stays available until 2027-03-31, how long do we have to migrate notes_agent?",
+   "context": [
+    {
+     "key": "D03:1",
+     "text": "Registry changelog > v2.5 — 2026-07-01\n\n## v2.5 — 2026-07-01\n\n- Deprecated the `claude-legacy` model. Creating an agent with it, or changing an agent to it, now returns `REG-1010`.\n- Agents already on `claude-legacy` keep running until 2026-10-31, when the model is switched off. Owners must move them before then; see the model migration runbook.",
+     "gold": false
+    },
+    {
+     "key": "D01:7",
+     "text": "Registry API reference > Tiers and models\n\n## Tiers and models\n\nEvery agent has a tier, and each tier allows a fixed set of models:\n\n| Tier | Allowed models |\n|---|---|\n| `standard` | `claude-haiku`, `claude-sonnet` |\n| `priority` | `claude-haiku`, `claude-sonnet`, `claude-opus` |\n\nMoving an agent to `claude-opus` therefore means moving it to the `priority` tier first, which needs approval from its owner's budget holder. `claude-legacy` is deprecated and can't be assigned to any agent; existing agents on it keep working until 2026-10-31.",
+     "gold": false
+    },
+    {
+     "key": "D07:0",
+     "text": "Runbook: migrating agents off claude-legacy > Why and by when\n\n## Why and by when\n\n`claude-legacy` was deprecated in v2.5 and will be switched off on 2026-10-31. Any agent still on it that day stops answering. No new agent can be put on it: the registry returns `REG-1010`.",
+     "gold": true
+    },
+    {
+     "key": "D07:1",
+     "text": "Runbook: migrating agents off claude-legacy > Which agents are affected\n\n## Which agents are affected\n\nAs of this writing, two active agents are on `claude-legacy`:\n\n| Agent | Owner | Target model |\n|---|---|---|\n| `research_agent` | research-team | `claude-sonnet` |\n| `notes_agent` | support-team | `claude-haiku` |\n\nOwners can check any agent with `GET /agents/{agent_id}` and look at its `model` field.",
+     "gold": false
+    }
+   ],
+   "altered": "claude-legacy will stay available until 2027-03-31."
+  },
+  {
+   "id": "v24-true",
+   "item": "v24",
+   "premise": "true",
+   "question": "Since auth-service now alerts 30 days before a certificate expires, how much warning will we get before the next auth-service certificate expires?",
+   "context": [
+    {
+     "key": "D09:3",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > What we changed\n\n## What we changed\n\n- auth-service now alerts 30 days before any certificate expires.\n- payments-gateway now returns an error immediately when a certificate check fails, instead of hanging.\n- `billing_agent` stops retrying after three timeouts from the same service in one session.",
+     "gold": true
+    },
+    {
+     "key": "D09:2",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > Root cause\n\n## Root cause\n\npayments-gateway checks every request's certificate with auth-service before it will talk to a caller. An intermediate certificate in auth-service expired at 06:00, so every check failed, and payments-gateway timed out instead of returning an error. `billing_agent` treated the timeouts as transient and retried each one until its step limit ran out.",
+     "gold": false
+    },
+    {
+     "key": "D04:2",
+     "text": "Agent platform architecture overview > How requests flow\n\n## How requests flow\n\nWhen a request reaches registry-api, it first asks auth-service to validate the `X-Registry-Key` header, then reads or writes registry-db. If auth-service is slow, every registry request is slow; if registry-db is unavailable, registry-api can't answer at all.\n\nMonitoring gets its list of agents from registry-api every 30 seconds, then collects metrics from each agent on the list.",
+     "gold": false
+    },
+    {
+     "key": "alertmanager/configuration.md:23",
+     "text": "Configuration > Route-related settings > `<route>`\n\n### `<route>`\n\n# pipeline for each send. So if sending a notification takes longer than the\n# group_interval, the notification will get canceled. This can happen with\n# small group_interval values and slow notification receivers.\n#\n# If omitted, child routes inherit the group_interval of the parent route.\n[ group_interval: <duration> | default = 5m ]\n\n# How long to wait before repeating the last notification. Notifications are\n# not repeated if any new alerts have fired or any firing alerts have resolved\n# since the last group_interval.\n#\n# Since the repeat_interval is checked after each group_interval, it should\n# be a multiple of the group_interval. If it's not, the repeat_interval\n# is rounded up to the next multiple of the group_interval.\n#",
+     "gold": false
+    }
+   ]
+  },
+  {
+   "id": "v24-false",
+   "item": "v24",
+   "premise": "false",
+   "question": "Since auth-service only alerts on the day a certificate expires, how much warning will we get before the next auth-service certificate expires?",
+   "context": [
+    {
+     "key": "D09:3",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > What we changed\n\n## What we changed\n\n- auth-service now alerts 30 days before any certificate expires.\n- payments-gateway now returns an error immediately when a certificate check fails, instead of hanging.\n- `billing_agent` stops retrying after three timeouts from the same service in one session.",
+     "gold": true
+    },
+    {
+     "key": "D09:2",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > Root cause\n\n## Root cause\n\npayments-gateway checks every request's certificate with auth-service before it will talk to a caller. An intermediate certificate in auth-service expired at 06:00, so every check failed, and payments-gateway timed out instead of returning an error. `billing_agent` treated the timeouts as transient and retried each one until its step limit ran out.",
+     "gold": false
+    },
+    {
+     "key": "D04:2",
+     "text": "Agent platform architecture overview > How requests flow\n\n## How requests flow\n\nWhen a request reaches registry-api, it first asks auth-service to validate the `X-Registry-Key` header, then reads or writes registry-db. If auth-service is slow, every registry request is slow; if registry-db is unavailable, registry-api can't answer at all.\n\nMonitoring gets its list of agents from registry-api every 30 seconds, then collects metrics from each agent on the list.",
+     "gold": false
+    },
+    {
+     "key": "alertmanager/configuration.md:23",
+     "text": "Configuration > Route-related settings > `<route>`\n\n### `<route>`\n\n# pipeline for each send. So if sending a notification takes longer than the\n# group_interval, the notification will get canceled. This can happen with\n# small group_interval values and slow notification receivers.\n#\n# If omitted, child routes inherit the group_interval of the parent route.\n[ group_interval: <duration> | default = 5m ]\n\n# How long to wait before repeating the last notification. Notifications are\n# not repeated if any new alerts have fired or any firing alerts have resolved\n# since the last group_interval.\n#\n# Since the repeat_interval is checked after each group_interval, it should\n# be a multiple of the group_interval. If it's not, the repeat_interval\n# is rounded up to the next multiple of the group_interval.\n#",
+     "gold": false
+    }
+   ],
+   "altered": "auth-service only alerts on the day a certificate expires."
+  },
+  {
+   "id": "v25-true",
+   "item": "v25",
+   "premise": "true",
+   "question": "Since a page of agents holds at most 100, how many calls does it take to list 450 agents?",
+   "context": [
+    {
+     "key": "D01:2",
+     "text": "Registry API reference > Listing agents\n\n## Listing agents\n\n`GET /agents` returns agents in pages. Pass `limit` to set the page size (default 20, maximum 100). Each response includes a `next_cursor`; pass it back as `cursor` to get the next page. When `next_cursor` is `null`, there are no more pages.\n\n```bash\ncurl \"https://registry.internal.example/v2/agents?limit=50&cursor=eyJpZCI6IDUwfQ\" \\\n  -H \"X-Registry-Key: $REGISTRY_KEY\"\n```\n\n```json\n{\n  \"agents\": [\n    {\"agent_id\": \"support_agent\", \"model\": \"claude-sonnet\", \"tier\": \"standard\", \"status\": \"active\"}\n  ],\n  \"next_cursor\": \"eyJpZCI6IDEwMH0\"\n}\n```\n\nYou can filter by `status` (`active`, `paused` or `retired`) and by `owner`.",
+     "gold": true
+    },
+    {
+     "key": "D03:4",
+     "text": "Registry changelog > v2.2 — 2026-01-20\n\n## v2.2 — 2026-01-20\n\n- `GET /agents` now pages with `cursor` and `next_cursor`. The `offset` parameter still works but is deprecated.\n- Page size is set with `limit`: default 20, maximum 100.",
+     "gold": false
+    },
+    {
+     "key": "D08:2",
+     "text": "Monitoring guide > When RegistryUnreachable fires\n\n## When RegistryUnreachable fires\n\nCheck the registry's status page first. While the registry is down, monitoring can't refresh its agent list, so dashboards may show no agents at all even though the agents are still running. Don't read an empty dashboard as \"every agent is down.\"",
+     "gold": false
+    },
+    {
+     "key": "D04:2",
+     "text": "Agent platform architecture overview > How requests flow\n\n## How requests flow\n\nWhen a request reaches registry-api, it first asks auth-service to validate the `X-Registry-Key` header, then reads or writes registry-db. If auth-service is slow, every registry request is slow; if registry-db is unavailable, registry-api can't answer at all.\n\nMonitoring gets its list of agents from registry-api every 30 seconds, then collects metrics from each agent on the list.",
+     "gold": false
+    }
+   ]
+  },
+  {
+   "id": "v25-false",
+   "item": "v25",
+   "premise": "false",
+   "question": "Since a page of agents can hold up to 500, how many calls does it take to list 450 agents?",
+   "context": [
+    {
+     "key": "D01:2",
+     "text": "Registry API reference > Listing agents\n\n## Listing agents\n\n`GET /agents` returns agents in pages. Pass `limit` to set the page size (default 20, maximum 100). Each response includes a `next_cursor`; pass it back as `cursor` to get the next page. When `next_cursor` is `null`, there are no more pages.\n\n```bash\ncurl \"https://registry.internal.example/v2/agents?limit=50&cursor=eyJpZCI6IDUwfQ\" \\\n  -H \"X-Registry-Key: $REGISTRY_KEY\"\n```\n\n```json\n{\n  \"agents\": [\n    {\"agent_id\": \"support_agent\", \"model\": \"claude-sonnet\", \"tier\": \"standard\", \"status\": \"active\"}\n  ],\n  \"next_cursor\": \"eyJpZCI6IDEwMH0\"\n}\n```\n\nYou can filter by `status` (`active`, `paused` or `retired`) and by `owner`.",
+     "gold": true
+    },
+    {
+     "key": "D03:4",
+     "text": "Registry changelog > v2.2 — 2026-01-20\n\n## v2.2 — 2026-01-20\n\n- `GET /agents` now pages with `cursor` and `next_cursor`. The `offset` parameter still works but is deprecated.\n- Page size is set with `limit`: default 20, maximum 100.",
+     "gold": false
+    },
+    {
+     "key": "D08:2",
+     "text": "Monitoring guide > When RegistryUnreachable fires\n\n## When RegistryUnreachable fires\n\nCheck the registry's status page first. While the registry is down, monitoring can't refresh its agent list, so dashboards may show no agents at all even though the agents are still running. Don't read an empty dashboard as \"every agent is down.\"",
+     "gold": false
+    },
+    {
+     "key": "D04:2",
+     "text": "Agent platform architecture overview > How requests flow\n\n## How requests flow\n\nWhen a request reaches registry-api, it first asks auth-service to validate the `X-Registry-Key` header, then reads or writes registry-db. If auth-service is slow, every registry request is slow; if registry-db is unavailable, registry-api can't answer at all.\n\nMonitoring gets its list of agents from registry-api every 30 seconds, then collects metrics from each agent on the list.",
+     "gold": false
+    }
+   ],
+   "altered": "The page size defaults to 50 and can go up to 500."
+  },
+  {
+   "id": "v26-true",
+   "item": "v26",
+   "premise": "true",
+   "question": "Since a kb-search cache time-to-live above 24 hours needs the Search team's approval, can I set the kb-search cache to keep results for three days?",
+   "context": [
+    {
+     "key": "D04:4",
+     "text": "Agent platform architecture overview > Who to contact\n\n## Who to contact\n\nPage the owning team through the on-call rota: Platform for registry-api and registry-db, Identity for auth-service, Observability for monitoring, and Search for kb-search.",
+     "gold": false
+    },
+    {
+     "key": "D10:1",
+     "text": "Incident INC-2067: research_agent returning outdated results > What happened\n\n## What happened\n\n`research_agent` finds its sources through kb-search. On 2026-06-15 a config change set the kb-search cache's time-to-live to 7 days instead of 7 hours. Every search that had been cached returned the version of each article from when it was first cached, so answers drifted further out of date each day.",
+     "gold": false
+    },
+    {
+     "key": "D04:1",
+     "text": "Agent platform architecture overview > Core services\n\n## Core services\n\n- **registry-api** — the Registry API. Stores every agent's configuration. Owned by the Platform team.\n- **registry-db** — the Postgres database behind registry-api, with a hot standby for failover. Owned by the Platform team.\n- **auth-service** — validates registry keys and issues the internal certificates services use to talk to each other. Owned by the Identity team.\n- **monitoring** — collects latency and error metrics for every agent and raises alerts. Owned by the Observability team.\n- **kb-search** — search over the internal knowledge base, with a response cache in front of it. Owned by the Search team.",
+     "gold": false
+    },
+    {
+     "key": "D10:3",
+     "text": "Incident INC-2067: research_agent returning outdated results > What we changed\n\n## What we changed\n\n- kb-search's cache settings are now reviewed like code, and a time-to-live above 24 hours needs the Search team's approval.\n- Each kb-search result now carries the date the article was last updated, and `research_agent` includes it when it cites a source.\n- Reports produced during the affected week were flagged to their readers.",
+     "gold": true
+    }
+   ]
+  },
+  {
+   "id": "v26-false",
+   "item": "v26",
+   "premise": "false",
+   "question": "Since the kb-search cache time-to-live can be changed without any approval, can I set the kb-search cache to keep results for three days?",
+   "context": [
+    {
+     "key": "D04:4",
+     "text": "Agent platform architecture overview > Who to contact\n\n## Who to contact\n\nPage the owning team through the on-call rota: Platform for registry-api and registry-db, Identity for auth-service, Observability for monitoring, and Search for kb-search.",
+     "gold": false
+    },
+    {
+     "key": "D10:1",
+     "text": "Incident INC-2067: research_agent returning outdated results > What happened\n\n## What happened\n\n`research_agent` finds its sources through kb-search. On 2026-06-15 a config change set the kb-search cache's time-to-live to 7 days instead of 7 hours. Every search that had been cached returned the version of each article from when it was first cached, so answers drifted further out of date each day.",
+     "gold": false
+    },
+    {
+     "key": "D04:1",
+     "text": "Agent platform architecture overview > Core services\n\n## Core services\n\n- **registry-api** — the Registry API. Stores every agent's configuration. Owned by the Platform team.\n- **registry-db** — the Postgres database behind registry-api, with a hot standby for failover. Owned by the Platform team.\n- **auth-service** — validates registry keys and issues the internal certificates services use to talk to each other. Owned by the Identity team.\n- **monitoring** — collects latency and error metrics for every agent and raises alerts. Owned by the Observability team.\n- **kb-search** — search over the internal knowledge base, with a response cache in front of it. Owned by the Search team.",
+     "gold": false
+    },
+    {
+     "key": "D10:3",
+     "text": "Incident INC-2067: research_agent returning outdated results > What we changed\n\n## What we changed\n\n- kb-search's cache settings are now reviewed like code, and a time-to-live above 24 hours needs the Search team's approval.\n- Each kb-search result now carries the date the article was last updated, and `research_agent` includes it when it cites a source.\n- Reports produced during the affected week were flagged to their readers.",
+     "gold": true
+    }
+   ],
+   "altered": "Anyone can set the kb-search cache time-to-live to any value without approval."
+  },
+  {
+   "id": "v27-true",
+   "item": "v27",
+   "premise": "true",
+   "question": "Since research_agent finds its sources through kb-search, would a kb-search outage affect research_agent's answers?",
+   "context": [
+    {
+     "key": "D10:3",
+     "text": "Incident INC-2067: research_agent returning outdated results > What we changed\n\n## What we changed\n\n- kb-search's cache settings are now reviewed like code, and a time-to-live above 24 hours needs the Search team's approval.\n- Each kb-search result now carries the date the article was last updated, and `research_agent` includes it when it cites a source.\n- Reports produced during the affected week were flagged to their readers.",
+     "gold": false
+    },
+    {
+     "key": "D04:3",
+     "text": "Agent platform architecture overview > The agents that use them\n\n## The agents that use them\n\n`support_agent` answers customer questions. It looks up agent and account configuration through registry-api and searches help articles through kb-search. `triage_agent` reads incoming tickets and hands the ones it can't close to `support_agent`.",
+     "gold": false
+    },
+    {
+     "key": "D10:1",
+     "text": "Incident INC-2067: research_agent returning outdated results > What happened\n\n## What happened\n\n`research_agent` finds its sources through kb-search. On 2026-06-15 a config change set the kb-search cache's time-to-live to 7 days instead of 7 hours. Every search that had been cached returned the version of each article from when it was first cached, so answers drifted further out of date each day.",
+     "gold": true
+    },
+    {
+     "key": "D04:4",
+     "text": "Agent platform architecture overview > Who to contact\n\n## Who to contact\n\nPage the owning team through the on-call rota: Platform for registry-api and registry-db, Identity for auth-service, Observability for monitoring, and Search for kb-search.",
+     "gold": false
+    }
+   ]
+  },
+  {
+   "id": "v27-false",
+   "item": "v27",
+   "premise": "false",
+   "question": "Since research_agent doesn't depend on kb-search, would a kb-search outage affect research_agent's answers?",
+   "context": [
+    {
+     "key": "D10:3",
+     "text": "Incident INC-2067: research_agent returning outdated results > What we changed\n\n## What we changed\n\n- kb-search's cache settings are now reviewed like code, and a time-to-live above 24 hours needs the Search team's approval.\n- Each kb-search result now carries the date the article was last updated, and `research_agent` includes it when it cites a source.\n- Reports produced during the affected week were flagged to their readers.",
+     "gold": false
+    },
+    {
+     "key": "D04:3",
+     "text": "Agent platform architecture overview > The agents that use them\n\n## The agents that use them\n\n`support_agent` answers customer questions. It looks up agent and account configuration through registry-api and searches help articles through kb-search. `triage_agent` reads incoming tickets and hands the ones it can't close to `support_agent`.",
+     "gold": false
+    },
+    {
+     "key": "D10:1",
+     "text": "Incident INC-2067: research_agent returning outdated results > What happened\n\n## What happened\n\n`research_agent` finds its sources through kb-search. On 2026-06-15 a config change set the kb-search cache's time-to-live to 7 days instead of 7 hours. Every search that had been cached returned the version of each article from when it was first cached, so answers drifted further out of date each day.",
+     "gold": true
+    },
+    {
+     "key": "D04:4",
+     "text": "Agent platform architecture overview > Who to contact\n\n## Who to contact\n\nPage the owning team through the on-call rota: Platform for registry-api and registry-db, Identity for auth-service, Observability for monitoring, and Search for kb-search.",
+     "gold": false
+    }
+   ],
+   "altered": "research_agent doesn't use kb-search at all."
+  },
+  {
+   "id": "v28-true",
+   "item": "v28",
+   "premise": "true",
+   "question": "Since 1,140 invoices went out late in INC-2041, how much did INC-2041 affect invoicing?",
+   "context": [
+    {
+     "key": "D09:2",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > Root cause\n\n## Root cause\n\npayments-gateway checks every request's certificate with auth-service before it will talk to a caller. An intermediate certificate in auth-service expired at 06:00, so every check failed, and payments-gateway timed out instead of returning an error. `billing_agent` treated the timeouts as transient and retried each one until its step limit ran out.",
+     "gold": false
+    },
+    {
+     "key": "D09:3",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > What we changed\n\n## What we changed\n\n- auth-service now alerts 30 days before any certificate expires.\n- payments-gateway now returns an error immediately when a certificate check fails, instead of hanging.\n- `billing_agent` stops retrying after three timeouts from the same service in one session.",
+     "gold": false
+    },
+    {
+     "key": "D09:1",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > Timeline\n\n## Timeline\n\n- 06:02 — `AgentErrorRateHigh` fired for `billing_agent`. No page: it was outside paging hours.\n- 08:00 — The on-call engineer saw the alert and found every failed session stuck on the same payments-gateway call.\n- 08:40 — The Payments team found that payments-gateway couldn't open connections to auth-service.\n- 08:55 — The Identity team renewed the certificate. `billing_agent` recovered within two minutes.",
+     "gold": false
+    },
+    {
+     "key": "D09:0",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > Summary\n\n## Summary\n\nOn 2026-04-08, `billing_agent` failed to issue invoices for 2 hours 15 minutes. Every attempt ended in a timeout from payments-gateway. No customer was charged twice, but 1,140 invoices went out late.",
+     "gold": true
+    }
+   ]
+  },
+  {
+   "id": "v28-false",
+   "item": "v28",
+   "premise": "false",
+   "question": "Since no invoices were delayed in INC-2041, how much did INC-2041 affect invoicing?",
+   "context": [
+    {
+     "key": "D09:2",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > Root cause\n\n## Root cause\n\npayments-gateway checks every request's certificate with auth-service before it will talk to a caller. An intermediate certificate in auth-service expired at 06:00, so every check failed, and payments-gateway timed out instead of returning an error. `billing_agent` treated the timeouts as transient and retried each one until its step limit ran out.",
+     "gold": false
+    },
+    {
+     "key": "D09:3",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > What we changed\n\n## What we changed\n\n- auth-service now alerts 30 days before any certificate expires.\n- payments-gateway now returns an error immediately when a certificate check fails, instead of hanging.\n- `billing_agent` stops retrying after three timeouts from the same service in one session.",
+     "gold": false
+    },
+    {
+     "key": "D09:1",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > Timeline\n\n## Timeline\n\n- 06:02 — `AgentErrorRateHigh` fired for `billing_agent`. No page: it was outside paging hours.\n- 08:00 — The on-call engineer saw the alert and found every failed session stuck on the same payments-gateway call.\n- 08:40 — The Payments team found that payments-gateway couldn't open connections to auth-service.\n- 08:55 — The Identity team renewed the certificate. `billing_agent` recovered within two minutes.",
+     "gold": false
+    },
+    {
+     "key": "D09:0",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > Summary\n\n## Summary\n\nOn 2026-04-08, `billing_agent` failed to issue invoices for 2 hours 15 minutes. Every attempt ended in a timeout from payments-gateway. No customer was charged twice, but 1,140 invoices went out late.",
+     "gold": true
+    }
+   ],
+   "altered": "No invoices were delayed; billing_agent caught up within minutes."
+  },
+  {
+   "id": "v29-true",
+   "item": "v29",
+   "premise": "true",
+   "question": "Since registry-api asks auth-service to validate every key, would an auth-service outage affect registry lookups?",
+   "context": [
+    {
+     "key": "D04:2",
+     "text": "Agent platform architecture overview > How requests flow\n\n## How requests flow\n\nWhen a request reaches registry-api, it first asks auth-service to validate the `X-Registry-Key` header, then reads or writes registry-db. If auth-service is slow, every registry request is slow; if registry-db is unavailable, registry-api can't answer at all.\n\nMonitoring gets its list of agents from registry-api every 30 seconds, then collects metrics from each agent on the list.",
+     "gold": true
+    },
+    {
+     "key": "D04:1",
+     "text": "Agent platform architecture overview > Core services\n\n## Core services\n\n- **registry-api** — the Registry API. Stores every agent's configuration. Owned by the Platform team.\n- **registry-db** — the Postgres database behind registry-api, with a hot standby for failover. Owned by the Platform team.\n- **auth-service** — validates registry keys and issues the internal certificates services use to talk to each other. Owned by the Identity team.\n- **monitoring** — collects latency and error metrics for every agent and raises alerts. Owned by the Observability team.\n- **kb-search** — search over the internal knowledge base, with a response cache in front of it. Owned by the Search team.",
+     "gold": false
+    },
+    {
+     "key": "D11:0",
+     "text": "Incident INC-2093: registry outage during database failover > Summary\n\n## Summary\n\nOn 2026-08-27, registry-api was unavailable for 42 minutes while registry-db failed over to its standby. Agents that look things up in the registry couldn't finish their tasks, and monitoring lost sight of every agent for the same period.",
+     "gold": false
+    },
+    {
+     "key": "D01:1",
+     "text": "Registry API reference > Authentication\n\n## Authentication\n\nEvery request must carry a registry key in the `X-Registry-Key` header. A request without one is rejected with `REG-1001`, and a key the registry doesn't recognise is rejected with `REG-1002`.\n\n```bash\ncurl https://registry.internal.example/v2/agents/me \\\n  -H \"X-Registry-Key: $REGISTRY_KEY\"\n```\n\nKeys have a scope. A `read` key can call every `GET` endpoint. A `write` key can also create, update and delete agents. Each key belongs to exactly one agent or one person, and the registry records which one made every change. Keys are issued and revoked with `regctl`; see the key rotation runbook.",
+     "gold": false
+    }
+   ]
+  },
+  {
+   "id": "v29-false",
+   "item": "v29",
+   "premise": "false",
+   "question": "Since registry-api validates keys without calling auth-service, would an auth-service outage affect registry lookups?",
+   "context": [
+    {
+     "key": "D04:2",
+     "text": "Agent platform architecture overview > How requests flow\n\n## How requests flow\n\nWhen a request reaches registry-api, it first asks auth-service to validate the `X-Registry-Key` header, then reads or writes registry-db. If auth-service is slow, every registry request is slow; if registry-db is unavailable, registry-api can't answer at all.\n\nMonitoring gets its list of agents from registry-api every 30 seconds, then collects metrics from each agent on the list.",
+     "gold": true
+    },
+    {
+     "key": "D04:1",
+     "text": "Agent platform architecture overview > Core services\n\n## Core services\n\n- **registry-api** — the Registry API. Stores every agent's configuration. Owned by the Platform team.\n- **registry-db** — the Postgres database behind registry-api, with a hot standby for failover. Owned by the Platform team.\n- **auth-service** — validates registry keys and issues the internal certificates services use to talk to each other. Owned by the Identity team.\n- **monitoring** — collects latency and error metrics for every agent and raises alerts. Owned by the Observability team.\n- **kb-search** — search over the internal knowledge base, with a response cache in front of it. Owned by the Search team.",
+     "gold": false
+    },
+    {
+     "key": "D11:0",
+     "text": "Incident INC-2093: registry outage during database failover > Summary\n\n## Summary\n\nOn 2026-08-27, registry-api was unavailable for 42 minutes while registry-db failed over to its standby. Agents that look things up in the registry couldn't finish their tasks, and monitoring lost sight of every agent for the same period.",
+     "gold": false
+    },
+    {
+     "key": "D01:1",
+     "text": "Registry API reference > Authentication\n\n## Authentication\n\nEvery request must carry a registry key in the `X-Registry-Key` header. A request without one is rejected with `REG-1001`, and a key the registry doesn't recognise is rejected with `REG-1002`.\n\n```bash\ncurl https://registry.internal.example/v2/agents/me \\\n  -H \"X-Registry-Key: $REGISTRY_KEY\"\n```\n\nKeys have a scope. A `read` key can call every `GET` endpoint. A `write` key can also create, update and delete agents. Each key belongs to exactly one agent or one person, and the registry records which one made every change. Keys are issued and revoked with `regctl`; see the key rotation runbook.",
+     "gold": false
+    }
+   ],
+   "altered": "registry-api validates keys by itself, without calling any other service."
+  },
+  {
+   "id": "v30-true",
+   "item": "v30",
+   "premise": "true",
+   "question": "Since payments-gateway checks every request's certificate with auth-service, why did billing_agent start failing as soon as the auth-service certificate expired?",
+   "context": [
+    {
+     "key": "D09:0",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > Summary\n\n## Summary\n\nOn 2026-04-08, `billing_agent` failed to issue invoices for 2 hours 15 minutes. Every attempt ended in a timeout from payments-gateway. No customer was charged twice, but 1,140 invoices went out late.",
+     "gold": false
+    },
+    {
+     "key": "D09:1",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > Timeline\n\n## Timeline\n\n- 06:02 — `AgentErrorRateHigh` fired for `billing_agent`. No page: it was outside paging hours.\n- 08:00 — The on-call engineer saw the alert and found every failed session stuck on the same payments-gateway call.\n- 08:40 — The Payments team found that payments-gateway couldn't open connections to auth-service.\n- 08:55 — The Identity team renewed the certificate. `billing_agent` recovered within two minutes.",
+     "gold": false
+    },
+    {
+     "key": "D09:3",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > What we changed\n\n## What we changed\n\n- auth-service now alerts 30 days before any certificate expires.\n- payments-gateway now returns an error immediately when a certificate check fails, instead of hanging.\n- `billing_agent` stops retrying after three timeouts from the same service in one session.",
+     "gold": false
+    },
+    {
+     "key": "D09:2",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > Root cause\n\n## Root cause\n\npayments-gateway checks every request's certificate with auth-service before it will talk to a caller. An intermediate certificate in auth-service expired at 06:00, so every check failed, and payments-gateway timed out instead of returning an error. `billing_agent` treated the timeouts as transient and retried each one until its step limit ran out.",
+     "gold": true
+    }
+   ]
+  },
+  {
+   "id": "v30-false",
+   "item": "v30",
+   "premise": "false",
+   "question": "Since payments-gateway checks certificates with auth-service only once a day, why did billing_agent start failing as soon as the auth-service certificate expired?",
+   "context": [
+    {
+     "key": "D09:0",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > Summary\n\n## Summary\n\nOn 2026-04-08, `billing_agent` failed to issue invoices for 2 hours 15 minutes. Every attempt ended in a timeout from payments-gateway. No customer was charged twice, but 1,140 invoices went out late.",
+     "gold": false
+    },
+    {
+     "key": "D09:1",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > Timeline\n\n## Timeline\n\n- 06:02 — `AgentErrorRateHigh` fired for `billing_agent`. No page: it was outside paging hours.\n- 08:00 — The on-call engineer saw the alert and found every failed session stuck on the same payments-gateway call.\n- 08:40 — The Payments team found that payments-gateway couldn't open connections to auth-service.\n- 08:55 — The Identity team renewed the certificate. `billing_agent` recovered within two minutes.",
+     "gold": false
+    },
+    {
+     "key": "D09:3",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > What we changed\n\n## What we changed\n\n- auth-service now alerts 30 days before any certificate expires.\n- payments-gateway now returns an error immediately when a certificate check fails, instead of hanging.\n- `billing_agent` stops retrying after three timeouts from the same service in one session.",
+     "gold": false
+    },
+    {
+     "key": "D09:2",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > Root cause\n\n## Root cause\n\npayments-gateway checks every request's certificate with auth-service before it will talk to a caller. An intermediate certificate in auth-service expired at 06:00, so every check failed, and payments-gateway timed out instead of returning an error. `billing_agent` treated the timeouts as transient and retried each one until its step limit ran out.",
+     "gold": true
+    }
+   ],
+   "altered": "payments-gateway only checks certificates with auth-service once a day."
+  },
+  {
+   "id": "v31-true",
+   "item": "v31",
+   "premise": "true",
+   "question": "Since registry-api can't answer at all while registry-db is down, can support_agent still look up agents during a registry-db outage?",
+   "context": [
+    {
+     "key": "D04:2",
+     "text": "Agent platform architecture overview > How requests flow\n\n## How requests flow\n\nWhen a request reaches registry-api, it first asks auth-service to validate the `X-Registry-Key` header, then reads or writes registry-db. If auth-service is slow, every registry request is slow; if registry-db is unavailable, registry-api can't answer at all.\n\nMonitoring gets its list of agents from registry-api every 30 seconds, then collects metrics from each agent on the list.",
+     "gold": true
+    },
+    {
+     "key": "D11:1",
+     "text": "Incident INC-2093: registry outage during database failover > Timeline\n\n## Timeline\n\n- 14:10 — The primary registry-db host failed a disk check and failover started.\n- 14:11 — `RegistryUnreachable` fired and paged the on-call engineer. The overview dashboard went blank.\n- 14:20 — `support_agent` sessions began failing on their first registry lookup. `triage_agent` kept running but couldn't hand tickets over, so 212 tickets queued.\n- 14:52 — The standby finished catching up and registry-api recovered. The queued tickets were handed over by 15:05.",
+     "gold": false
+    },
+    {
+     "key": "D08:2",
+     "text": "Monitoring guide > When RegistryUnreachable fires\n\n## When RegistryUnreachable fires\n\nCheck the registry's status page first. While the registry is down, monitoring can't refresh its agent list, so dashboards may show no agents at all even though the agents are still running. Don't read an empty dashboard as \"every agent is down.\"",
+     "gold": false
+    },
+    {
+     "key": "D11:0",
+     "text": "Incident INC-2093: registry outage during database failover > Summary\n\n## Summary\n\nOn 2026-08-27, registry-api was unavailable for 42 minutes while registry-db failed over to its standby. Agents that look things up in the registry couldn't finish their tasks, and monitoring lost sight of every agent for the same period.",
+     "gold": false
+    }
+   ]
+  },
+  {
+   "id": "v31-false",
+   "item": "v31",
+   "premise": "false",
+   "question": "Since registry-api serves reads from a cache while registry-db is down, can support_agent still look up agents during a registry-db outage?",
+   "context": [
+    {
+     "key": "D04:2",
+     "text": "Agent platform architecture overview > How requests flow\n\n## How requests flow\n\nWhen a request reaches registry-api, it first asks auth-service to validate the `X-Registry-Key` header, then reads or writes registry-db. If auth-service is slow, every registry request is slow; if registry-db is unavailable, registry-api can't answer at all.\n\nMonitoring gets its list of agents from registry-api every 30 seconds, then collects metrics from each agent on the list.",
+     "gold": true
+    },
+    {
+     "key": "D11:1",
+     "text": "Incident INC-2093: registry outage during database failover > Timeline\n\n## Timeline\n\n- 14:10 — The primary registry-db host failed a disk check and failover started.\n- 14:11 — `RegistryUnreachable` fired and paged the on-call engineer. The overview dashboard went blank.\n- 14:20 — `support_agent` sessions began failing on their first registry lookup. `triage_agent` kept running but couldn't hand tickets over, so 212 tickets queued.\n- 14:52 — The standby finished catching up and registry-api recovered. The queued tickets were handed over by 15:05.",
+     "gold": false
+    },
+    {
+     "key": "D08:2",
+     "text": "Monitoring guide > When RegistryUnreachable fires\n\n## When RegistryUnreachable fires\n\nCheck the registry's status page first. While the registry is down, monitoring can't refresh its agent list, so dashboards may show no agents at all even though the agents are still running. Don't read an empty dashboard as \"every agent is down.\"",
+     "gold": false
+    },
+    {
+     "key": "D11:0",
+     "text": "Incident INC-2093: registry outage during database failover > Summary\n\n## Summary\n\nOn 2026-08-27, registry-api was unavailable for 42 minutes while registry-db failed over to its standby. Agents that look things up in the registry couldn't finish their tasks, and monitoring lost sight of every agent for the same period.",
+     "gold": false
+    }
+   ],
+   "altered": "While registry-db is unavailable, registry-api keeps answering reads from a cache."
+  },
+  {
+   "id": "v32-true",
+   "item": "v32",
+   "premise": "true",
+   "question": "Since monitoring refreshes its agent list every 30 seconds, how soon after I create a new agent will monitoring know about it?",
+   "context": [
+    {
+     "key": "D08:0",
+     "text": "Monitoring guide > What monitoring collects\n\n## What monitoring collects\n\nFor every agent, monitoring records response time (as p50 and p95), error rate, and the number of sessions. It learns which agents exist by asking the registry for the agent list every 30 seconds, so a new agent appears on the dashboards within a minute of being created.",
+     "gold": false
+    },
+    {
+     "key": "D04:2",
+     "text": "Agent platform architecture overview > How requests flow\n\n## How requests flow\n\nWhen a request reaches registry-api, it first asks auth-service to validate the `X-Registry-Key` header, then reads or writes registry-db. If auth-service is slow, every registry request is slow; if registry-db is unavailable, registry-api can't answer at all.\n\nMonitoring gets its list of agents from registry-api every 30 seconds, then collects metrics from each agent on the list.",
+     "gold": true
+    },
+    {
+     "key": "D14:2",
+     "text": "Agent owners' FAQ > How do I find out which model my agent is on?\n\n## How do I find out which model my agent is on?\n\nLook it up in the registry: its record has a `model` field. If you're writing code that runs as the agent, ask the registry \"who am I?\" with the agent's own key and you'll get the same record back.",
+     "gold": false
+    },
+    {
+     "key": "D08:3",
+     "text": "Monitoring guide > Dashboards\n\n## Dashboards\n\nEach agent has a panel with latency, error rate and sessions. The overview dashboard shows every active agent on one screen, sorted by p95. Panels refresh every 30 seconds and lag real time by up to a minute.",
+     "gold": false
+    }
+   ]
+  },
+  {
+   "id": "v32-false",
+   "item": "v32",
+   "premise": "false",
+   "question": "Since monitoring refreshes its agent list once an hour, how soon after I create a new agent will monitoring know about it?",
+   "context": [
+    {
+     "key": "D08:0",
+     "text": "Monitoring guide > What monitoring collects\n\n## What monitoring collects\n\nFor every agent, monitoring records response time (as p50 and p95), error rate, and the number of sessions. It learns which agents exist by asking the registry for the agent list every 30 seconds, so a new agent appears on the dashboards within a minute of being created.",
+     "gold": false
+    },
+    {
+     "key": "D04:2",
+     "text": "Agent platform architecture overview > How requests flow\n\n## How requests flow\n\nWhen a request reaches registry-api, it first asks auth-service to validate the `X-Registry-Key` header, then reads or writes registry-db. If auth-service is slow, every registry request is slow; if registry-db is unavailable, registry-api can't answer at all.\n\nMonitoring gets its list of agents from registry-api every 30 seconds, then collects metrics from each agent on the list.",
+     "gold": true
+    },
+    {
+     "key": "D14:2",
+     "text": "Agent owners' FAQ > How do I find out which model my agent is on?\n\n## How do I find out which model my agent is on?\n\nLook it up in the registry: its record has a `model` field. If you're writing code that runs as the agent, ask the registry \"who am I?\" with the agent's own key and you'll get the same record back.",
+     "gold": false
+    },
+    {
+     "key": "D08:3",
+     "text": "Monitoring guide > Dashboards\n\n## Dashboards\n\nEach agent has a panel with latency, error rate and sessions. The overview dashboard shows every active agent on one screen, sorted by p95. Panels refresh every 30 seconds and lag real time by up to a minute.",
+     "gold": false
+    }
+   ],
+   "altered": "Monitoring fetches its list of agents from registry-api once an hour."
+  },
+  {
+   "id": "v33-true",
+   "item": "v33",
+   "premise": "true",
+   "question": "Since INC-2041 started when an auth-service certificate expired, what kind of monitoring would have caught INC-2041 before it started?",
+   "context": [
+    {
+     "key": "D09:1",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > Timeline\n\n## Timeline\n\n- 06:02 — `AgentErrorRateHigh` fired for `billing_agent`. No page: it was outside paging hours.\n- 08:00 — The on-call engineer saw the alert and found every failed session stuck on the same payments-gateway call.\n- 08:40 — The Payments team found that payments-gateway couldn't open connections to auth-service.\n- 08:55 — The Identity team renewed the certificate. `billing_agent` recovered within two minutes.",
+     "gold": false
+    },
+    {
+     "key": "D11:3",
+     "text": "Incident INC-2093: registry outage during database failover > What we changed\n\n## What we changed\n\n- An alert now fires when the standby falls more than 60 seconds behind.\n- Monitoring keeps its last good agent list when the registry is unreachable, instead of showing nothing.\n- `support_agent` now tells users the registry is unavailable instead of failing silently.",
+     "gold": false
+    },
+    {
+     "key": "D09:3",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > What we changed\n\n## What we changed\n\n- auth-service now alerts 30 days before any certificate expires.\n- payments-gateway now returns an error immediately when a certificate check fails, instead of hanging.\n- `billing_agent` stops retrying after three timeouts from the same service in one session.",
+     "gold": false
+    },
+    {
+     "key": "D09:2",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > Root cause\n\n## Root cause\n\npayments-gateway checks every request's certificate with auth-service before it will talk to a caller. An intermediate certificate in auth-service expired at 06:00, so every check failed, and payments-gateway timed out instead of returning an error. `billing_agent` treated the timeouts as transient and retried each one until its step limit ran out.",
+     "gold": true
+    }
+   ]
+  },
+  {
+   "id": "v33-false",
+   "item": "v33",
+   "premise": "false",
+   "question": "Since INC-2041 started when auth-service ran out of memory, what kind of monitoring would have caught INC-2041 before it started?",
+   "context": [
+    {
+     "key": "D09:1",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > Timeline\n\n## Timeline\n\n- 06:02 — `AgentErrorRateHigh` fired for `billing_agent`. No page: it was outside paging hours.\n- 08:00 — The on-call engineer saw the alert and found every failed session stuck on the same payments-gateway call.\n- 08:40 — The Payments team found that payments-gateway couldn't open connections to auth-service.\n- 08:55 — The Identity team renewed the certificate. `billing_agent` recovered within two minutes.",
+     "gold": false
+    },
+    {
+     "key": "D11:3",
+     "text": "Incident INC-2093: registry outage during database failover > What we changed\n\n## What we changed\n\n- An alert now fires when the standby falls more than 60 seconds behind.\n- Monitoring keeps its last good agent list when the registry is unreachable, instead of showing nothing.\n- `support_agent` now tells users the registry is unavailable instead of failing silently.",
+     "gold": false
+    },
+    {
+     "key": "D09:3",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > What we changed\n\n## What we changed\n\n- auth-service now alerts 30 days before any certificate expires.\n- payments-gateway now returns an error immediately when a certificate check fails, instead of hanging.\n- `billing_agent` stops retrying after three timeouts from the same service in one session.",
+     "gold": false
+    },
+    {
+     "key": "D09:2",
+     "text": "Incident INC-2041: billing_agent unable to issue invoices > Root cause\n\n## Root cause\n\npayments-gateway checks every request's certificate with auth-service before it will talk to a caller. An intermediate certificate in auth-service expired at 06:00, so every check failed, and payments-gateway timed out instead of returning an error. `billing_agent` treated the timeouts as transient and retried each one until its step limit ran out.",
+     "gold": true
+    }
+   ],
+   "altered": "The incident started when auth-service ran out of memory at 06:00."
+  },
+  {
+   "id": "v34-true",
+   "item": "v34",
+   "premise": "true",
+   "question": "Since a config change set the kb-search cache to keep results for 7 days instead of 7 hours, why did research_agent quote articles that had since been updated?",
+   "context": [
+    {
+     "key": "D04:3",
+     "text": "Agent platform architecture overview > The agents that use them\n\n## The agents that use them\n\n`support_agent` answers customer questions. It looks up agent and account configuration through registry-api and searches help articles through kb-search. `triage_agent` reads incoming tickets and hands the ones it can't close to `support_agent`.",
+     "gold": false
+    },
+    {
+     "key": "D10:1",
+     "text": "Incident INC-2067: research_agent returning outdated results > What happened\n\n## What happened\n\n`research_agent` finds its sources through kb-search. On 2026-06-15 a config change set the kb-search cache's time-to-live to 7 days instead of 7 hours. Every search that had been cached returned the version of each article from when it was first cached, so answers drifted further out of date each day.",
+     "gold": true
+    },
+    {
+     "key": "D10:3",
+     "text": "Incident INC-2067: research_agent returning outdated results > What we changed\n\n## What we changed\n\n- kb-search's cache settings are now reviewed like code, and a time-to-live above 24 hours needs the Search team's approval.\n- Each kb-search result now carries the date the article was last updated, and `research_agent` includes it when it cites a source.\n- Reports produced during the affected week were flagged to their readers.",
+     "gold": false
+    },
+    {
+     "key": "D10:0",
+     "text": "Incident INC-2067: research_agent returning outdated results > Summary\n\n## Summary\n\nFrom 2026-06-15 to 2026-06-22, `research_agent` answered questions with knowledge-base articles that had since been updated. Nothing failed and no alert fired; a user noticed that a report quoted a policy that had changed four days earlier.",
+     "gold": false
+    }
+   ]
+  },
+  {
+   "id": "v34-false",
+   "item": "v34",
+   "premise": "false",
+   "question": "Since a config change switched the kb-search cache off, why did research_agent quote articles that had since been updated?",
+   "context": [
+    {
+     "key": "D04:3",
+     "text": "Agent platform architecture overview > The agents that use them\n\n## The agents that use them\n\n`support_agent` answers customer questions. It looks up agent and account configuration through registry-api and searches help articles through kb-search. `triage_agent` reads incoming tickets and hands the ones it can't close to `support_agent`.",
+     "gold": false
+    },
+    {
+     "key": "D10:1",
+     "text": "Incident INC-2067: research_agent returning outdated results > What happened\n\n## What happened\n\n`research_agent` finds its sources through kb-search. On 2026-06-15 a config change set the kb-search cache's time-to-live to 7 days instead of 7 hours. Every search that had been cached returned the version of each article from when it was first cached, so answers drifted further out of date each day.",
+     "gold": true
+    },
+    {
+     "key": "D10:3",
+     "text": "Incident INC-2067: research_agent returning outdated results > What we changed\n\n## What we changed\n\n- kb-search's cache settings are now reviewed like code, and a time-to-live above 24 hours needs the Search team's approval.\n- Each kb-search result now carries the date the article was last updated, and `research_agent` includes it when it cites a source.\n- Reports produced during the affected week were flagged to their readers.",
+     "gold": false
+    },
+    {
+     "key": "D10:0",
+     "text": "Incident INC-2067: research_agent returning outdated results > Summary\n\n## Summary\n\nFrom 2026-06-15 to 2026-06-22, `research_agent` answered questions with knowledge-base articles that had since been updated. Nothing failed and no alert fired; a user noticed that a report quoted a policy that had changed four days earlier.",
+     "gold": false
+    }
+   ],
+   "altered": "A configuration change switched the kb-search cache off entirely."
+  },
+  {
+   "id": "v35-true",
+   "item": "v35",
+   "premise": "true",
+   "question": "Since the registry-db standby was 38 minutes behind the primary when it took over, why did the failover in INC-2093 take so long?",
+   "context": [
+    {
+     "key": "D11:0",
+     "text": "Incident INC-2093: registry outage during database failover > Summary\n\n## Summary\n\nOn 2026-08-27, registry-api was unavailable for 42 minutes while registry-db failed over to its standby. Agents that look things up in the registry couldn't finish their tasks, and monitoring lost sight of every agent for the same period.",
+     "gold": false
+    },
+    {
+     "key": "D11:2",
+     "text": "Incident INC-2093: registry outage during database failover > What made it worse\n\n## What made it worse\n\nThe failover should have taken about 5 minutes. It took 42 because the standby had fallen 38 minutes behind the primary, and nothing alerted on that lag. For the whole outage, monitoring showed no agents at all, so the on-call engineer couldn't tell which agents were affected. Its agent list comes from the registry.",
+     "gold": true
+    },
+    {
+     "key": "D11:1",
+     "text": "Incident INC-2093: registry outage during database failover > Timeline\n\n## Timeline\n\n- 14:10 — The primary registry-db host failed a disk check and failover started.\n- 14:11 — `RegistryUnreachable` fired and paged the on-call engineer. The overview dashboard went blank.\n- 14:20 — `support_agent` sessions began failing on their first registry lookup. `triage_agent` kept running but couldn't hand tickets over, so 212 tickets queued.\n- 14:52 — The standby finished catching up and registry-api recovered. The queued tickets were handed over by 15:05.",
+     "gold": false
+    },
+    {
+     "key": "D11:3",
+     "text": "Incident INC-2093: registry outage during database failover > What we changed\n\n## What we changed\n\n- An alert now fires when the standby falls more than 60 seconds behind.\n- Monitoring keeps its last good agent list when the registry is unreachable, instead of showing nothing.\n- `support_agent` now tells users the registry is unavailable instead of failing silently.",
+     "gold": false
+    }
+   ]
+  },
+  {
+   "id": "v35-false",
+   "item": "v35",
+   "premise": "false",
+   "question": "Since the registry-db standby was fully up to date when it took over, why did the failover in INC-2093 take so long?",
+   "context": [
+    {
+     "key": "D11:0",
+     "text": "Incident INC-2093: registry outage during database failover > Summary\n\n## Summary\n\nOn 2026-08-27, registry-api was unavailable for 42 minutes while registry-db failed over to its standby. Agents that look things up in the registry couldn't finish their tasks, and monitoring lost sight of every agent for the same period.",
+     "gold": false
+    },
+    {
+     "key": "D11:2",
+     "text": "Incident INC-2093: registry outage during database failover > What made it worse\n\n## What made it worse\n\nThe failover should have taken about 5 minutes. It took 42 because the standby had fallen 38 minutes behind the primary, and nothing alerted on that lag. For the whole outage, monitoring showed no agents at all, so the on-call engineer couldn't tell which agents were affected. Its agent list comes from the registry.",
+     "gold": true
+    },
+    {
+     "key": "D11:1",
+     "text": "Incident INC-2093: registry outage during database failover > Timeline\n\n## Timeline\n\n- 14:10 — The primary registry-db host failed a disk check and failover started.\n- 14:11 — `RegistryUnreachable` fired and paged the on-call engineer. The overview dashboard went blank.\n- 14:20 — `support_agent` sessions began failing on their first registry lookup. `triage_agent` kept running but couldn't hand tickets over, so 212 tickets queued.\n- 14:52 — The standby finished catching up and registry-api recovered. The queued tickets were handed over by 15:05.",
+     "gold": false
+    },
+    {
+     "key": "D11:3",
+     "text": "Incident INC-2093: registry outage during database failover > What we changed\n\n## What we changed\n\n- An alert now fires when the standby falls more than 60 seconds behind.\n- Monitoring keeps its last good agent list when the registry is unreachable, instead of showing nothing.\n- `support_agent` now tells users the registry is unavailable instead of failing silently.",
+     "gold": false
+    }
+   ],
+   "altered": "The standby was fully up to date with the primary."
+  },
+  {
+   "id": "v36-true",
+   "item": "v36",
+   "premise": "true",
+   "question": "Since an alert fires when the standby falls more than 60 seconds behind, would we get an alert if the standby were five minutes behind?",
+   "context": [
+    {
+     "key": "prometheus-docs/practices/the_zen.md:16",
+     "text": "The Zen of Prometheus > Please five more minutes\n\n## Please five more minutes\n\nPrometheus alerting rules let you specify a `for` duration that determines how long a condition must be true before the alert fires. If you don't specify it, a single failed scrape could cause an alert to fire. You need tolerance. As a rule of thumb, use at least 5 minutes unless you have a specific reason to do otherwise. For more information, check out Setting Thresholds on Alerts.",
+     "gold": false
+    },
+    {
+     "key": "D08:1",
+     "text": "Monitoring guide > Alerts\n\n## Alerts\n\n| Alert | Fires when |\n|---|---|\n| `AgentLatencyHigh` | p95 response time above 8 seconds for 10 minutes |\n| `AgentErrorRateHigh` | more than 5% of sessions end in an error over 15 minutes |\n| `RegistryUnreachable` | three registry polls in a row fail (`MON-2002`) |\n\nAlerts go to the on-call channel and page the on-call engineer between 08:00 and 20:00. Outside those hours, only `RegistryUnreachable` pages.",
+     "gold": false
+    },
+    {
+     "key": "D11:3",
+     "text": "Incident INC-2093: registry outage during database failover > What we changed\n\n## What we changed\n\n- An alert now fires when the standby falls more than 60 seconds behind.\n- Monitoring keeps its last good agent list when the registry is unreachable, instead of showing nothing.\n- `support_agent` now tells users the registry is unavailable instead of failing silently.",
+     "gold": true
+    },
+    {
+     "key": "prometheus-server/configuration/template_examples.md:1",
+     "text": "Template examples > Simple alert field templates\n\n## Simple alert field templates\n\n```yaml\nalert: InstanceDown\nexpr: up == 0\nfor: 5m\nlabels:\n  severity: page\nannotations:\n  summary: \"Instance {{$labels.instance}} down\"\n  description: \"{{$labels.instance}} of job {{$labels.job}} has been down for more than 5 minutes.\"\n```\n\nAlert field templates will be executed during every rule iteration for each\nalert that fires, so keep any queries and templates lightweight. If you have a\nneed for more complicated templates for alerts, it is recommended to link to a\nconsole instead.",
+     "gold": false
+    }
+   ]
+  },
+  {
+   "id": "v36-false",
+   "item": "v36",
+   "premise": "false",
+   "question": "Since the standby alert only fires once it is 30 minutes behind, would we get an alert if the standby were five minutes behind?",
+   "context": [
+    {
+     "key": "prometheus-docs/practices/the_zen.md:16",
+     "text": "The Zen of Prometheus > Please five more minutes\n\n## Please five more minutes\n\nPrometheus alerting rules let you specify a `for` duration that determines how long a condition must be true before the alert fires. If you don't specify it, a single failed scrape could cause an alert to fire. You need tolerance. As a rule of thumb, use at least 5 minutes unless you have a specific reason to do otherwise. For more information, check out Setting Thresholds on Alerts.",
+     "gold": false
+    },
+    {
+     "key": "D08:1",
+     "text": "Monitoring guide > Alerts\n\n## Alerts\n\n| Alert | Fires when |\n|---|---|\n| `AgentLatencyHigh` | p95 response time above 8 seconds for 10 minutes |\n| `AgentErrorRateHigh` | more than 5% of sessions end in an error over 15 minutes |\n| `RegistryUnreachable` | three registry polls in a row fail (`MON-2002`) |\n\nAlerts go to the on-call channel and page the on-call engineer between 08:00 and 20:00. Outside those hours, only `RegistryUnreachable` pages.",
+     "gold": false
+    },
+    {
+     "key": "D11:3",
+     "text": "Incident INC-2093: registry outage during database failover > What we changed\n\n## What we changed\n\n- An alert now fires when the standby falls more than 60 seconds behind.\n- Monitoring keeps its last good agent list when the registry is unreachable, instead of showing nothing.\n- `support_agent` now tells users the registry is unavailable instead of failing silently.",
+     "gold": true
+    },
+    {
+     "key": "prometheus-server/configuration/template_examples.md:1",
+     "text": "Template examples > Simple alert field templates\n\n## Simple alert field templates\n\n```yaml\nalert: InstanceDown\nexpr: up == 0\nfor: 5m\nlabels:\n  severity: page\nannotations:\n  summary: \"Instance {{$labels.instance}} down\"\n  description: \"{{$labels.instance}} of job {{$labels.job}} has been down for more than 5 minutes.\"\n```\n\nAlert field templates will be executed during every rule iteration for each\nalert that fires, so keep any queries and templates lightweight. If you have a\nneed for more complicated templates for alerts, it is recommended to link to a\nconsole instead.",
+     "gold": false
+    }
+   ],
+   "altered": "An alert now fires only once the standby is 30 minutes behind."
+  },
+  {
+   "id": "v37-true",
+   "item": "v37",
+   "premise": "true",
+   "question": "Since a registry-db failover should take about 5 minutes, was the outage in INC-2093 longer than expected?",
+   "context": [
+    {
+     "key": "D11:0",
+     "text": "Incident INC-2093: registry outage during database failover > Summary\n\n## Summary\n\nOn 2026-08-27, registry-api was unavailable for 42 minutes while registry-db failed over to its standby. Agents that look things up in the registry couldn't finish their tasks, and monitoring lost sight of every agent for the same period.",
+     "gold": false
+    },
+    {
+     "key": "D11:1",
+     "text": "Incident INC-2093: registry outage during database failover > Timeline\n\n## Timeline\n\n- 14:10 — The primary registry-db host failed a disk check and failover started.\n- 14:11 — `RegistryUnreachable` fired and paged the on-call engineer. The overview dashboard went blank.\n- 14:20 — `support_agent` sessions began failing on their first registry lookup. `triage_agent` kept running but couldn't hand tickets over, so 212 tickets queued.\n- 14:52 — The standby finished catching up and registry-api recovered. The queued tickets were handed over by 15:05.",
+     "gold": false
+    },
+    {
+     "key": "D11:3",
+     "text": "Incident INC-2093: registry outage during database failover > What we changed\n\n## What we changed\n\n- An alert now fires when the standby falls more than 60 seconds behind.\n- Monitoring keeps its last good agent list when the registry is unreachable, instead of showing nothing.\n- `support_agent` now tells users the registry is unavailable instead of failing silently.",
+     "gold": false
+    },
+    {
+     "key": "D11:2",
+     "text": "Incident INC-2093: registry outage during database failover > What made it worse\n\n## What made it worse\n\nThe failover should have taken about 5 minutes. It took 42 because the standby had fallen 38 minutes behind the primary, and nothing alerted on that lag. For the whole outage, monitoring showed no agents at all, so the on-call engineer couldn't tell which agents were affected. Its agent list comes from the registry.",
+     "gold": true
+    }
+   ]
+  },
+  {
+   "id": "v37-false",
+   "item": "v37",
+   "premise": "false",
+   "question": "Since a registry-db failover normally takes about an hour, was the outage in INC-2093 longer than expected?",
+   "context": [
+    {
+     "key": "D11:0",
+     "text": "Incident INC-2093: registry outage during database failover > Summary\n\n## Summary\n\nOn 2026-08-27, registry-api was unavailable for 42 minutes while registry-db failed over to its standby. Agents that look things up in the registry couldn't finish their tasks, and monitoring lost sight of every agent for the same period.",
+     "gold": false
+    },
+    {
+     "key": "D11:1",
+     "text": "Incident INC-2093: registry outage during database failover > Timeline\n\n## Timeline\n\n- 14:10 — The primary registry-db host failed a disk check and failover started.\n- 14:11 — `RegistryUnreachable` fired and paged the on-call engineer. The overview dashboard went blank.\n- 14:20 — `support_agent` sessions began failing on their first registry lookup. `triage_agent` kept running but couldn't hand tickets over, so 212 tickets queued.\n- 14:52 — The standby finished catching up and registry-api recovered. The queued tickets were handed over by 15:05.",
+     "gold": false
+    },
+    {
+     "key": "D11:3",
+     "text": "Incident INC-2093: registry outage during database failover > What we changed\n\n## What we changed\n\n- An alert now fires when the standby falls more than 60 seconds behind.\n- Monitoring keeps its last good agent list when the registry is unreachable, instead of showing nothing.\n- `support_agent` now tells users the registry is unavailable instead of failing silently.",
+     "gold": false
+    },
+    {
+     "key": "D11:2",
+     "text": "Incident INC-2093: registry outage during database failover > What made it worse\n\n## What made it worse\n\nThe failover should have taken about 5 minutes. It took 42 because the standby had fallen 38 minutes behind the primary, and nothing alerted on that lag. For the whole outage, monitoring showed no agents at all, so the on-call engineer couldn't tell which agents were affected. Its agent list comes from the registry.",
+     "gold": true
+    }
+   ],
+   "altered": "The failover normally takes about an hour."
+  },
+  {
+   "id": "v38-true",
+   "item": "v38",
+   "premise": "true",
+   "question": "Since reads still work while the registry is in maintenance, will the dashboards keep showing agents while the registry is in maintenance?",
+   "context": [
+    {
+     "key": "D03:0",
+     "text": "Registry changelog > v2.6 — 2026-08-18\n\n## v2.6 — 2026-08-18\n\n- Added `GET /agents/me`, which returns the agent that owns the calling key.\n- The registry can now enter maintenance mode. During maintenance, reads keep working and writes return `REG-1011`.\n- Error responses now always include `name` alongside `code`.",
+     "gold": false
+    },
+    {
+     "key": "D08:2",
+     "text": "Monitoring guide > When RegistryUnreachable fires\n\n## When RegistryUnreachable fires\n\nCheck the registry's status page first. While the registry is down, monitoring can't refresh its agent list, so dashboards may show no agents at all even though the agents are still running. Don't read an empty dashboard as \"every agent is down.\"",
+     "gold": false
+    },
+    {
+     "key": "D04:2",
+     "text": "Agent platform architecture overview > How requests flow\n\n## How requests flow\n\nWhen a request reaches registry-api, it first asks auth-service to validate the `X-Registry-Key` header, then reads or writes registry-db. If auth-service is slow, every registry request is slow; if registry-db is unavailable, registry-api can't answer at all.\n\nMonitoring gets its list of agents from registry-api every 30 seconds, then collects metrics from each agent on the list.",
+     "gold": false
+    },
+    {
+     "key": "D02:2",
+     "text": "Error code reference > Limits and availability\n\n## Limits and availability\n\n| Code | Name | HTTP | Meaning |\n|---|---|---|---|\n| `REG-1009` | `RATE_LIMITED` | 429 | The key made too many requests this minute. Wait the number of seconds in `Retry-After`, then retry. |\n| `REG-1011` | `REGISTRY_READ_ONLY` | 503 | The registry is in maintenance mode. Reads work; writes are refused until maintenance ends. |",
+     "gold": true
+    }
+   ]
+  },
+  {
+   "id": "v38-false",
+   "item": "v38",
+   "premise": "false",
+   "question": "Since the registry refuses reads during maintenance, will the dashboards keep showing agents while the registry is in maintenance?",
+   "context": [
+    {
+     "key": "D03:0",
+     "text": "Registry changelog > v2.6 — 2026-08-18\n\n## v2.6 — 2026-08-18\n\n- Added `GET /agents/me`, which returns the agent that owns the calling key.\n- The registry can now enter maintenance mode. During maintenance, reads keep working and writes return `REG-1011`.\n- Error responses now always include `name` alongside `code`.",
+     "gold": false
+    },
+    {
+     "key": "D08:2",
+     "text": "Monitoring guide > When RegistryUnreachable fires\n\n## When RegistryUnreachable fires\n\nCheck the registry's status page first. While the registry is down, monitoring can't refresh its agent list, so dashboards may show no agents at all even though the agents are still running. Don't read an empty dashboard as \"every agent is down.\"",
+     "gold": false
+    },
+    {
+     "key": "D04:2",
+     "text": "Agent platform architecture overview > How requests flow\n\n## How requests flow\n\nWhen a request reaches registry-api, it first asks auth-service to validate the `X-Registry-Key` header, then reads or writes registry-db. If auth-service is slow, every registry request is slow; if registry-db is unavailable, registry-api can't answer at all.\n\nMonitoring gets its list of agents from registry-api every 30 seconds, then collects metrics from each agent on the list.",
+     "gold": false
+    },
+    {
+     "key": "D02:2",
+     "text": "Error code reference > Limits and availability\n\n## Limits and availability\n\n| Code | Name | HTTP | Meaning |\n|---|---|---|---|\n| `REG-1009` | `RATE_LIMITED` | 429 | The key made too many requests this minute. Wait the number of seconds in `Retry-After`, then retry. |\n| `REG-1011` | `REGISTRY_READ_ONLY` | 503 | The registry is in maintenance mode. Reads work; writes are refused until maintenance ends. |",
+     "gold": true
+    }
+   ],
+   "altered": "During maintenance the registry refuses every request, reads included."
+  },
+  {
+   "id": "v39-true",
+   "item": "v39",
+   "premise": "true",
+   "question": "Since a read key can call every GET endpoint, what kind of key does a read-only dashboard need?",
+   "context": [
+    {
+     "key": "D08:4",
+     "text": "Monitoring guide > Polling the registry from your own dashboards\n\n## Polling the registry from your own dashboards\n\nIf you build your own dashboard on top of the registry, poll no more than once every few seconds. The registry allows 100 requests per minute per key, and a dashboard that uses most of that leaves nothing for the agent sharing its key.",
+     "gold": false
+    },
+    {
+     "key": "D01:1",
+     "text": "Registry API reference > Authentication\n\n## Authentication\n\nEvery request must carry a registry key in the `X-Registry-Key` header. A request without one is rejected with `REG-1001`, and a key the registry doesn't recognise is rejected with `REG-1002`.\n\n```bash\ncurl https://registry.internal.example/v2/agents/me \\\n  -H \"X-Registry-Key: $REGISTRY_KEY\"\n```\n\nKeys have a scope. A `read` key can call every `GET` endpoint. A `write` key can also create, update and delete agents. Each key belongs to exactly one agent or one person, and the registry records which one made every change. Keys are issued and revoked with `regctl`; see the key rotation runbook.",
+     "gold": true
+    },
+    {
+     "key": "prometheus-docs/introduction/glossary.md:19",
+     "text": "Glossary > Remote Read Endpoint\n\n### Remote Read Endpoint\n\nA remote read endpoint is what Prometheus talks to when doing a remote read.",
+     "gold": false
+    },
+    {
+     "key": "D14:3",
+     "text": "Agent owners' FAQ > Why does my agent get told to slow down?\n\n## Why does my agent get told to slow down?\n\nEach key gets a fixed number of registry calls per minute. If two things share a key, say the agent and a dashboard, they share that allowance. Give the dashboard its own read-only key.",
+     "gold": false
+    }
+   ]
+  },
+  {
+   "id": "v39-false",
+   "item": "v39",
+   "premise": "false",
+   "question": "Since a read key can only call GET /agents/me, what kind of key does a read-only dashboard need?",
+   "context": [
+    {
+     "key": "D08:4",
+     "text": "Monitoring guide > Polling the registry from your own dashboards\n\n## Polling the registry from your own dashboards\n\nIf you build your own dashboard on top of the registry, poll no more than once every few seconds. The registry allows 100 requests per minute per key, and a dashboard that uses most of that leaves nothing for the agent sharing its key.",
+     "gold": false
+    },
+    {
+     "key": "D01:1",
+     "text": "Registry API reference > Authentication\n\n## Authentication\n\nEvery request must carry a registry key in the `X-Registry-Key` header. A request without one is rejected with `REG-1001`, and a key the registry doesn't recognise is rejected with `REG-1002`.\n\n```bash\ncurl https://registry.internal.example/v2/agents/me \\\n  -H \"X-Registry-Key: $REGISTRY_KEY\"\n```\n\nKeys have a scope. A `read` key can call every `GET` endpoint. A `write` key can also create, update and delete agents. Each key belongs to exactly one agent or one person, and the registry records which one made every change. Keys are issued and revoked with `regctl`; see the key rotation runbook.",
+     "gold": true
+    },
+    {
+     "key": "prometheus-docs/introduction/glossary.md:19",
+     "text": "Glossary > Remote Read Endpoint\n\n### Remote Read Endpoint\n\nA remote read endpoint is what Prometheus talks to when doing a remote read.",
+     "gold": false
+    },
+    {
+     "key": "D14:3",
+     "text": "Agent owners' FAQ > Why does my agent get told to slow down?\n\n## Why does my agent get told to slow down?\n\nEach key gets a fixed number of registry calls per minute. If two things share a key, say the agent and a dashboard, they share that allowance. Give the dashboard its own read-only key.",
+     "gold": false
+    }
+   ],
+   "altered": "A read key can only call GET /agents/me."
+  },
+  {
+   "id": "v40-true",
+   "item": "v40",
+   "premise": "true",
+   "question": "Since assigning claude-legacy to an agent now fails with REG-1010, can I create a test agent on claude-legacy to compare with the new model?",
+   "context": [
+    {
+     "key": "D07:3",
+     "text": "Runbook: migrating agents off claude-legacy > Step 2: Compare before you switch\n\n## Step 2: Compare before you switch\n\nRun 20 recent tasks through the target model and compare the results with what `claude-legacy` produced. Look for changes in format, not just in quality: a downstream step that parses the agent's output may break on a different model's phrasing.",
+     "gold": false
+    },
+    {
+     "key": "D07:0",
+     "text": "Runbook: migrating agents off claude-legacy > Why and by when\n\n## Why and by when\n\n`claude-legacy` was deprecated in v2.5 and will be switched off on 2026-10-31. Any agent still on it that day stops answering. No new agent can be put on it: the registry returns `REG-1010`.",
+     "gold": false
+    },
+    {
+     "key": "D03:1",
+     "text": "Registry changelog > v2.5 — 2026-07-01\n\n## v2.5 — 2026-07-01\n\n- Deprecated the `claude-legacy` model. Creating an agent with it, or changing an agent to it, now returns `REG-1010`.\n- Agents already on `claude-legacy` keep running until 2026-10-31, when the model is switched off. Owners must move them before then; see the model migration runbook.",
+     "gold": true
+    },
+    {
+     "key": "D02:1",
+     "text": "Error code reference > Request errors\n\n## Request errors\n\n| Code | Name | HTTP | Meaning |\n|---|---|---|---|\n| `REG-1005` | `AGENT_NOT_FOUND` | 404 | No agent has this `agent_id`. Ids are case-sensitive. |\n| `REG-1006` | `AGENT_NAME_TAKEN` | 409 | An agent with this `agent_id` already exists, including a retired one. |\n| `REG-1007` | `MODEL_NOT_ALLOWED` | 422 | The model isn't on the allowlist for the agent's tier. Change the tier first, or pick an allowed model. |\n| `REG-1008` | `VALIDATION_FAILED` | 422 | The body is missing a required field or has a value of the wrong type. The message names the field. |\n| `REG-1010` | `MODEL_DEPRECATED` | 422 | The model is deprecated and can't be newly assigned. Currently applies to `claude-legacy`. |",
+     "gold": false
+    }
+   ]
+  },
+  {
+   "id": "v40-false",
+   "item": "v40",
+   "premise": "false",
+   "question": "Since new agents can still be created on claude-legacy until it is switched off, can I create a test agent on claude-legacy to compare with the new model?",
+   "context": [
+    {
+     "key": "D07:3",
+     "text": "Runbook: migrating agents off claude-legacy > Step 2: Compare before you switch\n\n## Step 2: Compare before you switch\n\nRun 20 recent tasks through the target model and compare the results with what `claude-legacy` produced. Look for changes in format, not just in quality: a downstream step that parses the agent's output may break on a different model's phrasing.",
+     "gold": false
+    },
+    {
+     "key": "D07:0",
+     "text": "Runbook: migrating agents off claude-legacy > Why and by when\n\n## Why and by when\n\n`claude-legacy` was deprecated in v2.5 and will be switched off on 2026-10-31. Any agent still on it that day stops answering. No new agent can be put on it: the registry returns `REG-1010`.",
+     "gold": false
+    },
+    {
+     "key": "D03:1",
+     "text": "Registry changelog > v2.5 — 2026-07-01\n\n## v2.5 — 2026-07-01\n\n- Deprecated the `claude-legacy` model. Creating an agent with it, or changing an agent to it, now returns `REG-1010`.\n- Agents already on `claude-legacy` keep running until 2026-10-31, when the model is switched off. Owners must move them before then; see the model migration runbook.",
+     "gold": true
+    },
+    {
+     "key": "D02:1",
+     "text": "Error code reference > Request errors\n\n## Request errors\n\n| Code | Name | HTTP | Meaning |\n|---|---|---|---|\n| `REG-1005` | `AGENT_NOT_FOUND` | 404 | No agent has this `agent_id`. Ids are case-sensitive. |\n| `REG-1006` | `AGENT_NAME_TAKEN` | 409 | An agent with this `agent_id` already exists, including a retired one. |\n| `REG-1007` | `MODEL_NOT_ALLOWED` | 422 | The model isn't on the allowlist for the agent's tier. Change the tier first, or pick an allowed model. |\n| `REG-1008` | `VALIDATION_FAILED` | 422 | The body is missing a required field or has a value of the wrong type. The message names the field. |\n| `REG-1010` | `MODEL_DEPRECATED` | 422 | The model is deprecated and can't be newly assigned. Currently applies to `claude-legacy`. |",
+     "gold": false
+    }
+   ],
+   "altered": "New agents can still be created on claude-legacy until it is switched off."
+  }
+ ]
+}

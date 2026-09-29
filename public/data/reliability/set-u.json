@@ -1,0 +1,781 @@
+{
+ "version": 1,
+ "written_by": "Set E questions with the first correct reply from runs/plain.json; wrong answers chosen by this script's rules",
+ "questions": [
+  {
+   "id": "e01",
+   "answer": 20,
+   "type": "number",
+   "accept": [],
+   "wrong": "40",
+   "first_reply": "Based on source [1], the default page size for `GET /agents` is 20. Source [2] confirms this, stating \"default 20\".\n\nANSWER: 20",
+   "first_seed": 315986268
+  },
+  {
+   "id": "e02",
+   "answer": 100,
+   "type": "number",
+   "accept": [],
+   "wrong": "150",
+   "first_reply": "To find the largest page size for `GET /agents`, I will look at the documentation regarding the `limit` parameter.\n\n1.  Source [2] states: \"Pass `limit` to set the page size (default 20, maximum 100).\"\n2.  Source [4] confirms this in the changelog for v2.2: \"Page size is set with `limit`: default 20, maximum 100.\"\n\nThe maximum value specified is 100.\n\nANSWER: 100",
+   "first_seed": 824091311
+  },
+  {
+   "id": "e03",
+   "answer": "X-Registry-Key",
+   "type": "text",
+   "accept": [],
+   "wrong": "Authorization",
+   "first_reply": "The header that carries the registry key is specified in the \"Authentication\" section of Source [1]. It states: \"Every request must carry a registry key in the `X-Registry-Key` header.\"\n\nANSWER: X-Registry-Key",
+   "first_seed": 684887674
+  },
+  {
+   "id": "e04",
+   "answer": "REG-1001",
+   "type": "text",
+   "accept": [],
+   "wrong": "REG-1002",
+   "first_reply": "Based on Source [5] in the table under \"Authentication errors\", the error code for a request with no `X-Registry-Key` header is `REG-1001`.\n\nANSWER: REG-1001",
+   "first_seed": 73715082
+  },
+  {
+   "id": "e05",
+   "answer": "REG-1002",
+   "type": "text",
+   "accept": [],
+   "wrong": "REG-1003",
+   "first_reply": "Based on source [3], the error code for a key that isn't one the registry issued (doesn't recognise) is `REG-1002`. Source [5] confirms this: \"a key the registry doesn't recognise is rejected with REG-1002\".\n\nANSWER: REG-1002",
+   "first_seed": 4244819755
+  },
+  {
+   "id": "e06",
+   "answer": "v2.6",
+   "type": "text",
+   "accept": [
+    "2.6"
+   ],
+   "wrong": "v2.5",
+   "first_reply": "The current version of the Registry API is stated in source [5] under the \"Overview\" section.\n\nSource text: \"The current version is v2.6.\"\n\nANSWER: v2.6",
+   "first_seed": 2656183960
+  },
+  {
+   "id": "e07",
+   "answer": "REG-1006",
+   "type": "text",
+   "accept": [],
+   "wrong": "REG-1008",
+   "first_reply": "Based on the \"Error code reference\" table in source [5], the error code for when an agent with a specific `agent_id` already exists (including retired ones) is `REG-1006`. This is confirmed by the description for `AGENT_NAME_TAKEN` which states: \"An agent with this `agent_id` already exists, including a retired one.\"\n\nANSWER: REG-1006",
+   "first_seed": 567473381
+  },
+  {
+   "id": "e08",
+   "answer": "REG-1007",
+   "type": "text",
+   "accept": [],
+   "wrong": "REG-1010",
+   "first_reply": "Based on the provided sources, specifically Source [5] which lists request errors:\n\n- Code `REG-1007` corresponds to the name `MODEL_NOT_ALLOWED`.\n- The meaning is described as: \"The model isn't on the allowlist for the agent's tier. Change the tier first, or pick an allowed model.\"\n\nThis matches the question asking for the error code where the model isn't allowed on the agent's tier.\n\nANSWER: REG-1007",
+   "first_seed": 1053940474
+  },
+  {
+   "id": "e09",
+   "answer": "REG-1004",
+   "type": "text",
+   "accept": [],
+   "wrong": "REG-1003",
+   "first_reply": "Based on the provided sources:\n\n1.  Source [1] states that updating an agent via `PATCH /agents/{agent_id}` \"needs a `write` key; a `read` key gets `REG-1004`.\"\n2.  This implies that if a read-only key is used to attempt a write operation (like PATCH), it will receive error code `REG-1004`.\n\nANSWER: REG-1004",
+   "first_seed": 3382925738
+  },
+  {
+   "id": "e10",
+   "answer": "/agents/me",
+   "type": "text",
+   "accept": [
+    "GET /agents/me"
+   ],
+   "wrong": "/agents/self",
+   "first_reply": "Based on Source [4], the endpoint `GET /agents/me` was added in version 2.6 and is described as returning \"the agent that owns the calling key.\" This is confirmed in Source [5], which states \"`GET /agents/me` returns the agent that owns the key making the request.\"\n\nANSWER: GET /agents/me",
+   "first_seed": 2586748817
+  },
+  {
+   "id": "e11",
+   "answer": "2026-10-31",
+   "type": "text",
+   "accept": [],
+   "wrong": "2026-12-31",
+   "first_reply": "Based on the provided sources:\n\n1.  Source [1] states that existing agents on `claude-legacy` keep working until **2026-10-31**.\n2.  Source [2] confirms this, stating agents already on `claude-legacy` keep running until **2026-10-31**, when the model is switched off.\n3.  Source [5] reiterates that any agent still on `claude-legacy` that day stops answering.\n\nAll sources consistently identify the date as 2026-10-31.\n\nANSWER: 2026-10-31",
+   "first_seed": 2778216590
+  },
+  {
+   "id": "e12",
+   "answer": "priority",
+   "type": "text",
+   "accept": [],
+   "wrong": "standard",
+   "first_reply": "Based on the provided sources:\n\n1.  Source [3] contains a table titled \"Tiers and models\" which lists allowed models for each tier.\n2.  In this table, the row for the `priority` tier lists `claude-opus` as an allowed model.\n3.  The `standard` tier only allows `claude-haiku` and `claude-sonnet`.\n4.  Source [2] also confirms that if the model is not allowed on the agent's tier (e.g., trying to use `claude-opus` on a `standard` tier), the request fails with error `REG-1007`.\n\nTherefore, the `priority` tier is the one that allows `claude-opus`.\n\nANSWER: priority",
+   "first_seed": 2301544008
+  },
+  {
+   "id": "e13",
+   "answer": 3,
+   "type": "number",
+   "accept": [],
+   "wrong": "4",
+   "first_reply": "Based on the \"Tiers and models\" table in source [2], the `priority` tier allows the following models:\n1. `claude-haiku`\n2. `claude-sonnet`\n3. `claude-opus`\n\nCounting these items results in a total of 3 models.\n\nANSWER: 3",
+   "first_seed": 500820213
+  },
+  {
+   "id": "e14",
+   "answer": 2,
+   "type": "number",
+   "accept": [],
+   "wrong": "3",
+   "first_reply": "Based on the provided sources, I need to count the models listed for the `standard` tier.\n\nSource [1] contains a table titled \"Tiers and models\" which lists the allowed models for each tier.\n- For the `standard` tier, the allowed models are: `claude-haiku` and `claude-sonnet`.\n- Counting these entries gives a total of 2 models.\n\nANSWER: 2",
+   "first_seed": 2023927957
+  },
+  {
+   "id": "e15",
+   "answer": "paused",
+   "type": "text",
+   "accept": [],
+   "wrong": "retired",
+   "first_reply": "Based on the provided sources, I need to find a status value that has two specific effects:\n1. Stops new sessions from starting.\n2. Keeps the agent listed (visible in listings).\n\nLet's analyze the relevant sections:\n- Source [3] states: \"Setting `status` to `paused` stops new sessions from starting; `retired` also hides the agent from the default listing.\" This implies `paused` stops sessions but does not hide the agent (since only `retired` is explicitly said to hide it).\n- Source [4] mentions checking if someone \"paused it\" as a reason for an agent stopping answers.\n\nTherefore, the status value that stops new sessions but keeps the agent listed is `paused`.\n\nANSWER: paused",
+   "first_seed": 1655544004
+  },
+  {
+   "id": "e16",
+   "answer": 429,
+   "type": "number",
+   "accept": [],
+   "wrong": "503",
+   "first_reply": "Based on the provided sources:\n\n1.  Source [1] lists error code `REG-1009` with the name `RATE_LIMITED` and specifies the HTTP status code as **429**.\n2.  Source [2] confirms that requests past the rate limit get \"HTTP 429\".\n3.  Source [4] reiterates that rate-limited responses (`REG-1009`) occur, though it focuses more on the header changes.\n\nANSWER: 429",
+   "first_seed": 2106136198
+  },
+  {
+   "id": "e17",
+   "answer": "REG-1005",
+   "type": "text",
+   "accept": [],
+   "wrong": "REG-1002",
+   "first_reply": "Based on Source [1], the `GET /agents/{agent_id}` endpoint returns `REG-1005` if no agent has that id. This is confirmed in Source [3], which lists `REG-1005` as the error code for `AGENT_NOT_FOUND`.\n\nANSWER: REG-1005",
+   "first_seed": 3213932888
+  },
+  {
+   "id": "e18",
+   "answer": 422,
+   "type": "number",
+   "accept": [],
+   "wrong": "400",
+   "first_reply": "Based on the provided sources, specifically the table in source [2] under \"Request errors\", the error code `REG-1007` corresponds to the HTTP status code 422.\n\nANSWER: 422",
+   "first_seed": 291857801
+  },
+  {
+   "id": "e19",
+   "answer": "KEY_REVOKED",
+   "type": "text",
+   "accept": [],
+   "wrong": "INVALID_KEY",
+   "first_reply": "Based on the provided sources, I will locate the entry for error code `REG-1003`.\n\n1.  Scanning Source [2] \"Error code reference > Authentication errors\":\n    *   Found row: Code `REG-1003`, Name `KEY_REVOKED`, HTTP `401`, Meaning \"The key was valid but has been revoked.\"\n\n2.  The question asks for the **name** of the error.\n    *   According to the table in Source [2], the name corresponding to `REG-1003` is `KEY_REVOKED`.\n\nANSWER: KEY_REVOKED",
+   "first_seed": 601252768
+  },
+  {
+   "id": "e20",
+   "answer": 3,
+   "type": "number",
+   "accept": [],
+   "wrong": "4",
+   "first_reply": "To determine the number of REG- error codes returned with HTTP 401, I will examine the provided documentation for authentication errors and limits.\n\n1.  **Source [3] (Authentication errors)** lists error codes with their HTTP status:\n    *   `REG-1001`: HTTP 401\n    *   `REG-1002`: HTTP 401\n    *   `REG-1003`: HTTP 401\n    *   `REG-1004`: HTTP 403\n\n2.  **Source [6] (Limits and availability)** lists:\n    *   `REG-1009`: HTTP 429\n    *   `REG-1011`: HTTP 503\n\n3.  **Source [7] (Request errors)** lists:\n    *   `REG-1005`: HTTP 404\n    *   `REG-1006`: HTTP 409\n    *   `REG-1007`: HTTP 422\n    *   `REG-1008`: HTTP 422\n    *   `REG-1010`: HTTP 422\n\nCounting the unique codes associated with HTTP 401 from the sources:\n*   REG-1001\n*   REG-1002\n*   REG-1003\n\nThere are 3 such codes.\n\nANSWER: 3",
+   "first_seed": 3415753620
+  },
+  {
+   "id": "e21",
+   "answer": 3,
+   "type": "number",
+   "accept": [],
+   "wrong": "4",
+   "first_reply": "To find the number of REG- error codes returned with HTTP 422, I will scan the provided error code tables for entries where the \"HTTP\" column is \"422\".\n\nFrom Source [4] (Error code reference > Request errors):\n1. `REG-1007` has HTTP 422.\n2. `REG-1008` has HTTP 422.\n3. `REG-1010` has HTTP 422.\n\nFrom Source [5] (Authentication errors) and Source [6] (Limits and availability), there are no entries with HTTP 422.\n\nCounting these up:\n- REG-1007\n- REG-1008\n- REG-1010\n\nTotal count = 3.\n\nANSWER: 3",
+   "first_seed": 3018935700
+  },
+  {
+   "id": "e22",
+   "answer": "REG-1011",
+   "type": "text",
+   "accept": [],
+   "wrong": "REG-1009",
+   "first_reply": "Based on the provided sources:\n\n1.  Source [4] states that during maintenance mode, \"writes return `REG-1011`\".\n2.  Source [5] confirms that error code `REG-1011` is named `REGISTRY_READ_ONLY` and occurs when \"The registry is in maintenance mode.\"\n\nANSWER: REG-1011",
+   "first_seed": 4233027015
+  },
+  {
+   "id": "e23",
+   "answer": 503,
+   "type": "number",
+   "accept": [],
+   "wrong": "500",
+   "first_reply": "Based on the provided sources, I will look up the HTTP status code associated with the error code `REG-1011`.\n\nSource [1] contains a table titled \"Limits and availability\" which lists error codes.\nIn this table:\n- The row for Code `REG-1011` shows the Name `REGISTRY_READ_ONLY`.\n- The column labeled \"HTTP\" for this row indicates the value `503`.\n\nANSWER: 503",
+   "first_seed": 1282161396
+  },
+  {
+   "id": "e24",
+   "answer": "MON-2002",
+   "type": "text",
+   "accept": [],
+   "wrong": "MON-2001",
+   "first_reply": "Based on Source [4], under the \"Monitoring errors\" section, the error code `MON-2002` corresponds to the name `REGISTRY_UNREACHABLE`, which means \"Monitoring failed to reach the Registry API three times in a row.\"\n\nANSWER: MON-2002",
+   "first_seed": 3873647899
+  },
+  {
+   "id": "e25",
+   "answer": 3,
+   "type": "number",
+   "accept": [],
+   "wrong": "4",
+   "first_reply": "Based on the provided sources, specifically source [3] under \"Monitoring errors\" and source [5] under \"Alerts\", the error code `MON-2002` (named `REGISTRY_UNREACHABLE`) is triggered when monitoring fails to reach the Registry API three times in a row.\n\nSource [3] states: \"Monitoring failed to reach the Registry API three times in a row.\"\nSource [5] states: \"three registry polls in a row fail (`MON-2002`)\"\n\nANSWER: 3",
+   "first_seed": 2825734309
+  },
+  {
+   "id": "e26",
+   "answer": 11,
+   "type": "number",
+   "accept": [],
+   "wrong": "22",
+   "first_reply": "To find the total number of REG- error codes listed in the sources, I need to count the unique codes provided across all the tables in the \"Error code reference\" sections.\n\nFrom Source [2] (Authentication errors):\n1. REG-1001\n2. REG-1002\n3. REG-1003\n4. REG-1004\n\nFrom Source [5] (Request errors):\n5. REG-1005\n6. REG-1006\n7. REG-1007\n8. REG-1008\n9. REG-1010\n\nFrom Source [6] (Limits and availability):\n10. REG-1009\n11. REG-1011\n\nNote: Source [3] mentions `REG-1007` but does not introduce a new code; it just references the list. The highest number is 1011, and the lowest is 1001. However, there is a gap between 1010 and 1011? No, 1009, 1010, 1011 are present. Let's re-verify the sequence:\n1001, 1002, 1003, 1004 (Source 2)\n1005, 1006, 1007, 1008, 1010 (Source 5) - Note: 1009 is missing here but present in Source 6.\n1009, 1011 (Source 6)\n\nList of all found codes:\nREG-1001, REG-1002, REG-1003, REG-1004, REG-1005, REG-1006, REG-1007, REG-1008, REG-1009, REG-1010, REG-1011.\n\nCounting them:\n1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11.\n\nThere are 11 distinct error codes listed in total across the provided documents.\n\nANSWER: 11",
+   "first_seed": 1892394858
+  },
+  {
+   "id": "e27",
+   "answer": "v2.5",
+   "type": "text",
+   "accept": [
+    "2.5"
+   ],
+   "wrong": "v2.4",
+   "first_reply": "Based on source [2], the `claude-legacy` model was deprecated in registry version v2.5 (dated 2026-07-01). Source [4] also confirms it was deprecated in v2.5.\n\nANSWER: v2.5",
+   "first_seed": 3534984526
+  },
+  {
+   "id": "e28",
+   "answer": 100,
+   "type": "number",
+   "accept": [],
+   "wrong": "150",
+   "first_reply": "To determine the per-key rate limit before v2.4, I will look at the information provided in the changelog for v2.4 and compare it with the rate limits mentioned in other documentation sources.\n\n1.  **Analyze Source [4] (Registry changelog > v2.4 — 2026-05-12):**\n    *   The text states: \"Lowered the rate limit from 100 to 60 requests per minute per key.\"\n    *   This implies the limit *before* this change was 100.\n\n2.  **Verify with Source [2] (Monitoring guide > Polling the registry...):**\n    *   The text mentions: \"The registry allows 100 requests per minute per key...\"\n    *   This aligns with the \"before\" value found in the changelog.\n\n3.  **Verify with Source [3] (Registry API reference > Rate limits):**\n    *   The text states: \"Each key may make 60 requests per minute.\"\n    *   This confirms the current limit (after v2.4) but does not contradict the previous limit.\n\n**Calculation/Reasoning:**\nSource [4] explicitly states the limit was lowered *from* 100 *to* 60. Therefore, the limit prior to version 2.4 was 100.\n\nANSWER: 100",
+   "first_seed": 3142751445
+  },
+  {
+   "id": "e29",
+   "answer": 40,
+   "type": "number",
+   "accept": [],
+   "wrong": "80",
+   "first_reply": "To determine how many requests per minute the rate limit was lowered in version v2.4, I need to find the old and new limits mentioned in the sources.\n\n1.  **Identify the new limit:** Source [3] states, \"Lowered the rate limit from 100 to 60 requests per minute per key.\" Additionally, Source [2] confirms the current limit is 60 requests per minute.\n2.  **Identify the old limit:** Source [3] explicitly states the limit was lowered *from* 100.\n3.  **Calculate the difference:** The reduction is $100 - 60 = 40$.\n\nThe rate limit was lowered by 40 requests per minute.\n\nANSWER: 40",
+   "first_seed": 196255999
+  },
+  {
+   "id": "e30",
+   "answer": "2026-03-10",
+   "type": "text",
+   "accept": [],
+   "wrong": "2026-04-01",
+   "first_reply": "Based on source [1], the changelog for registry v2.3 is dated 2026-03-10.\n\nANSWER: 2026-03-10",
+   "first_seed": 758238131
+  },
+  {
+   "id": "e31",
+   "answer": 122,
+   "type": "number",
+   "accept": [],
+   "wrong": "183",
+   "first_reply": "To find the number of days, I need to identify the release date of v2.5 and the switch-off date for `claude-legacy` from the provided sources.\n\n1.  **Release Date of v2.5**: Source [5] states that version v2.5 was released on `2026-07-01`.\n2.  **Switch-off Date**: Source [3] and Source [5] both state that `claude-legacy` will be switched off on `2026-10-31`.\n\nNow, calculate the difference between October 31, 2026, and July 1, 2026:\n*   Days remaining in July 2026: $31 - 1 = 30$ days (from July 2nd to July 31st).\n*   Days in August 2026: 31 days.\n*   Days in September 2026: 30 days.\n*   Days in October 2026: 31 days (up to the 31st).\n\nCalculation:\n$30 \\text{ (July)} + 31 \\text{ (August)} + 30 \\text{ (September)} + 31 \\text{ (October)} = 122$ days.\n\nAlternatively, counting inclusively from July 1 to Oct 31:\nJuly: 31 days\nAugust: 31 days\nSeptember: 30 days\nOctober: 31 days\nTotal: $31 + 31 + 30 + 31 = 123$ days.\n\nLet's re-evaluate standard date difference calculations. Usually, \"days from X to Y\" implies the duration.\nFrom July 1 to July 2 is 1 day.\nFrom July 1 to Oct 31:\nDays in July after July 1: 30\nDays in August: 31\nDays in September: 30\nDays in October up to 31: 31\nSum: $30 + 31 + 30 + 31 = 122$.\n\nIf the question implies inclusive counting (how many calendar days span this period), it would be 123. However, standard time duration is exclusive of the start date or calculated as end_date - start_date.\nDate 1: 2026-07-01\nDate 2: 2026-10-31\nDifference:\nJuly has 31 days. From July 1 to Aug 1 is 31 days.\nAug 1 to Sep 1 is 31 days.\nSep 1 to Oct 1 is 30 days.\nOct 1 to Oct 31 is 30 days.\nTotal: $31 + 31 + 30 + 30 = 122$ days.\n\nLet's double check with a simple month-by-month addition from July 1st:\n- End of July: 31 days elapsed.\n- End of August: $31 + 31 = 62$ days elapsed.\n- End of September: $62 + 30 = 92$ days elapsed.\n- End of October: $92 + 31 = 123$ days elapsed.\n\nWait, if today is July 1st, then:\nJuly 1 -> July 2 is 1 day.\nJuly 1 -> July 31 is 30 days.\nSo, from July 1 to Oct 31:\nDays in July excluding 1st: 30\nDays in August: 31\nDays in September: 30\nDays in October including 31st: 31\nTotal: $30 + 31 + 30 + 31 = 122$.\n\nLet's try another way.\nDays from July 1 to Oct 1 = 3 months.\nJuly (31) + Aug (31) + Sep (30) = 92 days from Jul 1 to Oct 1.\nDays from Oct 1 to Oct 31 = 30 days.\nTotal = $92 + 30 = 122$ days.\n\nANSWER: 122",
+   "first_seed": 1306928095
+  },
+  {
+   "id": "e32",
+   "answer": "v2.6",
+   "type": "text",
+   "accept": [
+    "2.6"
+   ],
+   "wrong": "v2.5",
+   "first_reply": "Based on the provided sources:\n\n1.  Source [1] is titled \"Registry changelog > v2.6 — 2026-08-18\".\n2.  The first bullet point in this source states: \"Added `GET /agents/me`, which returns the agent that owns the calling key.\"\n\nTherefore, version v2.6 added the endpoint.\n\nANSWER: v2.6",
+   "first_seed": 1733528400
+  },
+  {
+   "id": "e33",
+   "answer": "offset",
+   "type": "text",
+   "accept": [],
+   "wrong": "page",
+   "first_reply": "Based on source [1], the `offset` parameter was deprecated in v2.2, while the `GET /agents` endpoint now uses `cursor` and `next_cursor`.\n\nANSWER: offset",
+   "first_seed": 3866252582
+  },
+  {
+   "id": "e34",
+   "answer": 30,
+   "type": "number",
+   "accept": [],
+   "wrong": "60",
+   "first_reply": "Based on source [1], the text states: \"Monitoring gets its list of agents from registry-api every 30 seconds\".\n\nANSWER: 30",
+   "first_seed": 2210060786
+  },
+  {
+   "id": "e35",
+   "answer": "Identity",
+   "type": "text",
+   "accept": [
+    "Identity team",
+    "The Identity team"
+   ],
+   "wrong": "Platform",
+   "first_reply": "Based on the provided sources:\n\n- Source [5] explicitly states that **auth-service** is \"Owned by the Identity team.\"\n- Source [2] also mentions the Identity team in the context of renewing the certificate for auth-service.\n\nANSWER: Identity",
+   "first_seed": 975312583
+  },
+  {
+   "id": "e36",
+   "answer": "Search",
+   "type": "text",
+   "accept": [
+    "Search team",
+    "The Search team"
+   ],
+   "wrong": "Identity",
+   "first_reply": "Based on source [3], the **kb-search** service is described as being \"Owned by the Search team.\"\n\nANSWER: Search",
+   "first_seed": 582319246
+  },
+  {
+   "id": "e37",
+   "answer": "Postgres",
+   "type": "text",
+   "accept": [
+    "PostgreSQL"
+   ],
+   "wrong": "MySQL",
+   "first_reply": "Based on source [1], the registry-db is described as \"the Postgres database behind registry-api\".\n\nANSWER: Postgres",
+   "first_seed": 854924847
+  },
+  {
+   "id": "e38",
+   "answer": 5,
+   "type": "number",
+   "accept": [],
+   "wrong": "10",
+   "first_reply": "Based on the sources provided:\n\n1.  Source [1] lists the core services under \"Core services\".\n2.  The items listed are: registry-api, registry-db, auth-service, monitoring, and kb-search.\n3.  Counting these items: 1 (registry-api) + 1 (registry-db) + 1 (auth-service) + 1 (monitoring) + 1 (kb-search) = 5.\n\nANSWER: 5",
+   "first_seed": 2233425172
+  },
+  {
+   "id": "e39",
+   "answer": 2,
+   "type": "number",
+   "accept": [],
+   "wrong": "3",
+   "first_reply": "To determine the number of core services owned by the Platform team, I will review the list of core services in source [3] and check the ownership for each:\n\n1.  **registry-api**: Owned by the Platform team.\n2.  **registry-db**: Owned by the Platform team.\n3.  **auth-service**: Owned by the Identity team.\n4.  **monitoring**: Owned by the Observability team.\n5.  **kb-search**: Owned by the Search team.\n\nCounting the services owned by the Platform team: registry-api and registry-db. That is a total of 2 services.\n\nANSWER: 2",
+   "first_seed": 3175528092
+  },
+  {
+   "id": "e40",
+   "answer": 2,
+   "type": "number",
+   "accept": [],
+   "wrong": "3",
+   "first_reply": "Based on Source [1], the text states: \"As of this writing, two active agents are on `claude-legacy`.\" It then lists them in a table: `research_agent` and `notes_agent`.\n\nANSWER: 2",
+   "first_seed": 1651957417
+  },
+  {
+   "id": "e41",
+   "answer": "claude-haiku",
+   "type": "text",
+   "accept": [],
+   "wrong": "claude-sonnet",
+   "first_reply": "Based on Source [1], the `notes_agent` is currently listed as being on `claude-legacy`. The title of the runbook is \"migrating agents off claude-legacy\", which implies the migration is moving them *away* from that model. However, the document does not specify the **target** model for the `notes_agent` in the table or the text. It only lists the current state (`claude-legacy`) and the target models for other agents (`research_agent` -> `claude-sonnet`, `notes_agent` -> `claude-haiku` in the table? Wait, let me re-read carefully).\n\nRe-reading Source [1]:\nThe table shows:\n| Agent | Owner | Target model |\n|---|---|---|\n| `research_agent` | research-team | `claude-sonnet` |\n| `notes_agent` | support-team | `claude-haiku` |\n\nWait, the column header says \"Target model\". Does this mean the agent is *currently* on that model, or migrating *to* that model?\nThe title is \"Runbook: migrating agents **off** claude-legacy\".\nIf an agent is being migrated *off* claude-legacy, its \"Target model\" would be the new one.\nHowever, looking at the data:\n`research_agent` is listed with target model `claude-sonnet`.\n`notes_agent` is listed with target model `claude-haiku`.\n\nBut wait, if the document is about migrating *off* `claude-legacy`, why are these listed under \"Target model\"? Perhaps the table is listing the agents that *are* on `claude-legacy` and their *current* model (which happens to be named similarly to the target in some contexts? No, `claude-sonnet` and `claude-haiku` are different from `claude-legacy`).\n\nLet's look at the context again. \"As of this writing, two active agents are on `claude-legacy`\".\nThen the table lists them. The column header is \"Target model\". This is confusing. Usually, a \"Target\" implies where you are going. But maybe the table is mislabeled in my interpretation, or the column actually represents the model they are *currently* on (which is the source of the migration)?\nNo, the header explicitly says \"Target model\".\nLet's reconsider the logic. If I am migrating *off* `claude-legacy`, my target is something else.\nMaybe the table lists the agents that need migration and their *destination*?\nIf so, `notes_agent` is migrating to `claude-haiku`.\n\nHowever, let's check if there is any contradiction. Source [2] mentions `MODEL_DEPRECATED` applies to `claude-legacy`. You can't assign it newly. So you migrate *off* it.\nSource [5] says creating an agent requires specifying a model.\nThe table in Source [1] lists `notes_agent` with `claude-haiku` in the \"Target model\" column.\nTherefore, based strictly on the text provided in the table under the column \"Target model\", the answer is `claude-haiku`.\n\nWait, is it possible the column means \"Current Model\"?\nTitle: \"migrating agents off claude-legacy\".\nAgents affected: `research_agent` and `notes_agent`.\nThey are currently on `claude-legacy`.\nThe table has a column \"Target model\".\nIf the column meant \"Current model\", it would say \"Current model\".\nSince it says \"Target model\", it likely refers to the destination after migration.\nSo `notes_agent` is migrating to `claude-haiku`.\n\nLet's double check the values. `claude-sonnet` and `claude-haiku` are valid models (Source [5]). `claude-legacy` is deprecated (Source [2]).\nIt makes sense that the migration is from `claude-legacy` to either `claude-sonnet` or `claude-haiku`.\nThe table lists `research_agent` -> `claude-sonnet`.\nThe table lists `notes_agent` -> `claude-haiku`.\nThe question asks: \"Which model is notes_agent being migrated to?\"\nThe source explicitly labels the value `claude-haiku` in the row for `notes_agent` under the column \"Target model\".\n\nANSWER: claude-haiku",
+   "first_seed": 758520749
+  },
+  {
+   "id": "e42",
+   "answer": 20,
+   "type": "number",
+   "accept": [],
+   "wrong": "40",
+   "first_reply": "Based on Source [2], under the section \"Step 2: Compare before you switch,\" the text states: \"Run 20 recent tasks through the target model and compare the results...\"\n\nANSWER: 20",
+   "first_seed": 2541984797
+  },
+  {
+   "id": "e43",
+   "answer": "research-team",
+   "type": "text",
+   "accept": [],
+   "wrong": "support-team",
+   "first_reply": "Based on source [1], the `research_agent` has an \"owner\" field set to \"research-team\". Source [5] also confirms in its table that the owner of `research_agent` is the `research-team`.\n\nANSWER: research-team",
+   "first_seed": 2383370828
+  },
+  {
+   "id": "e44",
+   "answer": 8,
+   "type": "number",
+   "accept": [],
+   "wrong": "16",
+   "first_reply": "Based on the table in source [5], the alert `AgentLatencyHigh` fires when the p95 response time is above 8 seconds.\n\nANSWER: 8",
+   "first_seed": 4013454536
+  },
+  {
+   "id": "e45",
+   "answer": 10,
+   "type": "number",
+   "accept": [],
+   "wrong": "20",
+   "first_reply": "Based on the provided sources, specifically Source [3] in the \"Alerts\" table:\n\n*   The alert `AgentLatencyHigh` fires when \"p95 response time above 8 seconds for 10 minutes\".\n*   Therefore, the duration required is 10 minutes.\n\nANSWER: 10",
+   "first_seed": 398306758
+  },
+  {
+   "id": "e46",
+   "answer": 5,
+   "type": "number",
+   "accept": [],
+   "wrong": "10",
+   "first_reply": "Based on the table in source [3], the alert `AgentErrorRateHigh` fires when \"more than 5% of sessions end in error over 15 minutes\".\n\nANSWER: 5",
+   "first_seed": 1706673959
+  },
+  {
+   "id": "e47",
+   "answer": 12,
+   "type": "number",
+   "accept": [],
+   "wrong": "24",
+   "first_reply": "To determine the number of hours per day an alert can page the on-call engineer, we look at the specific time window defined in the documentation.\n\n1.  **Identify the paging hours**: Source [2] states that alerts go to the on-call channel and page the engineer \"between 08:00 and 20:00\".\n2.  **Calculate the duration**: The time from 08:00 to 20:00 is a span of 12 hours (20 - 8 = 12).\n3.  **Verify exclusions**: The text notes that outside these hours, only `RegistryUnreachable` pages. However, for any *other* alert (not just `RegistryUnreachable`), they do not page outside this window. Therefore, the maximum duration for *any* alert to page is strictly within this 12-hour window.\n\nANSWER: 12",
+   "first_seed": 473309779
+  },
+  {
+   "id": "e48",
+   "answer": "RegistryUnreachable",
+   "type": "text",
+   "accept": [],
+   "wrong": "AgentErrorRateHigh",
+   "first_reply": "Based on the \"Monitoring guide > Alerts\" document (Source [5]), alerts normally page between 08:00 and 20:00. However, the text explicitly states: \"Outside those hours, only `RegistryUnreachable` pages.\"\n\nANSWER: RegistryUnreachable",
+   "first_seed": 1758466144
+  },
+  {
+   "id": "e49",
+   "answer": 30,
+   "type": "number",
+   "accept": [],
+   "wrong": "60",
+   "first_reply": "Based on source [5] under the section \"Dashboards\", it states: \"Panels refresh every 30 seconds\".\n\nANSWER: 30",
+   "first_seed": 309763047
+  },
+  {
+   "id": "e50",
+   "answer": 1140,
+   "type": "number",
+   "accept": [],
+   "wrong": "1710",
+   "first_reply": "Based on the summary in source [1], 1,140 invoices went out late.\n\nANSWER: 1140",
+   "first_seed": 2621292831
+  },
+  {
+   "id": "e51",
+   "answer": 135,
+   "type": "number",
+   "accept": [],
+   "wrong": "202",
+   "first_reply": "To find the duration in minutes, I will convert the time given in Source [4] into minutes.\n\nSource [4] states: \"billing_agent failed to issue invoices for 2 hours 15 minutes.\"\nCalculation:\n- 2 hours = 2 * 60 minutes = 120 minutes.\n- Total minutes = 120 + 15 = 135 minutes.\n\nANSWER: 135",
+   "first_seed": 539500808
+  },
+  {
+   "id": "e52",
+   "answer": 118,
+   "type": "number",
+   "accept": [],
+   "wrong": "177",
+   "first_reply": "To find the time difference, I need to look at the timeline for incident INC-2041 in source [3].\n\n1.  The alert `AgentErrorRateHigh` fired at **06:02**.\n2.  The on-call engineer saw the alert at **08:00**.\n\nCalculation:\nFrom 06:02 to 07:02 is 60 minutes.\nFrom 07:02 to 08:00 is 58 minutes.\nTotal = 60 + 58 = 118 minutes.\n\nANSWER: 118",
+   "first_seed": 779562636
+  },
+  {
+   "id": "e53",
+   "answer": "Identity",
+   "type": "text",
+   "accept": [
+    "Identity team",
+    "The Identity team"
+   ],
+   "wrong": "Platform",
+   "first_reply": "Based on the timeline in source [1], the event occurred at 08:55. The text states: \"The Identity team renewed the certificate.\"\n\nANSWER: Identity",
+   "first_seed": 3942019453
+  },
+  {
+   "id": "e54",
+   "answer": 30,
+   "type": "number",
+   "accept": [],
+   "wrong": "60",
+   "first_reply": "Based on source [5] under the section \"What we changed\", the text states: \"auth-service now alerts 30 days before any certificate expires.\"\n\nANSWER: 30",
+   "first_seed": 1530150001
+  },
+  {
+   "id": "e55",
+   "answer": 3,
+   "type": "number",
+   "accept": [],
+   "wrong": "4",
+   "first_reply": "Based on source [1], under the section \"What we changed\", it states: \"`billing_agent` stops retrying after three timeouts from the same service in one session.\"\n\nANSWER: 3",
+   "first_seed": 33711588
+  },
+  {
+   "id": "e56",
+   "answer": "06:00",
+   "type": "text",
+   "accept": [],
+   "wrong": "08:00",
+   "first_reply": "Based on source [1], the intermediate certificate in `auth-service` expired at 06:00.\n\nANSWER: 06:00",
+   "first_seed": 1086222856
+  },
+  {
+   "id": "e57",
+   "answer": 7,
+   "type": "number",
+   "accept": [],
+   "wrong": "14",
+   "first_reply": "Based on source [3], the configuration change set the kb-search cache's time-to-live to 7 days instead of the previous 7 hours.\n\nANSWER: 7",
+   "first_seed": 82418400
+  },
+  {
+   "id": "e58",
+   "answer": 24,
+   "type": "number",
+   "accept": [],
+   "wrong": "48",
+   "first_reply": "To find the answer, I need to compare the mistaken time-to-live with the intended one based on Source [4].\n\n1.  Identify the intended time-to-live: The text states it was originally \"7 hours\".\n2.  Identify the mistaken time-to-live: The text states it was changed to \"7 days\".\n3.  Convert units to be comparable: There are 24 hours in a day. So, 7 days = $7 \\times 24$ hours.\n4.  Calculate the ratio: $7 \\times 24 = 168$. The mistaken duration is 168 hours.\n5.  Divide the mistaken duration by the intended duration: $168 / 7 = 24$.\n\nThe mistaken cache time-to-live (7 days) is exactly 24 times longer than the intended one (7 hours).\n\nANSWER: 24",
+   "first_seed": 219994393
+  },
+  {
+   "id": "e59",
+   "answer": 7,
+   "type": "number",
+   "accept": [],
+   "wrong": "14",
+   "first_reply": "To determine the number of days between the start and end dates of Incident INC-2067, I need to identify the specific dates mentioned in the sources.\n\n1.  **Start Date**: Source [1] states, \"On **2026-06-15** a config change set...\" This is the start date.\n2.  **End Date**: Source [4] states, \"From **2026-06-15** to **2026-06-22**, `research_agent` answered questions with knowledge-base articles that had since been updated.\" The incident impact period ends on this date.\n\nNow, I will calculate the difference:\n*   Start: June 15\n*   End: June 22\n*   Calculation: 22 - 15 = 7 days.\n\nANSWER: 7",
+   "first_seed": 1037379010
+  },
+  {
+   "id": "e60",
+   "answer": 24,
+   "type": "number",
+   "accept": [],
+   "wrong": "48",
+   "first_reply": "Based on source [4], the change implemented for kb-search's cache settings states that \"a time-to-live above 24 hours needs the Search team's approval.\"\n\nANSWER: 24",
+   "first_seed": 3774244236
+  },
+  {
+   "id": "e61",
+   "answer": "kb-search",
+   "type": "text",
+   "accept": [],
+   "wrong": "auth-service",
+   "first_reply": "To determine whose cache was misconfigured, I need to look at the source describing the incident INC-2067.\n\nSource [4] states: \"On 2026-06-15 a config change set the kb-search cache's time-to-live to 7 days instead of 7 hours.\"\nSource [3] mentions: \"kb-search's cache settings are now reviewed like code...\"\nThe service name associated with the cache is explicitly named in these texts.\n\nANSWER: kb-search",
+   "first_seed": 3086720765
+  },
+  {
+   "id": "e62",
+   "answer": 42,
+   "type": "number",
+   "accept": [],
+   "wrong": "84",
+   "first_reply": "Based on the sources provided:\n\n- Source [2] states: \"registry-api was unavailable for 42 minutes while registry-db failed over to its standby.\"\n- Source [5] confirms the timeline of the outage starting at 14:10 and recovery at 14:52, which is a duration of 42 minutes.\n\nANSWER: 42",
+   "first_seed": 147631820
+  },
+  {
+   "id": "e63",
+   "answer": 212,
+   "type": "number",
+   "accept": [],
+   "wrong": "318",
+   "first_reply": "Based on the timeline in source [5], at 14:20, `triage_agent` could not hand over tickets because the registry was unreachable. The text explicitly states that \"212 tickets queued.\"\n\nANSWER: 212",
+   "first_seed": 2581163264
+  },
+  {
+   "id": "e64",
+   "answer": 38,
+   "type": "number",
+   "accept": [],
+   "wrong": "76",
+   "first_reply": "To find the answer, I need to locate the specific time lag mentioned in the source text regarding INC-2093.\n\n1.  Scan Source [5] (\"What made it worse\") for details on the failover duration and the standby's state.\n2.  The text states: \"It took 42 because the standby had fallen 38 minutes behind the primary...\"\n3.  The question asks for the number of minutes behind the primary.\n4.  The value is explicitly stated as 38.\n\nANSWER: 38",
+   "first_seed": 1971564675
+  },
+  {
+   "id": "e65",
+   "answer": 5,
+   "type": "number",
+   "accept": [],
+   "wrong": "10",
+   "first_reply": "Based on source [3], the text states: \"The failover should have taken about 5 minutes.\"\n\nANSWER: 5",
+   "first_seed": 2294945233
+  },
+  {
+   "id": "e66",
+   "answer": 37,
+   "type": "number",
+   "accept": [],
+   "wrong": "74",
+   "first_reply": "To find how many minutes longer the failover took than expected, I need to subtract the expected duration from the actual duration based on Source [2].\n\n1.  **Actual Duration**: Source [2] states, \"It took 42\".\n2.  **Expected Duration**: Source [2] states, \"The failover should have taken about 5 minutes.\"\n3.  **Calculation**: $42 - 5 = 37$ minutes.\n\nANSWER: 37",
+   "first_seed": 3241042933
+  },
+  {
+   "id": "e67",
+   "answer": 60,
+   "type": "number",
+   "accept": [],
+   "wrong": "90",
+   "first_reply": "Based on source [1], under the section \"What we changed,\" it states: \"An alert now fires when the standby falls more than 60 seconds behind.\"\n\nANSWER: 60",
+   "first_seed": 3125214486
+  },
+  {
+   "id": "e68",
+   "answer": 32,
+   "type": "number",
+   "accept": [],
+   "wrong": "64",
+   "first_reply": "To determine how many minutes `support_agent` sessions were failing, I need to identify the start and end times of this specific issue from the timeline provided in Source [5].\n\n1.  **Start Time:** According to the timeline in Source [5], \"`support_agent` sessions began failing on their first registry lookup\" at **14:20**.\n2.  **End Time:** The timeline states that \"The standby finished catching up and registry-api recovered\" at **14:52**. Once the registry was recovered, the agents could complete their lookups, ending the failure period for these sessions.\n3.  **Calculation:**\n    *   From 14:20 to 14:52 is a duration of 32 minutes.\n\nANSWER: 32",
+   "first_seed": 3046823540
+  },
+  {
+   "id": "e69",
+   "answer": 13,
+   "type": "number",
+   "accept": [],
+   "wrong": "26",
+   "first_reply": "To determine how long it took to hand over the queued tickets after recovery, we need to look at the timeline provided in source [3].\n\n1.  **Recovery Time:** According to source [3], \"The standby finished catching up and registry-api recovered\" at **14:52**.\n2.  **Completion Time:** The same source states, \"The queued tickets were handed over by **15:05**.\"\n3.  **Calculation:**\n    *   From 14:52 to 15:00 is 8 minutes.\n    *   From 15:00 to 15:05 is 5 minutes.\n    *   Total time = 8 + 5 = 13 minutes.\n\nANSWER: 13",
+   "first_seed": 2643948093
+  },
+  {
+   "id": "e70",
+   "answer": 177,
+   "type": "number",
+   "accept": [],
+   "wrong": "266",
+   "first_reply": "To find the combined duration, I need to extract the duration of each incident from the provided sources and sum them up.\n\n1.  **INC-2041 Duration**:\n    *   Source [1] states: \"billing_agent failed to issue invoices for 2 hours 15 minutes.\"\n    *   Calculation: 2 hours = 120 minutes. Total = 120 + 15 = 135 minutes.\n\n2.  **INC-2093 Duration**:\n    *   Source [3] states: \"registry-api was unavailable for 42 minutes\".\n    *   Source [6] confirms this: \"It took 42 because...\"\n    *   Total = 42 minutes.\n\n3.  **Combined Duration**:\n    *   135 minutes (INC-2041) + 42 minutes (INC-2093) = 177 minutes.\n\nANSWER: 177",
+   "first_seed": 3223878706
+  },
+  {
+   "id": "e71",
+   "answer": "INC-2093",
+   "type": "text",
+   "accept": [],
+   "wrong": "INC-2067",
+   "first_reply": "To determine which incident was shorter, I need to compare the duration of INC-2041 and INC-2093 based on the provided sources.\n\n1.  **INC-2093 Duration**: Source [2] states that `registry-api` was unavailable for **42 minutes**. Source [1] confirms this: \"It took 42\".\n2.  **INC-2041 Duration**: Source [4] states that `billing_agent` failed to issue invoices for **2 hours 15 minutes**.\n\nNow, I will convert both durations to minutes for comparison:\n*   INC-2093: 42 minutes\n*   INC-2041: 2 hours * 60 minutes/hour + 15 minutes = 120 + 15 = 135 minutes\n\nComparing the two: 42 minutes is less than 135 minutes. Therefore, INC-2093 was the shorter incident.\n\nANSWER: INC-2093",
+   "first_seed": 3466328033
+  },
+  {
+   "id": "e72",
+   "answer": 15,
+   "type": "number",
+   "accept": [],
+   "wrong": "30",
+   "first_reply": "Based on the provided sources, if neither `--storage.tsdb.retention.time` nor `storage.tsdb.retention.size` is set, the retention time defaults to 15 days.\n\nSource [1] states: \"If neither this flag nor 'storage.tsdb.retention.size' is set, the retention time defaults to 15d.\"\nSource [3] confirms: \"If neither this flag nor `storage.tsdb.retention.size` is set, the retention time defaults to `15d`.\"\n\nANSWER: 15",
+   "first_seed": 2220586112
+  },
+  {
+   "id": "e73",
+   "answer": 2,
+   "type": "number",
+   "accept": [],
+   "wrong": "3",
+   "first_reply": "Based on the provided sources:\n\n- Source [1] states: \"Ingested samples are grouped into two-hour blocks.\"\n- Source [3] confirms: \"The initial two-hour blocks are eventually compacted...\"\n- Source [5] reiterates: \"Backfilling will create new TSDB blocks, each containing two hours of metrics data.\"\n\nAll relevant sources consistently state that the initial blocks cover a period of two hours.\n\nANSWER: 2",
+   "first_seed": 515937201
+  },
+  {
+   "id": "e74",
+   "answer": 5,
+   "type": "number",
+   "accept": [],
+   "wrong": "10",
+   "first_reply": "Based on the provided sources, the default lookback period is explicitly stated in multiple locations:\n\n1.  Source [1] mentions: \"...the PromQL lookback delta (5 minutes by default)...\"\n2.  Source [2] states: \"The lookback period is 5 minutes by default...\"\n3.  Source [4] lists the default value for the `--query.lookback-delta` flag as `5m`.\n\nTherefore, the default lookback period is 5 minutes.\n\nANSWER: 5",
+   "first_seed": 1575644132
+  },
+  {
+   "id": "e75",
+   "answer": 30,
+   "type": "number",
+   "accept": [],
+   "wrong": "60",
+   "first_reply": "Based on Source [2], the configuration parameter `group_wait` has a default value of 30s.\n\nANSWER: 30",
+   "first_seed": 1716537174
+  },
+  {
+   "id": "e76",
+   "answer": 4,
+   "type": "number",
+   "accept": [],
+   "wrong": "8",
+   "first_reply": "Based on Source [3], the documentation for the `<repeat_interval>` parameter states: `[ repeat_interval: <duration> | default = 4h ]`.\n\nThe question asks for the value in hours. The source specifies the default is 4h, which equals 4 hours.\n\nANSWER: 4",
+   "first_seed": 2771739817
+  },
+  {
+   "id": "e77",
+   "answer": 270,
+   "type": "number",
+   "accept": [],
+   "wrong": "405",
+   "first_reply": "To answer this, I need to find the default values for `group_interval` and `group_wait` from the provided sources.\n\n1.  **Find `group_wait` default:**\n    *   Source [1] states: `[ group_wait: <duration> | default = 30s ]`.\n    *   Source [4] confirms an example where `group_wait` is set to `30s`, implying the default is likely the same or consistent with documentation examples.\n    *   Default `group_wait` = 30 seconds.\n\n2.  **Find `group_interval` default:**\n    *   Source [5] states: `[ group_interval: <duration> | default = 5m ]`.\n    *   Source [4] also shows an example with `group_interval: 5m`.\n    *   Default `group_interval` = 5 minutes.\n\n3.  **Calculate the difference:**\n    *   Convert `group_interval` to seconds: 5 minutes * 60 seconds/minute = 300 seconds.\n    *   Calculate the difference: 300 seconds (interval) - 30 seconds (wait) = 270 seconds.\n\nANSWER: 270",
+   "first_seed": 203922379
+  },
+  {
+   "id": "e78",
+   "answer": 1,
+   "type": "number",
+   "accept": [],
+   "wrong": "2",
+   "first_reply": "Based on source [4], a Prometheus LTS release receives selected bug fixes for an extended period of one year.\n\nANSWER: 1",
+   "first_seed": 1698516924
+  },
+  {
+   "id": "e79",
+   "answer": 6,
+   "type": "number",
+   "accept": [],
+   "wrong": "12",
+   "first_reply": "Based on source [2], the text states: \"Every 6 weeks, a new Prometheus minor release cycle begins.\"\n\nANSWER: 6",
+   "first_seed": 3927879728
+  },
+  {
+   "id": "e80",
+   "answer": 512,
+   "type": "number",
+   "accept": [],
+   "wrong": "768",
+   "first_reply": "Based on the provided sources, specifically source [1] under the \"On-disk layout\" section, it states: \"The samples in the chunks directory are organized into one or more segment files, each up to 512 MB by default.\"\n\nANSWER: 512",
+   "first_seed": 41514531
+  },
+  {
+   "id": "e81",
+   "answer": 0,
+   "type": "number",
+   "accept": [],
+   "wrong": "1",
+   "first_reply": "Based on source [1], the `up` time series has a value of `0` if the scrape failed. The text states: \"`up{job=\"<job-name>\", instance=\"<instance-id>\"}`: `1` if the instance is healthy, i.e. reachable, or `0` if the scrape failed.\"\n\nANSWER: 0",
+   "first_seed": 599673684
+  },
+  {
+   "id": "e82",
+   "answer": 7.0,
+   "type": "number",
+   "accept": [],
+   "wrong": "14",
+   "first_reply": "Based on source [2], Prometheus LTS versions only receive fixes for selected issues with a high severity, specifically defined as a CVSS rating of 7.0 or higher.\n\nANSWER: 7.0",
+   "first_seed": 3066399544
+  },
+  {
+   "id": "e83",
+   "answer": 1.5,
+   "type": "number",
+   "accept": [],
+   "wrong": "3",
+   "first_reply": "To determine the longest span a compacted block can cover with the default retention time, I need to:\n1.  Identify the default retention time from the sources.\n2.  Identify the maximum block duration rule relative to that retention time.\n\nStep 1: Default Retention Time\nSource [6] states: \"If neither this flag nor `storage.tsdb.retention.size` is set, the retention time defaults to `15d`.\"\nSo, the default retention time is 15 days.\n\nStep 2: Maximum Block Duration Rule\nSource [2] states regarding compaction: \"Compaction will create larger blocks containing data spanning up to 10% of the retention time, or 31 days, whichever is smaller.\"\n\nCalculation:\n10% of the default retention time (15 days) = 0.10 * 15 = 1.5 days.\nThe rule says the block spans \"up to 10% of the retention time OR 31 days, whichever is smaller\".\nComparing 1.5 days and 31 days, the smaller value is 1.5 days.\n\nANSWER: 1.5",
+   "first_seed": 1937770755
+  },
+  {
+   "id": "e84",
+   "answer": 5,
+   "type": "number",
+   "accept": [],
+   "wrong": "10",
+   "first_reply": "Based on Source [2], under the section \"Configuration > File layout and global settings\", the configuration parameter `resolve_timeout` has a default value of `5m`.\n\nANSWER: 5",
+   "first_seed": 666151225
+  }
+ ]
+}
