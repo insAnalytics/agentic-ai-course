@@ -16,7 +16,12 @@ guarantees a tool call's arguments match the declared types; without it,
 they're usually but not always well-formed. Either way,
 *choosing* clear, well-typed, unambiguous parameters in the first place
 is still an authored design decision the schema itself can't make for
-you.
+you. The vendors' own tool guides say the same.
+[Anthropic's guide to writing tools for agents](https://www.anthropic.com/engineering/writing-tools-for-agents)
+asks for parameters that are "unambiguously named" (`user_id`, not
+`user`), and
+[OpenAI's function-calling guide](https://developers.openai.com/api/docs/guides/function-calling)
+says to "use enums and object structure to prevent invalid states."
 
 ```python
 from pydantic import BaseModel

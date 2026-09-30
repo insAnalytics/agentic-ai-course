@@ -281,6 +281,12 @@ finishes. If the human declines, `answer_call` sends an
 instead, so the model learns the action was refused and can tell the
 user.
 
+Agent frameworks build gates the same way. OpenAI's Agents SDK, for
+example, has a
+[human-in-the-loop flow](https://openai.github.io/openai-agents-python/human_in_the_loop/)
+that pauses the run when a tool call needs approval, saves the paused
+run, and resumes it once a person approves or rejects that call.
+
 Two design points make the gate real rather than decorative:
 
 - **The gate is in your code, not the prompt.** "Ask before deleting" in a
