@@ -2548,9 +2548,9 @@ text only; no demo or exercise changed.
 - **Concept coverage (second pass):** each concept page and intro was
   checked as a whole. Of 53 pages, 40 were backed, 2 rested on our data
   only and 11 had no source for the technique itself. All 13 are now
-  anchored, with 23 prose edits. **Held for a decision:** append or fold
-  summaries (L5 C3/C4). Claude's own compaction folds, and the
-  recommendation is to keep append and add a note. The table is at the top of
+  anchored, with 23 prose edits. **Approved and applied:** keep teaching
+  append (L5 C3/C4), and note in L5 C4 that Claude's own on-demand
+  compaction folds. The table is at the top of
   `citation-audit/module-4.md`.
 
 1. **Context as a Budget** — Locked. Intro; Concept 1 (what fills the

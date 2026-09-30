@@ -20,7 +20,7 @@ two phrasings the per-claim audit's consistency pass had missed: "the
 Chroma study found hardest" in L2 C1, and "the hardest kind" / "degrade
 most" in L11 C1 and its quiz. Both now match Lesson 2's softened wording.
 
-**Needs a decision (1, held).**
+**Needs a decision (1, approved by the owner and applied).**
 - **Append or fold summaries (L5 C3, L5 C4).** The course teaches
   appending summaries and treats folding as a drift risk. Claude's own
   on-demand compaction folds: "The new block summarizes the old summary and
@@ -29,7 +29,9 @@ most" in L11 C1 and its quiz. Both now match Lesson 2's softened wording.
   It tells learners that switching to provider compaction gets them a fold,
   and that restating what code can derive from the full history is what
   protects them. E4, which backs append with Factory's design, is applied.
-  E7 is not.
+  E7 was held, then approved by the owner and applied: L5 C4 now says
+  Claude's on-demand mode folds, "compacting again summarizes the old
+  summary and everything after it".
 
 The Status column is the status before the fix. The Action column names
 the edit in each lesson group's report: `cc4-A` for L1–L4, `cc4-B` for
