@@ -884,6 +884,11 @@ links before this pass. Now:
   al.), Tree of Thoughts' figures and cost, the AWS Builders' Library on
   retries, Gemini CLI's loop detection, LangGraph checkpoints, and
   Anthropic's and OpenAI's prompting guides.
+- **Retry demo fixed (L6 C6):** after its last attempt, `call_with_retry`
+  (the demo, the exercise's reference and the recap's `execute_tool_safely`)
+  printed a wait that never happened. It now prints "no retries left". The
+  hidden tests are unchanged. Re-verified in Pyodide 0.26.4: the demos, 7 of
+  7 exercise tests, the recap's tests, and a wrong variant still failing.
 
 *Renamed from "Build Intelligent Conversation Agents" as part of a newer,
 more refined syllabus structure. The 7-item list below is the **old**

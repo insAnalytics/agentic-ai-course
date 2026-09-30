@@ -371,11 +371,14 @@ import tools
 
 def execute_tool_safely(tool_function, max_retries: int = 3, **kwargs):
     for attempt in range(max_retries):
-        wait_time = 2 ** attempt
         try:
             return tool_function(**kwargs)
         except ConnectionError as e:
-            print(f"attempt {attempt + 1} failed ({e}), waiting {wait_time}s before retrying")
+            if attempt + 1 == max_retries:
+                print(f"attempt {attempt + 1} failed ({e}), no retries left")
+            else:
+                wait_time = 2 ** attempt
+                print(f"attempt {attempt + 1} failed ({e}), waiting {wait_time}s before retrying")
         except Exception as e:
             return f"Error: {str(e)}"
     return f"Error: tool failed after {max_retries} attempts, giving up"

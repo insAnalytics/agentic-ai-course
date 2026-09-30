@@ -60,9 +60,20 @@ options and its four optional edits) and report B's E1–E20.
 
 ## Outside citation scope
 
-- L6 C6's `call_with_retry` prints "waiting 8s before retrying" after its
-  last attempt, then gives up. That output is misleading and worth fixing in
-  a code pass (the demo wasn't touched here).
+- **Fixed after the audit, at the owner's request:** L6 C6's
+  `call_with_retry` printed "waiting 8s before retrying" after its last
+  attempt, then gave up. The demo's `RETRY`, the exercise's reference answer
+  and the recap's `execute_tool_safely` reference now print "no retries
+  left" on the last failure. The prose lists the waits as "1s, 2s, 4s, and
+  so on, with no wait after the last attempt". The hidden tests are
+  unchanged: they check return values and attempt counts, and waits of
+  [1, 2, 4], so the old-style answer still passes. Verified in Pyodide
+  0.26.4 from the page text:
+  - both demos run, and the give-up demo now ends with "no retries left";
+  - the exercise reference passes all 7 hidden tests;
+  - the recap reference passes its hidden tests with real imports between
+    its two files;
+  - a wrong recap variant, one that retries every exception, still fails.
 - The illustrative model ID `claude-sonnet-5` still works, but
   `claude-sonnet-5-5` is now current.
 
