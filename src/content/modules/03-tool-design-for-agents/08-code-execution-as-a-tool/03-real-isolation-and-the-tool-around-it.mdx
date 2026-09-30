@@ -120,10 +120,14 @@ heavier as you go down:
   resource access are yours to grant or deny. This is the common
   production choice: a fresh container per execution, thrown away after,
   with no network unless the task needs it.
-- **A lightweight VM.** A micro-VM (such as the Firecracker VMs behind
+  [Anthropic's own code execution tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/code-execution-tool)
+  works this way: each request gets a new sandboxed container with no
+  internet access.
+- **A lightweight VM.** A micro-VM (such as the
+  [Firecracker](https://firecracker-microvm.github.io/) VMs behind
   some cloud sandboxes) gives each execution its own kernel, a stronger
   boundary than a container's shared one, while still starting in a
-  fraction of a second. This course's
+  fraction of a second (Firecracker's own figure is under 125 ms). This course's
   [Docker terminal exercises](/00-python-essentials/08-docker-for-python/04-building-running-and-lifecycle/#the-lifecycle-seeing-reading-entering-and-stopping-a-container)
   run in exactly this kind of sandbox: each one is a disposable
   Firecracker micro-VM in the cloud, because a real Docker daemon needs

@@ -1558,6 +1558,23 @@ Langfuse Observability" — these three moved to Modules 3 and 4 below.)*
 
 ## Module 3 — Tool Design for Agents
 
+**Citation audit (2026-09-30).** A light pass; the full per-claim tables
+are in [citation-audit/module-3.md](citation-audit/module-3.md). Prose and
+quiz text only; no demo or exercise changed. The MCP facts match the
+current spec (2026-07-28), and the SDK facts match `mcp` 2.2.0.
+- **Corrected:** Anthropic's parallel tool-use docs no longer say dependent
+  calls come in a later turn; a `tool_result` can hold more than text;
+  Playwright MCP's `target`; not every fetch tool blocks private
+  addresses; Pydantic's `allOf` note is 2.7 only; the SDK also retries 409;
+  a server crash is classified consistently across L5 and L6.
+- **Replaced paraphrases with real quotes:** Saltzer and Schroeder (1975),
+  and Python's own docs on `__builtins__`.
+- **Added:** the spec's `resultType` back-compat rule (one sentence); and
+  industry anchors (Anthropic's tool and error docs and its tool-writing
+  post, the Amazon Builders' Library, Stripe, GitHub, OWASP LLM01/LLM06
+  and SSRF, Invariant Labs, Greshake et al., Microsoft's spotlighting
+  preprint).
+
 *Working title — the first Module 3 mockup arrived with tool-design
 content (names/descriptions/parameters as prompts the model reasons
 over), not the "Agent Frontends" rough outline previously logged here;

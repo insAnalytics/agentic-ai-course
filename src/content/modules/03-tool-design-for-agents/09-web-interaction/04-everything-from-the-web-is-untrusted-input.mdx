@@ -119,7 +119,7 @@ That matters because of how that text reaches the model: as a tool
 result, in the same context as the user's request and the system prompt.
 Here's a page with one line its author aimed at AI assistants, hidden from
 human readers with white, one-pixel text, run through
-[the text extractor from Concept 2](/03-tool-design-for-agents/09-web-interaction/02-getting-the-useful-part-out-of-a-page/):
+[the text extractor from earlier in this lesson](/03-tool-design-for-agents/09-web-interaction/02-getting-the-useful-part-out-of-a-page/):
 
 <LiveDemo client:load code={INJECTION_DEMO} />
 
@@ -176,11 +176,15 @@ A self-built fetch tool needs one more guard the model-facing rules
 can't provide: it runs on *your* network. Asked for
 `http://localhost:8080/admin` or an internal address, it would happily
 fetch pages that were never meant to be reachable from outside, a
-problem known as **server-side request forgery** (SSRF). Real fetch
-tools refuse private and internal addresses, check every redirect
+problem known as **server-side request forgery** (SSRF). A safe fetch
+tool refuses private and internal addresses, checks every redirect
 target the same way (a public URL can redirect to an internal one), and
-limit what they'll download. Provider-run fetch tools do this on the
-provider's side; your own need it built in.
+limits what it will download.
+[OWASP's SSRF guide](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html)
+covers the details. Anthropic's web fetch tool blocks private addresses
+on its side. Not every fetch tool does, though: the reference MCP fetch
+server warns that it can reach local and internal addresses. Your own
+tool needs the check built in.
 
 </Subsection>
 
@@ -210,7 +214,12 @@ concept's exercise.
 To be clear about its limits: labeling helps the model keep track of what's
 data, and it makes the boundary visible to anyone reading the logs. It
 does not *stop* prompt injection. A model can still follow instructions
-inside a clearly labeled block. The defenses that actually limit the
+inside a clearly labeled block. Microsoft researchers who tested this
+technique, which they call
+[spotlighting](https://arxiv.org/abs/2403.14720) (a 2024 preprint), found
+that delimiters alone cut attacks on GPT-3.5 by about half. They also
+warned that an attacker who knows the delimiter can write it into the
+page, which is why the wrapper neutralizes its closing tag. The defenses that actually limit the
 damage are about what the agent is *able* to do, and they're the subject
 of the least-privilege lesson later in this module.
 

@@ -94,8 +94,11 @@ use them:
 - **Labeling untrusted content,** as in
   [the last lesson's `<web_content>` wrapper](/03-tool-design-for-agents/09-web-interaction/04-everything-from-the-web-is-untrusted-input/#one-habit-that-helps-label-what-s-untrusted).
 - **Models trained to resist injection.** Model providers now train
-  specifically against it, and current models resist far more attempts
-  than earlier ones.
+  specifically against it.
+  [Anthropic, for example](https://www.anthropic.com/research/prompt-injection-defenses),
+  reports training Claude with reinforcement learning on injected web
+  content, and scanning untrusted content with classifiers, while calling
+  prompt injection "far from a solved problem".
 - **Detection filters** that scan tool results for text that looks like
   an injection before the model sees it.
 
@@ -109,8 +112,9 @@ attacker who fails can simply try again, rephrased:
 simplification that makes the point.*
 
 A filter that stops 95% of attempts sounds strong, and against an
-attacker who keeps trying, it's a matter of time. Simon Willison puts it
-bluntly: in application security, 99% is a failing grade. In most of
+attacker who keeps trying, it's a matter of time.
+[Simon Willison puts it bluntly](https://simonwillison.net/2023/May/2/prompt-injection-explained/):
+in security, 99% is a failing grade. In most of
 security, "usually" isn't the standard. A parameterized query stops 100%
 of SQL injections, not 95%, or even 99%.
 

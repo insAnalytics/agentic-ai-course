@@ -205,7 +205,8 @@ other. Collisions like this are common, because short, obvious names
 like `search`, `get_status` and `list` are exactly what server authors
 reach for.
 
-The MCP spec anticipates it: a host combining tools from several servers
+[The MCP spec](https://modelcontextprotocol.io/specification/2026-07-28/server/tools#tool-names)
+anticipates it: a host combining tools from several servers
 **should** give each tool a server prefix. It adds that the server's own
 name, the one in its `serverInfo`, isn't guaranteed to be unique and
 shouldn't be relied on for this. So the prefix comes from the host's own
@@ -313,6 +314,15 @@ user's full request"), and the model reads them with the same weight as
 any other tool text. Because the list can change over time, a server
 can also change a description *after* you've looked at it and decided to
 trust it.
+
+Neither risk is hypothetical.
+[Invariant Labs](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks)
+demonstrated both: instructions hidden in a tool's description, which
+they call *tool poisoning*, and a server swapping in a new description
+after it was approved, a *rug pull*. The
+[MCP spec](https://modelcontextprotocol.io/specification/2026-07-28)
+itself says tool descriptions should be treated as untrusted unless they
+come from a trusted server.
 
 So treat a third-party server's tool list like any other outside input.
 Connect servers you have a reason to trust, read what their tools say,

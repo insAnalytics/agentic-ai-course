@@ -43,7 +43,10 @@ class LimitedService:
 handled a 429 *after* it happened: wait, then try again. That works, but
 every 429 is a wasted request, a delay, and a small strike against you
 with the service. Some services respond to clients that keep hitting the
-limit by slowing them down further or blocking them for a while.
+limit by slowing them down further or blocking them.
+[GitHub's API documentation](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api),
+for example, warns that "continuing to make requests while you are rate
+limited may result in the banning of your integration."
 
 **Client-side throttling** is the other half: limiting your own traffic
 so you stay under the service's limit in the first place. The two work
@@ -65,7 +68,9 @@ service.
 The stand-in service below allows at most three requests in flight at a
 time and answers anything beyond that with a 429. That's a **concurrency
 limit**; many real services have one, alongside a limit on requests per
-minute. It's defined once here and already loaded for every demo below:
+minute. GitHub's API, for example, says: "No more than 100 concurrent
+requests are allowed." The stand-in is defined once here and already
+loaded for every demo below:
 
 ```python
 import asyncio
@@ -201,7 +206,12 @@ still send 30 requests a second.
 For a per-minute limit you need to space requests out over time, not
 just cap how many overlap. The standard technique is a token bucket: a
 budget of requests that refills at a steady rate, where each request
-spends one token and waits when the bucket is empty. Rate-limiter
+spends one token and waits when the bucket is empty. Providers use the
+same idea on their side:
+[Anthropic's API](https://platform.claude.com/docs/en/api/rate-limits)
+"uses the token bucket algorithm", so capacity "is continuously
+replenished up to your maximum limit, rather than being reset at fixed
+intervals." Rate-limiter
 libraries provide this for asyncio, and the semaphore pattern above still
 applies for the concurrency side. Either way the principle is the same:
 know the service's published limits, and set your own ceiling a little

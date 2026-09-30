@@ -52,7 +52,8 @@ grows as hosts *plus* services: each application implements the protocol
 once, each service implements it once, and any application can then use
 any service.
 
-This is the problem the **Model Context Protocol (MCP)** solves. The spec
+This is the problem the **Model Context Protocol (MCP)** solves.
+[The spec](https://modelcontextprotocol.io/specification/2026-07-28)
 says it takes inspiration from the Language Server Protocol, which solved
 the same shape of problem for code editors. Before LSP, every editor
 needed its own plugin for every programming language. LSP let each
@@ -151,8 +152,9 @@ print("what the server ever saw:", server.requests_received)`} />
 
 The host holds the whole conversation, including the user's mention of
 their manager. The server received one thing: a tool name and its
-arguments. That's deliberate. One of MCP's stated design principles is
-that servers should not be able to read the whole conversation or "see
+arguments. That's deliberate. One of
+[MCP's stated design principles](https://modelcontextprotocol.io/specification/2026-07-28/architecture)
+is that servers should not be able to read the whole conversation or "see
 into" other servers. The conversation stays with the host, each server
 gets only what it needs for the call, and anything that crosses between
 servers goes through the host.

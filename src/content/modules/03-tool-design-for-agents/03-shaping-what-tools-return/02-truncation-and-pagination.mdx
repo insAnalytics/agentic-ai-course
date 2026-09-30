@@ -60,6 +60,14 @@ print(list_all_agents_paginated(huge_registry, offset=0, limit=3))`} />
 them, rather than paying the full cost of every result on every call
 regardless of actual need.
 
+This is standard advice for agent tools.
+[Anthropic's guide to writing tools for agents](https://www.anthropic.com/engineering/writing-tools-for-agents)
+suggests "some combination of pagination, range selection, filtering,
+and/or truncation with sensible default parameter values", and adds: "If
+you choose to truncate responses, be sure to steer agents with helpful
+instructions." Anthropic's own coding agent, Claude Code, caps tool
+responses at 25,000 tokens by default.
+
 </Subsection>
 
 <CheckpointZone>

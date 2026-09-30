@@ -218,8 +218,13 @@ Some practical rules:
 - **Set it per tool, not globally.** A status check that normally takes
   200 milliseconds and a report generator that normally takes 20 seconds
   need very different limits.
-- **Start from how long the call normally takes.** A few times its usual
-  latency catches real hangs without cutting off ordinary slow moments.
+- **Start from how long the call normally takes.** Set the limit just
+  above the tool's slowest normal responses, so it catches real hangs
+  without cutting off ordinary slow moments.
+  [Amazon's Builders' Library](https://builder.aws.com/content/3EumjoZascWd1oZiEgL8ORlv3qE/timeouts-retries-and-backoff-with-jitter)
+  describes its version: pick an acceptable rate of false timeouts, such
+  as 0.1%, and use the matching latency percentile of the service being
+  called (p99.9).
 - **Remember it multiplies.** A 10-second timeout, retried three times,
   on a tool the agent calls five times, can add minutes to one task. The
   next concept adds retries, which makes this concrete.
@@ -247,7 +252,8 @@ async def check_model_status(model: str) -> str:
             return f"Error: check_model_status did not respond within 5.0 seconds"
 ```
 
-*Illustrative: checked against the httpx documentation, not run in this
+*Illustrative: checked against
+[the httpx documentation](https://www.python-httpx.org/advanced/timeouts/), not run in this
 sandbox.*
 
 httpx sets a 5-second default even if you don't ask for one. Its timeout

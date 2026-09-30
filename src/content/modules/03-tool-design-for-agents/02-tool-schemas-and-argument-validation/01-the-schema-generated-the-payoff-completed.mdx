@@ -61,7 +61,8 @@ Two things to find in the output:
   and every item must be a string.
 - `Owner` is described once under `"$defs"`, and the `owner` field points
   to it with a `"$ref"` to `#/$defs/Owner` (wrapped here in an `"allOf"`
-  list, which just means "must match this"). The model sees `team` and
+  list, which just means "must match this"; Pydantic 2.9 and later drop
+  the wrapper and put the `"$ref"` right next to the description). The model sees `team` and
   `contact_email`, their descriptions, and that both are required.
 
 This is the structured alternative to

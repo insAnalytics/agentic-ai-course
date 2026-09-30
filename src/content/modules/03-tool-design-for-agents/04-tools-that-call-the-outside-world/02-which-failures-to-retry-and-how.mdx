@@ -129,7 +129,11 @@ code:
 The rule of thumb: **5xx means "the server had a problem", and might work
 next time. 4xx means "your request had a problem", and will fail the same
 way every time**, with two exceptions, 408 and 429, which are about
-timing rather than content. A timeout on your own side (the previous
+timing rather than content. That's how
+[Amazon's Builders' Library](https://builder.aws.com/content/3EumjoZascWd1oZiEgL8ORlv3qE/timeouts-retries-and-backoff-with-jitter)
+puts it too: client errors "should not be retried with the same request
+because they aren't going to succeed later, while server errors may
+succeed on subsequent tries." A timeout on your own side (the previous
 concept) belongs in the "retry" group too, with one caveat covered below.
 
 The "no" group isn't wasted, either. A 404 or 422 is exactly the kind of
@@ -207,9 +211,11 @@ Four things changed from Module 2's version:
 <Subsection title="LLM SDKs already do this for their own calls" variant="a">
 
 This logic may look familiar: the official LLM SDKs do the same thing for
-the model calls themselves. Anthropic's Python SDK, for example,
-automatically retries connection errors, 408, 429 and 5xx responses twice
-by default, with exponential backoff, and honors `Retry-After`. You get
+the model calls themselves.
+[Anthropic's Python SDK](https://platform.claude.com/docs/en/api/sdks/python),
+for example, automatically retries connection errors, 408, 409, 429 and
+5xx responses twice by default, with exponential backoff, and honors
+`Retry-After`. You get
 that for free on every `messages.create` call.
 
 Your *tools* don't get it. A tool that calls a weather API, a CRM or your
@@ -294,6 +300,10 @@ There are two standard ways to make a write safe to retry:
   remembers which keys it has already handled, and a repeat returns the
   original result instead of doing the work again. Many payment and
   messaging APIs accept one, usually as a request header.
+  [Stripe's](https://docs.stripe.com/api/idempotent_requests), for
+  example, is an `Idempotency-Key` header. A repeat with the same key
+  gets the first request's saved result, and Stripe suggests "using V4
+  UUIDs" as keys.
 - **Check before retrying.** When the service has no key support, look
   before you retry: after a failed `create_agent_entry`, call
   `check_agent_exists` first. This is the same check-before-act
