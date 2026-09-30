@@ -5391,6 +5391,31 @@ architecture.md §3.1).
    Lesson 8 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
 
+9. **Restricting What an Agent Does After Reading** (title provisional) —
+   **Building** (folder `09-restricting-after-reading`). Concept 1
+   (tracking what the session has read) is built, with no run data: where
+   Modules 3, 4 and 5 left the dangerous combination, Meta's Agents Rule of
+   Two and Oso's stateful decisions (the session as the unit); a scripted
+   demo of a model-judged guard fooled by a planted email against labels
+   tracked in code; the four rules (declared labels, never read content,
+   labels only accumulate, undeclared tools fail closed) plus the memory
+   source rule; 4 quiz cards; and a graded `SessionGuard` (`record`,
+   `touched`; `runnable`). The mockup's reference omitted `TOOL_LABELS`
+   and the starter's printout, so the page's reference is the full starter
+   filled in. The demo and the starter's printout reproduce the mockup
+   exactly in Pyodide 0.26.4. Tests split into 6 self-contained tests
+   (each builds its own guard from the starter's `TOOL_LABELS`); through
+   the real `TEST_HARNESS` the reference passes all 6 and seven wrong
+   versions each fail (the starter, honouring a `trusted` field, undeclared
+   tools as clean, `=` instead of `|=`, returning the set itself,
+   untrusting only `"tool"` memories, mutating the declared label set).
+   The starter's stray third blank line was normalized to two. Callbacks:
+   Module 3's dangerous-combination and security-boundary concepts and
+   Module 4's memory-poisoning concept (page links), Module 5's
+   `#limit-what-the-model-can-do-after-reading` (verified against the
+   built HTML). Earlier "Lesson 9" mentions in Lessons 1 and 2 stay plain
+   text. Concepts 2+ and bookends not yet drafted.
+
 ---
 
 ## Modules 4–11 — current plan
