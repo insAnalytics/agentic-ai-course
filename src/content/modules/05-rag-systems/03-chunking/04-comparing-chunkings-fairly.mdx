@@ -158,23 +158,26 @@ retrieval alone.
 That agrees with one of the more careful studies of the question.
 [Chroma's 2024 report](https://www.trychroma.com/research/evaluating-chunking)
 found that chunking strategy moved recall by up to 9% between the best and
-worst choices, that a simple splitter at about 200 tokens with no overlap
-was consistently strong, and that a popular default of 800-token chunks
+worst choices, that LangChain's recursive splitter, which breaks at
+paragraphs and lines, was consistently strong at 200 tokens with no overlap,
+and that OpenAI's file-search default of 800-token chunks
 with 400 tokens of overlap did poorly. The big differences are between
 sensible choices and bad ones, not among the sensible ones.
 
 Other chunkers bet that better boundaries will help. **Semantic chunking**
 embeds each sentence and cuts where neighbouring sentences stop resembling
 each other. **Proposition chunking** has a model rewrite the text as short,
-self-contained statements, one fact each. **LLM chunking** asks a model where
+self-contained statements, one fact each
+([Chen et al., 2023](https://arxiv.org/abs/2312.06648)). **LLM chunking** asks a model where
 to cut. **Late chunking** embeds the whole document with a long-input model
 first, then splits its token vectors into chunks, so each chunk's vector has
-seen its surroundings. Libraries offer most of these, and each costs more to
+seen its surroundings ([Günther et al., 2024](https://arxiv.org/abs/2409.04701),
+a preprint from Jina AI). Libraries offer most of these, and each costs more to
 index: an embedding per sentence, or a model call per document. Chroma's
-report built a semantic chunker and a model-driven one. The semantic one did
-well, and the report recommends it only where its extra complexity is
-acceptable, with a simple splitter as the default.
-[Qu and colleagues (2024)](https://arxiv.org/abs/2410.13070) found semantic
+report built a semantic chunker and a model-driven one. Both did well, the
+model-driven one finding the most relevant text, but only a few points of
+recall above the recursive splitter at 200 tokens.
+[Qu and colleagues (2025)](https://aclanthology.org/2025.findings-naacl.114/) found semantic
 chunking's gains over fixed-size chunks inconsistent, and not worth its cost.
 Any of these is worth trying the same way as this lesson's chunkers: against
 a baseline, at an equal token budget.

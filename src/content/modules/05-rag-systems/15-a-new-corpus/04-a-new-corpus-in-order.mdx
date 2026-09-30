@@ -18,13 +18,16 @@ a search.
    agent will meet, each labelled with the passages that answer it, and a
    held-out set put aside
    ([Lesson 2](/05-rag-systems/02-measuring-retrieval/00-intro/)). Take them
-   from real users where possible. Model-written questions can add volume,
+   from real users where possible. Anthropic's
+   [guide to agent evaluations](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)
+   calls "20-50 simple tasks drawn from real failures" a great start for an
+   agent's evals. Model-written questions can add volume,
    reported separately, since they share their source's words. Without this
    set, every later decision is a guess.
 2. **Ask whether retrieval is needed at all.** A small, stable corpus that
    every reader may see can go into the prompt whole, behind a prefix cache
    ([Lesson 1](/05-rag-systems/01-why-retrieval/02-what-pasting-everything-costs/)).
-   Anthropic's
+   Anthropic's 2024
    [guidance on contextual retrieval](https://www.anthropic.com/engineering/contextual-retrieval)
    puts the line at about 200,000 tokens, roughly 500 pages. This module's
    corpus, at 232,241 tokens, is just past it. Retrieval wins on cost per

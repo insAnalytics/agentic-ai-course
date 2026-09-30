@@ -78,7 +78,7 @@ for label, group in [("the 15 internal documents", [d for d in documents if "/" 
 A header says where a chunk sits. It doesn't say what the chunk is *about*,
 and it says the same thing for every chunk of a document, which is why it
 couldn't tell the claude-legacy runbook's steps apart. Anthropic's
-[**contextual retrieval**](https://www.anthropic.com/news/contextual-retrieval)
+[**contextual retrieval**](https://www.anthropic.com/engineering/contextual-retrieval)
 (2024) writes something specific for every chunk instead: a model reads the
 whole document and the chunk, and writes a short context that situates the
 chunk within the document. That context is prepended to the chunk before
@@ -96,11 +96,12 @@ Here is the chunk we want to situate within the whole document
 Please give a short succinct context to situate this chunk within the overall document for the purposes of improving search retrieval of the chunk. Answer only with the succinct context and nothing else.
 ```
 
-On their datasets, contextual embeddings reduced the share of questions whose
-relevant chunk wasn't retrieved in the top 20 by 35%, adding contextual BM25
-took the reduction to 49%, and adding reranking as well took it to 67%.
-Those are Anthropic's reported results on their data; what follows is this
-corpus.
+Anthropic reports that, averaged over its own test sets (code, fiction and
+research papers) with its best embedding model, contextual embeddings cut the
+share of relevant chunks missing from the top 20 by 35%, from 5.7% to 3.7%.
+Adding contextual BM25 made the cut 49%, to 2.9%, and adding a reranker as
+well made it 67%, to 1.9%. Those are a vendor's figures for its own
+technique, on its own data; what follows is this corpus.
 
 Both of these functions are already loaded for every demo and exercise from
 here to the end of this lesson:
@@ -123,7 +124,7 @@ def situate_chunk(client, prompt: str, document: dict, chunk: dict) -> str:
 ```
 
 `with_context` falls back to the header for any chunk without a context. That
-matters here: contexts were written for the 75 chunks of the company's
+matters here: Claude wrote contexts for the 75 chunks of the company's
 internal documents, where this module's retrieval failures have been; the
 1,893 chunks of vendor documentation keep their headers. So the comparison
 below is contexts against headers on the internal documents, with everything

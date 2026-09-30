@@ -66,9 +66,12 @@ says "v2.4" but not what v2.4 is a version of.
 
 Every chunk already carries the missing words. Lesson 3 gave each one a
 section path, the document title followed by every heading above it, and
-stored it as metadata. Metadata isn't searched. Prepending the path to the
-text that gets embedded and indexed is. This function is already loaded for
-every demo and exercise in this lesson:
+stored it as metadata. In this module's pipeline, metadata isn't searched.
+Prepending the path to the text that gets embedded and indexed is. Some
+frameworks do this by default: LlamaIndex, for one,
+[writes a chunk's metadata into the text it embeds](https://developers.llamaindex.ai/python/framework/module_guides/loading/documents_and_nodes/usage_documents/)
+unless told to leave it out. This function is already loaded for every demo
+and exercise in this lesson:
 
 ```python
 def with_header(chunk: dict) -> dict:

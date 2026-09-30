@@ -96,7 +96,7 @@ Add them, and BM25 decides almost everything. Rescaling each list to the
 range 0 to 1 helps less than it seems: it depends on each question's spread
 of scores, and one unusually high score squashes all the others. Rescaled
 scores can still be combined well, with a weight for each search, and
-[Bruch and colleagues (2023)](https://arxiv.org/abs/2210.11934) found that a
+[Bruch and colleagues (ACM TOIS, 2023)](https://doi.org/10.1145/3596512) found that a
 weighted sum tuned on labelled questions can beat rank-based fusion. The
 catch is the tuning: it needs labelled questions, and a weight fitted to one
 corpus may not suit another.
@@ -152,7 +152,15 @@ too:
 One question separates every value of k tried. RRF's appeal is exactly
 this: almost nothing to tune, no scores to calibrate, and it works for any
 number of rankings, which is why it's widely used to combine keyword and vector
-results. Whether the combination is *better* than either search alone on
+results.
+[Elasticsearch's RRF](https://www.elastic.co/docs/reference/elasticsearch/rest-apis/reciprocal-rank-fusion)
+defaults to k = 60 and says it needs no tuning, and
+[Azure AI Search](https://learn.microsoft.com/en-us/azure/search/hybrid-search-ranking)
+fuses hybrid queries the same way. That holds for one k shared by every
+list. Bruch and colleagues found RRF much more sensitive when each list gets
+its own k, which amounts to weighting one list against the other, the
+setting this lesson's final exercise builds. Whether the combination is
+*better* than either search alone on
 this corpus is a separate question, and the next concept answers it.
 
 </Subsection>

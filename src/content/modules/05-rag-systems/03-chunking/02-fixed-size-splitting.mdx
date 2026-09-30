@@ -51,8 +51,9 @@ for overlap in [0, 50]:
 
 The simplest chunker ignores the text's structure entirely: it cuts every
 *N* tokens, wherever that lands. It needs no knowledge of the format, works
-on any text, and makes chunks of predictable size, which is why it's the
-default in many tools.
+on any text, and makes chunks of predictable size, which is why some tools
+use it by default: [OpenAI's file search](https://developers.openai.com/api/docs/guides/retrieval)
+cuts every file into 800-token chunks unless told otherwise.
 
 Real splitters count tokens with the embedding model's own tokenizer. This
 one uses the course's estimate of four characters per token, which is the

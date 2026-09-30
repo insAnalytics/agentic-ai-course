@@ -207,16 +207,22 @@ With Lesson 1's format, two questions share 20 tokens, and only by accident
 of wording. The instructions this lesson uses are 140 tokens, and in a real
 agent the stable part also holds the system prompt and tool definitions, often
 thousands of tokens. They go first, and the retrieved sources, which are
-different for every question, go after them.
+different for every question, go after them. The providers' own caching
+guides say the same: OpenAI's, for one, says to put
+[stable instructions and shared material first](https://platform.openai.com/docs/guides/prompt-caching)
+and anything that changes at the end.
 
-Two practical details decide whether that prefix is actually cached. A cache
-has a minimum size: on Anthropic's API, a prefix shorter than somewhere
-between 512 and 4,096 tokens, depending on the model, isn't cached at all, so
-140 tokens of instructions only pay off as part of a larger stable prefix.
-And entries expire when unused, after five minutes by default there, so
-questions far apart don't share anything either. Some providers cache
-automatically; Anthropic's API caches where the request marks a breakpoint,
-which goes at the end of the stable part.
+Three practical details decide whether that prefix is actually cached. A
+cache has a minimum size: on
+[Anthropic's API](https://platform.claude.com/docs/en/build-with-claude/prompt-caching),
+a prefix shorter than somewhere between 512 and 4,096 tokens, depending on
+the model, isn't cached at all, so 140 tokens of instructions only pay off as
+part of a larger stable prefix. Entries expire when unused, after five
+minutes by default there, so questions far apart don't share anything
+either. And the cache is written where a breakpoint marks it. Both OpenAI
+and Anthropic can place one for you at the end of the latest message, but in
+a retrieval request that's the question, which changes every time. So both
+providers' docs say to mark the end of the stable part yourself.
 
 **Position.** [Module 1 showed](/01-llm-foundations/06-context-windows-and-kv-cache/05-uneven-use-of-long-contexts/#the-lost-in-the-middle-effect)
 that models use information at the start and end of their input more
@@ -230,7 +236,10 @@ full. For a retrieval request, that means:
 - **Put the best first.** The reranker's order puts the likeliest answers at
   the start of the sources, a position models use well.
 - **Put the question last,** after the sources, at the end, so it's the
-  final thing the model reads before answering.
+  final thing the model reads before answering. Anthropic's
+  [prompting guide](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices)
+  gives the same order, long documents at the top and the query at the end,
+  and reports that in its tests this improved answers by up to 30%.
 
 </Subsection>
 

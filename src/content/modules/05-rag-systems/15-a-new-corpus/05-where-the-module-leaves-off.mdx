@@ -53,11 +53,13 @@ if a person can follow it: which document, which passage, and on which page.
 
 <Subsection title="Caching answers, carefully" variant="b">
 
-One idea comes up in every deployed system, and this module hasn't built it:
+One idea this module hasn't built comes up often in deployed systems:
 **semantic caching**. Store each answer with its question's vector, and when
 a new question lands close enough to an old one, return the old answer
-without searching or calling the model. For repetitive traffic it saves a
-great deal, and it brings three risks this module has already met:
+without searching or calling the model. Libraries such as
+[GPTCache](https://github.com/zilliztech/GPTCache) and gateways such as
+[LiteLLM](https://docs.litellm.ai/docs/proxy/caching) offer it ready-made.
+For repetitive traffic it can save many model calls, and it brings three risks this module has already met:
 
 - **Close in meaning isn't the same question.** Lesson 14 found
   [no similarity threshold separated duplicates from contradictions](/05-rag-systems/14-context-step/03-duplicates-in-different-words/#choosing-a-threshold):

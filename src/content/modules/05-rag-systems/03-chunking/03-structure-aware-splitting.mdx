@@ -97,7 +97,10 @@ Documents come with boundaries built in. A heading starts a new topic. A
 blank line ends a paragraph, and a paragraph is usually one idea. A code
 block is one unit that means nothing in halves. A **structure-aware**
 chunker cuts at those boundaries, and only falls back to cutting blindly
-when a single unit is too big for any chunk.
+when a single unit is too big for any chunk. It's where
+[LangChain's documentation](https://docs.langchain.com/oss/python/integrations/splitters)
+suggests starting: its default splitter keeps paragraphs whole where it can,
+then sentences, and it splits Markdown and HTML by their structure.
 
 It works in three steps:
 

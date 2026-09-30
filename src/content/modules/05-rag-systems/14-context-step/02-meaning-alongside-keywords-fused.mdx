@@ -205,7 +205,11 @@ used to abstain: a floor, measured on labelled examples, below which the answer
 is "nothing found". Lesson 10's floor was on the reranker's score, which reads
 question and passage together; a floor on similarity is weaker, because
 similarity scores from one embedding model bunch together, and it belongs to
-that model, so a new model means measuring it again. The next concept chooses
+that model, so a new model means measuring it again. bge's own
+[model card](https://huggingface.co/BAAI/bge-small-en-v1.5) says "what
+matters is the relative order of the scores, not the absolute value", and
+to pick any threshold "based on the similarity distribution on your data".
+The next concept chooses
 that kind of threshold, for duplicates.
 
 </Subsection>

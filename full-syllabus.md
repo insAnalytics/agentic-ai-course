@@ -3512,6 +3512,40 @@ way. The only existing demo whose output changed is L10 C1's (intended).
 
 Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
 All 15 lessons are **Locked** (Lesson 15's recap is the module's last page).
+**Citation audit (2026-09-30).** Every outside-source claim was checked
+against its primary source; the full per-claim tables are in
+[citation-audit/module-5.md](citation-audit/module-5.md). Prose and quiz
+text only; no demo or exercise changed. What changed:
+- **Corrected:** hosted embedders mostly truncate over-long text by
+  default, and only OpenAI rejects it (L3 C1); Chroma's report has no
+  "simple splitter as the default" recommendation (L3 C4); the log2(i+1)
+  nDCG discount is the common form, not Järvelin and Kekäläinen's (L2 C3);
+  Sun et al.'s sliding window was for token limits (L7 C4); both Anthropic
+  and OpenAI now cache automatically or at a marked breakpoint (L10 C1);
+  LightRAG writes per-entity summaries (L12 C5); GraphRAG's `update`
+  command and its quiz card now follow Microsoft's 1.0 post (L12 C5);
+  EchoLeak links Aim's disclosure, with the arXiv paper as a later case
+  study (L13 C4); OpenFGA offers its two calls as alternatives (L13 C2).
+- **Re-labelled:** venues (Ovadia, LaRA, Bruch, Self-RAG, LightRAG, Qu,
+  Yoon, Nasr et al.) and preprints (CRAG, the GraphRAG paper, Zeng, the
+  two keyword-search papers, olmOCR, ColPali's earlier caveat); Anthropic's
+  contextual-retrieval figures as a vendor's, with absolute rates; case
+  counts for our own results; the models behind Lesson 15's ledger.
+- **Industry sources added** for practice stated without one: OpenAI file
+  search's 800/400 default, LangChain's splitters and retrievers,
+  LlamaIndex's engines and evaluators, Elasticsearch/Lucene BM25 and RRF
+  defaults, Azure AI Search, Weaviate, Qdrant, Vespa, pgvector, Pinecone,
+  Cohere's threshold guide, Voyage and Cohere input types, Anthropic's
+  caching, prompting and hallucination guides, OWASP LLM08, Microsoft's
+  MSRC, GPTCache and LiteLLM; plus Greshake, Ma, Nogueira and Cho, MS
+  MARCO, SPLADE, ColBERT and Leiden.
+- **Softened:** RRF's k now notes Bruch et al.'s per-list sensitivity;
+  "every deployed system", "the usual shape", "most vector stores' default"
+  and "a common pattern in production" now say what the source supports.
+- **Held for a decision:** whether filtering after ranking is presented as
+  wrong or only worse (L13 C1 and the recaps; see the audit file).
+- **Still to check:** which Claude version wrote the course's
+  model-written data; the files record only "Claude".
 **Final audit (2026-09-29), all against the built site and real Pyodide:**
 - **Callbacks:** no `(→ ...)` left in any Module 5 source. Every internal
   link on the 88 built pages resolves to a built page, and all 54 anchored

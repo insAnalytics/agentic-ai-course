@@ -189,11 +189,18 @@ can be done two ways:
 - **One index per set of permissions.** Build the pipeline over only the
   chunks a group can read. Simple and certain: forbidden chunks aren't in the
   index at all. It suits a handful of distinct permission sets, like this
-  corpus's.
+  corpus's. Pinecone's [multitenancy guide](https://docs.pinecone.io/guides/index-data/implement-multitenancy)
+  does this with one namespace per customer.
 - **A filter inside each search.** Vector stores and search engines accept a
-  metadata filter applied during the search, as Lesson 4 described. It suits
-  thousands of users with overlapping permissions, where an index each isn't
-  practical.
+  metadata filter applied during the search, as Lesson 4 described. Azure AI
+  Search's [security filters](https://learn.microsoft.com/en-us/azure/search/search-security-trimming-for-azure-search)
+  store each document's allowed groups in a field and filter on the reader's
+  groups in every query. It suits thousands of users with overlapping
+  permissions, where an index each isn't practical.
+
+OWASP lists leaks like this one among its top ten risks for LLM applications,
+under [vector and embedding weaknesses](https://genai.owasp.org/llmrisk/llm082025-vector-and-embedding-weaknesses/),
+and its first mitigation is "permission-aware vector and embedding stores".
 
 This concept's exercise builds the first, with one pipeline per distinct set of
 groups, built on first use.

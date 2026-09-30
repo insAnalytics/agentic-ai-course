@@ -170,9 +170,11 @@ are three common ways, shown here on the support-tiers table:
 - **Write each row with its headers.** Every row becomes a sentence of
   header-value pairs, so any row makes sense on its own, wherever the chunker
   puts it. It costs some repetition: every row repeats the column names.
-- **Add a model-written summary.** A common approach in multimodal RAG
-  pipelines: ask a model to describe the table in
-  prose, and index the description next to the table. The summaries here
+- **Add a model-written summary.** Ask a model to describe the table in
+  prose, and index the description next to the table.
+  [LangChain's multi-vector retriever](https://blog.langchain.com/semi-structured-multi-modal-rag/)
+  is one published version: it indexes a summary of each table and hands the
+  raw table to the model when the summary matches. The summaries here
   followed this prompt:
 
   > Summarise this table in one or two sentences of plain prose, so it can be found by search. Say what the table is about and what it shows.

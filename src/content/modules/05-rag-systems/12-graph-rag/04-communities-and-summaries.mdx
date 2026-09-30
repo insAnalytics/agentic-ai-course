@@ -78,10 +78,12 @@ raw chunks.
 
 Communities are found by **community detection**, a standard family of graph
 algorithms. The Louvain method, used here from the networkx library, looks
-for the grouping that puts as many edges as possible inside groups rather than
-between them. It involves some randomness, so it's given a fixed seed to make
-the result repeatable. The GraphRAG paper uses Leiden, a refinement of Louvain
-that guarantees every community is connected, and applies it hierarchically,
+for the grouping that puts more edges inside groups, and fewer between them,
+than chance would, a score called modularity. It involves some randomness, so
+it's given a fixed seed to make the result repeatable. The GraphRAG paper uses
+[Leiden](https://www.nature.com/articles/s41598-019-41695-z) (Traag and
+colleagues, 2019), a refinement of Louvain that guarantees every community is
+connected, and applies it hierarchically,
 splitting large communities into smaller ones. For a graph this size, Louvain
 is enough. These two helpers are defined once here and already
 loaded for every demo and exercise from here to the end of this lesson:
