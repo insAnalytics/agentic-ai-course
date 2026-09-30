@@ -79,7 +79,10 @@ sometimes close to individual characters, where English would get a
 single clean token. This isn't a minor detail: it means, very
 concretely, that the same conversation costs more, and eats into a
 fixed context window faster, depending on what language it's conducted
-in — a cost dimension worth carrying forward explicitly when this
+in. It isn't just our tokenizer, either. A study of many tokenizers,
+[Petrov et al. (NeurIPS 2023)](https://arxiv.org/abs/2305.15425), found
+the same text varying "up to 15 times" in token count across languages.
+It's a cost dimension worth carrying forward explicitly when this
 module reaches pricing directly.
 
 Try it yourself — the two rows below start pre-filled with the example

@@ -78,8 +78,11 @@ Both failures share the same underlying cause: asking nicely, in the
 prompt, doesn't change how generation actually works. The model is
 still producing tokens one at a time, guided by learned patterns from
 training, with nothing in the generation *mechanism itself* preventing
-malformed output. A genuine guarantee requires intervening in that
-mechanism directly —
+malformed output. Providers say so too: Anthropic's
+[structured-outputs docs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)
+warn that "even with careful prompting" you can still get invalid JSON,
+missing required fields and inconsistent data types. A genuine guarantee
+requires intervening in that mechanism directly —
 [covered next](/01-llm-foundations/10-structured-output-and-tool-calling/02-constrained-decoding/).
 
 </Subsection>
