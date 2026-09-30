@@ -3544,8 +3544,11 @@ text only; no demo or exercise changed. What changed:
   and "a common pattern in production" now say what the source supports.
 - **Held for a decision:** whether filtering after ranking is presented as
   wrong or only worse (L13 C1 and the recaps; see the audit file).
-- **Still to check:** which Claude version wrote the course's
-  model-written data; the files record only "Claude".
+- **Not recorded:** which Claude version wrote the course's model-written
+  data (questions, chunk contexts, query variants, graph extraction). No
+  record was kept, so the pages and data files say "Claude" without a
+  version, and that stands. Record the version for any data generated from
+  now on.
 **Final audit (2026-09-29), all against the built site and real Pyodide:**
 - **Callbacks:** no `(→ ...)` left in any Module 5 source. Every internal
   link on the 88 built pages resolves to a built page, and all 54 anchored

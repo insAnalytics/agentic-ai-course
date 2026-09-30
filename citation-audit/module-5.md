@@ -74,11 +74,11 @@ links were added.
 - The prompt-caching paragraph now describes both providers' current
   behaviour (L10 C1).
 
-## Still to check
+## Not recorded
 
 - Which Claude version wrote the model-written questions, chunk contexts,
-  query variants and graph extraction. The data files record only
-  "Claude".
+  query variants and graph extraction. The owner confirmed no record was
+  kept, so the pages and data files keep saying "Claude" without a version.
 
 ---
 
