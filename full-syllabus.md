@@ -2459,9 +2459,11 @@ text only; no demo or exercise changed.
   Ollama; Gemini; LangGraph/LangMem; Claude Code's memory limits; Google
   ADK; OpenTelemetry; Factory; Cursor; Manus; OWASP's agentic Top 10; the
   Claude and ChatGPT memory help pages; GDPR Art. 17; Zep.
-- **Held for a decision:** re-anchoring and the per-turn time stamp edit
-  an earlier user turn, which Anthropic's preserved-thinking docs list as
-  invalidating later thinking (L2 C4, L3, L4 C4; see the audit file).
+- **Approved and applied:** re-anchoring is kept, with its caveat: on
+  providers that bind reasoning to everything before it, an anchor that
+  comes and goes is an edit (L4 C4, with Claude's turn-scoped system message
+  as the provider's own form). L3 scopes "best available" to a plain prefix
+  cache, and L2 C4 mentions the built-in option.
 
 1. **Context as a Budget** — Locked. Intro; Concept 1 (what fills the
    window; `count_tokens`); Concept 2 (measuring one request part by part;

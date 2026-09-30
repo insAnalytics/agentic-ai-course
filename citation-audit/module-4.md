@@ -59,7 +59,16 @@ gradual), three other pages that said models "handle it worst" or that it
     Claude and ChatGPT memory help pages; GDPR Art. 17.
   - Papers: Zep and MemGPT.
 
-## Needs a decision
+## Needs a decision (approved by the owner and applied, 2026-09-30)
+
+*Applied:* report A's E19 and its extra bullet (L4 C4); L3 C3 now says
+"on a plain prefix cache it's the best available one", with a pointer to
+L4 C4; L3 C2's "where it breaks nothing" is now "where it doesn't break the
+cache"; L2 C4 notes Claude's turn-scoped system message (a beta). No code
+changed. The lead re-checked both docs: the preserved-thinking table lists
+"Add a text block to an earlier user turn, or remove one you added last
+time" as Invalid, and turn-scoped system messages need the
+`mid-conversation-system-clear-at-2026-08-21` beta header.
 
 1. **Re-anchoring and preserved thinking (L2 C4, L3, L4 C4; the pattern
    recurs in L5–L9, L12 and Module 6 L1 C5).** The course adds the plan (and,

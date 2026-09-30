@@ -358,7 +358,10 @@ That makes every *client-side* edit in this module an edit that
 invalidates reasoning:
 [Lesson 2's pruning](/04-context-and-memory/02-context-that-fits-but-still-hurts/02-what-goes-stale-in-a-scratchpad/),
 [Lesson 3's batching](/04-context-and-memory/03-prompt-caching/03-where-lesson-2s-techniques-stand-and-the-fights-ahead/),
-and this lesson's clearing and trimming. The techniques are still right;
+this lesson's clearing and trimming, and even
+[Lesson 2's re-anchoring](/04-context-and-memory/02-context-that-fits-but-still-hurts/04-re-anchoring-the-goal/),
+since an anchor added to one request and gone from the next is an edit
+too. The techniques are still right;
 what changes is what you do alongside them:
 
 - **Shape a result before it first enters the history.** A result that's
@@ -375,6 +378,11 @@ what changes is what you do alongside them:
 - **Or let the provider do the trimming.** Server-side trimming doesn't
   count as an edit, because the check compares what you sent, not the
   server's trimmed copy.
+- **Use the provider's own form of an edit where there is one.** For the
+  re-anchor, Claude's API offers a
+  [system message placed after the latest results](https://platform.claude.com/docs/en/build-with-claude/mid-conversation-system-messages)
+  that clears itself once the next turn starts (a beta), so the plan is
+  restated without editing anything already sent.
 
 </Subsection>
 
