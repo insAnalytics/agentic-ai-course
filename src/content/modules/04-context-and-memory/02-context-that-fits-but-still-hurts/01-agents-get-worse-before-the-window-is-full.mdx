@@ -63,22 +63,25 @@ quality, while there's still plenty of room.
 
 <Subsection title="What the evidence shows" variant="b">
 
-**It happens to every model tested.** In July 2025, Chroma published a study
-called "Context Rot" that tested 18 models, including GPT-4.1, Claude 4,
+**It happens to every model tested.** In July 2025, Chroma, a company that
+makes a vector database, published a technical report called
+["Context Rot"](https://research.trychroma.com/context-rot) that tested 18 models, including GPT-4.1, Claude 4,
 Gemini 2.5 and Qwen3. They kept the tasks deliberately simple, such as
 finding one fact in a document or copying back a sequence of repeated words,
 and varied only the length of the input. Every model got less reliable as
 the input grew. Two findings matter especially for agents:
 
-- **The degradation isn't a cliff.** Accuracy falls gradually as input
-  grows, well inside the window, not suddenly at the limit.
-- **Similar-but-irrelevant content hurts most.** Performance dropped further
+- **The decline doesn't wait for the limit.** Reliability drops as input
+  grows, well inside the window, and not always smoothly: the report
+  describes the drop as uneven and sometimes surprising.
+- **Similar-but-irrelevant content makes it worse.** Performance dropped further
   when the input contained distractors resembling the thing the model was
   looking for. An agent's scratchpad is full of exactly that: dozens of tool
   results that look alike, only a few of which matter.
 
-**Model builders say the same.** Anthropic's engineering post "Effective
-context engineering for AI agents" describes the same effect, which it also
+**Model builders say the same.** Anthropic's engineering post
+["Effective context engineering for AI agents"](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
+describes the same effect, which it also
 calls context rot, appearing across all models, some degrading more gently
 than others. It frames context as a finite resource with diminishing
 returns, and says a model has an "attention budget" that every added token
@@ -119,8 +122,9 @@ response.
 
 <Subsection title="Four ways a context goes wrong" variant="b">
 
-Length is only one way context hurts. Drew Breunig's 2025 essay "How Long
-Contexts Fail" names four failures that are useful to tell apart, because
+Length is only one way context hurts. Drew Breunig's 2025 essay
+["How Long Contexts Fail"](https://www.dbreunig.com/2025/06/22/how-contexts-fail-and-how-to-fix-them.html)
+names four failures that are useful to tell apart, because
 each has a different fix, and this module has a response to each:
 
 - **Poisoning:** a mistake gets into the context, such as a hallucinated
@@ -167,13 +171,13 @@ and keeping the goal where the model will see it.
       "Every model tested got less reliable as input grew, even on simple tasks, well inside the window"
     ],
     "correctIndex": 3,
-    "explanation": "The degradation is gradual and appears well before the limit, which is why context has to be managed for quality, not just capacity."
+    "explanation": "The decline starts well before the limit and grows with the input, which is why context has to be managed for quality, not just capacity."
   },
   {
     "question": "Why are an agent's accumulated tool results a particularly bad kind of long context?",
     "options": [
       "Tool results are counted as more tokens than other text",
-      "There are many similar-looking results with few that matter, and look-alike content hurt most in the study",
+      "There are many similar-looking results with few that matter, and look-alike content made things worse in the study",
       "Models can't read tool results",
       "They're always placed in the system prompt"
     ],

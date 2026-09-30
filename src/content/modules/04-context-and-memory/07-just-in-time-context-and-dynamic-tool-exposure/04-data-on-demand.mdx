@@ -264,7 +264,7 @@ The same question comes up for the data a task works on: logs, configs,
 documents, records. The simple answer is to gather what might be relevant
 and put it in the context before the agent starts. Anthropic's
 [guide to context engineering](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
-describes the alternative many agents have moved to. The agent keeps
+describes an alternative more and more teams are adding. The agent keeps
 **lightweight references**, such as file paths, queries and links, and
 uses tools to load what it needs *while it works*. Coding agents are the
 familiar example: rather than being handed a whole repository, they list
@@ -336,12 +336,14 @@ almost every line, and returns twenty and a count.
 <Subsection title="A map, then explore" variant="b">
 
 The exploring runs didn't start blind. Their system prompt said what the
-workspace holds, in one line: logs in one folder, configs in another. That
-**hybrid** is how most agents that explore are set up. A little is loaded
-up front: what exists, how it's laid out, and the conventions that always
-apply. Everything else is found when needed. Claude Code works this way:
-a project's `CLAUDE.md` file is loaded at the start of every session, and
-the code itself is explored with search and read tools.
+workspace holds, in one line: logs in one folder, configs in another.
+Anthropic's guide calls this a **hybrid**, and it's a common set-up. A
+little is loaded up front: what exists, how it's laid out, and the
+conventions that always apply. Everything else is found when needed.
+Claude Code works this way: a project's `CLAUDE.md` file is loaded at the
+start of every session, and the code itself is explored with search and
+read tools. [`AGENTS.md`](https://agents.md/) is the same idea as an open
+format that many coding agents read.
 
 It's the same shape as the guide index and the tool catalog in this
 lesson's earlier concepts. A short, fixed description sits in the prefix,

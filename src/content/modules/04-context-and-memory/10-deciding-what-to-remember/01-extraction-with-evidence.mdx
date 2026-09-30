@@ -331,7 +331,11 @@ pipeline stores it as the user's words.
 The fix is to ask for something code can check. For each memory, the model
 must give the **exact words** it rests on, and the number of the **entry** they
 come from. Code then checks that those words really are in that entry, and
-takes the source from the entry itself, never from the model.
+takes the source from the entry itself, never from the model. Asking for
+supporting quotes is a known technique:
+[Anthropic's guide to reducing hallucinations](https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-hallucinations)
+suggests having the model find a quote for each claim, and drop any claim it
+can't back. Here, code does the checking.
 
 To make entries citable, the session is flattened into numbered pieces, each
 marked with whose words it is:

@@ -237,8 +237,10 @@ result. Its reasoning is part of that step.
 - **Claude's API** requires the complete, unmodified thinking block that
   came with a tool request to be sent back along with the tool results.
 - **Gemini 3** does the same with its encrypted "thought signatures":
-  every function call in the current turn must come back with its
-  signature, or the request fails with a 400.
+  the function calls in the current turn must come back with the
+  signatures they were returned with (the first call of each step carries
+  one), or the
+  [request fails with a 400](https://ai.google.dev/gemini-api/docs/generate-content/thought-signatures).
 
 Here's the rule as a check, next to `check_pairing`:
 
@@ -287,12 +289,14 @@ Reasoning from *finished* steps is a different matter. Its step is done,
 and what it concluded shows up in what the model did next. Providers
 differ on whether to keep it:
 
-- Some strip it themselves. On earlier Claude models, the API drops
-  thinking from previous turns automatically, even if you send it.
+- Some strip it themselves. On earlier Claude Opus and Sonnet models, and
+  Haiku models through Claude Haiku 4.5, the API drops thinking from previous turns
+  automatically, even if you send it.
 - Others keep it by default, because it helps the model stay consistent.
-  On Claude Opus 4.5 and later Opus models, and Claude Sonnet 4.6 and
-  later Sonnet models, previous thinking stays in the context and counts
-  toward the window like any other input.
+  On Claude Opus 4.5 and later Opus models, Claude Sonnet 4.6 and later
+  Sonnet models, and Claude's newest models,
+  [previous thinking stays in the context](https://platform.claude.com/docs/en/build-with-claude/context-windows#the-context-window-with-thinking)
+  and counts toward the window like any other input.
 
 When it's kept, it's a reasonable first thing to remove when a history is
 over budget. Unlike a tool result, it's the model's own intermediate work,
@@ -340,14 +344,15 @@ the newest step kept its reasoning.
 Some providers go further than the open-round rule, and this changes how
 every technique in this module behaves.
 
-On Claude's newest models (Claude Fable 5.1 and Claude Opus 5.5, as of
-September 2026), a thinking block stays valid only while everything sent
-before it is unchanged: the system prompt, the tool list, and every
+On Claude's newest models (Claude Fable 5.1, Claude Opus 5.5 and Claude
+Sonnet 5.5, as of September 2026), a thinking block
+[stays valid only while everything sent before it is unchanged](https://platform.claude.com/docs/en/build-with-claude/preserved-thinking):
+the system prompt, the tool list, and every
 earlier message. Edit anything before a thinking block, and that block and
 every later one are invalid. For accounts created on or after August 31,
-2026, the API rejects such a request with a 400 by default. You can opt to
-have the invalid blocks dropped instead. The model then works without that
-reasoning.
+2026, the API rejects such a request with a 400 by default. With a beta
+setting, you can have the invalid blocks dropped instead. The model then
+works without that reasoning.
 
 That makes every *client-side* edit in this module an edit that
 invalidates reasoning:

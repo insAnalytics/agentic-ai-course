@@ -456,7 +456,10 @@ because the decision is model output like any other.
 
 <Subsection title="Supersede, don't delete" variant="b">
 
-Where Mem0 deletes a contradicted memory, this store keeps it and marks it:
+Mem0's basic pipeline deletes a contradicted memory. Its graph version
+doesn't: it marks the old fact invalid and keeps it, and so does
+[Zep](https://arxiv.org/abs/2501.13956), which records when each fact stopped
+being true. This store does the same, with a flag:
 
 ```python
 class MemoryRecord(Memory):

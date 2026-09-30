@@ -1009,8 +1009,11 @@ or a test can read: a **manifest**. For each request it records:
   folds, the turn had to wait for before its own request could be sent.
 
 In a production agent, the manifest goes to the same logs and traces as
-everything else about the request. Module 7 builds that tracing. The
-manifest is the context step's part of it.
+everything else about the request. OpenTelemetry's
+[draft conventions for model calls](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-spans.md)
+already record some of it on each call: the input tokens, the tokens read
+from the cache, and whether the context was compacted. Module 7 builds that
+tracing. The manifest is the context step's part of it.
 
 </Subsection>
 
@@ -1063,7 +1066,10 @@ summaries in the first message on a long run. Each crowds out the history
 the agent is working with, and none trips the overall check until it's too
 late.
 
-Limits per section catch that early. The limits here are examples: 400
+Limits per section catch that early. Claude Code, for example, loads only
+[the first 200 lines or 25KB](https://code.claude.com/docs/en/memory) of its
+memory file at session start, and reminds the model to shorten the file as it
+nears that limit. The limits here are examples: 400
 tokens for the system prompt, 500 for the summary, 250 for the anchor. Here
 is a much longer run, 80 agents to rule out, done without folding and with
 it:
@@ -1108,7 +1114,10 @@ round trips: results offloaded and read back, tools found by search, data
 explored instead of pasted in. Each is cheaper in tokens and slower in
 calls. Which matters more depends on the product. A background agent can
 afford the pauses; an assistant someone is watching may not, and may want
-compaction run between turns rather than in the middle of one. Either way,
+compaction run between turns rather than in the middle of one. Google's
+Agent Development Kit, for one,
+[compacts in the background](https://developers.googleblog.com/architecting-efficient-context-aware-multi-agent-framework-for-production/)
+once a set number of turns have finished. Either way,
 it's a number to record, not a surprise to discover.
 
 </Subsection>

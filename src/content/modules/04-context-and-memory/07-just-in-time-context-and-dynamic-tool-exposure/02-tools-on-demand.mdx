@@ -257,11 +257,12 @@ catalog can hold hundreds.
 <Subsection title="Searching the catalog" variant="b">
 
 Search here is keyword matching: a tool scores one point for each word of
-the query that appears in its name or description. It's crude, and for a
-catalog of well-named tools with
-[descriptions written as prompts](/03-tool-design-for-agents/01-designing-tools-a-model-can-use-well/01-names-and-descriptions-as-prompts/)
-it works well. Searching by meaning instead of by words is Module 5's
-subject.
+the query that appears in its name or description. It's crude, and it
+depends on a catalog of well-named tools with
+[descriptions written as prompts](/03-tool-design-for-agents/01-designing-tools-a-model-can-use-well/01-names-and-descriptions-as-prompts/).
+Claude's tool search docs give the same advice: prefix tool names by
+service, so one search finds the whole group. Searching by meaning instead
+of by words is Module 5's subject.
 
 </Subsection>
 
@@ -379,8 +380,8 @@ for example, works like this:
 
 - **Tools you mark with `defer_loading`** stay out of the context until the
   model finds them.
-- **The model searches** with a regular expression or with keywords,
-  depending on the variant.
+- **The model searches** with a regular expression or with a plain-language
+  query, depending on the variant.
 - **A found tool's definition goes into the conversation** at that point,
   not into the prefix.
 - **The model then calls it directly,** as an ordinary tool with its real
@@ -389,7 +390,9 @@ for example, works like this:
   over 85%.** They also describe returning your own search results, if
   you'd rather rank tools yourself.
 
-OpenAI's API has a tool search feature as well. The design underneath is
+[OpenAI's API has a tool search feature](https://developers.openai.com/api/docs/guides/tools-tool-search)
+as well, and its docs say it adds found tools at the end of the context to
+keep the cache. The design underneath is
 the one this concept built by hand: a fixed prefix, a search, and
 definitions loaded into the conversation when they're needed.
 

@@ -81,13 +81,15 @@ any one task. Checkpointing keeps a session; long-term memory keeps what was
 worth keeping from it.
 
 Agent frameworks draw the same line, under their own names. LangGraph, for
-example, has a *checkpointer*, which saves one conversation thread's state so
-it can resume, and a separate *store*, which holds memories across threads,
-filed under namespaces such as a user's id. Letta (the successor to the
-MemGPT research project) splits memory into *core* memory, always in the
-prompt, and *recall* and *archival* memory, searched when needed. The names
-differ, but each maps onto the split this lesson makes: what keeps one task
-going, and what outlasts it.
+example, has a
+[*checkpointer*](https://docs.langchain.com/oss/python/langgraph/persistence),
+which saves one conversation thread's state so it can resume, and a separate
+*store*, which holds memories across threads, filed under namespaces such as
+a user's id. [Letta](https://docs.letta.com/agent-sdk/memory/) (the successor
+to the [MemGPT](https://arxiv.org/abs/2310.08560) research project) keeps a
+little memory in the prompt on every turn, and the rest outside it, read or
+searched when needed. The names differ, but each maps onto the split this
+lesson makes: what keeps one task going, and what outlasts it.
 
 </Subsection>
 
@@ -112,14 +114,20 @@ Lesson 10's subject.
   claude-sonnet. The model has to work out which is current. That's the kind
   of conflicting, look-alike context
   [Lesson 2's evidence](/04-context-and-memory/02-context-that-fits-but-still-hurts/01-agents-get-worse-before-the-window-is-full/)
-  found models handle worst. And every session would add another transcript,
+  found makes models less reliable. Chroma's
+  [Context Rot study](https://research.trychroma.com/context-rot) tested this
+  case directly: given a whole chat history instead of just its relevant parts,
+  every model it tried answered questions about that history less reliably.
+  And every session would add another transcript,
   so the problem grows each week.
 - **Starting with a few memories** keeps what matters in a fraction of the
   space, and leaves the stale state behind.
 
 There's a middle way worth knowing about: keep the old transcripts, but out
 of the context, and give the agent a tool to search them when a task calls
-for it. Several assistants do this for past conversations. It keeps the
+for it. Claude's apps, for example,
+[search past chats](https://support.claude.com/en/articles/11817273-use-claude-s-chat-search-and-memory-to-build-on-previous-context)
+this way, and the search shows up in the conversation as a tool call. It keeps the
 details that selected memories leave out, at the cost of a search and of
 reading raw history, stale facts included, when it's found. It complements
 selected memories rather than replacing them: a standing request like "cc
@@ -154,7 +162,11 @@ session. Lesson 9 treats that separation as a requirement from the start.
 <Subsection title="The user's side" variant="a">
 
 Memory is something an agent keeps *about a person*, and that person has a
-stake in it. Products that remember well give the user a view into it:
+stake in it. Products that remember well give the user a view into it.
+[Claude's memory](https://support.claude.com/en/articles/11817273-use-claude-s-chat-search-and-memory-to-build-on-previous-context)
+and [ChatGPT's](https://help.openai.com/en/articles/8590148-memory-faq), for
+example, both list what's kept, let the user edit or delete it, and can be
+switched off:
 
 - **Tell them when something is saved.** A short note, "I'll remember that
   you want summaries as bullet points", lets the user correct a wrong

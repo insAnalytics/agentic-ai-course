@@ -166,19 +166,20 @@ in the context as one piece of text. It has to be reconstructed from the
 middle every turn, which is the position and the distractor-heavy
 situation
 [the evidence says](/04-context-and-memory/02-context-that-fits-but-still-hurts/01-agents-get-worse-before-the-window-is-full/#what-the-evidence-shows)
-models handle worst.
+models handle badly.
 
 </Subsection>
 
 <Subsection title="The fix: a plan the model rewrites, restated at the end" variant="b">
 
-The team behind the Manus agent described their answer in their July
-2025 post on context engineering, and called it *recitation*. Their
+The team behind the Manus agent described their answer in their
+[July 2025 post on context engineering](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus),
+and called it *recitation*. Their
 agent keeps a `todo.md` file and rewrites it as it works, ticking items
 off, so that the objective and the remaining steps are restated at the
 end of the context on every turn. Their tasks average around fifty tool
-calls, and they found that without this, agents drift off-topic or lose
-track of earlier goals.
+calls, and they say a loop that long is prone to drifting off-topic or
+forgetting earlier goals. Recitation is how they counter it.
 
 The pattern has two halves:
 
@@ -234,7 +235,7 @@ def assemble_context(messages: list) -> list:
 
 The anchor is added to the last message, which in a running loop is the
 user message carrying the latest tool results. There's a rule about
-*where* in that message, stated in Anthropic's tool-use documentation: in
+*where* in that message, stated in [Anthropic's tool-use documentation](https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls): in
 a user message containing tool results, the `tool_result` blocks must
 come **first**, and any text must come after them. Putting text first
 gets the request rejected. So the anchor is appended as a text block

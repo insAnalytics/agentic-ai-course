@@ -931,7 +931,11 @@ problem shown somewhere in this module:
   against the budget
   ([Lesson 5's sandbox](/04-context-and-memory/05-compaction-and-summarization/00-intro/)).
 - **Cheap before expensive, and nothing lost:** strip old reasoning, then
-  clear to the store, then compact with an archive, then trim.
+  clear to the store, then compact with an archive, then trim. Anthropic
+  calls clearing old tool results
+  ["one of the safest lightest touch forms of compaction"](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents),
+  and clearing first, with summaries held back, was the cheapest mix in
+  [the JetBrains study](/04-context-and-memory/05-compaction-and-summarization/01-what-clearing-cant-do/#what-the-evidence-says-about-summarizing).
 - **The summary is asked for inside the conversation,** with the agent's own
   tools and system prompt, so it reuses whatever part of the request is
   still cached, the tools and system prompt at least
@@ -1182,7 +1186,7 @@ run exactly as those lessons built them. The lesson's sandbox runs them too.
         "The change ledger"
       ],
       "correctIndex": 2,
-      "explanation": "Everything in the prefix is fixed for the session, so the cache is never broken. Anything newer goes at the end of each request."
+      "explanation": "Everything in the prefix is fixed for the session, so the context step never breaks the cache itself. Anything newer goes at the end of each request."
     },
     {
       "question": "Why does anchor_text take the full history, when the request sends a fitted copy?",

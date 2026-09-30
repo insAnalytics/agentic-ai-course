@@ -311,8 +311,10 @@ calls, cut in two reasonable-looking ways:
 Both produce exactly the errors the API returns, and there's a nasty
 property here: the broken history is *kept*. If the trimming happens
 inside a session's stored state, every later request carries the same
-defect and fails the same way. Real agent tools have shipped this bug,
-with sessions that could no longer send any request at all.
+defect and fails the same way. Real agent tools have shipped bugs that
+left a call without its result, and users
+[reported](https://github.com/anthropics/claude-code/issues/3886)
+sessions where every request failed with this error.
 
 </Subsection>
 

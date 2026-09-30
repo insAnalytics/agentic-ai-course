@@ -2437,6 +2437,32 @@ below describe each lesson as first converted; see the git log
 
 ## Module 4 — Context & Memory
 
+**Citation audit (2026-09-30).** Every outside-source claim was checked
+against its primary source; the full per-claim tables are in
+[citation-audit/module-4.md](citation-audit/module-4.md). Prose and quiz
+text only; no demo or exercise changed.
+- **Corrected:** token counting is an estimate on Anthropic's API (L1 C1);
+  cache minimums now run 512 to 4,096 tokens (L3 C1); Chroma calls the
+  decline "non-uniform", not gradual, and the "hurts most" wording was
+  softened across L2 and L8; the 13–15% longer runs held for two of five
+  models (L5 C1, its quiz and the recap); Claude's threshold compaction
+  doesn't keep thinking valid (L5 C2); Lesson 12's break-even quiz is now
+  about 25 to about 35 checks; its "26 times" links the recap that shows it.
+- **Updated:** L5 C4 now leads with Claude's on-demand compaction (which
+  its docs recommend) and OpenAI's `compact_threshold`; the memory tool
+  "no longer needs a beta header"; preserved thinking names Sonnet 5.5 and
+  the beta setting; Letta's links and wording follow its current docs;
+  Xiong et al. is ACL 2026, with the paper's conditions stated.
+- **Industry sources added:** Anthropic's context-engineering post,
+  advanced tool use (58 tools, about 55K tokens), caching, token-counting
+  and memory-tool docs; OpenAI's compaction, tool search and truncation;
+  Ollama; Gemini; LangGraph/LangMem; Claude Code's memory limits; Google
+  ADK; OpenTelemetry; Factory; Cursor; Manus; OWASP's agentic Top 10; the
+  Claude and ChatGPT memory help pages; GDPR Art. 17; Zep.
+- **Held for a decision:** re-anchoring and the per-turn time stamp edit
+  an earlier user turn, which Anthropic's preserved-thinking docs list as
+  invalidating later thinking (L2 C4, L3, L4 C4; see the audit file).
+
 1. **Context as a Budget** — Locked. Intro; Concept 1 (what fills the
    window; `count_tokens`); Concept 2 (measuring one request part by part;
    graded `measure_request`); Concept 3 (watching it grow across the loop;

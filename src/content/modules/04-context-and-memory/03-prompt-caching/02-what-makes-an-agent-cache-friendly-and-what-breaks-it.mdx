@@ -227,8 +227,10 @@ The registry agent's second request, sent four ways:
 - **Append only:** the healthy case. Nothing earlier changed, so all 534
   tokens of the previous request can be reused, and only the new turn is
   processed.
-- **The time in the system prompt:** this is the classic mistake, and
-  it's easy to make, since "tell the agent what time it is" sounds
+- **The time in the system prompt:** this is the classic mistake (the
+  Manus team calls a timestamp at the start of the system prompt
+  [a common one](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus)),
+  and it's easy to make, since "tell the agent what time it is" sounds
   harmless. But the system prompt comes before the whole conversation, so
   a value that changes every request means only the tool definitions are
   ever reused. Every request pays again for every message. If the agent
@@ -260,7 +262,9 @@ To a cache they're different text, and the request diverges at the
 rebuilt message. Anything that rebuilds history,
 [saving and reloading a checkpoint](/02-the-agent-loop/07-agent-state-and-the-scratchpad/03-checkpoint-and-resume/#saving-and-loading),
 converting between formats, or a language whose JSON library doesn't
-keep key order, can quietly break the cache this way. The fix is to keep
+keep key order (Anthropic's
+[caching docs](https://platform.claude.com/docs/en/build-with-claude/prompt-caching)
+name Swift and Go), can quietly break the cache this way. The fix is to keep
 what's sent exactly stable: store the messages as they were sent, or
 write JSON with a fixed key order,
 [the `sort_keys=True` from the previous lesson](/04-context-and-memory/02-context-that-fits-but-still-hurts/02-what-goes-stale-in-a-scratchpad/#the-rule-for-removing-it-replace-the-content-never-the-pair).

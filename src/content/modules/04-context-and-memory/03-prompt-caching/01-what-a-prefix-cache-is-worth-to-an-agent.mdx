@@ -156,9 +156,11 @@ def estimate_cost(turn_inputs: list, read_multiplier: float, write_multiplier: f
     }
 ```
 
-Applied to Lesson 1's log-reading run, using one provider's published
-multipliers as the example, reads at a tenth of the full price and
-writes at a quarter more:
+Applied to Lesson 1's log-reading run, using
+[Anthropic's standard multipliers](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#pricing)
+as the example, reads at a tenth of the full price and
+writes at a quarter more (OpenAI's newest models use the same pair, and
+some of Anthropic's newest models read even cheaper):
 
 <LiveDemo client:load setupCode={COST_FUNC} code={COST_DEMO} />
 
@@ -195,9 +197,10 @@ yours, but the same five questions come up everywhere:
   With a marker, put it at the end of the part that stays the same from
   turn to turn, never on content that changes every request, or each
   request writes a new entry that nothing ever reads.
-- **How long must the prefix be?** Below a minimum length, often around a
-  thousand tokens, nothing is cached at all. The small requests in this
-  lesson's demos are illustrations, well under that line.
+- **How long must the prefix be?** Below a minimum length, from a few
+  hundred to a few thousand tokens depending on the provider and model,
+  nothing is cached at all. The small requests in this lesson's demos are
+  illustrations, well under that line.
 - **How long does an entry live?** Typically minutes, renewed each time
   it's used. An agent that waits on a slow tool, or on a person to approve
   a step, can come back to a cold cache and pay full price for its whole
