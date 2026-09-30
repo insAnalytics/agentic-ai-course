@@ -1,0 +1,226 @@
+---
+title: "A time budget for the whole run"
+lesson: "08-graceful-degradation"
+order: 5
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+export const HELPERS = String.raw`import random
+
+rng = random.Random(0)
+
+
+def call_seconds() -> float:
+    """A stand-in model call: usually about a second, but 1 call in 100 takes 10 to 20 seconds."""
+    return rng.uniform(10, 20) if rng.random() < 0.01 else rng.uniform(0.6, 1.4)
+
+
+def percentile(values: list[float], p: float) -> float:
+    ordered = sorted(values)
+    return ordered[int(p * (len(ordered) - 1))]
+`;
+
+export const TAIL_DEMO = HELPERS + String.raw`
+
+for calls in (1, 5, 20):
+    runs = [[call_seconds() for _ in range(calls)] for _ in range(10_000)]
+    totals = [sum(run) for run in runs]
+    hit_slow = sum(any(seconds > 5 for seconds in run) for run in runs) / len(runs)
+    print(f"{calls:>2} calls per run: median {percentile(totals, 0.5):5.1f} s, p99 {percentile(totals, 0.99):5.1f} s, "
+          f"{hit_slow:4.0%} of runs hit a slow call")
+`;
+
+export const DEADLINE_DEMO = String.raw`MODELS = ["provider-a/large", "provider-b/large", "provider-c/small"]
+HUNG = {"provider-a/large", "provider-b/large"}  # today, the first two never answer
+now = [0.0]
+
+
+def call(model: str, timeout: float) -> str:
+    """A stand-in model call on a fake clock: a hung provider uses up the whole timeout, then fails."""
+    if model in HUNG:
+        now[0] += timeout
+        raise TimeoutError(f"{model} didn't answer in {timeout:.0f} s")
+    now[0] += 1.0
+    return f"answer from {model}"
+
+
+def call_with_deadline(models: list[str], timeout: float, deadline: float, min_useful: float = 2.0) -> dict:
+    """Try each model in turn, but never past the run's deadline: each call gets at most the time that's left."""
+    for model in models:
+        remaining = deadline - now[0]
+        if remaining < min_useful:
+            return {"answer": None, "why": f"{remaining:.0f} s left, too little for another call", "at": now[0]}
+        try:
+            return {"answer": call(model, min(timeout, remaining)), "at": now[0]}
+        except TimeoutError:
+            continue
+    return {"answer": None, "why": "every model timed out", "at": now[0]}
+
+
+print(f"no deadline, 3 attempts per model, 30 s timeouts: up to {3 * len(MODELS) * 30} s before giving up")
+for timeout in (30, 10):
+    now[0] = 0.0
+    result = call_with_deadline(MODELS, timeout, deadline=45)
+    print(f"45 s budget, {timeout} s per call: {result}")
+`;
+
+export const HEDGE_DEMO = String.raw`p95 = percentile([call_seconds() for _ in range(20_000)], 0.95)
+
+
+def hedged() -> tuple[float, int]:
+    """Send one call; if it hasn't answered by the p95 time, send a second copy and take whichever finishes first."""
+    first = call_seconds()
+    if first <= p95:
+        return first, 1
+    return min(first, p95 + call_seconds()), 2
+
+
+plain = [call_seconds() for _ in range(20_000)]
+hedges = [hedged() for _ in range(20_000)]
+times = [t for t, _ in hedges]
+extra = sum(n - 1 for _, n in hedges) / len(hedges)
+print(f"hedge after {p95:.2f} s (the p95)")
+print(f"one call:   p99.5 {percentile(plain, 0.995):5.2f} s, p99.9 {percentile(plain, 0.999):5.2f} s")
+print(f"hedged:     p99.5 {percentile(times, 0.995):5.2f} s, p99.9 {percentile(times, 0.999):5.2f} s, {extra:.1%} extra calls")
+`;
+
+<Subsection title="Slow is a failure too" variant="a">
+
+The earlier concepts dealt with calls that fail. A call that succeeds after
+twenty seconds can be just as bad for a user waiting on an agent, and slow
+calls are more common than failed ones. Dean and Barroso's
+[*The Tail at Scale*](https://research.google/pubs/the-tail-at-scale/)
+(Communications of the ACM, 2013) showed why this matters more as work fans
+out. If each of a hundred servers answers in 10 ms but takes a second one
+time in a hundred, then 63% of requests that need all hundred take over a
+second.
+
+An agent's calls come one after another instead of all at once, but the
+arithmetic is the same as
+[Lesson 1's](/06-reliability/01-per-step-reliability/01-small-errors-compound/):
+the more calls a run makes, the more likely it meets the slow one.
+
+<LiveDemo client:load code={TAIL_DEMO} />
+
+*(A simulated latency distribution, not a measurement of any provider.)*
+
+A 1% chance of a slow call is invisible in a single call's median. At twenty
+calls per run, it catches nearly one run in five, and the p99 of a whole run
+is dominated by it. That's why a latency target for an agent has to be set
+for the run and checked at the tail, not taken from one call's median.
+
+</Subsection>
+
+<Subsection title="Retries and fallbacks multiply time" variant="b">
+
+Everything in this lesson so far spends time. A retry waits out a timeout
+before trying again, and a fallback chain does it once per model.
+Marc Brooker's
+[*Timeouts, retries, and backoff with jitter*](https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/)
+(AWS Builders' Library) calls retries "selfish": each one spends the
+system's capacity on one request. Stacked across layers they multiply, so
+three retries at each of five layers can send 243 times the load to the
+bottom one. Time multiplies the same way.
+
+The fix is a **deadline**: a time budget for the whole run, with each call
+getting only what's left of it.
+
+<LiveDemo client:load code={DEADLINE_DEMO} />
+
+*(Scripted providers on a fake clock.)*
+
+With 30-second timeouts, the budget runs out before the chain reaches the
+provider that works. The deadline stops the run cleanly instead of letting it
+wait for minutes, and what's left is
+[a partial answer](/06-reliability/08-graceful-degradation/02-partial-answers/)
+that says what's missing. With 10-second timeouts, the same budget reaches
+the working provider. The per-call timeout should come from the run's budget
+and the length of the chain, not the other way round. And a circuit breaker
+from [the previous concept](/06-reliability/08-graceful-degradation/03-circuit-breakers/)
+would have skipped the hung providers entirely after their first failures.
+
+</Subsection>
+
+<Subsection title="Hedged requests" variant="a">
+
+A deadline limits the damage from a slow call. A **hedged request** avoids
+much of it. Send the call, and if it hasn't answered by the time most calls
+have, send a second copy and use whichever answers first. Dean and Barroso
+report the result in Google's BigTable: hedging after 10 ms cut the
+99.9th-percentile latency for a 1,000-key read from 1,800 ms to 74 ms,
+while sending only 2% more requests. Waiting until the 95th percentile before
+hedging keeps the extra load to about 5%.
+
+<LiveDemo client:load setupCode={HELPERS} code={HEDGE_DEMO} />
+
+*(The same simulated distribution. `call_seconds` and `percentile` from the
+first demo are already loaded here.)*
+
+The slow tail almost disappears, for about 5% more calls. For an agent,
+the rule from
+[Lesson 3](/06-reliability/03-checks-in-the-loop/04-parallel-checks-and-tripwires/#what-parallel-costs-speculative-work)
+decides where hedging is allowed. A model call or a read has no side effects,
+so a duplicate costs tokens and nothing else. A write can't be hedged,
+because both copies might land, unless it carries an
+[idempotency key](/03-tool-design-for-agents/04-tools-that-call-the-outside-world/02-which-failures-to-retry-and-how/#retrying-a-write-can-do-it-twice).
+Hedging also adds load to a service that may be slow because it's already
+overloaded, which is when a circuit breaker should be stopping calls instead.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "One model call in a hundred takes over 10 seconds. Why does that matter more for an agent than for a single call?",
+    "options": [
+      "Agents use larger models, which are slower",
+      "A run of many calls often meets the slow one",
+      "Agents can't set timeouts on their calls",
+      "Slow calls only happen inside agent loops"
+    ],
+    "correctIndex": 1,
+    "explanation": "A 1% chance per call becomes a much larger chance per run: at twenty calls, nearly one run in five in the simulation hit a slow call. The tail of a run, not the median of a call, is what users feel."
+  },
+  {
+    "question": "A fallback chain has three models, three attempts each, and 30-second timeouts. What does a deadline for the run add?",
+    "options": [
+      "More attempts for the models that are slow",
+      "A limit on the total wait, with a clean stop",
+      "A guarantee that some model will answer",
+      "Shorter answers from every model in the chain"
+    ],
+    "correctIndex": 1,
+    "explanation": "Without one, the worst case is four and a half minutes of waiting. A deadline gives each call only what's left of the budget, and when too little is left, the run stops and returns a partial answer."
+  },
+  {
+    "question": "With a 45-second budget, 30-second timeouts never reached the working provider, but 10-second ones did. What's the lesson?",
+    "options": [
+      "Timeouts should always be as long as possible",
+      "Per-call timeouts should come from the run's budget",
+      "The working provider should always be tried first",
+      "Deadlines make fallback chains unnecessary"
+    ],
+    "correctIndex": 1,
+    "explanation": "A chain can only try as many models as its budget allows. Setting each call's timeout from the budget and the chain's length is what lets a fallback be reached in time."
+  },
+  {
+    "question": "Which calls can an agent safely hedge by sending a second copy?",
+    "options": [
+      "Any call that's slower than usual",
+      "Model calls and reads, which have no side effects",
+      "Writes, since the second copy will finish first",
+      "Only calls that have already failed once"
+    ],
+    "correctIndex": 1,
+    "explanation": "A duplicate read or model call only costs tokens. A duplicate write may land twice, unless it carries an idempotency key, the same line Lesson 3 drew for running work in parallel."
+  }
+]}
+/>
+
+</CheckpointZone>

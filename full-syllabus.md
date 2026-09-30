@@ -4833,6 +4833,23 @@ real Pyodide 0.26.4.
     time limits and fail closed/open, where failing open is logged.
   - 2 quiz cards; outcome 3 extended.
 
+- **L8:**
+  - C1 has two new subsections. "Falling back in the middle of a run"
+    covers Anthropic's echo-the-assistant-turn rule (a 400 if rebuilt), the
+    400 for non-default temperature on Claude Opus 4.7 and later, and
+    prompts not transferring, so fall back at a turn boundary. "A fallback
+    that's never used" cites Gabrielson in the AWS Builders' Library:
+    exercise the backup continuously.
+  - C4 has a new subsection, "Pinned models retire": Anthropic's lifecycle
+    states, 60 days' notice, and upgrading on purpose, gated by evaluations.
+  - New concept 5, "A time budget for the whole run"; the recap is now
+    `06-recap-practice`. It covers the Tail at Scale fan-out example (19%
+    of 20-call runs hit a slow call in the simulation), Brooker's "retries
+    are selfish" and deadlines (per-call timeouts from the run's budget),
+    and hedged requests (p99.9 19.0 s → 2.7 s for 5.5% more calls; only for
+    calls without side effects).
+  - 7 quiz cards; outcomes 2 and 3 extended; 1 recap question.
+
 Still open from that review: L8 recap's `record_run` hashes a system prompt
 that `call_model` never receives, and L10's "invented argument" scenario is
 caught only because the request omits the agent name, since the intent check

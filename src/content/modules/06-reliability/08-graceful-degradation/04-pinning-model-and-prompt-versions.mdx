@@ -188,6 +188,29 @@ rerunning the evaluations and comparing, is Module 7's subject.
 
 </Subsection>
 
+<Subsection title="Pinned models retire" variant="b">
+
+Pinning fixes which model answers, but not for ever. Providers retire old
+snapshots. Anthropic's
+[deprecation policy](https://platform.claude.com/docs/en/about-claude/model-deprecations)
+moves each model through four states: active, legacy, deprecated and
+retired. It promises at least 60 days' notice before a public model is
+retired, and after that, requests to it fail. Its documentation also warns
+that deprecated models are likely to be less reliable than active ones, and
+cloud platforms that host the same models set their own retirement dates.
+
+So a pinned model is a commitment to upgrade on purpose, before the date,
+not a way to avoid upgrading. The upgrade is where everything measured
+in this module has to be measured again. Anthropic's
+[guide to agent evaluations](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)
+puts the difference bluntly: teams without evaluations face weeks of testing
+when a new model arrives, while teams with them can "upgrade in days". A
+retirement date also affects the fallback chain from
+[the first concept](/06-reliability/08-graceful-degradation/01-falling-back-to-another-model/#a-fallback-that-s-never-used):
+a backup that's never exercised can be retired without anyone noticing.
+
+</Subsection>
+
 <CheckpointZone>
 
 <QuizGroup
@@ -236,6 +259,17 @@ rerunning the evaluations and comparing, is Module 7's subject.
     ],
     "correctIndex": 1,
     "explanation": "Key order in a dict is incidental; content isn't. A hash that changes with key order would flag changes that aren't changes."
+  },
+  {
+    "question": "An agent pins a dated model snapshot. What does that commit the team to?",
+    "options": [
+      "Nothing, since a pinned snapshot never changes",
+      "Upgrading on purpose before the snapshot is retired",
+      "Rerunning the evaluations every day",
+      "Switching to a floating alias within a year"
+    ],
+    "correctIndex": 1,
+    "explanation": "Pinned snapshots are retired on a published schedule, and requests to them then fail. Pinning stops the model changing underneath the agent, but the upgrade still has to happen, measured against the evaluations, before the retirement date."
   }
 ]}
 />

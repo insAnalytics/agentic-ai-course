@@ -1,7 +1,7 @@
 ---
 title: "Recap & Practice"
 lesson: "08-graceful-degradation"
-order: 5
+order: 6
 ---
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
@@ -321,6 +321,17 @@ assert isinstance(raised, KeyError), (
 <QuizGroup
   client:load
   questions={[
+  {
+    "question": "An agent's run has a 45-second budget. Two providers in its fallback chain are hung, and each call's timeout is 30 seconds. What happens, and what's the fix?",
+    "options": [
+      "The chain reaches the third provider; nothing to fix",
+      "The budget runs out first; set timeouts from the budget",
+      "The run waits for the hung providers to recover",
+      "The circuit breaker makes the timeouts irrelevant"
+    ],
+    "correctIndex": 1,
+    "explanation": "Two 30-second waits exceed the 45-second budget before the working provider is tried. Per-call timeouts sized from the run's budget and the chain's length, or a breaker that already knows the providers are down, let the fallback be reached."
+  },
   {
     "question": "The primary model fails with a context-window error. What should the agent do?",
     "options": [

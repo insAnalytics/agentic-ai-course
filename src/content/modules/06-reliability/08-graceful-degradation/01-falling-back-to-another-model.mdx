@@ -300,6 +300,53 @@ less closely. Two habits follow:
 
 </Subsection>
 
+<Subsection title="Falling back in the middle of a run" variant="b">
+
+A fallback before the first model call is simple: send the same request
+somewhere else. Partway through an agent's loop, it's harder, because the
+conversation so far was written in the primary provider's format, and not all
+of it carries over:
+
+- **Some parts belong to one provider.** Anthropic's API returns signed
+  thinking blocks, and its
+  [documentation](https://platform.claude.com/docs/en/build-with-claude/thinking-tool-workflows)
+  requires the assistant turn to be sent back exactly as received: rebuilding
+  it, or filtering blocks out, is a 400 error. Another provider can't use
+  those blocks at all, so falling back mid-run means translating the
+  conversation, and the primary's reasoning is left behind.
+- **A request valid for one model can be invalid for the next.** On Claude
+  Opus 4.7 and later, setting `temperature` to a non-default value
+  [returns a 400](https://platform.claude.com/docs/en/about-claude/model-deprecations),
+  where older models accepted it. The same request, retried on the backup,
+  fails for a reason the primary never had.
+- **Prompts don't transfer perfectly.**
+  [Lesson 1](/06-reliability/01-per-step-reliability/04-reliable-across-wordings/)
+  showed one model's answers changing with the wording. A prompt tuned for
+  one model is a different wording to the next.
+
+So fallbacks work best at a turn boundary, with each model's prompt and
+parameters kept in its own configuration, and with the backup's answers put
+through the same checks.
+
+</Subsection>
+
+<Subsection title="A fallback that's never used" variant="a">
+
+There's a less obvious risk in any backup path: it only runs when something
+has already gone wrong. Jacob Gabrielson's
+[*Avoiding fallback in distributed systems*](https://aws.amazon.com/builders-library/avoiding-fallback-in-distributed-systems/),
+in the AWS Builders' Library, argues that fallback code is rarely exercised,
+so it's rarely tested, and can make an outage worse when it finally runs. The
+article's preference is for paths that run in production all the time.
+
+For a fallback model, that means not waiting for an outage to find out
+whether the backup still works: whether its model ID is still served, its
+prompt still fits, and its answers still pass the checks. A small share of
+real traffic sent to the backup all the time, or a regular test against it,
+keeps it a path that's known to work, not one that's only assumed to.
+
+</Subsection>
+
 <CheckpointZone>
 
 <QuizGroup
@@ -348,6 +395,28 @@ less closely. Two habits follow:
     ],
     "correctIndex": 1,
     "explanation": "Falling back changes who answers, not what the answer has to pass. A weaker model's answers need the checks at least as much."
+  },
+  {
+    "question": "An agent's primary model fails partway through a tool-use loop. Why can't the fallback simply receive the same conversation?",
+    "options": [
+      "Because the backup model has a smaller context window",
+      "Because parts of it are specific to the primary's API",
+      "Because conversations can't be sent to two models",
+      "Because the backup would repeat the tool calls"
+    ],
+    "correctIndex": 1,
+    "explanation": "Signed thinking blocks, message formats and accepted parameters differ between providers and even between models. Falling back mid-run means translating the conversation, which is why a turn boundary is the cleaner place to switch."
+  },
+  {
+    "question": "A team's backup model is only called when the primary is down, and the primary hasn't failed in months. What's the risk?",
+    "options": [
+      "The backup costs more to keep available",
+      "Nobody knows the backup path still works",
+      "The backup model will have been trained further",
+      "Fallbacks slow down the primary's answers"
+    ],
+    "correctIndex": 1,
+    "explanation": "A path that never runs is never tested. By the time it's needed, its model ID may be retired or its prompt out of date. Sending it a little real traffic, or testing it regularly, keeps it known to work."
   }
 ]}
 />
