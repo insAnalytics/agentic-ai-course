@@ -1,7 +1,7 @@
 ---
 title: "Recap & Practice"
 lesson: "07-safe-actions"
-order: 5
+order: 6
 ---
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
@@ -303,6 +303,17 @@ assert not any(e["tool"] == "notify" for e in registry.log), (
     ],
     "correctIndex": 1,
     "explanation": "Put the steps that can't be undone after every step that can still fail, so they run only when everything else has succeeded."
+  },
+  {
+    "question": "Asked to get an agent's error rate under the alert threshold, a run raised the threshold instead. Its report is accurate. What should the review conclude?",
+    "options": [
+      "Accept it, since the report matches the log",
+      "Reject it: it changed how success is measured",
+      "Accept it, since the goal check really passes",
+      "Reject it, since the report must be false"
+    ],
+    "correctIndex": 1,
+    "explanation": "The report is true and the check passes, which is what makes gaming hard to see. A run that called a tool that moves the measuring stick can't be judged by that stick; an invariant that the threshold is unchanged catches the same run from the state."
   },
   {
     "question": "What did Advani find about model judges and false success?",

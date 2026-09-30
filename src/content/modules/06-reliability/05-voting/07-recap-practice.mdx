@@ -1,7 +1,7 @@
 ---
 title: "Recap & Practice"
 lesson: "05-voting"
-order: 6
+order: 7
 ---
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
@@ -242,6 +242,28 @@ assert r["accepted_accuracy"] == 1, (
     ],
     "correctIndex": 1,
     "explanation": "Agreement measures consistency, not correctness. Only a check from outside the model, such as a source, can catch a consistent mistake."
+  },
+  {
+    "question": "An agent votes on its next set_model call before running it. The proposals split 3 to 3 between two target models at the cap. What should it do?",
+    "options": [
+      "Run the call proposed first, since ties go to it",
+      "Run neither, and look the value up or ask",
+      "Run both calls, then read back which one held",
+      "Pick the model with the higher price tier"
+    ],
+    "correctIndex": 1,
+    "explanation": "A split vote on a decision is doubt about the decision. Proposals are cheap to sample; the call itself changes a record, so it only runs once the vote is decided, and an undecided vote becomes a lookup or a question, as Lesson 6 describes."
+  },
+  {
+    "question": "Voting only among samples whose answer appears in the sources lowered the 2B's accuracy overall. What does that show about choosing with a check?",
+    "options": [
+      "Checks in code are never better than a vote",
+      "A check's false flags turn into wrong answers",
+      "The 2B's samples rarely appeared in the sources",
+      "Choosing with a check only works on the 4B"
+    ],
+    "correctIndex": 1,
+    "explanation": "The check rejected right answers that were worked out rather than quoted, such as e83's 1.5 days, and the vote then went to a wrong value that did appear. It helped where it was right, on e41. A check that chooses between samples has to be measured for false flags first."
   },
   {
     "question": "A thinking budget of 253 generated about 416 tokens. What's the fair voting comparison?",

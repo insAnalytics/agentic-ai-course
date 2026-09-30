@@ -44,6 +44,46 @@ for name, said_supported in judges.items():
     print(f"{name:<12}{passed['restated']:>12} of 40{passed['altered']:>12} of 40{passed['other_source']:>12} of 40")
 `;
 
+export const THRESHOLD_DEMO = String.raw`labels = {p["id"]: p["label"] for p in load_set("set-v")["support_pairs"]}
+nli = [r for r in load_run("nli")["results"] if r["set"] == "support"]
+print("the NLI model says supported when entailment is at least...")
+for threshold in (0.5, 0.7, 0.9, 0.97):
+    false_flags = sum(labels[r["id"]] == "supported" and r["probs"]["entailment"] < threshold for r in nli)
+    false_passes = sum(labels[r["id"]] != "supported" and r["probs"]["entailment"] >= threshold for r in nli)
+    print(f"  {threshold:.2f}: {false_flags:>2} of 40 supported claims flagged, {false_passes} of 80 unsupported passed")
+`;
+
+export const SELF_DATA = verificationData("drafts", "draft-support.large", "draft-support.small");
+
+export const SELF_SETUP = /* Lesson 4 concept 1's claim_outcomes, unchanged */ LOAD_VERIFICATION + String.raw`
+from collections import Counter
+
+
+def claim_outcomes(model: str) -> dict:
+    """Each claim in every draft, by (question, sample, claim): supported if some source it cites
+    supports it, unsupported if none does, uncited if it cites nothing."""
+    verdicts = {r["id"]: r["verdict"] for r in load_run(f"draft-support.{model}")["results"]}
+    outcomes = {}
+    for record in load_run("drafts")["results"]:
+        for s, sample in enumerate(record["samples"]):
+            for c, claim in enumerate(split_claims(sample["text"])):
+                key = (record["id"], s, c)
+                found = [verdicts.get(f"{record['id']}:{s}:{c}:{n}") for n in claim["cites"]]
+                if not claim["cites"]:
+                    outcomes[key] = "uncited"
+                else:
+                    outcomes[key] = "supported" if "SUPPORTED" in found else "unsupported"
+    return outcomes
+`;
+
+export const SELF_DEMO = String.raw`large, small = claim_outcomes("large"), claim_outcomes("small")
+cited = [key for key in large if large[key] != "uncited"]
+differ = Counter((small[key], large[key]) for key in cited if small[key] != large[key])
+print(f"Qwen3.5-4B judging its own drafts: the two judges disagree on {sum(differ.values())} claims")
+print(f"  the 4B flags its own claim, the 9B supports it   {differ[('unsupported', 'supported')]:>3}")
+print(f"  the 4B supports its own claim, the 9B flags it   {differ[('supported', 'unsupported')]:>3}")
+`;
+
 export const BOUND_DEMO = String.raw`def upper_bound_when_none(n: int, confidence: float = 0.95) -> float:
     """The highest error rate that would still give zero errors in n tries at least (1 - confidence) of the time."""
     return 1 - (1 - confidence) ** (1 / n)
@@ -221,6 +261,23 @@ On these pairs, then, the model judges' mistakes were all false flags: they
 passed nothing unsupported. That's what happened on 120 pairs with these
 two models, not a general property of model judges.
 
+The NLI model's "supported" comes from a probability, so where to draw the
+line is a choice. Here's what moving it does:
+
+<LiveDemo client:load dataFiles={JUDGES_DATA} setupCode={LOAD_VERIFICATION} code={THRESHOLD_DEMO} />
+
+*(Real scores from the committed run.)*
+
+Raising the bar only adds false flags until 0.97. Only there does it catch the
+one altered claim it passed: "New agents can still be created on
+claude-legacy until it is switched off". The NLI model had given that claim
+96% entailment, and flagging it costs 12 of the 40 supported claims. A
+threshold trades one kind of mistake for the other only where the judge is
+unsure. A mistake it's confident about gets through any bar low enough to be
+useful.
+[Lesson 6](/06-reliability/06-when-unsure/02-signals-the-agent-isnt-sure/#measuring-a-signal-on-your-own-cases)
+turns this into a general way of choosing a threshold.
+
 </Subsection>
 
 <Subsection title="Zero errors isn't a zero error rate" variant="b">
@@ -265,7 +322,58 @@ it on a sample of real outputs, labelled by a person, is the step after.
 
 </Subsection>
 
-<Subsection title="What each judge costs" variant="b">
+<Subsection title="Judges have habits" variant="b">
+
+Beyond random mistakes, model judges have systematic ones, and the
+research on them is consistent:
+
+- **Order and length.** Zheng et al., in
+  [the study above](https://arxiv.org/abs/2306.05685), found that swapping
+  the order of two answers changed a judge's verdict often. GPT-4, the most
+  consistent, gave the same verdict both ways about 65% of the time. Padding
+  an answer with repeated content fooled Claude-v1 and GPT-3.5 in about 91%
+  of their test cases, and GPT-4 in about 9%.
+- **Their own output.** This is the *self-preference bias*
+  [Module 2 named](/02-the-agent-loop/09-reflection-and-self-critique/03-the-limits-shared-blind-spots/#reflection-doesn-t-bring-in-a-second-independent-perspective)
+  as a limit of reflection. Panickssery, Bowman and Feng,
+  [*LLM Evaluators Recognize and Favor Their Own Generations*](https://arxiv.org/abs/2404.13076)
+  (NeurIPS 2024), found judges scoring their own outputs above others' that
+  people rated as equal. The better a model was at recognising its own text,
+  the stronger the preference.
+- **Models like themselves.** Kim et al.'s
+  [study of correlated errors](https://arxiv.org/abs/2506.07962) (ICML 2025)
+  found judges overrating less accurate models, especially ones from the
+  judge's own provider, and underrating models more accurate than themselves.
+
+Practitioners draw the same conclusion from the other side. Hamel Husain's
+[guide to LLM judges](https://hamel.dev/blog/posts/llm-judge/), written from
+work with over 30 companies, has a domain expert give pass/fail verdicts with
+a written critique, and revises the judge's prompt until it agrees with the
+expert. Anthropic's
+[guide to evaluating agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)
+says model graders "should be closely calibrated with human experts".
+
+This lesson's own setup should be a warning sign: in
+[the previous concept](/06-reliability/04-verifying-claims/01-checking-each-claim/),
+the 4B judged claims from drafts the 4B wrote. If it favoured its own output,
+it would pass its claims where the 9B flagged them:
+
+<LiveDemo client:load dataFiles={SELF_DATA} setupCode={SELF_SETUP} code={SELF_DEMO} />
+
+*(Real verdicts from the committed runs. `claim_outcomes` is the previous
+concept's, unchanged.)*
+
+It went the other way. Where the two disagreed, the 4B mostly flagged its own
+claims, the same stricter lean it showed on the built pairs. So these runs
+show no self-preference, but that's a narrow result. A support check asks a
+closed question about one claim and one source, while the research found
+self-preference in open-ended judgements of quality. A second model family
+as the judge costs little and removes the question. Either way, the judge has
+to be measured, not assumed.
+
+</Subsection>
+
+<Subsection title="What each judge costs" variant="a">
 
 Agreement is one of
 [Lesson 2's four quantities](/06-reliability/02-reliability-tradeoffs/03-equal-budgets-need-a-stated-unit/).
@@ -343,6 +451,28 @@ spend where the risk is.
     ],
     "correctIndex": 1,
     "explanation": "A rate needs cases where the mistake was possible. With none, the honest answer is \"not measured\", and None says exactly that."
+  },
+  {
+    "question": "Raising the NLI model's entailment threshold from 0.5 to 0.9 added six false flags and caught no more altered claims. Why?",
+    "options": [
+      "Thresholds only affect the false-pass rate",
+      "It had passed the altered claim with 96% entailment",
+      "The NLI model returns the same score for every pair",
+      "A higher threshold always lowers both error rates"
+    ],
+    "correctIndex": 1,
+    "explanation": "A threshold can only catch mistakes the judge was unsure about. The one false pass was confident, so only a bar of 0.97, which also flags 12 of the 40 good claims, would stop it."
+  },
+  {
+    "question": "Research finds model judges favour their own outputs. In this lesson, the 4B judged its own drafts. What did the runs show?",
+    "options": [
+      "It passed its own claims more often than the 9B did",
+      "It flagged its own claims more often than the 9B did",
+      "Its verdicts matched the 9B's on every single claim",
+      "It refused to judge claims from its own drafts"
+    ],
+    "correctIndex": 1,
+    "explanation": "Where the judges disagreed, the 4B mostly flagged its own claims, as it leaned strict on the built pairs too. That's no evidence of self-preference on this closed task, but the research found it on open-ended quality judgements, so a judge from another model family is still the cheap precaution."
   }
 ]}
 />

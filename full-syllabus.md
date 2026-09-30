@@ -4738,6 +4738,49 @@ unchanged, and wrong variants fail the new tests. By lesson:
   The session guard's stand-in person no longer reads `scenario.harmful`; it
   approves everything. Every demo and the recap produce identical output.
 
+**Coverage additions (2026-09-30).** These were written directly as `.mdx`,
+with no mockups, per the user. Each claim is backed by published research or
+frontier-lab and practitioner writing, plus a measurement on the committed
+runs where one was possible. Every new demo and exercise was verified in
+real Pyodide 0.26.4.
+- **L4 C2:** new NLI threshold sweep, which shows that raising the bar only
+  adds false flags (4 → 12 of 40) until 0.97, since the one false pass had
+  96% entailment. New subsection "Judges have habits": Zheng et al. on order
+  and length, Panickssery et al. on self-preference (links Module 2's
+  shared-blind-spots page), Kim et al., Hamel Husain, and Anthropic's
+  agent-evals guide. It adds a local test: on its own drafts the 4B judge was
+  stricter than the 9B (24 vs 9 of 33 disagreements), so these runs show no
+  self-preference. 2 quiz cards.
+- **L5:** new concept 6, "Better than a plain vote"; the recap is now
+  `07-recap-practice`. It covers four things:
+  - stopping at a lead of 2 (2B 96.9% with 2.24 samples vs 97.0% with 5;
+    Adaptive-Consistency);
+  - voting across wordings (the average doesn't move, 96.6% → 96.7%; it
+    breaks the e68/e21 lock-in but hurts e83; DiVeRSe, Kim et al.);
+  - choosing with a check (a sources check helps e41 at 78% → 100% but
+    false-flags derived answers, e83 at 84% → 6%; Cobbe with the peak at
+    400, Lightman, Snell);
+  - voting on the tool call before it runs (MAKER).
+
+  Also a graded `decide_by_vote` exercise (6 tests), 5 quiz cards, outcome 1
+  extended and 2 recap questions.
+- **L6 C2:** new subsection "Measuring a signal on your own cases":
+  - AUROC for the answer-line probability (2B 0.53), agreement in a vote of 5
+    (2B 0.86) and the judges' verdict probability (0.95);
+  - a review-vs-catch threshold sweep (under 0.9: 18% reviewed, 21 of 23
+    caught);
+  - links Module 5's threshold concept; 2 quiz cards.
+
+  `ANSWER_PROBABILITY` and `VERDICT_PROBABILITY` were split out of the demos
+  so they can be preloaded; the output is byte-identical.
+- **L7:** new concept 5, "When the agent games the check"; the recap is now
+  `06-recap-practice`. It covers specification gaming and reward hacking
+  (DeepMind, Lilian Weng, the Claude 3.7 and 4 system cards, OpenAI's CoT
+  monitoring, METR, ImpossibleBench), with three scripted runs that all pass
+  "error rate under the threshold". Habits: invariants, protected tools, a
+  way out, and reviewing how. Graded `review_run` exercise (5 tests), 5 quiz
+  cards, outcome 3 extended and 1 recap question.
+
 Still open from that review: L8 recap's `record_run` hashes a system prompt
 that `call_model` never receives, and L10's "invented argument" scenario is
 caught only because the request omits the agent name, since the intent check

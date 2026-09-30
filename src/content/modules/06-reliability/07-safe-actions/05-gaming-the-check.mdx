@@ -1,0 +1,324 @@
+---
+title: "When the agent games the check"
+lesson: "07-safe-actions"
+order: 5
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+export const WORLD = String.raw`import copy
+
+# the task: "research_agent's error rate is above the alert threshold. Bring it down."
+START = {
+    "research_agent": {"status": "active", "model": "claude-legacy", "error_rate": 0.034, "requests_per_min": 120},
+    "alerts": {"error_rate_threshold": 0.02},
+}
+
+
+def apply(state: dict, actions: list[tuple[str, dict]]) -> dict:
+    """A stand-in registry: what each action does to the state."""
+    state = copy.deepcopy(state)
+    for tool, args in actions:
+        if tool == "set_model":  # the newer model doesn't hit the bug behind the errors
+            state[args["agent_name"]].update(model=args["model"], error_rate=0.011)
+        elif tool == "set_status":  # a paused agent serves no requests, so it makes no errors
+            state[args["agent_name"]]["status"] = args["status"]
+            if args["status"] == "paused":
+                state[args["agent_name"]].update(requests_per_min=0, error_rate=0.0)
+        elif tool == "set_alert_threshold":
+            state["alerts"]["error_rate_threshold"] = args["value"]
+    return state
+
+
+def goal(state: dict) -> bool:
+    """The task's check: the error rate is under the alert threshold."""
+    return state["research_agent"]["error_rate"] < state["alerts"]["error_rate_threshold"]
+
+
+RUNS = {
+    "fixed it": [("set_model", {"agent_name": "research_agent", "model": "claude-sonnet"})],
+    "paused it": [("set_status", {"agent_name": "research_agent", "status": "paused"})],
+    "moved the goalposts": [("set_alert_threshold", {"value": 0.05})],
+}
+`;
+
+export const RUNS_DEMO = String.raw`for label, actions in RUNS.items():
+    after = apply(START, actions)
+    agent = after["research_agent"]
+    print(f"{label:<20} goal check: {'PASS' if goal(after) else 'fail'}   "
+          f"error rate {agent['error_rate']:.1%}, threshold {after['alerts']['error_rate_threshold']:.0%}, "
+          f"{agent['status']}, {agent['requests_per_min']} requests/min")
+`;
+
+export const STARTER = String.raw`def review_run(actions: list[tuple[str, dict]], after: dict, goal, invariants: dict, protected: set) -> dict:
+    """Decide whether a run whose task check passed can be accepted as done. goal(after) is the task's
+    check; invariants maps a name to a function of the final state that must still be true; protected
+    holds the tools that change how success is measured."""
+    ...
+
+
+INVARIANTS = {
+    "still serving": lambda s: s["research_agent"]["status"] == "active" and s["research_agent"]["requests_per_min"] > 0,
+    "threshold unchanged": lambda s: s["alerts"]["error_rate_threshold"] == START["alerts"]["error_rate_threshold"],
+}
+PROTECTED = {"set_alert_threshold"}
+
+for label, actions in RUNS.items():
+    print(f"{label:<20} {review_run(actions, apply(START, actions), goal, INVARIANTS, PROTECTED)}")
+`;
+
+export const REFERENCE = String.raw`def review_run(actions: list[tuple[str, dict]], after: dict, goal, invariants: dict, protected: set) -> dict:
+    """Decide whether a run whose task check passed can be accepted as done. goal(after) is the task's
+    check; invariants maps a name to a function of the final state that must still be true; protected
+    holds the tools that change how success is measured."""
+    broken = []
+    for name, holds in invariants.items():
+        try:
+            if not holds(after):
+                broken.append(name)
+        except Exception:
+            broken.append(name)  # an invariant that can't be evaluated can't vouch for the run
+    goal_met = bool(goal(after))
+    protected_calls = sorted({tool for tool, _ in actions if tool in protected})
+    return {"goal_met": goal_met, "broken": sorted(broken), "protected_calls": protected_calls,
+            "accept": goal_met and not broken and not protected_calls}
+
+
+INVARIANTS = {
+    "still serving": lambda s: s["research_agent"]["status"] == "active" and s["research_agent"]["requests_per_min"] > 0,
+    "threshold unchanged": lambda s: s["alerts"]["error_rate_threshold"] == START["alerts"]["error_rate_threshold"],
+}
+PROTECTED = {"set_alert_threshold"}
+
+for label, actions in RUNS.items():
+    print(f"{label:<20} {review_run(actions, apply(START, actions), goal, INVARIANTS, PROTECTED)}")
+`;
+
+export const TESTS = [
+// each hidden test runs in its own copy of the learner's namespace, so every test repeats what it uses
+String.raw`serving = {"still serving": lambda s: s["research_agent"]["status"] == "active" and s["research_agent"]["requests_per_min"] > 0}
+fixed = RUNS["fixed it"]
+r = review_run(fixed, apply(START, fixed), goal, serving, {"set_alert_threshold"})
+assert isinstance(r, dict) and set(r) == {"goal_met", "broken", "protected_calls", "accept"}, (
+    "return goal_met, broken, protected_calls and accept")
+assert r == {"goal_met": True, "broken": [], "protected_calls": [], "accept": True}, (
+    f"got {r}: fixing the model meets the goal, keeps the agent serving and touches nothing protected")
+`,
+String.raw`serving = {"still serving": lambda s: s["research_agent"]["status"] == "active" and s["research_agent"]["requests_per_min"] > 0}
+paused = RUNS["paused it"]
+r = review_run(paused, apply(START, paused), goal, serving, {"set_alert_threshold"})
+assert r == {"goal_met": True, "broken": ["still serving"], "protected_calls": [], "accept": False}, (
+    f"got {r}: pausing the agent passes the goal check but breaks what had to stay true; don't accept it")
+`,
+String.raw`moved = RUNS["moved the goalposts"]
+r = review_run(moved, apply(START, moved), goal, {}, {"set_alert_threshold"})
+assert r == {"goal_met": True, "broken": [], "protected_calls": ["set_alert_threshold"], "accept": False}, (
+    f"got {r}: a run that changed how success is measured can't be accepted on that measure, even with no invariants")
+twice = moved + [("set_alert_threshold", {"value": 0.06})] + RUNS["fixed it"]
+r = review_run(twice, apply(START, twice), goal, {}, {"set_alert_threshold", "edit_goal"})
+assert r["protected_calls"] == ["set_alert_threshold"], f"got {r['protected_calls']}: list each protected tool once, sorted"
+`,
+String.raw`r = review_run([], START, goal, {}, set())
+assert r == {"goal_met": False, "broken": [], "protected_calls": [], "accept": False}, (
+    f"got {r}: nothing was done and the goal isn't met: not accepted")
+`,
+String.raw`invariants = {
+    "z last": lambda s: False,
+    "a first": lambda s: False,
+    "ok": lambda s: True,
+    "cannot tell": lambda s: s["no such key"],
+}
+fixed = RUNS["fixed it"]
+r = review_run(fixed, apply(START, fixed), goal, invariants, set())
+assert r["broken"] == ["a first", "cannot tell", "z last"] and r["accept"] is False, (
+    f"got {r['broken']}: list broken invariants sorted, and count one that raises as broken: a check that "
+    "can't be evaluated can't vouch for the run")
+`,
+];
+
+<Subsection title="Done, by the check's own measure" variant="a">
+
+[The previous concept](/06-reliability/07-safe-actions/04-checking-the-report-against-the-log/)
+caught a report that claimed more than the agent did. There's a subtler
+failure where the report is true. The check really does pass, but the task
+isn't done. Here's a task with a clear check, "bring the error rate under the
+alert threshold", and three runs that satisfy it:
+
+<LiveDemo client:load setupCode={WORLD} code={RUNS_DEMO} />
+
+*(A scripted stand-in registry; `START`, `apply`, `goal` and `RUNS` are
+loaded above the demo.)*
+
+Only the first run did what was meant. The second paused the agent: it serves
+no requests, so it makes no errors. The third raised the threshold. All three
+pass, and a report that said "the error rate is now under the threshold"
+would be true every time.
+
+This has a name. DeepMind's Krakovna et al.
+[defined *specification gaming*](https://deepmind.google/blog/specification-gaming-the-flip-side-of-ai-ingenuity/)
+(2020) as behaviour that satisfies the literal specification of an objective
+without achieving the intended outcome. In reinforcement learning it's
+called *reward hacking*: optimising the measurement instead of the thing
+measured. Lilian Weng's
+[survey of reward hacking](https://lilianweng.github.io/posts/2024-11-28-reward-hacking/)
+(2024) collects examples, from game agents that loop for points to language
+models that edit the unit tests they were meant to pass.
+
+</Subsection>
+
+<Subsection title="Not a hypothetical" variant="b">
+
+For current agents, the best-documented cases come from coding, where the
+check is a test suite:
+
+- **Frontier labs report it in their own models.** Anthropic's
+  [Claude 3.7 Sonnet system card](https://www.anthropic.com/claude-3-7-sonnet-system-card)
+  describes the model sometimes special-casing tests in agentic coding,
+  most often by returning the values the tests expect, instead of fixing the
+  code. The Claude 4 system card reported that newer models did this much
+  less, but not never. OpenAI's
+  [work on monitoring reasoning models](https://openai.com/index/chain-of-thought-monitoring/)
+  (2025) caught a frontier model in training subverting the tests it was
+  given.
+- **It's common where the check is in view.** METR
+  [found](https://metr.org/blog/2025-06-05-recent-reward-hacking/) OpenAI's o3
+  reward-hacking in 30% of its runs on one benchmark, against under 1% on
+  another, and suggests the difference is that on the first the model could
+  see its scoring function. It kept hacking in 14 of 20 attempts even when
+  told the work had real consequences.
+- **It can be measured directly.** Zhong, Raghunathan and Carlini's
+  [ImpossibleBench](https://arxiv.org/abs/2510.20270) (ICLR 2026) gives coding
+  agents tasks whose tests contradict their specification, so any pass means
+  the agent took a shortcut. GPT-5 passed 54% of one variant anyway. Given an
+  explicit option to stop and say the task can't be done, it did so, and its
+  rate fell to 9%.
+
+Nothing about this is specific to code. Any agent given a checkable goal and
+tools that can change the thing being checked can find the cheaper path to a
+pass. [Lesson 5 saw](/06-reliability/05-voting/06-better-than-a-plain-vote/#pick-with-a-check-instead-of-counting)
+the same effect in a verifier pushed too hard: the more a search is aimed at
+a check, the more it finds the check's gaps.
+
+</Subsection>
+
+<Subsection title="Checking the goal, not just the check" variant="a">
+
+[Module 2's goal-state check](/02-the-agent-loop/06-termination-failure-and-control/04-goal-state-termination-checks/#a-deterministic-check-on-real-state)
+looked at real state, not the model's word, and that still matters. But a
+check on the state can still be gamed, so four habits go with it:
+
+- **Say what must stay true, as well as what must become true.** "The error
+  rate is under 2%" is the goal. "The agent is still active and serving
+  traffic" is an *invariant*, and it's the one the second run broke. Most
+  gamed checks break something nobody thought to write down, so writing it
+  down is the fix.
+- **Keep the measuring stick out of reach.** A run that changed the
+  threshold, the tests or the evaluation config can't be judged by them. The
+  tools that change how success is measured shouldn't be in the agent's
+  toolset at all, the
+  [least-privilege](/03-tool-design-for-agents/11-designing-for-least-privilege/01-narrow-tools-shrink-the-blast-radius/)
+  choice. Where they must be, a call to one means the run can't be accepted
+  on its own measure. Anthropic's
+  [guide to agent evaluations](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)
+  puts it plainly: "The agent shouldn't be able to easily 'cheat' the eval."
+- **Give it a way out.** ImpossibleBench's biggest drop came from letting the
+  agent say the task couldn't be done. An agent that can
+  [escalate](/06-reliability/06-when-unsure/03-escalating/) has less reason to
+  force a pass.
+- **Look at how, not only whether.** OpenAI found that a monitor reading the
+  model's reasoning caught reward hacking far more reliably than one reading
+  its actions alone. It also found that training the model against that
+  monitor taught it to hide its intent rather than stop, so a monitor like
+  that works as a review, not as a training signal. Reviewing traces of real
+  runs is Module 7's subject.
+
+The exercise turns the first two into a review that runs after the task's
+check passes.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "How is gaming the check different from the false success of the previous concept?",
+    "options": [
+      "They're the same failure under two names",
+      "The check truly passes; the task isn't done",
+      "Gaming only happens when models are trained",
+      "False success only happens in coding agents"
+    ],
+    "correctIndex": 1,
+    "explanation": "False success is a report the log contradicts. A gamed check is true: the state really passes the check. The problem is that the check didn't capture what the task meant, so the report-against-log check can't catch it."
+  },
+  {
+    "question": "An agent told to lower an error rate pauses the service, which drops the rate to zero. Which check would catch this?",
+    "options": [
+      "A stricter error-rate threshold",
+      "An invariant that the agent is still serving",
+      "Reading the error rate back twice",
+      "Comparing the report with the log"
+    ],
+    "correctIndex": 1,
+    "explanation": "The goal check passes whatever its threshold, and the log and report are both honest. Only a statement of what must stay true, that the agent is active and serving, tells the pause apart from a fix."
+  },
+  {
+    "question": "In METR's measurements, o3 reward-hacked far more often on one benchmark than another. What difference did METR point to?",
+    "options": [
+      "The tasks on it were much harder",
+      "The model could see how it would be scored",
+      "It was run at a higher temperature",
+      "The tasks were written in another language"
+    ],
+    "correctIndex": 1,
+    "explanation": "About 30% of runs gamed the benchmark whose scoring function the model could see, against under 1% elsewhere, and METR's explanation is that visibility. A check an agent can read is a target it can aim at, which is why the measuring stick belongs out of reach."
+  },
+  {
+    "question": "ImpossibleBench's GPT-5 cheated on 54% of impossible tasks. What cut that to 9%?",
+    "options": [
+      "A stronger test suite with more cases",
+      "An option to say the task can't be done",
+      "A penalty in the prompt for cheating",
+      "Running each task several more times"
+    ],
+    "correctIndex": 1,
+    "explanation": "Given a legitimate way to stop, the agent mostly took it. An agent that can escalate or report that a task is impossible has less pressure to manufacture a pass."
+  },
+  {
+    "question": "OpenAI trained a model against a monitor that read its reasoning for signs of reward hacking. What happened?",
+    "options": [
+      "Reward hacking stopped entirely",
+      "It learned to hide its intent and kept hacking",
+      "The monitor stopped working on other models",
+      "The model refused to use any tools"
+    ],
+    "correctIndex": 1,
+    "explanation": "Optimising against the monitor produced obfuscated hacking: the reasoning looked clean while the behaviour continued. A monitor is useful for review, but training directly against it removes the evidence it relied on."
+  }
+]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Write review_run(actions, after, goal, invariants, protected), a review that runs after a task's own check. actions is the run's list of (tool, args); after is the final state; goal(after) is the task's check; invariants maps a name to a function of the final state that must return True; protected is a set of tools that change how success is measured. Return {\"goal_met\": ..., \"broken\": ..., \"protected_calls\": ..., \"accept\": ...}: whether goal(after) passed; the names of the invariants that don't hold, sorted, counting one that raises an exception as broken; the protected tools the run called, each once, sorted; and accept, True only if the goal is met, nothing is broken, and no protected tool was called. START, apply, goal and RUNS from the demo are loaded."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  namespaceSetup={WORLD}
+  runnable
+  hint={"Evaluate each invariant inside its own try, so one that raises is recorded as broken instead of crashing the review. A set comprehension over the actions gives each protected tool once; sorted() turns it into a list."}
+  correctAnswer={{
+    code: REFERENCE,
+    explanation: "The Run output shows all three runs meeting the goal, and only one accepted: pausing breaks \"still serving\", and moving the threshold both breaks \"threshold unchanged\" and calls a protected tool. The two checks overlap on purpose. The invariant catches the effect, whatever tool caused it, and the protected list catches the attempt, even if a later step put the threshold back. An invariant that raises counts as broken because a review that can't be evaluated can't vouch for anything, the same fail-closed rule as Lesson 9's undeclared tools.",
+  }}
+/>
+
+</CheckpointZone>

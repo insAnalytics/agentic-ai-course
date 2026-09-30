@@ -12,14 +12,16 @@ import { LOAD_UNSURE, reliabilityData, verificationData } from "../../../../lib/
 export const ANSWER_DATA = reliabilityData("plain.smaller", "plain");
 export const JUDGE_DATA = verificationData("support.small", "statements.small", "statements.large");
 
-export const ANSWER_LINE_DEMO = String.raw`import math
+export const ANSWER_PROBABILITY = String.raw`import math
 
 
 def answer_probability(sample: dict) -> float | None:
     """The probability the model gave its whole answer line: the product of its tokens' probabilities."""
     steps = sample.get("answer_logprobs")
     return math.exp(sum(step["logprob"] for step in steps)) if steps else None
+`;
 
+export const ANSWER_LINE_DEMO = ANSWER_PROBABILITY + String.raw`
 
 bands = [("0.99 or more", 0.99, 1.01), ("0.90 to 0.99", 0.90, 0.99), ("0.50 to 0.90", 0.50, 0.90), ("under 0.50", 0.0, 0.50)]
 for label, run_name in [("Qwen3.5-2B", "plain.smaller"), ("Qwen3.5-4B", "plain")]:
@@ -35,7 +37,7 @@ export const MATH_SETUP = LOAD_UNSURE + String.raw`
 import math
 `;
 
-export const VERDICT_DEMO = String.raw`def verdict_probability(steps: list[dict], marker: str = "VERDICT:") -> float | None:
+export const VERDICT_PROBABILITY = String.raw`def verdict_probability(steps: list[dict], marker: str = "VERDICT:") -> float | None:
     """The probability of the first word after the marker: the moment the judge commits to a verdict."""
     text = ""
     for i, step in enumerate(steps):
@@ -44,7 +46,9 @@ export const VERDICT_DEMO = String.raw`def verdict_probability(steps: list[dict]
             following = [s for s in steps[i + 1:] if s["token"].strip()]
             return math.exp(following[0]["logprob"]) if following else None
     return None
+`;
 
+export const VERDICT_DEMO = VERDICT_PROBABILITY + String.raw`
 
 WANTED = {"supported": "SUPPORTED", "not_supported": "NOT SUPPORTED", "contradict": "CONTRADICT", "consistent": "CONSISTENT"}
 built = load_set("set-v")
@@ -57,6 +61,61 @@ for run_name, pairs in [("support.small", "support_pairs"), ("statements.small",
     right = [p for p, correct in rows if correct]
     print(f"{run_name:<17} verdict probability under 0.9: {sum(p < 0.9 for p in wrong)} of {len(wrong)} wrong verdicts, "
           f"{sum(p < 0.9 for p in right)} of {len(right)} right ones")
+`;
+
+export const SIGNALS_DATA = [...reliabilityData("plain.smaller"), ...verificationData("support.small", "statements.small", "statements.large")];
+export const SIGNALS_SETUP = LOAD_UNSURE + "\n" + ANSWER_PROBABILITY + "\n\n" + VERDICT_PROBABILITY;
+
+export const SIGNALS_DEMO = String.raw`def auroc(rows: list[tuple[float, bool]]) -> float:
+    """The chance that a right answer picked at random scores higher than a wrong one: 0.5 is a coin toss."""
+    right = [score for score, correct in rows if correct]
+    wrong = [score for score, correct in rows if not correct]
+    return sum((r > w) + 0.5 * (r == w) for r in right for w in wrong) / (len(right) * len(wrong))
+
+
+def answer_key(question: dict, answer: str | None):
+    if answer is None:
+        return None
+    return as_number(answer) if question["type"] == "number" else normalize(answer) or None
+
+
+questions = {q["id"]: q for q in load_set("set-e")["questions"]}
+agreement = []
+for record in load_run("plain.smaller")["results"]:
+    question = questions[record["id"]]
+    for start in range(0, 20, 5):  # each question's 20 samples as four votes of 5
+        votes = record["samples"][start:start + 5]
+        keys = [answer_key(question, s["answer"]) for s in votes]
+        counts = Counter(key for key in keys if key is not None)
+        if not counts:
+            agreement.append((0.0, False))
+            continue
+        winner, n = counts.most_common(1)[0]
+        agreement.append((n / 5, next(s["correct"] for s, key in zip(votes, keys) if key == winner)))
+
+answer_line = [(answer_probability(s), s["correct"]) for r in load_run("plain.smaller")["results"] for s in r["samples"]]
+answer_line = [(p, correct) for p, correct in answer_line if p is not None]
+
+WANTED = {"supported": "SUPPORTED", "not_supported": "NOT SUPPORTED", "contradict": "CONTRADICT", "consistent": "CONSISTENT"}
+built = load_set("set-v")
+verdicts = []
+for run_name, pairs in [("support.small", "support_pairs"), ("statements.small", "statement_pairs"),
+                        ("statements.large", "statement_pairs")]:
+    labels = {p["id"]: p["label"] for p in built[pairs]}
+    verdicts += [(verdict_probability(r["logprobs"]), r["verdict"] == WANTED[labels[r["id"]]])
+                 for r in load_run(run_name)["results"]]
+
+print("AUROC: how well each signal separates right answers from wrong ones")
+for name, rows in [("answer-line probability, 2B", answer_line), ("agreement in a vote of 5, 2B", agreement),
+                   ("verdict probability, judges", verdicts)]:
+    print(f"  {name:<30} {auroc(rows):.2f}   ({sum(not c for _, c in rows)} wrong of {len(rows)})")
+
+wrong = sum(not correct for _, correct in verdicts)
+print("\nsending judge verdicts under a threshold for a second look:")
+for threshold in (0.7, 0.8, 0.9, 0.95):
+    flagged = [correct for p, correct in verdicts if p < threshold]
+    print(f"  under {threshold:.2f}: {len(flagged) / len(verdicts):4.0%} of verdicts reviewed, "
+          f"{sum(not c for c in flagged):>2} of {wrong} mistakes caught")
 `;
 
 <Subsection title="The signals, and what each costs" variant="a">
@@ -152,7 +211,45 @@ samples, or a check against sources.
 
 </Subsection>
 
-<Subsection title="What about asking the model?" variant="a">
+<Subsection title="Measuring a signal on your own cases" variant="a">
+
+A signal earns its place the way
+[Lesson 4's judges did](/06-reliability/04-verifying-claims/02-checking-the-checker/):
+by being measured on cases whose answers are known. Two measurements do most
+of the work. The first compares signals with one number, the **AUROC**.
+Pick one right answer and one wrong answer at random. The AUROC is the chance
+the signal scores the right one higher. At 0.5 the signal is a coin toss, and
+at 1.0 it separates right from wrong perfectly. The second picks a threshold,
+and shows what it costs.
+
+<LiveDemo client:load dataFiles={SIGNALS_DATA} setupCode={SIGNALS_SETUP} code={SIGNALS_DEMO} />
+
+*(Real committed runs. `answer_probability` and `verdict_probability` from
+the demos above are already loaded here.)*
+
+The AUROC puts the earlier findings on one scale. For the 2B, the probability
+of an answer line written after reasoning is almost exactly a coin toss.
+Agreement among five samples, from
+[Lesson 5](/06-reliability/05-voting/03-agreement-as-a-confidence-signal/),
+is much better. A judge's one-word verdict is better still. The ranking is
+what matters. None of these numbers carries over to another task unmeasured,
+and 8 wrong votes and 23 wrong verdicts are small samples, as
+[Lesson 4's rule of three](/06-reliability/04-verifying-claims/02-checking-the-checker/#zero-errors-isn-t-a-zero-error-rate)
+warned.
+
+The AUROC doesn't choose a threshold. It only says whether a good one
+exists. The sweep does the choosing, and turns it into
+[Lesson 2's trade](/06-reliability/02-reliability-tradeoffs/04-spend-reliability-where-the-risk-is/).
+Reviewing the judges' verdicts under 0.9 means a second look at nearly one in
+five, and catches all but two of the mistakes. Under 0.95 catches every one, at
+a quarter of all verdicts. Which is right depends on what a missed mistake
+costs against what a review costs.
+[Module 5 chose a retrieval threshold](/05-rag-systems/10-grounded-answers/03-abstaining-when-retrieval-is-weak/#choosing-a-threshold)
+the same way.
+
+</Subsection>
+
+<Subsection title="What about asking the model?" variant="b">
 
 The research on stated confidence disagrees with itself. Tian et al.,
 [*Just Ask for Calibration*](https://arxiv.org/abs/2305.14975) (EMNLP 2023),
@@ -164,9 +261,9 @@ found stated confidence overconfident, with agreement among samples helping.
 Both can be true on different models, tasks and prompts. This module's runs
 didn't ask for stated confidence, so there's no local evidence either way.
 
-The safe conclusion covers every signal in this concept: none can be
-trusted until it's been measured on labelled cases from your own task, the
-way [Lesson 4 checked its checker](/06-reliability/04-verifying-claims/02-checking-the-checker/).
+The safe conclusion covers every signal in this concept, stated confidence
+included: none can be trusted until it's been measured on labelled cases
+from your own task, the way the previous section measured three of them.
 Judged the Lesson 2 way, each signal is a check with a catch rate and a
 false-flag rate. Measuring how well confidence scores match accuracy across
 a whole system, calibration, is Module 7's subject.
@@ -221,6 +318,28 @@ a whole system, calibration, is Module 7's subject.
     ],
     "correctIndex": 2,
     "explanation": "The studies used different models, tasks and prompts. Whether a signal works for your agent is an empirical question about your agent, answered the way Lesson 4 checked its checker."
+  },
+  {
+    "question": "A confidence signal has an AUROC of 0.5 on your labelled cases. What does that mean?",
+    "options": [
+      "Half of the agent's answers are wrong",
+      "It ranks right and wrong answers no better than chance",
+      "It's right half the time at the default threshold",
+      "A threshold of 0.5 will catch half the mistakes"
+    ],
+    "correctIndex": 1,
+    "explanation": "AUROC is the chance that a random right answer scores above a random wrong one. At 0.5 the signal carries no information about which is which, whatever threshold is chosen, as the 2B's answer-line probability showed."
+  },
+  {
+    "question": "Two thresholds on the judges' verdicts: under 0.9 reviews 18% and catches 21 of 23 mistakes; under 0.95 reviews 26% and catches all 23. How should a team choose?",
+    "options": [
+      "Always the one that catches every mistake",
+      "By what a missed mistake costs against a review",
+      "Always the one that reviews the fewest verdicts",
+      "By whichever threshold has the higher AUROC"
+    ],
+    "correctIndex": 1,
+    "explanation": "Both come from one signal with one AUROC; the threshold only moves along its trade-off. Catching two more mistakes costs about 27 more reviews here, worth it when a missed mistake is expensive and not when reviews are."
   }
 ]}
 />

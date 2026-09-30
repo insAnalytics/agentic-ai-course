@@ -1,0 +1,608 @@
+---
+title: "Better than a plain vote"
+lesson: "05-voting"
+order: 6
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { LOAD_VOTING, reliabilityData } from "../../../../lib/reliabilityData";
+
+export const BOTH_DATA = reliabilityData("plain.smaller", "plain");
+export const WORDINGS_DATA = reliabilityData("plain.smaller", "wordings.smaller");
+
+export const VOTE_SETUP = /* the second concept's answer_key and vote_winner, unchanged */ LOAD_VOTING + String.raw`
+import random
+from collections import defaultdict
+
+questions = {q["id"]: q for q in load_set("set-e")["questions"]}
+
+
+def answer_key(question: dict, answer: str | None):
+    """As in the previous concept: the value for a number, the normalized text otherwise."""
+    if answer is None:
+        return None
+    return as_number(answer) if question["type"] == "number" else normalize(answer) or None
+
+
+def vote_winner(question: dict, samples: list[dict]):
+    """The winning answer's key, and whether it's correct; ties go to the answer seen first."""
+    keys = [answer_key(question, s["answer"]) for s in samples]
+    counts = Counter(key for key in keys if key is not None)
+    if not counts:
+        return None, False
+    winner = counts.most_common(1)[0][0]
+    return winner, next(s["correct"] for s, key in zip(samples, keys) if key == winner)
+`;
+
+export const EARLY_STOP_DEMO = String.raw`def vote_until_ahead(question: dict, samples: list[dict], lead: int, cap: int):
+    """Take samples one at a time, and stop once one answer leads every other by lead votes, or at cap.
+    Returns whether the winner is right, and how many samples it took."""
+    counts = Counter()
+    for used, sample in enumerate(samples[:cap], start=1):
+        key = answer_key(question, sample["answer"])
+        if key is not None:
+            counts[key] += 1
+        ranked = [n for _, n in counts.most_common(2)] + [0, 0]
+        if ranked[0] - ranked[1] >= lead:
+            break
+    return vote_winner(question, samples[:used])[1], used
+
+
+for label, run_name in [("Qwen3.5-2B", "plain.smaller"), ("Qwen3.5-4B", "plain")]:
+    rng = random.Random(0)
+    fixed = early = used = trials = 0
+    for record in load_run(run_name)["results"]:
+        question = questions[record["id"]]
+        for _ in range(200):
+            order = rng.sample(record["samples"], len(record["samples"]))
+            fixed += vote_winner(question, order[:5])[1]
+            right, n = vote_until_ahead(question, order, lead=2, cap=5)
+            early += right
+            used += n
+            trials += 1
+    print(f"{label}: a vote of 5 {fixed / trials:.1%} right, 5 samples every time")
+    print(f"{' ' * len(label)}  stop at a lead of 2 {early / trials:.1%} right, {used / trials:.2f} samples on average")
+`;
+
+export const MIXED_DEMO = String.raw`plain = {r["id"]: r["samples"] for r in load_run("plain.smaller")["results"]}
+wordings = defaultdict(dict)
+for record in load_run("wordings.smaller")["results"]:
+    wordings[record["id"]][record["wording"]] = record["samples"]
+
+rng = random.Random(0)
+
+
+def one_wording(question_id: str) -> list[dict]:
+    return rng.sample(plain[question_id], 4)
+
+
+def four_wordings(question_id: str) -> list[dict]:
+    return [rng.choice(plain[question_id])] + [rng.choice(wordings[question_id][w]) for w in (1, 2, 3)]
+
+
+def accuracy(question_id: str, draw, draws: int = 200) -> float:
+    return sum(vote_winner(questions[question_id], draw(question_id))[1] for _ in range(draws)) / draws
+
+
+rows = {question_id: (accuracy(question_id, one_wording), accuracy(question_id, four_wordings)) for question_id in plain}
+print("Qwen3.5-2B, a vote of 4:        one wording  four wordings")
+print(f"  all {len(rows)} questions             {sum(r[0] for r in rows.values()) / len(rows):6.1%}  "
+      f"{sum(r[1] for r in rows.values()) / len(rows):12.1%}")
+for question_id in ("e68", "e21", "e83"):
+    same, mixed = rows[question_id]
+    print(f"  {question_id}                          {same:6.1%}  {mixed:12.1%}")
+`;
+
+export const VERIFIER_DEMO = String.raw`def in_sources(question: dict, answer: str | None) -> bool:
+    """A cheap check in code: does the answer appear in the sources the question came with?"""
+    text = " ".join(chunk["text"] for chunk in question["context"])
+    if answer is None or not normalize(answer):
+        return False
+    if question["type"] == "number":
+        value = as_number(answer)
+        return value is not None and any(abs(float(n.replace(",", "")) - value) < 1e-9 for n in NUMBER.findall(text))
+    return normalize(answer) in normalize(text)
+
+
+for label, run_name, shown in [("Qwen3.5-2B", "plain.smaller", ("e83", "e69")), ("Qwen3.5-4B", "plain", ("e41",))]:
+    rng = random.Random(0)
+    rows = {}
+    for record in load_run(run_name)["results"]:
+        question, samples = questions[record["id"]], record["samples"]
+        passes = [in_sources(question, s["answer"]) for s in samples]  # check each sample once
+        plain_vote = checked_vote = 0
+        for _ in range(200):
+            drawn = rng.sample(range(len(samples)), 5)
+            votes = [samples[i] for i in drawn]
+            passed = [samples[i] for i in drawn if passes[i]]
+            plain_vote += vote_winner(question, votes)[1]
+            # vote among the samples the check passes; if it passes none, fall back to the plain vote
+            checked_vote += vote_winner(question, passed or votes)[1]
+        rows[record["id"]] = (plain_vote / 200, checked_vote / 200)
+    print(f"{label}: a vote of 5 {sum(r[0] for r in rows.values()) / len(rows):.1%}, "
+          f"a vote among samples the check passes {sum(r[1] for r in rows.values()) / len(rows):.1%}")
+    for question_id in shown:
+        print(f"  {question_id} ({questions[question_id]['answer']}): {rows[question_id][0]:.0%} -> {rows[question_id][1]:.0%}")
+`;
+
+export const DECISION_DEMO = String.raw`import json
+
+# five sampled proposals for the next step of "move the research agent to its new model", before anything runs
+proposals = [
+    {"name": "set_model", "input": {"agent_name": "research_agent", "model": "claude-sonnet"}},
+    {"name": "set_model", "input": {"model": "claude-sonnet", "agent_name": "research_agent"}},
+    {"name": "set_model", "input": {"agent_name": "research_agent", "model": "claude-opus"}},
+    {"name": "set_model", "input": {"agent_name": "research_agent", "model": "claude-sonnet"}},
+    {"name": "get_agent", "input": {"agent_name": "research_agent"}},
+]
+
+
+def call_key(call: dict) -> str:
+    """The same call whatever order its arguments were written in."""
+    return json.dumps({"name": call["name"], "input": call["input"]}, sort_keys=True)
+
+
+counts = Counter(call_key(p) for p in proposals)
+for key, n in counts.most_common():
+    print(f"{n} of {len(proposals)}  {key}")
+`;
+
+export const STARTER = String.raw`import json
+
+
+def decide_by_vote(propose, lead: int = 2, cap: int = 7) -> dict:
+    """Ask propose() for proposed tool calls one at a time, until one call leads every other by lead votes,
+    or cap proposals have been asked for. Returns the winning call, how many proposals it took, and
+    whether the vote was decided."""
+    ...
+
+
+script = iter([
+    {"name": "set_model", "input": {"agent_name": "research_agent", "model": "claude-sonnet"}},
+    {"name": "set_model", "input": {"agent_name": "research_agent", "model": "claude-opus"}},
+    {"name": "set_model", "input": {"model": "claude-sonnet", "agent_name": "research_agent"}},
+    None,
+    {"name": "set_model", "input": {"agent_name": "research_agent", "model": "claude-sonnet"}},
+    {"name": "set_model", "input": {"agent_name": "research_agent", "model": "claude-opus"}},
+])
+print(decide_by_vote(lambda: next(script), cap=6))
+`;
+
+export const REFERENCE = String.raw`import json
+
+
+def decide_by_vote(propose, lead: int = 2, cap: int = 7) -> dict:
+    """Ask propose() for proposed tool calls one at a time, until one call leads every other by lead votes,
+    or cap proposals have been asked for. Returns the winning call, how many proposals it took, and
+    whether the vote was decided."""
+    counts, first = {}, {}
+    used = 0
+    decided = False
+    while used < cap and not decided:
+        proposal = propose()
+        used += 1
+        if proposal is None:
+            continue
+        key = json.dumps({"name": proposal["name"], "input": proposal["input"]}, sort_keys=True)
+        counts[key] = counts.get(key, 0) + 1
+        first.setdefault(key, proposal)
+        ranked = sorted(counts.values(), reverse=True) + [0]
+        decided = ranked[0] - ranked[1] >= lead
+    if not counts:
+        return {"call": None, "proposals": used, "decided": False}
+    best = max(counts.values())
+    winner = next(key for key in first if counts[key] == best)
+    return {"call": first[winner], "proposals": used, "decided": decided}
+
+
+script = iter([
+    {"name": "set_model", "input": {"agent_name": "research_agent", "model": "claude-sonnet"}},
+    {"name": "set_model", "input": {"agent_name": "research_agent", "model": "claude-opus"}},
+    {"name": "set_model", "input": {"model": "claude-sonnet", "agent_name": "research_agent"}},
+    None,
+    {"name": "set_model", "input": {"agent_name": "research_agent", "model": "claude-sonnet"}},
+    {"name": "set_model", "input": {"agent_name": "research_agent", "model": "claude-opus"}},
+])
+print(decide_by_vote(lambda: next(script), cap=6))
+`;
+
+export const TESTS = [
+// each hidden test runs in its own copy of the learner's namespace, so every test repeats the helpers it uses
+String.raw`def proposer(*items):
+    """A scripted propose(): hands out items in order, then None; calls records how often it was asked."""
+    queue, calls = list(items), []
+
+    def propose():
+        calls.append(1)
+        return queue.pop(0) if queue else None
+    return propose, calls
+
+
+A = {"name": "set_model", "input": {"agent_name": "research_agent", "model": "claude-sonnet"}}
+B = {"name": "set_model", "input": {"agent_name": "research_agent", "model": "claude-opus"}}
+
+
+propose, calls = proposer(A, A, A, A)
+result = decide_by_vote(propose, lead=2, cap=7)
+assert isinstance(result, dict) and set(result) == {"call", "proposals", "decided"}, "return call, proposals and decided"
+assert result == {"call": A, "proposals": 2, "decided": True}, (
+    f"got {result}: two matching proposals lead by 2, so the vote is decided after 2")
+assert len(calls) == 2, f"propose() was called {len(calls)} times: stop asking as soon as the vote is decided"
+`,
+String.raw`def proposer(*items):
+    """A scripted propose(): hands out items in order, then None; calls records how often it was asked."""
+    queue, calls = list(items), []
+
+    def propose():
+        calls.append(1)
+        return queue.pop(0) if queue else None
+    return propose, calls
+
+
+A = {"name": "set_model", "input": {"agent_name": "research_agent", "model": "claude-sonnet"}}
+B = {"name": "set_model", "input": {"agent_name": "research_agent", "model": "claude-opus"}}
+
+
+A_REORDERED = {"name": "set_model", "input": {"model": "claude-sonnet", "agent_name": "research_agent"}}
+propose, calls = proposer(A, A_REORDERED)
+result = decide_by_vote(propose, lead=2, cap=7)
+assert result["decided"] and result["proposals"] == 2 and result["call"] == A, (
+    f"got {result}: the same arguments in another order are the same call; compare them as sorted JSON")
+`,
+String.raw`def proposer(*items):
+    """A scripted propose(): hands out items in order, then None; calls records how often it was asked."""
+    queue, calls = list(items), []
+
+    def propose():
+        calls.append(1)
+        return queue.pop(0) if queue else None
+    return propose, calls
+
+
+A = {"name": "set_model", "input": {"agent_name": "research_agent", "model": "claude-sonnet"}}
+B = {"name": "set_model", "input": {"agent_name": "research_agent", "model": "claude-opus"}}
+
+
+propose, calls = proposer(A, B, A, A)
+result = decide_by_vote(propose, lead=2, cap=7)
+assert result == {"call": A, "proposals": 4, "decided": True}, (
+    f"got {result}: after A, B, A, A the count is 3 to 1, a lead of 2")
+`,
+String.raw`def proposer(*items):
+    """A scripted propose(): hands out items in order, then None; calls records how often it was asked."""
+    queue, calls = list(items), []
+
+    def propose():
+        calls.append(1)
+        return queue.pop(0) if queue else None
+    return propose, calls
+
+
+A = {"name": "set_model", "input": {"agent_name": "research_agent", "model": "claude-sonnet"}}
+B = {"name": "set_model", "input": {"agent_name": "research_agent", "model": "claude-opus"}}
+
+
+propose, calls = proposer(A, B, B, A, A, B, A, B)
+result = decide_by_vote(propose, lead=2, cap=6)
+assert result == {"call": A, "proposals": 6, "decided": False}, (
+    f"got {result}: 3 to 3 at the cap is undecided; return the most common call, the first seen when tied, "
+    "and decided False so the agent can ask or escalate instead of acting")
+assert len(calls) == 6, f"propose() was called {len(calls)} times: never more than cap"
+`,
+String.raw`def proposer(*items):
+    """A scripted propose(): hands out items in order, then None; calls records how often it was asked."""
+    queue, calls = list(items), []
+
+    def propose():
+        calls.append(1)
+        return queue.pop(0) if queue else None
+    return propose, calls
+
+
+A = {"name": "set_model", "input": {"agent_name": "research_agent", "model": "claude-sonnet"}}
+B = {"name": "set_model", "input": {"agent_name": "research_agent", "model": "claude-opus"}}
+
+
+propose, calls = proposer(None, None, A, A)
+result = decide_by_vote(propose, lead=2, cap=7)
+assert result == {"call": A, "proposals": 4, "decided": True}, (
+    f"got {result}: a proposal of None (no tool call) uses up a proposal but isn't a vote")
+propose, calls = proposer()
+result = decide_by_vote(propose, lead=2, cap=3)
+assert result == {"call": None, "proposals": 3, "decided": False}, f"got {result}: no votes at all: no call, undecided"
+`,
+String.raw`def proposer(*items):
+    """A scripted propose(): hands out items in order, then None; calls records how often it was asked."""
+    queue, calls = list(items), []
+
+    def propose():
+        calls.append(1)
+        return queue.pop(0) if queue else None
+    return propose, calls
+
+
+A = {"name": "set_model", "input": {"agent_name": "research_agent", "model": "claude-sonnet"}}
+B = {"name": "set_model", "input": {"agent_name": "research_agent", "model": "claude-opus"}}
+
+
+G = {"name": "get_agent", "input": {"agent_name": "research_agent", "model": "claude-sonnet"}}
+propose, calls = proposer(A, G, A, G, G, G)
+result = decide_by_vote(propose, lead=2, cap=7)
+assert result == {"call": G, "proposals": 6, "decided": True}, (
+    f"got {result}: a different tool with the same input is a different call")
+N1 = {"name": "notify", "input": {"to": "research-team", "meta": {"urgent": True, "tags": ["model"]}}}
+N2 = {"name": "notify", "input": {"meta": {"tags": ["model"], "urgent": True}, "to": "research-team"}}
+propose, calls = proposer(N1, N2)
+result = decide_by_vote(propose, lead=2, cap=7)
+assert result["decided"] and result["call"] == N1, f"got {result}: nested arguments in another order are still the same call"
+`,
+];
+
+<Subsection title="Four ways to improve on the vote" variant="a">
+
+A plain vote, as the earlier concepts built it, has two weaknesses. It
+spends the same number of samples on every question, even when the first two
+already agree. And it
+[locks in a favourite wrong answer](/06-reliability/05-voting/02-when-voting-helps-and-hurts/#why-the-most-common-answer-wins):
+when a model's most common reply to a question is wrong, more samples only
+make that reply win more reliably.
+
+This concept measures three refinements on the same runs, and adds a fourth
+that matters most for agents:
+
+- **Stop when the samples agree,** and spend the full vote only on the
+  questions that are contested.
+- **Vary the prompt, not just the sample,** so a mistake tied to one
+  wording doesn't win every vote.
+- **Pick with a check instead of counting,** when something can tell a good
+  answer from a bad one.
+- **Vote on the decision, not the answer:** sample the agent's next tool
+  call several times before running it once.
+
+</Subsection>
+
+<Subsection title="Stop when the samples agree" variant="b">
+
+Most questions don't need five samples. If the first two agree, three more
+rarely change the result. Aggarwal et al.'s
+[Adaptive-Consistency](https://arxiv.org/abs/2305.11860) (EMNLP 2023) turned
+that into a stopping rule: keep sampling only while the vote is still in
+doubt. Across 17 reasoning and coding datasets and three models, it cut the number of samples by up to 7.9 times, for an average accuracy drop of under 0.1%. Here's a simpler rule on this module's runs: stop
+as soon as one answer leads every other by two votes, with five samples as
+the most any question gets.
+
+<LiveDemo client:load dataFiles={BOTH_DATA} setupCode={VOTE_SETUP} code={EARLY_STOP_DEMO} />
+
+*(Real committed runs, each question's samples shuffled 200 times.
+`answer_key` and `vote_winner` from the second concept are already loaded
+here.)*
+
+For almost the same accuracy, the vote used under half the samples. The
+saving isn't spread evenly. Questions the model always gets right stop after
+two samples. The contested ones, where a vote actually does something, still
+get all five. That's
+[Lesson 2's rule](/06-reliability/02-reliability-tradeoffs/04-spend-reliability-where-the-risk-is/)
+applied inside a single technique: spend where the doubt is. The price is
+latency. Samples drawn one at a time can't all run in parallel, so an
+agent that needs the answer quickly might draw two at once, and add more
+only when they disagree.
+
+</Subsection>
+
+<Subsection title="Vary the prompt, not just the sample" variant="a">
+
+A favourite wrong answer comes from somewhere. Often it's how the question
+was put:
+[Lesson 1 found](/06-reliability/01-per-step-reliability/04-reliable-across-wordings/)
+questions whose accuracy swung by 50 points or more with the wording. If
+every sample sees the same wording, every sample shares that wording's pull.
+Li et al.'s
+[DiVeRSe](https://aclanthology.org/2023.acl-long.291/) (ACL 2023) sampled
+answers from several different prompts instead of one, and combined that
+with a verifier. With both, GSM8K accuracy rose from 74.4% to 83.2%. This module's runs asked every question in four
+wordings, so the idea can be tested directly: a vote of four samples of the
+original wording, against one sample from each of the four.
+
+<LiveDemo client:load dataFiles={WORDINGS_DATA} setupCode={VOTE_SETUP} code={MIXED_DEMO} />
+
+*(Real committed runs of Qwen3.5-2B, 200 random draws per question.)*
+
+Over all 84 questions, the average barely moves. The question-level rows
+show why: two effects cancel.
+
+- **On e68 and e21, it breaks the lock-in.** These are the second
+  concept's questions, where one wording pulled the 2B towards the same
+  wrong value. Other wordings don't share that pull, so the wrong answer
+  stops winning every vote.
+- **On e83, it hurts.** Here the original wording was the good one, and
+  the other wordings were right less than half the time. Mixing brings in
+  their mistakes.
+
+So varying the prompt helps when mistakes are tied to one prompt, and costs
+when some prompts are simply worse. It's worth measuring each wording before
+mixing them in, just as Lesson 1 measured them before blaming the model.
+Mixing models instead of wordings has the same logic, with a limit that
+[Module 2](/02-the-agent-loop/09-reflection-and-self-critique/03-the-limits-shared-blind-spots/) met as
+shared blind spots. Kim et al.'s
+[*Correlated Errors in Large Language Models*](https://arxiv.org/abs/2506.07962)
+(ICML 2025) compared more than 350 models and found that, on one leaderboard,
+when two models both got a question wrong they gave the same wrong answer 60%
+of the time. Larger, more accurate models shared more of their errors, even
+across providers. A vote across models is less independent than it looks.
+
+</Subsection>
+
+<Subsection title="Pick with a check instead of counting" variant="b">
+
+Counting treats every sample as equally likely to be right. If something
+can tell a right answer from a wrong one, it can do better: sample several
+answers, and keep the one the check passes. Cobbe et al.
+[trained such a verifier](https://arxiv.org/abs/2110.14168) for grade-school
+maths (2021). A 6B model choosing among its samples with the verifier slightly outperformed a fine-tuned 175B model, a gain the authors put at about what a thirtyfold larger model would give. Lightman et al.'s
+[*Let's Verify Step by Step*](https://arxiv.org/abs/2305.20050) (2023)
+improved on it by checking each step of the reasoning, not only the final
+answer. Snell et al., from
+[the fourth concept](/06-reliability/05-voting/04-voting-thinking-or-a-stronger-model/),
+found that searching against such a verifier was one of the most effective
+ways to spend extra computation at test time.
+
+An agent often has a check already, and it doesn't have to be a trained
+model. Tests that pass, a schema the output matches, a figure found in a tool
+result: the checks from
+[Lesson 3](/06-reliability/03-checks-in-the-loop/01-where-a-check-can-sit/) and
+[Lesson 4](/06-reliability/04-verifying-claims/01-checking-each-claim/) can all choose between
+samples. Here's the simplest one, applied to a vote of five: vote only among
+the samples whose answer appears in the question's sources.
+
+<LiveDemo client:load dataFiles={BOTH_DATA} setupCode={VOTE_SETUP} code={VERIFIER_DEMO} />
+
+*(Real committed runs, 200 random draws of five samples per question.)*
+
+On average the check made things slightly worse, and the question-level rows
+show both sides of it:
+
+- **Where it's right, it wins.** On e41, the 4B sometimes answered with the
+  wrong agent's model. The right answer, `claude-haiku`, is in the source,
+  and the check keeps only the samples that give it.
+- **Where it false-flags, it loses badly.** The answers to e83 (1.5 days)
+  and e69 (13 minutes) are worked out from the sources, not written in them.
+  So the check rejects every right sample, and the vote goes to whatever
+  wrong answer happens to appear in the text. It's
+  [Lesson 4's derived-number false flag](/06-reliability/04-verifying-claims/04-figures-traced-to-tool-results/),
+  with a bigger effect: a false flag no longer just flags an answer, it
+  swaps it for a worse one.
+
+A check that chooses between samples is only as good as its false-flag
+rate, and it has to be measured
+[the way Lesson 4 measured its judges](/06-reliability/04-verifying-claims/02-checking-the-checker/)
+before it gets that job. There's a second risk. The harder a search pushes
+against a check, the more it finds the answers that fool it.
+Cobbe et al. saw this
+too: accuracy rose as the verifier chose among more samples per problem, up to
+400, and then fell. Past that point, they concluded, the search was finding
+adversarial solutions that fool the verifier. An agent pushed hard against a
+check can do the same thing,
+[in the next lesson's terms](/06-reliability/07-safe-actions/05-gaming-the-check/):
+satisfy the check instead of the task.
+
+</Subsection>
+
+<Subsection title="Vote on the decision, not the answer" variant="a">
+
+Everything so far voted on answers. An agent's riskier outputs are its
+actions, and an action can't be sampled five times: five `set_model` calls
+are five changes. The decision can be, though. Before a tool call runs, the
+agent can ask the model for its next step several times, compare the
+proposed calls, and run the winner once.
+
+<LiveDemo client:load code={DECISION_DEMO} />
+
+*(Scripted proposals, standing for five samples of the model's next step.)*
+
+Two things carry over from answers. What counts as the same call has to be
+decided first, and the same arguments in a different order are the same call.
+And a split vote is itself a signal. If the proposals disagree about which
+model to move the agent to, the agent shouldn't pick one. It should look
+the value up or ask, as
+[Lesson 6](/06-reliability/06-when-unsure/01-asking-before-acting/)
+describes.
+
+Voting on every step can go a long way. Meyerson et al.'s
+[MAKER](https://arxiv.org/abs/2511.09030) (2025) split a 20-disk Towers of
+Hanoi, 1,048,575 moves, into one model call per move. It chose each move with
+*first-to-ahead-by-3*, the stop-at-a-lead rule from earlier in this concept
+with a lead of 3. It also threw out any sample that was too long or badly
+formatted before it could vote, since those tended to be the confused ones.
+With a small model, gpt-4.1-mini, it finished all million moves without an
+error, against the arithmetic of
+[Lesson 1's compounding](/06-reliability/01-per-step-reliability/01-small-errors-compound/).
+The caveat is the task. Every Hanoi move is fully specified and can be checked
+on its own, so voting corrects random slips, not a mistake every sample shares. The exercise builds this vote, with the early stop from earlier
+in this concept.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "Stopping once one answer leads by two votes used under half the samples of a fixed vote of 5, for almost the same accuracy. Where did the saving come from?",
+    "options": [
+      "Every question needed about two fewer samples",
+      "Questions the model agrees on stopped after two",
+      "The contested questions stopped early and got lucky",
+      "Early stopping made each single sample more accurate"
+    ],
+    "correctIndex": 1,
+    "explanation": "Unanimous questions stop at two samples; contested ones still get the full vote. The samples go where the doubt is, which is why accuracy barely changes."
+  },
+  {
+    "question": "Voting across four wordings instead of one barely changed the 2B's average accuracy. Why?",
+    "options": [
+      "Wordings have no effect on a small model's answers",
+      "It fixed lock-ins on some questions and hurt others",
+      "Four samples are too few for any vote to matter",
+      "The other wordings were written to be ambiguous"
+    ],
+    "correctIndex": 1,
+    "explanation": "Where a wrong answer came from one wording's pull, other wordings broke it. Where the original wording was the best one, mixing brought in the others' mistakes. The average hides both."
+  },
+  {
+    "question": "Voting only among samples whose answer appears in the sources took e83 from 84% right to single digits. Why?",
+    "options": [
+      "The 2B's samples for e83 were mostly wrong",
+      "Its right answer is worked out, not in the sources",
+      "The sources for e83 were never given to the model",
+      "Checks can't be combined with a vote at all"
+    ],
+    "correctIndex": 1,
+    "explanation": "The check false-flags every right sample, because 1.5 days is derived rather than stated. Choosing by a check turns each false flag into a wrong answer, so its false-flag rate matters more than in a plain check."
+  },
+  {
+    "question": "Why can an agent vote on a tool call but not on its effect?",
+    "options": [
+      "Tool calls are always deterministic, so there's no need",
+      "Sampling a proposal is free; running the call five times isn't",
+      "Models can't propose the same tool call twice",
+      "Votes only work on text answers with a single value"
+    ],
+    "correctIndex": 1,
+    "explanation": "Proposals are just model output, so several can be compared before anything runs. Running a state-changing call several times would make several changes, so only the winning proposal runs, once."
+  },
+  {
+    "question": "The proposals for a set_model call split 3 to 3 between two models at the cap. What should the agent do?",
+    "options": [
+      "Run the call that was proposed first",
+      "Treat it as undecided: look it up or ask",
+      "Run both calls, one after the other",
+      "Keep sampling until one of them wins"
+    ],
+    "correctIndex": 1,
+    "explanation": "A split vote says the model doesn't know which value is right. Acting on either is a guess; the cap exists so the agent stops spending and turns the doubt into a lookup or a question."
+  }
+]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Write decide_by_vote(propose, lead=2, cap=7). Each call to propose() returns a proposed tool call, a dict with \"name\" and \"input\", or None when the model proposed no call. Ask for proposals one at a time. Two proposals are the same call if they have the same name and the same input, whatever order the input's keys (at any depth) are in. Stop as soon as the most common call leads every other by at least lead votes, and never call propose() after that, or more than cap times. A None uses up a proposal but isn't a vote. Return {\"call\": ..., \"proposals\": ..., \"decided\": ...}: the most common call, as it was first proposed (the first seen, if tied), or None if there were no votes; how many proposals were asked for; and whether the lead was reached."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  runnable
+  hint={"json.dumps(..., sort_keys=True) turns a call into a string that's the same whatever the key order, nested dicts included, so it can be a dict key for counting. Keep a second dict from that key to the first proposal seen with it: dicts keep insertion order, which also settles ties. After each vote, compare the top two counts, with 0 for the second when there's only one."}
+  correctAnswer={{
+    code: REFERENCE,
+    explanation: "Asking one proposal at a time is what makes the stop pay: a unanimous decision costs two samples, and only a contested one costs the full cap. Returning decided separately from the call matters as much as the vote itself. An undecided vote still names the most common call, useful to show a person, but the agent shouldn't run it. In the starter's script, the reordered duplicate counts as the same call and the None counts for nothing, so claude-sonnet leads 3 to 1 at the fifth proposal and the sixth is never asked for. Had the vote been split at the cap, the right move would be a question, not an action.",
+  }}
+/>
+
+</CheckpointZone>
