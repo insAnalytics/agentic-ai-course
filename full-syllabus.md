@@ -5098,9 +5098,23 @@ architecture.md §3.1).
    escalated, 0 instead of None twice, crashing on no votes, counting
    accepted wrong votes as caught). Callbacks: concept 2 and Lesson 4
    concept 1 (page links); "Lesson 6's subject" and "Lesson 2's two
-   numbers" stay plain text, as the mockup doesn't mark them. Concepts 4
-   on (the next compares voting with thinking and a stronger model) and
-   bookends not yet written.
+   numbers" stay plain text, as the mockup doesn't mark them. Concept 4
+   (voting, thinking, or a stronger model, at equal budget) is built from
+   the `plain.smaller`, `thinking.smaller`, `plain` and `stronger` runs:
+   options by tokens actually generated (vote of 3/5/9 against thinking
+   budgets 84/253/759 and up to 4096), cut-off vs. finished thinking by
+   budget, the sign test and question bootstrap on each matched pair, and
+   the 4B and 9B answering once. All four demos reproduce the mockup's
+   output exactly in Pyodide 0.26.4, each run the way the page runs it (a
+   fresh namespace after its own setup: `MEAN_SETUP`, `OPTIONS_SETUP`,
+   `COMPARE_SETUP`); the slowest takes about 1.3 s. The prose's "nearly
+   four times the GPU-seconds" was checked against Lesson 2's formula
+   (3.8x). Read-only, 4 quiz cards, no graded exercise. Callbacks: Lesson
+   2's equal-budgets concept and its `#five-options-three-units`, concept 2,
+   and Lesson 1's `#how-sure-can-we-be-of-these-numbers` (verified against
+   the built HTML). Snell et al. stays unlinked, as in the mockup. Concepts
+   5 on (the next is about free-text answers) and bookends not yet
+   written.
 
 ---
 
