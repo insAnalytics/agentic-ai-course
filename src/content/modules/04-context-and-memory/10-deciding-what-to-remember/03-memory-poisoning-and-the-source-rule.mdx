@@ -345,15 +345,22 @@ In 2024, security researcher Johann Rehberger showed that ChatGPT's memory
 could be written through prompt injection:
 [instructions hidden in a website, a document or an image](https://arxiv.org/abs/2412.06090)
 could get the assistant to store them. Once stored, they persisted in its
-long-term memory, and quietly sent every later conversation to an attacker. He
-named it SpAIware. OpenAI fixed the leak it relied on, but the lesson for
-anyone building memory is broader.
+long-term memory, and in the macOS app they quietly sent every later
+conversation to an attacker. He named it
+[SpAIware](https://embracethered.com/blog/posts/2024/chatgpt-macos-app-persistent-data-exfiltration/).
+OpenAI fixed the leak it relied on. Rehberger noted that a web page could
+still write memories, and the lesson for anyone building memory is broader.
 
 [Module 3's threat model](/03-tool-design-for-agents/10-the-tool-threat-model/01-prompt-injection-through-tool-results/)
 described text in a tool result steering the agent within one session. Memory
 changes the time scale. An injection that gets written into memory stops being
 a one-session incident. It's replayed into every future session, long after
-the page that carried it is gone.
+the page that carried it is gone. OWASP's
+[Top 10 for Agentic Applications](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/)
+lists this as its own risk, memory and context poisoning. Its advice matches
+this lesson: check what's written to memory, keep each user's memory
+separate, record where each memory came from, and don't let the agent's own
+output flow back into memory it trusts.
 
 </Subsection>
 
@@ -483,9 +490,16 @@ the user says them:
   location, unless the product genuinely needs them and the user knows
   they're kept.
 
-Asking the extraction model to skip them helps, but like every other rule in
-this lesson, the one that matters is enforced in code. That's why `admit`
-checks `looks_secret` first, before anything about the source. It looks for
+Products draw the same line.
+[Claude's memory](https://support.claude.com/en/articles/11817273-use-claude-s-chat-search-and-memory-to-build-on-previous-context)
+never saves government ID numbers or financial account numbers, even when
+asked, and by default leaves out health and similar topics. Asking the
+extraction model to skip them helps, but like every other rule in this
+lesson, the one that matters is enforced in code.
+[Anthropic's memory tool docs](https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool)
+say the same: for stronger guarantees, strip sensitive data before a memory
+is written. That's why `admit` checks `looks_secret` first, before anything
+about the source. It looks for
 the shapes secrets usually have: known key and token formats, a "password:"
 or "token =" followed by a value, a private key header, and a card-number
 length run of digits:

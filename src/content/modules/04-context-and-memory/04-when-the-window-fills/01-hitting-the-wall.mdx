@@ -186,11 +186,17 @@ server:
   produced.
 - **Silently trimmed.** Some local servers drop content until the request
   fits and answer as if nothing happened. Ollama's chat endpoint does this
-  by default: it removes the oldest whole messages until the prompt fits,
+  by default: its
+  [code](https://github.com/ollama/ollama/blob/main/server/prompt.go)
+  removes the oldest whole messages until the prompt fits,
   always keeping system messages and the latest message, and returns an
   ordinary response. Its default window is also small (4k tokens on
-  machines with less than 24 GiB of GPU memory, per its docs), so an agent
+  machines with less than 24 GiB of GPU memory,
+  [per its docs](https://docs.ollama.com/context-length)), so an agent
   can hit this far sooner than the model's advertised window suggests.
+  Some hosted APIs offer the same trimming as an option: OpenAI's
+  Responses API drops the oldest items if you set `truncation: "auto"`,
+  and rejects the request otherwise.
 
 Turn 5 above is the second case. The tracker caught it only because
 Lesson 1 defined headroom as window minus input minus reply room. A check

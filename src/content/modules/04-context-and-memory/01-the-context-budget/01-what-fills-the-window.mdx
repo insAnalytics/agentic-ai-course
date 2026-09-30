@@ -140,8 +140,10 @@ In a real agent, an estimate like this is for planning. The real numbers
 come from the provider, in two places:
 
 - **Before sending,** most providers offer a token-counting call that
-  returns the exact input count for a request, using the model's own
-  tokenizer.
+  returns the input count for a request, using the model's own tokenizer.
+  Some call it exact; Anthropic calls
+  [its count](https://platform.claude.com/docs/en/build-with-claude/token-counting)
+  an estimate that can differ from the final count by a small amount.
 - **After sending,** every response reports its usage: how many input
   tokens were read, how many output tokens were written, and, where
   [caching](/04-context-and-memory/03-prompt-caching/00-intro/) is in play,
@@ -154,7 +156,9 @@ come from the provider, in two places:
 The two can differ from an estimate by more than you'd expect. Code, JSON,
 numbers and non-English text all split into tokens differently from plain
 English prose, and a new model can bring a new tokenizer that counts the
-same text differently. The provider also adds text of its own: tool
+same text differently. Anthropic, for example, says its tokenizer from
+Claude Opus 4.7 onward produces about 30% more tokens for the same text.
+The provider also adds text of its own: tool
 definitions are rewritten into the format the model was trained on, often
 with some instructions around them. And images and documents take up
 tokens too, often more than their size in characters would suggest.

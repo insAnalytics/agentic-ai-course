@@ -249,7 +249,9 @@ not a paraphrase. The newest round must always be among them, because its
 results are what the model is about to read.
 
 Keeping no rounds at all, and summarizing everything after the task, is
-also a legitimate form, and some providers recommend it. But it's only
+also a legitimate form. It's what Claude's
+[on-demand compaction](https://platform.claude.com/docs/en/build-with-claude/compaction-on-demand)
+does by default, and its docs recommend that mode. But it's only
 safe at a point where no round is in progress: between tasks, say, or when
 a new user message arrives. In the middle of a run, keep at least the
 newest round.
@@ -381,8 +383,11 @@ One more cost applies on providers that bind reasoning to everything
 before it. The kept rounds' thinking blocks were produced before the
 history was rewritten, so on those models they're no longer valid. As
 [Lesson 4 described](/04-context-and-memory/04-when-the-window-fills/04-reasoning-travels-with-its-tool-call/#when-the-provider-binds-reasoning-to-everything-before-it),
-strip them from the kept rounds when you compact on the client, or let the
-provider compact on its side.
+strip them from the kept rounds when you compact on the client. Provider
+compaction doesn't always avoid this: Claude's
+[on-demand compaction](https://platform.claude.com/docs/en/build-with-claude/compaction)
+keeps the kept rounds' thinking valid under conditions its docs list, but
+its threshold compaction doesn't.
 
 </Subsection>
 

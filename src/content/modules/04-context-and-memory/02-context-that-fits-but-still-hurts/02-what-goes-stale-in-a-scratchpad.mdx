@@ -179,8 +179,8 @@ Both status results are still in the scratchpad. The first was true when it
 was taken, but as an answer to "how is `research_agent` doing now?" it's
 out of date. It's also the longer and more detailed of the two: a
 confident, specific-sounding "healthy" sitting beside the current answer.
-That's the similar-but-misleading content the context-rot study found most
-damaging. Its content should go. The one thing it still told the model, that
+That's the similar-but-misleading kind of content the context-rot study
+found harmful. Its content should go. The one thing it still told the model, that
 the agent was healthy before the change, is carried by the later result
 itself ("since the model change").
 
@@ -259,8 +259,9 @@ Look at what the pruning kept: `Error: status service timed out`. It's older
 than the final status, and it's a failure, so it's tempting to clean it up
 too. Don't.
 
-The team behind the Manus agent wrote about this in their July 2025 post on
-context engineering, and their advice is to *keep failed actions and their
+The team behind the Manus agent wrote about this in their
+[July 2025 post on context engineering](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus),
+and their advice is to *keep failed actions and their
 errors in context*. When the model can see that an action failed and why, it
 steers away from repeating it; erase the failure and the model loses the
 evidence, and may try the same thing again. A failure is information about
@@ -324,7 +325,7 @@ keeping only what's needed.
       "It breaks the tool_use pairing"
     ],
     "correctIndex": 1,
-    "explanation": "Old results don't just take up space. When a later call superseded them, they actively contradict the current truth, which is the misleading kind of content that hurts most."
+    "explanation": "Old results don't just take up space. When a later call superseded them, they actively contradict the current truth, which is the misleading kind of content the context-rot study found harmful."
   },
   {
     "question": "Why does pruning replace a stale result's content instead of deleting the result?",

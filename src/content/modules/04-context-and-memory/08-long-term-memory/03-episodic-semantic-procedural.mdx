@@ -272,7 +272,9 @@ assert memories[2]["date"] == "2026-07-03" and len(memories) == 8`,
 
 The standard way to divide an agent's memory comes from
 [Cognitive Architectures for Language Agents](https://arxiv.org/abs/2309.02427)
-(Sumers, Yao, Narasimhan and Griffiths), which adapted a long-standing split
+(Sumers, Yao, Narasimhan and Griffiths, TMLR 2024), and frameworks use it:
+[LangChain's memory guide](https://docs.langchain.com/oss/python/concepts/memory)
+sorts memory the same way and cites the paper. The paper adapted a long-standing split
 from cognitive science. Its short-term part, **working memory**, is what this
 module has managed until now: everything the agent holds for the task at hand.
 The long-term part has three kinds:
@@ -284,8 +286,9 @@ The long-term part has three kinds:
   systems. "Priya owns support_agent."
 - **Procedural memory** is how to act. In the paper, that's knowledge built
   into the model's weights and written into the agent's code. Frameworks such
-  as LangChain's LangMem also store learned procedures as instructions in the
-  agent's prompt. For an agent working for one user, it includes that user's
+  as LangChain's [LangMem](https://langchain-ai.github.io/langmem/concepts/conceptual_guide/)
+  also store learned procedures as instructions in the agent's prompt. For an
+  agent working for one user, it includes that user's
   standing instructions: "cc Priya on anything about support_agent."
 
 </Subsection>

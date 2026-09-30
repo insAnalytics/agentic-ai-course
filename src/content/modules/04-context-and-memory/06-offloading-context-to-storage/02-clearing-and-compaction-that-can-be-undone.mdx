@@ -425,7 +425,10 @@ as before. It just no longer throws anything away.
 A summary is lossy by design.
 [Lesson 5](/04-context-and-memory/05-compaction-and-summarization/03-when-a-summary-loses-something/)
 kept what code can derive out of its hands, but the exact output of the
-rounds it replaces is still gone. It doesn't have to be. Before compacting,
+rounds it replaces is still gone. It doesn't have to be.
+[Cursor](https://cursor.com/blog/dynamic-context-discovery), for example,
+keeps the chat history as a file and points the agent at it after a
+summary, so a missing detail can be searched for. Before compacting,
 store a plain record of those rounds, and have the summary say where it is:
 
 ```python
@@ -522,7 +525,9 @@ cheaper storage instead of deleting them.
   store keeps results in files, it maps each handle to a path of its own
   choosing. The model's argument should never become a file path directly. A
   "handle" like `../../config/secrets` would otherwise read files outside
-  the store. That's the least-privilege rule from
+  the store. Claude's
+  [memory tool docs](https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool)
+  warn about exactly this path trick. That's the least-privilege rule from
   [Module 3](/03-tool-design-for-agents/11-designing-for-least-privilege/00-intro/)
   applied to one argument.
 - **What comes back out is still tool output.** It gets the same trust as

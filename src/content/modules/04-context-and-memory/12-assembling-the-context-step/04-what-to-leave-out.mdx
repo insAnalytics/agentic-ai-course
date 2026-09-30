@@ -933,13 +933,17 @@ leaving out.
 - **A stable prefix,** from
   [Lesson 3](/04-context-and-memory/03-prompt-caching/00-intro/). The tools
   and the system prompt are fixed, with nothing changing near the start. It
-  costs nothing but care, and pays on every request.
+  costs nothing but care, and pays on every request the cache can serve.
+  Manus's team calls the cache hit rate
+  ["the single most important metric for a production-stage AI agent"](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus).
 - **Keeping failed attempts visible, and restating the goal and rules at the
   end,** from
   [Lesson 2](/04-context-and-memory/02-context-that-fits-but-still-hurts/00-intro/).
   The anchor
   [costs one message of cache reuse per turn](/04-context-and-memory/03-prompt-caching/03-where-lesson-2s-techniques-stand-and-the-fights-ahead/),
-  and it's what keeps a long run on track.
+  and Manus reports that
+  [restating the plan at the end](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus)
+  is what keeps its long runs from drifting.
 
 **Long single tasks,** when the tracker shows the history heading for the
 window:
@@ -967,11 +971,12 @@ the request:
 
 - **Load them on demand**
   ([Lesson 7](/04-context-and-memory/07-just-in-time-context-and-dynamic-tool-exposure/00-intro/)).
-  The prefix shrank
-  [26 times](/04-context-and-memory/07-just-in-time-context-and-dynamic-tool-exposure/00-intro/),
-  but cost fell only about 21% on that task, because searches are round
-  trips. If a provider offers built-in tool search, prefer it, since it
-  keeps each tool's schema enforced.
+  In that lesson's sandbox, the prefix came out
+  [about 26 times smaller](/04-context-and-memory/07-just-in-time-context-and-dynamic-tool-exposure/05-recap-practice/),
+  but cost fell only about 21%, because searches are round trips. If a provider offers
+  [built-in tool search](/04-context-and-memory/07-just-in-time-context-and-dynamic-tool-exposure/02-tools-on-demand/#you-don-t-always-build-this-yourself),
+  prefer it: a found tool is called with its own schema, which
+  [Claude's strict mode still enforces](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool).
 
 **Large data the task searches through,** such as logs, documents or a
 codebase:
@@ -1066,7 +1071,7 @@ Several questions this module raised belong to later modules:
       "explanation": "Scoring and forgetting matter once the store grows. Without the source rule, one planted instruction replays in every future session."
     },
     {
-      "question": "Loading tools on demand shrank the prefix 26 times, yet cost fell only about 21% on that task. Why?",
+      "question": "Loading tools on demand made the prefix about 26 times smaller, yet cost fell only about 21% on that task. Why?",
       "options": [
         "Each search is a round trip, and caching had already made the large prefix cheap to resend",
         "The tools were loaded twice",

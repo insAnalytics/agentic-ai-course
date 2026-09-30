@@ -409,9 +409,10 @@ the callable tools without touching the list. OpenAI's API, for example,
 accepts an
 [`allowed_tools` setting](https://developers.openai.com/api/docs/guides/function-calling)
 naming a subset of the tools passed in, and its documentation gives
-protecting the prompt cache as the reason. With a self-hosted model and
-constrained decoding, the Manus team masks the tokens that would start a
-disallowed tool's name, which has the same effect.
+protecting the prompt cache as the reason. Where it controls decoding, the
+Manus team masks the tokens that would start a disallowed tool's name, and
+gives related tools a shared prefix (`browser_`, `shell_`) so one mask
+covers a group. That has the same effect.
 
 </Subsection>
 

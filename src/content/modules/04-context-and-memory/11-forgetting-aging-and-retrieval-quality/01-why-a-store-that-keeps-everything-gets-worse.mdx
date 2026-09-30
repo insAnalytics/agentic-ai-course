@@ -169,16 +169,17 @@ says they do worse than that:
   are exactly that.
 - **Agents follow what they recall.** An empirical study of memory
   management (Xiong et al.,
-  ["How Memory Management Impacts LLM Agents"](https://arxiv.org/abs/2505.16067))
-  found that agents closely imitate the past experiences they retrieve, which
-  the authors call *experience-following*. A wrong or low-quality memory then
-  keeps producing the same wrong behavior on similar tasks: *error
-  propagation*.
+  ["How Memory Management Impacts LLM Agents"](https://aclanthology.org/2026.acl-long.27/),
+  ACL 2026) found that when a task closely resembles a past one they
+  retrieve, agents closely imitate what they did then. The authors call it
+  *experience-following*. A wrong or low-quality memory then keeps producing
+  the same wrong behavior on similar tasks: *error propagation*.
 - **Adding everything fell further behind over time.** In the same study,
   storing every experience left the agent performing worse than it would
   with an error-free memory, and the gap widened as the runs went on. Being
   strict about what's added, combined with deleting entries based on their
-  track record, did better.
+  track record, did better, when whatever judged the track record was
+  reliable.
 
 That's
 [Lesson 2's argument](/04-context-and-memory/02-context-that-fits-but-still-hurts/00-intro/),

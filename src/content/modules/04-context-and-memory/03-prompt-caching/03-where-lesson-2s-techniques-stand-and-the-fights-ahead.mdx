@@ -305,10 +305,14 @@ into the history. So on the next turn, that message is sent again
 it is reused; that one message, and what's new, is processed again. That's
 the whole cost: one message per turn, however long the history grows. For
 the benefit of keeping the current plan right beside the next decision,
-that's a good trade, and it's the best available one. Saving the anchor
-into the history instead would avoid the miss, but every turn would then
-leave an old copy of the plan behind, bringing back exactly the stale
-content Lesson 2 removed.
+that's a good trade, and on a plain prefix cache it's the best available
+one. Saving the anchor into the history instead would avoid the miss, but
+every turn would then leave an old copy of the plan behind, bringing back
+exactly the stale content Lesson 2 removed. One provider behaviour changes
+the picture: where a provider binds the model's reasoning to everything
+sent before it, an anchor that comes and goes counts as an edit.
+[The next lesson](/04-context-and-memory/04-when-the-window-fills/04-reasoning-travels-with-its-tool-call/#when-the-provider-binds-reasoning-to-everything-before-it)
+covers that case, and the provider's own form of the anchor.
 
 </Subsection>
 

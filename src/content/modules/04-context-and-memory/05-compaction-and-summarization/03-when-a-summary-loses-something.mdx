@@ -494,9 +494,14 @@ summary for anything code can derive.
 
 <Subsection title="Testing a summary by asking it questions" variant="b">
 
-To check what a summary *says*, ask it. Write down the questions the agent
-must still be able to answer after compaction, give a model the summary and
-nothing else, and see whether it answers them correctly. A question like
+To check what a summary *says*, ask it. Factory, which builds coding
+agents,
+[evaluates its compaction this way](https://factory.ai/news/evaluating-compression):
+after compressing, it asks questions that need specific details from the
+removed history (the original error, which files changed, what was
+decided, what's next). Write down the questions the agent must still be
+able to answer after compaction, give a model the summary and nothing
+else, and see whether it answers them correctly. A question like
 "which agents run on claude-sonnet now?" can only be answered right if the
 summary actually says both were moved.
 
@@ -550,7 +555,7 @@ That's drift: nothing any single summary did was unreasonable, but each
 rewrite was another lossy pass over what came before.
 
 How much this happens with real models isn't well measured yet: a 2026
-paper on memory compaction,
+preprint on memory compaction,
 ["What to Keep, What to Forget"](https://arxiv.org/abs/2607.08032),
 describes compounding loss under repeated summarization as the
 least-measured failure in this area. The mechanism is clear enough to

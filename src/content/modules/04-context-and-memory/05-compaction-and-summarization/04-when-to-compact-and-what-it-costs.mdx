@@ -312,9 +312,10 @@ distinguishing:
 - **A quality limit** can sit well below it, because models get worse as
   their context grows, even when everything fits. That was
   [Lesson 2's evidence](/04-context-and-memory/02-context-that-fits-but-still-hurts/01-agents-get-worse-before-the-window-is-full/).
-  Claude's server-side compaction, for example, defaults to triggering at
-  150,000 input tokens, far below its newest models' 1M-token windows, and
-  its documentation gives degrading response quality as the reason. Where
+  Claude's threshold compaction, for example, defaults to triggering at
+  150,000 input tokens, far below its newest models' 1M-token windows. Its
+  documentation says compaction keeps the active context small because
+  response quality degrades as a conversation grows. Where
   to set your own quality limit depends on your model and your tasks, so it
   should be measured, not guessed.
 
@@ -413,7 +414,11 @@ show:
   about 45% more than sending it as
   [the previous concept built it](/04-context-and-memory/05-compaction-and-summarization/02-compacting-a-summary-in-rounds-out/#how-to-ask-say-what-must-survive):
   the agent's own prefix with instructions added at the end. The separate
-  call can't reuse anything the agent's requests cached.
+  call can't reuse anything the agent's requests cached. The JetBrains
+  study saw the same cost: each summary call there reused only its own
+  system prompt from the cache. Claude's on-demand compaction asks you to
+  send the conversation's own system prompt and tools with the summary
+  request.
 - **Counting input alone, compacting early is cheaper.** Compacting first,
   without clearing, made seven compactions against one, and still sent
   fewer tokens overall. Each compaction shrinks every request after it,
@@ -424,9 +429,12 @@ show:
 - **Each summary is also output, which costs more.** On Claude Opus 5.5,
   for example, output tokens cost five times as much as input. Counted at
   that ratio, compacting first stays cheaper only while summaries are under
-  about 650 tokens. Real summaries of long agent runs are often longer:
-  Claude's own compaction documentation shows one example compaction
-  producing 3,500 output tokens.
+  about 650 tokens. Real summaries of long agent runs are often longer.
+  Factory
+  [reports](https://factory.ai/news/evaluating-compression) that the
+  summaries Claude's SDK writes typically run to 7,000–12,000 characters,
+  and an illustrative example in Claude's compaction docs shows 3,500
+  output tokens.
 
 So the case for clearing first is not mainly about token cost, which
 depends on summary length and prices. It's about what each stage loses.
@@ -442,9 +450,14 @@ model.
 
 <Subsection title="Letting the provider compact" variant="b">
 
-Several providers can now compact on their side. Claude's API, for
-example, has **compaction at a token threshold** (a beta, the
-`compact_20260112` strategy with the `compact-2026-01-12` header):
+Several providers can now compact on their side.
+[OpenAI's Responses API](https://developers.openai.com/api/docs/guides/compaction)
+compacts once a `compact_threshold` is crossed, into an item that isn't
+meant to be read. Claude's API has two modes. Its docs recommend
+[compaction on demand](https://platform.claude.com/docs/en/build-with-claude/compaction-on-demand),
+where you ask for a readable summary when you choose. The other is
+**compaction at a token threshold** (a beta, the `compact_20260112`
+strategy with the `compact-2026-01-12` header):
 
 - **The trigger is input tokens.** It defaults to 150,000 and can't be set
   below 50,000.

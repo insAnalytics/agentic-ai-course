@@ -257,7 +257,11 @@ an agent can't reliably know which observation will turn out to matter ten
 steps later, so any compression it can't undo is a risk. Their rule is to
 make compression restorable, the way a web page's content can be dropped
 from the context as long as its URL is kept. Offloading is that rule
-applied to tool results.
+applied to tool results. It's what
+[Cursor's agent does](https://cursor.com/blog/dynamic-context-discovery)
+with long shell and MCP output: rather than truncate it, it writes the
+output to a file and lets the agent read it. The team reports fewer
+unnecessary summarizations as a result.
 
 </Subsection>
 
