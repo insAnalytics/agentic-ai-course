@@ -5311,7 +5311,7 @@ architecture.md §3.1).
    Lesson 7 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
 
-8. **Degrading Gracefully** (title provisional) — **Building** (folder
+8. **Fallbacks and Graceful Degradation** — **Locked** (folder
    `08-graceful-degradation`). Concept 1 (falling back to another model)
    is built, with no run data: Module 2's retries giving up on a scripted
    outage; fallback chains (LiteLLM's per-error fallback lists) and which
@@ -5373,9 +5373,23 @@ architecture.md §3.1).
    tools list, the built-in `hash()`, ignoring tools, `model_changed`
    inverted). The starter's stray third blank line was normalized to two.
    Callback: Lesson 1's reliable-across-wordings concept (page link);
-   "Module 7's subject" stays plain text. All four concepts exist; the
-   bookends (intro, comprehensive quiz and sandbox, recap) are not yet
-   written.
+   "Module 7's subject" stays plain text. Bookends are built: the intro
+   (outcomes, why it matters), a 7-card comprehensive quiz, and a
+   `MultiFileGradedExercise` with `handle(agent, fetchers, breakers, cache,
+   models, call_model, system_prompt)` in `agent.py` over a read-only
+   `lib.py` (the four concepts' error classes and `call_with_fallbacks`,
+   `compose_partial`, `CircuitBreaker` and `record_run`, identical to their
+   references); no data files. In real Pyodide 0.26.4 the reference passes
+   the hidden tests and its Submit output matches the mockup (the health
+   service called twice before its breaker trips, the backup answering
+   every request, config hash `14d29b7d0a9d`), and eight wrong versions
+   each fail (the starter, catching every exception, no breaker, only the
+   first model, dropping the failed part, ignoring the cache, recording the
+   answering model as requested, not passing the composed text to the
+   model). The lesson title, provisional until now, is the bookends'.
+
+   Lesson 8 is now **Locked**: all four concepts plus both bookends exist
+   and build cleanly.
 
 ---
 

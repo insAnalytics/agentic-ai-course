@@ -1,0 +1,24 @@
+---
+title: "Intro"
+lesson: "08-graceful-degradation"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Fall back to another model when the primary can't answer, on the errors where that can help, and record which model did",
+    "Give a partial answer that says what's missing, and stop calling a failing dependency with a circuit breaker",
+    "Pin model and prompt versions, and record what actually produced each run",
+  ]}
+/>
+
+<WhyItMatters>
+  Every agent depends on things it doesn't control: model providers, tool
+  services, the model a name points to. Retries handle the brief failures. This
+  lesson is about the longer ones: an outage that outlasts the retries, a
+  service that's down for the afternoon, a model that changes under the same
+  name. An agent that degrades well keeps answering, with less, and says so. One
+  that doesn't either stops entirely or quietly gets worse.
+</WhyItMatters>
