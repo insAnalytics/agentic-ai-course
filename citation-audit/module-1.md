@@ -59,7 +59,13 @@ were added.
   anchors (vendor docs, RFC 3629, DeepSeek-R1, InstructGPT, DPO,
   Chinchilla, LoRA and others).
 
-## Needs a decision
+## Needs a decision (approved by the owner and applied, 2026-09-30)
+
+*Applied:* E34–E36. The lead re-read both sources: Hsieh et al. (ACL
+Findings 2024) say tokens at the start and end "receive higher attention,
+regardless of their relevance", and Liu et al. found the U-shape in
+MPT-30B both before and after instruction tuning, "indicating that the
+instruction fine-tuning process is not necessarily responsible".
 
 1. **Why lost-in-the-middle happens (L6 C5, its quiz and the recap).** The
    page names "introductions and conclusions in training documents" as a

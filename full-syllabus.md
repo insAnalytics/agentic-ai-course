@@ -112,8 +112,11 @@ match their sources (Liu et al. v3, all 28 values; Kaplan's fits).
   output cap is mentioned alongside the window.
 - **Linked** every named paper (Vaswani, Liu, Kaplan, Chinchilla, Wei,
   Schaeffer, Sharma, InstructGPT, DPO, LoRA and others) with its venue.
-- **Held for a decision:** the cause of lost-in-the-middle (L6 C5; see the
-  audit file).
+- **Approved and applied:** lost-in-the-middle's cause (L6 C5, its quiz
+  and the recap) now cites the measured attention bias toward the start and
+  end of the input (Hsieh et al., ACL Findings 2024), and Liu et al.'s
+  finding that instruction tuning isn't necessarily responsible. The
+  unsourced training-documents explanation is gone.
 
 *Being broken down lesson by lesson, starting with Lesson 1 below. The
 rest of the module (decoding parameters, model landscape/benchmark
