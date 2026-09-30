@@ -5196,8 +5196,26 @@ architecture.md §3.1).
    Module 3's separate-reads-from-writes concept, Lesson 4 concept 2,
    Lesson 5 concept 3, and Lesson 2's equal-budgets and
    spend-where-the-risk-is concepts (page links); "Module 9's subject"
-   stays plain text. Concepts 4 on (the next is about users who push back
-   on a correct answer) and bookends not yet written.
+   stays plain text. Concept 4 (when the user pushes back) is built from
+   the `pushback` run and set U: Sharma et al.'s sycophancy findings; the
+   4B's outcomes by pushback style ("Are you sure?": 420 of 420 kept; a
+   specific wrong value: 258 kept, 5 switched, 157 unknown or cut off with
+   the right value in the text); e54's reply judging the user's value
+   instead of answering; and a graded `after_pushback(original, reply,
+   user_value, answer_type, sources)` (`runnable`,
+   `namespaceSetup={LOAD_UNSURE}`, set U plus the `pushback` run). Both
+   demos and the starter's printout reproduce the mockup exactly in
+   Pyodide 0.26.4 (the reference gives `{'flag': 162, 'kept': 258}; final
+   answer right in 420 of 420`). Tests split into 10 self-contained tests,
+   one per `check`, each repeating the helpers; through the real
+   `TEST_HARNESS` the reference passes all 10 and seven wrong versions each
+   fail (the starter, adopting the user's value without a source, string
+   comparison, substring source matching, returning the user's value as
+   written, crashing on no answer line, keeping a third value). The
+   starter's stray third blank line was normalized to two. Callbacks:
+   Module 1's `#sycophancy-a-real-documented-side-effect` and Lesson 4
+   concept 5. All four concepts exist; the bookends (intro, comprehensive
+   quiz and sandbox, recap) are not yet written.
 
 ---
 
