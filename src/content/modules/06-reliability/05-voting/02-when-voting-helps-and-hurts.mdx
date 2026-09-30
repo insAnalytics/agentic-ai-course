@@ -1,0 +1,236 @@
+---
+title: "When voting helps, and when it hurts"
+lesson: "05-voting"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { LOAD_VOTING, reliabilityData } from "../../../../lib/reliabilityData";
+
+export const SMALLER_DATA = reliabilityData("plain.smaller");
+
+export const PER_QUESTION_DEMO = String.raw`import random
+
+questions = {q["id"]: q for q in load_set("set-e")["questions"]}
+
+
+def answer_key(question: dict, answer: str | None):
+    """As in the previous concept: the value for a number, the normalized text otherwise."""
+    if answer is None:
+        return None
+    return as_number(answer) if question["type"] == "number" else normalize(answer) or None
+
+
+def vote_winner(question: dict, samples: list[dict]):
+    """The winning answer's key, and whether it's correct; ties go to the answer seen first."""
+    keys = [answer_key(question, s["answer"]) for s in samples]
+    counts = Counter(key for key in keys if key is not None)
+    if not counts:
+        return None, False
+    winner = counts.most_common(1)[0][0]
+    return winner, next(s["correct"] for s, key in zip(samples, keys) if key == winner)
+
+
+def per_question(run_name: str, k: int, draws: int = 200) -> dict:
+    """For each question: one sample's accuracy, and a vote of k's accuracy over random choices of k samples."""
+    rng = random.Random(0)
+    result = {}
+    for record in load_run(run_name)["results"]:
+        question, samples = questions[record["id"]], record["samples"]
+        single = sum(s["correct"] for s in samples) / len(samples)
+        voted = sum(vote_winner(question, rng.sample(samples, k))[1] for _ in range(draws)) / draws
+        result[record["id"]] = (single, voted)
+    return result
+
+
+small = per_question("plain.smaller", 9)
+groups = [("always right", lambda p: p == 1), ("right 80-95% of the time", lambda p: 0.8 <= p < 1),
+          ("right 50-79% of the time", lambda p: 0.5 <= p < 0.8), ("right under half the time", lambda p: p < 0.5)]
+print("Qwen3.5-2B, one sample against a vote of 9:")
+for label, test in groups:
+    rows = [(single, voted) for single, voted in small.values() if test(single)]
+    single = sum(r[0] for r in rows) / len(rows)
+    voted = sum(r[1] for r in rows) / len(rows)
+    print(f"  {label:<27} {len(rows):>2} questions: {single:6.1%} -> {voted:6.1%}")
+`;
+
+export const PER_QUESTION_SETUP = LOAD_VOTING + PER_QUESTION_DEMO;
+
+export const JURY_DEMO = String.raw`from math import comb
+
+
+def majority_right(p: float, k: int) -> float:
+    """Chance that more than half of k independent answers are right, if each is right with chance p (k odd)."""
+    return sum(comb(k, j) * p**j * (1 - p) ** (k - j) for j in range(k // 2 + 1, k + 1))
+
+
+print("  p    " + "".join(f"vote of {k:<3}" for k in (1, 3, 5, 9)))
+for p in (0.2, 0.4, 0.6, 0.8, 0.95):
+    print(f"{p:5.2f}  " + "".join(f"{majority_right(p, k):>9.1%}  " for k in (1, 3, 5, 9)))
+`;
+
+export const HARD_DEMO = String.raw`rng = random.Random(1)
+replies = {r["id"]: r["samples"] for r in load_run("plain.smaller")["results"]}
+for question_id in ("e21", "e68"):
+    question, samples = questions[question_id], replies[question_id]
+    spread = Counter(answer_key(question, s["answer"]) for s in samples)
+    winners = Counter(vote_winner(question, rng.sample(samples, 9))[0] for _ in range(200))
+    print(f"{question_id}: {question['wordings'][0]}")
+    print(f"  right answer {question['answer']}; 20 samples answered {dict(spread)}")
+    print(f"  a vote of 9 chose: {dict(winners.most_common())} (out of 200 votes)")
+`;
+
+export const PASS_K_DEMO = String.raw`k = 5
+single = sum(p**k for p, _ in small.values()) / len(small)
+voted = sum(q**k for _, q in small.values()) / len(small)
+print(f"Qwen3.5-2B, chance of {k} runs in a row all right, averaged over the 84 questions:")
+print(f"  one sample per run: {single:.1%}   a vote of 9 per run: {voted:.1%}")
+hard = [question_id for question_id, (p, _) in small.items() if p < 0.5]
+print(f"  on the {len(hard)} questions right under half the time: "
+      f"{sum(small[q][0]**k for q in hard) / len(hard):.2%} -> {sum(small[q][1]**k for q in hard) / len(hard):.2%}")
+`;
+
+<Subsection title="The average hides two opposite effects" variant="a">
+
+The previous concept showed voting lifting the 2B's accuracy from 92.9% to
+97.5% with nine samples. That average, like the one in
+[Lesson 1](/06-reliability/01-per-step-reliability/02-the-same-question-run-twice/),
+is made of questions that behave very differently. Here's the same vote,
+question by question, grouped by how often a single sample gets each one
+right:
+
+<LiveDemo client:load dataFiles={SMALLER_DATA} setupCode={LOAD_VOTING} code={PER_QUESTION_DEMO} />
+
+*(Real Qwen3.5-2B samples; the votes are averaged over 200 random choices of
+9 of each question's 20 samples.)*
+
+Voting fixes the questions the model usually gets right: the 31 that a
+single sample gets right between half and 95% of the time end up right
+almost every time. And it breaks the two questions the model usually gets
+wrong: from 20% right to almost never.
+
+That's not a quirk of these runs. Chen et al.,
+[*Are More LLM Calls All You Need?*](https://arxiv.org/abs/2403.02419)
+(NeurIPS 2024), found that across several language tasks, the accuracy of
+majority voting can first rise and then fall as calls are added. Their
+explanation is this split: more calls help on the easy questions and hurt on
+the hard ones, and a task containing both can get worse overall. With only
+two hard questions among 84, the 2B's overall accuracy still rises here; a
+set with more hard questions could see it fall.
+
+</Subsection>
+
+<Subsection title="Why: the most common answer wins" variant="b">
+
+The textbook version of this is 18th-century mathematics, Condorcet's jury
+theorem: if each of k independent voters is right with chance p, a majority
+is right more often than one voter when p is above a half, and less often
+when it's below. Here's that calculation:
+
+<LiveDemo client:load code={JURY_DEMO} />
+
+*(This is the calculation for independent right-or-wrong answers, not a
+measurement.)*
+
+The real runs did better than this table on the middle group: questions right
+69% of the time on average reached 98% with nine votes, where the same
+calculation for p = 0.69 gives about 88%. The reason is that a vote needs the
+right answer to be the *most common* answer, not to hold a majority. When
+wrong answers scatter across several values, the right one can win with far
+less than half the votes.
+
+The two hard questions are the opposite case, where the wrong answers agree:
+
+<LiveDemo client:load dataFiles={SMALLER_DATA} setupCode={PER_QUESTION_SETUP} code={HARD_DEMO} />
+
+*(Real Qwen3.5-2B samples. `questions`, `answer_key` and `vote_winner` from
+the first demo are already loaded here.)*
+
+On each, the model has one favourite wrong answer, and a vote of nine picks
+it 199 times out of 200. So the rule is less about "right more than half
+the time" than about which answer is the most common. If it's the right one,
+voting makes the right answer more reliable. If it's a wrong one, voting
+makes that wrong answer the answer every time.
+
+</Subsection>
+
+<Subsection title="What voting does to pass^k" variant="a">
+
+[Lesson 1's pass^k](/06-reliability/01-per-step-reliability/03-reliability-as-pass-k/)
+asks whether a task comes out right on every one of k runs. For a question
+answered right with chance p, that's about p to the power k, and voting
+changes p:
+
+<LiveDemo client:load dataFiles={SMALLER_DATA} setupCode={PER_QUESTION_SETUP} code={PASS_K_DEMO} />
+
+*(Each question's accuracy is raised to the power k and averaged over the
+questions, the per-task average from Lesson 1, in its simple form. `small`
+from the first demo is already loaded here.)*
+
+So the careful statement is this. Voting raises pass^k on the questions
+where the right answer is already the most common one, and it does so by a
+lot, because it takes out the run-to-run variation that pass^k punishes. On
+questions where a wrong answer is the most common, pass^k was already near
+zero, and voting keeps it there. What changes is how it looks: the model now
+gives the same wrong answer every run, with every vote agreeing. A system
+that measures reliability by how consistent the answers are would call that
+question solved. The next concept is about using agreement as a signal
+anyway, and where that goes wrong.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "A question is answered right by 3 of 20 samples, and 13 give the same wrong answer. What does a vote of 9 do?",
+    "options": [
+      "Makes the right answer more likely, since voting helps",
+      "Picks the common wrong answer almost every time",
+      "Picks each answer as often as a single sample would",
+      "Returns no answer at all, since the votes disagree"
+    ],
+    "correctIndex": 1,
+    "explanation": "A vote returns the most common answer. When that's a wrong one, voting makes it the answer on nearly every run. In the 2B's runs, a vote of nine picked 45 over the right 32 in 199 of 200 votes."
+  },
+  {
+    "question": "What did Chen et al. find about adding more calls to a majority vote?",
+    "options": [
+      "Accuracy always rises, though more slowly each time",
+      "It can rise then fall, as calls hurt on hard questions",
+      "Accuracy falls once more than three calls are used",
+      "Accuracy doesn't change after the very first call"
+    ],
+    "correctIndex": 1,
+    "explanation": "More calls help on questions the model usually gets right and hurt on those it usually gets wrong. A task with both can peak and then decline, depending on the mix."
+  },
+  {
+    "question": "A question is answered right 40% of the time, and the other 60% are spread over five different wrong values. Can voting still help?",
+    "options": [
+      "No, because the model is right less than half the time",
+      "Yes, if the right answer is still the most common one",
+      "Only with a vote of more than 20 separate samples",
+      "Only if the wrong answers are normalized away first"
+    ],
+    "correctIndex": 1,
+    "explanation": "A vote needs the right answer to be the most common, not a majority. Scattered wrong answers each get fewer votes than 40%, so the right one wins. The independent-voter table is a worst case for scattered errors."
+  },
+  {
+    "question": "After voting, a question gives the same wrong answer on every run. What does that do to pass^k, and why is it a trap?",
+    "options": [
+      "pass^k rises, because every run's answer now agrees",
+      "It stays near zero, while the answers look fully consistent",
+      "pass^k falls to exactly zero, which is easy to spot",
+      "pass^k can't be computed at all for voted answers"
+    ],
+    "correctIndex": 1,
+    "explanation": "pass^k counts correct runs, so a consistent wrong answer scores zero. But anything that measures agreement between runs would rate it as highly reliable, which is why agreement needs care as a signal."
+  }
+]}
+/>
+
+</CheckpointZone>

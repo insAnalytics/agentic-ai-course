@@ -5071,8 +5071,19 @@ architecture.md §3.1).
    each fail (the starter, raw-string keys, counting every reply, returning
    the normalized key, alphabetical or last-seen tie-breaks, empty text
    voting, no empty case, last-written form). Callback: Lesson 1's
-   same-question-run-twice concept (page link). Concepts 2 on (the next
-   looks at voting question by question) and bookends not yet written.
+   same-question-run-twice concept (page link). Concept 2 (when voting
+   helps, and when it hurts) is built: the 2B's vote of 9 by question group
+   (51 always right; 24 at 80-95% to 100%; 7 at 50-79% to 98.4%; e21 and
+   e68 from 20% to 0.2%), Chen et al.'s rise-then-fall, Condorcet's
+   independent-voter table, e21/e68's favourite wrong answers (199 of 200
+   votes), and pass^5 (80.5% to 97.0%; 0.05% to 0.00% on the two hard
+   ones). All four demos reproduce the mockup's output exactly in Pyodide
+   0.26.4; the prose's "about 88%" was checked (the middle group's mean p
+   is 0.686, giving 88.3%). Later demos preload the first via
+   `PER_QUESTION_SETUP`. Read-only, 4 quiz cards, no graded exercise.
+   Callbacks: Lesson 1's same-question-run-twice and pass^k concepts (page
+   links). Concepts 3 on (the next uses vote agreement as a confidence
+   signal) and bookends not yet written.
 
 ---
 
