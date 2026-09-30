@@ -363,9 +363,12 @@ nothing to do with it.
 
 A few choices in the loop are deliberate:
 
-- **Readers aren't offloaded.** `read_result` and `find_in_result` already
-  return a bounded amount. Offloading their output would hand the model
-  another handle instead of the lines it asked for.
+- **Readers aren't offloaded.** `read_result` and `find_in_result` return a
+  bounded number of *lines*. Offloading their output would hand the model
+  another handle instead of the lines it asked for. A number of lines isn't
+  a number of tokens, though: one line of minified JSON can be the whole
+  result. A production reader also caps how many characters it returns, and
+  cuts very long lines.
 - **The preview has to be useful.** The model decides what to do next from
   the header and the first lines, so they should say what the result is and
   how much there is.

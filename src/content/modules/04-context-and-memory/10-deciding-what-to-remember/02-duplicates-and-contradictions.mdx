@@ -96,10 +96,20 @@ class VersionedStore(MemoryStore):
 `;
 
 export const CHECK_FUNCS = String.raw`
+def negated(text: str) -> bool:
+    """Whether text says "not" in some form. Keyword overlap can't tell an instruction from its opposite."""
+    text = text.lower().replace("n't", " not")
+    for mark in ".,;:!?()'\"":
+        text = text.replace(mark, " ")
+    return bool(set(text.split()) & {"not", "no", "never", "cannot", "without"})
+
 def find_duplicate(store: VersionedStore, user_id: str, candidate: MemoryRecord, threshold: float = 0.8):
     """An active memory of the same type whose keywords nearly match the candidate's, or None."""
     wanted = keywords(candidate.content)
     for memory in store.search(user_id, kind=candidate.type, limit=1000):
+        # "Don't do X" shares almost every keyword with "Do X", but it's the opposite, not a repeat
+        if negated(memory.content) != negated(candidate.content):
+            continue
         existing = keywords(memory.content)
         union = wanted | existing
         if union and len(wanted & existing) / len(union) >= threshold:
@@ -175,8 +185,8 @@ for m in store.search("u_simar", limit=10, include_superseded=True):
 `;
 
 export const STARTER = String.raw`def find_duplicate(store: VersionedStore, user_id: str, candidate: MemoryRecord, threshold: float = 0.8):
-    # TODO: among active memories of the same type, return the first whose keywords overlap the candidate's
-    #       by at least threshold (shared / all), or None
+    # TODO: among active memories of the same type that agree with the candidate on negated(...),
+    #       return the first whose keywords overlap the candidate's by at least threshold (shared / all), or None
     ...
 
 def apply_decision(store: VersionedStore, user_id: str, candidate: MemoryRecord, decision: dict) -> str:
@@ -188,6 +198,9 @@ export const REFERENCE = String.raw`def find_duplicate(store: VersionedStore, us
     """An active memory of the same type whose keywords nearly match the candidate's, or None."""
     wanted = keywords(candidate.content)
     for memory in store.search(user_id, kind=candidate.type, limit=1000):
+        # "Don't do X" shares almost every keyword with "Do X", but it's the opposite, not a repeat
+        if negated(memory.content) != negated(candidate.content):
+            continue
         existing = keywords(memory.content)
         union = wanted | existing
         if union and len(wanted & existing) / len(union) >= threshold:
@@ -216,8 +229,18 @@ def apply_decision(store: VersionedStore, user_id: str, candidate: MemoryRecord,
     return f"refused, unknown action: {decision['action']}"
 `;
 
-export const PROVIDED = "# --- provided: keywords, MemoryRecord and VersionedStore; don't change this part ---\n"
-  + KEYWORDS.trimStart() + MEMORY_MODEL + STORE_CLASS + RECORD_CLASS + VERSIONED_STORE + "\n# --- end of provided code ---\n\n";
+export const NEGATED = String.raw`
+def negated(text: str) -> bool:
+    """Whether text says "not" in some form. Keyword overlap can't tell an instruction from its opposite."""
+    text = text.lower().replace("n't", " not")
+    for mark in ".,;:!?()'\"":
+        text = text.replace(mark, " ")
+    return bool(set(text.split()) & {"not", "no", "never", "cannot", "without"})
+
+`;
+
+export const PROVIDED = "# --- provided: keywords, negated, MemoryRecord and VersionedStore; don't change this part ---\n"
+  + KEYWORDS.trimStart() + NEGATED + MEMORY_MODEL + STORE_CLASS + RECORD_CLASS + VERSIONED_STORE + "\n# --- end of provided code ---\n\n";
 
 export const TESTS = [
   String.raw`
@@ -240,7 +263,9 @@ assert find_duplicate(store, "u", record("Priya owns support_agent.", kind="epis
 assert find_duplicate(store, "u", record("support_agent escalations go to #support-oncall.")) is None
 assert find_duplicate(store, "u", record("Priya owns billing_agent.")) is None
 assert find_duplicate(store, "u", record("Write summaries as short bullet points.", kind="procedural")).content == \
-    "Write summaries as bullet points."`,
+    "Write summaries as bullet points."
+# ...but a reversal isn't a duplicate, however many words it shares
+assert find_duplicate(store, "u", record("Don't write summaries as bullet points.", kind="procedural")) is None`,
   String.raw`
 def record(content, source="user", created="2026-09-28T09:00:00", kind="semantic"):
     return MemoryRecord(content=content, type=kind, source=source, created=created)
@@ -341,6 +366,7 @@ store = setup()
 # 6. superseding something that isn't stored, or is already superseded, is refused
 assert apply_decision(store, "u", record("x y z", "user"), {"action": "supersede", "replaces": "Nothing like this."}) == \
     "refused, nothing stored matches: Nothing like this."
+apply_decision(store, "u", record("Tom owns support_agent.", "user"), {"action": "supersede", "replaces": "Priya owns support_agent."})
 assert apply_decision(store, "u", record("p q r", "user"), {"action": "supersede", "replaces": "Priya owns support_agent."}) == \
     "refused, nothing stored matches: Priya owns support_agent."`,
   String.raw`
@@ -394,9 +420,19 @@ The overlap is measured as the keywords they share, divided by all the
 keywords either has. The threshold is 0.8, so "Write summaries as short
 bullet points" duplicates "Write summaries as bullet points" (four keywords
 of five), while "escalations go to #support-oncall" isn't a duplicate of
-"escalations go to #support", because the channel differs. Keyword overlap
-only catches duplicates that share words. Catching ones that mean the same
-thing in different words needs Module 5's search by meaning.
+"escalations go to #support", because the channel differs.
+
+Overlap has two blind spots. It can't see a "not": "Don't write summaries as
+bullet points" shares four of its five keywords with "Write summaries as
+bullet points", so it would count as a duplicate and be skipped, and the
+user's reversal would be silently lost. That's why `find_duplicate` only
+compares memories that agree on `negated`, a small check for "not", "never"
+and the like. Anything it lets through as new goes to the model, which can
+decide it replaces the old instruction. And the overlap score treats a small
+refinement as a repeat: "short" was new information in the first example, and
+it's dropped. That's the trade of catching duplicates with code: it's cheap
+and predictable, but it only sees words. Catching duplicates that mean the
+same thing in different words needs Module 5's search by meaning.
 
 </Subsection>
 
@@ -475,10 +511,20 @@ replace the user's own statement that Priya does. When the user says so, it
 can.
 
 ```python
+def negated(text: str) -> bool:
+    """Whether text says "not" in some form. Keyword overlap can't tell an instruction from its opposite."""
+    text = text.lower().replace("n't", " not")
+    for mark in ".,;:!?()'\"":
+        text = text.replace(mark, " ")
+    return bool(set(text.split()) & {"not", "no", "never", "cannot", "without"})
+
 def find_duplicate(store: VersionedStore, user_id: str, candidate: MemoryRecord, threshold: float = 0.8):
     """An active memory of the same type whose keywords nearly match the candidate's, or None."""
     wanted = keywords(candidate.content)
     for memory in store.search(user_id, kind=candidate.type, limit=1000):
+        # "Don't do X" shares almost every keyword with "Do X", but it's the opposite, not a repeat
+        if negated(memory.content) != negated(candidate.content):
+            continue
         existing = keywords(memory.content)
         union = wanted | existing
         if union and len(wanted & existing) / len(union) >= threshold:
@@ -582,13 +628,13 @@ supersede something that isn't stored, or is already superseded, is refused.
 
 <GradedExercise
   client:load
-  task={"keywords, MemoryRecord and VersionedStore are provided. Implement find_duplicate(store, user_id, candidate, threshold=0.8): among the user's active memories of the same type as candidate, return the first one where the keywords shared with the candidate, divided by all the keywords either has, reach threshold. Return None if there's no such memory. apply_decision(store, user_id, candidate, decision): return a line saying what happened. First, if find_duplicate finds one, return \"skipped, already known: CONTENT\" (the stored memory's content), whatever the decision. {\"action\": \"skip\"} returns \"skipped: CONTENT\", and {\"action\": \"add\"} saves the candidate and returns \"added: CONTENT\". {\"action\": \"supersede\", \"replaces\": OLD}: if no active memory has content OLD, return \"refused, nothing stored matches: OLD\". If that memory's source is \"user\" and the candidate's isn't, return \"refused, the user said otherwise: OLD\". Otherwise call store.supersede and return \"superseded: OLD -> NEW\". Any other action returns \"refused, unknown action: ACTION\"."}
+  task={"keywords, MemoryRecord and VersionedStore are provided. Implement find_duplicate(store, user_id, candidate, threshold=0.8): among the user's active memories of the same type as candidate, skipping any where negated(...) differs between the memory and the candidate, return the first one where the keywords shared with the candidate, divided by all the keywords either has, reach threshold. Return None if there's no such memory. apply_decision(store, user_id, candidate, decision): return a line saying what happened. First, if find_duplicate finds one, return \"skipped, already known: CONTENT\" (the stored memory's content), whatever the decision. {\"action\": \"skip\"} returns \"skipped: CONTENT\", and {\"action\": \"add\"} saves the candidate and returns \"added: CONTENT\". {\"action\": \"supersede\", \"replaces\": OLD}: if no active memory has content OLD, return \"refused, nothing stored matches: OLD\". If that memory's source is \"user\" and the candidate's isn't, return \"refused, the user said otherwise: OLD\". Otherwise call store.supersede and return \"superseded: OLD -> NEW\". Any other action returns \"refused, unknown action: ACTION\"."}
   starterCode={PROVIDED + STARTER}
   hiddenTests={TESTS}
   hint={"store.search(user_id, kind=candidate.type, limit=1000) gives the active memories of the same type, and a | b is the set of all keywords either has. For superseding, search the active memories only, so a memory that was already replaced can't be replaced again."}
   correctAnswer={{
     code: PROVIDED + REFERENCE,
-    explanation: "Test 5 is the rule: neither a tool nor the agent can replace what the user said, and the user can. A version that ranks sources fully also blocks the wiki from correcting the agent's guess in test 4. Test 1 checks that duplicates are near-identical memories of the same type, including one that differs by a single word. Test 2 checks that duplicates are skipped whatever the model decided, including a decision to supersede. Test 6 refuses replacing a memory that's already been replaced.",
+    explanation: "Test 5 is the rule: neither a tool nor the agent can replace what the user said, and the user can. A version that ranks sources fully also blocks the wiki from correcting the agent's guess in test 4. Test 1 checks that duplicates are near-identical memories of the same type, including one that differs by a single word, but not a reversal that adds \"don't\". Test 2 checks that duplicates are skipped whatever the model decided, including a decision to supersede. Test 6 refuses replacing a memory that's already been replaced.",
   }}
 />
 

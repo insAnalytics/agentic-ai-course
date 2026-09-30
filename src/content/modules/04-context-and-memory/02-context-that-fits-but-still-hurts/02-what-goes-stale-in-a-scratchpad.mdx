@@ -140,6 +140,16 @@ assert msgs[2]["content"][0]["content"] == original_first == "healthy v1"`,
 single = [{"role": "user", "content": "hi"}] + exchange([("list_agents", {}, "a, b", False)])[0]
 assert [m["content"] if isinstance(m["content"], str) else len(m["content"]) for m in prune_superseded(single)] == ["hi", 1, 1]
 assert prune_superseded(single)[2]["content"][0]["content"] == "a, b"`,
+  FAKE_CLIENT + TEST_SETUP + String.raw`
+# 7. the same arguments in a different key order are the same call; a success followed only by an error is kept
+m4, c4 = exchange([("get_status", {"agent_name": "x", "region": "eu"}, "x ok", False)])
+m5, c5 = exchange([("get_status", {"region": "eu", "agent_name": "x"}, "x slow", False)])
+m6, c6 = exchange([("get_logs", {"agent_name": "y"}, "y logs", False)])
+m7, c7 = exchange([("get_logs", {"agent_name": "y"}, "Error: timed out", True)])
+out2 = prune_superseded([{"role": "user", "content": "go"}] + m4 + m5 + m6 + m7)
+assert result_for(out2, c4[0].id)["content"].startswith("[superseded")
+assert result_for(out2, c5[0].id)["content"] == "x slow"
+assert result_for(out2, c6[0].id)["content"] == "y logs"`,
 ];
 
 <Subsection title="Not all old content is equal" variant="a">
@@ -165,11 +175,14 @@ registry agent is watching `research_agent` during a model rollout:
 - Turn 2: the agent switches `research_agent` to a new model.
 - Turn 4: `get_status` says **degraded**, 14% errors since the change.
 
-Both status results are still in the scratchpad. The first is now wrong, and
-it's also the longer and more detailed of the two: a confident,
-specific-sounding "healthy" sitting beside the true answer. That's the
-similar-but-misleading content the context-rot study found most damaging. It
-should go.
+Both status results are still in the scratchpad. The first was true when it
+was taken, but as an answer to "how is `research_agent` doing now?" it's
+out of date. It's also the longer and more detailed of the two: a
+confident, specific-sounding "healthy" sitting beside the current answer.
+That's the similar-but-misleading content the context-rot study found most
+damaging. Its content should go. The one thing it still told the model, that
+the agent was healthy before the change, is carried by the later result
+itself ("since the model change").
 
 </Subsection>
 
@@ -256,7 +269,26 @@ results, and only when a later call has superseded them.
 
 </Subsection>
 
-<Subsection title="Watch for: repetitive patterns" variant="a">
+<Subsection title="Not stale: repeated actions, and baselines" variant="a">
+
+"The same tool with the same arguments" only means "a newer reading of the
+same thing" for tools that **read**. A tool that changes something works
+differently: two `create_ticket` calls with the same arguments are two
+tickets, and two `send_email` calls are two emails. Each result is a record
+of something that happened, and replacing the first would hide a duplicate
+the model, or the user, needs to know about. So pruning like this belongs
+only on tools known to be read-only, and a real harness keeps a list of
+them rather than pruning every tool.
+
+The other exception is when the old reading is the point. If the task is to
+compare before and after, the earlier result is the "before". Here the later
+result states the comparison itself, so nothing is lost. When it doesn't,
+keep a one-line gist of the old value in the placeholder instead of just
+saying it was superseded.
+
+</Subsection>
+
+<Subsection title="Watch for: repetitive patterns" variant="b">
 
 There's a subtler kind of staleness the same post describes. When a
 scratchpad fills with many near-identical actions and observations, such as
@@ -269,9 +301,12 @@ meant it or not. The Manus team calls this getting "few-shotted" by your own
 context.
 
 This one has no simple deletion rule, since the repeated results aren't
-wrong. The responses are later lessons: compacting a run of similar results
-into a short summary, or storing them outside the window and keeping only
-what's needed.
+wrong. The Manus team's own remedy is to add a little structured variety:
+slightly different wording and ordering in how actions and results are
+written into the context, so the run doesn't read as one long pattern to
+copy. The other responses are later lessons: compacting a run of similar
+results into a short summary, or storing them outside the window and
+keeping only what's needed.
 
 </Subsection>
 

@@ -3363,6 +3363,96 @@ below describe each lesson as first converted; see the git log
    warnings, and a fenced reply parses. Module 5 Lesson 14 imports these
    files and was re-checked too.
 
+**Module 4 quality pass (2026-09-27).** A full content review, then fixes
+made directly in the `.mdx` files. The mockups in `module_mockups/Module 4`
+were *not* updated to match, so they now lag the site. The course stays
+provider-neutral on purpose: provider specifics appear only as examples.
+Every exercise reference and demo in the module was re-run in CPython
+under the harness semantics. All references pass, and the only demo output
+that changed is the one intended (L10 C1's extraction demo). Changes:
+- **Bugs.**
+  - `clear_old_results` sliced `successful[len - keep_last:]`. The index
+    went negative when `keep_last` exceeded the number of results. It's now
+    `max(0, ...)` in all 19 copies (L4, L5, L6, L12), with a new L4 C3 test.
+  - L10 C2 hidden test 6 never superseded anything before asserting "already
+    superseded is refused", so the reference answer failed its own test. It
+    now supersedes first.
+  - L10 C1 `derive_source`: a procedural candidate now needs at least half
+    of its keywords in its quote, because a real user quote could otherwise
+    carry an injected instruction. New test 8 and a sixth demo proposal.
+  - L10 C2 `find_duplicate`: skips memories that differ on a new provided
+    `negated()`, since "Don't X" otherwise deduped against "X". New assertion
+    in test 1.
+  - L11 retention clock: `ArchiveStore.supersede` records `superseded_on`,
+    and `forget` measures retention from it, not from last use. The C3
+    fixture and test 1/2 were adjusted, and the recap test 4 expects week 43.
+  - L5 recap: the summarizer only saw cleared placeholders. The scenario's
+    agent now states its finding in visible text, and test 1 asserts that
+    the *summary request* contains it. New L5 C4 subsection "What the
+    summarizer gets to read".
+  - L2 C2: new test 7 (reordered argument keys; a success followed only by
+    an error).
+- **Real APIs vs the course's estimates.**
+  - L1 C1: new subsection "Estimates and real counts" (token-count calls,
+    usage fields, tokenizer drift). The reply room now covers reasoning
+    tokens and the difference between rejecting and silently truncating.
+  - L3 C1: new "Using a real cache" subsection (automatic vs marker,
+    minimum size, expiry, per-model scope, checking cache reads).
+  - L3 C2: the request-order claim is qualified.
+  - L12 C2: caveat that the break-even is a result of an input-only cost
+    model.
+- **Prose corrections.**
+  - L2: superseded ≠ wrong; new "Not stale: repeated actions, and
+    baselines" subsection; new "Who may set a rule" subsection.
+  - L2: the original goal is "least at risk", not "not lost"; the Manus
+    structured-variation remedy is added.
+  - L8: the "the" claim fixed, the option-letter reference removed, the
+    write path named as a fourth decision, episodes vs live state and
+    procedures vs L7 reconciled.
+  - L10: role ≠ authorship.
+  - L11: labelled recall@k/precision@k named; the archive-as-cold-storage
+    and deletion scope made honest.
+  - L6: line-bounded readers; pinning non-refetchable results.
+  - L7: per-area cost; L9: "almost never".
+  - L12: prefix-break meaning.
+  - Authoring-history text removed from L6 and L12.
+  - Plain-prose forward references in L1 and L2 are now links.
+- **Not done here:** quiz option-length balancing (deferred until every
+  module is drafted). (The L11 year demos that saved memories before the
+  week they were learned were fixed afterwards: only C1's weeks 1-2 rows
+  and one sentence changed; C2 and C3 print the same output.)
+
+**Module 4 content additions (2026-09-27, same session).** These were
+written straight into the `.mdx` files (no mockups) and verified the same
+way. The only existing demo whose output changed is L10 C1's (intended).
+- **New concepts:**
+  - **L7 C4 "Data on demand: letting the agent explore".** A bounded
+    `Workspace` (list/grep/read slices), an explore-vs-preload measurement,
+    the map-plus-explore hybrid, and what exploring can miss, with a
+    `require_reading` dispatcher gate. It has an exercise and five quiz
+    cards. The recap moved to `05-recap-practice` and its sandbox gained
+    required reading (test 9).
+  - **L12 C3 "Seeing inside each request".** A per-request manifest via an
+    `Inspected` wrapper (`ContextManager` unchanged), per-section limits
+    with `over_budget`, the fixed order of what gives first, and latency as
+    extra calls per turn. It has an exercise. "What to leave out" is now
+    `04-` and has an ablation demo; the recap is now `05-`.
+- **Additions to existing concepts:**
+  - L10 C3 `looks_secret` in `admit`, with a demo and test 6, carried into
+    the L10/L11/L12 recap libs.
+  - L11 C2 "Measuring recall": recall@k/precision@k, a relevance floor, and
+    a demo. The exercise is now `ranked` + `evaluate_recall`, so it no
+    longer re-types code shown on the page.
+  - L9 C1 "Scope is a design decision", with a namespaces demo.
+  - L8 C1: framework vocabulary, transcript search, "The user's side".
+  - L5 C3 "Testing a summary by asking it questions", a probe demo with
+    exact grading.
+  - L2 C1 "Four ways a context goes wrong" (Breunig's taxonomy mapped to
+    the module).
+  - L11 C3 "Merging instead of archiving" (consolidation/reflection).
+- **Intros and recaps:** L7, L11 and L12 intro outcomes updated to match,
+  with new quiz cards and recap questions throughout.
+
 ---
 
 ## Module 5 — RAG Systems

@@ -316,6 +316,14 @@ The types aren't just labels. Each is written, found and outdated differently:
 - **Episodes** are recorded after events, and carry their date. They're found
   when the current task resembles them, and the recent ones matter most. They
   age: last week's incident is useful context, and last year's rarely is.
+  An episode can mention live state, like "support_agent was moved to
+  claude-sonnet" on a given date. That's fine as a record of what happened.
+  It becomes the trap
+  [the first concept](/04-context-and-memory/08-long-term-memory/01-what-dies-with-the-session/)
+  warned about only if it's read as what's true now, which is why the date
+  travels with it. Episodes are also how an agent learns from experience:
+  "last time the lookup cache was raised, the queue cleared within an hour"
+  is a past outcome the agent can reuse on a similar task.
 - **Facts** are extracted from what was said and found. They're found by
   relevance to the task. They don't age so much as get **superseded**: a new
   fact contradicts an old one, and one of them has to go. That's Lesson 10's
@@ -323,7 +331,11 @@ The types aren't just labels. Each is written, found and outdated differently:
 - **Procedures** are few and short, and **always loaded**.
   [The previous concept](/04-context-and-memory/08-long-term-memory/02-storage-retrieval-injection/)
   showed why: a standing instruction applies to every task, whatever its
-  words, so it can't depend on matching them.
+  words, so it can't depend on matching them. That holds for short standing
+  instructions. A long learned procedure, a whole runbook, is better handled
+  the way
+  [Lesson 7 loads reference material](/04-context-and-memory/07-just-in-time-context-and-dynamic-tool-exposure/03-instructions-and-reference-material-on-demand/):
+  a one-line entry always loaded, the full text read when it's needed.
 
 So one rule can't serve all three. Here's a user's memories, handled with one
 rule both ways, and then with each type's own rule. `keywords` and `recall`

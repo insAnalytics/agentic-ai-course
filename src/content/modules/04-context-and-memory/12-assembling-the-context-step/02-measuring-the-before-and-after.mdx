@@ -65,7 +65,7 @@ def clear_old_results(messages: list, keep_last: int) -> list:
             for block in message["content"]:
                 if block.get("type") == "tool_result" and not block.get("is_error"):
                     successful.append(block["tool_use_id"])
-    to_keep = successful[len(successful) - keep_last:]
+    to_keep = successful[max(0, len(successful) - keep_last):]
 
     cleared = []
     for message in messages:
@@ -272,7 +272,7 @@ def clear_to_store(messages: list, keep_last: int, store: ResultStore) -> list:
             for block in message["content"]:
                 if block.get("type") == "tool_result" and not block.get("is_error"):
                     successful.append(block["tool_use_id"])
-    to_keep = successful[len(successful) - keep_last:]
+    to_keep = successful[max(0, len(successful) - keep_last):]
 
     cleared = []
     for message in messages:
@@ -510,11 +510,20 @@ class ArchivableMemory(ScoredMemory):
     # an archived memory is out of search but kept, with the day it was archived, and can be restored
     archived: bool = False
     archived_on: str = ""
+    # when a newer memory replaced this one: a replaced memory's retention period counts from here
+    superseded_on: str = ""
 
 class ArchiveStore(ScoredStore):
     """A ScoredStore that can archive memories, restore them, and delete them when the user asks."""
     def save(self, user_id: str, memory: ArchivableMemory) -> None:
         self._by_user.setdefault(user_id, []).append(ArchivableMemory(**memory.model_dump()))
+
+    def supersede(self, user_id: str, old_content: str, new: ArchivableMemory) -> None:
+        """Supersede as before, and record when: the moment the newer memory arrived."""
+        for memory in self._by_user.get(user_id, []):
+            if memory.content == old_content and not memory.superseded:
+                memory.superseded_on = new.created
+        super().supersede(user_id, old_content, new)
 
     def search(self, user_id: str, query: str = "", tags: list = None, kind: str = None, limit: int = 5,
                include_superseded: bool = False, include_archived: bool = False) -> list:
@@ -547,7 +556,7 @@ def forget(store, user_id: str, now: str, cap: int = 50, retention_days: int = 9
     today = now[:10]
     # 1. replaced memories are kept for a while, then archived
     for memory in store.search(user_id, limit=100000, include_superseded=True):
-        if memory.superseded and days_between(memory.last_used or memory.created, now) > retention_days:
+        if memory.superseded and days_between(memory.superseded_on or memory.created, now) > retention_days:
             store.archive_one(memory, today)
             report.append(f"archived, replaced long ago: {memory.content}")
     # 2. over the cap, the lowest-scoring memories go first; the user's standing instructions never do
@@ -956,8 +965,8 @@ assert empty == {"turns": 0, "largest": 0, "total": 0, "cost": 0, "prefix_breaks
 
 <Subsection title="What before and after mean here" variant="a">
 
-The handover for this module asked for a measurable before and after:
-tokens per turn, and an agent completing a long task it previously failed.
+A before and after worth measuring has two parts: tokens per turn, and an
+agent completing a long task it previously failed.
 With a fake model, both have to be measured on what the model is sent, since
 it can't succeed or fail at the task itself:
 
@@ -1071,8 +1080,9 @@ token-units with its example multipliers)*
 - **The naive loop fails** at the same window, on turn 13. The request no
   longer fits, and the provider refuses it.
 - **The managed loop completes** at that window. Its largest request is
-  about half the size of the naive loop's largest, and its prefix never
-  breaks.
+  about half the size of the naive loop's largest, and its prefix breaks
+  are zero: the tools and system prompt never change. (Its messages are
+  rewritten when it clears or compacts; that cost shows up next.)
 - **Nothing that matters went missing.** The checks show the same turns for
   every run: the rule and the finding are absent only before they exist.
   Fitting, compaction included, lost none of them.
@@ -1108,9 +1118,20 @@ model call, summary requests included)*
   would, and the naive loop's last request is over 60,000 tokens, so it
   needs a window that large to get there at all.
 
-The last two lines show a problem the measurement found in the context step
-itself. It isn't shown in the table, because it's fixed there. Without
-folding, the summaries pile up: by the end they took about 1,600 tokens of a
+Treat the break-even as a result of this cost model, not a rule. The model
+counts input tokens only, with Lesson 3's example multipliers. Real bills
+differ in ways that move the line in both directions. Each summary is also
+output, which usually costs several times as much as input, so the context
+step's summary calls cost more than shown here. Real caches have a minimum
+size and expire when unused, so a slow or interrupted run of the naive loop
+can pay full price for its history on some turns. And providers price
+caching differently. The method is what carries over: measure every model
+call your agent makes, summaries and extraction included, with your own
+provider's prices, at the task lengths you actually run.
+
+Those last two lines also depend on a piece this measurement shows is
+needed: folding, which is already on in the table above. Without folding,
+the summaries pile up: by the end they took about 1,600 tokens of a
 3,500-token window, and whole rounds had to be dropped without a trace on
 over a hundred turns just to fit.
 [Lesson 5](/04-context-and-memory/05-compaction-and-summarization/03-when-a-summary-loses-something/#summaries-of-summaries)

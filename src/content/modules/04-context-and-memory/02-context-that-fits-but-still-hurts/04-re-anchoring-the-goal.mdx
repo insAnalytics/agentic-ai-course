@@ -151,8 +151,11 @@ assert assemble_context(plain) == plain`,
 [Concept 1](/04-context-and-memory/02-context-that-fits-but-still-hurts/01-agents-get-worse-before-the-window-is-full/)
 showed something easy to miss: the user's original request sits near the
 *start* of the context, and stays there, since the loop only appends. The
-start is a position models use well. So the original goal isn't what gets
-lost.
+start is a position models use well. So the original request is the part
+of the goal *least* at risk. It isn't safe: on a very long run it drifts
+further from where the model is working, and a goal refined halfway through
+the run sits in the middle like everything else. But it's not the first
+thing to go.
 
 What *does* get lost is the task's **current state**. By turn thirty, the
 request itself is still clear, but "what have I already done, what's
@@ -250,8 +253,11 @@ Two small but real benefits come with the placement. First, the plan
 also carries the list of which research agents were found, so a detail
 discovered twenty turns ago is restated beside the next decision instead
 of being dug out of the middle. Second, because the anchor is at the
-*end*, everything before it stays the same from turn to turn, which
-matters for caching, the subject of a later lesson. Putting the plan into
+*end*, almost everything before it stays the same from turn to turn: only
+the message that carried last turn's anchor changes. That matters for
+caching,
+[the next lesson's subject](/04-context-and-memory/03-prompt-caching/03-where-lesson-2s-techniques-stand-and-the-fights-ahead/),
+which measures exactly this cost. Putting the plan into
 the system prompt instead would change the very start of every request.
 
 </Subsection>
@@ -263,8 +269,9 @@ context is **before** it's full. By the time a request doesn't fit, the
 agent has probably already been working with a degraded view for many
 turns. Pruning superseded results, keeping one current set of rules and
 re-anchoring the plan are cheap, and they work at any size. When the
-history itself grows too long to keep, later lessons in this module take
-over, and they build on everything here, including the rule that tool
+history itself grows too long to keep,
+[later lessons in this module](/04-context-and-memory/04-when-the-window-fills/00-intro/)
+take over, and they build on everything here, including the rule that tool
 calls and their results always stay together.
 
 </Subsection>
@@ -283,7 +290,7 @@ calls and their results always stay together.
       "The tool definitions"
     ],
     "correctIndex": 2,
-    "explanation": "The original request stays near the start, a well-used position. The up-to-date plan doesn't exist anywhere as one piece of text until the agent writes it."
+    "explanation": "The original request stays near the start, a well-used position, so it's less at risk (though not safe on a very long run). The up-to-date plan doesn't exist anywhere as one piece of text until the agent writes it."
   },
   {
     "question": "What is \"recitation\", as the Manus team described it?",

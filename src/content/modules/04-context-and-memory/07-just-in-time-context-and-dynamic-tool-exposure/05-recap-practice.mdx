@@ -1,7 +1,7 @@
 ---
 title: "Recap & Practice"
 lesson: "07-just-in-time-context-and-dynamic-tool-exposure"
-order: 4
+order: 5
 ---
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
@@ -207,47 +207,61 @@ READ_GUIDE = {"name": "read_guide", "description": "Read a guide from the index 
               "input_schema": {"type": "object", "properties": {"name": {"type": "string"}, "section": {"type": "string"}},
                                "required": ["name"]}}
 FIXED_TOOLS = [FIND_TOOLS, CALL_TOOL, READ_GUIDE]
+
+def require_reading(name: str, required: dict, read: set):
+    """None if the call may run; otherwise an error saying which guide must be read first."""
+    guide = required.get(name)
+    if guide is not None and guide not in read:
+        return f"Error: read the {guide} guide first, with read_guide(\"{guide}\"), then call {name} again."
+    return None
 `;
 
 export const AGENT_STARTER = String.raw`from tokens import count_tokens
-from lib import FIXED_TOOLS, stage_line, add_to_end
+from lib import FIXED_TOOLS, stage_line, add_to_end, require_reading
 
 def build_system(base: str, library) -> str:
     # TODO: the base prompt, a blank line, then the guide index
     ...
 
-def dispatch(call, stage: str, stage_tools: dict, index, library) -> dict:
-    # TODO: find_tools and read_guide go straight to the index and the library;
-    #       call_tool is gated by stage for catalog tools, then passed to the index;
+def dispatch(call, stage: str, stage_tools: dict, index, library, required: dict = None, read: set = None) -> dict:
+    # TODO: find_tools and read_guide go straight to the index and the library (a guide read without error
+    #       is added to read); call_tool is gated by stage, then by required reading, then passed to the index;
     #       anything else is an unknown tool. Mark results that start with "Error:".
     ...
 
-def run_agent(llm, user_message: str, system: str, index, library, stage_tools: dict, stage: str, advance, max_steps: int = 20):
+def run_agent(llm, user_message: str, system: str, index, library, stage_tools: dict, stage: str, advance, max_steps: int = 20,
+              required: dict = None):
     # TODO: the canonical loop with a fixed prefix; the stage line goes at the end of each request,
-    #       never into the history; after each round, stage = advance(stage, history)
+    #       never into the history; after each round, stage = advance(stage, history).
+    #       Track the guides read during the run, for required reading.
     ...
 `;
 
 export const AGENT_REFERENCE = String.raw`from tokens import count_tokens
-from lib import FIXED_TOOLS, stage_line, add_to_end
+from lib import FIXED_TOOLS, stage_line, add_to_end, require_reading
 
 def build_system(base: str, library) -> str:
     """The system prompt: fixed for the whole run, with the guide index at the end."""
     return base + "\n\n" + library.index()
 
-def dispatch(call, stage: str, stage_tools: dict, index, library) -> dict:
-    """Answer one call to a fixed tool. Catalog tools, reached through call_tool, are gated by stage."""
+def dispatch(call, stage: str, stage_tools: dict, index, library, required: dict = None, read: set = None) -> dict:
+    """Answer one call to a fixed tool. Catalog tools, reached through call_tool, are gated by stage,
+    then by any guide that must be read first."""
+    required = required or {}
+    read = read if read is not None else set()
     if call.name == "find_tools":
         content = index.find_tools(**call.input)
     elif call.name == "read_guide":
         content = library.read_guide(**call.input)
+        if not content.startswith("Error:"):
+            read.add(call.input["name"])
     elif call.name == "call_tool":
         name = call.input["name"]
         allowed = stage_tools[stage]
         if name in index.definitions and name not in allowed:
             content = f"Error: {name} isn't available during {stage}. Tools you can use now: {', '.join(allowed)}."
         else:
-            content = index.call_tool(name, call.input.get("arguments", {}))
+            content = require_reading(name, required, read) or index.call_tool(name, call.input.get("arguments", {}))
     else:
         content = f"Error: there is no tool called {call.name}."
     result = {"type": "tool_result", "tool_use_id": call.id, "content": content}
@@ -255,10 +269,12 @@ def dispatch(call, stage: str, stage_tools: dict, index, library) -> dict:
         result["is_error"] = True
     return result
 
-def run_agent(llm, user_message: str, system: str, index, library, stage_tools: dict, stage: str, advance, max_steps: int = 20):
+def run_agent(llm, user_message: str, system: str, index, library, stage_tools: dict, stage: str, advance, max_steps: int = 20,
+              required: dict = None):
     """The canonical loop with a fixed prefix. advance(stage, history) returns the stage for the next request."""
     history = [{"role": "user", "content": user_message}]
     sent = []
+    read = set()
     for step in range(max_steps):
         # the stage is restated at the end of each request, and never saved into the history
         request = {"tools": FIXED_TOOLS, "system": system,
@@ -269,13 +285,14 @@ def run_agent(llm, user_message: str, system: str, index, library, stage_tools: 
         calls = [b for b in response.content if b.type == "tool_use"]
         if not calls:
             return "".join(b.text for b in response.content if b.type == "text"), history, sent
-        history.append({"role": "user", "content": [dispatch(c, stage, stage_tools, index, library) for c in calls]})
+        history.append({"role": "user", "content": [dispatch(c, stage, stage_tools, index, library, required, read) for c in calls]})
         stage = advance(stage, history)
     return f"stopped after {max_steps} steps without a final answer", history, sent
 `;
 
 export const HIDDEN_TESTS = REACT_FAKE_CLIENT + COUNT_TOKENS + WINDOWED_CLIENT + String.raw`
 from lib import (CATALOG, ToolIndex, GuideLibrary, FIXED_TOOLS, check_pairing, first_divergence, cost_of_run)
+REQUIRED = {"deploy__update": "rollback"}
 from agent import build_system, dispatch, run_agent
 import json
 
@@ -345,7 +362,8 @@ ran.clear()
 index = ToolIndex(CATALOG, {t["name"]: stand_in(t["name"]) for t in CATALOG})
 library = GuideLibrary(GUIDES)
 system = build_system(BASE, library)
-answer, history, sent = run_agent(WindowedClient(script(), window=100_000), TASK, system, index, library, STAGES, "research", advance)
+answer, history, sent = run_agent(WindowedClient(script(), window=100_000), TASK, system, index, library, STAGES, "research", advance,
+                                  required=REQUIRED)
 results = [b for m in history if m["role"] == "user" and isinstance(m["content"], list) for b in m["content"]]
 
 # 1. the run completes; each request's prefix is a small fraction of sending everything, and the run costs less,
@@ -398,6 +416,21 @@ assert missing["content"].startswith("Error: there is no tool called slack__post
 # 8. a path-like guide name is just an unknown guide
 bad = dispatch(ToolUseBlock(name="read_guide", input={"name": "../../config/secrets"}), "research", STAGES, index, library)
 assert bad["content"].startswith("Error: no guide called ../../config/secrets.") and bad["is_error"]
+
+# 9. required reading: in act, the update is refused until the rollback guide has been read, then runs
+ran.clear()
+read = set()
+# deploy__update was found during the run above, so only the reading gate stands in the way
+update = ToolUseBlock(name="call_tool", input={"name": "deploy__update", "arguments": {"id": "research_agent", "fields": ["release"]}})
+refused = dispatch(update, "act", STAGES, index, library, REQUIRED, read)
+assert refused["content"] == 'Error: read the rollback guide first, with read_guide("rollback"), then call deploy__update again.'
+assert refused["is_error"] and ran == []
+dispatch(ToolUseBlock(name="read_guide", input={"name": "rollback"}), "act", STAGES, index, library, REQUIRED, read)
+assert read == {"rollback"}
+assert not dispatch(update, "act", STAGES, index, library, REQUIRED, read).get("is_error") and ran == ["deploy__update"]
+# ...and a guide that doesn't exist doesn't count as read
+dispatch(ToolUseBlock(name="read_guide", input={"name": "nope"}), "act", STAGES, index, library, REQUIRED, read)
+assert read == {"rollback"}
 `;
 
 <CheckpointZone>
@@ -439,6 +472,17 @@ assert bad["content"].startswith("Error: no guide called ../../config/secrets.")
       "explanation": "The code owns the stage, and the model hears it in one line at the end of each request. OpenAI's `allowed_tools` is a provider-built version of the same idea."
     },
     {
+      "question": "An agent explores a workspace with grep and read_file instead of having the files pasted in. What keeps one broad search from undoing the saving?",
+      "options": [
+        "The search results are cached, so they cost nothing",
+        "Each tool returns a bounded amount, and says how much more there is",
+        "The model only ever searches for specific words",
+        "Search results are cleared at the end of every turn"
+      ],
+      "correctIndex": 1,
+      "explanation": "A search for \"INFO\" matched over a thousand lines and returned twenty and a count. Without the cap, one call would paste the logs back into the context."
+    },
+    {
       "question": "What does calling catalog tools through a generic `call_tool` give up, and how does the loop make up for it?",
       "options": [
         "Caching; it resends definitions each turn",
@@ -472,6 +516,17 @@ assert bad["content"].startswith("Error: no guide called ../../config/secrets.")
       "explanation": "The index is fixed for the run. A guide's text arrives as a tool result, so loading it never breaks the cache."
     },
     {
+      "question": "A rollback runbook is only loaded on demand, and the agent rolls back without reading it. Which fix doesn't depend on the model choosing to read it?",
+      "options": [
+        "A dispatcher that refuses the rollback tool until the runbook has been read",
+        "A longer description of the runbook in the index",
+        "Moving the runbook to the end of the conversation",
+        "Clearing old tool results more often"
+      ],
+      "correctIndex": 0,
+      "explanation": "An index line that says when to read helps, but it's still a request to the model. Gating the tool in code holds whatever the model decides, and the refusal names the guide to read."
+    },
+    {
       "question": "Why must the guide library hold only guides you wrote or reviewed?",
       "options": [
         "Unreviewed guides are too long",
@@ -483,7 +538,7 @@ assert bad["content"].startswith("Error: no guide called ../../config/secrets.")
       "explanation": "The exception is only safe for curated content. Names are looked up in the library, never used as paths, and nothing fetched from outside becomes a guide."
     },
     {
-      "question": "In the sandbox, the on-demand run's prefix was about 26 times smaller, yet it cost only about 21% less. Why?",
+      "question": "In the sandbox below, the on-demand run's prefix comes out about 26 times smaller, yet it costs only about 21% less. Why?",
       "options": [
         "The fixed tools are billed at a premium",
         "Guides are never cached",
@@ -502,7 +557,7 @@ assert bad["content"].startswith("Error: no guide called ../../config/secrets.")
 
 <MultiFileGradedExercise
   client:load
-  task={"The registry agent rolls back a failing release. It has a 40-tool catalog and four runbook-length guides, but its requests carry only three fixed tools and a system prompt ending in the guide index. lib.py, which is read-only, has this lesson's code: ToolIndex, GuideLibrary, stage_line, check_arguments and the three fixed tool definitions. Complete agent.py. build_system(base, library): the base prompt, a blank line (\"\\n\\n\"), then library.index(). dispatch(call, stage, stage_tools, index, library): answer one call with a tool result. find_tools goes to index.find_tools(**call.input), and read_guide to library.read_guide(**call.input). For call_tool, if the inner name is in the catalog but not in stage_tools[stage], the content is \"Error: NAME isn't available during STAGE. Tools you can use now: A, B.\" Otherwise it's index.call_tool(name, arguments), which handles unknown, not-yet-found and invalid calls. Any other tool name gives \"Error: there is no tool called NAME.\" The result is {\"type\": \"tool_result\", \"tool_use_id\": call.id, \"content\": ...}, with \"is_error\": True whenever the content starts with \"Error:\". run_agent(llm, user_message, system, index, library, stage_tools, stage, advance, max_steps=20): the canonical loop. Every request has tools=FIXED_TOOLS and the same system. The messages are the history with stage_line(stage, stage_tools) added at the end with add_to_end, never saved into the history. After each round of results, stage = advance(stage, history). Return (final_text, history, sent_requests)."}
+  task={"The registry agent rolls back a failing release. It has a 40-tool catalog and four runbook-length guides, but its requests carry only three fixed tools and a system prompt ending in the guide index. lib.py, which is read-only, has this lesson's code: ToolIndex, GuideLibrary, stage_line, check_arguments and the three fixed tool definitions. Complete agent.py. build_system(base, library): the base prompt, a blank line (\"\\n\\n\"), then library.index(). dispatch(call, stage, stage_tools, index, library, required=None, read=None): answer one call with a tool result. find_tools goes to index.find_tools(**call.input), and read_guide to library.read_guide(**call.input); when that isn't an error, add the guide's name to read. For call_tool, if the inner name is in the catalog but not in stage_tools[stage], the content is \"Error: NAME isn't available during STAGE. Tools you can use now: A, B.\" Otherwise, if require_reading(name, required, read) (in lib.py; treat None as empty) gives an error, that's the content. Otherwise it's index.call_tool(name, arguments), which handles unknown, not-yet-found and invalid calls. Any other tool name gives \"Error: there is no tool called NAME.\" The result is {\"type\": \"tool_result\", \"tool_use_id\": call.id, \"content\": ...}, with \"is_error\": True whenever the content starts with \"Error:\". run_agent(llm, user_message, system, index, library, stage_tools, stage, advance, max_steps=20, required=None): the canonical loop, with one set of guides read for the whole run, passed to every dispatch along with required. Every request has tools=FIXED_TOOLS and the same system. The messages are the history with stage_line(stage, stage_tools) added at the end with add_to_end, never saved into the history. After each round of results, stage = advance(stage, history). Return (final_text, history, sent_requests)."}
   entry="agent.py"
   files={[
     { name: "tokens.py", readOnly: true, code: TOKENS_PY },
@@ -516,7 +571,7 @@ assert bad["content"].startswith("Error: no guide called ../../config/secrets.")
     { name: "lib.py", readOnly: true, code: LIB_PY },
     { name: "agent.py", code: AGENT_REFERENCE },
   ]}
-  explanation={"Each test checks one idea from the lesson. The prefix is fixed: every request has the same three tools and the same system prompt, ending in the guide index, and no request differs from the one before at the tools or the system prompt (test 2). Stages are gated in the dispatcher, not the tool list: the update is refused during research without running, then allowed in act. The stage line ends every request and never reaches the history (tests 3 and 4). The index and library do their jobs through the dispatcher: found definitions and guides come back as ordinary results, and not-yet-found, invalid, unknown and path-like requests come back as errors (tests 5-8). What it saved (test 1): each request's prefix is about 26 times smaller, 257 tokens against 6,723. Over the whole run, 39% fewer tokens were sent. Measured with [Lesson 3's](/04-context-and-memory/03-prompt-caching/00-intro/) cache model, though, the run cost only about 21% less. Caching made the send-everything run's large prefix cheap to resend, and the on-demand run took 13 requests to its 6: searches, a guide, and retries after three refused calls. That last result is worth keeping in mind. Loading on demand trades round trips for tokens, and how much it saves in money depends on the task: [the first concept's](/04-context-and-memory/07-just-in-time-context-and-dynamic-tool-exposure/01-what-you-load-and-where-it-goes/) run saved about 40% and [the third's](/04-context-and-memory/07-just-in-time-context-and-dynamic-tool-exposure/03-instructions-and-reference-material-on-demand/) about 62%. What it always gains is room in the window, and a prefix that never has to change. The room matters most for the cost this sandbox can't measure: what a model does worse when its context is full of material it doesn't need."}
+  explanation={"Each test checks one idea from the lesson. The prefix is fixed: every request has the same three tools and the same system prompt, ending in the guide index, and no request differs from the one before at the tools or the system prompt (test 2). Stages are gated in the dispatcher, not the tool list: the update is refused during research without running, then allowed in act. The stage line ends every request and never reaches the history (tests 3 and 4). The index and library do their jobs through the dispatcher: found definitions and guides come back as ordinary results, and not-yet-found, invalid, unknown and path-like requests come back as errors (tests 5-8). Required reading is enforced in code: in act, the update is refused until the rollback guide has been read, and a guide that doesn't exist doesn't count (test 9). What it saved (test 1): each request's prefix is about 26 times smaller, 257 tokens against 6,723. Over the whole run, 39% fewer tokens were sent. Measured with [Lesson 3's](/04-context-and-memory/03-prompt-caching/00-intro/) cache model, though, the run cost only about 21% less. Caching made the send-everything run's large prefix cheap to resend, and the on-demand run took 13 requests to its 6: searches, a guide, and retries after three refused calls. That last result is worth keeping in mind. Loading on demand trades round trips for tokens, and how much it saves in money depends on the task: [the first concept's](/04-context-and-memory/07-just-in-time-context-and-dynamic-tool-exposure/01-what-you-load-and-where-it-goes/) run saved about 40% and [the third's](/04-context-and-memory/07-just-in-time-context-and-dynamic-tool-exposure/03-instructions-and-reference-material-on-demand/) about 62%. What it always gains is room in the window, and a prefix that never has to change. The room matters most for the cost this sandbox can't measure: what a model does worse when its context is full of material it doesn't need."}
 />
 
 </CheckpointZone>

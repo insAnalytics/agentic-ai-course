@@ -161,11 +161,15 @@ def simulate(refresh: bool):
         store.save("u_simar", ScoredMemory(content=content, type="episodic", source=source, created=created, importance=importance))
         if matters:
             useful.add(content)
-    remember("support_agent's bottleneck is billing_agent's per-ticket lookup.", week_start(1) + "T09:00:00", 8, matters=True)
-    remember("Tom owns support_agent.", week_start(4) + "T09:00:00", 7, "user", matters=True)
-    remember("support_agent's queue doubles on the first Monday of each month.", week_start(6) + "T09:00:00", 7, matters=True)
     task = "Draft the support_agent status update."
     for week in range(1, 53):
+        # what matters is saved in the week it was learned, never before
+        if week == 1:
+            remember("support_agent's bottleneck is billing_agent's per-ticket lookup.", week_start(1) + "T09:00:00", 8, matters=True)
+        if week == 4:
+            remember("Tom owns support_agent.", week_start(4) + "T09:00:00", 7, "user", matters=True)
+        if week == 6:
+            remember("support_agent's queue doubles on the first Monday of each month.", week_start(6) + "T09:00:00", 7, matters=True)
         remember(f"Week {week}: support_agent review done, nothing unusual.", week_start(week) + "T17:00:00", 2)
         if week % 4 == 0:
             remember(f"support_agent p99 was {3 + week % 3}.{week % 10}s in week {week}.", week_start(week) + "T17:05:00", 3)
@@ -186,143 +190,147 @@ for content in recalled:
     print("   ", content)
 `;
 
-export const STARTER = String.raw`def score_memories(memories: list, task: str, now: str, weights: tuple = (1.0, 1.0, 1.0), decay: float = 0.99) -> list:
-    # TODO: recency (decay ** days since last use, or creation), importance, and relevance (shared keywords);
-    #       scale each with min_max; return the weighted sum for each memory
-    ...
-
-def recall_scored(store, user_id: str, task: str, now: str, limit: int = 5, weights: tuple = (1.0, 1.0, 1.0),
-                  decay: float = 0.99) -> list:
-    # TODO: this user's active non-procedural memories, scored; the best limit, each marked as used now
-    ...
-`;
-
-export const REFERENCE = String.raw`def score_memories(memories: list, task: str, now: str, weights: tuple = (1.0, 1.0, 1.0), decay: float = 0.99) -> list:
-    """One score per memory: recency, importance and relevance, each scaled to 0-1, then weighted and added."""
+export const RANK_FUNCS = String.raw`
+def ranked(store, user_id: str, task: str, now: str, min_shared: int = 1, weights: tuple = (1.0, 1.0, 1.0),
+           decay: float = 0.99) -> list:
+    """This user's facts and episodes that share at least min_shared keywords with the task, best score first.
+    Only ranks: nothing is marked as used."""
     wanted = keywords(task)
-    recency = [decay ** days_between(m.last_used or m.created, now) for m in memories]
-    importance = [m.importance for m in memories]
-    relevance = [len(wanted & keywords(m.content + " " + " ".join(m.tags))) for m in memories]
-    r, i, v = min_max(recency), min_max(importance), min_max(relevance)
-    w_recency, w_importance, w_relevance = weights
-    return [w_recency * r[k] + w_importance * i[k] + w_relevance * v[k] for k in range(len(memories))]
-
-def recall_scored(store, user_id: str, task: str, now: str, limit: int = 5, weights: tuple = (1.0, 1.0, 1.0),
-                  decay: float = 0.99) -> list:
-    """The best-scoring facts and episodes for this task; recalling them marks them as used now."""
-    # procedures are always loaded (Lesson 8), so they're not competing for these slots
-    candidates = [m for m in store.search(user_id, limit=1000) if m.type != "procedural"]
+    candidates = [m for m in store.search(user_id, limit=100000)
+                  if m.type != "procedural" and len(wanted & keywords(m.content + " " + " ".join(m.tags))) >= min_shared]
     if not candidates:
         return []
     scores = score_memories(candidates, task, now, weights, decay)
-    ranked = sorted(range(len(candidates)), key=lambda k: scores[k], reverse=True)[:limit]
-    recalled = [candidates[k] for k in ranked]
-    for memory in recalled:
-        memory.last_used = now
-    return recalled
+    return [candidates[i] for i in sorted(range(len(candidates)), key=lambda i: scores[i], reverse=True)]
+
+def evaluate_recall(store, user_id: str, cases: list, now: str, k: int = 5, min_shared: int = 1,
+                    weights: tuple = (1.0, 1.0, 1.0), decay: float = 0.99) -> dict:
+    """Mean recall@k and precision@k over hand-labelled cases, each (task, contents that should come back)."""
+    recalls, precisions = [], []
+    for task, useful in cases:
+        top = [m.content for m in ranked(store, user_id, task, now, min_shared, weights, decay)[:k]]
+        hits = len(set(top) & set(useful))
+        recalls.append(hits / len(useful))
+        precisions.append(hits / len(top) if top else 0.0)
+    return {"recall": round(sum(recalls) / len(recalls), 2), "precision": round(sum(precisions) / len(precisions), 2)}
 `;
 
-export const PROVIDED = "# --- provided: keywords, the stores from Lessons 9-10, and ScoredMemory/ScoredStore/days_between/min_max; don't change this part ---\n"
-  + KEYWORDS.trimStart() + MEMORY_MODEL + STORE_CLASS + RECORD_CLASS + VERSIONED_STORE + SCORED_CLASSES + "\n# --- end of provided code ---\n\n";
+export const EVAL_SETUP = SETUP + RANK_FUNCS;
+
+export const EVAL_DEMO = String.raw`from datetime import date, timedelta
+
+store = ScoredStore()
+def remember(content, day, importance, kind="episodic", source="agent"):
+    store.save("u_simar", ScoredMemory(content=content, type=kind, source=source, created=day + "T09:00:00", importance=importance))
+
+remember("support_agent's bottleneck is billing_agent's per-ticket lookup.", "2026-01-12", 8)
+remember("Tom owns support_agent.", "2026-02-02", 7, "semantic", "user")
+remember("support_agent's queue doubles on the first Monday of each month.", "2026-02-16", 7)
+remember("Ravi approves any search_agent downtime.", "2026-03-09", 7, "semantic", "user")
+remember("search_agent's new index needs a full reindex, about six hours.", "2026-04-20", 8)
+remember("billing_agent refunds fail when the currency field is empty.", "2026-05-04", 8)
+remember("billing_agent refund errors are reported in #billing-alerts.", "2026-05-11", 6, "semantic")
+for week in range(21):
+    day = (date(2026, 1, 5) + timedelta(weeks=week)).isoformat()
+    remember(f"Week {week + 1}: support_agent review done, nothing unusual.", day, 2)
+    if week % 3 == 0:
+        remember(f"search_agent p99 was {2 + week % 4}.{week % 10}s in week {week + 1}.", day, 3)
+remember("The team offsite is on 2026-06-10; no deploys that week.", "2026-05-29", 9, "semantic", "user")
+remember("Simar prefers morning meetings.", "2026-05-27", 6, "semantic", "user")
+
+# the labelled set: for each task, the memories a careful person says should come back
+CASES = [
+    ("Draft the support_agent status update.",
+     ["support_agent's bottleneck is billing_agent's per-ticket lookup.", "Tom owns support_agent.",
+      "support_agent's queue doubles on the first Monday of each month."]),
+    ("Plan the search_agent index migration.",
+     ["Ravi approves any search_agent downtime.", "search_agent's new index needs a full reindex, about six hours."]),
+    ("Look into billing_agent refund errors.",
+     ["billing_agent refunds fail when the currency field is empty.", "billing_agent refund errors are reported in #billing-alerts."]),
+]
+NOW = "2026-06-01T09:00:00"
+
+print(f"{'setting':40} recall@3  precision@3")
+for label, floor, weights in [
+    ("equal weights, no relevance floor", 0, (1.0, 1.0, 1.0)),
+    ("equal weights, floor of 1 keyword", 1, (1.0, 1.0, 1.0)),
+    ("floor, relevance weighted x2", 1, (1.0, 1.0, 2.0)),
+    ("floor, recency and importance off", 1, (0.0, 0.0, 1.0)),
+]:
+    result = evaluate_recall(store, "u_simar", CASES, NOW, k=3, min_shared=floor, weights=weights)
+    print(f"{label:40} {result['recall']:>8.2f}  {result['precision']:>11.2f}")
+
+print("\nnothing was marked as used:", all(m.last_used == "" for m in store.search("u_simar", limit=1000)))
+print("top 3 for the refund task, no floor:")
+for m in ranked(store, "u_simar", CASES[2][0], NOW, min_shared=0)[:3]:
+    print("   ", m.content)
+`;
+
+export const STARTER = String.raw`def ranked(store, user_id: str, task: str, now: str, min_shared: int = 1, weights: tuple = (1.0, 1.0, 1.0),
+           decay: float = 0.99) -> list:
+    # TODO: this user's active non-procedural memories sharing at least min_shared keywords with the task
+    #       (content and tags), best score first; [] if none. Don't mark anything as used.
+    ...
+
+def evaluate_recall(store, user_id: str, cases: list, now: str, k: int = 5, min_shared: int = 1,
+                    weights: tuple = (1.0, 1.0, 1.0), decay: float = 0.99) -> dict:
+    # TODO: for each (task, useful) case, the top k of ranked(...); recall = hits / len(useful),
+    #       precision = hits / len(top), or 0.0 if nothing came back. Return the means, rounded to 2 places.
+    ...
+`;
+
+export const REFERENCE = RANK_FUNCS.trimStart();
+
+export const PROVIDED = "# --- provided: keywords, the stores from Lessons 9-10, ScoredMemory/ScoredStore/days_between/min_max, and score_memories/recall_scored; don't change this part ---\n"
+  + KEYWORDS.trimStart() + MEMORY_MODEL + STORE_CLASS + RECORD_CLASS + VERSIONED_STORE + SCORED_CLASSES + SCORE_FUNCS + "\n# --- end of provided code ---\n\n";
+
+export const TEST_SETUP = String.raw`
+def mem(content, created, importance=5, kind="episodic"):
+    return ScoredMemory(content=content, type=kind, source="agent", created=created + "T00:00:00", importance=importance)
+
+NOW = "2026-06-01T00:00:00"
+store = ScoredStore()
+for m in [mem("support_agent bottleneck is billing lookup.", "2026-05-01", 8),
+          mem("support_agent review done.", "2026-05-30", 2),
+          mem("support_agent queue doubles monthly.", "2026-05-15", 5),
+          mem("Team offsite next week, no deploys.", "2026-05-31", 9),
+          mem("search_agent index needs a reindex.", "2026-05-20", 7),
+          mem("Never restart support_agent at night.", "2026-05-30", 10, "procedural")]:
+    store.save("u", m)
+store.save("u_other", mem("support_agent note of another user.", "2026-05-31", 10))
+TASK = "support_agent bottleneck status"
+CASES = [(TASK, ["support_agent bottleneck is billing lookup.", "support_agent queue doubles monthly."]),
+         ("search_agent reindex", ["search_agent index needs a reindex."])]
+contents = lambda memories: [m.content for m in memories]
+`;
 
 export const TESTS = [
-  String.raw`
-def mem(content, created, importance=5, last_used="", kind="episodic", tags=None):
-    return ScoredMemory(content=content, type=kind, source="agent", created=created, importance=importance,
-                        last_used=last_used, tags=tags or [])
-
-NOW = "2026-06-01T00:00:00"
-a = mem("support_agent bottleneck is billing lookup.", "2026-05-31T00:00:00", importance=9)
-b = mem("support_agent review done.", "2026-01-01T00:00:00", importance=2)
-c = mem("billing_agent handles refunds.", "2026-05-01T00:00:00", importance=5, last_used="2026-05-31T00:00:00")
-
-# 1. each part is scaled to 0-1 across the memories, then weighted and added
-scores = score_memories([a, b, c], "support_agent status", NOW)
-recency = [0.99 ** 1, 0.99 ** 151, 0.99 ** 1]
-r = [(x - min(recency)) / (max(recency) - min(recency)) for x in recency]
-i = [(9 - 2) / 7, 0.0, (5 - 2) / 7]
-v = [1.0, 1.0, 0.0]
-for k in range(3):
-    assert abs(scores[k] - (r[k] + i[k] + v[k])) < 1e-9, (k, scores[k])`,
-  String.raw`
-def mem(content, created, importance=5, last_used="", kind="episodic", tags=None):
-    return ScoredMemory(content=content, type=kind, source="agent", created=created, importance=importance,
-                        last_used=last_used, tags=tags or [])
-
-NOW = "2026-06-01T00:00:00"
-a = mem("support_agent bottleneck is billing lookup.", "2026-05-31T00:00:00", importance=9)
-b = mem("support_agent review done.", "2026-01-01T00:00:00", importance=2)
-c = mem("billing_agent handles refunds.", "2026-05-01T00:00:00", importance=5, last_used="2026-05-31T00:00:00")
-
-# 2. recency counts from last use when there is one, not from creation
-scores = score_memories([a, b, c], "support_agent status", NOW)
-assert abs(scores[2] - (1.0 + 3 / 7 + 0.0)) < 1e-9`,
-  String.raw`
-def mem(content, created, importance=5, last_used="", kind="episodic", tags=None):
-    return ScoredMemory(content=content, type=kind, source="agent", created=created, importance=importance,
-                        last_used=last_used, tags=tags or [])
-
-NOW = "2026-06-01T00:00:00"
-a = mem("support_agent bottleneck is billing lookup.", "2026-05-31T00:00:00", importance=9)
-b = mem("support_agent review done.", "2026-01-01T00:00:00", importance=2)
-c = mem("billing_agent handles refunds.", "2026-05-01T00:00:00", importance=5, last_used="2026-05-31T00:00:00")
-
-# 3. weights change the balance; a weight of zero switches a part off
-only_relevance = score_memories([a, b, c], "support_agent status", NOW, weights=(0.0, 0.0, 1.0))
-assert only_relevance == [1.0, 1.0, 0.0]`,
-  String.raw`
-def mem(content, created, importance=5, last_used="", kind="episodic", tags=None):
-    return ScoredMemory(content=content, type=kind, source="agent", created=created, importance=importance,
-                        last_used=last_used, tags=tags or [])
-
-NOW = "2026-06-01T00:00:00"
-
-# 4. a part that's the same for every memory can't tell them apart, so it adds 0.5 to each
-same = score_memories([mem("x one", NOW), mem("y two", NOW)], "nothing", NOW, weights=(1.0, 0.0, 0.0))
-assert same == [0.5, 0.5]`,
-  String.raw`
-def mem(content, created, importance=5, last_used="", kind="episodic", tags=None):
-    return ScoredMemory(content=content, type=kind, source="agent", created=created, importance=importance,
-                        last_used=last_used, tags=tags or [])
-
-NOW = "2026-06-01T00:00:00"
-a = mem("support_agent bottleneck is billing lookup.", "2026-05-31T00:00:00", importance=9)
-b = mem("support_agent review done.", "2026-01-01T00:00:00", importance=2)
-c = mem("billing_agent handles refunds.", "2026-05-01T00:00:00", importance=5, last_used="2026-05-31T00:00:00")
-
-store = ScoredStore()
-for m in [a, b, c, mem("Never restart support_agent at night.", "2026-05-30T00:00:00", importance=10, kind="procedural")]:
-    store.save("u", m)
-store.save("u_other", mem("support_agent secret of another user.", "2026-05-31T00:00:00", importance=10))
-
-# 5. recall: the best scores first, procedures excluded, this user only, at most limit
-recalled = recall_scored(store, "u", "support_agent status", NOW, limit=2)
-assert [m.content for m in recalled] == ["support_agent bottleneck is billing lookup.", "billing_agent handles refunds."]`,
-  String.raw`
-def mem(content, created, importance=5, last_used="", kind="episodic", tags=None):
-    return ScoredMemory(content=content, type=kind, source="agent", created=created, importance=importance,
-                        last_used=last_used, tags=tags or [])
-
-NOW = "2026-06-01T00:00:00"
-a = mem("support_agent bottleneck is billing lookup.", "2026-05-31T00:00:00", importance=9)
-b = mem("support_agent review done.", "2026-01-01T00:00:00", importance=2)
-c = mem("billing_agent handles refunds.", "2026-05-01T00:00:00", importance=5, last_used="2026-05-31T00:00:00")
-
-store = ScoredStore()
-for m in [a, b, c, mem("Never restart support_agent at night.", "2026-05-30T00:00:00", importance=10, kind="procedural")]:
-    store.save("u", m)
-store.save("u_other", mem("support_agent secret of another user.", "2026-05-31T00:00:00", importance=10))
-recall_scored(store, "u", "support_agent status", NOW, limit=2)
-
-# 6. recalled memories are marked as used now, in the store; the others aren't
-used = {m.content: m.last_used for m in store.search("u", limit=10)}
-assert used["support_agent bottleneck is billing lookup."] == NOW and used["support_agent review done."] == ""
-assert all(m.type != "procedural" for m in recall_scored(store, "u", "support_agent", NOW, limit=10))`,
-  String.raw`
-NOW = "2026-06-01T00:00:00"
-
-# 7. nothing to recall gives nothing
-assert recall_scored(ScoredStore(), "u", "anything", NOW) == []`,
+  TEST_SETUP + String.raw`
+# 1. the floor: only memories sharing a keyword with the task are ranked, best score first; procedures and other users never
+assert contents(ranked(store, "u", TASK, NOW)) == [
+    "support_agent bottleneck is billing lookup.", "support_agent review done.", "support_agent queue doubles monthly."]`,
+  TEST_SETUP + String.raw`
+# 2. with no floor, a recent, important but unrelated memory ranks first; with a higher floor, fewer qualify
+assert contents(ranked(store, "u", TASK, NOW, min_shared=0))[0] == "Team offsite next week, no deploys."
+assert len(ranked(store, "u", TASK, NOW, min_shared=0)) == 5
+assert contents(ranked(store, "u", TASK, NOW, min_shared=2)) == ["support_agent bottleneck is billing lookup."]
+assert ranked(store, "u", "billing refunds", NOW, min_shared=2) == []`,
+  TEST_SETUP + String.raw`
+# 3. ranking marks nothing as used, and neither does measuring
+ranked(store, "u", TASK, NOW)
+evaluate_recall(store, "u", CASES, NOW, k=2)
+assert all(m.last_used == "" for m in store.search("u", limit=100))`,
+  TEST_SETUP + String.raw`
+# 4. recall@k and precision@k, averaged over the cases: the first finds 1 of 2 in its top 2, the second 1 of 1 in a top of 1
+assert evaluate_recall(store, "u", CASES, NOW, k=2) == {"recall": 0.75, "precision": 0.75}`,
+  TEST_SETUP + String.raw`
+# 5. without the floor, the unrelated memory takes a slot in both top 2s: recall holds here, precision drops
+assert evaluate_recall(store, "u", CASES, NOW, k=2, min_shared=0) == {"recall": 0.75, "precision": 0.5}`,
+  TEST_SETUP + String.raw`
+# 6. nothing coming back scores 0 for both, not an error; k and weights are passed through
+assert evaluate_recall(store, "u", [("billing refunds", ["x"])], NOW, k=2, min_shared=2) == {"recall": 0.0, "precision": 0.0}
+assert evaluate_recall(store, "u", CASES[:1], NOW, k=3) == {"recall": 1.0, "precision": 0.67}
+assert evaluate_recall(store, "u", CASES[:1], NOW, k=1, weights=(0.0, 0.0, 1.0)) == {"recall": 0.5, "precision": 1.0}`,
 ];
 
 <Subsection title="Three signals" variant="a">
@@ -460,7 +468,54 @@ history-based deletion in
 [Xiong et al.'s study](https://arxiv.org/abs/2505.16067) does. Both need more
 information than recall alone provides. Whatever signal is used, the weights
 and the decay rate are tuning choices, and the only way to set them well is
-to measure recall quality on your own tasks, which is Module 7's subject.
+to measure recall quality on your own tasks.
+
+</Subsection>
+
+<Subsection title="Measuring recall" variant="a">
+
+The demos in this lesson already measure, in miniature. The memories that
+matter are marked by hand, and "N of 3 useful memories recalled" is a
+standard measure called **recall@k**: of the memories that should have come
+back, what share were in the top k. Its partner, **precision@k**, asks the
+reverse: of what came back, what share was worth it. Recall that's too low
+means the agent works without something it needed. Precision that's too low
+means the slots, and the model's attention, went to clutter.
+
+A **labelled set** turns those into numbers you can compare: a handful of
+real tasks, each with the memories a careful person says should come back.
+Change the weights, the decay or anything else about recall, rerun the set,
+and see whether the numbers moved the right way. Two details make it work:
+
+- **Measuring mustn't change what it measures.** `recall_scored` marks what
+  it returns as used, which feeds the next recall. So scoring is split out
+  into `ranked`, which only orders the candidates, and both recall and
+  measurement use it.
+- **Relevance gets a floor.** Scores are relative: min-max scaling makes the
+  best of whatever candidates there are look good. So a memory that shares
+  nothing with the task can still win on recency and importance alone.
+  `ranked` first keeps only the memories sharing at least `min_shared`
+  keywords with the task, then scores those.
+
+Here's a store with three kinds of work in it, a labelled set of three tasks,
+and four settings compared. `ranked` and `evaluate_recall` are loaded; you'll
+write both in the exercise below:
+
+<LiveDemo client:load setupCode={EVAL_SETUP} code={EVAL_DEMO} />
+
+The floor is the biggest single change. Without it, "The team offsite is on
+2026-06-10" is recent and rated important, so it takes a slot on every task,
+including a refund investigation it has nothing to do with. Doubling the
+weight on relevance changed nothing here, and switching recency and
+importance off made things worse: among the memories that pass the floor,
+those two signals are what tell the useful ones from the routine notes.
+None of that could have been guessed with confidence, which is the point of
+measuring.
+
+A labelled set this small is a sanity check, not a verdict: three tasks can
+be tuned to perfection and still mislead. Real ones are built from real
+sessions and grow over time. Evaluating agents more broadly, memory
+included, is Module 7's subject.
 
 </Subsection>
 
@@ -523,6 +578,28 @@ to measure recall quality on your own tasks, which is Module 7's subject.
       ],
       "correctIndex": 1,
       "explanation": "Refreshing on actual use, or on whether tasks went well, is a better signal, but needs more information than recall alone."
+    },
+    {
+      "question": "Why does measuring recall use `ranked` rather than calling `recall_scored`?",
+      "options": [
+        "`recall_scored` marks what it returns as used, so each measurement would change the next",
+        "`ranked` is faster, because it skips the scoring step",
+        "`recall_scored` can't return more than five memories",
+        "`ranked` scores memories differently, which makes it more accurate"
+      ],
+      "correctIndex": 0,
+      "explanation": "Both score the same way. The difference is the side effect: recalling refreshes last_used, which raises recency next time. A measurement with side effects measures a store it's also changing."
+    },
+    {
+      "question": "Without a relevance floor, a recent, important memory about a team offsite came back for a refund investigation. Why?",
+      "options": [
+        "Its keywords happened to overlap with the task",
+        "Scores are relative, so recency and importance alone can outrank relevant memories",
+        "Importance is always weighted above relevance",
+        "The offsite memory was stored as a standing instruction"
+      ],
+      "correctIndex": 1,
+      "explanation": "It shared no words with the task. Min-max scaling makes each signal relative to the candidates, and a memory at the top of recency and importance can win even at the bottom of relevance. The floor removes it from the candidates before scoring."
     }
   ]}
 />
@@ -533,13 +610,13 @@ to measure recall quality on your own tasks, which is Module 7's subject.
 
 <GradedExercise
   client:load
-  task={"ScoredMemory, ScoredStore, days_between, min_max and keywords are provided. Implement score_memories(memories, task, now, weights=(1.0, 1.0, 1.0), decay=0.99): one score per memory, in order. Recency is decay ** days_between(m.last_used or m.created, now). Importance is m.importance. Relevance is the number of keywords the task shares with the memory's content and tags, joined by a space. Scale each of the three lists with min_max, then return w_recency * recency + w_importance * importance + w_relevance * relevance for each memory. recall_scored(store, user_id, task, now, limit=5, weights=..., decay=...): take this user's active memories that aren't procedural, and return [] if there are none. Score them, and return the limit highest scores, best first. Set last_used to now on each memory returned."}
+  task={"keywords, ScoredMemory, ScoredStore, score_memories and recall_scored are provided. Implement ranked(store, user_id, task, now, min_shared=1, weights=(1.0, 1.0, 1.0), decay=0.99): this user's active memories that aren't procedural and share at least min_shared keywords with the task (counting the memory's content and tags, joined by a space), scored with score_memories and sorted best first. Return [] if none qualify, and don't change any memory. evaluate_recall(store, user_id, cases, now, k=5, min_shared=1, weights=..., decay=...): cases is a list of (task, useful), where useful is a list of the contents that should come back. For each case, take the contents of the first k of ranked(...). Recall is the number of those in useful divided by len(useful). Precision is the same number divided by how many came back, or 0.0 if none did. Return {\"recall\": ..., \"precision\": ...}, each the mean over the cases, rounded to 2 places."}
   starterCode={PROVIDED + STARTER}
   hiddenTests={TESTS}
-  hint={"Build three lists, one per signal, with list comprehensions, scale each with min_max, then combine them by index. To rank, sort the indexes: sorted(range(len(candidates)), key=lambda k: scores[k], reverse=True). The memories that store.search returns are the store's own objects, so setting last_used on them updates the store."}
+  hint={"In ranked, filter first, then call score_memories on what's left, and sort the indexes: sorted(range(len(candidates)), key=lambda i: scores[i], reverse=True). Use store.search(user_id, limit=100000) to get every active memory. In evaluate_recall, set(top) & set(useful) counts the hits; guard the precision division for an empty top."}
   correctAnswer={{
     code: PROVIDED + REFERENCE,
-    explanation: "Test 1 checks the whole calculation against numbers worked out by hand, which catches unscaled parts and missing weights. Test 2 checks that recency counts from last use. A version that always counts from creation loses the effect the demo turned on. Test 6 checks that recall marks exactly the recalled memories as used, not all of them and not none. Test 5 checks that procedures stay out of the competition.",
+    explanation: "Test 3 is the one that separates measuring from recalling: a version that calls recall_scored inside evaluate_recall gets plausible numbers, but every measurement marks memories as used and changes the next one. Test 2 shows why the floor exists: with min_shared=0, a recent, important memory unrelated to the task ranks first. Tests 4 and 5 check the two measures against numbers worked out by hand, including precision falling while recall holds, which is exactly the clutter the floor removes.",
   }}
 />
 

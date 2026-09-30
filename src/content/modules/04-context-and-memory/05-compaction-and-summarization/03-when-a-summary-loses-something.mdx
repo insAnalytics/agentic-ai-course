@@ -211,6 +211,43 @@ print("pairing problems:", check_pairing(sent))
 print("\nnames missing from the summary:", [n for n in ["research_agent", "support_agent", "claude-sonnet"] if n not in summary])
 `;
 
+export const PROBE_DEMO = String.raw`# questions the agent must be able to answer from the summary, each asked for a short answer in a fixed form,
+# with the right answer as a set, so grading is exact rather than a search for words
+PROBES = [
+    ("Which agents run on claude-sonnet now? Reply with agent names separated by commas, or none.", {"research_agent", "support_agent"}),
+    ("What must not be done to production agents today? Reply with one verb, or none.", {"restart"}),
+    ("Which agents need attention? Reply with agent names separated by commas, or none.", {"support_agent"}),
+]
+
+def probe_summary(summary: str, probes: list, ask) -> list:
+    """Ask each question with only the summary in front of the model, and grade each short answer exactly."""
+    results = []
+    for question, expected in probes:
+        answer = ask(f"{summary}\n\nUsing only the summary above: {question}")
+        given = {part.strip().lower() for part in answer.split(",")}
+        results.append((question.split("?")[0] + "?", answer, given == expected))
+    return results
+
+plausible = ("Task: move research_agent and support_agent to claude-sonnet one at a time and watch them. "
+             "research_agent was moved to claude-sonnet and stayed healthy. Next: finish the rollout.")
+careful = ("Task: move research_agent and support_agent to claude-sonnet one at a time and watch them. "
+           "The user said: never restart production agents today. research_agent moved to claude-sonnet, healthy. "
+           "support_agent moved to claude-sonnet, now DEGRADED with errors at 9%. Next: decide how to handle support_agent without a restart.")
+
+# scripted: the answers a model reading each summary gives. A real run sends each question to the model.
+answers = {plausible: ["research_agent", "none", "none"], careful: ["research_agent, support_agent", "restart", "support_agent"]}
+for label, summary in [("plausible summary", plausible), ("careful summary", careful)]:
+    llm = FakeLLMClient([[TextBlock(text=a)] for a in answers[summary]])
+    ask = lambda prompt: llm.create(messages=[{"role": "user", "content": prompt}]).content[0].text
+    results = probe_summary(summary, PROBES, ask)
+    print(f"{label}: {sum(passed for _, _, passed in results)} of {len(results)} probes answered right")
+    for question, answer, passed in results:
+        print(f"   {'ok  ' if passed else 'MISS'} {question:45} {answer}")
+
+# the word check from the section above passes the plausible summary: every name is in it
+print("\nword check on the plausible summary:", all(name in plausible for name in ["research_agent", "support_agent", "claude-sonnet"]))
+`;
+
 export const FOLD_DEMO = String.raw`summary_1 = ("research_agent: moved from claude-haiku to claude-sonnet, healthy. "
              "support_agent: moved to claude-sonnet, error rate rising at the last check.")
 view = compact(history, summary_1, keep_recent=2)
@@ -455,7 +492,42 @@ summary for anything code can derive.
 
 </Subsection>
 
-<Subsection title="Summaries of summaries" variant="b">
+<Subsection title="Testing a summary by asking it questions" variant="b">
+
+To check what a summary *says*, ask it. Write down the questions the agent
+must still be able to answer after compaction, give a model the summary and
+nothing else, and see whether it answers them correctly. A question like
+"which agents run on claude-sonnet now?" can only be answered right if the
+summary actually says both were moved.
+
+Grading the answers has the same trap as the word check. An answer that
+contains the right names can still be wrong, as in "research_agent;
+support_agent hasn't been moved yet". So each question asks for a short
+answer in a fixed form, a list of names or a single word, and code compares
+it with the right answer exactly:
+
+<LiveDemo client:load setupCode={SCENARIO_SETUP} code={PROBE_DEMO} />
+
+*(the answering model is scripted with the answers a model reading each
+summary would give)*
+
+The plausible summary passes the word check and fails every probe. The
+careful one, which keeps what the summary instructions ask for, including
+the user's constraint and the current state, passes all three.
+
+This is a test for the summarizer, not a check to run on every compaction.
+Each probe is a model call, and the questions come from someone who knows
+what the task needed. It belongs in the same place as any other test: a
+set of real runs, each compacted and probed, rerun whenever the summary
+instructions, the model or the compaction threshold change. Questions with
+open answers need a model to judge the answer too, which brings its own
+reliability questions. The deeper measure is whether the agent still
+*finishes the task* as well after compaction as without it. Both are
+Module 7's subject: evaluating agents.
+
+</Subsection>
+
+<Subsection title="Summaries of summaries" variant="a">
 
 A long run compacts more than once, and there are two ways to handle the
 earlier summary:
@@ -554,7 +626,18 @@ and note taking).
     ],
     "correctIndex": 1,
     "explanation": "It's the same design as Lesson 2's anchor: restated at the end, never stored. The previous request's last message is resent without it, which is the one-message miss Lesson 3 measured."
-  }
+  },
+    {
+      "question": "A summary names every agent and value it should, yet the agent goes wrong after compaction. What test would have caught it?",
+      "options": [
+        "Checking that the summary is under its word limit",
+        "Asking a model questions the agent must answer, with only the summary in front of it, and grading the short answers exactly",
+        "Checking the summary for the names of every tool used",
+        "Comparing the summary's length with the rounds it replaced"
+      ],
+      "correctIndex": 1,
+      "explanation": "Probes test what the summary says, not which words it contains. The plausible summary passed the word check and failed all three probes."
+    }
 ]}
 />
 

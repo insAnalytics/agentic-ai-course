@@ -184,6 +184,36 @@ does.
 
 </Subsection>
 
+<Subsection title="Using a real cache" variant="b">
+
+The cost model leaves out the details that decide whether a real cache
+pays off. They differ between providers, so read the documentation for
+yours, but the same five questions come up everywhere:
+
+- **Is it automatic?** Some providers cache every long enough prefix on
+  their own. Others cache only up to a marker you place in the request.
+  With a marker, put it at the end of the part that stays the same from
+  turn to turn, never on content that changes every request, or each
+  request writes a new entry that nothing ever reads.
+- **How long must the prefix be?** Below a minimum length, often around a
+  thousand tokens, nothing is cached at all. The small requests in this
+  lesson's demos are illustrations, well under that line.
+- **How long does an entry live?** Typically minutes, renewed each time
+  it's used. An agent that waits on a slow tool, or on a person to approve
+  a step, can come back to a cold cache and pay full price for its whole
+  history. Some providers sell a longer lifetime at a higher write price,
+  which only pays when requests really are that far apart.
+- **What else does it match?** The cache belongs to one model. An agent
+  that switches models partway through a run, for a fallback, a router, or
+  a cheaper model for one step, starts that model's cache from nothing.
+- **Did it work?** Every response reports how many of its input tokens
+  were read from the cache. That number, logged every turn, is the only
+  real evidence. If it stays at zero turn after turn, something near the
+  start of the request is changing, and the next concept shows how to find
+  it.
+
+</Subsection>
+
 <CheckpointZone>
 
 <QuizGroup

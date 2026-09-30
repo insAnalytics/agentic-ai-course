@@ -42,7 +42,7 @@ TOOLS = [{"name": "monitoring__get_logs", "description": "Recent log lines for a
           "input_schema": {"type": "object", "properties": {"agent_name": {"type": "string"}}, "required": ["agent_name"]}}]
 
 def get_logs(agent_name: str) -> str:
-    # a realistic tool result: a few hundred log lines, around 1,500 tokens
+    # a realistic tool result: 70 log lines, around 1,700 tokens
     line = f"2026-09-25T10:00:00Z {agent_name} INFO request handled in 412ms status=200 route=/v1/answer\n"
     return line * 70
 
@@ -216,7 +216,7 @@ class TurnTracker:
 <Subsection title="An agent reading logs" variant="b">
 
 Now the registry agent on a real task: check the logs for six agents. Each
-`get_logs` call returns a few hundred log lines, around 1,700 tokens, which
+`get_logs` call returns 70 log lines, around 1,700 tokens, which
 is small for real logs. The tracker records the request at the top of every
 iteration, just before it's sent:
 
@@ -236,8 +236,8 @@ Three things show up only because the budget was measured every turn:
   [resent everything before it](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/03-multi-turn-conversations/).
   As a task gets longer, the total grows much faster than the conversation
   itself: double the number of turns and you roughly quadruple the tokens
-  sent. Prompt caching makes the repeated part much cheaper, which is a
-  later lesson in this module.
+  sent. Prompt caching makes the repeated part much cheaper, which is
+  [a later lesson in this module](/04-context-and-memory/03-prompt-caching/00-intro/).
 - **You can project when it runs out.** At about 1,700 tokens a turn, this
   agent has roughly 109 turns left. A task that reads a hundred log files,
   or a few very large ones, would hit the limit, and knowing that *before*
@@ -256,8 +256,9 @@ old tool results. Guessing leads to optimizing the wrong part.
 
 There's also a reason to act well before the window is full, and it has
 nothing to do with running out of room. An agent's answers get worse as its
-context grows, long before the hard limit. That's the next lesson's subject
-(context that fits but still hurts), and it's why the warning line in the
+context grows, long before the hard limit. That's
+[the next lesson's subject](/04-context-and-memory/02-context-that-fits-but-still-hurts/00-intro/),
+and it's why the warning line in the
 demo sits far above zero.
 
 </Subsection>

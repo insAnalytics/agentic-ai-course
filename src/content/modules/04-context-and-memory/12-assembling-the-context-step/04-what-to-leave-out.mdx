@@ -1,14 +1,13 @@
 ---
-title: "One context step, in order"
+title: "What to leave out"
 lesson: "12-assembling-the-context-step"
-order: 1
+order: 4
 ---
 import Subsection from "../../../../components/lesson/Subsection.astro";
-import LiveDemo from "../../../../components/lesson/LiveDemo";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
-import GradedExercise from "../../../../components/lesson/GradedExercise";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
-import { REACT_FAKE_CLIENT, COUNT_TOKENS, CHECK_PAIRING } from "../../../../lib/fakeClient";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import { REACT_FAKE_CLIENT, COUNT_TOKENS, CHECK_PAIRING, WINDOWED_CLIENT } from "../../../../lib/fakeClient";
 
 export const MODULE_LIB = String.raw`
 def strip_old_thinking(messages: list) -> list:
@@ -603,27 +602,6 @@ class CoreBlock:
         return "Replaced."
 `.trimStart();
 
-export const ANCHOR_TEXT_FUNC = String.raw`
-def anchor_text(history: list, notes, block, block_at_start: str, write_tools: list) -> str:
-    """Everything restated at the end of each request, read from the full history, in a fixed order."""
-    parts = []
-    plan = latest_plan(history)
-    if plan:
-        parts.append(f"<current_plan>\n{plan}\n</current_plan>")
-    rules = current_rules_block(history)
-    if rules:
-        parts.append(rules)
-    changes = changes_ledger(history, write_tools)
-    if changes:
-        parts.append("<changes_made>\n" + "\n".join(changes) + "\n</changes_made>")
-    index = notes.index_line()
-    if index:
-        parts.append(index)
-    if block.text != block_at_start:
-        parts.append("Your memory block has changed this session. It now reads:\n" + block.text)
-    return "\n\n".join(parts)
-`;
-
 export const CONTEXT_MANAGER = String.raw`
 FOLD_INSTRUCTIONS = """Rewrite all the summaries above as one summary. Keep every fact, decision and exact value,
 and every stored record they mention by name. Plain text, under 300 words."""
@@ -696,278 +674,7 @@ class ContextManager:
         return [first] + view[1:]
 `;
 
-export const SESSION_SETUP = String.raw`
-BASE = "You are the registry assistant. Follow your plan, the user's rules, and your notes."
-TOOL_NAMES = ["get_logs", "get_status", "set_cache", "set_rule", "update_plan", "add_note", "read_notes", "read_result", "find_in_result",
-              "block_append"]
-TOOLS = [{"name": n, "description": n, "input_schema": {"type": "object", "properties": {}}} for n in TOOL_NAMES]
-AGENTS = ["research_agent", "triage_agent", "search_agent", "report_agent", "auth_agent", "notify_agent", "billing_agent"]
-
-class ScriptedAgent(FakeLLMClient):
-    """Plays the agent's scripted steps, and answers any summary request with a scripted summary."""
-    def create(self, messages, tools=None, system=""):
-        last = messages[-1]["content"]
-        if isinstance(last, list) and _plain(last[-1]).get("text") == SUMMARY_INSTRUCTIONS:
-            return FakeResponse(content=[TextBlock(text="Rule and plan set; billing_agent's per-ticket lookup (p99 4.8s) is the likely cause; "
-                                                        "several agents' logs looked normal.")])
-        return super().create(messages)
-
-def script():
-    def think(text):
-        return ThinkingBlock(thinking=text + " " + "Weighing what the evidence so far shows. " * 5)
-    steps = [
-        [think("Record the user's rule first."), ToolUseBlock(name="set_rule", input={"name": "restarts", "value": "never restart production agents"})],
-        [think("Plan the work."), ToolUseBlock(name="update_plan", input={"plan": "[ ] find the cause\n[ ] fix it without restarts\n[ ] report"})],
-        [think("Start with billing."), ToolUseBlock(name="get_status", input={"agent_name": "billing_agent"})],
-        [think("That's the finding; keep it."), ToolUseBlock(name="add_note", input={"section": "facts", "text": "billing_agent /lookup p99 4.8s, once per ticket"})],
-        [think("Pull the full support log."), ToolUseBlock(name="get_logs", input={"agent_name": "support_agent", "full": True})],
-        [think("Look for errors in it."), ToolUseBlock(name="find_in_result", input={"handle": "res_1", "text": "ERROR"})],
-    ]
-    for agent in AGENTS:
-        steps.append([think(f"Rule out {agent}."), ToolUseBlock(name="get_status", input={"agent_name": agent, "detail": True})])
-    steps += [
-        [think("Remember the owner across sessions."), ToolUseBlock(name="block_append", input={"line": "support_agent is owned by Tom."})],
-        [think("Fix it without a restart."), ToolUseBlock(name="set_cache", input={"agent_name": "billing_agent", "ttl_seconds": 300})],
-        [think("Check the notes before reporting."), ToolUseBlock(name="read_notes", input={})],
-        [TextBlock(text="- Cause: billing_agent's per-ticket lookup (p99 4.8s)\n- Fix: 300s lookup cache, no restart")],
-    ]
-    return steps
-
-def make_impls(notes, results, block):
-    def get_logs(agent_name, full=False):
-        lines = [f"{agent_name} INFO request handled in 412ms" for n in range(300)]
-        lines[217] = f"{agent_name} ERROR upstream billing lookup timed out after 30s"
-        return offload("\n".join(lines), results, threshold=400)
-    def get_status(agent_name, detail=False):
-        text = {"billing_agent": "billing_agent: p99 4.8s on /lookup, called once per ticket"}.get(agent_name, f"{agent_name}: healthy")
-        return text + ("\n" + "metric: value, normal\n" * 40 if detail else "")
-    return {"get_logs": get_logs, "get_status": get_status,
-            "set_cache": lambda agent_name, ttl_seconds: f"{agent_name}: lookup cache on, ttl {ttl_seconds}s",
-            "set_rule": lambda name, value: "rule saved", "update_plan": lambda plan: "plan saved",
-            "add_note": lambda section, text: notes.add(section, text), "read_notes": lambda: notes.render(),
-            "read_result": lambda handle, offset, limit: read_result(results, handle, offset, limit),
-            "find_in_result": lambda handle, text: find_in_result(results, handle, text),
-            "block_append": lambda line: block.append(line)}
-
-def run(context, llm, task, impls, max_steps=30):
-    history = [{"role": "user", "content": task}]
-    sent = []
-    for step in range(max_steps):
-        request = context.build(history)
-        sent.append(request)
-        response = llm.create(messages=request["messages"], tools=request["tools"], system=request["system"])
-        history.append({"role": "assistant", "content": response.content})
-        calls = [b for b in response.content if b.type == "tool_use"]
-        if not calls:
-            return "".join(b.text for b in response.content if b.type == "text"), history, sent
-        history.append({"role": "user", "content": [
-            {"type": "tool_result", "tool_use_id": c.id, "content": impls[c.name](**c.input)} for c in calls]})
-    return "stopped", history, sent
-`;
-
-export const SETUP = REACT_FAKE_CLIENT + COUNT_TOKENS + CHECK_PAIRING + MODULE_LIB + ANCHOR_TEXT_FUNC + CONTEXT_MANAGER + SESSION_SETUP;
-
-export const SESSION_DEMO = String.raw`memory = ArchiveStore()
-memory.save("u_simar", ArchivableMemory(content="Write summaries as bullet points.", type="procedural", source="user",
-                                        created="2026-09-14T10:00:00", importance=9))
-notes, results, block = Notes(), ResultStore(), CoreBlock("User: Simar, operations lead.")
-TASK = "support_agent is slow. Find the cause and fix it."
-llm = ScriptedAgent(script())
-context = ContextManager(llm, BASE, TOOLS, window=3_500, max_tokens=1_000, memory=memory, user_id="u_simar", task=TASK,
-                         now="2026-09-28T09:00:00", block=block, notes=notes, results=results, write_tools=["set_cache"])
-answer, history, sent = run(context, llm, TASK, make_impls(notes, results, block))
-
-print("turn  sent  step")
-for turn in range(len(sent)):
-    print(f"{turn + 1:>4} {count_tokens(sent[turn]['messages']):>5}  {context.steps[turn]}")
-last = json.dumps(_plain(sent[-1]["messages"]))
-print("\nanswer:", answer.split("\n")[0])
-print("history:", count_tokens(history), "tokens; largest request's messages:", max(count_tokens(r["messages"]) for r in sent))
-print("prefix unchanged all session:", all(r["system"] == sent[0]["system"] and r["tools"] is TOOLS for r in sent))
-print("pairing intact every turn:", all(check_pairing(r["messages"]) == [] for r in sent))
-print("in the last request: rule", "never restart production agents" in last, "| plan", "fix it without restarts" in last,
-      "| change", "set_cache(agent_name=billing_agent" in last, "| notes index", "Your notes:" in last, "| block edit", "owned by Tom" in last)
-print("early finding still in the last request:", "4.8s" in last)
-print("results stored away:", len(results.items), "(the full log, cleared results, and the compacted rounds' record)")
-`;
-
-export const EXERCISE_PROVIDED = "# --- provided: the module's code, as loaded in this lesson's setup; don't change this part ---\n"
-  + REACT_FAKE_CLIENT.trimStart() + COUNT_TOKENS + CHECK_PAIRING + MODULE_LIB
-  + "\n# --- end of provided code ---\n\n";
-
-export const EXERCISE_STARTER = String.raw`def anchor_text(history: list, notes, block, block_at_start: str, write_tools: list) -> str:
-    # TODO: the plan, the rules, the change ledger, the notes index, and the block's new text if it changed,
-    #       in that order, each only if there's something to say, joined by blank lines
-    ...
-`;
-
-export const EXERCISE_REFERENCE = ANCHOR_TEXT_FUNC.trimStart();
-
-export const EXERCISE_TESTS = [
-  String.raw`
-def call(tool, result, **arguments):
-    block = ToolUseBlock(name=tool, input=arguments)
-    return [{"role": "assistant", "content": [block]},
-            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]}]
-
-history = [{"role": "user", "content": "Fix support_agent."}]
-history += call("update_plan", "plan saved", plan="[ ] find the cause\n[ ] fix it")
-history += call("set_rule", "rule saved", name="restarts", value="never in production")
-history += call("get_status", "billing_agent: p99 4.8s", agent_name="billing_agent")
-history += call("set_cache", "billing_agent: cache on", agent_name="billing_agent", ttl_seconds=300)
-
-# 1. every part, in the fixed order: plan, rules, changes, notes index, block edits; separated by blank lines
-notes = Notes()
-notes.add("facts", "billing_agent is slow")
-block = CoreBlock("User: Simar.")
-start = block.text
-block.append("Owns: support_agent.")
-text = anchor_text(history, notes, block, start, ["set_cache"])
-assert text == ("<current_plan>\n[ ] find the cause\n[ ] fix it\n</current_plan>\n\n"
-                "<current_rules>\n- restarts: never in production\n</current_rules>\n\n"
-                "<changes_made>\n- set_cache(agent_name=billing_agent, ttl_seconds=300) -> billing_agent: cache on\n</changes_made>\n\n"
-                "Your notes: 1 facts, 0 decisions, 0 open items. Read them with read_notes().\n\n"
-                "Your memory block has changed this session. It now reads:\nUser: Simar.\nOwns: support_agent.")`,
-  String.raw`
-def call(tool, result, **arguments):
-    block = ToolUseBlock(name=tool, input=arguments)
-    return [{"role": "assistant", "content": [block]},
-            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]}]
-
-history = [{"role": "user", "content": "Fix support_agent."}]
-history += call("update_plan", "plan saved", plan="[ ] find the cause\n[ ] fix it")
-history += call("set_rule", "rule saved", name="restarts", value="never in production")
-history += call("get_status", "billing_agent: p99 4.8s", agent_name="billing_agent")
-history += call("set_cache", "billing_agent: cache on", agent_name="billing_agent", ttl_seconds=300)
-block = CoreBlock("User: Simar.")
-block.append("Owns: support_agent.")
-
-# 2. parts with nothing to say are left out; an unchanged block says nothing
-assert anchor_text(history[:1], Notes(), CoreBlock("User: Simar."), "User: Simar.", ["set_cache"]) == ""
-only_rules = anchor_text(history[:1] + history[3:5], Notes(), block, block.text, ["set_cache"])
-assert only_rules == "<current_rules>\n- restarts: never in production\n</current_rules>"`,
-  String.raw`
-def call(tool, result, **arguments):
-    block = ToolUseBlock(name=tool, input=arguments)
-    return [{"role": "assistant", "content": [block]},
-            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]}]
-
-history = [{"role": "user", "content": "Fix support_agent."}]
-history += call("update_plan", "plan saved", plan="[ ] find the cause\n[ ] fix it")
-history += call("set_rule", "rule saved", name="restarts", value="never in production")
-history += call("get_status", "billing_agent: p99 4.8s", agent_name="billing_agent")
-history += call("set_cache", "billing_agent: cache on", agent_name="billing_agent", ttl_seconds=300)
-block = CoreBlock("User: Simar.")
-block.append("Owns: support_agent.")
-
-# 3. only calls to write tools are listed as changes
-assert "get_status" not in anchor_text(history, Notes(), block, block.text, ["set_cache"])
-assert "<changes_made>" not in anchor_text(history, Notes(), block, block.text, [])`,
-  String.raw`
-def call(tool, result, **arguments):
-    block = ToolUseBlock(name=tool, input=arguments)
-    return [{"role": "assistant", "content": [block]},
-            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]}]
-
-history = [{"role": "user", "content": "Fix support_agent."}]
-history += call("update_plan", "plan saved", plan="[ ] find the cause\n[ ] fix it")
-history += call("set_rule", "rule saved", name="restarts", value="never in production")
-history += call("get_status", "billing_agent: p99 4.8s", agent_name="billing_agent")
-history += call("set_cache", "billing_agent: cache on", agent_name="billing_agent", ttl_seconds=300)
-block = CoreBlock("User: Simar.")
-block.append("Owns: support_agent.")
-
-# 4. it reads from the history it's given: a compacted copy without the plan and rule calls would lose them,
-#    which is why the context step always passes the full history
-compacted = compact(history, "Plan and rule set; billing is slow.", keep_recent=1)
-assert "<current_plan>" not in anchor_text(compacted, Notes(), block, block.text, ["set_cache"])
-assert "<current_plan>" in anchor_text(history, Notes(), block, block.text, ["set_cache"])`,
-];
-
-<Subsection title="Three phases" variant="a">
-
-This module built one piece at a time. In a working agent, they all live in
-one place: the step that prepares each request, between the loop keeping its
-history and the model call.
-[Lesson 3](/04-context-and-memory/03-prompt-caching/00-intro/) started that
-step, and every lesson since has added to it. Assembled, it works in three
-phases:
-
-- **At session start,** everything in the prefix is decided, once:
-  - the tool list
-    ([Lesson 7](/04-context-and-memory/07-just-in-time-context-and-dynamic-tool-exposure/00-intro/))
-  - the system prompt and the guide index
-  - the memory block as it stands, and the memories recalled for this task,
-    with the user's instructions first
-    ([Lessons 9-11](/04-context-and-memory/09-building-a-memory-store/00-intro/))
-- **Each turn,** in this order:
-  - Tool results are shaped as they arrive, by the tools themselves: large
-    ones offloaded to the store, with a preview and a handle
-    ([Lesson 6](/04-context-and-memory/06-offloading-context-to-storage/00-intro/)).
-  - The view is fitted only when it's over budget. Old reasoning is stripped
-    and old results cleared to the store; compaction, with an archive,
-    follows only if that isn't enough; trimming is the last resort
-    ([Lessons 4-6](/04-context-and-memory/04-when-the-window-fills/00-intro/)).
-  - The anchor is added at the end: the plan, the rules, the change ledger,
-    the notes index, and any edits to the memory block
-    ([Lessons 2, 5, 6 and 9](/04-context-and-memory/02-context-that-fits-but-still-hurts/04-re-anchoring-the-goal/)).
-- **After the session,** the write path runs: extract, check, admit and store
-  ([Lesson 10](/04-context-and-memory/10-deciding-what-to-remember/00-intro/)),
-  then forget
-  ([Lesson 11](/04-context-and-memory/11-forgetting-aging-and-retrieval-quality/00-intro/)).
-
-</Subsection>
-
-<Subsection title="The integration rules" variant="b">
-
-Each piece worked on its own page. Putting them together brings out rules that
-aren't obvious from any single lesson, and each one traces back to a
-problem shown somewhere in this module:
-
-- **Anchors are read from the full history, never the prepared copy.** After
-  compaction, the calls that set the plan and rules are gone from the copy
-  ([Lesson 5](/04-context-and-memory/05-compaction-and-summarization/03-when-a-summary-loses-something/)).
-- **Room is reserved for everything restated at the end.** The anchor counts
-  against the budget
-  ([Lesson 5's sandbox](/04-context-and-memory/05-compaction-and-summarization/00-intro/)).
-- **Cheap before expensive, and nothing lost:** strip old reasoning, then
-  clear to the store, then compact with an archive, then trim.
-- **The summary is asked for inside the conversation,** with the agent's own
-  tools and system prompt, so it reuses whatever part of the request is
-  still cached, the tools and system prompt at least
-  ([Lesson 5](/04-context-and-memory/05-compaction-and-summarization/04-when-to-compact-and-what-it-costs/)).
-- **The prefix is fixed for the session.** Memories recalled at the start and
-  the block as it was then go in it. Changes during the session go at the
-  end, and join the prefix at the next session
-  ([Lesson 9](/04-context-and-memory/09-building-a-memory-store/03-where-recalled-memories-go-and-what-it-costs/)).
-- **Tools are bound to the session's user,** and the tool list never changes
-  ([Lessons 7 and 9](/04-context-and-memory/07-just-in-time-context-and-dynamic-tool-exposure/01-what-you-load-and-where-it-goes/)).
-- **Recall before forgetting,** so what a task needs is refreshed before it's
-  judged
-  ([Lesson 11](/04-context-and-memory/11-forgetting-aging-and-retrieval-quality/00-intro/)).
-- **Summaries don't pile up forever.**
-  [Lesson 5](/04-context-and-memory/05-compaction-and-summarization/03-when-a-summary-loses-something/#summaries-of-summaries)
-  appends each new summary rather than rewriting old ones, and said that
-  rewriting them would eventually be a deliberate step. Here it is: when the
-  summaries take more than a set share of the budget, they're folded into
-  one, and the old ones are stored first, so nothing is lost. The next
-  concept shows what happens without it.
-- **A request always fits.** Whatever the steps above leave, a view still
-  over budget is trimmed by whole rounds, as the last resort.
-- **The write path fits the window too.** After a long session,
-  [Lesson 10's extraction](/04-context-and-memory/10-deciding-what-to-remember/01-extraction-with-evidence/)
-  can't send the whole transcript in one request. It reads the session in
-  chunks that fit, with entry numbers kept global so every quote can still
-  be checked. The lesson's sandbox is where this surfaced.
-
-</Subsection>
-
-<Subsection title="The context step, in code" variant="a">
-
-The anchor is one function, with its parts in a fixed order, each included
-only if it has something to say:
-
-```python
+export const ANCHOR_AND_SESSION_SETUP = String.raw`
 def anchor_text(history: list, notes, block, block_at_start: str, write_tools: list) -> str:
     """Everything restated at the end of each request, read from the full history, in a fixed order."""
     parts = []
@@ -986,110 +693,12 @@ def anchor_text(history: list, notes, block, block_at_start: str, write_tools: l
     if block.text != block_at_start:
         parts.append("Your memory block has changed this session. It now reads:\n" + block.text)
     return "\n\n".join(parts)
-```
 
-The context step builds the prefix once, then fits and anchors each turn,
-using the module's code for every part. `fold` is the one new step, and the
-next concept shows why it's needed:
-
-```python
-FOLD_INSTRUCTIONS = """Rewrite all the summaries above as one summary. Keep every fact, decision and exact value,
-and every stored record they mention by name. Plain text, under 300 words."""
-
-class ContextManager:
-    """The one place in the loop that prepares each request: a fixed prefix, a fitted view, and an anchor at the end."""
-    def __init__(self, llm, base: str, tools: list, window: int, max_tokens: int, memory, user_id: str, task: str, now: str,
-                 block, notes, results, write_tools: list, guide_index: str = "", keep_last: int = 2, keep_recent: int = 2,
-                 low_water: float = 0.6, fold_share: float = 0.3):
-        self.llm, self.tools, self.notes, self.results, self.block = llm, tools, notes, results, block
-        self.write_tools, self.keep_last, self.keep_recent, self.low_water = write_tools, keep_last, keep_recent, low_water
-        # when the summaries in the first message take more than this share of the budget, they're folded into one
-        self.fold_share = fold_share
-        self.task = task
-        # session start: everything in the prefix is decided here, once
-        self.block_at_start = block.text
-        instructions = [m for m in memory.search(user_id, kind="procedural", limit=100) if m.source == "user"]
-        recalled = render_memories(instructions + recall_scored(memory, user_id, task, now))
-        system = base
-        if guide_index:
-            system += "\n\n" + guide_index
-        if block.text:
-            system += "\n\n<memory_block>\n" + block.text + "\n</memory_block>"
-        if recalled:
-            system += "\n\n" + recalled
-        self.system = system
-        self.budget = window - count_tokens(system) - count_tokens(tools) - max_tokens
-        self.view, self.seen = [], 0
-        self.steps = []
-
-    def build(self, history: list) -> dict:
-        view = self.view + history[self.seen:]
-        anchor = anchor_text(history, self.notes, self.block, self.block_at_start, self.write_tools)
-        room = count_tokens(add_to_end(view, anchor)) - count_tokens(view) if anchor else 0
-        budget = self.budget - room
-        low_water = int(budget * self.low_water)
-        step = next_step(view, budget, low_water, self.keep_last, self.keep_recent)
-        if step != "send":
-            view = clear_to_store(strip_old_thinking(view), self.keep_last, self.results)
-        if step == "compact":
-            request = summary_request(view, self.keep_recent)
-            response = self.llm.create(messages=request, tools=self.tools, system=self.system)
-            summary = "".join(b.text for b in response.content if b.type == "text")
-            if summary:
-                view = compact_with_archive(view, summary, self.keep_recent, self.results)
-            else:
-                step = "trim"
-        if step == "compact" and self.fold_share is not None and count_tokens(view[0]) > self.fold_share * budget:
-            view = self.fold(view)
-        # whatever happened above, a request must fit: trimming whole rounds is the last resort
-        if step == "trim" or count_tokens(view) > budget:
-            view = trim_to_fit(view, low_water)
-            step = "trim"
-        self.view, self.seen = view, len(history)
-        self.steps.append(step)
-        messages = add_to_end(view, anchor) if anchor else list(view)
-        return {"tools": self.tools, "system": self.system, "messages": messages}
-
-    def fold(self, view: list) -> list:
-        """Rewrite the pile of summaries as one. The old ones are stored first, so nothing is lost."""
-        handle = self.results.put(view[0]["content"])
-        request = [{"role": "user", "content": view[0]["content"] + "\n\n" + FOLD_INSTRUCTIONS}]
-        response = self.llm.create(messages=request, tools=self.tools, system=self.system)
-        summary = "".join(b.text for b in response.content if b.type == "text")
-        if not summary:
-            return view
-        first = {"role": "user", "content": self.task + "\n\n<summary_of_earlier_work>\n" + summary +
-                 f"\nThe earlier summaries are stored as {handle}.\n</summary_of_earlier_work>"}
-        self.steps.append("fold")
-        return [first] + view[1:]
-```
-
-</Subsection>
-
-<Subsection title="One session, end to end" variant="b">
-
-Here's a session that exercises every part. The user sets a rule, the agent
-writes a plan and a note, pulls a large log (offloaded when it arrives),
-checks seven agents in detail, edits its memory block, and makes a change.
-The window is small enough that fitting has to happen. The session's tools,
-its scripted steps, and the loop are defined once, and already loaded for
-this lesson's demos:
-
-```python
 BASE = "You are the registry assistant. Follow your plan, the user's rules, and your notes."
 TOOL_NAMES = ["get_logs", "get_status", "set_cache", "set_rule", "update_plan", "add_note", "read_notes", "read_result", "find_in_result",
               "block_append"]
 TOOLS = [{"name": n, "description": n, "input_schema": {"type": "object", "properties": {}}} for n in TOOL_NAMES]
 AGENTS = ["research_agent", "triage_agent", "search_agent", "report_agent", "auth_agent", "notify_agent", "billing_agent"]
-
-class ScriptedAgent(FakeLLMClient):
-    """Plays the agent's scripted steps, and answers any summary request with a scripted summary."""
-    def create(self, messages, tools=None, system=""):
-        last = messages[-1]["content"]
-        if isinstance(last, list) and _plain(last[-1]).get("text") == SUMMARY_INSTRUCTIONS:
-            return FakeResponse(content=[TextBlock(text="Rule and plan set; billing_agent's per-ticket lookup (p99 4.8s) is the likely cause; "
-                                                        "several agents' logs looked normal.")])
-        return super().create(messages)
 
 def script():
     def think(text):
@@ -1142,29 +751,268 @@ def run(context, llm, task, impls, max_steps=30):
         history.append({"role": "user", "content": [
             {"type": "tool_result", "tool_use_id": c.id, "content": impls[c.name](**c.input)} for c in calls]})
     return "stopped", history, sent
-```
+`;
 
-<LiveDemo client:load setupCode={SETUP} code={SESSION_DEMO} />
+export const RUN_REPORT_FUNC = String.raw`
+def run_report(sent: list, checks: dict) -> dict:
+    """What a run's requests cost, and on which turns each thing that matters was missing from them."""
+    sizes = [count_tokens(r["system"]) + count_tokens(r["tools"]) + count_tokens(r["messages"]) for r in sent]
+    breaks = 0
+    for i in range(1, len(sent)):
+        if first_divergence(sent[i - 1], sent[i])["diverges_at"] in ("tools", "system"):
+            breaks += 1
+    missing = {}
+    for name, text in checks.items():
+        missing[name] = [turn + 1 for turn in range(len(sent)) if text not in json.dumps(_plain(sent[turn]))]
+    return {"turns": len(sent), "largest": max(sizes) if sizes else 0, "total": sum(sizes),
+            "cost": cost_of_run(sent, 0.1, 1.25), "prefix_breaks": breaks, "missing": missing}
+`;
 
-*(the agent's calls and the summary are scripted)*
+export const RUN_HELPERS = String.raw`
+class WindowedScripted(WindowedClient):
+    """The scripted agent, behind a real window: a request that doesn't fit is refused. Every call is logged."""
+    def create(self, messages, tools=None, system=""):
+        self.log = getattr(self, "log", [])
+        self.log.append({"tools": tools or [], "system": system, "messages": messages})
+        last = messages[-1]["content"]
+        if isinstance(last, list) and _plain(last[-1]).get("text") == SUMMARY_INSTRUCTIONS:
+            return FakeResponse(content=[TextBlock(text="Rule and plan set; billing_agent's per-ticket lookup (p99 4.8s) is the likely cause; "
+                                                        "several agents' logs looked normal.")])
+        if isinstance(last, str) and last.endswith(FOLD_INSTRUCTIONS):
+            return FakeResponse(content=[TextBlock(text="Rule and plan set; billing_agent's per-ticket lookup (p99 4.8s) is the likely cause; "
+                                                        "many agents' logs looked normal.")])
+        return super().create(messages, tools=tools, system=system)
 
-- **Fitting happened only when it was needed,** and in order. Nine turns
-  were sent as they were. Then, over budget and with clearing not enough,
-  the view was compacted with an archive. Later, clearing alone was enough.
-- **The prefix never changed,** and pairing held on every turn.
-- **Everything that matters was in the last request:** the user's rule, the
-  plan, the change to billing_agent, the notes index and the memory block's
-  edit, all restated from the full history. The early finding, the
-  4.8-second lookup, was carried by the compaction summary.
-- **Nothing was lost.** Thirteen items went to the store: the full log, the
-  results that were cleared, and the record of the compacted rounds.
+class Naive:
+    """No context step: the whole history, every turn."""
+    def __init__(self, system):
+        self.system = system
+    def build(self, history):
+        return {"tools": TOOLS, "system": self.system, "messages": list(history)}
 
-The next concept measures this against a loop without the context step.
-After the session,
-[Lesson 10's write path](/04-context-and-memory/10-deciding-what-to-remember/00-intro/)
-and
-[Lesson 11's forgetting](/04-context-and-memory/11-forgetting-aging-and-retrieval-quality/00-intro/)
-run exactly as those lessons built them. The lesson's sandbox runs them too.
+TASK = "support_agent is slow. Find the cause and fix it."
+CHECKS = {"task": "Find the cause and fix it", "rule": "never restart production agents", "finding": "4.8s"}
+
+def fresh():
+    memory = ArchiveStore()
+    memory.save("u_simar", ArchivableMemory(content="Write summaries as bullet points.", type="procedural", source="user",
+                                            created="2026-09-14T10:00:00", importance=9))
+    return memory, Notes(), ResultStore(), CoreBlock("User: Simar, operations lead.")
+
+def attempt(label, window, managed):
+    memory, notes, results, block = fresh()
+    llm = WindowedScripted(script(), window=window)
+    if managed:
+        context = ContextManager(llm, BASE, TOOLS, window=window, max_tokens=1_000, memory=memory, user_id="u_simar", task=TASK,
+                                 now="2026-09-28T09:00:00", block=block, notes=notes, results=results, write_tools=["set_cache"])
+    else:
+        context = Naive(BASE)
+    sent = []
+    class Recording:
+        def build(self, history):
+            request = context.build(history)
+            sent.append(request)
+            return request
+    try:
+        answer, history, _ = run(Recording(), llm, TASK, make_impls(notes, results, block))
+        outcome = "completed"
+    except ContextWindowExceeded as error:
+        outcome = f"failed on turn {len(sent)}: {error}"
+    report = run_report(sent, CHECKS)
+    calls = run_report(llm.log, {})
+    print(f"{label}\n   {outcome}")
+    print(f"   {report['turns']} turns, largest request {report['largest']:,} tokens, prefix breaks {report['prefix_breaks']}")
+    print(f"   all {calls['turns']} model calls, summaries included: {calls['total']:,} tokens sent, cost {calls['cost']:,}")
+    print(f"   turns missing the task: {report['missing']['task']}, the rule: {report['missing']['rule']}, "
+          f"the finding: {report['missing']['finding']}")
+    return report
+`;
+
+export const SETUP = REACT_FAKE_CLIENT + COUNT_TOKENS + CHECK_PAIRING + WINDOWED_CLIENT + MODULE_LIB + CONTEXT_MANAGER
+  + ANCHOR_AND_SESSION_SETUP + RUN_REPORT_FUNC + RUN_HELPERS;
+
+export const ABLATION_DEMO = String.raw`def ablate(label, keep_last=2, anchor=True):
+    """The 17-turn task in a 3,500-token window, with one piece of the context step turned off."""
+    global anchor_text
+    real_anchor = anchor_text
+    if not anchor:
+        anchor_text = lambda *args: ""
+    memory, notes, results, block = fresh()
+    llm = WindowedScripted(script(), window=3_500)
+    context = ContextManager(llm, BASE, TOOLS, window=3_500, max_tokens=1_000, memory=memory, user_id="u_simar", task=TASK,
+                             now="2026-09-28T09:00:00", block=block, notes=notes, results=results, write_tools=["set_cache"],
+                             keep_last=keep_last)
+    sent = []
+    class Recording:
+        def build(self, history):
+            request = context.build(history)
+            sent.append(request)
+            return request
+    try:
+        run(Recording(), llm, TASK, make_impls(notes, results, block))
+        outcome = "completed"
+    except ContextWindowExceeded:
+        outcome = f"refused on turn {len(sent)}"
+    anchor_text = real_anchor
+    report = run_report(sent, CHECKS)
+    missing = {name: turns for name, turns in report["missing"].items() if turns}
+    print(f"{label:22} {outcome:11} compactions {context.steps.count('compact')}  cost {cost_of_run(llm.log, 0.1, 1.25):>6,}  "
+          f"missing: {missing or 'nothing'}")
+
+ablate("everything on")
+ablate("no anchor", anchor=False)
+ablate("no clearing", keep_last=1_000)
+`;
+
+<Subsection title="Every piece has a price" variant="a">
+
+This module built a lot of machinery, and
+[the previous concept](/04-context-and-memory/12-assembling-the-context-step/02-measuring-the-before-and-after/)
+measured what all of it costs together. On a short task, the full context
+step cost half as much again as a naive loop that simply fit. Each piece
+earns its place only when the problem it solves is actually present, and
+each has a price when it isn't:
+
+- **Money:** rewrites break the cache, anchors are restated every turn, and
+  summaries are extra calls.
+- **Round trips:** offloaded results and tools loaded on demand have to be
+  fetched.
+- **Loss:** summaries and trimming are lossy by design.
+- **Complexity:** every piece is more code to get wrong, and more places to
+  look when the agent misbehaves.
+
+Anthropic's advice for building agents applies to context management
+exactly: [find the simplest solution possible, and only increase complexity
+when needed](https://www.anthropic.com/news/building-effective-agents), and
+add complexity *only* when it demonstrably improves outcomes.
+
+</Subsection>
+
+<Subsection title="Start by measuring" variant="b">
+
+The module's first and last tools are the ones to reach for before anything
+else.
+[Lesson 1's `TurnTracker`](/04-context-and-memory/01-the-context-budget/03-watching-it-grow-across-the-loop/)
+shows where a request's tokens go and how fast they grow.
+[`run_report`](/04-context-and-memory/12-assembling-the-context-step/02-measuring-the-before-and-after/)
+shows what a run cost and what went missing from it, and
+[the manifests](/04-context-and-memory/12-assembling-the-context-step/03-seeing-inside-each-request/)
+show what each request was made of. The piece to add is the one that answers
+what they show.
+
+The same tools answer the opposite question: what does a piece you already
+have actually do? Turn it off, run the same task, and compare. Here's the
+17-turn task from this lesson with everything on, then without the anchor,
+then without clearing old results. (Turning the anchor off replaces
+`anchor_text` with a function that returns nothing, just for that run.)
+
+<LiveDemo client:load setupCode={SETUP} code={ABLATION_DEMO} />
+
+*(the rule and the finding are missing from the first turns in every run
+only because they don't exist yet)*
+
+- **Without the anchor,** the run is cheaper, and on this task that's all a
+  cost table would show. But the user's rule, "never restart production
+  agents", is missing from every request from turn 11 on, right after the
+  compaction.
+  The summary says a rule was set, not what it was. The anchor is what kept
+  the rule in front of the model.
+- **Without clearing,** the history fills faster, compacts twice instead of
+  once, and costs more. Clearing earns its place here on cost alone.
+
+Each piece had a reason to be there, and the ablation shows it in a number.
+A piece whose removal changes nothing on your tasks is a candidate for
+leaving out.
+
+</Subsection>
+
+<Subsection title="A guide to what to add" variant="a">
+
+**Almost every agent:**
+
+- **A stable prefix,** from
+  [Lesson 3](/04-context-and-memory/03-prompt-caching/00-intro/). The tools
+  and the system prompt are fixed, with nothing changing near the start. It
+  costs nothing but care, and pays on every request.
+- **Keeping failed attempts visible, and restating the goal and rules at the
+  end,** from
+  [Lesson 2](/04-context-and-memory/02-context-that-fits-but-still-hurts/00-intro/).
+  The anchor
+  [costs one message of cache reuse per turn](/04-context-and-memory/03-prompt-caching/03-where-lesson-2s-techniques-stand-and-the-fights-ahead/),
+  and it's what keeps a long run on track.
+
+**Long single tasks,** when the tracker shows the history heading for the
+window:
+
+- **Fit in batches, clearing before cutting**
+  ([Lesson 4](/04-context-and-memory/04-when-the-window-fills/00-intro/)).
+  Fitting in batches broke the prefix
+  [3 times in 30 turns instead of 17](/04-context-and-memory/04-when-the-window-fills/03-clear-before-you-cut-and-cut-in-batches/).
+- **Offload large results when they arrive**
+  ([Lesson 6](/04-context-and-memory/06-offloading-context-to-storage/00-intro/)).
+  One large log sent about
+  [a tenth of the tokens](/04-context-and-memory/06-offloading-context-to-storage/01-keep-the-reference-not-the-result/),
+  at the price of two extra round trips.
+- **Compact only after clearing**
+  ([Lesson 5](/04-context-and-memory/05-compaction-and-summarization/00-intro/)).
+  Clearing alone
+  [matched summarization in the JetBrains study](/04-context-and-memory/05-compaction-and-summarization/01-what-clearing-cant-do/),
+  and summaries are lossy. Compaction earns its place when clearing can no
+  longer keep up. And on long enough runs,
+  [fold the summaries](/04-context-and-memory/12-assembling-the-context-step/02-measuring-the-before-and-after/)
+  too.
+
+**Many tools, or long instructions,** when definitions or runbooks dominate
+the request:
+
+- **Load them on demand**
+  ([Lesson 7](/04-context-and-memory/07-just-in-time-context-and-dynamic-tool-exposure/00-intro/)).
+  The prefix shrank
+  [26 times](/04-context-and-memory/07-just-in-time-context-and-dynamic-tool-exposure/00-intro/),
+  but cost fell only about 21% on that task, because searches are round
+  trips. If a provider offers built-in tool search, prefer it, since it
+  keeps each tool's schema enforced.
+
+**Large data the task searches through,** such as logs, documents or a
+codebase:
+
+- **Let the agent explore it**
+  ([Lesson 7](/04-context-and-memory/07-just-in-time-context-and-dynamic-tool-exposure/04-data-on-demand/)).
+  A one-line map up front, and bounded list, search and read tools for the
+  rest, sent over ten times fewer tokens than pasting the files in. The
+  price is round trips, and the risk is an agent that never looks, so the
+  rules that must always apply stay in the prefix.
+
+**Across sessions,** when users come back and shouldn't have to repeat
+themselves:
+
+- **Long-term memory, with its write rules from the start**
+  ([Lessons 8–10](/04-context-and-memory/08-long-term-memory/00-intro/)). If
+  an agent has memory at all,
+  [the source rule](/04-context-and-memory/10-deciding-what-to-remember/03-memory-poisoning-and-the-source-rule/#the-source-rule)
+  isn't optional: one planted instruction replays in every future session.
+- **Scoring and forgetting once the store grows**
+  ([Lesson 11](/04-context-and-memory/11-forgetting-aging-and-retrieval-quality/00-intro/)).
+  They matter after months of sessions, not in the first week.
+
+**Short tasks that fit:** none of the fitting, compaction or offloading
+machinery. The canonical loop, with a stable prefix, is the right design.
+
+</Subsection>
+
+<Subsection title="Where the module leaves off" variant="b">
+
+Several questions this module raised belong to later modules:
+
+- **Retrieval by meaning,** rather than by keywords, for tools, notes and
+  memories: Module 5.
+- **Guardrails** on what an agent may do with what it recalls: Module 6.
+- **Measuring whether any of this makes the agent better at its task,**
+  which is the question every choice here ultimately depends on: Module 7.
+- **Sub-agents** that keep messy work out of the main context altogether:
+  Module 8.
+- **Showing users their memories, and letting them edit them:** Module 9.
+- **Retention, deletion rights and compliance:** Module 10.
 
 </Subsection>
 
@@ -1174,77 +1022,61 @@ run exactly as those lessons built them. The lesson's sandbox runs them too.
   client:load
   questions={[
     {
-      "question": "What does the context step decide at session start, and never change afterwards?",
+      "question": "On a short task that fits the window, what did the full context step do to cost?",
       "options": [
-        "The fitted view",
-        "The anchor",
-        "The tool list and the system prompt, including the guide index, the memory block as it stood, and the recalled memories",
-        "The change ledger"
+        "Cut it by half",
+        "Left it unchanged",
+        "Raised it by about half, because the naive loop's history was almost all cached, while the context step paid for rewrites, anchors and summaries",
+        "Made it impossible to measure"
       ],
       "correctIndex": 2,
-      "explanation": "Everything in the prefix is fixed for the session, so the cache is never broken. Anything newer goes at the end of each request."
+      "explanation": "At 7 checks, the managed loop cost 1.5 times the naive one. The context step pays off only when the history grows long."
     },
     {
-      "question": "Why does anchor_text take the full history, when the request sends a fitted copy?",
+      "question": "Which pieces are worth having in almost every agent?",
       "options": [
-        "The copy may have been compacted, and the calls that set the plan and rules would be gone from it",
-        "The full history is shorter",
-        "The anchor is saved into the history",
-        "The copy doesn't include tool results"
-      ],
-      "correctIndex": 0,
-      "explanation": "That's the compaction lesson's lesson. Code can derive the plan, rules and changes exactly, from the full history, which is never changed."
-    },
-    {
-      "question": "In what order does the context step shrink an over-budget view?",
-      "options": [
-        "Trim, then compact, then clear",
-        "Strip old reasoning and clear to the store; compact with an archive only if that isn't enough; trim as a last resort",
-        "Compact first, since it saves the most",
-        "Clear only, never compact"
+        "Compaction and memory",
+        "A stable prefix, and restating the goal and rules at the end",
+        "Tool search and offloading",
+        "Forgetting and archiving"
       ],
       "correctIndex": 1,
-      "explanation": "Cheapest first, and nothing lost: cleared results and compacted rounds both go to the store."
+      "explanation": "A stable prefix costs nothing but care, and the anchor costs one message of reuse per turn. The rest is for particular problems."
     },
     {
-      "question": "Why is room reserved in the budget for the anchor?",
+      "question": "What should decide which piece to add next?",
       "options": [
-        "The anchor is sent first",
-        "The anchor is compressed",
-        "Anchors are billed separately",
-        "It's added to every request, so a view that just fits would go over once the anchor is added"
+        "Whichever piece is newest",
+        "Adding all of them at once, to be safe",
+        "Whichever piece a provider offers",
+        "What measurement shows: where the tokens go, how fast they grow, and what goes missing"
       ],
       "correctIndex": 3,
-      "explanation": "Two of this module's own sandboxes found this. The budget for the view is what's left after the anchor."
+      "explanation": "Add complexity only when it demonstrably improves outcomes. `TurnTracker` and `run_report` are the module's tools for finding out."
     },
     {
-      "question": "Where do edits the agent makes to its memory block go during a session?",
+      "question": "An agent will have long-term memory. Which part isn't optional, even in a first version?",
       "options": [
-        "Into the system prompt immediately",
-        "Into the history",
-        "At the end of each request; they join the prefix at the next session",
-        "Nowhere until the next session"
+        "Scoring and forgetting",
+        "Folding summaries",
+        "The source rule: only the user can create standing instructions",
+        "Tool search"
       ],
       "correctIndex": 2,
-      "explanation": "The agent sees every edit at once, and the prefix changes only between sessions. That was the memory-store lesson's design."
+      "explanation": "Scoring and forgetting matter once the store grows. Without the source rule, one planted instruction replays in every future session."
+    },
+    {
+      "question": "Loading tools on demand shrank the prefix 26 times, yet cost fell only about 21% on that task. Why?",
+      "options": [
+        "Each search is a round trip, and caching had already made the large prefix cheap to resend",
+        "The tools were loaded twice",
+        "The prefix wasn't cached",
+        "Loading on demand doesn't save tokens"
+      ],
+      "correctIndex": 0,
+      "explanation": "The saving that's always there is room in the window. The money saved depends on the task."
     }
   ]}
-/>
-
-</CheckpointZone>
-
-<CheckpointZone>
-
-<GradedExercise
-  client:load
-  task={"The module's code is provided, including latest_plan, current_rules_block, changes_ledger, Notes and CoreBlock. Implement anchor_text(history, notes, block, block_at_start, write_tools), which returns these parts, in this order, each only if it has something to say, joined by \"\\n\\n\": 1) \"<current_plan>\\n\" + plan + \"\\n</current_plan>\", from latest_plan(history). 2) current_rules_block(history). 3) \"<changes_made>\\n\", then changes_ledger(history, write_tools) joined by \"\\n\", then \"\\n</changes_made>\". 4) notes.index_line(). 5) If block.text differs from block_at_start: \"Your memory block has changed this session. It now reads:\\n\" + block.text. Return \"\" if there's nothing to say."}
-  starterCode={EXERCISE_PROVIDED + EXERCISE_STARTER}
-  hiddenTests={EXERCISE_TESTS}
-  hint={"Collect the parts in a list, appending each one only when it's non-empty, then \"\\n\\n\".join(parts). An empty list joins to \"\", so that case takes care of itself."}
-  correctAnswer={{
-    code: EXERCISE_PROVIDED + EXERCISE_REFERENCE,
-    explanation: "Test 1 pins the order and the format, since the anchor is restated every turn and a stable order keeps it easy for the model to read. Test 2 checks that empty parts are left out, including an unchanged block. Test 3 checks that only calls to write tools become changes. Test 4 is the integration rule itself: fed a compacted copy, the anchor loses the plan, which is why the context step always passes it the full history.",
-  }}
 />
 
 </CheckpointZone>

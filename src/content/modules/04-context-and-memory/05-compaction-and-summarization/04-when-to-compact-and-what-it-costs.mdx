@@ -84,7 +84,7 @@ def clear_old_results(messages: list, keep_last: int) -> list:
             for block in message["content"]:
                 if not block.get("is_error"):
                     successful.append(block["tool_use_id"])
-    to_keep = successful[len(successful) - keep_last:]
+    to_keep = successful[max(0, len(successful) - keep_last):]
 
     cleared = []
     for message in messages:
@@ -366,6 +366,31 @@ class Compactor:
         self.seen = len(history)
         return view
 ```
+
+</Subsection>
+
+<Subsection title="What the summarizer gets to read" variant="b">
+
+This order has a consequence that's easy to miss. By the time compaction
+runs, clearing has already been at work, often for many turns. The rounds
+being summarized have had their old results replaced with placeholders and
+their reasoning stripped. The summarizer reads what the agent was last
+sending, not the original rounds. A number that only ever appeared in a
+tool result, or only in the agent's reasoning, is already gone before the
+summary is written.
+
+Handing the summarizer the original results instead doesn't work in
+general. Clearing kept the history small precisely because those results
+were too large to send, and the summary request has to fit in the window
+like any other request.
+
+So what survives compaction is what the agent wrote in its **visible text**
+as it went: a one-line finding after an important result ("billing_agent's
+/lookup is p99 4.8s, once per ticket: the likely cause") costs a few tokens,
+and neither clearing nor stripping touches it. That's worth asking for in the
+system prompt, and it's why
+[Lesson 6's notes](/04-context-and-memory/06-offloading-context-to-storage/03-notes-the-agent-keeps/)
+exist: a place for findings that no stage of this pipeline rewrites.
 
 </Subsection>
 

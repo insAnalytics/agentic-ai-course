@@ -110,14 +110,17 @@ def remember(content, created, kind="episodic", source="agent", matters=False):
     if matters:
         useful.add(content)
 
-# the few things that matter, learned early
+# a standing instruction, given before the year starts
 remember("Never restart support_agent during business hours.", week_start(0) + "T09:00:00", "procedural", "user", matters=True)
-remember("support_agent's bottleneck is billing_agent's per-ticket lookup.", week_start(1) + "T09:00:00", matters=True)
-remember("Tom owns support_agent.", week_start(4) + "T09:00:00", "semantic", "user", matters=True)
 
 task = "Draft the support_agent status update."
 print(f"{'weeks':>5} {'stored':>7}   useful in the top 5 recalled")
 for week in range(1, 53):
+    # what matters is saved in the week it was learned, never before
+    if week == 1:
+        remember("support_agent's bottleneck is billing_agent's per-ticket lookup.", week_start(1) + "T09:00:00", matters=True)
+    if week == 4:
+        remember("Tom owns support_agent.", week_start(4) + "T09:00:00", "semantic", "user", matters=True)
     # most weeks leave a routine note behind; every few weeks, an old metric
     remember(f"Week {week}: support_agent review done, nothing unusual.", week_start(week) + "T17:00:00")
     if week % 4 == 0:
@@ -140,10 +143,13 @@ week's task. `MemoryRecord` and `VersionedStore` are already loaded:
 
 <LiveDemo client:load setupCode={SETUP} code={YEAR_DEMO} />
 
-*("useful" is marked by hand here, which a real system can't do)*
+*("useful" is marked by hand here. At run time, a system can't know which
+memories matter. But marking them by hand for a set of test tasks is exactly
+how recall quality is measured, as the next concept shows)*
 
-In the first weeks, recall finds three of the three memories that matter. By
-week 4 it finds one, and from week 13 on, none. Nothing was deleted and
+In the first two weeks, recall finds both of the memories that matter so
+far. By week 4, when the third is learned, it finds only one of the three,
+and from week 13 on, none. Nothing was deleted and
 nothing went wrong in any single step. Every memory matches the task on
 "support_agent", equal scores go to the newest, and there's always a newer
 routine note. The rule never to restart support_agent during business hours
