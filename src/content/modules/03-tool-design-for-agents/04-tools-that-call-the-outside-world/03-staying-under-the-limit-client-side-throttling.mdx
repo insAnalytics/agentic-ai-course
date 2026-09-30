@@ -49,8 +49,11 @@ for example, warns that "continuing to make requests while you are rate
 limited may result in the banning of your integration."
 
 **Client-side throttling** is the other half: limiting your own traffic
-so you stay under the service's limit in the first place. The two work
-together. Throttling keeps you under the limit in normal operation;
+so you stay under the service's limit in the first place. GitHub's
+[best practices for its REST API](https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api)
+ask for a strict version of it: "make requests serially instead of
+concurrently", for example with "a queue system for requests". The two
+work together. Throttling keeps you under the limit in normal operation;
 backoff catches the cases throttling didn't prevent.
 
 </Subsection>

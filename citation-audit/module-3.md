@@ -1,5 +1,101 @@
 # Citation audit: Module 3 (Tool Design for Agents)
 
+## Concept coverage
+
+A second pass, added 2026-09-30 at the owner's request, kept light as the
+owner asked for Modules 1–3. It checks each concept page and lesson intro
+as a whole, and anchors a concept only where a learner would reasonably ask
+"says who?" or "does anyone actually do this?". Recaps are skipped. Lessons
+5 and 6 are MCP spec and SDK facts, which the per-claim audit had already
+checked line by line. Two read-only subagents did the check; the lead
+applied the edits.
+
+**Counts (51 pages):** backed 44, our data only 1, unbacked
+6. Fixed: six prose edits anchor every page that wasn't backed except
+one, L8 C4, which is held for the decision below.
+- Anthropic's tool-writing post and OpenAI's function-calling guide, for
+  parameter design.
+- The MCP spec's error-handling section, for validation errors as
+  feedback.
+- GitHub's REST API best practices, for client-side throttling.
+- The rest are in report `cc3-B`.
+
+No demo, exercise or test string changed, and no internal links were
+added. `npm run build` passes.
+
+**Needs a decision (1, held).**
+- **L8 C4: is Pyodide "often the sweet spot" for an agent's code tool?**
+  In the browser, as in this course, NVIDIA's 2024 post backs it.
+  Server-side, the industry has moved away:
+  - Pydantic archived its Pyodide-in-Deno MCP sandbox in January 2026,
+    saying Pyodide and Deno "were not designed as sandboxes to run untrusted
+    code";
+  - LangChain archived its Pyodide sandbox and now recommends sandbox APIs
+    or the provider's own code execution.
+- **Recommendation:** apply report `cc3-B`'s E2. It scopes "sweet spot" to
+  the browser, with NVIDIA as the anchor, and says server-side agents usually
+  use containers or micro-VMs. What the concept teaches is unchanged: start
+  from no capability, and ask what the host handed in.
+
+The Status column is the status before the fix. The Action column names
+the edit in each lesson group's report: `cc3-A` for L1–L6 and `cc3-B` for
+L7–L11.
+
+| Concept | Central claim | What backs it | Status (before fix) | Action taken |
+|---|---|---|---|---|
+| L1 intro | A real agent picks tools only from their name, description and parameters, so tool design is a core skill | Framing; the concepts' anchors (Anthropic *Define tools*, *Writing effective tools for agents*) cover it | BACKED | none |
+| L1 C1 Names and descriptions as prompts | Write names and descriptions as prompts; checklist of what a description says | Anthropic *Define tools* ("by far the most important factor in tool performance"), per-claim audit E1 | BACKED | none |
+| L1 C2 Parameter design | Choose clear, typed, unambiguous parameters: enums via `Literal`, units in names, real bools, no JSON-in-a-string | Nothing on the page; per-claim audit found an anchor (C2, `user_id`) but didn't add it | UNBACKED | E1: add Anthropic *Writing effective tools for agents* (per-claim audit) + OpenAI function-calling guide |
+| L1 C3 Granularity | Prefer a few bounded tools; composite tools for common sequences; too many/overlapping tools hurt selection | Anthropic *Writing effective tools for agents*, per-claim audit E2 | BACKED | none |
+| L2 intro | Schema-valid isn't semantically valid; return failures as observations | Framing; concepts and Module 2 callback | BACKED | none |
+| L2 C1 The schema, generated | Generate every tool's schema from a Pydantic model | Plain mechanism (Pydantic `model_json_schema`), Module 1 callback; live demos | BACKED | none |
+| L2 C2 The gap constrained decoding doesn't close | Strict mode guarantees shape, not meaning; four kinds of well-typed-but-wrong calls | Anthropic *Strict tool use* (per-claim audit C3); the rest is plain reasoning shown by demo | BACKED | none |
+| L2 C3 Validate, return failures as observations | Check semantics in validators and the tool body; return trimmed validation errors to the model instead of raising | Module 2 callback only (that page has no outside source); own demos | UNBACKED | E2: add MCP spec, tools, Error Handling |
+| L3 intro | A tool's output shape drives cost, correctness and retry loops | Framing; concepts' anchors | BACKED | none |
+| L3 C1 Why a huge tool result hurts | A result costs like any input, is resent every turn, and buries the relevant line | Module 1 callbacks (token pricing, lost-in-the-middle page, which exists and is Module 1's to source); arithmetic | BACKED | none |
+| L3 C2 Truncation and pagination | Cap results and say so; offset/limit pagination | Anthropic *Writing effective tools for agents*, per-claim audit E4 | BACKED | none |
+| L3 C3 Structured results and useful errors | JSON when the model acts on fields; errors say what failed and what to do | Anthropic *Writing effective tools for agents*, per-claim audit E6, E7 | BACKED | none |
+| L4 intro | External calls need timeouts, retry policy, throttling and concurrency | Framing; concepts' anchors | BACKED | none |
+| L4 C1 Timeouts | Put a hard deadline on every external call; pick it from latency percentiles | AWS Builders' Library, httpx docs, per-claim audit E8, E9 | BACKED | none |
+| L4 C2 Which failures to retry | Retry 408/429/5xx with backoff and jitter, honour Retry-After; idempotency keys for writes | AWS Builders' Library, Anthropic Python SDK docs, Stripe, per-claim audit E10, E11, E13 | BACKED | none |
+| L4 C3 Client-side throttling | Throttle your own traffic with one shared semaphore per service | GitHub rate-limit docs and Anthropic rate-limit docs (per-claim audit E14-E16) back that limits exist, not that clients throttle themselves | UNBACKED (technique) | E3: add GitHub *Best practices for using the REST API* |
+| L4 C4 Running tool calls concurrently | Run a response's independent calls with `gather`, keep results paired, isolate failures | Anthropic *Parallel tool use* ("run the calls concurrently (`Promise.all`, `asyncio.gather`)"), per-claim audit E17-E20 | BACKED | none |
+| L5 intro | MCP is the shared standard, widely adopted | Anthropic Dec 2025 post, labelled as Anthropic's figures (per-claim audit E23) | BACKED | none |
+| L5 C1 The integration problem and three roles | MxN problem; host/client/server; servers see only what they're sent | MCP spec 2026-07-28 index and architecture (per-claim audit E24, E25) | BACKED | none |
+| L5 C2 JSON-RPC as the message format | JSON-RPC 2.0 shapes; ids; protocol vs tool errors | jsonrpc.org, MCP spec basic/tools (per-claim audit E26-E28, E35) | BACKED | none |
+| L5 C3 Stateless by design | Every request carries its own `_meta`; `server/discover`; handles | MCP spec basic/versioning (per-claim audit E29); the scaling rationale is plain engineering reasoning tied to REST | BACKED | none |
+| L5 C4 Tools, resources and prompts | Three primitives, sorted by who decides | MCP spec server overview (per-claim audit E30) | BACKED | none |
+| L5 C5 Transports | stdio and Streamable HTTP rules, security | MCP spec transports (per-claim audit E31) | BACKED | none |
+| L6 intro | Build a server by hand, then with the SDK | Framing; spec and SDK facts in concepts | BACKED | none |
+| L6 C1 What a server does | A server is a function: request in, response out | MCP spec (fact, per-claim audit) | BACKED | none |
+| L6 C2 Answering tools/call by hand | Five ways a call ends; crash as a generic tool error | MCP spec tools; SDK `ToolError` behaviour (per-claim audit E33) | BACKED | none |
+| L6 C3 The same server with the official SDK | `MCPServer` derives schemas from signatures | `mcp` 2.2.0 wheel (per-claim audit C50) | BACKED | none |
+| L6 C4 Errors, running and testing with the SDK | `ToolError` vs `MCPError`; annotations are hints; run and test | SDK docs *Handling errors* (per-claim audit E34); MCP schema `ToolAnnotations` | BACKED | none |
+| L7 intro | The host turns many servers' tools into a small, clean, routed list and decides which tools the agent may use | The concepts below (MCP spec; Anthropic tool search docs) | BACKED | none |
+| L7 C1 Discovering tools from several servers | Prefix tool names with the host's own server label, clean them to the model API's charset/length, keep a route back; descriptions are untrusted text | MCP spec 2026-07-28 Tool Names + Tool Safety; Claude and OpenAI name rules; Invariant Labs (all per-claim audit) | BACKED | none |
+| L7 C2 Routing the model's calls | Look up each call's route, call the right server with the original name, answer unknown tools locally | Plain mechanism; MCP spec `-32602` / `isError`, SDK `call_tool` async (per-claim audit) | BACKED | none |
+| L7 C3 When there are too many tools | Too many tools cost tokens and worsen tool choice; fix with per-agent servers and a per-server tool allowlist | Problem: Anthropic tool search docs + advanced-tool-use post (per-claim audit). The allowlist fix itself: nothing | UNBACKED (the fix) | E1: add OpenAI Agents SDK MCP tool filters |
+| L8 intro | Code execution is the most capable and most dangerous tool; real isolation is routine | The concepts below | BACKED | none |
+| L8 C1 The most powerful tool and the most dangerous | Give the model one code tool; treat its code as untrusted | Anthropic "Code execution with MCP" post (per-claim audit), incl. "requires a secure execution environment" | BACKED | none |
+| L8 C2 Why restricted execution isn't a sandbox | Hiding names from `exec()` is not isolation | Python docs (`eval`, `__builtins__`), RestrictedPython docs (per-claim audit) | BACKED | none |
+| L8 C3 Real isolation and the tool around it | Move code out of process (container / micro-VM / Wasm), plus a wrapper that captures output and returns errors as observations | Anthropic code execution tool (fresh container, no internet); Firecracker (per-claim audit) | BACKED | none |
+| L8 C4 WebAssembly and Pyodide | Wasm starts from no capability; Pyodide is a real code sandbox and "often the sweet spot" for an agent's code tool | Wasm/Pyodide facts: webassembly.org, pyodide.org (per-claim audit). The "sweet spot" practice claim: nothing, and two framework vendors have since retired Pyodide sandboxes for server-side use | UNBACKED (practice claim), partly contradicted | Needs a decision D1 (E2 drafted) |
+| L9 intro | Search and fetch are among the most common agent tools; web content is untrusted | Anthropic `web_search` / `web_fetch` server tools; MCP fetch server (per-claim audit) | BACKED | none |
+| L9 C1 Search and fetch: two tools, two jobs | Split cheap search from expensive fetch; bound results; provider server tools exist | Anthropic server tools docs (per-claim audit); Lesson 1/3 tool-design sources | BACKED | none |
+| L9 C2 Getting the useful part out of a page | Return a page's text (or Markdown), not its HTML | MCP reference fetch server returns Markdown (per-claim audit) | BACKED | none |
+| L9 C3 Browsers and computer use | Use the most structured option that works: API > fetch > accessibility-snapshot browser > screenshots | Playwright MCP README ("accessibility tree, not pixel-based input"); Anthropic browser use + computer use tools (per-claim audit) | BACKED | none |
+| L9 C4 Everything from the web is untrusted input | Treat fetched text as untrusted; restrict fetch URLs; SSRF guard; labelling helps but doesn't stop injection | Anthropic web fetch docs; OWASP SSRF cheat sheet; RFC 9309; Hines et al. spotlighting (per-claim audit) | BACKED | none |
+| L10 intro | Injection can't be fully prevented at the model; build so the agent stays safe anyway | The concepts below | BACKED | none |
+| L10 C1 Prompt injection through tool results | Indirect injection via tool results is the one that matters for agents | Willison 2022; Greshake et al. AISec '23; OWASP LLM01 (per-claim audit) | BACKED | none |
+| L10 C2 Why the model can't be the security boundary | No structural fix like parameterized queries; mitigations lower odds but aren't boundaries | Willison ("99% is a failing grade"); Anthropic prompt-injection post ("far from a solved problem"); OWASP LLM01 (per-claim audit) | BACKED | none |
+| L10 C3 The dangerous combination | Lethal trifecta; cut one leg | Willison, "The lethal trifecta" (per-claim audit) | BACKED | none |
+| L10 C4 Thinking in terms of the blast radius | Assume the model is fooled; the harm is set by the agent's tools and their reach, so tool design is a security decision | Scripted demo only; no outside anchor on the page (LLM06 appears only later, in L11 C1) | OUR DATA ONLY | E3: add OWASP LLM06 (excessive agency) |
+| L11 intro | Narrow tools, split reads/writes, gates, allowlists, scoped credentials are long-standing security practice | Saltzer & Schroeder 1975; OWASP LLM06 (per-claim audit) | BACKED | none |
+| L11 C1 Narrow tools shrink the blast radius | Replace broad tools with purpose-built ones | OWASP LLM06 mitigation 3 (per-claim audit) | BACKED | none |
+| L11 C2 Separate reads from writes and gate the writes | Split read/write tools; gate risky writes by pausing the loop in code, approved per call | Human approval: OWASP LLM06 (linked in L11 C1, not on this page). The pause-in-code, per-call gate: our demo only | UNBACKED (the gate mechanism) | E4: add OpenAI Agents SDK human-in-the-loop |
+| L11 C3 Allowlists and per-tool credentials | Allowlist what a tool can act on; give each tool a scoped credential | OWASP LLM06 mitigation 4; Saltzer & Schroeder 1975 (per-claim audit) | BACKED | none |
+
+
 Audited 2026-09-30, on branch `citation-audit/module-3`, as a light pass:
 verify what's named, and anchor the practice a learner would question. Two
 read-only subagents did the inventory and verification. Their full reports

@@ -130,7 +130,12 @@ express, on top of the `BaseModel` fundamentals from
 catches the other gap. Both return a plain string,
 [the exact same failure-as-observation pattern from Module 2](/02-the-agent-loop/06-termination-failure-and-control/05-tool-errors-as-observations/#the-fix-catch-it-and-let-the-model-see-it)
 — never a crash, always something the model can actually see and react
-to.
+to. MCP, the tool protocol later in this module, works the same way.
+[Its specification](https://modelcontextprotocol.io/specification/2026-07-28/server/tools)
+lists "Input validation errors (e.g., date in wrong format, value out of
+range)" among the errors a tool reports back to the model, because they
+carry "actionable feedback that language models can use to
+self-correct". Its own example is a date that "must be in the future".
 
 A real validation error is also longer than a hand-written message would
 be. Pydantic appends a `[type=value_error, ...]` detail and a trailing
