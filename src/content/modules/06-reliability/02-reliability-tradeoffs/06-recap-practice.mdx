@@ -1,7 +1,7 @@
 ---
 title: "Recap & Practice"
 lesson: "02-reliability-tradeoffs"
-order: 5
+order: 6
 ---
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
@@ -255,6 +255,17 @@ assert raises_naming("nothing fits", plan_agent, [{"name": "nothing fits", "risk
     "explanation": "Earlier mistakes do their damage at the first irreversible, external step, so a check there catches their effects. Reading back after sending is useful too, but can't prevent the harm."
   },
   {
+    "question": "A check's catch and false-block rates stayed the same after an agent update, but its reviewers now say most of its blocks are wrong. What most likely changed?",
+    "options": [
+      "The check's code stopped working correctly",
+      "The agent makes mistakes more rarely now",
+      "The reviewers became stricter than before",
+      "The false-block rate was measured wrongly"
+    ],
+    "correctIndex": 1,
+    "explanation": "The share of blocks that are real depends on how often the guarded step goes wrong. With the same two rates, fewer mistakes means false alarms make up more of the blocks. A check worth its noise for a weaker agent can become mostly noise for a better one."
+  },
+  {
     "question": "Why did Module 2's evaluator-optimizer loop need at least two calls even when the first draft was fine?",
     "options": [
       "Because the judge always runs to decide whether the draft is acceptable",
@@ -297,7 +308,7 @@ assert raises_naming("nothing fits", plan_agent, [{"name": "nothing fits", "risk
     { name: "lib.py", readOnly: true, code: LIB_PY },
     { name: "plan.py", code: PLAN_REFERENCE },
   ]}
-  explanation={"The order of the steps matters. Filtering by the limits comes before the frontier, because an option that's only dominated by one you're not allowed to use is still a good choice: in the tests, \"fast\" is beaten only by an option over the latency limit. Choosing from the frontier, not from every allowed option, stops a dominated option winning a tie on cost, like \"a cheaper-looking twin\" in the tests. Risky steps take the most accurate option on the frontier and the rest take the cheapest, which is this lesson's rule of spending where the risk is. In the Run output, the thinking option is ruled out by the latency limit, the untuned model check by the false-block limit, and five votes of the small model by the large model answering once, which is more accurate for less. The limits here apply to each step; a real agent would also set a limit on the whole run's latency, which in this example comes to 2.8 seconds."}
+  explanation={"The order of the steps matters. Filtering by the limits comes before the frontier, because an option that's only dominated by one you're not allowed to use is still a good choice: in the tests, \"fast\" is beaten only by an option over the latency limit. Choosing from the frontier, not from every allowed option, stops a dominated option winning a tie on cost, like \"a cheaper-looking twin\" in the tests. Risky steps take the most accurate option on the frontier and the rest take the cheapest, which is this lesson's rule of spending where the risk is. In the Run output, the thinking option is ruled out by the latency limit, the untuned model check by the false-block limit, and five votes of the small model by the large model answering once, which is more accurate for less. The limits here apply to each step; a real agent would also set limits on the whole run. Its latency here comes to 2.8 seconds, and its false blocks compound: two checks at 3% each stop about 5.9% of fine runs, over the 5% that each step was held to, as the previous concept's arithmetic predicts."}
 />
 
 </CheckpointZone>

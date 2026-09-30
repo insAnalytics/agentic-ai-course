@@ -1,0 +1,197 @@
+---
+title: "When checks add up"
+lesson: "02-reliability-tradeoffs"
+order: 5
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { LOAD_RUNS, reliabilityData } from "../../../../lib/reliabilityData";
+
+export const BOTH_DATA = reliabilityData("plain.smaller", "plain");
+
+export const STACK_DEMO = String.raw`def run_false_block(rates: list[float]) -> float:
+    """The chance a fine run is stopped by at least one check, if their false blocks are independent."""
+    passes = 1.0
+    for rate in rates:
+        passes *= 1 - rate
+    return 1 - passes
+
+
+for label, rates in [("one check at 2%", [0.02]), ("five checks at 2% each", [0.02] * 5),
+                     ("a 1% check on each of 20 steps", [0.01] * 20), ("a 0.25% check on each of 20 steps", [0.0025] * 20)]:
+    print(f"{label:<36} {run_false_block(rates):5.1%} of fine runs stopped")
+`;
+
+export const BASE_RATE_DEMO = String.raw`def share_of_blocks_real(error_rate: float, catch_rate: float, false_block_rate: float) -> float:
+    """Of the steps a check blocks, the share that really were wrong."""
+    real = error_rate * catch_rate
+    false = (1 - error_rate) * false_block_rate
+    return real / (real + false)
+
+
+print("a check that catches 90% of mistakes and wrongly blocks 2% of good steps:")
+for error_rate in (0.20, 0.05, 0.01, 0.002):
+    share = share_of_blocks_real(error_rate, catch_rate=0.9, false_block_rate=0.02)
+    print(f"  if {error_rate:5.1%} of steps are wrong, {share:4.0%} of its blocks are real mistakes")
+`;
+
+export const TOGETHER_DEMO = String.raw`def error_rates(run_name: str) -> dict[str, float]:
+    """Each question's share of wrong samples."""
+    return {r["id"]: sum(not s["correct"] for s in r["samples"]) / len(r["samples"]) for r in load_run(run_name)["results"]}
+
+
+small, large = error_rates("plain.smaller"), error_rates("plain")
+p_small = sum(small.values()) / len(small)
+p_large = sum(large.values()) / len(large)
+# one random sample from each model, on the same question: how often are both wrong?
+both = sum(small[q] * large[q] for q in small) / len(small)
+print(f"Qwen3.5-2B wrong {p_small:.1%} of the time, Qwen3.5-4B {p_large:.1%}")
+print(f"both wrong on the same question: {both:.2%}, against {p_small * p_large:.2%} if their mistakes were independent")
+hard_for_large = [q for q in large if large[q] > 0]
+print(f"of the {len(hard_for_large)} questions the 4B ever gets wrong, the 2B also gets "
+      f"{sum(small[q] > 0 for q in hard_for_large)} wrong sometimes")
+`;
+
+<Subsection title="A run has to get past every check" variant="a">
+
+[The previous concept](/06-reliability/02-reliability-tradeoffs/04-spend-reliability-where-the-risk-is/)
+chose checks one step at a time. A run doesn't experience them one at a
+time. A fine run only gets through if *every* check lets it through, so
+false blocks compound the way
+[Lesson 1's errors did](/06-reliability/01-per-step-reliability/01-small-errors-compound/):
+
+<LiveDemo client:load code={STACK_DEMO} />
+
+*(Arithmetic, assuming the checks' false blocks are independent.)*
+
+A 2% false-block rate sounds harmless for one check. Five of them stop nearly
+one fine run in ten, and a 1% check on every step of a twenty-step task stops
+almost one in five. Working backwards gives the useful rule: set the
+false-block limit for the whole run first, and divide it among the checks.
+Keeping a twenty-step run under 5% leaves each step's check about 0.25%.
+That's far stricter than any check looks like it needs on its own, and it's
+a strong argument for checking the risky steps and not every step.
+
+</Subsection>
+
+<Subsection title="Most blocks can be false alarms" variant="b">
+
+A check is described by two rates:
+[what it catches, and what it wrongly blocks](/06-reliability/02-reliability-tradeoffs/01-four-things-every-technique-trades/#a-refusal-can-be-a-reliability-failure).
+What a person reviewing its blocks experiences depends on a third number:
+how often the thing it guards actually goes wrong.
+
+<LiveDemo client:load code={BASE_RATE_DEMO} />
+
+*(Arithmetic with a made-up check.)*
+
+The same check, with the same two rates, goes from mostly right to mostly
+wrong as mistakes get rarer. Where one step in a hundred is wrong, two of
+every three blocks are false alarms. This is the base-rate effect, and it
+turns up in measured checks too.
+[Lesson 6's judges](/06-reliability/06-when-unsure/02-signals-the-agent-isnt-sure/#measuring-a-signal-on-your-own-cases)
+caught 21 of 23 mistakes by reviewing verdicts under 0.9, but those 21 were
+among 66 verdicts reviewed: about a third of the reviews found something.
+
+So a check's report should include the share of its blocks that were
+right, alongside the two rates. It's the number that decides whether people
+trust the check, and it falls as the agent gets better. A check that was
+worth its false alarms when the agent was wrong often can become mostly noise
+once it rarely is.
+
+</Subsection>
+
+<Subsection title="Checks that fail together" variant="a">
+
+Stacking checks is meant to work the other way for mistakes. If two checks
+each miss 10% of problems, a mistake gets past both only 1% of the time. But
+that multiplication assumes the checks miss *different* mistakes. The
+questions that fool one model tend to fool another:
+
+<LiveDemo client:load dataFiles={BOTH_DATA} setupCode={LOAD_RUNS} code={TOGETHER_DEMO} />
+
+*(Real committed runs. `load_run` is Lesson 1's.)*
+
+On this module's runs, the 2B and the 4B were both wrong on the same question
+more than twice as often as independent mistakes would be. Six of the eight
+questions the 4B ever misses are ones the 2B misses too. It's
+[Lesson 1's clustering](/06-reliability/01-per-step-reliability/02-the-same-question-run-twice/#failures-cluster-on-particular-questions)
+seen across models: some questions are hard for everything.
+
+The research finds the same at scale. Kim et al.'s
+[*Correlated Errors in Large Language Models*](https://arxiv.org/abs/2506.07962)
+(ICML 2025) compared more than 350 models. On one leaderboard, when two
+models were both wrong, they gave the same wrong answer 60% of the time.
+Larger, more accurate models shared more of their errors, even across
+providers. Goel et al.,
+[*Great Models Think Alike and this Undermines AI Oversight*](https://arxiv.org/abs/2502.04313)
+(ICML 2025), found model mistakes becoming more similar as models get more
+capable. That's
+[Module 2's shared blind spots](/02-the-agent-loop/09-reflection-and-self-critique/03-the-limits-shared-blind-spots/)
+at the level of a whole system.
+
+Two practical rules follow. Layers that work differently fail differently: a
+check in code and a model judge share fewer blind spots than two model
+judges from the same family. And a stack's miss rate can't be worked out
+from its layers' miss rates; it has to be measured with the layers running
+together, which is what
+[Lesson 10](/06-reliability/10-layered-checks/03-what-each-layer-earns/)
+does.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "Each of five checks wrongly blocks 2% of fine runs. Roughly what share of fine runs does the agent stop?",
+    "options": [
+      "2%, the rate of any one of them",
+      "About 10%, since each check gets its chance",
+      "0.4%, the average spread over five",
+      "Under 1%, since the checks back each other up"
+    ],
+    "correctIndex": 1,
+    "explanation": "A fine run has to pass all five: 0.98 to the fifth power is about 0.90, so nearly one in ten is stopped. False blocks compound across checks the way errors compound across steps."
+  },
+  {
+    "question": "A twenty-step run should stop no more than 5% of fine runs. What does that mean for a check on every step?",
+    "options": [
+      "Each check can wrongly block up to 5%",
+      "Each needs a false-block rate near 0.25%",
+      "Each check can wrongly block 5% divided by two",
+      "The limit only applies to the final step"
+    ],
+    "correctIndex": 1,
+    "explanation": "Twenty checks at 0.25% each stop about 5% of fine runs together. A check that looks acceptable alone can blow the run's budget, which is why checks go where the risk is."
+  },
+  {
+    "question": "A check catches 90% of mistakes and wrongly blocks 2% of good steps. The agent gets 1% of steps wrong. What share of blocks are real mistakes?",
+    "options": [
+      "About 90%, its catch rate",
+      "About a third",
+      "About 98%, one minus its false-block rate",
+      "About 1%, the error rate"
+    ],
+    "correctIndex": 1,
+    "explanation": "Out of 1,000 steps, it blocks about 9 of the 10 wrong ones and about 20 of the 990 good ones, so about 9 in 29 blocks are real. When mistakes are rare, false alarms outnumber catches even for a good check."
+  },
+  {
+    "question": "Two checks each miss 10% of problems. Why might the pair miss more than 1%?",
+    "options": [
+      "Because two checks always slow each other down",
+      "Because they may miss the same problems",
+      "Because the second check sees less of the run",
+      "Because miss rates always add up, not multiply"
+    ],
+    "correctIndex": 1,
+    "explanation": "1% assumes independent misses. The 2B and 4B were wrong together more than twice as often as independence predicts, and the research finds larger models sharing more errors. Checks that work differently are less likely to share blind spots."
+  }
+]}
+/>
+
+</CheckpointZone>

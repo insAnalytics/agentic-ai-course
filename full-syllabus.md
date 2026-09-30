@@ -4781,6 +4781,24 @@ real Pyodide 0.26.4.
   way out, and reviewing how. Graded `review_run` exercise (5 tests), 5 quiz
   cards, outcome 3 extended and 1 recap question.
 
+- **L2:** new concept 5, "When checks add up"; the recap is now
+  `06-recap-practice`.
+  - False blocks compound across checks (five at 2% stop 9.6% of fine
+    runs), so a run-level limit gets divided among the checks.
+  - Base rates: the share of blocks that are real (8% to 92% for the same
+    check), tied to L6's measured 21 of 66.
+  - Checks that fail together: the 2B and 4B are both wrong 2.3x as often as
+    independence predicts, and 6 of the 4B's 8 missed questions are the 2B's
+    too; Kim et al., Goel et al., Module 2's blind spots.
+
+  4 quiz cards, and outcome 3 extended. The recap explanation now notes the
+  plan's run-level 5.9% false blocks, and the recap has a new base-rate
+  question.
+- **L10 C3:** new subsection "What the stack costs together": the stack
+  blocks 2 of 8 while no layer alone blocks more than 1; latency adds up
+  (judge on the answer path, approval waits); and the suite can't show
+  shared blind spots or run-to-run variation (pass^k). 1 quiz card.
+
 Still open from that review: L8 recap's `record_run` hashes a system prompt
 that `call_model` never receives, and L10's "invented argument" scenario is
 caught only because the request omits the agent name, since the intent check

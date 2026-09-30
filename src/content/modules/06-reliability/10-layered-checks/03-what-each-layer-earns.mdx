@@ -214,6 +214,42 @@ the loop; Lesson 4 says how far to trust it.
 
 </Subsection>
 
+<Subsection title="What the stack costs together" variant="b">
+
+The last row of the first table is the stack's own bill, and it's bigger than
+any row above it. All eight layers together wrongly block 2 of the 8 fine
+scenarios, a quarter of them, although no single layer blocks more than one.
+That's the compounding from
+[Lesson 2](/06-reliability/02-reliability-tradeoffs/05-when-checks-add-up/#a-run-has-to-get-past-every-check).
+On real traffic, where most runs are fine, small false-block rates in each
+layer add up to a noticeable share of users who get an answer withheld or a
+question they didn't need.
+
+Latency adds up too, and the counts don't show it. The code layers take
+microseconds. The read-back adds a round trip after every write. The support
+judge is a model call made after the answer is drafted, so its time is added
+to every answer that cites a source. The 12.5 ms above is batched GPU time,
+not what a user waits for one call over an API. An approval waits for a
+person, which can take minutes or hours. By that measure, the session guard's
+one approval is the most expensive layer in the stack, though it's among the
+cheapest in compute. A stack's latency has to be measured end to end, in the
+[stated unit](/06-reliability/02-reliability-tradeoffs/03-equal-budgets-need-a-stated-unit/)
+that matters to the user.
+
+Two things this suite can't show:
+
+- **Layers that miss the same thing.** Each harm here was built for one
+  layer, so no two layers share a blind spot.
+  [Real checks do](/06-reliability/02-reliability-tradeoffs/05-when-checks-add-up/#checks-that-fail-together),
+  and a suite built from real failures would show it.
+- **Run-to-run variation.** Every scenario runs once, with a scripted model.
+  A real stack needs
+  [pass^k](/06-reliability/01-per-step-reliability/03-reliability-as-pass-k/)
+  over repeated runs, since a layer that stops a harm on one run may miss it
+  on the next.
+
+</Subsection>
+
 <CheckpointZone>
 
 <QuizGroup
@@ -262,6 +298,17 @@ the loop; Lesson 4 says how far to trust it.
     ],
     "correctIndex": 2,
     "explanation": "A wrongly withheld count costs a retry; an invented figure in a report costs trust or a wrong decision. The trade depends on those costs, stated explicitly."
+  },
+  {
+    "question": "Every layer alone wrongly blocks at most one fine scenario, but the full stack blocks two. Why?",
+    "options": [
+      "The layers interfere, so each blocks more together",
+      "A fine run has to pass every layer, so blocks add up",
+      "The stack runs each scenario twice",
+      "The judge blocks more when other layers run first"
+    ],
+    "correctIndex": 1,
+    "explanation": "The grounding check and the intent check each block a different fine scenario. Together, both scenarios are stopped: a run gets through only if every layer lets it, the same compounding as errors across steps."
   }
 ]}
 />
