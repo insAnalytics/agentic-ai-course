@@ -30,11 +30,14 @@ if "sleep" in call_with_retry.__globals__:
 
 export const RETRY = String.raw`def call_with_retry(tool_function, max_retries: int = 4, **kwargs):
     for attempt in range(max_retries):
-        wait_time = 2 ** attempt
         try:
             return tool_function(**kwargs)
         except ConnectionError as e:
-            print(f"attempt {attempt + 1} failed ({e}), waiting {wait_time}s before retrying")
+            if attempt + 1 == max_retries:
+                print(f"attempt {attempt + 1} failed ({e}), no retries left")
+            else:
+                wait_time = 2 ** attempt
+                print(f"attempt {attempt + 1} failed ({e}), waiting {wait_time}s before retrying")
     return f"Error: tool failed after {max_retries} attempts, giving up"
 `;
 
@@ -74,7 +77,8 @@ print(result)`} />
 then succeeds — a reproducible stand-in for a genuinely transient
 failure, without relying on actual randomness. `wait_time = 2 **
 attempt` is the identical doubling pattern from Module 1: 1s, 2s, 4s,
-8s. Here, the tool succeeds on its third attempt, well within the
+and so on, with no wait after the last attempt, since nothing follows
+it. Here, the tool succeeds on its third attempt, well within the
 `max_retries=4` budget. (The demo only *prints* each wait time rather
 than actually sleeping, so it runs instantly.)
 
@@ -85,7 +89,12 @@ random.uniform(0, 1)`, say — rather than a purely deterministic delay.
 If a whole fleet of clients hits the same failure at the same moment
 (a brief outage, a deploy), pure exponential backoff has them all
 retrying in lockstep, hammering the recovering service with synchronized
-bursts; jitter spreads those retries out instead.
+bursts; jitter spreads those retries out instead. The Amazon Builders'
+Library article on
+[timeouts, retries, and backoff with jitter](https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/)
+covers both this and the timeout above. Retries "can be ineffective if
+all clients retry at the same time", so "we employ jitter", and "a best
+practice in Amazon is to set a timeout on any remote call".
 
 </Subsection>
 
@@ -265,11 +274,14 @@ assert count == 1
 
 def call_with_retry(tool_function, max_retries: int = 4, **kwargs):
     for attempt in range(max_retries):
-        wait_time = 2 ** attempt
         try:
             return tool_function(**kwargs)
         except ConnectionError as e:
-            print(f"attempt {attempt + 1} failed ({e}), waiting {wait_time}s before retrying")
+            if attempt + 1 == max_retries:
+                print(f"attempt {attempt + 1} failed ({e}), no retries left")
+            else:
+                wait_time = 2 ** attempt
+                print(f"attempt {attempt + 1} failed ({e}), waiting {wait_time}s before retrying")
     return f"Error: tool failed after {max_retries} attempts, giving up"`,
     explanation:
       "The first scenario confirms a genuinely transient failure recovers correctly, on exactly the expected attempt. The second confirms the give-up path activates cleanly once retries are truly exhausted — returning a defined result, never crashing, and never attempting a fifth call beyond the stated budget.",

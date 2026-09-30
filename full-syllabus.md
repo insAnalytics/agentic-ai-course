@@ -868,6 +868,28 @@ lesson) remains a rough outline — not yet broken into lessons.
 
 ## Module 2 — The Agent Loop
 
+**Citation audit (2026-09-30).** A light pass; the full per-claim tables
+are in [citation-audit/module-2.md](citation-audit/module-2.md). Prose and
+quiz text only; no demo or exercise changed. The module had no external
+links before this pass. Now:
+- The three named papers are linked (Wei et al., Yao et al.'s ReAct, Huang
+  et al.). Each pattern name is credited to Anthropic's "Building effective
+  agents" where it appears.
+- **Corrected:** the `Action Input:` format is LangChain's, not the ReAct
+  paper's; chain-of-thought prompting "can be used with any model", and Wei
+  et al. found gains only at about 100B parameters; the OpenAI Agents SDK
+  isn't tied to one provider; a recap quiz on "scratchpad" as a framework
+  term.
+- **Added:** evidence and a boundary for reflection (Self-Refine, Kamoi et
+  al.), Tree of Thoughts' figures and cost, the AWS Builders' Library on
+  retries, Gemini CLI's loop detection, LangGraph checkpoints, and
+  Anthropic's and OpenAI's prompting guides.
+- **Retry demo fixed (L6 C6):** after its last attempt, `call_with_retry`
+  (the demo, the exercise's reference and the recap's `execute_tool_safely`)
+  printed a wait that never happened. It now prints "no retries left". The
+  hidden tests are unchanged. Re-verified in Pyodide 0.26.4: the demos, 7 of
+  7 exercise tests, the recap's tests, and a wrong variant still failing.
+
 *Renamed from "Build Intelligent Conversation Agents" as part of a newer,
 more refined syllabus structure. The 7-item list below is the **old**
 outline and is superseded — kept only until the new lesson breakdown is

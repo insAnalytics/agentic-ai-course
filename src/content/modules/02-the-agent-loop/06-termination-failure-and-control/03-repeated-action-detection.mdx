@@ -98,7 +98,11 @@ write (check → create → check again to verify), legitimately repeats
 the exact same call once the world has changed in between. Real
 implementations usually loosen the rule: allow a small number of
 repeats before stopping, or only flag a repeat when its result was also
-identical to last time.
+identical to last time. Google's Gemini CLI, for example,
+[flags a tool-call loop](https://github.com/google-gemini/gemini-cli/blob/acae7124bdd849e554eaa5e090199a0cf08cd782/packages/core/src/services/loopDetectionService.ts)
+only once the same call, with the same arguments, comes up five times
+in a row. It also catches a short cycle of different calls repeating
+five times.
 
 </Subsection>
 

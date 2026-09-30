@@ -16,7 +16,10 @@ The most basic fix for
 a hard limit on the number of loop iterations, enforced by the code
 itself, regardless of what the model wants to keep doing. Once the cap is
 reached, the loop stops — cleanly, not via a crash — whether or not the
-task was actually completed.
+task was actually completed. It's the standard first guard. Anthropic's
+["Building effective agents"](https://www.anthropic.com/engineering/building-effective-agents)
+notes it's "common to include stopping conditions (such as a maximum
+number of iterations) to maintain control".
 
 <LiveDemo client:load setupCode={REACT_FAKE_CLIENT} code={`def get_weather(location: str) -> str:
     return f"It's sunny in {location}."

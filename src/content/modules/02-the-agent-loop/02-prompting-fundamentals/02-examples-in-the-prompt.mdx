@@ -94,11 +94,16 @@ adherence to precisely the shape wanted.
 
 <Subsection title="How many examples actually help" variant="b">
 
-More examples aren't free, and don't help indefinitely: 2–5 well-chosen
-examples typically capture a pattern well; adding many more past that
-point produces diminishing returns while adding real,
+More examples aren't free. A handful of well-chosen examples usually
+captures a pattern; Anthropic's
+[prompting guide](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices)
+suggests 3–5. Each one past that adds real,
 [unavoidable token cost](/01-llm-foundations/11-quantization-cost-and-operational-concerns/03-token-based-pricing/)
-to every single request. Past a certain point, too many examples can even
+to every single request. (Research on long-context models has found
+gains from hundreds of examples on some tasks, and drops on others, in
+[Agarwal et al., 2024](https://arxiv.org/abs/2404.11018), NeurIPS 2024.
+In a prompt an agent resends on every call, that's rarely worth it.)
+Past a certain point, too many examples can even
 *over-anchor* the model to the specific examples given, making it less
 able to correctly generalize to a genuinely different but still valid new
 input.

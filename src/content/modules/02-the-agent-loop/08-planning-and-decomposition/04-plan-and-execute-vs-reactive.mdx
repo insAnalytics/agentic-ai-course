@@ -18,7 +18,12 @@ being named directly: deciding *one step at a time*, based only on current
 state, with no advance structure — **purely reactive**. This lesson's
 earlier concepts opened up the alternative: decompose the goal into a plan
 *before* any execution begins, then actually execute that predetermined
-structure — **plan-and-execute**.
+structure — **plan-and-execute**. The name comes from practice.
+LangChain's
+[plan-and-execute agents](https://blog.langchain.com/planning-agents/)
+pair a planner, which writes a multi-step plan, with executors that each
+take one step and may call several tools to finish it. Once execution is
+done, the planner is called again to re-plan if needed.
 
 </Subsection>
 
@@ -69,7 +74,10 @@ Two details in the executor matter more than they look:
   often ambiguous or depends on an earlier result: "Configure the new
   agent" means nothing unless the executor knows which agent step one
   created. Sending a sub-task alone is a common way plan-and-execute
-  agents go wrong.
+  agents go wrong. Anthropic
+  [reports this from its own research agent](https://www.anthropic.com/engineering/multi-agent-research-system):
+  given short task descriptions, sub-agents "misinterpreted the task or
+  performed the exact same searches as other agents."
 - **One call per step is a simplification.** Here each sub-task is a
   single model call, so the step count is exactly the plan's length. In
   real plan-and-execute systems, each sub-task usually runs as its own

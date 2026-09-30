@@ -51,6 +51,11 @@ Sell half of 30: 30 / 2 = 15.
 Final answer: 15"
 ```
 
+Adding a phrase like this is known as zero-shot chain-of-thought.
+[Kojima et al. (2022)](https://arxiv.org/abs/2205.11916) (NeurIPS 2022)
+showed that "Let's think step by step" alone helps. The original method
+showed the model worked examples with their steps written out instead.
+
 This isn't just a formatting difference —
 [every step written out becomes part of the context the next prediction actually conditions on](/01-llm-foundations/04-how-llms-generate-text/02-autoregressive-generation/#the-model-never-generates-more-than-one-token-at-once).
 Working through `23 - 8 = 15` explicitly, as generated text, means that
@@ -65,9 +70,13 @@ condition on in the first place.
 
 This is worth being precise about, since it's easy to conflate with
 [Module 1's reasoning models](/01-llm-foundations/08-scaling-laws-and-emergent-behavior/04-test-time-compute/):
-chain-of-thought *prompting*, as covered here, is a technique that works
-on *any* model, achieved purely by how the prompt is written — no special
-training required. A dedicated reasoning model has been *specifically
+chain-of-thought *prompting*, as covered here, is a technique you can use
+with *any* model, achieved purely by how the prompt is written — no special
+training required. Whether it helps depends on the model: the
+[original study](https://arxiv.org/abs/2201.11903) (Wei et al., NeurIPS
+2022) found gains only in its largest models, of around 100B parameters.
+Smaller ones wrote fluent but illogical steps and did worse than without
+them. A dedicated reasoning model has been *specifically
 trained*, via
 [RL for reasoning](/01-llm-foundations/07-the-training-pipeline/04-rl-for-reasoning/),
 to produce this kind of extended reasoning automatically, often without
@@ -80,8 +89,14 @@ behavior — but it's still a real, widely-applicable, and often sufficient
 technique, especially when a full reasoning model isn't available or isn't
 worth its extra cost for a given task. The flip side: adding "think step
 by step" to a reasoning model is usually redundant, since it already
-reasons before answering, and providers generally advise against
-scripting its reasoning. Give a reasoning model the goal and the
+reasons before answering, and providers advise against scripting its
+reasoning. OpenAI's
+[reasoning guide](https://developers.openai.com/api/docs/guides/reasoning-best-practices)
+says prompting these models to "think step by step" "is unnecessary".
+Anthropic's
+[prompting guide](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices)
+says a prompt like "think thoroughly" "often produces better reasoning
+than a hand-written step-by-step plan". Give a reasoning model the goal and the
 constraints, and save CoT instructions for standard models.
 
 </Subsection>
@@ -116,7 +131,7 @@ use, rather than reasoning about a standalone question in isolation.
       question: "Is chain-of-thought prompting the same thing as using a dedicated reasoning model?",
       options: [
         "Yes, they're identical in every respect",
-        "No — CoT prompting works on any model purely through how the prompt is written; a reasoning model has been specifically trained via RL to produce extended reasoning automatically",
+        "No — CoT prompting can be used with any model purely through how the prompt is written; a reasoning model has been specifically trained via RL to produce extended reasoning automatically",
         "CoT prompting only works on reasoning models, never standard ones",
         "Reasoning models can't be asked to show their reasoning at all",
       ],
@@ -128,7 +143,7 @@ use, rather than reasoning about a standalone question in isolation.
       question: "Why might CoT prompting on a standard model still be worth using, even though a dedicated reasoning model is generally more reliable at this same kind of task?",
       options: [
         "CoT prompting turns a standard model into a reasoning model, so the two are effectively the same thing",
-        "A full reasoning model isn't always available or worth its extra cost for a given task, and CoT prompting is a real, widely-applicable technique that works on any model without that added cost",
+        "A full reasoning model isn't always available or worth its extra cost for a given task, and CoT prompting is a real, widely-applicable technique that can be used with any model without that added cost",
         "Standard models are incapable of chain-of-thought reasoning under any circumstances",
         "Reasoning models can't accept instructions, so CoT prompting is the only way to guide their reasoning",
       ],

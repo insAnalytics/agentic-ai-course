@@ -133,7 +133,13 @@ second email sent. Two habits cover it. Checkpoint after every completed
 step, so the gap is as small as possible. And make side-effecting tools
 safe to run twice, like the registry's own "already exists" check, which
 [turns a repeat into an ordinary tool error the model can read](/02-the-agent-loop/06-termination-failure-and-control/05-tool-errors-as-observations/#the-fix-catch-it-and-let-the-model-see-it)
-instead of a duplicate.
+instead of a duplicate. Agent runtimes build in the same two habits.
+LangGraph
+[saves a checkpoint after every step of its graph](https://docs.langchain.com/oss/python/langgraph/checkpointers),
+and its docs warn that a step which started but didn't finish may run
+again on resume, so
+[side effects should be idempotent](https://docs.langchain.com/oss/python/langgraph/functional-api#idempotency):
+safe to run twice.
 
 </Subsection>
 
