@@ -1,0 +1,333 @@
+---
+title: "Compensating when a later step fails"
+lesson: "07-safe-actions"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+export const HALF_DONE_DEMO = String.raw`registry = {"research_agent": {"tier": "standard", "model": "claude-legacy"}}
+ALLOWED = {"standard": {"claude-haiku", "claude-sonnet"}, "priority": {"claude-haiku", "claude-sonnet", "claude-opus"}}
+
+
+def set_tier(agent: str, tier: str) -> None:
+    registry[agent]["tier"] = tier
+
+
+def set_model(agent: str, model: str) -> None:
+    if model not in ALLOWED[registry[agent]["tier"]]:
+        raise ValueError(f"REG-1007: {model} isn't allowed on the {registry[agent]['tier']} tier")
+    # a stand-in outage: the registry refuses model changes today
+    raise ConnectionError("registry-api unavailable")
+
+
+try:
+    set_tier("research_agent", "priority")
+    set_model("research_agent", "claude-opus")
+except ConnectionError as error:
+    print("step 2 failed:", error)
+print("left behind:", registry["research_agent"])
+`;
+
+export const STARTER = String.raw`def run_saga(steps: list[tuple]) -> dict:
+    """Run (name, action, compensate) steps in order. If an action raises, run the compensations of
+    the steps that completed, newest first; a compensation that raises is recorded, and the rest still run."""
+    ...
+
+
+registry = {"research_agent": {"tier": "standard", "model": "claude-legacy"}}
+
+
+def set_tier(tier):
+    registry["research_agent"]["tier"] = tier
+
+
+def failing_set_model():
+    raise ConnectionError("registry-api unavailable")
+
+
+result = run_saga([
+    ("move to priority", lambda: set_tier("priority"), lambda: set_tier("standard")),
+    ("switch to claude-opus", failing_set_model, lambda: None),
+])
+print(result)
+print("registry:", registry["research_agent"])
+`;
+
+export const REFERENCE = String.raw`def run_saga(steps: list[tuple]) -> dict:
+    """Run (name, action, compensate) steps in order. If an action raises, run the compensations of
+    the steps that completed, newest first; a compensation that raises is recorded, and the rest still run."""
+    completed = []
+    for name, action, compensate in steps:
+        try:
+            action()
+        except Exception:
+            compensated, compensation_failed = [], []
+            for done_name, done_compensate in reversed(completed):
+                try:
+                    done_compensate()
+                    compensated.append(done_name)
+                except Exception:
+                    compensation_failed.append(done_name)
+            return {"completed": [n for n, _ in completed], "failed": name,
+                    "compensated": compensated, "compensation_failed": compensation_failed}
+        completed.append((name, compensate))
+    return {"completed": [n for n, _ in completed], "failed": None, "compensated": [], "compensation_failed": []}
+
+
+registry = {"research_agent": {"tier": "standard", "model": "claude-legacy"}}
+
+
+def set_tier(tier):
+    registry["research_agent"]["tier"] = tier
+
+
+def failing_set_model():
+    raise ConnectionError("registry-api unavailable")
+
+
+result = run_saga([
+    ("move to priority", lambda: set_tier("priority"), lambda: set_tier("standard")),
+    ("switch to claude-opus", failing_set_model, lambda: None),
+])
+print(result)
+print("registry:", registry["research_agent"])
+`;
+
+export const TESTS = [
+// each hidden test runs in its own copy of the learner's namespace, so every test repeats log and the step helper
+String.raw`log = []
+
+
+def step(name, fail=False, fail_compensation=False):
+    def action():
+        log.append(f"do {name}")
+        if fail:
+            raise RuntimeError(f"{name} failed")
+
+    def compensate():
+        log.append(f"undo {name}")
+        if fail_compensation:
+            raise RuntimeError(f"undoing {name} failed")
+    return name, action, compensate
+
+
+r = run_saga([step("a"), step("b"), step("c")])
+assert r == {"completed": ["a", "b", "c"], "failed": None, "compensated": [], "compensation_failed": []}, (
+    f"got {r}: every step succeeded, so nothing is compensated")
+assert log == ["do a", "do b", "do c"], f"log {log}: run the actions in order, and no compensations"
+`,
+String.raw`log = []
+
+
+def step(name, fail=False, fail_compensation=False):
+    def action():
+        log.append(f"do {name}")
+        if fail:
+            raise RuntimeError(f"{name} failed")
+
+    def compensate():
+        log.append(f"undo {name}")
+        if fail_compensation:
+            raise RuntimeError(f"undoing {name} failed")
+    return name, action, compensate
+
+
+r = run_saga([step("a"), step("b"), step("c", fail=True), step("d")])
+assert r["failed"] == "c" and r["completed"] == ["a", "b"], f"got {r}: c failed after a and b completed"
+assert r["compensated"] == ["b", "a"], f"compensated {r['compensated']}: undo the completed steps newest first"
+assert log == ["do a", "do b", "do c", "undo b", "undo a"], (
+    f"log {log}: d must not run after c fails, and c isn't compensated, since it didn't complete")
+`,
+String.raw`log = []
+
+
+def step(name, fail=False, fail_compensation=False):
+    def action():
+        log.append(f"do {name}")
+        if fail:
+            raise RuntimeError(f"{name} failed")
+
+    def compensate():
+        log.append(f"undo {name}")
+        if fail_compensation:
+            raise RuntimeError(f"undoing {name} failed")
+    return name, action, compensate
+
+
+try:
+    r = run_saga([step("a"), step("b", fail_compensation=True), step("c", fail=True)])
+except RuntimeError as error:
+    raise AssertionError(f"run_saga raised {error!r}: a compensation that fails is recorded, and the others "
+                         "still run; don't let it escape") from None
+assert r["compensated"] == ["a"] and r["compensation_failed"] == ["b"], (
+    f"got {r}: undoing b failed, but a must still be undone; record b as a failed compensation")
+assert log == ["do a", "do b", "do c", "undo b", "undo a"], f"log {log}: keep compensating after one fails"
+`,
+String.raw`log = []
+
+
+def step(name, fail=False, fail_compensation=False):
+    def action():
+        log.append(f"do {name}")
+        if fail:
+            raise RuntimeError(f"{name} failed")
+
+    def compensate():
+        log.append(f"undo {name}")
+        if fail_compensation:
+            raise RuntimeError(f"undoing {name} failed")
+    return name, action, compensate
+
+
+r = run_saga([step("a", fail=True), step("b")])
+assert r == {"completed": [], "failed": "a", "compensated": [], "compensation_failed": []} and log == ["do a"], (
+    f"got {r}, log {log}: the first step failed, so there's nothing to undo")
+assert run_saga([]) == {"completed": [], "failed": None, "compensated": [], "compensation_failed": []}, "no steps"
+`,
+];
+
+<Subsection title="Half a change can be worse than none" variant="a">
+
+Many real actions take more than one step. Moving `research_agent` onto
+`claude-opus` means first moving it to the priority tier, the only tier that
+allows that model, and then changing the model. If the second step fails,
+the first has already happened:
+
+<LiveDemo client:load code={HALF_DONE_DEMO} />
+
+*(An in-memory registry with a scripted outage on the second step.)*
+
+The agent is now on the priority tier, which its owner's budget holder has
+to approve and pay for, and still on the old model. Nothing crashed, and
+the registry is in a state nobody asked for. Reading back, from the previous
+concept, would show this; something still has to put it right.
+
+</Subsection>
+
+<Subsection title="Sagas: every step comes with its undo" variant="b">
+
+This problem is decades older than agents. Garcia-Molina and Salem's paper
+[*Sagas*](https://dl.acm.org/doi/10.1145/38713.38742) (SIGMOD 1987)
+described long-running operations written as a sequence of smaller steps,
+where the system guarantees that either every step completes, or
+*compensating* steps run to amend the partial execution. Each step is paired
+with a compensation that undoes its effect: here, moving the agent back to
+the standard tier. When a step fails, the compensations of the steps that
+completed run in reverse order, newest first, since later steps may depend
+on earlier ones.
+
+The idea is now a standard pattern for work that spans several services,
+and three details from it matter for agents:
+
+- **A compensation undoes the effect, not the history.** The registry's
+  change log will show the tier going up and back down. That's correct: the
+  compensation restores what the business cares about, not the exact
+  earlier state.
+- **Some steps can only be corrected, not undone.** A sent email can't be
+  unsent; its compensation is a follow-up that corrects it. Steps like that
+  are best placed last, after everything that can still fail, and are
+  exactly where
+  [Lesson 2's risk](/06-reliability/02-reliability-tradeoffs/04-spend-reliability-where-the-risk-is/)
+  and the approval gate belong.
+- **A compensation is itself a write, and can fail.** It needs the same care
+  as any other: an
+  [idempotency key](/03-tool-design-for-agents/04-tools-that-call-the-outside-world/02-which-failures-to-retry-and-how/#retrying-a-write-can-do-it-twice)
+  so it can be retried safely, a read-back to confirm it worked, and, if it
+  still fails, an escalation to a person with the state it's left behind, as
+  [the previous lesson](/06-reliability/06-when-unsure/03-escalating/)
+  described.
+
+</Subsection>
+
+<Subsection title="When the agent itself crashes" variant="a">
+
+A saga run in memory has one more weakness: the list of which steps
+completed lives in the process. If the process dies between steps, or partway
+through compensating, that list is gone, and nothing knows what's left to
+undo.
+
+Durable execution is the standard answer. Workflow engines such as
+[Temporal](https://docs.temporal.io/evaluate/understanding-temporal) record
+every step of a workflow in a durable event history; if the process running
+it crashes, another process rebuilds the workflow's state from that history
+and resumes where it stopped. Running an agent's multi-step actions this way
+makes a saga survive a crash. The infrastructure for that belongs to
+Module 10; the design idea, that progress has to be written down somewhere
+that outlives the process, is the part to take from here.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "A migration moved an agent to the priority tier, then failed to change its model. What should happen?",
+    "options": [
+      "Leave it, since the tier change on its own is harmless",
+      "Compensate the tier change: back to standard",
+      "Retry the whole migration from the very start",
+      "Report success, since one of the steps worked"
+    ],
+    "correctIndex": 1,
+    "explanation": "A half-finished change is a state nobody asked for. A saga undoes the completed steps, so the agent ends up where it started, and costs nothing it didn't need."
+  },
+  {
+    "question": "Why are compensations run newest first?",
+    "options": [
+      "Because newer steps are more likely to fail",
+      "Later steps may depend on earlier ones",
+      "Because undoing in that order runs faster",
+      "Because the first step can never be compensated"
+    ],
+    "correctIndex": 1,
+    "explanation": "Undoing in reverse keeps every intermediate state valid, the same order in which a stack of changes comes off."
+  },
+  {
+    "question": "One step sends an email to the team. Where should it go in the saga, and why?",
+    "options": [
+      "First, so the team hears about it as early as possible",
+      "Last, since a sent email can only be corrected",
+      "Anywhere, since its compensation can unsend it",
+      "Outside the saga, since sending an email can't fail"
+    ],
+    "correctIndex": 1,
+    "explanation": "A step whose effect can't be undone should run only once everything else has succeeded. Its compensation, a correcting follow-up, is a last resort."
+  },
+  {
+    "question": "What does durable execution add to a saga?",
+    "options": [
+      "Faster steps, since the engine runs them in parallel",
+      "Progress recorded where a crash can't erase it",
+      "Automatic compensations written for every step",
+      "Protection against every kind of failure there is"
+    ],
+    "correctIndex": 1,
+    "explanation": "A saga in memory forgets which steps completed if the process dies. A workflow engine's durable history lets another process pick up the run, including a compensation already under way."
+  }
+]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Write run_saga(steps). Each step is a tuple (name, action, compensate), where action and compensate take no arguments. Run the actions in order. If one raises an exception: stop, and don't run any later actions; run the compensations of the steps that completed, newest first (the failed step isn't compensated, since it didn't complete); and if a compensation raises, record its step and carry on with the rest. Return {\"completed\": [...], \"failed\": ..., \"compensated\": [...], \"compensation_failed\": [...]}: the steps that completed, the name of the one that failed (or None), and the steps whose compensations succeeded or failed, in the order they ran."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  runnable
+  hint={"Keep a list of (name, compensate) for each step whose action succeeded. When an action raises, walk that list with reversed(), giving each compensation its own try, so one failure doesn't stop the others."}
+  correctAnswer={{
+    code: REFERENCE,
+    explanation: "A step joins the completed list only after its action succeeds, which is why the failed step is never compensated: there's nothing of it to undo. Reverse order matters because later steps can depend on earlier ones: undoing the tier change before the model change, in a run where both had succeeded, would leave a moment where claude-opus sits on the standard tier, which the registry forbids. Catching each compensation's failure separately means one stuck undo doesn't leave every other step undone too, and the report says exactly which parts need a person.",
+  }}
+/>
+
+</CheckpointZone>

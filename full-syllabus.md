@@ -5264,9 +5264,22 @@ architecture.md §3.1).
    applied). The starter's stray third blank line was normalized to two.
    Callbacks: Module 3's `#retrying-a-write-can-do-it-twice`, Lesson 3's
    checking-a-tool-result concept, and Module 2's goal-state and
-   timeouts-retry concepts (page links). Concepts 3 on (the next is about
-   undoing earlier steps when a later one fails) and bookends not yet
-   written.
+   timeouts-retry concepts (page links). Concept 3 (compensating when a
+   later step fails) is built, with no run data: a two-step migration left
+   half-done by a scripted outage; sagas (Garcia-Molina and Salem, 1987)
+   and three details for agents; durable execution (Temporal) for crashes;
+   and a graded `run_saga(steps)` (`runnable`). The demo and the starter's
+   printout reproduce the mockup exactly in Pyodide 0.26.4. Tests split
+   into 4 self-contained tests, each with its own `log` and `step` helper;
+   through the real `TEST_HARNESS` the reference passes all 4 and four
+   wrong versions each fail (compensating oldest first, compensating the
+   failed step, stopping at the first failed compensation, running on past
+   the failure), as does the starter. The starter's stray third blank line
+   was normalized to two. Callbacks: Lesson 2's spend-where-the-risk-is
+   concept, Module 3's `#retrying-a-write-can-do-it-twice`, and Lesson 6's
+   escalating concept (page links); "Module 10" stays plain text. Concepts
+   4 on (the next checks the agent's report of what it did against what
+   happened) and bookends not yet written.
 
 ---
 
