@@ -1,0 +1,363 @@
+---
+title: "Falling back to another model"
+lesson: "08-graceful-degradation"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+export const RETRIES_DEMO = String.raw`class Unavailable(Exception):
+    pass
+
+
+def primary_model(prompt: str) -> str:
+    # a provider having a bad hour: every call fails
+    raise Unavailable("503 from provider-a")
+
+
+def with_retries(call, prompt: str, attempts: int = 3) -> str:
+    """Module 2's retry, without the waits: try a few times, then give up with a defined result."""
+    for attempt in range(1, attempts + 1):
+        try:
+            return call(prompt)
+        except Unavailable as error:
+            print(f"  attempt {attempt}: {error}")
+    return "Sorry, I can't answer right now."
+
+
+print(with_retries(primary_model, "Which agents still run on claude-legacy?"))
+`;
+
+export const STARTER = String.raw`class Unavailable(Exception):
+    """The provider is down or timed out, after retries."""
+
+
+class RateLimited(Exception):
+    """The provider refused the request for now, after retries."""
+
+
+class ContextTooLong(Exception):
+    """This model can't take a prompt this long; one with a larger window might."""
+
+
+class BadRequest(Exception):
+    """The request itself is wrong; any model would refuse it."""
+
+
+class AllFailed(Exception):
+    def __init__(self, attempts: list):
+        super().__init__(f"every model failed: {attempts}")
+        self.attempts = attempts
+
+
+def call_with_fallbacks(models: list[str], call) -> dict:
+    """Try each model in order until one answers. Move on only for errors another model might not hit;
+    a bad request is raised at once, since every model would refuse it."""
+    ...
+
+
+def call(model: str) -> str:
+    if model == "provider-a/large":
+        raise Unavailable("503 from provider-a")
+    return f"{model}: research_agent and notes_agent still run on claude-legacy."
+
+
+print(call_with_fallbacks(["provider-a/large", "provider-b/large"], call))
+`;
+
+export const REFERENCE = String.raw`class Unavailable(Exception):
+    """The provider is down or timed out, after retries."""
+
+
+class RateLimited(Exception):
+    """The provider refused the request for now, after retries."""
+
+
+class ContextTooLong(Exception):
+    """This model can't take a prompt this long; one with a larger window might."""
+
+
+class BadRequest(Exception):
+    """The request itself is wrong; any model would refuse it."""
+
+
+class AllFailed(Exception):
+    def __init__(self, attempts: list):
+        super().__init__(f"every model failed: {attempts}")
+        self.attempts = attempts
+
+
+FALL_BACK_ON = (Unavailable, RateLimited, ContextTooLong)
+
+
+def call_with_fallbacks(models: list[str], call) -> dict:
+    """Try each model in order until one answers. Move on only for errors another model might not hit;
+    a bad request is raised at once, since every model would refuse it."""
+    attempts = []
+    for model in models:
+        try:
+            answer = call(model)
+        except FALL_BACK_ON as error:
+            attempts.append((model, type(error).__name__))
+            continue
+        return {"answer": answer, "model": model, "attempts": attempts}
+    raise AllFailed(attempts)
+
+
+def call(model: str) -> str:
+    if model == "provider-a/large":
+        raise Unavailable("503 from provider-a")
+    return f"{model}: research_agent and notes_agent still run on claude-legacy."
+
+
+print(call_with_fallbacks(["provider-a/large", "provider-b/large"], call))
+`;
+
+export const TESTS = [
+// each hidden test runs in its own copy of the learner's namespace, so every test repeats the scripted helper
+String.raw`def scripted(outcomes: dict):
+    """A stand-in call: each model either returns its answer or raises its error."""
+    calls = []
+
+    def call(model):
+        calls.append(model)
+        result = outcomes[model]
+        if isinstance(result, Exception):
+            raise result
+        return result
+    return call, calls
+
+
+call, calls = scripted({"primary": "answer from primary", "backup": "answer from backup"})
+r = call_with_fallbacks(["primary", "backup"], call)
+assert r == {"answer": "answer from primary", "model": "primary", "attempts": []}, (
+    f"got {r}: the primary answered, so use it and record that it did")
+assert calls == ["primary"], f"called {calls}: don't call the backup when the primary answers"
+`,
+String.raw`def scripted(outcomes: dict):
+    """A stand-in call: each model either returns its answer or raises its error."""
+    calls = []
+
+    def call(model):
+        calls.append(model)
+        result = outcomes[model]
+        if isinstance(result, Exception):
+            raise result
+        return result
+    return call, calls
+
+
+call, calls = scripted({"primary": Unavailable("down"), "backup": RateLimited("busy"), "third": "answer from third"})
+r = call_with_fallbacks(["primary", "backup", "third"], call)
+assert r["model"] == "third" and r["answer"] == "answer from third", f"got {r}: fall back past both failures"
+assert r["attempts"] == [("primary", "Unavailable"), ("backup", "RateLimited")], (
+    f"attempts {r['attempts']}: record each failed model and the kind of error, in order")
+`,
+String.raw`def scripted(outcomes: dict):
+    """A stand-in call: each model either returns its answer or raises its error."""
+    calls = []
+
+    def call(model):
+        calls.append(model)
+        result = outcomes[model]
+        if isinstance(result, Exception):
+            raise result
+        return result
+    return call, calls
+
+
+call, calls = scripted({"small": ContextTooLong("too long"), "large": "answer from large"})
+try:
+    result = call_with_fallbacks(["small", "large"], call)
+except ContextTooLong:
+    raise AssertionError("ContextTooLong escaped: a model with a larger window may take the prompt, so fall back") from None
+assert result["model"] == "large", (
+    "a context-window error is worth falling back on: a model with a larger window may take the prompt")
+`,
+String.raw`def scripted(outcomes: dict):
+    """A stand-in call: each model either returns its answer or raises its error."""
+    calls = []
+
+    def call(model):
+        calls.append(model)
+        result = outcomes[model]
+        if isinstance(result, Exception):
+            raise result
+        return result
+    return call, calls
+
+
+call, calls = scripted({"primary": BadRequest("malformed tool schema"), "backup": "answer from backup"})
+try:
+    call_with_fallbacks(["primary", "backup"], call)
+    raised = None
+except Exception as error:
+    raised = error
+assert isinstance(raised, BadRequest), (
+    f"got {raised!r}: a bad request would fail on every model; raise it at once instead of falling back")
+assert calls == ["primary"], f"called {calls}: don't try the backup with a request that's wrong"
+`,
+String.raw`def scripted(outcomes: dict):
+    """A stand-in call: each model either returns its answer or raises its error."""
+    calls = []
+
+    def call(model):
+        calls.append(model)
+        result = outcomes[model]
+        if isinstance(result, Exception):
+            raise result
+        return result
+    return call, calls
+
+
+call, calls = scripted({"primary": Unavailable("down"), "backup": Unavailable("down")})
+try:
+    call_with_fallbacks(["primary", "backup"], call)
+    raised = None
+except Exception as error:
+    raised = error
+assert isinstance(raised, AllFailed) and raised.attempts == [("primary", "Unavailable"), ("backup", "Unavailable")], (
+    f"got {raised!r}: when every model fails, raise AllFailed with the attempts")
+`,
+];
+
+<Subsection title="When retrying isn't enough" variant="a">
+
+[Module 2](/02-the-agent-loop/06-termination-failure-and-control/06-timeouts-retry-and-graceful-give-up/)
+taught the loop to retry a failing call with backoff and then give up with
+a defined result, and
+[Module 3](/03-tool-design-for-agents/04-tools-that-call-the-outside-world/02-which-failures-to-retry-and-how/)
+taught which failures are worth retrying at all. Both assume the problem is
+brief. Sometimes it isn't: a provider has an outage, or a model's rate limit
+is exhausted for the hour.
+
+<LiveDemo client:load code={RETRIES_DEMO} />
+
+*(The provider's outage is scripted.)*
+
+Giving up cleanly is better than crashing, but the user still gets nothing.
+If another model could have answered, the agent gave up too early.
+
+</Subsection>
+
+<Subsection title="A fallback chain" variant="b">
+
+A **fallback** is a second choice: when the primary model can't answer,
+try the next one on a list, in priority order. It might be the same model
+from another provider, a different model from the same provider, or a smaller
+model that's always available. LLM gateways build this in. The open-source
+gateway LiteLLM, for example,
+[configures fallbacks](https://docs.litellm.ai/docs/proxy/reliability) as
+a priority-ordered list of models per primary, and keeps separate lists for
+particular kinds of error, such as a prompt too long for the model's context
+window, since the right backup depends on what went wrong.
+
+That last point is the one to design around. Whether falling back can help
+depends on the error:
+
+- **The provider is down or rate-limited:** another provider, or another
+  model, may well be up. Fall back.
+- **The prompt is too long for this model:** a model with a larger context
+  window may take it. Fall back, to a model that can.
+- **The request itself is wrong,** such as a malformed tool schema or an
+  invalid parameter: every model would refuse it. Falling back only hides a
+  bug and wastes calls. Raise it.
+
+This is the same split as Module 3's retry rules, one level up: retry what
+might succeed on a second try, fall back on what might succeed somewhere else,
+and fix what would fail everywhere.
+
+</Subsection>
+
+<Subsection title="A fallback is a different model" variant="a">
+
+Falling back keeps the agent answering, but not in the same way. A backup
+model may be weaker, format its output differently, or follow instructions
+less closely. Two habits follow:
+
+- **Its answers pass the same checks.** The result checks from
+  [Lesson 3](/06-reliability/03-checks-in-the-loop/02-checking-a-tool-result/)
+  and the support checks from
+  [Lesson 4](/06-reliability/04-verifying-claims/01-checking-each-claim/)
+  apply to a backup's answer exactly as to the primary's. If anything, a
+  weaker model's answers are the ones that most need them.
+- **The record says which model answered.** When answers go wrong later,
+  whether they came from the backup is the first thing to find out, and it's
+  impossible to find out if nothing recorded it. Recording and tracing runs is
+  Module 7's subject; recording which model answered is the minimum.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "Retries with backoff have been exhausted, and the provider is still returning 503. What does a fallback add?",
+    "options": [
+      "More retries of exactly the same call",
+      "Another model that may be up when this one isn't",
+      "A cached answer from an earlier run",
+      "A smaller prompt for the same model"
+    ],
+    "correctIndex": 1,
+    "explanation": "Retries assume the problem is brief. A fallback assumes it might not be, and tries somewhere else."
+  },
+  {
+    "question": "A request fails because its tool schema is malformed. Should the agent fall back to another model?",
+    "options": [
+      "Yes, since another model might accept it",
+      "No: every model would refuse it",
+      "Yes, but only to a larger model",
+      "Only after retrying it three times first"
+    ],
+    "correctIndex": 1,
+    "explanation": "Some errors come from the request, not the model. Those should fail loudly, once, so the bug gets fixed."
+  },
+  {
+    "question": "Why record which model answered?",
+    "options": [
+      "For billing purposes, and nothing else",
+      "So bad answers can be traced to the backup",
+      "Because a backup's answers can't be checked otherwise",
+      "Because every provider requires it"
+    ],
+    "correctIndex": 1,
+    "explanation": "A backup may be weaker or behave differently. Without a record, a pattern of bad answers from the fallback is invisible."
+  },
+  {
+    "question": "A backup model answers during an outage. Which checks apply to its answer?",
+    "options": [
+      "None, since it's only a temporary backup",
+      "The same checks as the primary's answers",
+      "Only the check on the answer's format",
+      "Only if it comes from a different provider"
+    ],
+    "correctIndex": 1,
+    "explanation": "Falling back changes who answers, not what the answer has to pass. A weaker model's answers need the checks at least as much."
+  }
+]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Write call_with_fallbacks(models, call). models is a list of model names in priority order, and call(model) returns an answer or raises one of the errors defined in the starter. Try each model in order. If it answers, return {\"answer\": ..., \"model\": ..., \"attempts\": [...]}, where attempts lists (model, error class name) for every model that failed before it. If it raises Unavailable, RateLimited or ContextTooLong, record the attempt and try the next model. If it raises BadRequest, let it propagate at once, without trying any other model. If every model fails, raise AllFailed(attempts)."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  runnable
+  hint={"Put the three errors worth falling back on in a tuple, and catch only that tuple: except (A, B, C) as error:. Anything else, including BadRequest, then propagates by itself. type(error).__name__ gives the class name to record."}
+  correctAnswer={{
+    code: REFERENCE,
+    explanation: "Catching only the errors another model might not hit is the whole design. A bare except Exception would try every backup on a request that can't succeed anywhere, turning one clear error into several confusing ones. The attempts list is the record the previous section asked for: which models failed and how, and which one finally answered.",
+  }}
+/>
+
+</CheckpointZone>

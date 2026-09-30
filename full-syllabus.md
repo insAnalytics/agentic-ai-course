@@ -5311,6 +5311,27 @@ architecture.md §3.1).
    Lesson 7 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
 
+8. **Degrading Gracefully** (title provisional) — **Building** (folder
+   `08-graceful-degradation`). Concept 1 (falling back to another model)
+   is built, with no run data: Module 2's retries giving up on a scripted
+   outage; fallback chains (LiteLLM's per-error fallback lists) and which
+   errors are worth falling back on; a backup's answers passing the same
+   checks and being recorded; and a graded `call_with_fallbacks(models,
+   call)` (`runnable`). The mockup's reference omitted the starter's error
+   classes, so the page's reference is the full starter with the function
+   filled in. The demo and the starter's printout reproduce the mockup
+   exactly in Pyodide 0.26.4. Tests split into 5 self-contained tests, each
+   repeating the `scripted` helper; through the real `TEST_HARNESS` the
+   reference passes all 5 and five wrong versions each fail (the starter,
+   catching every exception, not falling back on `ContextTooLong`,
+   returning None when every model fails, recording the message instead of
+   the class name, calling every model). The starter's stray third blank
+   line was normalized to two. Callbacks: Module 2's timeouts-retry and
+   Module 3's which-failures-to-retry concepts, Lesson 3 concept 2 and
+   Lesson 4 concept 1 (page links); "Module 7's subject" stays plain text.
+   Concepts 2 on (the next is about answering with what's available when
+   one part is missing) and bookends not yet written.
+
 ---
 
 ## Modules 4–11 — current plan
