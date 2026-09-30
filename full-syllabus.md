@@ -5233,8 +5233,8 @@ architecture.md §3.1).
    Lesson 6 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
 
-7. **Checking Actions Before and After** (title provisional) —
-   **Building** (folder `07-safe-actions`). Concept 1 (a dry run before
+7. **Actions That Mustn't Go Wrong** — **Locked** (folder
+   `07-safe-actions`). Concept 1 (a dry run before
    the action) is built, with no run data: Terraform's plan/apply as the
    model; a bulk `set_models` tool with a dry-run mode whose preview shows
    a loose match catching `research_summary_agent`; `apply_plan` refusing
@@ -5291,8 +5291,25 @@ architecture.md §3.1).
    of report order, only the first match per pattern, lowercased claim
    text). The starter's stray third blank line was normalized to two.
    Callbacks: Lesson 4 concept 4 and Lesson 3's what-a-failed-check-does
-   concept (page links). All four concepts exist; the bookends (intro,
-   comprehensive quiz and sandbox, recap) are not yet written.
+   concept (page links). Bookends are built: the intro (outcomes, why it
+   matters), a 7-card comprehensive quiz, and a `MultiFileGradedExercise`
+   with `migrate(registry, match, agent, model, team)` in `workflow.py`
+   over a read-only `lib.py` (a logging `Registry` stand-in with failure
+   flags, plus the four concepts' `check_preview`, `is_safe`, `confirm`,
+   `run_saga`, `CLAIMS` and `unsupported_claims`, identical to their
+   references); no data files. In real Pyodide 0.26.4 the reference passes
+   the hidden tests and its Submit output matches the mockup's four
+   scenarios (done; refused on the loose match; rolled back when the
+   notification fails; rolled back when the write is lost), and seven
+   wrong versions each fail (the starter, no preview check, notifying
+   before reading back, no compensation, no read-back, a report claiming
+   success after a failure, a refusal worded "haven't moved"). That last
+   one is the claim patterns' known limit, so the hint now says to
+   describe refusals and rollbacks without "moved". The lesson title,
+   provisional until now, is the bookends'.
+
+   Lesson 7 is now **Locked**: all four concepts plus both bookends exist
+   and build cleanly.
 
 ---
 
