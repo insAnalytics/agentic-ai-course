@@ -5469,8 +5469,8 @@ architecture.md §3.1).
    Lesson 9 is now **Locked**: all three concepts plus both bookends exist
    and build cleanly.
 
-10. **Putting the Checks Together** (title provisional) — **Building**
-   (folder `10-layered-checks`). Concept 1 (the agent, and what goes wrong
+10. **Putting It Together: A Reliable Agent** — **Locked** (folder
+   `10-layered-checks`, named before the title existed). Concept 1 (the agent, and what goes wrong
    without the module) is built, prose, one demo and quiz, no exercise: one
    agent carrying the whole module, measured on Lesson 2's catches / wrongly
    blocks / costs; a suite of sixteen scripted scenarios (eight fine, eight
@@ -5524,7 +5524,28 @@ architecture.md §3.1).
    inverted, costs over harmful runs only, names out of order, an extra key,
    `None` for no results). Callbacks: Lesson 2 concepts 1 and 3 (page
    links); "Module 7's subject" stays plain text. The mockup marks this as
-   the lesson's last concept; bookends not yet drafted.
+   the lesson's last concept. Bookends are built: the intro (outcomes, why
+   it matters), a 7-card comprehensive quiz, a `MultiFileGradedExercise`
+   with `choose_layers(summaries, max_blocked, max_judge_calls)` in
+   `choose.py` over a read-only `lib.py`, and the module's closing section
+   ("Where the module leaves the agent") after the exercise, the first
+   recap page with closing prose. `lib.py` is built on the page from the
+   shared constants (`REACT_FAKE_CLIENT`, `CHECKED_AGENT`, `SCENARIO_SUITE`,
+   `CHECK_LAYERS`) plus concept 3's `summarise`, and evaluates to exactly
+   the mockup's `lib.py`. Submit measures all 256 layer sets in about 0.3 s
+   in Pyodide 0.26.4, and the reference's output matches the mockup
+   exactly. **Test fix:** two wrong versions passed the mockup's tests
+   (leaving out the alphabetical tie-break, since the test dict already
+   listed the winner first; and ranking fewer layers ahead of fewer wrong
+   blocks), so two cases were added (architecture.md §4.1). Graded the way
+   the multi-file harness runs, the reference passes, and the starter and
+   eight wrong versions each fail (also: exclusive limits, no tie-breaks,
+   ignoring the judge limit, `min` on an empty list, ignoring wrong blocks).
+   The mockup's "click Run" reads "click Submit", matching the component.
+   The lesson title, provisional until now, is the bookends'.
+
+   Lesson 10 is now **Locked**: all three concepts plus both bookends exist
+   and build cleanly.
 
 ---
 

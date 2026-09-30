@@ -1,0 +1,248 @@
+---
+title: "Recap & Practice"
+lesson: "10-layered-checks"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT } from "../../../../lib/fakeClient";
+import { CHECKED_AGENT, SCENARIO_SUITE, CHECK_LAYERS } from "../../../../lib/reliabilityData";
+
+export const SUMMARISE = String.raw`def summarise(results: list[dict]) -> dict:
+    """What one set of layers did across the suite: how many harms it stopped, which it let through,
+    which fine runs it blocked, and what it cost in extra work."""
+    return {
+        "caught": sum(r["harmful"] and not r["went_wrong"] for r in results),
+        "missed": [r["scenario"] for r in results if r["harmful"] and r["went_wrong"]],
+        "wrongly_blocked": [r["scenario"] for r in results if not r["harmful"] and r["went_wrong"]],
+        **{key: sum(r[key] for r in results) for key in ("judge_calls", "extra_tool_calls", "approvals")},
+    }
+`;
+
+export const LIB_PY = /* the lesson's whole shared setup, in the order its pages load it, plus concept 3's summarise */ String.raw`"""This lesson's agent, suite, layers and summary, read-only. The fake client comes first, as in the lesson."""
+` + REACT_FAKE_CLIENT + "\n\n# Lesson 3's loop with four check points, unchanged" + CHECKED_AGENT + SCENARIO_SUITE + "\n" + CHECK_LAYERS + "\n\n" + SUMMARISE;
+
+export const CHOOSE_STARTER = String.raw`import itertools
+
+from lib import LAYERS, SCENARIOS, checks_from, run_scenario, summarise
+
+
+def choose_layers(summaries: dict, max_blocked: int, max_judge_calls: int):
+    """The set of layers that catches the most harm within the limits. Ties go to fewer wrong blocks,
+    then fewer judge calls, then fewer layers, then the alphabetically first set. None if nothing fits."""
+    ...
+
+
+if __name__ == "__main__":
+    summaries = {}
+    for size in range(len(LAYERS) + 1):
+        for layers in itertools.combinations(LAYERS, size):
+            summaries[layers] = summarise([run_scenario(s, checks_from(list(layers))) for s in SCENARIOS])
+    for max_blocked, max_judge_calls in [(0, 0), (1, 0), (2, 0), (2, 2)]:
+        chosen = choose_layers(summaries, max_blocked, max_judge_calls)
+        s = summaries[chosen]
+        print(f"at most {max_blocked} wrong blocks, {max_judge_calls} judge calls: caught {s['caught']}/8, "
+              f"missed {s['missed']}, blocked {s['wrongly_blocked']}")
+        print(f"   layers: {sorted(chosen)}")
+`;
+
+export const CHOOSE_REFERENCE = String.raw`import itertools
+
+from lib import LAYERS, SCENARIOS, checks_from, run_scenario, summarise
+
+
+def choose_layers(summaries: dict, max_blocked: int, max_judge_calls: int):
+    """The set of layers that catches the most harm within the limits. Ties go to fewer wrong blocks,
+    then fewer judge calls, then fewer layers, then the alphabetically first set. None if nothing fits."""
+    fitting = [(layers, s) for layers, s in summaries.items()
+               if len(s["wrongly_blocked"]) <= max_blocked and s["judge_calls"] <= max_judge_calls]
+    if not fitting:
+        return None
+    best = min(fitting, key=lambda item: (-item[1]["caught"], len(item[1]["wrongly_blocked"]),
+                                          item[1]["judge_calls"], len(item[0]), sorted(item[0])))
+    return best[0]
+
+
+if __name__ == "__main__":
+    summaries = {}
+    for size in range(len(LAYERS) + 1):
+        for layers in itertools.combinations(LAYERS, size):
+            summaries[layers] = summarise([run_scenario(s, checks_from(list(layers))) for s in SCENARIOS])
+    for max_blocked, max_judge_calls in [(0, 0), (1, 0), (2, 0), (2, 2)]:
+        chosen = choose_layers(summaries, max_blocked, max_judge_calls)
+        s = summaries[chosen]
+        print(f"at most {max_blocked} wrong blocks, {max_judge_calls} judge calls: caught {s['caught']}/8, "
+              f"missed {s['missed']}, blocked {s['wrongly_blocked']}")
+        print(f"   layers: {sorted(chosen)}")
+`;
+
+export const HIDDEN_TESTS = String.raw`from choose import choose_layers
+
+
+def summary(caught, blocked=0, judge=0):
+    return {"caught": caught, "missed": [], "wrongly_blocked": [f"fine {i}" for i in range(blocked)],
+            "judge_calls": judge, "extra_tool_calls": 0, "approvals": 0}
+
+
+summaries = {
+    (): summary(0),
+    ("a",): summary(3),
+    ("b",): summary(5, blocked=1),
+    ("c",): summary(6, judge=2),
+    ("a", "b"): summary(6, blocked=1),
+    ("a", "b", "c"): summary(8, blocked=1, judge=2),
+    ("d",): summary(3),
+}
+assert choose_layers(summaries, 0, 0) == ("a",), (
+    f"got {choose_layers(summaries, 0, 0)}: with no wrong blocks and no judge calls allowed, ('a',) catches most; "
+    "('d',) ties with it, and ties go to the alphabetically first set")
+assert choose_layers(summaries, 1, 0) == ("a", "b"), (
+    f"got {choose_layers(summaries, 1, 0)}: one wrong block allowed; ('a', 'b') catches 6 and fits")
+assert choose_layers(summaries, 0, 2) == ("c",), (
+    f"got {choose_layers(summaries, 0, 2)}: limits are inclusive: 2 judge calls fit a limit of 2")
+assert choose_layers(summaries, 1, 2) == ("a", "b", "c"), f"got {choose_layers(summaries, 1, 2)}: everything fits; 8 is most"
+
+tied = {("x", "y"): summary(4), ("z",): summary(4), ("w",): summary(4, blocked=1), ("v",): summary(4, judge=1)}
+assert choose_layers(tied, 5, 5) == ("z",), (
+    f"got {choose_layers(tied, 5, 5)}: equal catches: fewer wrong blocks first, then fewer judge calls, then fewer layers")
+
+order = {("p", "q"): summary(4), ("r",): summary(4, blocked=1), ("s",): summary(4, judge=1)}
+assert choose_layers(order, 5, 5) == ("p", "q"), (
+    f"got {choose_layers(order, 5, 5)}: fewer wrong blocks, then fewer judge calls, come before fewer layers")
+
+late = {("d",): summary(3), ("a",): summary(3)}
+assert choose_layers(late, 0, 0) == ("a",), (
+    f"got {choose_layers(late, 0, 0)}: the alphabetically first set wins the last tie, whatever order the sets come in")
+
+try:
+    nothing = choose_layers({("a",): summary(3, blocked=2)}, 1, 0)
+except ValueError as error:
+    raise AssertionError(f"ValueError ({error}): when no set of layers fits the limits, return None") from None
+assert nothing is None, "nothing fits the limits: return None"
+`;
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "Why does this lesson use scripted scenarios, and what does that limit?",
+    "options": [
+      "Real models can't be tested, so nothing is limited",
+      "Failures happen on demand; counts describe the suite",
+      "Scripted runs are more realistic than real ones",
+      "They're cheaper, and the counts are real error rates"
+    ],
+    "correctIndex": 1,
+    "explanation": "Scripting guarantees each failure occurs so each layer can be tested. How often a real model fails, and how often a model check is right, come from real runs."
+  },
+  {
+    "question": "Why does the support judge sit after the code checks at the answer?",
+    "options": [
+      "Because it's less accurate than the code checks",
+      "It's the only layer that calls a model",
+      "Because the code checks need its verdict first",
+      "The order of the checks doesn't matter"
+    ],
+    "correctIndex": 1,
+    "explanation": "The first objection wins, so the costly check is paid for only on answers that have already passed the cheap ones."
+  },
+  {
+    "question": "The result check alone stops no harm in the suite. Why keep it?",
+    "options": [
+      "It doesn't need to stop anything to be worth it",
+      "Paired with the missing-part check, it stops one",
+      "It catches different harms, with a real model only",
+      "It's free, so whether it helps doesn't matter"
+    ],
+    "correctIndex": 1,
+    "explanation": "Some layers only work in pairs. Taking the result check out of the full stack lets the silent failure through."
+  },
+  {
+    "question": "Two fine scenarios are wrongly blocked. What are they, and why?",
+    "options": [
+      "Two random failures of the scripted model",
+      "A derived count, and a loosely named agent",
+      "Two harmful scenarios mislabelled as fine",
+      "Two scenarios the support judge got wrong"
+    ],
+    "correctIndex": 1,
+    "explanation": "The grounding check can't see a number the agent worked out, and the intent check matches names exactly. Both are known limits of those checks."
+  },
+  {
+    "question": "What does taking one layer out of the full stack show that running it alone doesn't?",
+    "options": [
+      "Nothing that running it alone doesn't show",
+      "The harms and wrong blocks only it causes",
+      "How fast the layer runs inside the stack",
+      "Whether the layer's code has bugs in it"
+    ],
+    "correctIndex": 1,
+    "explanation": "\"Alone\" undersells layers that work in pairs and oversells ones that overlap. Leave-one-out shows what the stack actually loses."
+  },
+  {
+    "question": "Where should the support judge's accuracy come from?",
+    "options": [
+      "The suite's scripted verdicts for each claim",
+      "Labelled real cases, as measured in Lesson 4",
+      "The judge model's own stated confidence",
+      "How many calls the judge makes on the suite"
+    ],
+    "correctIndex": 1,
+    "explanation": "In the suite its verdicts are written in. Its real catch and false-flag rates come from Lesson 4's measurement on built pairs and drafts."
+  },
+  {
+    "question": "With no wrong blocks and no model calls allowed, the best set of layers stops 5 of 8 harms. What's the right way to use that result?",
+    "options": [
+      "Accept it, since those limits are always right",
+      "As the limits' price, weighed in a stated unit",
+      "Drop the limits and simply run everything",
+      "Add more layers until all 8 harms are caught"
+    ],
+    "correctIndex": 1,
+    "explanation": "Each limit has a price in missed harms. Seeing exactly which harms each extra allowance buys is what makes the choice a decision."
+  }
+]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<MultiFileGradedExercise
+  client:load
+  task={"lib.py holds this lesson's agent, suite, layers and summarise, read-only. In choose.py (the entry file), write choose_layers(summaries, max_blocked, max_judge_calls). summaries maps each set of layers, a tuple of names, to what summarise reported for it on the suite. Return the set that (1) fits the limits: no more than max_blocked wrongly blocked fine scenarios, and no more than max_judge_calls judge calls; and (2) catches the most harms. Break ties by fewer wrong blocks, then fewer judge calls, then fewer layers, then the alphabetically first set (compare the sorted names). If no set fits, return None. When you click Submit, the code at the bottom measures all 256 sets of layers on the suite and chooses under four sets of limits."}
+  entry="choose.py"
+  files={[
+    { name: "lib.py", readOnly: true, code: LIB_PY },
+    { name: "choose.py", code: CHOOSE_STARTER },
+  ]}
+  hiddenTests={HIDDEN_TESTS}
+  hint={"Filter the sets that fit, then take min with a key tuple: -caught first, so more catches sort first, followed by the tie-breaks in order. Check for an empty list before calling min."}
+  correctFiles={[
+    { name: "lib.py", readOnly: true, code: LIB_PY },
+    { name: "choose.py", code: CHOOSE_REFERENCE },
+  ]}
+  explanation={"The Submit output turns the lesson into a price list. With no wrong blocks and no model calls allowed, the best set stops 5 of the 8 harms: the session guard, the read-back, the report check, and the result and missing-part pair. Allowing one wrong block adds the grounding check, which catches the invented figure at the cost of the derived count; the intent check would buy the same one extra catch for its own wrong block, and the tie goes to the grounding check only by name. Allowing two adds both. Allowing two judge calls, about 500 tokens and 25 GPU-ms here, buys the last harm, the unsupported claim. Which row a team picks depends on what a missed harm and a wrong block each cost them, in a unit they've stated; the table just makes the choice visible."}
+/>
+
+</CheckpointZone>
+
+<Subsection title="Where the module leaves the agent" variant="a">
+
+Module 6 started from a number: a small error rate per step compounds over a
+long task. It ends with an agent whose checks catch every harm in its suite,
+and with the habit that made that possible: every technique is measured by
+what it catches, what it wrongly blocks, and what it costs, on evidence,
+before it's trusted.
+
+Two things the module deliberately left for later. Module 7, evaluation and
+observability, builds suites like this one into a routine: running them as
+the agent changes, tracing real runs, and calibrating checks against people's
+labels at scale. Module 10 treats the security of a deployed agent as a
+whole, beyond the session guard's single layer.
+
+</Subsection>

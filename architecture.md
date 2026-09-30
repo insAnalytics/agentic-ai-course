@@ -2089,6 +2089,20 @@ passed. The test now builds its own label dict and calls `decide` on it.
 **Takeaway:** a purity test builds its own fresh mutable inputs; it never
 snapshots shared starter data.
 
+**A tie-break test has to beat insertion order (Module 6 Lesson 10
+recap, `choose_layers`).** The mockup's tests checked "ties go to the
+alphabetically first set" with a dict listing `("a",)` before `("d",)`.
+`min` and `max` return the first of equal items, so a learner who left the
+alphabetical tie-break out passed anyway, and so did one who ranked fewer
+layers ahead of fewer wrong blocks (every set that differed in size also
+tied on blocks). On the real 256 sets the first bug changes the Submit
+output, since `itertools.combinations` lists the intent-check set before
+the grounding one. Two cases were added: the alphabetically first set
+listed last, and a two-layer set that beats one-layer sets on blocks and
+judge calls. **Takeaway:** for each tie-break, test a case where the
+expected winner comes later in iteration order and loses on every later
+criterion.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped
