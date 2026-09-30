@@ -6263,5 +6263,13 @@ dedicated coverage here.
     tool in Lesson 10's fault injection.
 - **Module 6 source claims:** resolved by the 2026-09-30 citation audit
   (see Module 6's "Citation audit" note and `citation-audit/module-6.md`).
-  Left open: CaMeL's published SaTML 2026 figures, and Zhu et al.'s review
-  status.
+  Left open: Zhu et al.'s review status (labelled a preprint).
+- **Open question, for the owner to check: CaMeL's published figures.**
+  Module 6 L9 C3 (`03-designs-that-keep-untrusted-text-away.mdx`) quotes
+  CaMeL solving 77% of AgentDojo tasks with provable security, against 84%
+  undefended. That is from arXiv v2 (2503.18813, June 2025), which revised
+  v1's 67%. Crossref lists a published version in IEEE SaTML 2026 (pp.
+  587–618, DOI 10.1109/satml68715.2026.00040), but the IEEE page wouldn't
+  load, so the published figures are unchecked. The page currently says
+  "the revised version of the paper reports" and doesn't name the venue. If
+  the published figures match, add "(IEEE SaTML 2026)"; if not, use them.
