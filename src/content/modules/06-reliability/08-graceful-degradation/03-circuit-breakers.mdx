@@ -1,0 +1,384 @@
+---
+title: "Circuit breakers"
+lesson: "08-graceful-degradation"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+export const WAITING_DEMO = String.raw`TIMEOUT = 5.0
+requests = 20
+
+# without a breaker: every request waits the full timeout on a service that's down
+naive_wait = requests * TIMEOUT
+
+# with a breaker that trips after 3 failures: those 3 wait, the rest fail at once
+tripped_after = 3
+breaker_wait = tripped_after * TIMEOUT
+
+print(f"{requests} requests to a service that's down, {TIMEOUT:.0f} s timeout each")
+print(f"  no breaker:   {requests} calls made, {naive_wait:.0f} s spent waiting")
+print(f"  with breaker: {tripped_after} calls made, {breaker_wait:.0f} s spent waiting; "
+      f"{requests - tripped_after} requests told at once, free to use a fallback")
+`;
+
+export const STARTER = String.raw`class CircuitOpen(Exception):
+    """Raised instead of calling a dependency the breaker has stopped calling."""
+
+
+class CircuitBreaker:
+    """Stop calling a failing dependency for a while. clock() returns the current time in seconds."""
+
+    def __init__(self, threshold: int, reset_after: float, clock, trips_on: tuple = (Exception,)):
+        self.threshold, self.reset_after, self.clock, self.trips_on = threshold, reset_after, clock, trips_on
+        self.failures = 0
+        self.opened_at = None
+
+    @property
+    def state(self) -> str:
+        ...
+
+    def call(self, fn):
+        ...
+
+
+now = [0.0]
+breaker = CircuitBreaker(threshold=2, reset_after=30, clock=lambda: now[0], trips_on=(ConnectionError,))
+
+
+def health_service():
+    raise ConnectionError("health-service unavailable")
+
+
+for second in (0, 1, 2, 31):
+    now[0] = second
+    before = breaker.state
+    try:
+        breaker.call(health_service)
+    except (ConnectionError, CircuitOpen) as error:
+        print(f"t={second:>2}s  {before:<9} -> {breaker.state:<9}  {type(error).__name__}: {error}")
+`;
+
+export const REFERENCE = String.raw`class CircuitOpen(Exception):
+    """Raised instead of calling a dependency the breaker has stopped calling."""
+
+
+class CircuitBreaker:
+    """Stop calling a failing dependency for a while. clock() returns the current time in seconds."""
+
+    def __init__(self, threshold: int, reset_after: float, clock, trips_on: tuple = (Exception,)):
+        self.threshold, self.reset_after, self.clock, self.trips_on = threshold, reset_after, clock, trips_on
+        self.failures = 0
+        self.opened_at = None
+
+    @property
+    def state(self) -> str:
+        if self.opened_at is None:
+            return "closed"
+        return "half_open" if self.clock() - self.opened_at >= self.reset_after else "open"
+
+    def call(self, fn):
+        if self.state == "open":
+            raise CircuitOpen(f"not calling: {self.failures} failures, retrying after {self.reset_after} s")
+        try:
+            result = fn()
+        except self.trips_on:
+            self.failures += 1
+            if self.failures >= self.threshold:
+                self.opened_at = self.clock()
+            raise
+        self.failures = 0
+        self.opened_at = None
+        return result
+
+
+now = [0.0]
+breaker = CircuitBreaker(threshold=2, reset_after=30, clock=lambda: now[0], trips_on=(ConnectionError,))
+
+
+def health_service():
+    raise ConnectionError("health-service unavailable")
+
+
+for second in (0, 1, 2, 31):
+    now[0] = second
+    before = breaker.state
+    try:
+        breaker.call(health_service)
+    except (ConnectionError, CircuitOpen) as error:
+        print(f"t={second:>2}s  {before:<9} -> {breaker.state:<9}  {type(error).__name__}: {error}")
+`;
+
+export const TESTS = [
+// each hidden test runs in its own copy of the learner's namespace, so every test repeats the helpers it uses
+String.raw`class Clock:
+    def __init__(self):
+        self.now = 0.0
+
+    def __call__(self):
+        return self.now
+
+
+calls = []
+
+
+def failing():
+    calls.append("call")
+    raise ConnectionError("down")
+
+
+def working():
+    calls.append("call")
+    return "ok"
+
+
+def expect_raise(breaker, fn, error):
+    try:
+        breaker.call(fn)
+    except error:
+        return
+    except Exception as other:
+        raise AssertionError(f"expected {error.__name__}, got {type(other).__name__}: {other}") from None
+    raise AssertionError(f"expected {error.__name__}, but the call returned")
+
+
+clock = Clock()
+breaker = CircuitBreaker(threshold=3, reset_after=30, clock=clock)
+assert breaker.state == "closed", "a new breaker is closed"
+assert breaker.call(working) == "ok", "a closed breaker passes calls through and returns their result"
+
+calls.clear()
+for _ in range(3):
+    expect_raise(breaker, failing, ConnectionError)
+assert breaker.state == "open", f"state {breaker.state!r}: three failures in a row reach the threshold"
+expect_raise(breaker, failing, CircuitOpen)
+assert calls == ["call"] * 3, f"{len(calls)} calls made: once open, raise CircuitOpen without calling at all"
+
+clock.now = 29.9
+assert breaker.state == "open", "still open just before reset_after has passed"
+clock.now = 30
+assert breaker.state == "half_open", "half-open once reset_after has passed since it opened"
+calls.clear()
+expect_raise(breaker, failing, ConnectionError)
+assert calls == ["call"] and breaker.state == "open", (
+    f"state {breaker.state!r}: a failed trial call in half-open opens the breaker again at once")
+clock.now = 59
+assert breaker.state == "open", "a failed trial restarts the wait from the time of that failure"
+clock.now = 60
+assert breaker.call(working) == "ok" and breaker.state == "closed", (
+    "a successful trial call closes the breaker")
+`,
+String.raw`class Clock:
+    def __init__(self):
+        self.now = 0.0
+
+    def __call__(self):
+        return self.now
+
+
+calls = []
+
+
+def failing():
+    calls.append("call")
+    raise ConnectionError("down")
+
+
+def working():
+    calls.append("call")
+    return "ok"
+
+
+def expect_raise(breaker, fn, error):
+    try:
+        breaker.call(fn)
+    except error:
+        return
+    except Exception as other:
+        raise AssertionError(f"expected {error.__name__}, got {type(other).__name__}: {other}") from None
+    raise AssertionError(f"expected {error.__name__}, but the call returned")
+
+
+breaker = CircuitBreaker(threshold=3, reset_after=30, clock=Clock())
+expect_raise(breaker, failing, ConnectionError)
+expect_raise(breaker, failing, ConnectionError)
+breaker.call(working)
+expect_raise(breaker, failing, ConnectionError)
+expect_raise(breaker, failing, ConnectionError)
+assert breaker.state == "closed", (
+    f"state {breaker.state!r}: a success resets the count, so two failures, a success and two more don't trip it")
+`,
+String.raw`class Clock:
+    def __init__(self):
+        self.now = 0.0
+
+    def __call__(self):
+        return self.now
+
+
+calls = []
+
+
+def failing():
+    calls.append("call")
+    raise ConnectionError("down")
+
+
+def working():
+    calls.append("call")
+    return "ok"
+
+
+def expect_raise(breaker, fn, error):
+    try:
+        breaker.call(fn)
+    except error:
+        return
+    except Exception as other:
+        raise AssertionError(f"expected {error.__name__}, got {type(other).__name__}: {other}") from None
+    raise AssertionError(f"expected {error.__name__}, but the call returned")
+
+
+def bad_request():
+    raise ValueError("malformed request")
+
+
+breaker = CircuitBreaker(threshold=2, reset_after=30, clock=Clock(), trips_on=(ConnectionError,))
+for _ in range(5):
+    expect_raise(breaker, bad_request, ValueError)
+assert breaker.state == "closed", (
+    f"state {breaker.state!r}: only errors in trips_on count; a bad request says nothing about the dependency's health")
+`,
+];
+
+<Subsection title="Every caller waits for the same timeout" variant="a">
+
+When a dependency goes down, every request that needs it waits for its
+timeout before failing. One slow failure is annoying; many of them at once,
+each holding a request open, is how one broken service drags down
+everything that calls it:
+
+<LiveDemo client:load code={WAITING_DEMO} />
+
+*(Simple arithmetic, not a measurement.)*
+
+Retrying makes this worse, not better: each request's retries add more
+waiting and more load on a service that's already struggling.
+
+</Subsection>
+
+<Subsection title="The circuit breaker" variant="b">
+
+Martin Fowler's
+[description of the pattern](https://martinfowler.com/bliki/CircuitBreaker.html),
+which Michael Nygard popularised in his book *Release It!*, is short. Wrap
+the call to the dependency in a breaker that counts failures. Once they
+reach a threshold, the breaker *trips*: further calls fail at once, without
+the dependency being called at all. After a set time, the breaker lets one
+real call through as a trial; if it succeeds, the breaker resets, and if it
+fails, the wait starts again.
+
+That gives three states:
+
+- **Closed:** calls pass through, and failures are counted. A success resets
+  the count.
+- **Open:** calls fail immediately, without reaching the dependency.
+- **Half-open:** the wait is over, and the next call is a trial.
+
+Two details from Fowler's description matter for agents:
+
+- **Not every error should trip it.** A malformed request says nothing about
+  whether the dependency is healthy. Only errors that do, timeouts, refused
+  connections, server errors, should count. It's the same distinction as
+  the fallback rules in
+  [the first concept](/06-reliability/08-graceful-degradation/01-falling-back-to-another-model/).
+- **The caller still has to decide what to do.** An open breaker is a fast
+  "no", not an answer. That's where the rest of this lesson comes in: fall
+  back to another model if there is one, or give a partial answer that says
+  what's missing.
+
+For an agent, each model provider and each tool's backing service can have
+its own breaker. When the health service's breaker is open, the agent
+doesn't need to wait five seconds to learn the health figures are
+unavailable; it knows at once, and can write the partial answer straight
+away.
+
+A breaker's state is also worth logging and watching: a breaker that keeps
+tripping is an early warning about the dependency behind it, which is
+Module 10's territory.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "What problem does a circuit breaker solve?",
+    "options": [
+      "It makes a failing service recover faster",
+      "Callers stop waiting on a dependency that's down",
+      "It retries the failed calls more often",
+      "It chooses which fallback model to use"
+    ],
+    "correctIndex": 1,
+    "explanation": "Once tripped, calls fail at once without reaching the dependency, so callers don't wait and the struggling service gets less load."
+  },
+  {
+    "question": "What happens in the half-open state?",
+    "options": [
+      "Every call goes through to the dependency normally",
+      "One trial call decides whether it closes or reopens",
+      "Calls are queued until the service has recovered",
+      "The breaker resets its count and simply waits again"
+    ],
+    "correctIndex": 1,
+    "explanation": "The breaker can't know the dependency has recovered without trying. A single trial call tests it at the cost of at most one slow failure."
+  },
+  {
+    "question": "A burst of malformed requests all fail with a validation error. Should they trip the breaker?",
+    "options": [
+      "Yes, since any failure at all counts",
+      "No: they say nothing about the dependency's health",
+      "Only if there are more than ten of them",
+      "Only if the breaker is in the half-open state"
+    ],
+    "correctIndex": 1,
+    "explanation": "Tripping on them would cut every caller off from a healthy service because some callers sent bad requests."
+  },
+  {
+    "question": "The breaker for the health service is open. What should the agent do with a question that needs health figures?",
+    "options": [
+      "Wait until the breaker closes, then answer",
+      "Call the health service anyway, just in case",
+      "Answer at once, saying the health figures are missing",
+      "Return an error to the user, with no answer"
+    ],
+    "correctIndex": 2,
+    "explanation": "An open breaker is a fast \"no\". The agent can go straight to its fallback or a partial answer, without the timeout."
+  }
+]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Complete CircuitBreaker. Its constructor is written: threshold failures trip it, it stays open for reset_after seconds, clock() returns the current time, and only exceptions in trips_on count as failures. Write state: \"closed\" if it hasn't tripped; once tripped, \"open\" until reset_after seconds have passed since it opened, then \"half_open\". Write call(fn): if open, raise CircuitOpen without calling fn. Otherwise call fn(). If it raises one of trips_on, count a failure; when the count reaches the threshold, the breaker opens now, and the error is re-raised. Other exceptions pass through without counting. If fn() succeeds, reset the count, close the breaker, and return the result. A failed trial call in half-open must open the breaker again straight away, restarting the wait."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  runnable
+  hint={"Keep two things: the failure count and the time the breaker last opened (None if closed). state can be worked out from those two and the clock, so it never needs updating on its own. In call, recording the open time whenever the count is at or over the threshold also handles the failed trial, since the count is still over it."}
+  correctAnswer={{
+    code: REFERENCE,
+    explanation: "Injecting the clock is what makes the breaker testable: the tests move time forward by assigning a number, instead of sleeping for thirty seconds. Working out the state from the open time, rather than storing it, means there's no timer to fire and nothing to go stale. And counting only the errors in trips_on keeps a burst of bad requests, which are the caller's fault, from cutting everyone off from a healthy service.",
+  }}
+/>
+
+</CheckpointZone>

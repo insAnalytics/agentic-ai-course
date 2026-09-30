@@ -5343,7 +5343,23 @@ architecture.md §3.1).
    line first). The starter's stray third blank line was normalized to
    two. Callbacks: Lesson 3 concept 2 and its
    `#what-a-result-check-looks-for` (verified against the built HTML), and
-   Lesson 7 concept 4. Concepts 3 on (the next is the circuit breaker) and
+   Lesson 7 concept 4. Concept 3 (circuit breakers) is built, with no run
+   data: the arithmetic of callers waiting on a dead dependency; Fowler's
+   and Nygard's pattern, its three states, and two details for agents
+   (only errors about the dependency's health trip it; an open breaker is
+   a fast "no" that sends the agent to a fallback or partial answer); and
+   a graded `CircuitBreaker` with an injected clock (`runnable`). The demo
+   and the reference's printout reproduce the mockup exactly in Pyodide
+   0.26.4 (the bare starter prints nothing, since nothing raises). Tests
+   split into 3 self-contained tests at the timeline's natural
+   boundaries, each repeating the helpers; through the real
+   `TEST_HARNESS` the reference passes all 3 and six wrong versions each
+   fail (the starter, counting every error, not resetting on success,
+   `>` for `>=` on the wait, restarting a failed trial's wait from the
+   first open, calling while open, swallowing the error). The starter's
+   stray third blank line was normalized to two. Callback: concept 1 (page
+   link); "Module 10's territory" stays plain text. Concepts 4 on (the next
+   is about keeping the model and prompt the same from day to day) and
    bookends not yet written.
 
 ---
