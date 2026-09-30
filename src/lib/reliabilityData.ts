@@ -255,3 +255,21 @@ def as_number(text: str) -> float | None:
     match = NUMBER.search(text)
     return float(match.group().replace(",", "")) if match else None
 `;
+
+/**
+ * Module 6 Lesson 6's shared setup: Lesson 5's LOAD_VOTING plus the grader's
+ * is_correct, copied unchanged from scripts/reliability/grading.py (keep
+ * them identical).
+ */
+export const LOAD_UNSURE = LOAD_VOTING + String.raw`
+
+def is_correct(question: dict, reply: str) -> bool:
+    answer = extract_answer(reply)
+    if answer is None:
+        return False
+    if question["type"] == "number":
+        value = as_number(answer)
+        return value is not None and abs(value - question["answer"]) < 1e-9
+    accepted = {normalize(str(question["answer"])), *(normalize(a) for a in question["accept"])}
+    return normalize(answer) in accepted
+`;

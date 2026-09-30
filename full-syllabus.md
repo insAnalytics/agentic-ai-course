@@ -5161,8 +5161,24 @@ architecture.md §3.1).
    ones). Callbacks: Lesson 4 concepts 4 and 5, Lesson 3's
    where-a-check-can-sit concept, and Module 3's
    validate-and-return-failures concept (page links); "Module 9's subject"
-   stays plain text. Concepts 2 on (the next looks at signals that an agent
-   partway through a task isn't sure) and bookends not yet written.
+   stays plain text. Shared setup `LOAD_UNSURE` in `reliabilityData.ts`
+   (Lesson 5's `LOAD_VOTING` plus `is_correct`, identical to `grading.py`),
+   added with concept 2 for the next concept's exercise. Concept 2 (signals
+   that the agent isn't sure) is built: a table of the course's signals with
+   links back to each; which providers return logprobs; answer-line
+   probability against correctness on the `plain` runs (barely related:
+   the 2B's 0.99+ band right 92.8%, its 0.5-0.9 band 97.7%); and verdict-word
+   probability on the `support.small` and `statements.*` judge runs
+   (strong: under 0.9 on 3/3, 14/15 and 4/5 wrong verdicts). Both demos
+   reproduce the mockup's output exactly in Pyodide 0.26.4; the prose's
+   e21 (wrong "2" always over 95%), `GET /agents/me` at about 55% and
+   "one right verdict in six" (16%) were checked against the data.
+   Read-only, 4 quiz cards, no graded exercise. Callbacks: Module 1's
+   logprobs concept, Module 5's abstaining-when-retrieval-is-weak concept,
+   Lesson 5 concept 3 (twice), and Lesson 4 concepts 1 and 2 (page links);
+   "Module 7's subject" stays plain text. Concepts 3 on (the next is about
+   escalating to a stronger model or a person) and bookends not yet
+   written.
 
 ---
 
