@@ -5233,6 +5233,26 @@ architecture.md §3.1).
    Lesson 6 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
 
+7. **Checking Actions Before and After** (title provisional) —
+   **Building** (folder `07-safe-actions`). Concept 1 (a dry run before
+   the action) is built, with no run data: Terraform's plan/apply as the
+   model; a bulk `set_models` tool with a dry-run mode whose preview shows
+   a loose match catching `research_summary_agent`; `apply_plan` refusing
+   a stale plan (compare-and-set); and a graded `check_preview(plan,
+   intended)` (`runnable`). Both demos (the second preloads the first) and
+   the starter's printout reproduce the mockup exactly in Pyodide 0.26.4.
+   Tests split into 8 self-contained tests, each repeating the `change`
+   helper and `intended`; through the real `TEST_HARNESS` the reference
+   passes all 8 and seven wrong versions each fail (the starter, unsorted
+   lists, ignoring the field, ignoring the value, comparing `before`,
+   checking unexpected agents' values, swapped lists). The starter's stray
+   third blank line was normalized to two. Callbacks: Module 3's
+   separate-reads-from-writes concept, its
+   `#retrying-a-write-can-do-it-twice` (verified against the built HTML),
+   and its validate-and-return-failures concept. Concepts 2 on (the next
+   checks after the action that it took effect) and bookends not yet
+   written.
+
 ---
 
 ## Modules 4–11 — current plan
