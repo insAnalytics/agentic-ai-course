@@ -1,0 +1,269 @@
+# Module 6, Lesson 7 — Concept 4: Checking the agent's report against its log
+
+---
+
+## "Done" is a claim
+
+At the end of a run, the agent tells the user what it did: "I've moved
+`research_agent` and notified the team." That report is text the model
+wrote, and like any other text it can be wrong. The failure has a name in
+recent research. Advani's
+[*From Confident Closing to Silent Failure*](https://arxiv.org/abs/2606.09863)
+(a 2026 preprint accepted to an ICML workshop) calls it **false success**:
+the agent asserts that a task is complete when the environment's actual state
+shows it isn't. In τ²-bench's customer-service trajectories from eight model
+families, false success made up 45% of failures in the airline domain and
+47% in retail. In a third domain, where a simulated user could check the
+state independently, it was 3%. A reasoning model had the highest rate of
+all, 79% of its failures, its reasoning explaining why the action should have
+worked instead of checking whether it had.
+
+Two further findings from the same paper matter here:
+
+- **Model judges were poor at catching it.** Across five judge models and
+  several prompting strategies, no configuration exceeded an AUROC of 0.65,
+  where 0.5 is chance. The judges were swayed by confident closing language,
+  exactly what false success produces.
+- **The author's recommendation** for higher-stakes use is to check the
+  trajectory against the environment directly, rather than reading the
+  agent's words.
+
+This concept does the simplest version of that in code: compare what the
+report claims with the calls the agent actually made.
+
+---
+
+## What the log says
+
+The agent's loop already records everything it needs: each tool call, its
+arguments, and whether it succeeded. Here's the end of a run:
+
+```python
+# the end of a run: every tool call the agent made, with whether it succeeded, and what the agent then told the user
+log = [
+    {"tool": "set_model", "input": {"agent_name": "research_agent", "model": "claude-sonnet"}, "ok": True},
+    {"tool": "notify", "input": {"team": "research-team", "message": "research_agent moved"}, "ok": False},
+]
+report = "Done: I moved research_agent onto claude-sonnet and notified research-team."
+
+for entry in log:
+    print(f"{'succeeded' if entry['ok'] else 'FAILED   '}  {entry['tool']}({entry['input']})")
+print()
+print("report:", report)
+```
+```
+succeeded  set_model({'agent_name': 'research_agent', 'model': 'claude-sonnet'})
+FAILED     notify({'team': 'research-team', 'message': 'research_agent moved'})
+
+report: Done: I moved research_agent onto claude-sonnet and notified research-team.
+```
+*(runs live, shows output — read-only demo snippet, not graded. A scripted
+log and report.)*
+
+The report claims two actions. The log supports one: the notification
+failed, and the report says it happened. Nothing about the report's wording
+gives it away; it reads just like a true one, which is why a judge reading
+the text struggles and a check against the log doesn't.
+
+---
+
+## Matching claims to calls
+
+The check needs three things for each kind of claim the agent can make:
+
+- **A pattern** that finds the claim in the report, such as "moved" or
+  "migrated" followed by an agent name.
+- **The tool** that would have had to do it: `set_model` for a move.
+- **The arguments** the claim names, which must match the call's input: a
+  claim about `notes_agent` isn't supported by a call for `research_agent`.
+
+A claim is supported only by a call that matches all three and succeeded. It's
+[Lesson 4's grounding check](→ this module, verifying an answer against its sources lesson, figures traced to tool results in code concept)
+applied to actions instead of facts: every claim must be traceable to
+something that happened. And like that check, it can only find claims its
+patterns describe; a report phrased in a way no pattern expects passes
+unchecked, so the patterns have to be grown from the reports your agent
+actually writes.
+
+When it finds an unsupported claim, the agent shouldn't send the report as
+written. It can rewrite the report to say what did and didn't happen, retry
+the failed step if that's safe, or hand the case to a person with the log,
+the responses from
+[Lesson 3](→ this module, checks in the loop lesson, what a failed check does concept).
+
+---
+
+## Applied sandbox exercise
+*(graded — finding claims with no successful call behind them)*
+
+**Task shown to learner:** Write `unsupported_claims(report, log,
+claims=CLAIMS)`. Each entry in `log` has `"tool"`, `"input"` (a dict of
+arguments) and `"ok"`. Each item in `claims` is a compiled pattern, with
+named groups for the arguments it mentions, and the tool that would have
+done it. Return the text of every claim in the report that no log entry
+supports, in the order the claims appear in the report.
+
+A log entry supports a claim if it's for the claim's tool, it succeeded, and
+for every named group in the claim, the call's input has the same value,
+compared without regard to case.
+
+**Starter code:**
+```python
+import re
+
+# a claim the agent might make, the tool that would have to have done it, and which argument each
+# named part of the claim must match
+CLAIMS = [
+    (re.compile(r"\b(?:moved|migrated|switched) (?P<agent_name>[a-z]+_agent)", re.IGNORECASE), "set_model"),
+    (re.compile(r"\bpaused (?P<agent_name>[a-z]+_agent)", re.IGNORECASE), "set_status"),
+    (re.compile(r"\b(?:notified|told|let) (?:the )?(?P<team>[a-z]+-team)", re.IGNORECASE), "notify"),
+]
+
+
+def unsupported_claims(report: str, log: list[dict], claims=CLAIMS) -> list[str]:
+    """The claims in an agent's report that no successful tool call in its log supports, in the order
+    they appear. A call supports a claim if it's the claim's tool, it succeeded, and its input matches
+    every named part of the claim."""
+    ...
+
+
+
+log = [
+    {"tool": "set_model", "input": {"agent_name": "research_agent", "model": "claude-sonnet"}, "ok": True},
+    {"tool": "notify", "input": {"team": "research-team", "message": "research_agent moved"}, "ok": False},
+]
+print(unsupported_claims("Done: I moved research_agent onto claude-sonnet and notified research-team.", log))
+```
+
+**Hidden tests:**
+```python
+log = [
+    {"tool": "set_model", "input": {"agent_name": "research_agent", "model": "claude-sonnet"}, "ok": True},
+    {"tool": "notify", "input": {"team": "research-team", "message": "research_agent moved"}, "ok": False},
+    {"tool": "set_status", "input": {"agent_name": "notes_agent", "status": "paused"}, "ok": True},
+]
+
+r = unsupported_claims("I moved research_agent onto claude-sonnet.", log)
+assert r == [], f"got {r}: a successful set_model call for research_agent supports the claim"
+
+r = unsupported_claims("I moved research_agent onto claude-sonnet and notified research-team.", log)
+assert r == ["notified research-team"], (
+    f"got {r}: the notify call for research-team failed (ok is False), so the claim has no support")
+
+r = unsupported_claims("I migrated notes_agent.", log)
+assert r == ["migrated notes_agent"], (
+    f"got {r}: set_model ran for research_agent, not notes_agent; a call supports a claim only if its input matches")
+
+r = unsupported_claims("I paused billing_agent and moved research_agent.", log)
+assert r == ["paused billing_agent"], f"got {r}: set_status only ran for notes_agent"
+
+r = unsupported_claims("Told the support-team, paused notes_agent, and switched notes_agent to claude-haiku.", log)
+assert r == ["Told the support-team", "switched notes_agent"], (
+    f"got {r}: report unsupported claims in the order they appear in the report, as written")
+
+r = unsupported_claims("I MOVED Research_Agent.", log)
+assert r == [], f"got {r}: match claims and compare values without regard to case"
+
+assert unsupported_claims("Nothing to report yet.", log) == [], "a report with no claims has nothing unsupported"
+assert unsupported_claims("I moved research_agent.", []) == ["moved research_agent"], (
+    "with an empty log, every claim is unsupported")
+r = unsupported_claims("I migrated notes_agent and moved billing_agent.", log)
+assert r == ["migrated notes_agent", "moved billing_agent"], (
+    f"got {r}: check every claim in the report, including several of the same kind")
+```
+
+**Hint (shown on request):** `pattern.finditer(report)` finds every claim of
+a kind, and `match.groupdict()` gives its named parts. Collect
+`(match.start(), match.group())` for each unsupported claim, then sort, so
+claims come out in report order however the patterns are ordered.
+
+**Reference solution:**
+```python
+import re
+
+# a claim the agent might make, the tool that would have to have done it, and which argument each
+# named part of the claim must match
+CLAIMS = [
+    (re.compile(r"\b(?:moved|migrated|switched) (?P<agent_name>[a-z]+_agent)", re.IGNORECASE), "set_model"),
+    (re.compile(r"\bpaused (?P<agent_name>[a-z]+_agent)", re.IGNORECASE), "set_status"),
+    (re.compile(r"\b(?:notified|told|let) (?:the )?(?P<team>[a-z]+-team)", re.IGNORECASE), "notify"),
+]
+
+
+def unsupported_claims(report: str, log: list[dict], claims=CLAIMS) -> list[str]:
+    """The claims in an agent's report that no successful tool call in its log supports, in the order
+    they appear. A call supports a claim if it's the claim's tool, it succeeded, and its input matches
+    every named part of the claim."""
+    found = []
+    for pattern, tool in claims:
+        for match in pattern.finditer(report):
+            wanted = {key: value.lower() for key, value in match.groupdict().items()}
+            supported = any(
+                entry["tool"] == tool and entry["ok"]
+                and all(str(entry["input"].get(key, "")).lower() == value for key, value in wanted.items())
+                for entry in log)
+            if not supported:
+                found.append((match.start(), match.group()))
+    return [text for _, text in sorted(found)]
+```
+```
+['notified research-team']
+```
+*(the starter's printout, with the reference in place)*
+
+**Explanation:** Checking the tool alone would pass a report whose
+notification failed; checking `"ok"` catches that. Checking the arguments
+catches the subtler case, a real, successful call for the wrong agent.
+Values are compared without case because models often capitalise names in
+prose, and the claim is returned as written so a person can find it in the
+report. Sorting by position keeps the output in the order a reader meets the
+claims, whatever order the patterns are listed in.
+
+---
+
+## Quiz cards
+
+> **Q1.** What is "false success"?
+> - A) A task that happens to succeed by luck
+> - B) Reporting a task done when the state shows it isn't ✅
+> - C) A test that passes when it really shouldn't
+> - D) A model judge approving a correct answer
+>
+> *Explanation: the report says done; the environment says otherwise. In
+> τ²-bench's single-control domains, it was nearly half of all failures.*
+
+> **Q2.** Why check the report against the log in code rather than asking a
+> model judge?
+> - A) Because model judges can't read tool logs
+> - B) Judges trust confident wording; the log records facts ✅
+> - C) Because code is always cheaper than any judge
+> - D) Because reports are too long for judges to read
+>
+> *Explanation: in Advani's study, no judge configuration exceeded an AUROC
+> of 0.65, since false success sounds exactly like success. A call either
+> ran and succeeded or it didn't.*
+
+> **Q3.** The report says "I migrated notes_agent", and the log has a
+> successful `set_model` call for `research_agent`. Is the claim supported?
+> - A) Yes, since a set_model call succeeded
+> - B) No: the call's arguments don't match the claim ✅
+> - C) Yes, as long as the report sounds confident
+> - D) Only if notes_agent exists in the registry
+>
+> *Explanation: a supporting call must be the right tool, have succeeded,
+> and match the arguments the claim names.*
+
+> **Q4.** What's the main limit of pattern-based claim checking?
+> - A) It can't read the results of tool calls
+> - B) It only finds claims its patterns describe ✅
+> - C) It rejects every report the agent writes
+> - D) It needs a model to run the matching
+>
+> *Explanation: a claim worded in a way no pattern covers passes unchecked.
+> The patterns have to be grown from the reports the agent actually writes,
+> which is why the log itself, and read-backs, remain the ground truth.*
+
+---
+
+*(End of this concept, and the last in this lesson. The recap page brings
+the lesson together.)*

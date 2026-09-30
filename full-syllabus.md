@@ -5277,9 +5277,22 @@ architecture.md §3.1).
    the failure), as does the starter. The starter's stray third blank line
    was normalized to two. Callbacks: Lesson 2's spend-where-the-risk-is
    concept, Module 3's `#retrying-a-write-can-do-it-twice`, and Lesson 6's
-   escalating concept (page links); "Module 10" stays plain text. Concepts
-   4 on (the next checks the agent's report of what it did against what
-   happened) and bookends not yet written.
+   escalating concept (page links); "Module 10" stays plain text. Concept
+   4 (checking the agent's report against its log) is built, with no run
+   data: Advani's false-success findings (45% and 47% of failures in
+   τ²-bench's airline and retail domains; judges no better than AUROC
+   0.65); a scripted log whose notify call failed under a report claiming
+   it; and a graded `unsupported_claims(report, log, claims=CLAIMS)`
+   (`runnable`). The demo and the starter's printout reproduce the mockup
+   exactly in Pyodide 0.26.4. Tests split into 7 self-contained tests,
+   each repeating the log; through the real `TEST_HARNESS` the reference
+   passes all 7 and six wrong versions each fail (the starter, ignoring
+   `ok`, ignoring arguments, case-sensitive matching, pattern order instead
+   of report order, only the first match per pattern, lowercased claim
+   text). The starter's stray third blank line was normalized to two.
+   Callbacks: Lesson 4 concept 4 and Lesson 3's what-a-failed-check-does
+   concept (page links). All four concepts exist; the bookends (intro,
+   comprehensive quiz and sandbox, recap) are not yet written.
 
 ---
 
