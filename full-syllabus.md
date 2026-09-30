@@ -4850,6 +4850,13 @@ real Pyodide 0.26.4.
     calls without side effects).
   - 7 quiz cards; outcomes 2 and 3 extended; 1 recap question.
 
+- **L10 C3:** new subsection "Breaking the tools on purpose": chaos
+  engineering (Basiri et al., Principles of Chaos) and ToolEmu. It injects
+  faults (empty record, nulls, cut-off JSON) into two fine scenarios'
+  read tools. As built, the trimmed result check crashes on cut-off JSON
+  and misses an empty lookup record; swapping in Lesson 3's full result
+  check catches all six. 1 quiz card.
+
 Still open from that review: L8 recap's `record_run` hashes a system prompt
 that `call_model` never receives, and L10's "invented argument" scenario is
 caught only because the request omits the agent name, since the intent check

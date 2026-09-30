@@ -52,6 +52,58 @@ print(f"  per call: {judge['prompt_tokens'] / calls:.0f} prompt tokens, {judge['
       f"{1000 * judge['gpu_seconds'] / calls:.1f} GPU-ms (batched)")
 `;
 
+export const FAULT_DEMO = String.raw`READS = ("get_agent", "get_health")
+FAULTS = {
+    "empty record": lambda output: "{}",
+    "fields gone null": lambda output: json.dumps({key: None for key in json.loads(output)}),
+    "cut off": lambda output: output[: len(output) // 2],
+}
+
+
+def full_result_check(world, messages, scenario, cost):
+    """Lesson 3's fuller result check: text that isn't valid JSON, or a record without the fields asked for."""
+    required = {"get_agent": ("model", "owner"), "get_health": ("error_rate", "p95_ms")}
+
+    def after_tool(call, output):
+        if call.name not in required:
+            return None
+        try:
+            record = json.loads(output)
+        except ValueError:
+            return "cut off: the result isn't valid JSON"
+        missing = [key for key in required[call.name] if record.get(key) is None]
+        return f"silent failure: no {', '.join(missing)}" if missing else None
+    return {"after_tool": after_tool}
+
+
+LAYERS["full result check"] = full_result_check
+
+
+def run_with_fault(scenario, fault: str, layer_names: list) -> str:
+    """A fine scenario, with its read tools broken in one way, and the named layers on."""
+    world = World(**scenario.world)
+    tools = world.tools()
+    for name in READS:
+        tools[name] = (lambda real: lambda **kwargs: FAULTS[fault](real(**kwargs)))(tools[name])
+    messages = [{"role": "user", "content": scenario.request}]
+    cost = {"judge_calls": 0, "extra_tool_calls": 0, "approvals": 0}
+    checks = checks_from(layer_names)(world, messages, scenario, cost)
+    try:
+        answer = run_checked_agent(FakeLLMClient([blocks(turn) for turn in scenario.turns]), messages, tools, checks)
+    except Exception as error:
+        return f"CRASHED ({type(error).__name__})"
+    return "caught" if withheld(answer) else "got through"
+
+
+built = [name for name in LAYERS if name != "full result check"]
+fuller = ["full result check" if name == "result check" else name for name in built]
+print(f"{'':<36}{'as built':<30}with the full result check")
+for scenario in [s for s in SCENARIOS if s.name in ("look up a model", "report health")]:
+    for fault in FAULTS:
+        print(f"{scenario.name + ', ' + fault:<36}{run_with_fault(scenario, fault, built):<30}"
+              f"{run_with_fault(scenario, fault, fuller)}")
+`;
+
 export const STARTER = String.raw`def summarise(results: list[dict]) -> dict:
     """What one set of layers did across the suite: how many harms it stopped, which it let through,
     which fine runs it blocked, and what it cost in extra work."""
@@ -250,6 +302,53 @@ Two things this suite can't show:
 
 </Subsection>
 
+<Subsection title="Breaking the tools on purpose" variant="a">
+
+The suite tests the harms someone thought to build. A third gap is the
+failures nobody thought of. Netflix's engineers made a discipline of finding
+them. Basiri et al.'s
+[*Chaos Engineering*](https://arxiv.org/abs/1702.05843) (IEEE Software,
+2016) describes injecting real-world faults into a running system on purpose,
+and checking that it still behaves as it should. The
+[principles](https://principlesofchaos.org/) the practice grew into name
+malformed responses among the events to vary. For agents, Ruan et al.'s
+[ToolEmu](https://arxiv.org/abs/2309.15817) (ICLR 2024) had a language model
+play the tools, including their failures. Of the failures it found in
+agents, 68.8% were judged ones that would really happen with real tools.
+
+The suite's fine scenarios are ready-made for this. Keep the request and the
+model's turns, and break the tools underneath: an empty record, fields that
+come back null, JSON cut off halfway, the failure shapes
+[Lesson 3](/06-reliability/03-checks-in-the-loop/02-checking-a-tool-result/#what-a-result-check-looks-for)
+listed.
+
+<LiveDemo client:load code={FAULT_DEMO} setupCode={SETUP} />
+
+*(Scripted scenarios with faults injected into their read tools. The
+scripted model gives its usual answer whatever the tools return, so every
+answer that gets through is a confident answer built on a broken result.)*
+
+The faults found two things the suite never showed:
+
+- **A check that crashes.** The result check in this stack was trimmed to
+  the one silent failure the suite contains, fields that come back null.
+  Given JSON cut off halfway, it raised an exception and took the whole run
+  down with it, the thing
+  [Lesson 3's check was built never to do](/06-reliability/03-checks-in-the-loop/02-checking-a-tool-result/),
+  and a check that fails with
+  [no mode chosen](/06-reliability/03-checks-in-the-loop/04-parallel-checks-and-tripwires/#when-the-check-itself-fails).
+- **A gap.** An empty record for a lookup got through. Nothing in it was
+  null, there was no figure for the grounding check to test, and no error for
+  the missing-part check to look for.
+
+Swapping in Lesson 3's fuller result check, which parses carefully and
+requires the fields the next step needs, catches every one. That's the loop
+fault injection is for: break things on purpose, find what the checks miss,
+fix it, and keep the faults in the suite so the fix stays fixed. Running such
+a suite on every change to the agent is Module 7's subject.
+
+</Subsection>
+
 <CheckpointZone>
 
 <QuizGroup
@@ -309,6 +408,17 @@ Two things this suite can't show:
     ],
     "correctIndex": 1,
     "explanation": "The grounding check and the intent check each block a different fine scenario. Together, both scenarios are stopped: a run gets through only if every layer lets it, the same compounding as errors across steps."
+  },
+  {
+    "question": "Injecting a cut-off JSON result into a fine scenario crashed the run inside the result check. What does that show?",
+    "options": [
+      "That fault injection should be avoided in suites",
+      "A failure the suite never built exposed a check bug",
+      "That cut-off JSON can't happen with real tools",
+      "That the scripted model caused the crash"
+    ],
+    "correctIndex": 1,
+    "explanation": "The suite only contained null fields, so the trimmed check was never tested on truncation. Breaking the tools on purpose finds failures nobody wrote a scenario for, which is the point of chaos engineering."
   }
 ]}
 />
