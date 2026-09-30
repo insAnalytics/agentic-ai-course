@@ -82,6 +82,43 @@ for name in ("plain", "plain.smaller"):
 
 export const PAIRED_SETUP = LOAD_RUNS + SUCCESSES;
 
+export const SIZE_SETUP = LOAD_RUNS + INTERVAL_DEMO;
+
+export const SIZE_DEMO = String.raw`run = load_run("plain.smaller")
+print("Qwen3.5-2B: how wide the 95% interval is, averaged over 10 random subsets of the data")
+for questions, runs in [(84, 20), (84, 5), (21, 20)]:
+    widths = []
+    for trial in range(10):
+        rng = random.Random(trial)
+        chosen = rng.sample(run["results"], questions)
+        rates = [sum(s["correct"] for s in rng.sample(r["samples"], runs)) / runs for r in chosen]
+        low, high = question_bootstrap(rates, repeats=1000, seed=trial)
+        widths.append(high - low)
+    print(f"  {questions:>2} questions x {runs:>2} runs = {questions * runs:>4} replies: "
+          f"{sum(widths) / len(widths):5.1%} wide")
+`;
+
+export const FAILURE_KINDS_DEMO = String.raw`from collections import Counter
+
+
+def kind(reply: dict) -> str:
+    """How a reply went: right, an explicit "unknown", no answer line at all, or a wrong answer."""
+    if reply["correct"]:
+        return "right"
+    if reply["answer"] is None:
+        return "no answer line"
+    return "said unknown" if reply["answer"].strip(" *_.\"'").lower() == "unknown" else "wrong answer"
+
+
+for name in ("plain", "plain.smaller"):
+    run = load_run(name)
+    kinds = Counter(kind(reply) for r in run["results"] for reply in r["samples"])
+    failures = sum(n for k, n in kinds.items() if k != "right")
+    print(f"{run['model']}: {failures} failures in {sum(kinds.values())} replies")
+    for k in ("wrong answer", "said unknown", "no answer line"):
+        print(f"  {k:<15} {kinds[k]:>4}")
+`;
+
 export const PAIRED_DEMO = String.raw`import math
 
 
@@ -260,6 +297,74 @@ this kind of care, is Module 7's subject.
 
 </Subsection>
 
+<Subsection title="How many questions are enough?" variant="a">
+
+An interval that's too wide to tell two agents apart isn't worth the runs
+that produced it, so it's worth knowing in advance how many to make. Miller's
+paper includes a power analysis for exactly this: given the smallest
+difference worth detecting, how many questions and how many runs of each are
+needed. Anthropic's
+[summary of the paper](https://www.anthropic.com/research/statistical-approach-to-model-evals)
+recommends using it to decide the number of questions an evaluation should
+have and how many times to resample each. It can also show that a small
+evaluation isn't worth running.
+
+The clustering above says where the runs should go. Here are three ways to
+spend the 2B's replies:
+
+<LiveDemo client:load dataFiles={BOTH_DATA} setupCode={SIZE_SETUP} code={SIZE_DEMO} />
+
+*(Real committed runs, subsampled. `question_bootstrap` from the demo above
+is already loaded here.)*
+
+The same 420 replies give a much narrower interval spread over 84 questions
+than concentrated on 21. Cutting from twenty runs per question to five
+barely widens it. Each question is one piece of evidence about the model, and
+extra runs of the same question mostly refine what's already known about it.
+So for measuring accuracy, spend on questions. Runs per question matter for
+[pass^k](/06-reliability/01-per-step-reliability/03-reliability-as-pass-k/),
+which needs at least *k* runs of each question to estimate at all. Beyond
+that, more questions buy more certainty than more runs.
+
+</Subsection>
+
+<Subsection title="Not every failure costs the same" variant="b">
+
+So far every failure has counted the same. They don't cost the same. A reply
+that says "unknown" leaves the user to look elsewhere. A reply that states a
+wrong value may be acted on. Here are the two models' failures, by kind:
+
+<LiveDemo client:load dataFiles={BOTH_DATA} setupCode={LOAD_RUNS} code={FAILURE_KINDS_DEMO} />
+
+*(Real committed runs, graded as before.)*
+
+The two models fail differently. Most of the 4B's few failures are the model
+saying it doesn't know, like e41's seven. Nearly all of the 2B's are wrong
+answers. A success rate, or pass^k, counts both the same, so it can't show
+that one model's failures are mostly safe.
+
+OpenAI's Kalai et al.,
+[*Why Language Models Hallucinate*](https://openai.com/index/why-language-models-hallucinate/)
+(2025), argue that this way of counting is part of why models guess.
+Benchmarks that only score accuracy give nothing for "I don't know", so a
+model that guesses scores higher. Their blog shows the effect on SimpleQA.
+gpt-5-thinking-mini abstained on 52% of questions and was right on 22%, wrong
+on 26%. o4-mini abstained on 1% and was right on 24%, but wrong on 75%. On
+accuracy alone, the second looks slightly better, while it makes about three
+times as many errors.
+
+For an agent, report wrong answers and abstentions separately, alongside
+pass^k. An abstention isn't free, though. On a question the agent should
+have answered it's a
+[false refusal](/06-reliability/02-reliability-tradeoffs/01-four-things-every-technique-trades/#a-refusal-can-be-a-reliability-failure),
+the cost Lesson 2 counts. And
+[Module 5](/05-rag-systems/10-grounded-answers/03-abstaining-when-retrieval-is-weak/)
+showed how to decide when an agent should abstain. The point is that the two
+are different outcomes, and a single rate hides which one an agent is
+producing.
+
+</Subsection>
+
 <Subsection title="Why not just set the temperature to 0?" variant="a">
 
 If sampling causes the variation, it's tempting to switch it off. With
@@ -350,6 +455,28 @@ is to measure the variation, not to hide it.
     ],
     "correctIndex": 2,
     "explanation": "The paired test makes the difference on this set very unlikely to be chance, which is a real result. It's a result about this set, this prompt and these models. Generalising beyond them needs other questions and other conditions, which is why claims about models in general in this lesson come from published research, not from these runs."
+  },
+  {
+    "question": "You can afford 420 replies to measure an agent's accuracy. Which spends them best?",
+    "options": [
+      "21 questions with 20 runs each",
+      "84 questions with 5 runs each",
+      "1 question with 420 runs",
+      "Any split, since the total is the same"
+    ],
+    "correctIndex": 1,
+    "explanation": "Runs of one question share its difficulty, so each question is one piece of evidence. On the 2B's runs, 84 questions with 5 runs gave a much narrower interval than 21 with 20. Runs per question matter for pass^k, which needs at least k of them."
+  },
+  {
+    "question": "Two agents both fail 5% of the time. One's failures are mostly \"I don't know\"; the other's are mostly wrong values. Why report them separately?",
+    "options": [
+      "Because \"I don't know\" isn't really a failure",
+      "Because a wrong value may be acted on; an abstention won't be",
+      "Because abstentions don't count toward pass^k",
+      "Because only wrong values can be measured reliably"
+    ],
+    "correctIndex": 1,
+    "explanation": "A single rate hides which kind of failure an agent produces. Abstentions still cost something, as false refusals when the answer was available, but a confident wrong value is the one that does damage."
   }
 ]}
 />

@@ -4811,6 +4811,28 @@ real Pyodide 0.26.4.
     set, checked in code), and context-minimization. 2 quiz cards.
   - Outcome 1 is extended, and the recap has a new question.
 
+- **L1 C2:** two new subsections.
+  - "How many questions are enough?": Miller's power analysis and
+    Anthropic's summary. The demo spends the same 420 replies two ways:
+    84 questions × 5 runs gives an interval 7.0 points wide, against 9.9
+    for 21 × 20, so spend on questions, with at least k runs for pass^k.
+  - "Not every failure costs the same": the 4B's 18 failures are mostly
+    "unknown" (10), the 2B's mostly wrong answers (106 of 119). Cites Kalai
+    et al. (OpenAI 2025) on accuracy-only scoring rewarding guessing, with
+    the SimpleQA table. Links L2's false refusals and Module 5's abstaining.
+
+  2 quiz cards.
+- **L3:**
+  - C1 notes that secrets usually arrive in tool results.
+  - C3 adds redacting a secret as a certain repair.
+  - C4 has two new subsections. "Streaming: the user is the side effect"
+    covers the OpenAI SDK's output guardrails running after completion and
+    NeMo's default of streaming a chunk before checking it, with a demo of
+    both orders. "When the check itself fails" covers fail safe vs fail
+    secure (Google's *Building Secure and Reliable Systems*), with a demo of
+    time limits and fail closed/open, where failing open is logged.
+  - 2 quiz cards; outcome 3 extended.
+
 Still open from that review: L8 recap's `record_run` hashes a system prompt
 that `call_model` never receives, and L10's "invented argument" scenario is
 caught only because the request omits the agent name, since the intent check

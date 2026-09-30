@@ -61,6 +61,68 @@ async def main():
 asyncio.run(main())
 `;
 
+export const STREAM_DEMO = String.raw`import re
+
+KEY = re.compile(r"\brk-[A-Za-z0-9]{8,}")
+reply = ("research_agent runs on claude-legacy and is owned by research-team. Its registry key is "
+         "rk-7f3a9c21d4, rotated last week. It moves to claude-sonnet on Friday.")
+chunks = [reply[i:i + 30] for i in range(0, len(reply), 30)]  # the reply as it streams in
+
+
+def stream(check_first: bool) -> str:
+    """What the user sees if each chunk is checked after it's shown, or before."""
+    shown, pending = "", ""
+    for chunk in chunks:
+        pending += chunk
+        if not check_first:
+            shown += chunk
+        if KEY.search(pending):
+            return shown + " [stopped: the reply contained a registry key]"
+        if check_first:
+            # release all but the last 20 characters: they may be the start of a key the next chunk completes
+            shown, pending = shown + pending[:-20], pending[-20:]
+    return shown + (pending if check_first else "")
+
+
+for check_first in (False, True):
+    print(f"{'check, then show' if check_first else 'show, then check':<17} the user saw: {stream(check_first)}")
+`;
+
+export const FAIL_MODE_DEMO = String.raw`import asyncio
+
+
+async def classifier(text: str) -> str | None:
+    """A model-based check whose service is down."""
+    raise ConnectionError("classifier service unavailable")
+
+
+async def hung_classifier(text: str) -> str | None:
+    """A model-based check that never answers."""
+    await asyncio.sleep(10)
+    return None
+
+
+async def run_check(check, text: str, fail_closed: bool, timeout: float = 0.5) -> str | None:
+    """Run a check with a time limit. If it gives no verdict, block or allow, as chosen, and never silently."""
+    try:
+        return await asyncio.wait_for(check(text), timeout)
+    except Exception as error:  # a timeout arrives here too
+        reason = f"{check.__name__} gave no verdict ({type(error).__name__})"
+        if fail_closed:
+            return f"blocked: {reason}"
+        print(f"  logged: {reason}; carrying on without it")
+        return None
+
+
+async def main():
+    for check in (classifier, hung_classifier):
+        for fail_closed in (True, False):
+            verdict = await run_check(check, "Move research_agent to claude-sonnet.", fail_closed)
+            print(f"{check.__name__:<16} fail {'closed' if fail_closed else 'open':<6} -> {verdict or 'allowed'}")
+
+asyncio.run(main())
+`;
+
 export const STARTER = String.raw`import asyncio
 
 
@@ -535,6 +597,70 @@ check.
 
 </Subsection>
 
+<Subsection title="Streaming: the user is the side effect" variant="a">
+
+The same rule has a consequence that's easy to miss. If the model's reply
+streams to the user as it's generated, showing it is a side effect: once text
+is on the screen, cancelling the rest doesn't take it back. A check on the
+final answer, such as the leaked-key check from
+[the first concept](/06-reliability/03-checks-in-the-loop/01-where-a-check-can-sit/),
+only works if it runs before the text is shown.
+
+The OpenAI Agents SDK's output guardrails run only after the agent has
+finished, so they have nothing to say about text already streamed. NVIDIA's
+NeMo Guardrails
+[checks streamed output in chunks](https://docs.nvidia.com/nemo/guardrails/configure-guardrails/yaml-schema/streaming/output-rail-streaming),
+200 tokens at a time by default. Its default setting, `stream_first`, sends
+each chunk to the user *before* checking it. The documentation says that if a
+check then blocks the content, the user has already seen it. Here are both
+orders:
+
+<LiveDemo client:load code={STREAM_DEMO} />
+
+*(A scripted reply, streamed in 30-character chunks.)*
+
+Showing first put the whole key on the screen before the check fired.
+Checking first cost a little latency per chunk. It also had to hold back the
+end of each chunk, since a key can be split across two. What to choose
+depends on what the check guards. For a reply that might carry a secret or
+another user's data, check before showing. For a check on tone, showing
+first may be an acceptable trade.
+
+</Subsection>
+
+<Subsection title="When the check itself fails" variant="b">
+
+A check that calls a service can fail in its own right: the classifier is
+down, or the judge never answers. Then there's no verdict, and the loop has
+to decide what that means. There are two choices, and security engineering
+has names for both. Google's
+[*Building Secure and Reliable Systems*](https://google.github.io/building-secure-and-reliable-systems/raw/ch01.html)
+uses a door lock. A lock that *fails safe*, or open, releases when the power
+goes, so people can get out. One that *fails secure*, or closed, stays locked,
+so an intruder can't use the power cut.
+
+<LiveDemo client:load code={FAIL_MODE_DEMO} />
+
+*(Scripted checks; the hung one is stopped by the time limit.)*
+
+Three things matter, and framework documentation rarely spells them out, so
+they're worth deciding on purpose:
+
+- **Every check that calls out gets a time limit.** Without one, a hung
+  check hangs the step it guards, and a check running in parallel may never
+  report at all.
+- **Choose closed or open by what the check guards.** A check in front of a
+  write, an outgoing message or anything
+  [Lesson 2 called risky](/06-reliability/02-reliability-tradeoffs/04-spend-reliability-where-the-risk-is/#what-makes-a-step-risky)
+  should fail closed: no verdict means no action. A check on a low-risk read
+  can fail open, if blocking every request during an outage costs more than
+  the occasional unchecked one.
+- **Failing open is never silent.** A check that was skipped is logged as
+  skipped, so an outage in the check shows up as one, not as a quiet period
+  with nothing caught.
+
+</Subsection>
+
 <CheckpointZone>
 
 <QuizGroup
@@ -583,6 +709,28 @@ check.
     ],
     "correctIndex": 1,
     "explanation": "gather returns once everything it was given has finished. A failing check can't stop the step early, so the step runs to completion and its work is wasted, or worse. The reference uses tasks and as_completed so the first failure can cancel the rest."
+  },
+  {
+    "question": "An agent streams its replies, and a check for leaked keys runs on each chunk after it's shown. What's the problem?",
+    "options": [
+      "Checking in chunks can't find keys at all",
+      "The user sees a leaked key before the check fires",
+      "Streaming makes every check run twice",
+      "Chunks are too short for any check to be useful"
+    ],
+    "correctIndex": 1,
+    "explanation": "Showing text is a side effect. A check that runs after a chunk is on screen can stop the rest, but not undo what was seen, so a check guarding secrets has to run before each chunk is released."
+  },
+  {
+    "question": "The classifier guarding an agent's outgoing emails is down. What should the check do?",
+    "options": [
+      "Allow the email, since the check didn't object",
+      "Block the email, and log that the check gave no verdict",
+      "Wait for the classifier, however long it takes",
+      "Let the model decide whether the email is safe"
+    ],
+    "correctIndex": 1,
+    "explanation": "An outgoing email is a risky step, so the check fails closed: no verdict, no action. A time limit keeps it from hanging, and the log shows the outage for what it is."
   }
 ]}
 />

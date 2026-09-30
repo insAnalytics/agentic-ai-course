@@ -102,6 +102,13 @@ on the call can catch. The last column matters just as much: a check on a
 tool's result can't take back what the tool did. For a tool that changes
 something, the check has to come before the call.
 
+The demo below keeps the before-model check simple: it reads only the user's
+request. Secrets and personal data more often arrive another way, in a tool
+result: a record that includes a key, a document with someone's phone
+number. Once a result is in the conversation, the next model call sends it,
+so the check on a tool result is the natural place to catch them, before the
+model ever reads them.
+
 </Subsection>
 
 <Subsection title="The loop, with a check at each point" variant="b">

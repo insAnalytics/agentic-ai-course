@@ -103,6 +103,15 @@ same rule rules out the worst kind of repair: filling a missing field with
 a default, or clamping an out-of-range value into range. Both turn a
 detected failure back into a silent one.
 
+One repair meets both conditions often enough to be standard practice:
+redacting a secret from a tool result before the model reads it. A key has a
+recognisable shape, so finding it is certain. Replacing it with
+`[REDACTED KEY]` keeps the rest of the result usable, and says what was done.
+The exception is when the key is a value the next step needs. Then the result
+can't be used, and
+[the previous concept's check](/06-reliability/03-checks-in-the-loop/02-checking-a-tool-result/)
+should fail it instead of repairing it.
+
 </Subsection>
 
 <Subsection title="Retry only what can safely repeat" variant="b">
