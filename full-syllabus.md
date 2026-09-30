@@ -4928,7 +4928,7 @@ architecture.md §3.1).
    the verified file. The explanation's callback is a real link, rendered
    by `LinkedText`.
 
-4. **Verifying Claims** (title provisional) — **Building** (folder
+4. **Verifying an Answer Against Its Sources** — **Locked** (folder
    `04-verifying-claims`; data from the second offline run,
    `README-verification.md`). Concept 1 (checking each claim against the
    source it cites) is built: Liu et al. on verifiability (51.5% / 74.5%),
@@ -5030,8 +5030,28 @@ architecture.md §3.1).
    exactly. 4 quiz cards, no graded exercise. Callbacks: Lesson 2's
    `#reflection-the-calls-are-certain-the-benefit-isn-t` (verified against
    the built HTML) and Module 2 Lesson 9's shared-blind-spots concept (page
-   link). All six concepts exist; the bookends (intro, comprehensive quiz
-   and sandbox, recap) are not yet written.
+   link). Concept 4's `NUMBER` was later tightened to
+   `\d+(?:,\d{3})*`, so a number followed by a comma ("1212, 5") no longer
+   keeps the comma; all 8 tests and the demo still pass in Pyodide 0.26.4.
+   Bookends are built: the intro (outcomes, why it matters), an 8-card
+   comprehensive quiz (options shuffled by `QuizGroup`; the mockup puts
+   every answer on B), and a `MultiFileGradedExercise`, `review(answer,
+   sources, judge)` in `review.py` over a read-only `lib.py` (the lesson's
+   `split_claims`, `verify_claims`, `ungrounded`, plus `drafts()` and
+   `recorded_judge(model)` over the committed `drafts` and
+   `draft-support.*` runs, passed as `dataFiles`). In real Pyodide 0.26.4
+   the reference passes the hidden tests and its Submit output matches the
+   mockup (89 of 145 flagged; unsupported 73, uncited 20, ungrounded 10; 4
+   for ungrounded alone), and six wrong versions each fail the assertion
+   aimed at them (the starter, grounding on the raw answer, reasons out of
+   order, no ungrounded reason, `flagged` as a list, judging every cited
+   source instead of using `verify_claims`). The first hidden-test block's
+   two assertions were swapped from the mockup's order so grounding on the
+   raw answer gets the citation-number message, not a generic one. The
+   lesson title, provisional until now, is the bookends'.
+
+   Lesson 4 is now **Locked**: all six concepts plus both bookends exist
+   and build cleanly.
 
 ---
 

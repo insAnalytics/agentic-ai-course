@@ -29,7 +29,7 @@ answered. The model's turns are scripted:
 
 ```python
 FACT_ID = re.compile(r"\b(?:REG|MON|INC)-\d+\b|\b[a-z]+_agent\b|\bclaude-[a-z]+\b|\b\d{4}-\d{2}-\d{2}\b")
-NUMBER = re.compile(r"(?<![\w.])\d[\d,]*(?:\.\d+)?%?")
+NUMBER = re.compile(r"(?<![\w.])\d+(?:,\d{3})*(?:\.\d+)?%?")
 
 
 def tool_results_in(messages: list) -> list[str]:
@@ -141,7 +141,7 @@ import math
 import re
 
 FACT_ID = re.compile(r"\b(?:REG|MON|INC)-\d+\b|\b[a-z]+_agent\b|\bclaude-[a-z]+\b|\b\d{4}-\d{2}-\d{2}\b")
-NUMBER = re.compile(r"(?<![\w.])\d[\d,]*(?:\.\d+)?%?")
+NUMBER = re.compile(r"(?<![\w.])\d+(?:,\d{3})*(?:\.\d+)?%?")
 
 
 def number_value(text: str) -> float:
@@ -211,7 +211,7 @@ import math
 import re
 
 FACT_ID = re.compile(r"\b(?:REG|MON|INC)-\d+\b|\b[a-z]+_agent\b|\bclaude-[a-z]+\b|\b\d{4}-\d{2}-\d{2}\b")
-NUMBER = re.compile(r"(?<![\w.])\d[\d,]*(?:\.\d+)?%?")
+NUMBER = re.compile(r"(?<![\w.])\d+(?:,\d{3})*(?:\.\d+)?%?")
 
 
 def number_value(text: str) -> float:
