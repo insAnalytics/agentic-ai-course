@@ -257,8 +257,11 @@ of the same transaction fails". Four details from it matter for agents:
   was a failure whose write had landed. When a step's outcome is unknown,
   read back what it would have changed before deciding. Otherwise, run its
   compensation too, written so it's safe to run even if the step never
-  happened, for example "set the tier to standard", not "lower the tier by
-  one".
+  happened, and so it doesn't undo someone else's change made since: for
+  example "set the tier to standard if it's still priority", not "lower the
+  tier by one", and not a blind "set the tier to standard" either. It's
+  [the compare-and-set from the dry-run concept](/06-reliability/07-safe-actions/01-a-dry-run-before-the-action/#apply-what-was-checked),
+  applied to the undo.
 
 </Subsection>
 

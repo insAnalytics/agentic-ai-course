@@ -5283,8 +5283,10 @@ exercise changed. What changed:
 - **Still to check:** CaMeL's published IEEE SaTML 2026 figures (the page
   cites arXiv v2); Zhu et al.'s review status. Oso's docs moved, so L9 C1
   cites a February 2026 archived copy.
-- **Held for a decision:** a conditional compensation in L7 C3, and
-  Meta's reply to Willison in L9 C2 (see the audit file).
+- **Approved and applied:** L7 C3 now teaches a conditional compensation
+  ("set it to standard if it's still priority", the dry-run concept's
+  compare-and-set applied to the undo); L9 C2 adds Meta's reply to
+  Willison, that the second property covers any sensitive system.
 
 1. **Why Agents Fail, and What "Reliable" Means** — **Locked** (folder
    `01-per-step-reliability`, named before the title existed). Concept 1 (small errors

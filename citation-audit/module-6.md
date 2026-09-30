@@ -49,16 +49,20 @@ Edit IDs refer to each report's own "Proposed edits" section.
   `revision`, Arize), plus evidence (SCoRe, Baker et al., FIDES, CaMeL,
   Snell et al.).
 
-## Needs a decision
+## Needs a decision (both approved by the owner and applied, 2026-09-30)
 
-1. **Compensations: absolute or conditional undo (L7 C3).** The page teaches
+1. **Compensations: absolute or conditional undo (L7 C3).** *Applied:* the
+   prose now teaches "set the tier to standard if it's still priority", and
+   links the dry-run concept's compare-and-set. The demo is unchanged. The page teaches
    "set the tier to standard", not "lower the tier by one", so the undo is
    safe to repeat. The *Sagas* paper and Microsoft's pattern warn that
    writing back a stored value can overwrite a change made in between.
    Recommendation: teach "set it to standard if it's still priority", the
    dry-run concept's compare-and-set applied to the undo (report C, E3).
    Prose only; the demo can stay.
-2. **Meta's reply to Willison's Rule-of-Two gap (L9 C2).** The concept
+2. **Meta's reply to Willison's Rule-of-Two gap (L9 C2).** *Applied:* Meta's
+   reply (Mick Ayzenberg, quoted in an update to Willison's post, verified)
+   and why the stricter rule doesn't depend on it. The concept
    presents Willison's reading as settled. Meta's author replied that the
    second property covers any sensitive system. Recommendation: keep the
    stricter rule and add three sentences giving Meta's reading (report D,
