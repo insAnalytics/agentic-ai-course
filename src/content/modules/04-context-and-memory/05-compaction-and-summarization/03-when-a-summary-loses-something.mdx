@@ -418,11 +418,26 @@ already works. The only change is where they're read from. The summary is
 then left with what code can't derive: conclusions, reasons, and what was
 learned.
 
+Production agents do the same. Claude Code's
+[documentation](https://code.claude.com/docs/en/context-window#what-survives-compaction)
+lists what survives its compaction: the project's `CLAUDE.md` and the plan
+are re-injected from disk rather than left to the summary, and it re-reads
+the few files it most recently read or edited.
+
 The changes are the new part: a short ledger of every call to a write
 tool, with its result.
 [Module 3](/03-tool-design-for-agents/11-designing-for-least-privilege/02-separate-reads-from-writes-and-gate-the-writes/)
 already separated reads from writes, so the list of write tools is one the
 agent's designer has.
+
+Summaries are weak at exactly this kind of record. Factory, which builds
+coding agents,
+[evaluated three compaction methods](https://factory.ai/news/evaluating-compression),
+its own and two providers', by asking questions after each compaction and
+having a model grade the answers. All three scored under 2.5 out of 5 on
+knowing which files had been created, changed or examined. Factory's
+conclusion was that this probably needs tracking in the agent's own code,
+not in the summary.
 
 ```python
 def changes_ledger(messages: list, write_tools: list) -> list:
@@ -494,9 +509,8 @@ summary for anything code can derive.
 
 <Subsection title="Testing a summary by asking it questions" variant="b">
 
-To check what a summary *says*, ask it. Factory, which builds coding
-agents,
-[evaluates its compaction this way](https://factory.ai/news/evaluating-compression):
+To check what a summary *says*, ask it. That's how Factory's
+[evaluation](https://factory.ai/news/evaluating-compression) works:
 after compressing, it asks questions that need specific details from the
 removed history (the original error, which files changed, what was
 decided, what's next). Write down the questions the agent must still be
@@ -559,8 +573,12 @@ preprint on memory compaction,
 ["What to Keep, What to Forget"](https://arxiv.org/abs/2607.08032),
 describes compounding loss under repeated summarization as the
 least-measured failure in this area. The mechanism is clear enough to
-design against, and appending does. The cost is that the first message
-grows by one summary per compaction. Compactions are rare, so that's slow.
+design against, and appending does. Factory's compaction is built on the
+same concern: it summarizes only the newly removed rounds and merges them
+into a standing summary, instead of rewriting the summary from scratch, and
+its own evaluation credits that with keeping details from drifting. The
+cost of appending is that the first message grows by one summary per
+compaction. Compactions are rare, so that's slow.
 If it ever grows too large, rewriting the old summaries becomes a
 deliberate step of its own, with the ledger, rules and plan still read
 from the full history underneath it.

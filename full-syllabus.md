@@ -2528,6 +2528,13 @@ text only; no demo or exercise changed.
   comes and goes is an edit (L4 C4, with Claude's turn-scoped system message
   as the provider's own form). L3 scopes "best available" to a plain prefix
   cache, and L2 C4 mentions the built-in option.
+- **Concept coverage (second pass):** each concept page and intro was
+  checked as a whole. Of 53 pages, 40 were backed, 2 rested on our data
+  only and 11 had no source for the technique itself. All 13 are now
+  anchored, with 23 prose edits. **Held for a decision:** append or fold
+  summaries (L5 C3/C4). Claude's own compaction folds, and the
+  recommendation is to keep append and add a note. The table is at the top of
+  `citation-audit/module-4.md`.
 
 1. **Context as a Budget** — Locked. Intro; Concept 1 (what fills the
    window; `count_tokens`); Concept 2 (measuring one request part by part;

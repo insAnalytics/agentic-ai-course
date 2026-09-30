@@ -366,6 +366,13 @@ the tool definitions and the reply room are fixed, so the caller
 subtracts them from the window first, the same arithmetic as
 [Lesson 1's headroom](/04-context-and-memory/01-the-context-budget/02-measuring-one-request-part-by-part/).
 
+Agent frameworks follow the same rules. LangChain's
+[short-term memory docs](https://docs.langchain.com/oss/python/langchain/short-term-memory#trim-messages)
+trim an agent's history by keeping the first message and the most recent
+ones, and warn that whatever you delete must leave a valid history, since
+most providers require a message with tool calls to be followed by their
+results.
+
 </Subsection>
 
 <Subsection title="The fix, in the loop" variant="b">

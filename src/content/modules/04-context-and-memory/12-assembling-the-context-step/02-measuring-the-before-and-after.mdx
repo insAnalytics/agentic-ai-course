@@ -1118,6 +1118,15 @@ model call, summary requests included)*
   would, and the naive loop's last request is over 60,000 tokens, so it
   needs a window that large to get there at all.
 
+Providers ship these features with the same trade-off in mind. Claude's
+[context editing](https://platform.claude.com/docs/en/build-with-claude/context-editing)
+doesn't start clearing old results until the input passes 100,000 tokens,
+by default. Its docs warn that clearing "invalidates cached prompt
+prefixes", so each clearing should remove enough "to make the cache
+invalidation worthwhile". On long runs the saving is real:
+[in the JetBrains study](/04-context-and-memory/05-compaction-and-summarization/01-what-clearing-cant-do/#what-the-evidence-says-about-summarizing),
+clearing old tool outputs roughly halved an unmanaged coding agent's cost.
+
 Treat the break-even as a result of this cost model, not a rule. The model
 counts input tokens only, with Lesson 3's example multipliers. Real bills
 differ in ways that move the line in both directions. Each summary is also
