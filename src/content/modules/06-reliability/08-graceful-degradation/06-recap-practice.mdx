@@ -134,7 +134,7 @@ if __name__ == "__main__":
         health_calls.append(now[0])
         raise ConnectionError("health-service unavailable")
 
-    def call_model(model, prompt):
+    def call_model(model, system, prompt):
         if model == "provider-a/large":
             raise Unavailable("503 from provider-a")
         # a stand-in model that restates the facts it was given
@@ -170,7 +170,7 @@ def handle(agent: str, fetchers: dict, breakers: dict, cache: dict, models: list
             else:
                 parts.append({"label": label, "status": "failed"})
     facts = compose_partial(parts)
-    result = call_with_fallbacks(models, lambda model: call_model(model, f"{agent}:\n{facts}"))
+    result = call_with_fallbacks(models, lambda model: call_model(model, system_prompt, f"{agent}:\n{facts}"))
     record = record_run(models[0], result["model"], system_prompt, [])
     return {"answer": result["answer"], "parts": parts, "record": record}
 
@@ -188,7 +188,7 @@ if __name__ == "__main__":
         health_calls.append(now[0])
         raise ConnectionError("health-service unavailable")
 
-    def call_model(model, prompt):
+    def call_model(model, system, prompt):
         if model == "provider-a/large":
             raise Unavailable("503 from provider-a")
         # a stand-in model that restates the facts it was given
@@ -206,7 +206,7 @@ if __name__ == "__main__":
         print("record:", out["record"])
 `;
 
-export const HIDDEN_TESTS = String.raw`from lib import BadRequest, CircuitBreaker, Unavailable
+export const HIDDEN_TESTS = String.raw`from lib import BadRequest, CircuitBreaker, Unavailable, record_run
 from agent import handle
 
 now = [0.0]
@@ -227,14 +227,15 @@ def down(label, error=ConnectionError):
     return fetch
 
 
-prompts = []
+prompts, systems = [], []
 
 
 def model(fail=()):
-    def call_model(name, prompt):
+    def call_model(name, system, prompt):
         if name in fail:
             raise Unavailable(f"{name} is down")
         prompts.append(prompt)
+        systems.append(system)
         return f"{name} says: {prompt}"
     return call_model
 
@@ -251,6 +252,12 @@ assert isinstance(out, dict) and set(out) >= {"answer", "parts", "record"}, "ret
 assert [p["status"] for p in out["parts"]] == ["ok", "ok"], f"parts {out['parts']}: both fetches worked"
 assert out["answer"].startswith("primary says:") and out["record"]["model_changed"] is False, (
     f"got {out}: the primary model answered, so nothing changed")
+out = handle("research_agent", {"status": ok("status", "active")}, breakers(), {}, MODELS, model(), "You report agent status.")
+assert systems[-1] == "You report agent status.", (
+    f"the model was sent {systems[-1]!r} as its system prompt: pass handle's system_prompt to call_model, so the "
+    "prompt the record hashes is the one the model actually saw")
+assert out["record"]["config_hash"] == record_run("primary", "primary", "You report agent status.", [])["config_hash"], (
+    f"record {out['record']}: hash the system prompt the model was sent, with no tools, so the record matches the run")
 
 prompts.clear()
 out = handle("research_agent", {"status": ok("status", "active"), "error rate": down("error rate")}, breakers(),
@@ -296,7 +303,7 @@ assert out["record"]["requested"] == "primary" and out["record"]["answered"] == 
     f"record {out['record']}: record the model asked for and the one that answered")
 
 
-def bad_model(name, prompt):
+def bad_model(name, system, prompt):
     raise BadRequest("malformed request")
 
 
@@ -424,14 +431,14 @@ assert isinstance(raised, KeyError), (
 
 <MultiFileGradedExercise
   client:load
-  task={"lib.py holds this lesson's pieces, read-only: the error classes and call_with_fallbacks, compose_partial, CircuitBreaker, and record_run. In agent.py (the entry file), write handle(agent, fetchers, breakers, cache, models, call_model, system_prompt), which answers \"how is this agent doing?\". First, for each part in fetchers (a dict of label to a function that fetches it), call the fetcher through breakers[label]. If it returns, the part is ok. If it raises CircuitOpen, ConnectionError or TimeoutError, use the cached (value, as_of) from cache as a stale part if there is one, or else a failed part. Any other exception is a bug, and propagates. Second, compose the parts with compose_partial, and have the models write the answer with call_with_fallbacks(models, ...), calling call_model(model, prompt) with a prompt of the agent's name, a colon, a newline, and the composed text. Third, return {\"answer\", \"parts\", \"record\"}, where the record is record_run(models[0], <the model that answered>, system_prompt, []). When you click Submit, the code at the bottom handles four requests, one second apart, while the health service is down and the primary model is unavailable."}
+  task={"lib.py holds this lesson's pieces, read-only: the error classes and call_with_fallbacks, compose_partial, CircuitBreaker, and record_run. In agent.py (the entry file), write handle(agent, fetchers, breakers, cache, models, call_model, system_prompt), which answers \"how is this agent doing?\". First, for each part in fetchers (a dict of label to a function that fetches it), call the fetcher through breakers[label]. If it returns, the part is ok. If it raises CircuitOpen, ConnectionError or TimeoutError, use the cached (value, as_of) from cache as a stale part if there is one, or else a failed part. Any other exception is a bug, and propagates. Second, compose the parts with compose_partial, and have the models write the answer with call_with_fallbacks(models, ...), calling call_model(model, system_prompt, prompt) with a prompt of the agent's name, a colon, a newline, and the composed text. Passing system_prompt matters: the record hashes it, so it has to be the one the model saw. Third, return {\"answer\", \"parts\", \"record\"}, where the record is record_run(models[0], <the model that answered>, system_prompt, []). When you click Submit, the code at the bottom handles four requests, one second apart, while the health service is down and the primary model is unavailable."}
   entry="agent.py"
   files={[
     { name: "lib.py", readOnly: true, code: LIB_PY },
     { name: "agent.py", code: AGENT_STARTER },
   ]}
   hiddenTests={HIDDEN_TESTS}
-  hint={"Build parts in one loop, with a try around breakers[label].call(fetch) and an except (CircuitOpen, ConnectionError, TimeoutError). Then one call each to compose_partial, call_with_fallbacks and record_run."}
+  hint={"Build parts in one loop, with a try around breakers[label].call(fetch) and an except (CircuitOpen, ConnectionError, TimeoutError). Then one call each to compose_partial, call_with_fallbacks and record_run, with the same system_prompt going to the model and into the record."}
   correctFiles={[
     { name: "lib.py", readOnly: true, code: LIB_PY },
     { name: "agent.py", code: AGENT_REFERENCE },

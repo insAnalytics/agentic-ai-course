@@ -5240,10 +5240,13 @@ real Pyodide 0.26.4.
   and misses an empty lookup record; swapping in Lesson 3's full result
   check catches all six. 1 quiz card.
 
-Still open from that review: L8 recap's `record_run` hashes a system prompt
-that `call_model` never receives, and L10's "invented argument" scenario is
-caught only because the request omits the agent name, since the intent check
-never looks at `model`.
+Held back from that review, fixed the same day: L8 recap's `call_model` now
+takes `(model, system, prompt)`, so the system prompt `record_run` hashes is
+the one the model was sent (two new tests: the model receives it, and the
+record's hash matches it). L10's intent check now also requires `set_model`'s
+`model` to appear in the request or a successful tool result, and the
+"invented argument" scenario names the agent ("Move research_agent to its new
+model."), so it's caught by the model rule rather than by the missing name.
 
 1. **Why Agents Fail, and What "Reliable" Means** — **Locked** (folder
    `01-per-step-reliability`, named before the title existed). Concept 1 (small errors
