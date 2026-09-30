@@ -19,13 +19,18 @@ understanding, being asked a different question about the same content.
 If a gap in that understanding caused the original mistake, that
 identical gap is very likely present during evaluation too.
 
-The standard partial fix is to make the evaluator less "same": use a
+A common partial fix is to make the evaluator less "same": use a
 *different* (often stronger) model as the judge, or at least run the
 same model in a fresh context, without the generator's reasoning to
-anchor it. That genuinely helps. Its limit is that models trained on
-similar data share many blind spots, and LLM judges measurably favor
-text that resembles their own (a known *self-preference bias*). So a
-second model narrows the problem without removing it.
+anchor it. That genuinely helps. Its limit is that different models
+make many of the same mistakes, and more so as they get more capable
+(Goel et al.,
+[*Great Models Think Alike and this Undermines AI Oversight*](https://arxiv.org/abs/2502.04313),
+ICML 2025). LLM judges also measurably favor their own text, a known
+*self-preference bias* (Panickssery et al.,
+[*LLM Evaluators Recognize and Favor Their Own Generations*](https://arxiv.org/abs/2404.13076),
+NeurIPS 2024), and Goel et al. found they favor models similar to
+themselves too. So a second model narrows the problem without removing it.
 
 </Subsection>
 
@@ -161,12 +166,15 @@ the failure message says precisely what was expected. That specific,
 factual critique is also a much better thing to revise from than a
 model's general impression.
 
-Research backs up how much this matters. Huang et al. (2023), "Large
-Language Models Cannot Self-Correct Reasoning Yet", found that asking a
-model to review and correct its own reasoning, *without* any feedback
-from outside, often didn't improve its answers and sometimes made them
-worse. The self-correction results that hold up tend to have an external
-signal behind them: tests, a tool's output, a checkable fact. So when an
+Research backs up how much this matters. Huang et al.,
+[*Large Language Models Cannot Self-Correct Reasoning Yet*](https://arxiv.org/abs/2310.01798)
+(ICLR 2024), found that asking a model to review and correct its own
+reasoning, *without* any feedback from outside, often didn't improve its
+answers on reasoning tests such as grade-school math, and sometimes made
+them worse. Earlier results that looked better had told the model which
+answers were wrong. The self-correction results that hold up tend to
+have an external signal behind them: tests, a tool's output, a checkable
+fact. So when an
 agent's work can be checked by doing, prefer that to asking. Keep model
 judges for the qualities nothing can execute, like whether a summary
 reads well. And remember that the world is only as good a judge as the

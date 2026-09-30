@@ -80,7 +80,10 @@ can be many thousands of tokens, is reprocessed at the full price.
 
 The usual fix keeps the system prompt fixed, describing each phase once,
 and sends the *current* phase as a short instruction at the end of the
-conversation, where it's new anyway:
+conversation, where it's new anyway. "Keep your prompt prefix stable" is
+the first rule in Manus's write-up of
+[building its agent](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus),
+for exactly this reason:
 
 ```python
 SYSTEM_PROMPT = """You work in two phases. RESEARCH: use tools to gather facts, don't answer yet.
@@ -98,7 +101,10 @@ messages.append({"role": "user", "content": [
 The code still owns the phase, exactly as above; only where the
 instruction sits has changed. Some APIs now offer a dedicated way to add
 an instruction partway through a conversation without touching the
-original system prompt, for the same reason. It's a pattern worth
+original system prompt, for the same reason. Anthropic's API, for
+example, accepts a
+[`system`-role message partway through `messages`](https://platform.claude.com/docs/en/build-with-claude/mid-conversation-system-messages)
+on recent models, and the cached prefix stays intact. It's a pattern worth
 remembering beyond phases: anything that changes during a run belongs
 at the end of the request, not the beginning.
 

@@ -19,7 +19,9 @@ import { REACT_FAKE_CLIENT } from "../../../../lib/fakeClient";
 
 [the earlier tree representation](/02-the-agent-loop/08-planning-and-decomposition/02-plan-representations/#tree-sub-goals-with-their-own-sub-steps)
 was a single, fixed plan — once decomposed, that's *the* plan, committed
-to. **Tree of Thought (ToT)** is different: instead of committing to one
+to. **Tree of Thought (ToT)**, introduced by Yao et al. in
+[*Tree of Thoughts*](https://arxiv.org/abs/2305.10601) (NeurIPS 2023),
+is different: instead of committing to one
 path, it generates *several* candidate next steps at a decision point,
 evaluates how promising each one looks, and explores the more promising
 branches further while abandoning the rest — genuinely backtracking away
@@ -90,9 +92,13 @@ ToT earns its extra cost specifically on problems where an early
 misstep is genuinely hard to recover from within a purely linear
 chain — certain puzzles, planning with real, interacting constraints,
 tasks with several simultaneous requirements pulling in different
-directions. For anything plain CoT already handles fine — most
+directions. The paper tested it on exactly that kind of task. On the
+Game of 24 puzzle, GPT-4 with chain-of-thought solved 4% of problems
+and ToT solved 74%. The authors also estimate ToT can need 5 to 100
+times more generated tokens than CoT, and recommend it for tasks "on
+which CoT struggles". For anything plain CoT already handles fine — most
 straightforward, single-path problems — ToT is real overkill, spending
-several times the cost for no actual benefit over a single, linear
+many times the cost for no actual benefit over a single, linear
 chain of reasoning.
 
 </Subsection>

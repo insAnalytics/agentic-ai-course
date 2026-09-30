@@ -28,7 +28,10 @@ that way — "does this summary actually read well and cover the key
 points" isn't something code can evaluate mechanically at all. That's
 exactly the gap this concept closes: the **evaluator-optimizer pattern**,
 where the *model itself* judges whether a candidate output satisfies
-explicit criteria.
+explicit criteria. The name comes from Anthropic's
+[*Building effective agents*](https://www.anthropic.com/engineering/building-effective-agents),
+which describes it as "one LLM call generates a response while another
+provides evaluation and feedback in a loop."
 
 </Subsection>
 
@@ -87,7 +90,9 @@ the open-ended judgment this pattern is meant to avoid. Writing the
 criteria down, as concrete and checkable as you can make them, is most
 of the work of a useful evaluator. It's also what makes a critique
 actionable: "misses the target audience" gives the next attempt
-something specific to fix.
+something specific to fix. Anthropic's guide makes the same point: the
+pattern is "particularly effective when we have clear evaluation
+criteria."
 
 The first candidate fails — the critique becomes part of the prompt for
 the *next* attempt, exactly

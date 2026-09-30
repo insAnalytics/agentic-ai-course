@@ -13,7 +13,11 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 The original ReAct approach predates
 [native tool calling from Module 1](/01-llm-foundations/10-structured-output-and-tool-calling/04-tool-calling/#the-model-doesn-t-call-anything-it-produces-structured-data)
 — the model produced its reasoning and its intended action as plain
-text, in an expected format:
+text, in an expected format. The
+[paper](https://arxiv.org/abs/2210.03629) wrote actions like
+`Search[Colorado orogeny]`. A widely used version,
+[LangChain's ReAct agent prompt](https://github.com/langchain-ai/langchain/blob/master/libs/langchain/langchain_classic/agents/mrkl/prompt.py),
+put them on separate lines like these:
 
 ```
 Thought: I need to check the weather in Paris.
@@ -67,7 +71,11 @@ are still plain text, still valuable, still there. What changed is the
 *action* half: a `tool_use` block already has a real, structured `.name`
 and `.input`, not text requiring fragile extraction at all. This is
 precisely why native tool calling replaced the original text-parsed
-format, starting around 2023: not because reasoning-before-acting
+format, starting around 2023. OpenAI's
+[June 2023 launch](https://openai.com/index/function-calling-and-other-api-updates/)
+said its models had "been fine-tuned to both detect when a function
+needs to be called ... and to respond with JSON that adheres to the
+function signature". It happened not because reasoning-before-acting
 stopped mattering, but because models were *trained* to emit tool calls
 in a dedicated structured format the API parses for you, so the action
 stopped being free text the client had to parse. Strict mode came later

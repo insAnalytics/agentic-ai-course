@@ -29,6 +29,19 @@ scoring an already-generated candidate against criteria is a different,
 often more tractable task than generating the single best option
 directly, in one shot, with nothing to compare it against yet.
 
+There's evidence for this, and a clear boundary on it. In Madaan et al.'s
+[*Self-Refine*](https://arxiv.org/abs/2303.17651) (NeurIPS 2023), one
+model drafted an answer, critiqued its own draft, then revised it.
+Across 7 tasks, the revised answers beat single drafts by about 20
+points on average. One task was fitting every word from a given list
+into a sentence, which is an omission check. On math problems it gained
+almost nothing: the model's feedback nearly always said "everything
+looks good". A later survey, Kamoi et al.'s
+[*When Can LLMs Actually Correct Their Own Mistakes?*](https://arxiv.org/abs/2406.01297)
+(TACL 2024), concluded that a model finds its own errors more easily
+than it avoids them mainly on tasks where checking is especially easy.
+That's why every example below is something easy to check.
+
 </Subsection>
 
 <Subsection title="Concrete shapes this asymmetry takes" variant="b">
@@ -71,7 +84,7 @@ open-ended generation pass.
       ],
       correctIndex: 1,
       explanation:
-        "Nothing here depends on a stronger evaluator or a guaranteed result. Judging a finished candidate against stated criteria is a narrower task than composing one from scratch, so the same model can do it more reliably.",
+        "Nothing here depends on a stronger evaluator or a guaranteed result. Judging a finished candidate against stated criteria is a narrower task than composing one from scratch, so the same model can often do it more reliably, as long as the criteria are easy to check.",
     },
     {
       question: "Why is a format violation like \"should have been exactly two sentences\" a good example of this asymmetry?",

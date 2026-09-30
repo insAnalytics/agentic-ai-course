@@ -85,7 +85,12 @@ random.uniform(0, 1)`, say — rather than a purely deterministic delay.
 If a whole fleet of clients hits the same failure at the same moment
 (a brief outage, a deploy), pure exponential backoff has them all
 retrying in lockstep, hammering the recovering service with synchronized
-bursts; jitter spreads those retries out instead.
+bursts; jitter spreads those retries out instead. The Amazon Builders'
+Library article on
+[timeouts, retries, and backoff with jitter](https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/)
+covers both this and the timeout above. Retries "can be ineffective if
+all clients retry at the same time", so "we employ jitter", and "a best
+practice in Amazon is to set a timeout on any remote call".
 
 </Subsection>
 

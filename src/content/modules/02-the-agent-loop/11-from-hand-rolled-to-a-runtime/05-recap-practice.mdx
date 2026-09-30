@@ -41,16 +41,16 @@ export const PRE = REACT_FAKE_CLIENT + RECORDING_CLIENT;
         "@tool builds the tool's schema from the function's signature and docstring together, so the model actually reads it -- it isn't just a comment for humans.",
     },
     {
-      question: "What does the {\"messages\": [...]} dict passed to agent.invoke() confirm about this course's own terminology?",
+      question: "What does the {\"messages\": [...]} dict passed to agent.invoke() correspond to in this course?",
       options: [
         "Nothing -- coincidental",
-        "The scratchpad -- a growing list of everything that's happened in the run -- is genuine, standard framework terminology, not invented for this course",
+        "The scratchpad -- the growing list of everything that's happened in the run, which create_agent carries as its messages state",
         "LangChain uses an unrelated concept",
         "Scratchpads don't exist in real frameworks",
       ],
       correctIndex: 1,
       explanation:
-        "A framework still has to carry the full conversation state somewhere. Here it's literally named messages, both in and out of invoke() -- the same accumulating-state idea this course named back in Lesson 7.",
+        "A framework still has to carry the full conversation state somewhere. create_agent calls it messages, both in and out of invoke(), not \"scratchpad\", but it's the same accumulating state this course named back in Lesson 7.",
     },
     {
       question: "Why isn't config={\"recursion_limit\": 10} actually equivalent to max_steps=10?",
