@@ -208,8 +208,10 @@ a web search or calling a third-party API sends the arguments out, so an
 injected instruction can hide private data in them. Those tools are labelled
 `external` as well as `untrusted`, as the previous concept did with
 `fetch_url`, and the table then treats them as sending data out. The final
-answer is an outgoing channel too. If the interface renders a markdown image
-or link, the user's browser requests that URL as soon as the answer is shown.
+answer is an outgoing channel too. If the interface renders a markdown image,
+the user's browser requests its URL as soon as the answer is shown, and a
+link sends its URL out with one click;
+[Module 5 showed a real attack that worked this way](/05-rag-systems/13-permissions/04-defences-by-design/#the-answer-is-a-way-out-too).
 So an answer from a session that has read untrusted text shouldn't be rendered
 with live links or images to arbitrary addresses.
 
