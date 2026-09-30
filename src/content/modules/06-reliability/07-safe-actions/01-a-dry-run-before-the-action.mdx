@@ -222,10 +222,14 @@ two changes asks them to confirm something they can read.
 <Subsection title="Apply what was checked" variant="a">
 
 A preview is a snapshot, and state can change between the preview and the
-action. Terraform's documentation makes the same point about automated
-pipelines: applying a saved plan ensures only the previewed changes are
-made. The equivalent for a tool is to apply the plan itself, and to refuse if
-any record no longer holds the value the plan saw:
+action. Terraform's documentation makes the same point: changes made in the
+meantime "might cause the final effect of a configuration change to be
+different" from what an earlier plan showed. Its
+[guide to running Terraform in automation](https://developer.hashicorp.com/terraform/tutorials/automation/automate-terraform)
+saves the plan, applies exactly that plan, and treats any other plan made
+against the same state as invalid once one is applied. The equivalent for a
+tool is to apply the plan itself, and to refuse if any record no longer holds
+the value the plan saw:
 
 <LiveDemo client:load setupCode={PREVIEW_DEMO} code={STALE_DEMO} />
 

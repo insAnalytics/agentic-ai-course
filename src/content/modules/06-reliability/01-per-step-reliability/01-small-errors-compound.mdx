@@ -93,21 +93,26 @@ that any failure is fatal. Real agents are messier, so it's fair to ask
 whether it describes them at all.
 
 The best evidence comes from METR's
-[time-horizon study](https://arxiv.org/abs/2503.14499) (Kwa et al., 2025).
-METR gave AI agents software and research tasks whose lengths were measured
-by how long skilled people took to do them, from seconds to hours, and
-found that success falls steadily as tasks get longer. Toby Ord
-[reanalysed their results](https://arxiv.org/abs/2505.05115) and found
-they fit a very simple model: a constant chance of failing for each minute
+[time-horizon study](https://arxiv.org/abs/2503.14499) (Kwa et al.,
+NeurIPS 2025). METR gave AI agents software and research tasks whose
+lengths were measured by how long skilled people took to do them, from
+seconds to hours, and found that success falls steadily as tasks get
+longer. In a short preprint, Toby Ord
+[reanalysed their results](https://arxiv.org/abs/2505.05115) and argued
+that they fit a very simple model: a constant chance of failing for each minute
 of work a person would need. That is *p*ⁿ again, counted in minutes of work
 rather than tool calls.
 
 The model makes a testable prediction. If an agent succeeds half the time
 on tasks of a certain length, then to succeed 80% of the time the task has
-to be about a third as long, because 0.8³ ≈ 0.5. METR measured both for its
-best model at the time: a 50% success rate on tasks up to 59 minutes long,
-and an 80% success rate only on tasks up to 15 minutes. That's a quarter,
-close to the predicted third, and within the measurement's noise.
+to be about a third as long, because 0.8³ ≈ 0.5. The first version of
+METR's paper measured both for its best model at the time, Claude 3.7
+Sonnet: a 50% success rate on tasks up to 59 minutes long, and an 80%
+success rate only on tasks up to 15 minutes. That's a quarter, which Ord
+judged close to the predicted third and within the measurement's noise.
+The latest version of the paper, with more models, puts the 80% horizon at
+a quarter to a sixth of the 50% one. That's the direction the model
+predicts, with a somewhat bigger gap.
 
 Two caveats, both from Ord himself:
 
@@ -127,9 +132,9 @@ Two assumptions sit inside *p*ⁿ, and real agents violate both.
 tool can read it and try again, which is exactly why
 [tool errors come back as observations](/02-the-agent-loop/06-termination-failure-and-control/05-tool-errors-as-observations/)
 rather than crashing the loop. A wrong step that gets caught and fixed
-doesn't sink the task. METR's authors found that improvements in longer
-tasks came largely from models getting more reliable and from getting
-better at adapting to mistakes.
+doesn't sink the task. METR's authors found that gains on longer tasks
+came mainly from greater reliability and a better ability to adapt to
+mistakes, along with better reasoning and tool use.
 
 **Steps don't fail independently.** A task that's hard for the model at
 step 3 tends to stay hard at step 7: the same confusing document, the same
@@ -152,8 +157,8 @@ they aren't measured from a model.)*
 
 Catching 60% of mistakes turns a 5% chance of a fatal step into a 2%
 chance (5% × 40% uncaught), and the task succeeds about twice as often.
-METR's authors credit much of models' progress on longer tasks to getting
-better at adapting to mistakes, and several lessons in this module are about
+METR's authors name adapting to mistakes as one of the main drivers of
+models' progress on longer tasks, and several lessons in this module are about
 building recovery into the agent itself: checks that catch a bad step before
 it does damage, and escalation when the agent can't tell.
 
@@ -243,7 +248,7 @@ predict with:
       "There's no way to tell without running the agent again"
     ],
     "correctIndex": 0,
-    "explanation": "With a constant failure rate, success falls exponentially with length. Surviving three 20-minute stretches at 80% each gives about 0.8³ ≈ 51%, so the 80% horizon is about a third of the 50% one. METR's measurement for its best model at the time (59 minutes against 15) came out at about a quarter, close to that prediction. Scaling the time linearly with the percentage is the tempting mistake."
+    "explanation": "With a constant failure rate, success falls exponentially with length. Surviving three 20-minute stretches at 80% each gives about 0.8³ ≈ 51%, so the 80% horizon is about a third of the 50% one. In the first version of METR's paper, its best model at the time came out at about a quarter (59 minutes against 15), close to that prediction; the latest version finds a quarter to a sixth across models. Scaling the time linearly with the percentage is the tempting mistake."
   }
 ]}
 />

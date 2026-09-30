@@ -201,18 +201,17 @@ Each of these is decided when the agent is built. This lesson adds a
 decision made while it runs: what has this session read so far, and what
 should it still be allowed to do?
 
-Meta's security team gave the idea a working form in its
+Meta gave the idea a working form in its
 [Agents Rule of Two](https://ai.meta.com/blog/practical-ai-agent-security/)
 (2025): until prompt injection can be reliably detected, an agent should have
 no more than two of three properties within a session: processing untrusted
 input, accessing sensitive systems or private data, and changing state or
 communicating externally. The phrase that matters here is *within a session*.
 An agent may be allowed all three kinds of tool, as long as no single session
-uses all three. Some security tooling for agents enforces this: Oso's
-agent documentation, for example, describes its decisions as
-[stateful](https://www.osohq.com/docs/oso-for-agents/use-cases), depending on
-what happened earlier in the same session, such as whether the agent recently
-took in untrusted content.
+uses all three. Some security tooling for agents enforces this. Oso's agent
+documentation, for example, said early in 2026 that
+["whether a tool call is safe often depends on what happened earlier in the session"](https://web.archive.org/web/20260218192026/https://www.osohq.com/docs/oso-for-agents/use-cases),
+and let a team deny a call that completes all three, or send it for approval.
 
 </Subsection>
 
@@ -266,11 +265,14 @@ simple form of *information-flow control*. Data is labelled by where it came
 from, anything computed from it inherits the label, and the labels are
 checked where the data is used. The guard's version is coarse. It keeps one
 set of labels for the whole session, so one untrusted email taints
-everything that follows. Research systems label each value instead. CaMeL,
-from [the third concept](/06-reliability/09-restricting-after-reading/03-designs-that-keep-untrusted-text-away/#dual-llm),
-and Microsoft's
-[FIDES](https://arxiv.org/abs/2505.23643) (Costa et al., 2025) track labels
-per value, so reading an untrusted email doesn't taint an unrelated lookup.
+everything that follows. Microsoft's
+[FIDES](https://arxiv.org/abs/2505.23643) preprint (Costa et al., 2025)
+describes this design, and its limit: untrusted data "immediately taints the
+conversation history, restricting the tools that can be called later".
+Research systems label each value instead. CaMeL, from
+[the third concept](/06-reliability/09-restricting-after-reading/03-designs-that-keep-untrusted-text-away/#dual-llm),
+and FIDES itself track labels per value, so reading an untrusted email
+doesn't taint an unrelated lookup.
 The price is a planner or interpreter that tracks every value.
 
 The part that matters at any granularity is that labels have to follow the

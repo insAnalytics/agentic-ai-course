@@ -175,9 +175,10 @@ decide whether the session may still make it. There are three answers:
 
 <Subsection title="The Rule of Two, and where it isn't enough" variant="b">
 
-Meta's Rule of Two, applied literally, blocks a call only when it would give
+Meta's Rule of Two, applied literally, only steps in when a call would give
 the session all three properties at once: untrusted input, private data, and
-a way to change state or send data out. Here's what that lets through:
+a way to change state or send data out. (Meta then asks for a person's
+approval; the demo simply denies.) Here's what that lets through:
 
 <LiveDemo client:load code={RULE_OF_TWO_DEMO} />
 
@@ -218,10 +219,13 @@ with live links or images to arbitrary addresses.
 Denying the last combination, rather than asking a person, is a design
 choice worth explaining. Approving an outgoing message after the session has
 read both untrusted text and private data means checking every byte of it for
-something that shouldn't leave, which is a job people do badly. The safer
-answer is to refuse, and do the sending from a fresh session that hasn't read
-the untrusted content. Some systems choose approval instead; what matters is
-that the choice is made on purpose.
+something that shouldn't leave, which is a job people do badly.
+[CaMeL's](https://arxiv.org/abs/2503.18813) authors warn that frequent
+prompts leave users "desensitized to security prompts", so that they "may
+inadvertently approve malicious actions". The safer answer is to refuse, and
+do the sending from a fresh session that hasn't read the untrusted content.
+Some systems choose approval instead, as Meta's Rule of Two does for this
+case; what matters is that the choice is made on purpose.
 
 </Subsection>
 

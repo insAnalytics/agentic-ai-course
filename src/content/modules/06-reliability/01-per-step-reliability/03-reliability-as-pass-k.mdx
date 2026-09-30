@@ -238,10 +238,13 @@ A task with pass^8 near 1 goes right every time it comes up, for every user
 who asks it and every time a scheduled workflow repeats it. A task with the
 same average success rate but a low pass^k is the one that fails someone
 eventually, and you can't say who. When an agent has to be dependable,
-not just right on average, pass^k is the measure.
+not just right on average, pass^k is the measure. Anthropic's
+[guide to agent evaluations](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)
+draws the same line: pass@k "for tools where one success matters, pass^k
+for agents where consistency is essential."
 
 The metric comes from
-[τ-bench](https://arxiv.org/abs/2406.12045) (Yao et al., 2024), a benchmark
+[τ-bench](https://arxiv.org/abs/2406.12045) (Yao et al., ICLR 2025), a benchmark
 where an agent helps a simulated customer through an airline or retail
 task, calling real tools and following a written policy. Success is
 checked in code: the database at the end of the conversation either

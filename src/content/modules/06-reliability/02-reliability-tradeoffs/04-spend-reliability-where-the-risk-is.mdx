@@ -58,7 +58,7 @@ The closest evidence is about spending effort unevenly by something else:
 
 - **By difficulty.** Snell et al.,
   [*Scaling LLM Test-Time Compute Optimally*](https://arxiv.org/abs/2408.03314)
-  (2024), found that how much extra computation helps depends heavily on how
+  (ICLR 2025), found that how much extra computation helps depends heavily on how
   hard a prompt is. Choosing the strategy and amount per prompt, based on
   its difficulty, matched a uniform best-of-N baseline while using about four
   times less computation.
@@ -79,8 +79,13 @@ spread evenly.
 
 Module 3 already drew the first line:
 [not all tools carry the same risk](/03-tool-design-for-agents/11-designing-for-least-privilege/02-separate-reads-from-writes-and-gate-the-writes/#not-all-tools-carry-the-same-risk),
-and writes whose mistakes are costly get a gate. For reliability, four
-properties raise the cost of a wrong step:
+and writes whose mistakes are costly get a gate. OpenAI's
+[practical guide to building agents](https://cdn.openai.com/business-guides-and-resources/a-practical-guide-to-building-agents.pdf)
+recommends the same thing: rate each tool low, medium or high risk "based
+on factors like read-only vs. write access, reversibility, required account
+permissions, and financial impact", and pause for checks "before executing
+high-risk functions". For reliability, four properties raise the cost of a
+wrong step:
 
 - **It can't be undone.** A deleted record, a payment, a sent message. A
   wrong read can be repeated; a wrong irreversible action can only be

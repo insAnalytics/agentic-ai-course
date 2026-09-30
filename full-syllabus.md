@@ -5248,6 +5248,44 @@ record's hash matches it). L10's intent check now also requires `set_model`'s
 "invented argument" scenario names the agent ("Move research_agent to its new
 model."), so it's caught by the model rule rather than by the missing name.
 
+**Citation audit (2026-09-30).** Every outside-source claim in the module
+was checked against its primary source; the full per-claim tables are in
+[citation-audit/module-6.md](citation-audit/module-6.md). All the open items
+below were reached and verified. Prose and quiz text only; no demo or
+exercise changed. What changed:
+- **Corrected (the source said something else):** Miller's "three times"
+  is about grouped questions, not repeated runs (L1 C2, its quiz, the
+  recap); Panickssery et al. now cite the NeurIPS version, where people
+  did *not* rate the summaries equal (L4 C2); Tian et al.'s comparison was
+  against sampled answer probabilities (L6 C2 and its quiz); ImpossibleBench's
+  biggest drop came from hiding the tests (L7 C5 and its quizzes); a METR
+  quiz distractor that was one of METR's own explanations; Sethi's 45% is
+  dishonest answers, including made-up refusals (L8 C2); breakers let a
+  set number of trial calls through (L8 C3); Beurer-Kellner's co-authors
+  (L9 C3); ToolEmu finds risky agent actions, and doesn't inject faults
+  (L10 C3); MAKER votes with at least three calls per move, and discards
+  over-long samples too (L5 C6).
+- **Updated to the latest version:** Kalai et al. now cites *Nature* (2026)
+  and its own SimpleQA figures (63.2/16.0/20.8 vs 2.6/20.6/76.8, 3.7× the
+  errors); METR's 59/15 is labelled as the first version, plus the latest
+  4–6× range; OR-Bench is 0.89 (ICML 2025).
+- **Re-labelled:** venues (Zheng, Snell ×3, Lightman, Sclar, τ-bench,
+  Kapoor, FrugalGPT, OR-Bench, METR, SCoRe, Wu et al.) and preprints
+  (Cobbe, USC, Ord, Zhu, Miller, Beurer-Kellner, FIDES); "concluded" →
+  "suggested" (Cobbe); the DeepMind definition is now a direct quote.
+- **Industry sources added:** Anthropic's agent-evals guide (pass^k,
+  broken tasks, balanced sets), OpenAI's agent guide (tool risk ratings),
+  SimpleQA's three grades, Microsoft's Saga and Compensating Transaction
+  patterns, AWS Well-Architected, Terraform's automation guide,
+  Resilience4j, gRPC's retry design, Hugging Face/vLLM `revision`, NeMo
+  Guardrails' masking, Arize (a second model family as judge), Microsoft's
+  reasoning-model parameter list, and Anthropic's approval-fatigue figure.
+- **Still to check:** CaMeL's published IEEE SaTML 2026 figures (the page
+  cites arXiv v2); Zhu et al.'s review status. Oso's docs moved, so L9 C1
+  cites a February 2026 archived copy.
+- **Held for a decision:** a conditional compensation in L7 C3, and
+  Meta's reply to Willison in L9 C2 (see the audit file).
+
 1. **Why Agents Fail, and What "Reliable" Means** — **Locked** (folder
    `01-per-step-reliability`, named before the title existed). Concept 1 (small errors
    compound over many steps) is built: *p*ⁿ and three live demos (the
@@ -6223,33 +6261,7 @@ dedicated coverage here.
     loop, bound with an immediately called lambda
     (`(lambda real: lambda **kwargs: ...)(tools[name])`), used to wrap each
     tool in Lesson 10's fault injection.
-- **Module 6 source claims still to check against their primary source.**
-  The review session could only reach anthropic.com, platform.claude.com and
-  GitHub. It confirmed these from primary text: Kim et al. and Goel et al.
-  (official PMLR PDFs), DiVeRSe and Adaptive-Consistency (ACL Anthology
-  records; 7.9× is the EMNLP figure, the repo's 6.0× is an older preprint),
-  The Tail at Scale, Anthropic's evals and statistics posts, its Claude 3.7
-  and 4 announcements, its deprecation and thinking docs, the OpenAI Agents
-  SDK and NeMo Guardrails docs, the gRPC deadlines guide, *Building Secure
-  and Reliable Systems* ch. 1, the Principles of Chaos, Lilian Weng's
-  reward-hacking post, FIDES's repo, and MAKER's code (gpt-4.1-mini, ahead-by-k
-  voting, format-based discards). It couldn't reach the rest, whose figures come
-  from search extracts that agreed across sources. They need a check:
-  - METR, "Recent Frontier Models Are Reward Hacking": 30.4% vs 0.7%, 14 of 20 (L7 C5)
-  - ImpossibleBench: GPT-5 54% → 9% with an abort option (L7 C5)
-  - OpenAI / Baker et al. on chain-of-thought monitoring and obfuscation (L7 C5)
-  - Claude 3.7 Sonnet system card on special-casing tests (L7 C5)
-  - Zheng et al.: GPT-4 about 65% order-consistent; 91%/91%/9% for the
-    repetition attack (L4 C2)
-  - Panickssery et al. on self-preference (L4 C2); Hamel Husain's "over 30
-    companies" (L4 C2)
-  - Cobbe et al.: 6B + verifier vs 175B, "30x", peak at 400 completions (L5 C6)
-  - MAKER's k = 3 and zero-error result (the page now states neither k nor a
-    length rule) (L5 C6)
-  - Kalai et al. / OpenAI SimpleQA table: 52/22/26 vs 1/24/75 (L1 C2);
-    possibly now also published in Nature
-  - Brooker (243×, "selfish") and Gabrielson on fallback (L8 C1, C5)
-  - Basiri et al. (IEEE Software 2016) and ToolEmu's 68.8% (L10 C3)
-  - Beurer-Kellner et al.'s map-reduce and context-minimization definitions (L9 C3)
-  - DeepMind's specification-gaming definition (quoted via Weng's
-    paraphrase, which was verified) (L7 C5)
+- **Module 6 source claims:** resolved by the 2026-09-30 citation audit
+  (see Module 6's "Citation audit" note and `citation-audit/module-6.md`).
+  Left open: CaMeL's published SaTML 2026 figures, and Zhu et al.'s review
+  status.

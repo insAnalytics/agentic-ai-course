@@ -220,8 +220,12 @@ the standard tier. When a step fails, the compensations of the steps that
 completed run in reverse order, newest first, since later steps may depend
 on earlier ones.
 
-The idea is now a standard pattern for work that spans several services,
-and four details from it matter for agents:
+The idea is now a standard pattern for work that spans several services.
+Microsoft's [Saga pattern](https://learn.microsoft.com/en-us/azure/architecture/patterns/saga)
+describes it, and AWS's
+[Well-Architected guidance](https://docs.aws.amazon.com/wellarchitected/latest/reliability-pillar/rel_mitigate_interaction_failure_graceful_degradation.html)
+recommends it to "roll back previous operations in case a later operation
+of the same transaction fails". Four details from it matter for agents:
 
 - **A compensation undoes the effect, not the history.** The registry's
   change log will show the tier going up and back down. That's correct: the
@@ -229,8 +233,10 @@ and four details from it matter for agents:
   earlier state.
 - **Some steps can only be corrected, not undone.** A sent email can't be
   unsent; its compensation is a follow-up that corrects it. Steps like that
-  are best placed last, after everything that can still fail, and are
-  exactly where
+  are best placed last, after everything that can still fail. Microsoft's
+  saga guidance calls such a step the *pivot*, the point of no return, and
+  puts only steps that can be retried until they succeed after it. They're
+  also exactly where
   [Lesson 2's risk](/06-reliability/02-reliability-tradeoffs/04-spend-reliability-where-the-risk-is/)
   and the approval gate belong.
 - **A compensation is itself a write, and can fail.** It needs the same care
@@ -239,7 +245,10 @@ and four details from it matter for agents:
   so it can be retried safely, a read-back to confirm it worked, and, if it
   still fails, an escalation to a person with the state it's left behind, as
   [the previous lesson](/06-reliability/06-when-unsure/03-escalating/)
-  described.
+  described. Microsoft's
+  [Compensating Transaction pattern](https://learn.microsoft.com/en-us/azure/architecture/patterns/compensating-transaction)
+  gives the same advice: make each step "an idempotent command", and expect
+  that "sometimes manual intervention is the only way to recover".
 - **A step that failed may still have taken effect.** The textbook saga
   compensates only the steps that completed, which assumes a step that
   raised an error changed nothing. With a remote service, that isn't

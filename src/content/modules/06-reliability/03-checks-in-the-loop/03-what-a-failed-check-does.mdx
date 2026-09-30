@@ -104,7 +104,10 @@ a default, or clamping an out-of-range value into range. Both turn a
 detected failure back into a silent one.
 
 One repair meets both conditions often enough to be standard practice:
-redacting a secret from a tool result before the model reads it. A key has a
+redacting a secret from a tool result before the model reads it. NVIDIA's NeMo
+Guardrails, for example, can
+[mask sensitive data](https://docs.nvidia.com/nemo/guardrails/configure-guardrails/guardrail-catalog/third-party/presidio)
+and carry on rather than refuse. A key with a known format has a
 recognisable shape, so finding it is certain. Replacing it with
 `[REDACTED KEY]` keeps the rest of the result usable, and says what was done.
 The exception is when the key is a value the next step needs. Then the result

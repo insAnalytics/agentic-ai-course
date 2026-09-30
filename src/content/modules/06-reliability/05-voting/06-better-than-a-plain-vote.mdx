@@ -450,13 +450,14 @@ several attempts in parallel, discarded patches that broke the repository's
 visible regression tests, and had a scoring model choose among the rest.
 The research behind the idea goes back further. Cobbe et al.
 [trained such a verifier](https://arxiv.org/abs/2110.14168) for grade-school
-maths (2021). A 6B model choosing among its samples with the verifier slightly outperformed a fine-tuned 175B model, a gain the authors put at about what a thirtyfold larger model would give. Lightman et al.'s
-[*Let's Verify Step by Step*](https://arxiv.org/abs/2305.20050) (2023)
+maths, in a 2021 OpenAI preprint. A 6B model choosing among its samples with the verifier slightly outperformed a fine-tuned 175B model, a gain the authors put at about what a thirtyfold larger model would give. Lightman et al.'s
+[*Let's Verify Step by Step*](https://arxiv.org/abs/2305.20050) (ICLR 2024)
 improved on it by checking each step of the reasoning, not only the final
 answer. Snell et al., from
 [the fourth concept](/06-reliability/05-voting/04-voting-thinking-or-a-stronger-model/),
-found that searching against such a verifier was one of the most effective
-ways to spend extra computation at test time.
+studied searching against such a verifier as one of two main ways to spend
+extra computation at test time, and found that which works best depends on
+how hard the question is.
 
 An agent often has a check already, and it doesn't have to be a trained
 model. Tests that pass, a schema the output matches, a figure found in a tool
@@ -492,8 +493,10 @@ before it gets that job. There's a second risk. The harder a search pushes
 against a check, the more it finds the answers that fool it.
 Cobbe et al. saw this
 too: accuracy rose as the verifier chose among more samples per problem, up to
-400, and then fell. Past that point, they concluded, the search was finding
-adversarial solutions that fool the verifier. An agent pushed hard against a
+400, and then fell. Past that point, they suggested, the search was finding
+adversarial solutions that fool the verifier. Snell et al. saw the same with
+a step-by-step verifier: on easy questions, a stronger search did worse as
+the budget grew. An agent pushed hard against a
 check can do the same thing,
 [in the next lesson's terms](/06-reliability/07-safe-actions/05-gaming-the-check/):
 satisfy the check instead of the task.
@@ -523,10 +526,10 @@ describes.
 Voting on every step can go a long way. Meyerson et al.'s
 [MAKER](https://arxiv.org/abs/2511.09030), a 2025 preprint from Cognizant's AI
 lab, split a 20-disk Towers of
-Hanoi, 1,048,575 moves, into one model call per move. It chose each move with
+Hanoi, 1,048,575 moves, into one small task per move. It chose each move with
 *first-to-ahead-by-k* voting, the stop-at-a-lead rule from earlier in this
-concept, and threw out any sample that wasn't in the expected format before
-it could vote. The authors'
+concept, with a lead of three, and threw out any sample that ran too long or
+wasn't in the expected format before it could vote. The authors'
 [published code](https://github.com/cognizant-ai-lab/neuro-san-benchmarking)
 shows both. With a small model, gpt-4.1-mini, the authors report finishing all million
 moves without an error, against the arithmetic of

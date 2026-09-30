@@ -230,14 +230,16 @@ while checking their retail tasks, τ-bench's authors ran each one more than
 40 times with one model. Success rates spread across a wide range, and they
 checked by hand the tasks it rarely or never solved, since a task nobody
 solves may be badly written rather than hard. The
-wordings concept later in this lesson comes back to that question. Evan Miller's
-[*Adding Error Bars to Evals*](https://arxiv.org/abs/2411.00640) (2024)
-draws the statistical consequence: runs of the same question aren't
-independent evidence, because they share that question's difficulty, and
-treating them as independent can make error bars three or more times too
-narrow. His recommendation is the one this lesson follows:
-run each question several times, keep the results per question, and
-measure uncertainty by question.
+wordings concept later in this lesson comes back to that question. Evan
+Miller's [*Adding Error Bars to Evals*](https://arxiv.org/abs/2411.00640)
+(Anthropic, 2024, a preprint) draws the statistical consequence. Evidence
+that comes in groups isn't independent. When an eval asks several questions
+about the same passage, treating them as independent made the error bars
+about three times too narrow on one popular eval. Runs of the same question
+are the extreme case of such a group, since every run shares that
+question's difficulty. His recommendation is the one this lesson follows:
+run each question several times, turn its runs into one score per
+question, and measure uncertainty over questions.
 
 Here's what that looks like in our runs, for every question and both
 models:
@@ -280,8 +282,8 @@ together:
 *(Real runs from both models.)*
 
 Resampling whole questions gives intervals about twice as wide for the 4B
-and nearly three times as wide for the 2B, in line with Miller's finding of
-three times or more. The naive interval is too narrow because it counts twenty runs of
+and nearly three times as wide for the 2B, the same size of effect Miller
+found for grouped questions. The naive interval is too narrow because it counts twenty runs of
 e41 as twenty separate pieces of evidence, when they're twenty looks at one
 question.
 
@@ -350,18 +352,21 @@ word, "one" for 1, which this grader doesn't accept, and 5 give an error's
 name where its code was asked for. The other 94 are wrong values. A success rate, or pass^k, counts both the same, so it can't show
 that one model's failures are mostly safe.
 
-OpenAI's Kalai et al.,
-[*Why Language Models Hallucinate*](https://openai.com/index/why-language-models-hallucinate/)
-(2025), argue that this way of counting is part of why models guess.
-Benchmarks that only score accuracy give nothing for "I don't know", so a
-model that guesses scores higher. OpenAI's blog shows the effect on SimpleQA, with its own models' figures.
-gpt-5-thinking-mini abstained on 52% of questions and was right on 22%, wrong
-on 26%. o4-mini abstained on 1% and was right on 24%, but wrong on 75%. On
-accuracy alone, the second looks slightly better, while it makes about three
-times as many errors.
+Kalai et al., researchers at OpenAI and Georgia Tech, argue in
+[*Nature*](https://www.nature.com/articles/s41586-026-10549-w) (2026) that
+this way of counting is part of why models guess. (OpenAI first released
+the work in 2025 as *Why Language Models Hallucinate*.) Benchmarks that
+only score accuracy give nothing for "I don't know", so a model that
+guesses scores higher. They show the effect on SimpleQA's 4,326 questions
+with two of OpenAI's models. GPT-5-mini declined to answer 63.2% of them,
+and was right on 16.0% and wrong on 20.8%. o4-mini declined on 2.6%, and
+was right on 20.6% but wrong on 76.8%. On accuracy alone the second looks
+better, while it makes more than three times as many errors.
 
 For an agent, report wrong answers and abstentions separately, alongside
-pass^k. An abstention isn't free, though. On a question the agent should
+pass^k. That's how OpenAI's [SimpleQA](https://arxiv.org/abs/2411.04368)
+grades a reply: correct, incorrect or not attempted. An abstention isn't
+free, though. On a question the agent should
 have answered it's a
 [false refusal](/06-reliability/02-reliability-tradeoffs/01-four-things-every-technique-trades/#a-refusal-can-be-a-reliability-failure),
 the cost Lesson 2 counts. And
@@ -439,7 +444,7 @@ is to measure the variation, not to hide it.
       "Because intervals only apply when the accuracy is below 90%"
     ],
     "correctIndex": 1,
-    "explanation": "The runs are clustered by question. Resampling whole questions gave intervals about two to three times wider than the naive ones here, in line with Miller's finding that ignoring the clustering can make error bars three or more times too narrow."
+    "explanation": "The runs are clustered by question. Resampling whole questions gave intervals about two to three times wider than the naive ones here, the same size of effect Miller found when related questions were treated as independent: error bars about three times too narrow on one popular eval."
   },
   {
     "question": "A colleague proposes setting temperature to 0 so the agent gives the same answer every time. What's the main problem?",

@@ -142,8 +142,9 @@ confidence signal would come later. That's where this concept starts.
 Not every provider returns them. OpenAI's Chat Completions API does when
 asked, through its `logprobs` and `top_logprobs` parameters, as
 [its documentation shows](https://developers.openai.com/cookbook/examples/using_logprobs),
-though not for every model: its reasoning models generally don't return them.
-Open models served with engines such as vLLM, which produced this module's
+though not for every model: its reasoning models generally don't, as
+[Microsoft's guide to the same models](https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/reasoning)
+lists. Open models served with engines such as vLLM, which produced this module's
 runs, return them too. Anthropic's Messages API has no such option: its
 [reference for creating a message](https://platform.claude.com/docs/en/api/messages/create)
 lists no parameter for them, and its responses carry none. A signal that
@@ -255,7 +256,9 @@ The research on stated confidence disagrees with itself. Tian et al.,
 [*Just Ask for Calibration*](https://arxiv.org/abs/2305.14975) (EMNLP 2023),
 found that for models trained with human feedback, including ChatGPT, GPT-4
 and Claude, confidence stated in words was typically better calibrated than
-the models' token probabilities, often halving the calibration error.
+the probability the model gave its answer, often halving the calibration
+error. Those three APIs returned no token probabilities, so the authors
+estimated that probability from how often ten samples gave the same answer.
 [Xiong et al.](/06-reliability/05-voting/03-agreement-as-a-confidence-signal/)
 found stated confidence overconfident, with agreement among samples helping.
 Both can be true on different models, tasks and prompts. This module's runs
@@ -309,7 +312,7 @@ a whole system, calibration, is Module 7's subject.
     "explanation": "Logprobs are one signal among several. Agreement, source checks and retrieval scores need nothing from the provider beyond replies, and stated confidence needs only a prompt, though it must be checked."
   },
   {
-    "question": "Tian et al. found stated confidence better calibrated than token probabilities; Xiong et al. found it overconfident. What should a builder conclude?",
+    "question": "Tian et al. found stated confidence better calibrated than the model's answer probabilities; Xiong et al. found it overconfident. What should a builder conclude?",
     "options": [
       "Trust stated confidence, since one study supports it",
       "Never use stated confidence for anything",

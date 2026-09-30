@@ -80,10 +80,10 @@ session reads and narrows what it may do. A different approach changes the
 agent's structure, so that untrusted text never gets the chance to choose an
 action in the first place.
 
-Beurer-Kellner and thirteen co-authors from Google, Microsoft, IBM, ETH
-Zurich and EPFL collected these designs in
-[*Design Patterns for Securing LLM Agents against Prompt Injections*](https://arxiv.org/abs/2506.08837)
-(2025). They describe six patterns, each enforcing some isolation between
+Beurer-Kellner and thirteen co-authors, from Invariant Labs, IBM, Google,
+Microsoft, ETH Zurich, EPFL and others, collected these designs in
+[*Design Patterns for Securing LLM Agents against Prompt Injections*](https://arxiv.org/abs/2506.08837),
+a 2025 preprint. They describe six patterns, each enforcing some isolation between
 untrusted data and the agent's control flow. They're candid about the
 trade: every pattern gives up some of what a general-purpose agent can do, in
 exchange for resistance to injection that doesn't depend on the model behaving
@@ -128,7 +128,9 @@ reads.
 
 <Subsection title="Dual LLM" variant="b">
 
-Simon Willison proposed this in 2023. Two models play different roles:
+Simon Willison
+[proposed this in 2023](https://simonwillison.net/2023/Apr/25/dual-llm-pattern/).
+Two models play different roles:
 
 - A **quarantined** model reads untrusted text, and has no tools.
 - A **privileged** model plans and calls tools, and never sees untrusted
@@ -146,11 +148,12 @@ result looks inside it.
 **Code-then-execute** takes this further: the privileged model writes a small
 program, and a custom interpreter runs it, tracking where each value came
 from. Debenedetti et al.'s
-[CaMeL](https://arxiv.org/abs/2503.18813) (2025) built it. Untrusted data can
+[CaMeL](https://arxiv.org/abs/2503.18813), from Google, Google DeepMind and
+ETH Zurich (2025), built it. Untrusted data can
 never change the program's flow, and a notion of capabilities blocks private
 data from leaving by routes the policy doesn't allow. On the AgentDojo
-benchmark, CaMeL solved 77% of tasks with provable security, against 84% for
-an undefended agent: a real but modest cost in capability.
+benchmark, the revised version of the paper reports CaMeL solving 77% of
+tasks with provable security, against 84% for an undefended agent: a real but modest cost in capability.
 
 Each of these leaves something open. In the dual LLM, whatever the
 quarantined model writes still reaches the user, so planted text can mislead
@@ -168,7 +171,9 @@ confirm more often, and their interpreter is a research prototype.
 The session guard from the previous concepts has a cost those concepts
 didn't dwell on. Labels only accumulate, so after one untrusted read, every
 later action in that session needs a person or is refused. For an agent whose
-job is to read outside text and then act, that's most of its actions.
+job is to read outside text and then act, that's most of its actions. The
+FIDES authors call this the "fundamental limitation" of tracking labels for
+the whole conversation, and built their planner to get around it.
 
 The fix is to split the work so that untrusted text is read in sessions that
 can't act, and only something narrow comes back. Beurer-Kellner et al.'s
@@ -188,10 +193,12 @@ output, a label, a number, a date, an ID from a known list, the less the
 untrusted text can smuggle through. Free text coming back puts it in the
 same position as `$VAR1` above.
 
-The same paper's **context-minimization** pattern is a cousin: once the
-untrusted content has done its job, remove it from the context before the
-next step, so later decisions are made without it. With the session guard,
-that means starting the next step in a fresh session. The rule that covers
+The same paper's **context-minimization** pattern is a cousin. The paper aims
+it at injections in the user's own prompt: once the prompt has been turned
+into, say, a database query, it's removed from the context, so the reply is
+written without it. The same move works for any untrusted text: once it has
+done its job, drop it before the next step. With the session guard, that
+means starting the next step in a fresh session. The rule that covers
 all of these: decide in code what crosses from a session that read untrusted
 text into one that can act, and keep it small and checkable.
 

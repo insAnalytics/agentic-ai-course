@@ -290,10 +290,11 @@ That gives three states:
 
 The version in the exercise is the simplest form. It lets any call through
 while half-open, which is fine when calls arrive one at a time. With many at
-once, a real breaker lets one trial through and keeps failing the rest fast
-until the trial comes back. Production libraries also usually trip on the
-*rate* of failures over a recent window, not a count in a row, and can count
-slow calls as failures too.
+once, a real breaker lets a set number of trial calls through and keeps
+failing the rest fast until they come back. Production libraries such as
+[Resilience4j](https://resilience4j.readme.io/docs/circuitbreaker) also
+usually trip on the *rate* of failures over a recent window, not a count in
+a row, and can count slow calls as failures too.
 
 Two details from Fowler's description matter for agents:
 

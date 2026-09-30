@@ -268,7 +268,7 @@ unsure agent is the clearest case for a person.
 Sending every request to the strongest model is simple and expensive.
 A cascade tries the cheapest model first, and moves up only when the answer
 looks doubtful. Chen, Zaharia and Zou's
-[FrugalGPT](https://arxiv.org/abs/2305.05176) (2023) is the best-known
+[FrugalGPT](https://arxiv.org/abs/2305.05176) (TMLR 2024) is the best-known
 study. They found the prices of language model APIs differed by up to two
 orders of magnitude, and built a cascade that could match GPT-4's performance
 with up to 98% lower cost, or beat it by up to 4% at the same cost.
@@ -319,7 +319,10 @@ becomes something new: the load on people. In the run above, escalating on
 any disagreement would send more than a fifth of decisions to someone. For a
 system handling thousands of requests, that may be more than anyone can
 review, and a person asked to check too many cases stops checking any of them
-carefully.
+carefully. Anthropic reports that Claude Code's users approve 93% of its
+permission prompts, and calls the result
+[approval fatigue](https://www.anthropic.com/engineering/claude-code-auto-mode):
+people stop paying close attention to what they're approving.
 
 So escalating to a person is most useful at the far end of the signal: the
 rare cases where the agent is least sure, or where

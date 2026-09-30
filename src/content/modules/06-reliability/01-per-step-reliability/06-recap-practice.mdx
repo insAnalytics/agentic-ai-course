@@ -234,7 +234,7 @@ assert raises(reliability_report, log, 0), "k must be at least 1: raise ValueErr
       "Because the model's temperature changes between runs"
     ],
     "correctIndex": 1,
-    "explanation": "Runs are clustered by question. Miller (2024) found that ignoring that clustering can make error bars three or more times too narrow; in this lesson's runs the question-level intervals were about two to three times wider."
+    "explanation": "Runs are clustered by question. Miller (2024) found that treating related questions as independent made error bars about three times too narrow on one popular eval; in this lesson's runs the question-level intervals were about two to three times wider."
   },
   {
     "question": "An agent refunds the wrong amount at step 11. At step 2 it picked the wrong customer record. Where do you start fixing?",
@@ -281,7 +281,7 @@ assert raises(reliability_report, log, 0), "k must be at least 1: raise ValueErr
     "explanation": "Greedy decoding hides the model's uncertainty rather than removing it. Thinking Machines measured 80 different outputs from 1,000 temperature-0 runs of one prompt, and τ-bench's temperature-0 agent was still inconsistent because its simulated users varied."
   },
   {
-    "question": "METR found an agent's 80% time horizon to be about a quarter of its 50% horizon. What does the constant-failure-rate model predict?",
+    "question": "In the first version of METR's study, its best model's 80% time horizon was about a quarter of its 50% horizon. What does the constant-failure-rate model predict?",
     "options": [
       "About 80% of the 50% horizon, since the percentages scale linearly",
       "About a third, since 0.8³ ≈ 0.5",
@@ -289,7 +289,7 @@ assert raises(reliability_report, log, 0), "k must be at least 1: raise ValueErr
       "Nothing: the model only applies to single steps"
     ],
     "correctIndex": 1,
-    "explanation": "With a constant chance of failing per unit of work, success falls exponentially with length, so the 80% horizon is ln 0.8 / ln 0.5 ≈ 0.32 of the 50% one. METR's measurement of about a quarter was close, and within its noise."
+    "explanation": "With a constant chance of failing per unit of work, success falls exponentially with length, so the 80% horizon is ln 0.8 / ln 0.5 ≈ 0.32 of the 50% one. That measurement of about a quarter was close, and within its noise. The latest version of METR's paper finds a quarter to a sixth across models, a somewhat bigger gap than the model predicts."
   }
 ]}
 />

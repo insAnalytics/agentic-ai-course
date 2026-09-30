@@ -33,7 +33,7 @@ about why it belongs on the list.
 <Subsection title="Accuracy alone misleads" variant="b">
 
 Kapoor et al.,
-[*AI Agents That Matter*](https://arxiv.org/abs/2407.01502) (2024), looked
+[*AI Agents That Matter*](https://arxiv.org/abs/2407.01502) (TMLR 2025), looked
 at how agents were being evaluated and found the field reporting accuracy
 without cost. The result, in their words, was that state-of-the-art agents
 had become needlessly complex and costly, and the community had reached
@@ -57,11 +57,12 @@ exactly the sense of the previous lesson, since users can't count on it.
 
 Two lines of research measure this:
 
-- **Across models, safety and over-refusal rise together.** OR-Bench (Cui
-  et al., 2024) tested models on thousands of prompts that look harmful but
-  aren't, and on prompts that really are harmful. The models that refused
-  the harmful prompts most reliably also refused the most harmless ones: the
-  Spearman rank correlation between the two was 0.878. In most models,
+- **Across models, safety and over-refusal rise together.**
+  [OR-Bench](https://arxiv.org/abs/2405.20947) (Cui et al., ICML 2025)
+  tested 32 models on thousands of prompts that look harmful but aren't,
+  and on prompts that really are harmful. The models that refused the
+  harmful prompts most reliably also refused the most harmless ones: the
+  Spearman rank correlation between the two was 0.89. In most models,
   refusing more of the right things came with refusing more of the wrong
   ones. XSTest (Röttger et al., 2024) showed the same kind of failure on a
   small hand-written set of safe prompts that only look unsafe, such as
@@ -100,7 +101,11 @@ declining is the right call.
 
 The habit that follows: **report every check as a pair of numbers, what it
 catches and what it wrongly blocks,** measured on cases where you know the
-right outcome.
+right outcome. Anthropic's
+[agent-evals guide](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)
+asks for the same balance: "Test both the cases where a behavior should
+occur and where it shouldn't. One-sided evals create one-sided
+optimization."
 
 </Subsection>
 
@@ -155,12 +160,12 @@ and spending where the risk is.
     "explanation": "Reliability is about whether the task gets done, run after run. A blocked legitimate action and a failed one leave the user in the same place; the refusal is just quieter about it."
   },
   {
-    "question": "OR-Bench found a rank correlation of 0.878 between how reliably models refused harmful prompts and how often they refused harmless ones. What does that suggest?",
+    "question": "OR-Bench found a rank correlation of 0.89 between how reliably models refused harmful prompts and how often they refused harmless ones. What does that suggest?",
     "options": [
       "Safer models are simply better at understanding prompts",
       "Over-refusal only happens in models with weak safety training",
       "For most models tested, refusing more of the harmful prompts came with refusing more harmless ones",
-      "The two measures are unrelated, since 0.878 is below 1"
+      "The two measures are unrelated, since 0.89 is below 1"
     ],
     "correctIndex": 2,
     "explanation": "A correlation that high means models ranked similarly on both: the ones that refused the most harmful prompts also refused the most harmless ones. It describes the models they tested, and it's the pattern any check has to beat: catching more without blocking more."

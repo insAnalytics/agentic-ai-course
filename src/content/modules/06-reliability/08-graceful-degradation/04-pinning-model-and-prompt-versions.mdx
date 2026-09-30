@@ -127,7 +127,7 @@ Model names don't all behave the same way, and the only reliable source is
 the provider's own documentation:
 
 - **Some names are fixed.** Anthropic's
-  [models documentation](https://platform.claude.com/docs/en/about-claude/models/overview)
+  [model ID documentation](https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions)
   says every Claude model ID is a pinned snapshot: an ID doesn't change what
   it points to, and an updated model ships under a new ID. For older
   generations, it also lists short aliases that are convenience pointers,
@@ -143,7 +143,10 @@ the provider's own documentation:
 - **Open-weight models are pinned by commit.** A model loaded from a
   repository by name alone gets whatever the repository holds that day.
   Loading libraries and serving engines take a revision, a specific commit,
-  to fix it.
+  to fix it: Hugging Face's
+  [`from_pretrained`](https://huggingface.co/docs/transformers/main_classes/model)
+  and [vLLM](https://docs.vllm.ai/en/latest/configuration/engine_args/) both
+  accept a `revision` that can be "a branch name, a tag name, or a commit id".
 
 Floating names have their uses: a prototype that should always get the newest
 model. For an agent whose reliability has been measured, the name in the

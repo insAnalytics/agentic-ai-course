@@ -194,8 +194,8 @@ a check is known by what it catches and what it wrongly blocks.
 
 Measuring a model-based judge against cases with known answers is standard
 practice. Zheng et al.'s
-[study of LLM judges](https://arxiv.org/abs/2306.05685) (NeurIPS 2023),
-which made the approach common, validated their judges by how often they
+[study of LLM judges](https://arxiv.org/abs/2306.05685) (NeurIPS 2023
+Datasets and Benchmarks), which helped make the approach common, validated their judges by how often they
 agreed with human ratings. Evaluation guides from tooling vendors such as
 [Arize](https://arize.com/guides/llm-as-a-judge/) give the same advice: run
 the judge on a labelled "golden" set, compare its labels with yours, and
@@ -332,18 +332,19 @@ them, and adds one more:
 
 - **Order and length.** Zheng et al., in
   [the study above](https://arxiv.org/abs/2306.05685), which is the one
-  Module 5 cited, measured both. Swapping the order of two answers changed
-  a judge's verdict often. GPT-4, the most
-  consistent, gave the same verdict both ways about 65% of the time. Padding
-  an answer with repeated content fooled Claude-v1 and GPT-3.5 in about 91%
-  of their test cases, and GPT-4 in about 9%.
+  Module 5 cited, measured both. Swapping the order of two similar answers
+  often changed a judge's verdict. GPT-4, the most consistent, gave the same
+  verdict both ways about 65% of the time. Padding a list answer with a
+  reworded copy of its own items, adding nothing new, fooled Claude-v1 and
+  GPT-3.5 on 21 of 23 answers, and GPT-4 on 2.
 - **Their own output.** This is the *self-preference bias*
   [Module 2 named](/02-the-agent-loop/09-reflection-and-self-critique/03-the-limits-shared-blind-spots/#reflection-doesn-t-bring-in-a-second-independent-perspective)
   as a limit of reflection. Panickssery, Bowman and Feng,
-  [*LLM Evaluators Recognize and Favor Their Own Generations*](https://arxiv.org/abs/2404.13076)
-  (NeurIPS 2024), found judges scoring their own outputs above others' that
-  people rated as equal. The better a model was at recognising its own text,
-  the stronger the preference.
+  [*LLM Evaluators Recognize and Favor Their Own Generations*](https://proceedings.neurips.cc/paper_files/paper/2024/hash/7f1f0218e45f5414c79c0679633e47bc-Abstract-Conference.html)
+  (NeurIPS 2024), found GPT-4, GPT-3.5 and Llama 2 favouring their own news
+  summaries over other models'. People rated the same summaries, and the gaps
+  they saw were far smaller than the judges' preference. The better a model
+  was at recognising its own text, the stronger the preference.
 - **Models like themselves.** Kim et al.'s
   [study of correlated errors](https://arxiv.org/abs/2506.07962) (ICML 2025)
   found judges overrating less accurate models, especially ones from the
@@ -375,7 +376,9 @@ the priority tier, which the 4B was right to flag. So these runs show no
 self-preference, but that's a narrow result. A support check asks a
 closed question about one claim and one source, while the research found
 self-preference in open-ended judgements of quality. A second model family
-as the judge costs little and removes the question. Either way, the judge has
+as the judge costs little and removes the question, and Arize's guide gives
+the same advice: use a different model as the judge from the one being
+judged. Either way, the judge has
 to be measured, not assumed.
 
 </Subsection>

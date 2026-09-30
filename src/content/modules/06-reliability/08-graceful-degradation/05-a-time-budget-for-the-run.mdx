@@ -120,10 +120,11 @@ Everything in this lesson so far spends time. A retry waits out a timeout
 before trying again, and a fallback chain does it once per model.
 Marc Brooker's
 [*Timeouts, retries, and backoff with jitter*](https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/)
-(AWS Builders' Library) calls retries "selfish": each one spends the
-system's capacity on one request. Stacked across layers they multiply, so
-three retries at each of five layers can send 243 times the load to the
-bottom one. Time multiplies the same way.
+(AWS Builders' Library) calls retries "selfish": a client that retries
+"spends more of the server's time to get a higher chance of success".
+Stacked across layers they multiply, so three tries at each of five layers
+can send 3⁵ = 243 times the load to the bottom one, which is why Amazon
+retries at a single point in the stack. Time multiplies the same way.
 
 The fix is a **deadline**: a time budget for the whole run, with each call
 getting only what's left of it. RPC frameworks build this in. gRPC's
@@ -172,7 +173,9 @@ decides where hedging is allowed. A model call or a read has no side effects,
 so a duplicate costs tokens and nothing else. A write can't be hedged,
 because both copies might land, unless it carries an
 [idempotency key](/03-tool-design-for-agents/04-tools-that-call-the-outside-world/02-which-failures-to-retry-and-how/#retrying-a-write-can-do-it-twice).
-Hedging also adds load to a service that may be slow because it's already
+gRPC's [retry design](https://github.com/grpc/proposal/blob/master/A6-client-retries.md)
+draws the same line: hedging is only for methods that are safe to run more
+than once. Hedging also adds load to a service that may be slow because it's already
 overloaded, which is when a circuit breaker should be stopping calls instead.
 
 </Subsection>

@@ -133,9 +133,11 @@ What the extra calls buy is not certain. Huang et al.,
 [*Large Language Models Cannot Self-Correct Reasoning Yet*](https://arxiv.org/abs/2310.01798)
 (ICLR 2024), tested models revising their own answers with no outside
 feedback and found they struggled to improve, and that performance sometimes
-got worse after self-correction. Later papers have argued that newer models
-do better at it, so treat it as a question to measure for your own model and
-task, not a given. It's the effect
+got worse after self-correction. Later work showed that models can be
+trained to do better: Kumar et al. at Google DeepMind
+([SCoRe](https://arxiv.org/abs/2409.12917), ICLR 2025) used reinforcement
+learning to improve Gemini models' self-correction on maths and coding. So
+treat it as a question to measure for your own model and task, not a given. It's the effect
 [Module 2 called shared blind spots](/02-the-agent-loop/09-reflection-and-self-critique/03-the-limits-shared-blind-spots/):
 a judge that is the same model tends to accept the same mistakes. A check
 that brings in something new, such as a tool result, a source document or a
@@ -214,7 +216,7 @@ concept.
       "Revisions always made answers longer but never changed them"
     ],
     "correctIndex": 1,
-    "explanation": "With no new information, the judge is the same model with the same knowledge, so it tends to accept the same mistakes. Later work has argued newer models do better, which is why the cost of reflection is certain and its benefit is something to measure."
+    "explanation": "With no new information, the judge is the same model with the same knowledge, so it tends to accept the same mistakes. Later work has trained models to do better, which is why the cost of reflection is certain and its benefit is something to measure."
   },
   {
     "question": "Module 5's reranker took 3.55 ms per question-chunk pair on a laptop GPU. Why rerank only a shortlist of 30 candidates?",
