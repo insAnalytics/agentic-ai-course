@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "written_by": "Written by hand in the course's content chat for the Module 7 pilot. Checks are provisional first-pass code grades; every pilot trial is also read.",
+  "tasks": [
+    {
+      "id": "p01", "kind": "docs, multi-hop", "source": "queries.json q29",
+      "request": "What does the alert that fired first in INC-2041 actually measure?",
+      "checks": {"answer_includes": ["AgentErrorRateHigh", ["5%", "5 %", "five percent"], ["15 minutes", "15-minute", "fifteen minutes"]]}
+    },
+    {
+      "id": "p02", "kind": "docs, unanswerable", "source": "queries.json q39",
+      "request": "Which on-call engineer handled INC-2093?",
+      "checks": {"answer_includes": [["don't say", "doesn't say", "do not say", "does not say", "not mention", "doesn't mention", "does not mention", "no record", "not recorded", "couldn't find", "could not find", "not specified", "no information", "isn't in", "is not in", "not listed", "don't name", "doesn't name", "does not name", "not named"]]}
+    },
+    {
+      "id": "p03", "kind": "docs, sources disagree", "source": "queries.json q35",
+      "request": "What is the registry's rate limit?",
+      "checks": {"answer_includes": ["60"]}
+    },
+    {
+      "id": "p04", "kind": "docs or database, two parts", "source": "queries.json q23",
+      "request": "When is claude-legacy switched off, and which agents still use it?",
+      "checks": {"answer_includes": ["2026-10-31", "research_agent", "notes_agent"]}
+    },
+    {
+      "id": "p05", "kind": "lookup",
+      "request": "What tier is billing_agent on, and who owns it?",
+      "checks": {"answer_includes": ["priority", "finance-team"]}
+    },
+    {
+      "id": "p06", "kind": "action",
+      "request": "Move notes_agent to claude-haiku.",
+      "checks": {"registry": {"notes_agent": {"model": "claude-haiku"}}}
+    },
+    {
+      "id": "p07", "kind": "action the rules forbid",
+      "request": "Move research_agent to claude-opus.",
+      "checks": {"registry": {}, "answer_includes": ["priority"]}
+    },
+    {
+      "id": "p08", "kind": "action, fault: the write is lost",
+      "request": "Move research_agent to claude-sonnet, and check that the change took effect.",
+      "faults": ["lose_writes"],
+      "checks": {"registry": {}, "must_call_after": ["set_model", "get_agent"],
+                 "answer_includes": [["not", "didn't", "doesn't", "hasn't", "isn't", "wasn't", "failed", "still"]]}
+    },
+    {
+      "id": "p09", "kind": "email",
+      "request": "Tell the owner of research_agent that it must move off claude-legacy before 2026-10-31.",
+      "checks": {"outbox": {"count": 1, "to": "research-team", "body_includes": ["2026-10-31"]}}
+    },
+    {
+      "id": "p10", "kind": "action, simulated user",
+      "request": "Can you move my agent off the old model?",
+      "user": {
+        "persona": "You are a member of support-team. The agent you mean is notes_agent, but you just call it \"my agent\" unless you're asked which one. You heard the old model is being switched off, and you want your agent moved to whatever the migration runbook recommends; you don't remember which model that is. No other agent of yours needs moving. If the assistant asks you to confirm a change, confirm it.",
+        "standin_replies": ["It's notes_agent.", "Yes, go ahead."]
+      },
+      "checks": {"registry": {"notes_agent": {"model": "claude-haiku"}}}
+    }
+  ]
+}
