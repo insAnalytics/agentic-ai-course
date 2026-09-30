@@ -98,7 +98,9 @@ response that *finishes*. If generation is cut off by the output limit
 (`stop_reason: "max_tokens"`, from
 [the previous lesson's response shape](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/02-the-response-shape/)),
 the JSON can end mid-object and fail to parse, so a careful client still
-checks `stop_reason` before trusting the result.
+checks `stop_reason` before trusting the result. Anthropic's docs list
+one more exception: a safety refusal (`stop_reason: "refusal"`), whose
+text "may not match your schema."
 
 </Subsection>
 

@@ -70,9 +70,14 @@ footprint and can meaningfully speed up inference — genuinely useful for
 running a model on limited hardware. It also progressively increases the
 risk of degraded output quality, since the model's actually-learned
 weights are being approximated with less and less precision than what
-they were trained with. This is a real tradeoff, not a free efficiency
-gain: more aggressive quantization (INT4 over INT8) generally means a
-real quality cost, in exchange for a real efficiency gain.
+they were trained with. How much quality you lose depends on the method
+and the model. A large study across the Llama 3.1 family
+([Kurtic et al., ACL 2025](https://arxiv.org/abs/2411.02355)) found that,
+on its academic benchmarks, 8-bit versions kept 99.75% of full-precision
+accuracy on average and well-tuned 4-bit weights kept 99.36%, with more
+variation on smaller models and harder tasks. So it's a real tradeoff,
+not a free efficiency gain, but a good 4-bit model is often close to the
+original. Measure it on your own task before relying on it.
 
 </Subsection>
 
@@ -80,13 +85,16 @@ real quality cost, in exchange for a real efficiency gain.
 
 Worth stating plainly: quantization is a decision made by whoever is
 actually *running* a model — self-hosting it on their own or rented
-hardware, choosing how to trade off memory and speed against quality. An
-API user calling a provider's endpoint never sees or chooses this
-directly — the provider has already made that decision on their end,
-whatever it is, before the API is ever exposed. This distinction matters
-for knowing which parts of this concept apply to you: if you're only ever
-calling an API, quantization isn't a setting you'll ever touch; if you're
-deploying a model yourself, it's a genuinely central decision.
+hardware, choosing how to trade off memory and speed against quality. A
+closed model's API never shows it: the provider has already made that
+decision before the API is exposed. Open-weight models are the
+exception worth knowing. The same model can be served by several hosts
+at different precisions, and some routers expose it: OpenRouter, for
+instance, lets a request filter providers by quantization level (such as
+`int4` or `int8`). So if you're calling a closed model's API,
+quantization isn't a setting you'll touch; if you're deploying a model
+yourself, or picking a host for an open-weight one, it's a real
+decision.
 
 </Subsection>
 
@@ -135,13 +143,13 @@ deploying a model yourself, it's a genuinely central decision.
       question: "Who actually makes quantization decisions, and who typically doesn't?",
       options: [
         "Every API user configures quantization settings directly",
-        "Whoever is actually running/self-hosting a model makes this decision; an API user calling a provider's endpoint never sees or chooses it directly",
+        "Whoever is actually running/self-hosting a model makes this decision; a closed model's API caller never sees or chooses it",
         "Quantization is decided automatically by the tokenizer",
         "Only reasoning models support quantization at all",
       ],
       correctIndex: 1,
       explanation:
-        "It's a deployment-side choice. A provider has already made it before exposing an endpoint, so an API caller has no setting to change.",
+        "It's a deployment-side choice. A closed model's provider has already made it before exposing an endpoint, so the caller has no setting to change. Hosts of open-weight models sometimes list it.",
     },
   ]}
 />

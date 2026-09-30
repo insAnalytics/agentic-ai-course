@@ -37,7 +37,11 @@ Most providers offer several sizes of the same model family — smaller,
 faster, cheaper versus larger, slower, more capable. The practical
 selection principle: use the smallest, cheapest tier that reliably
 handles a given task, reserving larger, more expensive tiers for
-genuinely harder cases —
+genuinely harder cases. Anthropic's model guide calls this starting
+"efficiency-first": begin with a small model, test it, and "upgrade only
+if necessary for specific capability gaps." (It also describes the
+reverse: start with the most capable model and move down once the task
+works.) It's
 [the same reasoning from Lesson 8's model-routing decision](/01-llm-foundations/08-scaling-laws-and-emergent-behavior/04-test-time-compute/#the-practical-tradeoffs-as-a-real-design-decision),
 just applied to model *size* rather than reasoning capability
 specifically.
@@ -73,7 +77,12 @@ fraction of those parameters, making it genuinely cheaper and faster
 per-token than its headline parameter count alone would suggest.
 That saving is in compute per token, not in memory: every expert still
 has to be loaded, so the hardware needed to serve an MoE model scales
-with its *total* parameter count. For deployment choices that matters most: an
+with its *total* parameter count. Mistral's Mixtral 8x7B is the standard
+example: it "has 46.7B total parameters but only uses 12.9B parameters
+per token," so it runs "at the same speed and for the same cost as a
+12.9B model," yet, as Hugging Face's
+[MoE explainer](https://huggingface.co/blog/moe) notes, "all parameters
+need to be loaded in RAM." For deployment choices that matters most: an
 MoE model computes like a small model but needs the memory of a large one.
 Comparing models purely by parameter count, without accounting for
 whether MoE routing is involved, can be genuinely misleading when

@@ -70,9 +70,17 @@ instructions belong at the *start* of a prompt, with the actual varying
 content (a specific user question, changing details) at the *end* —
 putting the varying content first throws away the reuse that
 [the KV cache](/01-llm-foundations/06-context-windows-and-kv-cache/03-kv-cache/)
-makes possible. Providers commonly offer meaningfully discounted pricing
-on cache-hit tokens compared to freshly-computed ones, and reduced
-latency alongside it — so prompt structure isn't a cosmetic preference,
+makes possible. Providers give the same advice in their own docs.
+[OpenAI's prompt caching guide](https://platform.openai.com/docs/guides/prompt-caching)
+says to "place static content like instructions and examples at the
+beginning of your prompt, and put variable content, such as
+user-specific information, at the end", and
+[Anthropic's](https://platform.claude.com/docs/en/build-with-claude/prompt-caching)
+says the same. Both discount cache-hit tokens (Anthropic bills cache
+reads at a tenth of the normal input price or less) and cut latency
+alongside it, once the shared prefix passes a minimum length (1,024
+tokens on OpenAI; 512 to 4,096 on Anthropic, depending on the model).
+So prompt structure isn't a cosmetic preference,
 it's a genuine, measurable lever on both real cost and real response
 speed, directly falling out of exactly how KV cache actually works.
 

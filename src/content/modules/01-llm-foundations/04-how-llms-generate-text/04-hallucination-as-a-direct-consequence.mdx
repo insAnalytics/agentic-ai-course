@@ -65,17 +65,23 @@ probability distribution.
 The mechanism explains how a wrong answer can come out. It doesn't fully
 explain why models so often answer confidently instead of saying they
 don't know. Part of that comes from how models are trained and scored.
-Research from OpenAI in 2025 ("Why Language Models Hallucinate", Kalai
-et al.) makes the point with an exam analogy: on a multiple-choice test
-that gives no credit for leaving a question blank, guessing always
-scores better than admitting uncertainty. Most benchmarks used to train
-and compare models grade the same way, right or wrong, with nothing for
-"I'm not sure". So training that pushes those scores up also teaches
-the model that a confident guess beats an honest "I don't know".
+Kalai et al., researchers at OpenAI and Georgia Tech, make the point
+with an exam analogy. They released the work in 2025 as
+[*Why Language Models Hallucinate*](https://arxiv.org/abs/2509.04664),
+and it was published in
+[*Nature*](https://www.nature.com/articles/s41586-026-10549-w) in 2026.
+On a multiple-choice test that gives no credit for leaving a question
+blank, a guess can only help, so guessing beats admitting uncertainty on
+average. The authors reviewed popular benchmarks and found that the vast
+majority grade the same way, right or wrong, with nothing for "I'm not
+sure". They argue that training that pushes those scores up also
+teaches the model that a confident guess beats an honest "I don't know".
 
 This second cause matters to agent builders because it's partly in your
 hands. A system prompt that explicitly allows "I don't know" and says
-when to use it, tools that let the model check a fact instead of
+when to use it (the first technique in
+[Anthropic's guide to reducing hallucinations](https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-hallucinations)),
+tools that let the model check a fact instead of
 recalling it, and evaluations that penalize a confident wrong answer
 more than an admitted gap all push against it. The mechanism won't go
 away; the incentive to guess can be reduced.

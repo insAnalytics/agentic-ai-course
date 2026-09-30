@@ -16,8 +16,11 @@ uses the exact same parameters for every token that passes through it.
 network per layer, there are several smaller "expert" networks, and a
 small learned **router** that decides, per token, which subset of
 experts actually gets used — a small fraction, not all of them. For
-example, Mixtral-style models use 2 out of 8 experts per token, and many
-newer MoE models use around 8 out of 100 or more smaller ones.
+example, [Mixtral](https://arxiv.org/abs/2401.04088) uses 2 out of 8
+experts per token, and many newer MoE models use more, smaller experts:
+[DeepSeek-V3](https://arxiv.org/abs/2412.19437) activates 8 of its 256
+per token, and OpenAI's [gpt-oss](https://arxiv.org/abs/2508.10925)
+4 of 128.
 
 <LiveDemo client:load code={`experts = ["expert_1", "expert_2", "expert_3", "expert_4"]
 router_scores = {"expert_1": 0.1, "expert_2": 0.7, "expert_3": 0.5, "expert_4": 0.2}
@@ -69,7 +72,7 @@ for.
       ],
       correctIndex: 1,
       explanation:
-        "The router makes a per-token decision, selecting a small subset of experts (commonly 2 of 8 or similar) to actually process that specific token.",
+        "The router makes a per-token decision, selecting a small subset of experts (2 of 8 in Mixtral, 8 of 256 in DeepSeek-V3) to actually process that specific token.",
     },
     {
       question: "In an MoE model, do every token's computations use the exact same set of parameters?",

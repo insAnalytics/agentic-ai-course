@@ -16,8 +16,8 @@ training compute increase together, training loss — the
 [same objective driving pretraining, from Lesson 7](/01-llm-foundations/07-the-training-pipeline/01-pretraining/#what-actually-produces-the-parameters-behind-every-logit)
 — tends to decrease in a smooth, remarkably predictable way. Not
 randomly, not chaotically: a fairly consistent, power-law-shaped
-pattern, observed across many different model families and training
-runs.
+pattern, first mapped across many training runs at one lab and since
+found again by others.
 
 </Subsection>
 
@@ -30,23 +30,34 @@ on an expensive full training run, roughly how much loss should improve
 as a result. Labs actually use this — running smaller, cheaper training
 runs at various scales, plotting the resulting relationship, and
 extrapolating it to decide how large and how long to train a genuinely
-expensive full-scale model, rather than guessing.
+expensive full-scale model, rather than guessing. Meta, for instance,
+built scaling laws for Llama 3 "to determine the optimal model size for
+our flagship model given our pre-training compute budget."
 
-Here are the published curves themselves, from the paper that first laid
-this out (Kaplan et al., 2020, "Scaling Laws for Neural Language
-Models"), on log-log axes — where a power law shows up as a straight
-line, the visual signature of the smoothness this concept describes:
+Here are the published curves themselves, from the paper that made them
+famous ([Kaplan et al., 2020, "Scaling Laws for Neural Language
+Models"](https://arxiv.org/abs/2001.08361), which builds on earlier
+power-law findings it cites), on log-log axes — where a power law shows
+up as a straight line, the visual signature of the smoothness this
+concept describes:
 
 <ScalingCurveChart client:load />
 
 Those 2020 curves weren't the last word on how to *spend* a training
-budget. Hoffmann et al. (2022, the "Chinchilla" paper) found that, for a
-fixed amount of compute, models should be trained on far more data than
-Kaplan's results implied — roughly 20 training tokens per parameter — and
-that many large models of the time were undertrained. Current practice
-goes further still: labs deliberately train smaller models on many more
-tokens than that, well past the compute-optimal point, because a smaller
-model is cheaper to serve on every request it answers afterward.
+budget. Hoffmann et al.
+([2022, the "Chinchilla" paper](https://arxiv.org/abs/2203.15556))
+found that, for a fixed amount of compute, models should be trained on
+far more data than Kaplan's results implied — roughly 20 training tokens
+per parameter (Chinchilla itself: 70 billion parameters, 1.4 trillion
+tokens) — and that many large models of the time were undertrained.
+Current practice goes further still: labs deliberately train smaller
+models on many more tokens than that, well past the compute-optimal
+point, because a smaller model is cheaper to serve on every request it
+answers afterward. Meta's
+[Llama 3 paper](https://arxiv.org/abs/2407.21783) says so directly: "we
+also train our smaller models for much longer than is compute-optimal.
+The resulting models perform better than compute-optimal models at the
+same inference budget."
 
 </Subsection>
 
@@ -58,11 +69,14 @@ scaling laws, as covered here, primarily describe
 **training loss** — a raw measure of how well the model predicts the next
 token,
 [directly tied to pretraining's exact objective](/01-llm-foundations/07-the-training-pipeline/01-pretraining/#what-actually-produces-the-parameters-behind-every-logit)
-— not necessarily every specific downstream task's performance directly.
-Loss improvements do generally correlate with better performance on real
-tasks, but the smooth, predictable curve itself is about this one
-underlying training metric, not a guarantee that every capability
-improves in lockstep with it.
+(Kaplan et al. measure it on held-out text, which is why the chart above
+says "test loss") — not necessarily every specific downstream task's
+performance directly. Loss improvements do generally correlate with
+better performance on real tasks, but the smooth, predictable curve
+itself is about this one underlying training metric, not a guarantee
+that every capability improves in lockstep with it. Meta's Llama 3 team
+makes the same point: "Existing scaling laws typically predict only
+next-token prediction loss rather than specific benchmark performance."
 
 </Subsection>
 

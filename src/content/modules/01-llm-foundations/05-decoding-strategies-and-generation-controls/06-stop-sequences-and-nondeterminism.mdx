@@ -57,15 +57,23 @@ b = 0.1 + (0.2 + 0.3)
 print(a == b)`} />
 
 — and providers commonly **batch** multiple different users' requests
-together on the same hardware for efficiency. Exactly which other
-requests happen to be batched alongside yours, at any given moment,
-subtly changes the order floating-point operations actually execute
-in — the same underlying phenomenon the toy example above illustrates,
+together on the same hardware for efficiency. How many other requests
+happen to be batched alongside yours, at any given moment, can change
+the order floating-point operations actually execute in — the same
+underlying phenomenon the toy example above illustrates,
 just happening inside a model's real computation instead of a simple
 arithmetic expression. When two candidate tokens' logits are extremely
 close, this tiny numerical variation can occasionally flip which one
 comes out narrowly ahead — even at temperature `0`, even for the exact
 same prompt.
+
+Providers say so themselves. Anthropic's
+[API reference](https://platform.claude.com/docs/en/api/messages/create)
+notes that "even with `temperature` of `0.0`, the results will not be
+fully deterministic." And a
+[2025 investigation by Thinking Machines](https://thinkingmachines.ai/blog/defeating-nondeterminism-in-llm-inference/)
+traced the main cause to exactly this: a request's output can depend on
+the size of the batch it runs in.
 
 This is worth being direct about, since it's a genuinely common,
 reasonable-sounding assumption that turns out to be wrong in practice:

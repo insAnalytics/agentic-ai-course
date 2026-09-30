@@ -46,6 +46,14 @@ extremely well — cases where prompting alone tends to be inconsistent
 or unreliable at scale, and where the actual issue isn't missing
 knowledge (which RAG would fix) but insufficiently reliable *behavior*.
 
+This is how OpenAI's
+[accuracy guide](https://developers.openai.com/api/docs/guides/optimizing-llm-accuracy)
+splits it too. It starts every task with prompt engineering, then adds
+context (retrieval) when the model's knowledge is missing, "out of
+date," or proprietary, and optimizes the model itself (fine-tuning) when
+it is "producing inconsistent results with incorrect formatting" or "the
+tone or style of speech is not correct."
+
 Walk through the decision yourself:
 
 <AdaptationChooser client:load />
@@ -56,10 +64,12 @@ Walk through the decision yourself:
 
 Retraining every parameter of a large model would be enormously
 expensive — genuinely out of reach for an individual or small team.
-**LoRA** (Low-Rank Adaptation) makes fine-tuning practical by training
+**LoRA** ([Low-Rank Adaptation](https://arxiv.org/abs/2106.09685), Hu
+et al., 2021) makes fine-tuning practical by training
 only a small set of *additional* parameters — an add-on — while leaving
 the vast majority of the original model's parameters completely
-unchanged:
+unchanged. On GPT-3, the paper reports it cut the number of trainable
+parameters "by 10,000 times." For a sense of the scale:
 
 <LiveDemo client:load code={`total_parameters = 70_000_000_000       # a "70 billion parameter" model, for illustration
 lora_added_parameters = 20_000_000      # a small, added set of LoRA parameters

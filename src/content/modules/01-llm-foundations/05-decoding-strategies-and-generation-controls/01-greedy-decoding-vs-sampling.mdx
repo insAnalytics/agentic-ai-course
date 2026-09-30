@@ -44,9 +44,12 @@ same distribution always produces the same choice. The real drawback
 shows up over a long generation, not a single token: always taking the
 "safest" option at every step tends to produce text that's noticeably
 repetitive, bland, and predictable, sometimes even getting stuck
-looping on the same phrase — never taking a genuinely
-less-likely-but-still-reasonable path, because greedy decoding
-structurally can't.
+looping on the same phrase. (The paper that introduced top-p sampling,
+[Holtzman et al., ICLR 2020](https://arxiv.org/abs/1904.09751), found
+that decoding which always maximizes probability gives text that is
+"bland, incoherent, or gets stuck in repetitive loops".) Greedy decoding
+never takes a genuinely less-likely-but-still-reasonable path, because
+it structurally can't.
 
 </Subsection>
 
