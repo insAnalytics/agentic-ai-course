@@ -502,6 +502,8 @@ def blocked(output: str, *words: str) -> bool:
 
 assert blocked(health(error_rate="0.02"), "error_rate") and blocked(health(p95_ms="840"), "p95_ms"), (
     "a number sent as text isn't a number: name the field, don't crash comparing it")
+assert blocked(health(error_rate=True), "error_rate"), (
+    "true isn't an error rate, though Python counts a bool as an int: rule bool out explicitly")
 `,
 String.raw`import json
 from datetime import datetime, timezone

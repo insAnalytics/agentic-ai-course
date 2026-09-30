@@ -231,6 +231,9 @@ def check(expected, *args, why):
 
 check({"answer": "60", "action": "flag"}, "60", reply("75"), "90", "number", sources,
       why="a third value, neither the original nor the user's: keep the original and flag")
+check({"answer": "60", "action": "flag"}, "60", reply("100"), "90", "number", sources,
+      why="the model moved to 100, which a source mentions, but the user said 90: a third value isn't the user's "
+          "correction, so keep the original and flag")
 `,
 String.raw`sources = ["Each key may make 60 requests per minute.", "Changelog: lowered the limit from 100 to 60 requests per minute."]
 

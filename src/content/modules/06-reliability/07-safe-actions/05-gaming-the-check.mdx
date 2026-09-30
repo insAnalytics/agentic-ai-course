@@ -132,7 +132,11 @@ String.raw`invariants = {
     "cannot tell": lambda s: s["no such key"],
 }
 fixed = RUNS["fixed it"]
-r = review_run(fixed, apply(START, fixed), goal, invariants, set())
+try:
+    r = review_run(fixed, apply(START, fixed), goal, invariants, set())
+except Exception as error:
+    raise AssertionError(f"review_run raised {type(error).__name__}: {error}. An invariant that raises is a broken "
+                         "invariant; catch it and record its name") from None
 assert r["broken"] == ["a first", "cannot tell", "z last"] and r["accept"] is False, (
     f"got {r['broken']}: list broken invariants sorted, and count one that raises as broken: a check that "
     "can't be evaluated can't vouch for the run")

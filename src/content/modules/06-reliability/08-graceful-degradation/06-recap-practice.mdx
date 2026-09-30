@@ -147,8 +147,9 @@ if __name__ == "__main__":
         out = handle("research_agent", {"status": registry, "error rate": health}, breakers, cache,
                      ["provider-a/large", "provider-b/large"], call_model, "You report agent status.")
         print(f"t={second}s  health breaker: {breakers['error rate'].state:<6}  health calls so far: {len(health_calls)}")
-        print(f"   {out['answer']}")
-    print("record:", out["record"])
+        print(f"   {out['answer'] if isinstance(out, dict) else f'handle returned {out!r}, not a dict'}")
+    if isinstance(out, dict):
+        print("record:", out["record"])
 `;
 
 export const AGENT_REFERENCE = String.raw`from lib import CircuitOpen, call_with_fallbacks, compose_partial, record_run
@@ -200,8 +201,9 @@ if __name__ == "__main__":
         out = handle("research_agent", {"status": registry, "error rate": health}, breakers, cache,
                      ["provider-a/large", "provider-b/large"], call_model, "You report agent status.")
         print(f"t={second}s  health breaker: {breakers['error rate'].state:<6}  health calls so far: {len(health_calls)}")
-        print(f"   {out['answer']}")
-    print("record:", out["record"])
+        print(f"   {out['answer'] if isinstance(out, dict) else f'handle returned {out!r}, not a dict'}")
+    if isinstance(out, dict):
+        print("record:", out["record"])
 `;
 
 export const HIDDEN_TESTS = String.raw`from lib import BadRequest, CircuitBreaker, Unavailable
@@ -265,8 +267,12 @@ out = handle("research_agent", {"status": ok("status", "active"), "error rate": 
 assert out["parts"][1] == {"label": "error rate", "status": "stale", "value": "2.3%", "as_of": "09:40"}, (
     f"parts {out['parts']}: when the fetch fails and a value is cached, use it as a stale part with its time")
 
-out = handle("research_agent", {"status": ok("status", "active"), "error rate": down("error rate", TimeoutError)},
-             breakers(), {}, MODELS, model(), "p")
+try:
+    out = handle("research_agent", {"status": ok("status", "active"), "error rate": down("error rate", TimeoutError)},
+                 breakers(), {}, MODELS, model(), "p")
+except TimeoutError:
+    raise AssertionError("a fetch that timed out crashed handle: catch TimeoutError along with ConnectionError, "
+                         "since a timeout means the dependency is down") from None
 assert out["parts"][1] == {"label": "error rate", "status": "failed"}, (
     f"parts {out['parts']}: a fetch that timed out is a dependency that's down, the same as a refused connection")
 

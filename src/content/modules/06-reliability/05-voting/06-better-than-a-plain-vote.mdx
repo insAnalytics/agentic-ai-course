@@ -464,13 +464,14 @@ the samples whose answer appears in the question's sources.
 On average the check made things slightly worse, and the question-level rows
 show both sides of it:
 
-- **Where it's right, it wins.** On e41, the 4B sometimes answered with the
-  wrong agent's model. The right answer, `claude-haiku`, is in the source,
-  and the check keeps only the samples that give it.
+- **Where it's right, it wins.** On e41, the 4B said "unknown" in 7 of its
+  20 replies. "unknown" appears in no source, so the check drops those
+  samples, and the vote goes to `claude-haiku`, which the source states.
 - **Where it false-flags, it loses badly.** The answers to e83 (1.5 days)
   and e69 (13 minutes) are worked out from the sources, not written in them.
-  So the check rejects every right sample, and the vote goes to whatever
-  wrong answer happens to appear in the text. It's
+  So the check rejects every right sample. When a draw includes a wrong
+  answer that does appear in the text, such as e83's 31 (a figure from the
+  same sentence), the vote goes to it. It's
   [Lesson 4's derived-number false flag](/06-reliability/04-verifying-claims/04-figures-traced-to-tool-results/),
   with a bigger effect: a false flag no longer just flags an answer, it
   swaps it for a worse one.

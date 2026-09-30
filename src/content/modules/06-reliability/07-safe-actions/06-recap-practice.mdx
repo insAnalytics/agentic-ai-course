@@ -148,6 +148,9 @@ if __name__ == "__main__":
     ]
     for label, registry, match in scenarios:
         outcome = migrate(registry, match, "research_agent", "claude-sonnet", "research-team")
+        if not isinstance(outcome, dict):
+            print(f"{label}: migrate returned {outcome!r}, not a dict")
+            continue
         print(f"{label}: {outcome['status']}; research_agent on {registry.read('research_agent')['model']}; "
               f"unsupported claims {outcome['unsupported']}")
         print(f"  report: {outcome['report']}")
@@ -197,6 +200,9 @@ if __name__ == "__main__":
     ]
     for label, registry, match in scenarios:
         outcome = migrate(registry, match, "research_agent", "claude-sonnet", "research-team")
+        if not isinstance(outcome, dict):
+            print(f"{label}: migrate returned {outcome!r}, not a dict")
+            continue
         print(f"{label}: {outcome['status']}; research_agent on {registry.read('research_agent')['model']}; "
               f"unsupported claims {outcome['unsupported']}")
         print(f"  report: {outcome['report']}")
