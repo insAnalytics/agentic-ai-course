@@ -107,8 +107,11 @@ respect the limit of whichever model does the embedding, which is why it
 comes before search by meaning, not after.
 
 Not every embedder is this small. Many current models, hosted and open, read
-8,000 tokens or more, and hosted services usually reject text that's too
-long, or truncate only when asked, rather than cutting it silently. A longer
+8,000 tokens or more. Hosted services differ on text that's too long:
+[OpenAI's](https://cookbook.openai.com/examples/embedding_long_inputs) rejects it with an error, while
+[Voyage](https://docs.voyageai.com/reference/embeddings-api), [Cohere](https://docs.cohere.com/reference/embed)
+and Google's Vertex AI cut it to fit by default unless you switch that off.
+Check what yours does rather than waiting for an error. A longer
 limit moves the problem rather than removing it. One vector for a
 4,000-token section is a blend of everything in it, so one relevant sentence
 barely shifts it. The limit sets the most a chunk can hold; what the search

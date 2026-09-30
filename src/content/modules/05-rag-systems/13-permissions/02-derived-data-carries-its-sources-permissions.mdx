@@ -229,8 +229,7 @@ were looked up once and kept, for example at login.
 
 Between the change and the next sync, retrieval enforces the old
 permissions. The gap is as long as the sync interval, and longer if a sync
-fails without anyone noticing. So a common pattern in production checks
-twice:
+fails without anyone noticing. So a sturdier design checks twice:
 
 1. **Filter by the index's copy before ranking,** as the first concept
    does. This keeps ranking fair, and needs nothing outside the index.
@@ -239,7 +238,7 @@ twice:
    at the cost of one check for each of a handful of results.
 
 The second check doesn't replace the first, and it isn't the
-[filtering afterwards that the first concept rejected](/05-rag-systems/13-permissions/01-permissions-at-retrieval-time/#filtering-afterwards-isn-t-enough).
+[filtering afterwards that the first concept found falls short](/05-rag-systems/13-permissions/01-permissions-at-retrieval-time/#filtering-afterwards-isn-t-enough).
 Every ranking stage still sees only what the index says the reader may
 read. The second layer removes only results whose permissions changed since
 the sync, usually few, so results are seldom short; fetching a few extra
@@ -252,9 +251,11 @@ Google described its own in
 user is a member of this group, this group may view this folder, and this
 folder holds this document, and a check follows them. This is
 **relationship-based access control**. OpenFGA and SpiceDB are open-source
-services built on the same design, and OpenFGA's guidance for retrieval
-describes both layers: listing the documents a reader may see, for a filter
-in the search, and checking a batch of results before they reach the model.
+services built on the same design. [OpenFGA's guide to retrieval](https://openfga.dev/docs/modeling/agents/rag-authorization)
+offers the two calls this design needs, as two alternative approaches:
+listing the documents a reader may see, for a filter in the search, and
+checking a batch of results before they reach the model. Using both, one
+before ranking and one after, is the two-layer check above.
 Keeping indexes in step with their sources is, again, Module 10's
 subject.
 

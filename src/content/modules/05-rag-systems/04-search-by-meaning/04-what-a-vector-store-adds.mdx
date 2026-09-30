@@ -222,7 +222,11 @@ this reader may see.
 Vector stores offer filters for exactly this, but check where a store
 applies them. With the approximate search described below, some stores find
 a fixed number of nearest candidates first and filter those, which is
-filtering after, with the same short or empty lists. Stores differ, and
+filtering after, with the same short or empty lists.
+[pgvector](https://github.com/pgvector/pgvector#filtering), for example, filters
+after scanning its approximate index: with its default settings, a filter that
+matches 10% of rows leaves an HNSW search about 4 results, unless its
+iterative scans are switched on. Stores differ, and
 versions of the same store differ, so read the documentation and test it
 with a strict filter. Two principles follow, and Lesson 13 builds on both:
 
@@ -256,9 +260,11 @@ that was a relevant chunk is recall lost.
 
 <Subsection title="HNSW: searching a graph" variant="a">
 
-The method most vector stores use by default is **HNSW** (hierarchical
+The most common approximate method is **HNSW** (hierarchical
 navigable small world graphs,
-[Malkov and Yashunin, 2016](https://arxiv.org/abs/1603.09320)). Instead of
+[Malkov and Yashunin, 2016](https://arxiv.org/abs/1603.09320)), the default
+index in [Weaviate](https://docs.weaviate.io/weaviate/concepts/vector-index) and the only dense
+index in [Qdrant](https://qdrant.tech/documentation/concepts/indexing/). Instead of
 clusters, it links each vector to a few of its nearest neighbours, forming
 a graph, and builds several layers of these graphs over smaller and smaller
 subsets of the vectors.

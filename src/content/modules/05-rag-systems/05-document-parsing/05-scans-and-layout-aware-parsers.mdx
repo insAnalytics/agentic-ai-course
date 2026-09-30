@@ -187,9 +187,12 @@ scanned pages, with output as Markdown or structured JSON, and it runs
 locally. It downloads its layout models on first use, which this page's
 sandbox can't do, so there's no demo here.
 [Marker](https://github.com/datalab-to/marker) and
-[MinerU](https://github.com/opendatalab/MinerU) are other open-source
-converters in the same vein, combining several models for layout, text,
-tables and formulas, with Markdown or JSON as output.
+[MinerU](https://github.com/opendatalab/MinerU) are other converters in the
+same vein, combining several models for layout, text, tables and formulas,
+with Markdown or JSON as output. Read their licences before commercial use:
+Marker's code is Apache 2.0 but its model weights are licensed for research,
+personal use and small companies, and MinerU adds commercial terms to
+Apache 2.0.
 
 What such a parser changes is where the effort goes: fewer rules to write and
 maintain, in exchange for model inference on every page at indexing time,
@@ -254,13 +257,13 @@ text, and it predicts what's likely as well as reading what's there. So its
 errors read like correct text: a plausible number that isn't on the page, a
 typo quietly "fixed", a sentence completed past where the page cut it off, a
 table cell filled in where the page had none. The
-[olmOCR paper](https://arxiv.org/abs/2502.18443) reports this kind of
-error: models prompted with only the page image were prone to completing
+[olmOCR preprint (2025)](https://arxiv.org/abs/2502.18443) reports this kind
+of error: models prompted with only the page image were prone to completing
 unfinished sentences, or to inventing longer passages where the image was
 ambiguous.
 Adding the text and positions from the PDF's own text layer to the prompt,
 which the authors call document anchoring, gave significantly fewer
-hallucinations.
+hallucinations in their experience; they don't give a rate.
 
 So a VLM's output needs checking against something independent of it. Where
 the PDF has a text layer, that's the text layer. Here's `to_markdown`'s

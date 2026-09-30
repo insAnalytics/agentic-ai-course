@@ -175,9 +175,11 @@ registry-api would then miss everything recorded against "the registry".
 
 Merging them is called **entity resolution**. Here it's a small alias table,
 written by hand after looking at the extracted names, plus stripping
-backticks, applied by `canonical`. At a larger scale, systems generate
-candidate merges automatically, by string similarity or by comparing
-embeddings of the names, and have a person review them. A wrong merge is
+backticks, applied by `canonical`. At a larger scale, tools generate
+candidate merges automatically. Neo4j's
+[LLM Knowledge Graph Builder](https://neo4j.com/blog/developer/frontend-architecture-and-integration/),
+for one, groups candidates by a mix of embedding and text-distance
+similarity, and lets a person remove any before merging the rest. A wrong merge is
 worse than a missed one: two different services joined into one node make
 the graph say things no document says.
 

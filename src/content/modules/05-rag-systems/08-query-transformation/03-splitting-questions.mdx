@@ -130,7 +130,9 @@ to fill, one part can take them all.
 The fix is to search for each part separately, which is
 [goal decomposition](/02-the-agent-loop/08-planning-and-decomposition/01-goal-decomposition/#decomposing-before-executing-anything)
 applied to a query: one model call splits the question, and each part gets
-its own search. This function is loaded for every demo and exercise from
+its own search. LlamaIndex packages this as its
+[sub-question query engine](https://docs.llamaindex.ai/en/stable/examples/query_engine/sub_question_query_engine/).
+This function is loaded for every demo and exercise from
 here to the end of the lesson:
 
 ```python
@@ -176,9 +178,13 @@ from each, skipping any chunk already taken. Every part is guaranteed a
 place before any part gets two. That's this concept's exercise.
 
 Splitting is one of two techniques that search with several queries, and
-they need different merges. **Multi-query** search, sometimes called
-RAG-Fusion, rewrites one question several ways and fuses the lists with RRF.
-Every list is after the same answer, so a chunk that several of them rank
+they need different merges. **Multi-query** search rewrites one question
+several ways and merges the lists. LangChain's
+[`MultiQueryRetriever`](https://github.com/langchain-ai/langchain/blob/master/libs/langchain/langchain_classic/retrievers/multi_query.py)
+takes their union;
+[RAG-Fusion](https://github.com/Raudaschl/rag-fusion) fuses them with RRF,
+the original question's list included. Every list is after the same answer,
+so a chunk that several of them rank
 highly is a good bet. Split sub-queries are after different answers, so
 agreement is the wrong signal, and each part needs its own place.
 

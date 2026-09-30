@@ -242,14 +242,16 @@ still holds: numbers from different versions aren't compared.
 
 Writing questions by hand is slow, so a common shortcut is to have a model
 write them: show it a chunk, ask for a question the chunk answers, and
-label the question with that chunk. It's cheap, it scales to every chunk
-in the index, and the labels come for free.
+label the question with that chunk.
+[LlamaIndex's `generate_question_context_pairs`](https://developers.llamaindex.ai/python/examples/evaluation/retrieval/retriever_eval/)
+does exactly this. It's cheap, it scales to every chunk in the index, and
+the labels come for free.
 
 It has a known bias. A model that has just read a passage tends to ask
 about it in the passage's own words, and keyword search rewards exactly
 that. The effect was documented before models wrote questions, with people
-who wrote questions while looking at the answer: Lee, Chang and Toutanova
-(2019) found that on question sets where the person asking already knew
+who wrote questions while looking at the answer: [Lee, Chang and Toutanova
+(2019)](https://arxiv.org/abs/1906.00300) found that on question sets where the person asking already knew
 the answer, a traditional keyword search such as BM25 was enough, while on
 questions from people genuinely looking for an answer, learned retrieval
 beat it by up to 19 points of exact match.
@@ -260,7 +262,7 @@ and the prompt "Write one question a user might ask that this passage
 answers." These questions are **model-written**: Claude wrote them for the
 course with each section in view, and they're stored with their prompts in
 `generated-questions.json`. A second batch, for the same 20 sections, adds
-the instruction generators use against this bias: "Don't reuse the
+an instruction aimed at this bias: "Don't reuse the
 passage's key terms." Each question is labelled with a quote from the
 section it was written from, and its quotes pass the same exactly-once
 check as the set's own. Everything is scored as before, with Lesson 1's

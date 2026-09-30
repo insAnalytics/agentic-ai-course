@@ -227,10 +227,13 @@ and a planted page can be written a thousand other ways. A false fact with no
 instruction in it at all, "the limit was removed in v2.6", has nothing to
 detect.
 
-Classifiers trained to spot injected instructions, such as Meta's Prompt
-Guard and Microsoft's Prompt Shields, catch far more phrasings than a list.
+Classifiers trained to spot injected instructions, such as Meta's
+[Prompt Guard](https://huggingface.co/meta-llama/Llama-Prompt-Guard-2-86M) and
+Microsoft's [Prompt Shields](https://learn.microsoft.com/en-us/azure/ai-services/content-safety/concepts/jailbreak-detection),
+learn from many examples rather than a fixed list.
 But they're probabilistic filters, and attackers adapt to them. In
-[The Attacker Moves Second](https://arxiv.org/abs/2510.09023) (2025), Nasr,
+[The Attacker Moves Second](https://www.usenix.org/conference/usenixsecurity26/presentation/nasr)
+(USENIX Security 2026), Nasr,
 Carlini and colleagues optimised attacks against four such detectors, and got
 past three of them, Prompt Guard among them, more than 90% of the time.
 [EchoLeak](/05-rag-systems/13-permissions/04-defences-by-design/#the-answer-is-a-way-out-too),
@@ -268,8 +271,11 @@ before a document is ever chunked:
   model through what was derived from it.
 
 This moves the decision from the model, which can't be relied on, to people and
-code, which can be held to a process. It costs review time, which is why it's
-usually applied to the sources anyone can write to, not to every document.
+code, which can be held to a process. It's what
+[OWASP recommends](https://genai.owasp.org/llmrisk/llm082025-vector-and-embedding-weaknesses/)
+for retrieval systems: "Accept data only from trusted and verified sources."
+It costs review time, which is why it's worth applying first to the sources
+anyone can write to, not to every document.
 This concept's exercise builds that gate.
 
 </Subsection>
@@ -353,9 +359,10 @@ click and no tool call. The "full report" link needs a click, and its label
 invites one.
 
 This is how **EchoLeak** (CVE-2025-32711) worked, an attack on Microsoft 365
-Copilot that Aim Security's researchers disclosed in June 2025, after
-Microsoft had fixed it
-([the researchers' paper](https://arxiv.org/abs/2509.10540)). The attacker
+Copilot that
+[Aim Security's researchers disclosed](https://web.archive.org/web/20250611174716/https://www.aim.security/lp/aim-labs-echoleak-blogpost)
+in June 2025, after Microsoft had fixed it. Reddy and Gujral later wrote it
+up as a [case study](https://arxiv.org/abs/2509.10540). The attacker
 sent an ordinary-looking email. When the user later asked Copilot something
 the email was relevant to, Copilot's retrieval brought it into the context,
 and its instructions had Copilot put data from that context into the address
@@ -368,7 +375,10 @@ Microsoft Teams address that the interface's content security policy
 allowed.
 
 The defence is code that runs on every answer before it's displayed, and
-doesn't judge what the answer says, only where its addresses go:
+doesn't judge what the answer says, only where its addresses go. Microsoft
+lists "deterministic blocking of known data exfiltration methods" among
+[its own defences](https://www.microsoft.com/en-us/msrc/blog/2025/07/how-microsoft-defends-against-indirect-prompt-injection-attacks).
+Here's a version for this corpus:
 
 <LiveDemo client:load dataFiles={RAG_GRAPH_DATA} setupCode={SETUP} code={OUTPUT_FILTER_DEMO} />
 

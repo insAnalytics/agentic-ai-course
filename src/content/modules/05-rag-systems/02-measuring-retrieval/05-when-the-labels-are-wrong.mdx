@@ -123,9 +123,9 @@ Pooling has a known bias. A passage gets judged only if one of the pooled
 searches ranked it highly. A **new** search that finds a relevant passage
 none of them found is scored as if it made a mistake. Studies of TREC's
 pools found them reasonably reliable for comparing the systems that took
-part (Zobel, 1998), and also that pooled evaluation is inherently biased
-against systems that didn't contribute to the pool (Büttcher and
-colleagues, 2007).
+part ([Zobel, 1998](https://doi.org/10.1145/290941.291014)), and also that pooled evaluation is inherently biased
+against systems that didn't contribute to the pool ([Büttcher and
+colleagues, 2007](https://doi.org/10.1145/1277741.1277755)).
 
 For this module that matters directly. Both pooled searches match words, and Lesson 4 adds search by meaning, which ranks passages that share no words with the question: exactly the ones a word-matching pool is least likely to contain. So before this lesson was written, a search by meaning, using the embedding model Lesson 4 introduces and run offline, was pooled and judged the same way. It surfaced 18 more missing passages across 12 questions, ten in the main set and two held out, that neither word-matching search had ranked highly: the same fact stated in another document's words, incident timelines that name the affected agent, and glossary definitions in the vendor documentation. That moved the labels to version 3, which every labelled number in this module uses. Scored against version 2, search by meaning would have been penalised for exactly those finds.
 
@@ -147,13 +147,13 @@ topic.
 
 Its failure modes are documented:
 
-- **Leniency.** Rahmani and colleagues (2025) compared GPT-4's relevance
+- **Leniency.** [Rahmani and colleagues (2025)](https://arxiv.org/abs/2506.10301) compared GPT-4's relevance
   labels with human assessors' on a TREC passage-ranking collection. The
   model called passages relevant more often; the people more often said
   not relevant. Against a rule like this set's, leniency is the costly
   direction: on-topic passages get counted as answers, and every search
   looks better than it is.
-- **Order and length.** Zheng and colleagues (2023), studying models that
+- **Order and length.** [Zheng and colleagues (2023)](https://arxiv.org/abs/2306.05685), studying models that
   judge answers, found them swayed by which of two answers was shown
   first, and inclined to prefer longer answers. Judging one passage
   per call takes order out of it. Length can't be taken out, so check it:
@@ -166,7 +166,7 @@ Its failure modes are documented:
   nothing inside that loop can reveal them.
 
 So a judge is checked before it's trusted, the way any instrument is.
-Thomas, Spielman, Craswell and Mitra (2024), labelling search results at
+[Thomas, Spielman, Craswell and Mitra (2024)](https://arxiv.org/abs/2309.10621), labelling search results at
 Bing, first chose a model and prompt by how well their labels agreed with
 careful feedback from real searchers, and only then produced labels at
 scale. The small version: a person labels a random sample of pooled

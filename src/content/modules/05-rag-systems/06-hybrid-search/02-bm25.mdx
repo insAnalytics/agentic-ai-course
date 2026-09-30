@@ -208,7 +208,9 @@ contributes its rarity weight times its saturated, length-adjusted count:
 The model itself doesn't say how to set k1 and b. Robertson and Zaragoza
 report that experiments generally find values such as 0.5 &lt; b &lt; 0.8 and
 1.2 &lt; k1 &lt; 2 reasonably good, while noting the best values depend on the
-documents and the queries. This lesson uses k1 = 1.2 and b = 0.75. Some
+documents and the queries. This lesson uses k1 = 1.2 and b = 0.75,
+[Elasticsearch's defaults](https://www.elastic.co/docs/reference/elasticsearch/index-settings/similarity)
+and Lucene's. Some
 published versions multiply the fraction by (k1 + 1); that changes every
 score by the same factor, so the ranking doesn't change. Each distinct word
 in the question counts once, however often the question repeats it.
@@ -234,8 +236,10 @@ and the total of those counts is the chunk's length in words.
 
 `terms` keeps `reg-1007` as one word, because this module's punctuation table
 leaves hyphens alone. A search engine's default text analysis often doesn't:
-Elasticsearch's and OpenSearch's standard analyser splits `REG-1007` into
-`reg` and `1007`, and those match separately, anywhere in the corpus. For
+Elasticsearch's and OpenSearch's
+[standard analyser](https://www.elastic.co/docs/reference/text-analysis/analysis-standard-tokenizer)
+splits at hyphens, so `REG-1007` becomes `reg` and `1007`, and those match
+separately, anywhere in the corpus. For
 identifiers, check what the analyser does to them before trusting keyword
 search with them, and configure it to keep them whole if it doesn't.
 

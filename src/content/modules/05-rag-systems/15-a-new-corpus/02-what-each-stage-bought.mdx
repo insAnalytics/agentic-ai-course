@@ -54,7 +54,9 @@ print(f"\nfirst row to last: +{len(last - first)} -{len(first - last)}, "
 Every lesson measured its own change against the pipeline it started from.
 Here are the core stages again, one after another, on the same 43 labelled
 questions, counting a question as answered when every part of its answer is
-in the results. Each row is compared with the row above it. The demo
+in the results. Search by meaning uses bge-small-en-v1.5, the reranker is
+ms-marco-MiniLM-L6-v2, and Claude wrote the chunk contexts in advance. Each
+row is compared with the row above it. The demo
 rebuilds every stage, so allow several seconds:
 
 <LiveDemo client:load dataFiles={RAG_GRAPH_DATA} setupCode={SETUP} code={LEDGER_DEMO} />
@@ -63,8 +65,8 @@ Read down the last column first. No single step is convincing on its own:
 the best sign test is 0.12, and fusion's +2 −3 is no evidence either way. Read
 the first and last rows instead: 13 questions gained and none lost, a sign
 test of 0.0002. Each lesson's change was too small to prove on 43 questions,
-and the changes together are unmistakable. That's the usual shape of
-retrieval work, and the reason Lesson 2 insisted on keeping every change's
+and the changes together are unmistakable. That's why Lesson 2 insisted on
+keeping every change's
 gains and losses, not just its total: small steps are only worth trusting in
 a direction the others confirm.
 

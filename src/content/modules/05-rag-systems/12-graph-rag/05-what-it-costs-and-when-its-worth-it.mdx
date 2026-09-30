@@ -57,10 +57,12 @@ its title and its section. But extraction isn't the whole bill:
 - **Keeping it current.** Edit one incident report, and its chunks need
   extracting again, the new names resolving against the old, the communities
   recomputing, and every summary touching them rewriting. Microsoft's GraphRAG
-  library can [update an existing index](https://microsoft.github.io/graphrag/cli/)
-  instead of rebuilding it: new documents are extracted on their own and
-  merged in, and it tries to avoid recomputing communities, though sometimes
-  it has to. Keeping indexes in
+  library has an
+  [`update` command](https://www.microsoft.com/en-us/research/blog/moving-to-graphrag-1-0-streamlining-ergonomics-for-developers-and-users/)
+  that works out what's new since the last index and merges it in, rather
+  than indexing everything again. Microsoft notes that new content can still
+  change the community structure, and then much of the index has to be
+  recomputed. Keeping indexes in
   step with changing documents is Module 10's subject; a graph is one of the
   more expensive indexes to keep in step.
 
@@ -91,7 +93,7 @@ cost, on their own benchmark of news articles, scored by a model comparing
 answers.
 
 The gains themselves have been questioned too.
-[Zeng and colleagues (2025)](https://arxiv.org/abs/2506.06331) argued that the
+[Zeng and colleagues](https://arxiv.org/abs/2506.06331), in a 2025 preprint revised in 2026, argued that the
 standard evaluations of GraphRAG methods had two flaws: questions not closely
 related to the data, and biases in how a model judges competing answers. With
 both addressed, they found the performance gains of three GraphRAG methods
@@ -121,9 +123,10 @@ often compared, not a guide to any of them:
   combines the two. It compares the question with the most relevant
   community reports, drafts a broad first answer with follow-up questions,
   and answers those with local search.
-- **LightRAG** ([Guo and colleagues, 2024](https://arxiv.org/abs/2410.05779))
-  extracts a graph as GraphRAG does, but finds no communities and writes no
-  summaries. The model pulls specific and broad keywords from the question;
+- **LightRAG** ([Guo and colleagues, EMNLP Findings 2025](https://aclanthology.org/2025.findings-emnlp.568/))
+  extracts a graph as GraphRAG does, with a short model-written description
+  of each entity and relationship, but finds no communities and writes no
+  community summaries. The model pulls specific and broad keywords from the question;
   vector search matches the specific ones to entities and the broad ones to
   relationships, and the graph adds their neighbours.
 - **HippoRAG** ([Gutiérrez and colleagues, 2024](https://arxiv.org/abs/2405.14831))
@@ -185,9 +188,10 @@ counterpart of
 [Lesson 11's SQL tool](/05-rag-systems/11-agentic-rag/04-when-the-answer-is-in-a-table/#guardrails-allow-don-t-ban).
 
 Graph databases have their own query languages. The best known is
-**Cypher**, from Neo4j, which other databases implement as openCypher, and
-on which the ISO's graph query standard, GQL, published in 2024, is largely
-based. A chain is one pattern in it: roughly, "match every agent with a path
+**Cypher**, from Neo4j, which other databases implement as openCypher. The
+ISO's graph query standard, GQL, published in 2024,
+[adopted much of Cypher's query style](https://neo4j.com/docs/cypher-manual/current/appendix/gql-conformance/),
+as Neo4j puts it. A chain is one pattern in it: roughly, "match every agent with a path
 of up to five dependency edges to auth-service". A graph tool can take two
 shapes:
 
@@ -240,13 +244,13 @@ still has a source.
     {
       "question": "New documents arrive. What does the GraphRAG library's update do, instead of a rebuild?",
       "options": [
-        "Extracts only the new documents, merges them in, and recomputes communities only when needed",
+        "Works out what's new, extracts only that, and merges it into the existing index",
         "Extracts from every document again, but keeps every existing community summary exactly as it was",
         "Re-embeds the new documents and leaves the graph and its summaries as they were",
         "Appends the new documents' text to the nearest community summary without a model call"
       ],
       "correctIndex": 0,
-      "explanation": "Existing documents' extractions are reused, and only the new ones cost extraction calls. Communities and their summaries are recomputed only when the changes demand it, which in the worst case costs as much as indexing again."
+      "explanation": "Existing documents' extractions are reused, and only the new ones cost extraction calls. New content can still change the community structure, and then the summaries that depend on it have to be written again."
     },
     {
       "question": "What did LazyGraphRAG change?",

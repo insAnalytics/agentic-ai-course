@@ -154,8 +154,9 @@ there on three hand-labelled tasks; here they're defined with more care.
   **reciprocal rank**: 1 divided by the position of the first relevant
   chunk, so 1 for first place, 0.5 for second and 0.2 for fifth, and 0 if
   none is in the top *k*. Averaged over queries it's the **mean reciprocal
-  rank (MRR)**, the score the TREC question-answering track introduced in
-  1999 to rank systems that return a short list of answers.
+  rank (MRR)**, the score the first TREC question-answering track, in 1999,
+  ranked systems by, when each returned a short list of five answers
+  ([Voorhees and Tice](http://www.lrec-conf.org/proceedings/lrec2000/pdf/26.pdf)).
 - **Could the model answer from it?** That's **answerable@k**: whether
   every part of the answer is somewhere in the top *k*, recall@k equal to
   1. Averaged over queries, it's the share of questions the model has
@@ -228,19 +229,21 @@ Evaluation tools report close relatives of these metrics, under their own
 names:
 
 - **Hit rate**, also called **success@k**: the share of questions with at
-  least one relevant result in the top *k*. LlamaIndex's retrieval
-  evaluator reports it next to MRR. For a one-part question it's exactly
+  least one relevant result in the top *k*. [LlamaIndex's retrieval
+  evaluator](https://developers.llamaindex.ai/python/examples/evaluation/retrieval/retriever_eval/) reports it next to MRR. For a one-part question it's exactly
   answerable@k. For a multi-part question it's looser, since finding one
   part is enough.
-- **nDCG**, normalised discounted cumulative gain (Järvelin and
-  Kekäläinen, 2002). Each result earns its relevance grade, say 2 for a
+- **nDCG**, normalised discounted cumulative gain
+  ([Järvelin and Kekäläinen, 2002](https://doi.org/10.1145/582415.582418)).
+  Each result earns its relevance grade, say 2 for a
   passage that answers fully, 1 for a partial answer and 0 for nothing,
-  divided by log2 of its position plus one: first place counts in full,
+  divided by log2 of its position plus one, the form most tools use (the
+  original paper let the first two places count in full): first place counts in full,
   second about 0.63, fifth about 0.39. The sum is the DCG. Dividing it by
   the DCG of the best possible order gives a score from 0 to 1. With graded
   labels it rewards putting full answers above partial ones; with yes/no
   labels it still rewards earlier hits.
-- **Context recall and context precision**, in RAGAS, a RAG evaluation
+- **Context recall and context precision**, in [RAGAS](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_precision/), a RAG evaluation
   library. Its model-based context recall splits a reference answer into
   claims, asks a model whether the retrieved context supports each, and
   reports the share supported. That's this lesson's recall, which counts

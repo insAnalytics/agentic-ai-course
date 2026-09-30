@@ -150,9 +150,14 @@ Twenty questions come back short, and three come back empty, although
 permitted chunks exist for all of them. The restricted chunks took places in
 the top five, then were removed, and nothing took their place. Worse, they
 also took places in the reranker's 30 candidates, and in each search's 100.
-Filtering has to happen **before** every stage that picks a top k, so the
-reader's results are the best of what they may read, not what's left of the
-best overall.
+
+Filtering afterwards is still common. [OpenFGA's guide to retrieval](https://openfga.dev/docs/modeling/agents/rag-authorization)
+calls it the most common approach, and warns that it "may return fewer than K
+after filtering". The usual fix is to fetch two or three times as many
+candidates. That narrows the gap without closing it: a reader who may see
+little of the corpus can still come back short. Filtering **before** every
+stage that picks a top k closes it, so the reader's results are the best of
+what they may read, not what's left of the best overall.
 
 </Subsection>
 
@@ -189,11 +194,18 @@ can be done two ways:
 - **One index per set of permissions.** Build the pipeline over only the
   chunks a group can read. Simple and certain: forbidden chunks aren't in the
   index at all. It suits a handful of distinct permission sets, like this
-  corpus's.
+  corpus's. Pinecone's [multitenancy guide](https://docs.pinecone.io/guides/index-data/implement-multitenancy)
+  does this with one namespace per customer.
 - **A filter inside each search.** Vector stores and search engines accept a
-  metadata filter applied during the search, as Lesson 4 described. It suits
-  thousands of users with overlapping permissions, where an index each isn't
-  practical.
+  metadata filter applied during the search, as Lesson 4 described. Azure AI
+  Search's [security filters](https://learn.microsoft.com/en-us/azure/search/search-security-trimming-for-azure-search)
+  store each document's allowed groups in a field and filter on the reader's
+  groups in every query. It suits thousands of users with overlapping
+  permissions, where an index each isn't practical.
+
+OWASP lists leaks like this one among its top ten risks for LLM applications,
+under [vector and embedding weaknesses](https://genai.owasp.org/llmrisk/llm082025-vector-and-embedding-weaknesses/),
+and its first mitigation is "permission-aware vector and embedding stores".
 
 This concept's exercise builds the first, with one pipeline per distinct set of
 groups, built on first use.
@@ -206,7 +218,7 @@ groups, built on first use.
   client:load
   questions={[
     {
-      "question": "Why isn't removing forbidden chunks from the top five enough?",
+      "question": "What goes wrong when forbidden chunks are removed from the top five?",
       "options": [
         "They've already taken places that permitted chunks should have had, so results come back short or empty",
         "Removed chunks still reach the model",

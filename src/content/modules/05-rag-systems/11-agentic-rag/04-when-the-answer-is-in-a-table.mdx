@@ -262,8 +262,12 @@ contain a banned word. An **allowlist** works the other way round. It names
 what's permitted, and refuses everything else, including tricks nobody thought
 of.
 
-A SQL tool for an agent usually stacks several guardrails, each doing a
-different job:
+LangChain's
+[SQL agent guide](https://docs.langchain.com/oss/python/langchain/sql-agent)
+puts the first rule plainly: scope the database connection's permissions "as
+narrowly as possible for your agent's needs", which reduces the risk but
+doesn't remove it. In practice a SQL tool stacks several guardrails, each
+doing a different job:
 
 - **Read-only access,** so no statement can change anything, whatever words it
   contains. Here that's a read-only connection. On a database server, it's a

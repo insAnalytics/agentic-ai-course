@@ -149,7 +149,11 @@ There's no right threshold in general, only a right one for what a mistake
 costs. An internal help tool, where a wrong answer wastes someone's
 afternoon, can afford to decline more often. A tool that acts on its answers
 should decline more readily still. The labelled set is what lets you see the
-trade in numbers rather than guess at it.
+trade in numbers rather than guess at it. Reranker vendors suggest the same
+approach: Cohere's
+[guide](https://docs.cohere.com/docs/reranking-best-practices), for one,
+sets a relevance threshold from the scores of 30 to 50 representative
+questions, each paired with a borderline document.
 
 </Subsection>
 
@@ -200,8 +204,11 @@ it reads, and the threshold has to be chosen and confirmed again.
 The highest-scoring question with no answer in the corpus is "Which on-call
 engineer handled INC-2093?", at 4.93, well above any sensible threshold. A
 score can't catch it, so the model has to: the instructions ask it to say
-"the sources don't say" rather than guess, and code needs to recognise when
-it has. This is already loaded for every demo and exercise from here to the
+"the sources don't say" rather than guess. That's the first item in
+Anthropic's
+[advice on reducing hallucinations](https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-hallucinations):
+give the model explicit permission to say it doesn't know. Code then needs
+to recognise when it has. This is already loaded for every demo and exercise from here to the
 end of this lesson:
 
 ```python

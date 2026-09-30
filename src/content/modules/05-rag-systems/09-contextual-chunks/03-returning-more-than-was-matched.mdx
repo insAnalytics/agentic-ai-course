@@ -212,7 +212,12 @@ The previous two concepts added context to each chunk *before* searching.
 There's a second family of fixes that works *after*: search with small,
 precise chunks, which match a question sharply, then hand the model
 something bigger around each match. It goes by names like small-to-big or
-parent-document retrieval, and comes in two common forms:
+parent-document retrieval, and the common frameworks build in both of its
+forms: LlamaIndex's
+[sentence windows](https://developers.llamaindex.ai/python/framework/module_guides/loading/node_parsers/modules/)
+for the first, and LangChain's
+[`ParentDocumentRetriever`](https://python.langchain.com/docs/how_to/parent_document_retriever/)
+for the second:
 
 - **Neighbours.** Return each matched chunk with the chunks just before and
   after it in its document. This is what Lesson 3's chunk numbers were

@@ -116,7 +116,13 @@ gets.
 The better answer is the rewrite from the previous concept, given the
 conversation as well as the question: the model resolves "they", "the
 second one" and "it" from the earlier turns, and writes a query that stands
-on its own.
+on its own. Frameworks build this in. LlamaIndex's
+[condense-question chat engine](https://docs.llamaindex.ai/en/stable/examples/chat_engine/chat_engine_condense_question/)
+writes a standalone question from the conversation before every search, and
+LangChain's
+[`create_history_aware_retriever`](https://github.com/langchain-ai/langchain/blob/master/libs/langchain/langchain_classic/chains/history_aware_retriever.py)
+does it only when there's a conversation, passing a first question straight
+to the search.
 
 <LiveDemo client:load dataFiles={RAG_VARIANTS_DATA} setupCode={SETUP_WITH_CLIENT} code={REWRITTEN_DEMO} />
 

@@ -169,27 +169,40 @@ lesson here:
 
 Hybrid's reputation isn't wrong: exact identifiers, product names and error
 codes are common in real questions, and keyword search is the dependable way
-to match them. On a corpus where more questions were bare identifiers, the
+to match them.
+[Anthropic's contextual retrieval post](https://www.anthropic.com/news/contextual-retrieval)
+uses the same example: for "Error code TS-999", an embedding model might find
+pages about error codes in general and miss the exact code, while BM25 looks
+for that string. On a corpus where more questions were bare identifiers, the
 balance would tip further towards fusion. On this one, most identifier
 questions wrap the code in ordinary words, which search by meaning handles
 well, so fusion's benefit shows up in ranking rather than coverage. The way
 to know for your corpus is this table, run on your questions.
 
 Two other designs sit between keywords and meaning, and are worth knowing by
-name. **Learned sparse retrieval**, such as SPLADE, has a model write a
+name. **Learned sparse retrieval**, such as
+[SPLADE](https://arxiv.org/abs/2107.05720), has a model write a
 keyword-style index: each chunk gets weights for its own words and for
 related words it doesn't contain, so exact matching keeps its speed and
-gains some of meaning's reach. **Late interaction**, such as ColBERT, keeps
+gains some of meaning's reach. **Late interaction**, such as
+[ColBERT](https://arxiv.org/abs/2004.12832), keeps
 one vector per token rather than one per chunk, and scores each question
 word against its best match in the chunk, which is closer to reading them
 together, at the cost of storing many vectors per chunk. In production,
-hybrid search usually isn't assembled by hand as it is here: search engines
-and vector databases, from Elasticsearch and OpenSearch to Qdrant, Weaviate
-and PostgreSQL with extensions, run both searches and fuse them, with RRF or
-a weighted sum among the options.
+hybrid search usually isn't assembled by hand as it is here. Search engines
+and vector databases, such as
+[Elasticsearch](https://www.elastic.co/docs/reference/elasticsearch/rest-apis/reciprocal-rank-fusion),
+[OpenSearch](https://docs.opensearch.org/latest/vector-search/ai-search/hybrid-search/index/),
+[Qdrant](https://qdrant.tech/documentation/concepts/hybrid-queries/) and
+[Weaviate](https://docs.weaviate.io/weaviate/concepts/search/hybrid-search),
+run both searches and fuse them, with RRF or a weighted sum among the
+options. In PostgreSQL, [pgvector](https://github.com/pgvector/pgvector)
+pairs with the built-in full-text search, and you write the fusion yourself.
 
 There's also a setting between the two. RRF can give each ranking a weight
-that multiplies its 1/(k + rank) shares, so a smaller weight for BM25 makes
+that multiplies its 1/(k + rank) shares, as
+[Elasticsearch's RRF retriever](https://www.elastic.co/docs/reference/elasticsearch/rest-apis/retrievers/rrf-retriever)
+allows, so a smaller weight for BM25 makes
 its confident votes count for less against search by meaning's, while still
 letting it lift an answer only it finds, like "MON-2002". Any weight chosen
 by looking at these 43 questions fits them a little, though, so it's a

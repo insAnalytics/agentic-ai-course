@@ -101,7 +101,10 @@ One edge case of this formula: a word in more than half of all chunks gets a
 *negative* weight, counting against the chunks that contain it. The
 stopword list removes the usual culprits here, and no word in this corpus
 reaches that point. Many implementations add 1 inside the logarithm to keep
-every weight positive.
+every weight positive:
+[Lucene's BM25](https://lucene.apache.org/core/9_11_0/core/org/apache/lucene/search/similarities/BM25Similarity.html),
+which Elasticsearch and OpenSearch are built on, uses
+log(1 + (N − n + 0.5) / (n + 0.5)).
 
 </Subsection>
 

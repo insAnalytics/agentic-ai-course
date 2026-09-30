@@ -84,7 +84,9 @@ Nothing about it is text yet.
 
 The common fix is to have a vision-capable model look at each image and
 describe it, then index the description as a chunk, next to the document's
-text. Sending an image to a model is the request shape from
+text, as in
+[LangChain's multi-vector retriever](https://blog.langchain.com/semi-structured-multi-modal-rag/).
+Sending an image to a model is the request shape from
 [Module 1's lesson on non-text inputs](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/04-sending-non-text-inputs/#content-becomes-an-array-of-typed-blocks-not-a-plain-string).
 Here are the prompt and the two descriptions this lesson uses, for
 [the chart](/data/rag/pdf/files/rate-limited-chart.png) and
@@ -155,9 +157,9 @@ embeds an *image of each page* with a vision-language model and matches
 questions against those page images directly. Its authors argue that
 text-based pipelines depend on lengthy, brittle extraction and struggle to use
 visual cues, and on their benchmark of visually rich documents, ViDoRe,
-ColPali outperformed the other retrieval systems they tested. They note that
-some of ViDoRe's queries were written by a commercial language model, which
-may bias it.
+ColPali outperformed the other retrieval systems they tested. Some of ViDoRe's
+queries were written by Claude 3 Sonnet and then filtered by human annotators,
+and the preprint's earlier versions noted that this may bias it.
 
 The trade is familiar from this module. Indexing runs a vision-language
 model with about three billion parameters, PaliGemma-3B, over every page
@@ -168,8 +170,10 @@ model, a design
 it keeps one vector for each small patch of the page, 1,030 vectors of 128
 numbers per page in its paper, and scores a question by matching each of its
 words to its best patch. That takes a vector store built for many vectors
-per item, which some, such as Vespa and Qdrant, support, and far more
-storage per page.
+per item, which some, such as
+[Vespa](https://blog.vespa.ai/scaling-colpali-to-billions/) and
+[Qdrant](https://qdrant.tech/documentation/concepts/vectors/), support, and
+far more storage per page.
 
 There are simpler variants. **Single-vector** models embed a screenshot of a
 page as one vector, which an ordinary index like this module's can hold:

@@ -69,11 +69,12 @@ The two styles trade different things. **Pointwise**, one score per passage,
 costs a call or a line of output per candidate, but gives a number that a
 threshold can use. **Listwise** reads the candidates side by side, which is
 closer to how a person compares them, but gives only an order. It's also
-sensitive to the order the candidates arrive in, which is one reason Sun and
-colleagues passed a window of 20 passages down the list, overlapping by 10,
-rather than sending everything at once. This lesson sends all 30 in one
-prompt, which is simpler and fits comfortably; with longer lists, the window
-matters.
+sensitive to the order the candidates arrive in: Sun and colleagues found
+results fell sharply when the first stage's order was shuffled or reversed.
+And a long list may not fit in one prompt. Their model couldn't take 100
+passages at once, so they passed a window of 20 up the list from the bottom,
+moving 10 at a time. This lesson sends all 30 in one prompt, which is simpler
+and fits comfortably; with longer lists, the window matters.
 
 </Subsection>
 
