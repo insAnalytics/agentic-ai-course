@@ -1,0 +1,314 @@
+---
+title: "Layering the checks into one loop"
+lesson: "10-layered-checks"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT } from "../../../../lib/fakeClient";
+import { CHECKED_AGENT, SCENARIO_SUITE, CHECK_LAYERS } from "../../../../lib/reliabilityData";
+
+export const SETUP = REACT_FAKE_CLIENT + CHECKED_AGENT + SCENARIO_SUITE + CHECK_LAYERS;
+
+export const EVERYTHING_DEMO = String.raw`everything = checks_from(list(LAYERS))
+for scenario in SCENARIOS:
+    result = run_scenario(scenario, everything)
+    if scenario.harmful:
+        outcome = "caught" if not result["went_wrong"] else "MISSED"
+    else:
+        outcome = "fine" if not result["went_wrong"] else "BLOCKED"
+    print(f"{scenario.name:<28} {outcome:<8} {result['answer'][:70]}")
+`;
+
+export const PAIRS_DEMO = String.raw`pairs = {"result check alone": ["result check"], "missing-part check alone": ["missing-part check"],
+         "both": ["result check", "missing-part check"]}
+silent = next(s for s in SCENARIOS if s.name == "silent tool failure")
+for label, layer_names in pairs.items():
+    result = run_scenario(silent, checks_from(layer_names))
+    print(f"{label:<26} {'caught' if not result['went_wrong'] else 'missed':<7} {result['answer'][:60]}")
+`;
+
+<Subsection title="Where each layer sits" variant="a">
+
+Every layer is a check at one or more of the loop's four points, the ones
+[Lesson 3](/06-reliability/03-checks-in-the-loop/01-where-a-check-can-sit/)
+set out:
+
+| Layer | From | Point in the loop | What it costs |
+|---|---|---|---|
+| Intent check | Lesson 6 | before a tool runs | nothing: code |
+| Session guard | Lesson 9 | before and after a tool runs | nothing, plus a person when it asks for approval |
+| Result check | Lesson 3 | after a tool runs | nothing: code |
+| Read-back | Lesson 7 | after a write runs | one extra read |
+| Grounding | Lesson 4 | before the answer | nothing: code |
+| Report check | Lesson 7 | before the answer | nothing: code |
+| Missing-part check | Lesson 8 | before the answer | nothing: code |
+| Support judge | Lesson 4 | before the answer | one model call per cited claim |
+
+Within one point, the order is
+[Lesson 2's rule](/06-reliability/02-reliability-tradeoffs/04-spend-reliability-where-the-risk-is/)
+in miniature: the free code checks run first, and the support judge, the only
+layer that calls a model, runs last. The first check to object wins, so the
+judge is only paid for when every cheaper check has passed.
+
+Two layers here aren't in the suite. Fallbacks and circuit breakers, from
+[Lesson 8](/06-reliability/08-graceful-degradation/01-falling-back-to-another-model/),
+protect the agent's availability rather than stopping a harm, and voting
+from Lesson 5 improves how often answers are right rather than blocking
+wrong ones. Both belong in the agent; neither shows up as "caught" in a suite
+that asks whether harm was stopped.
+
+</Subsection>
+
+<Subsection title="The layers, in code" variant="b">
+
+Each layer is a small function that returns the hooks it needs. Most are the
+checks from their lessons, trimmed to this agent's tools; the support judge's
+verdicts are scripted per scenario, standing in for the model judge
+[Lesson 4 measured](/06-reliability/04-verifying-claims/02-checking-the-checker/).
+
+```python
+NUMBER = re.compile(r"(?<![\w.])\d+(?:,\d{3})*(?:\.\d+)?%?")
+TOOL_LABELS = {"get_agent": {"private"}, "get_health": {"private"}, "search_docs": {"untrusted"},
+               "set_model": {"changes_state"}, "send_email": {"external"}}
+CLAIMS = [(re.compile(r"\bmoved (?P<agent_name>[a-z]+_agent)"), "set_model"),
+          (re.compile(r"\bnotified (?P<to>[a-z]+-team)"), "send_email")]
+
+
+def successful_results(messages: list) -> str:
+    """The text of every tool result that wasn't an error, from the loop's messages."""
+    return " ".join(str(block["content"]) for message in messages if message["role"] == "user"
+                    and isinstance(message["content"], list) for block in message["content"]
+                    if block["type"] == "tool_result" and not block.get("is_error"))
+
+
+def result_check(world, messages, scenario, cost):
+    """Lesson 3: a result with empty fields is a silent failure."""
+    def after_tool(call, output):
+        empty = [key for key, value in json.loads(output).items() if value is None] if output.startswith("{") else []
+        return f"silent failure: {', '.join(empty)} came back empty" if empty else None
+    return {"after_tool": after_tool}
+
+
+def intent_check(world, messages, scenario, cost):
+    """Lesson 6: the agent to change, or the person to email, must come from the request."""
+    from_user = {"set_model": "agent_name", "send_email": "to"}
+    def before_tool(call, messages_so_far):
+        argument = from_user.get(call.name)
+        if argument and call.input[argument].lower() not in scenario.request.lower():
+            return f"ask the user: {argument} {call.input[argument]!r} wasn't in the request"
+        return None
+    return {"before_tool": before_tool}
+
+
+def session_guard(world, messages, scenario, cost):
+    """Lesson 9: what the session has read decides what it may do; a person confirms when needed."""
+    touched = set()
+    def before_tool(call, messages_so_far):
+        labels = TOOL_LABELS.get(call.name)
+        acts = labels is not None and bool(labels & {"changes_state", "external"})
+        if labels is None or (acts and "untrusted" in touched and "external" in labels and "private" in touched):
+            return "denied: this session has read untrusted content and private data"
+        if acts and "untrusted" in touched:
+            cost["approvals"] += 1
+            # a stand-in for the person: they approve what the user really asked for
+            return None if not scenario.harmful else "rejected by the person asked to approve"
+        return None
+    def after_tool(call, output):
+        touched.update(TOOL_LABELS.get(call.name, {"untrusted"}))
+        return None
+    return {"before_tool": before_tool, "after_tool": after_tool}
+
+
+def read_back(world, messages, scenario, cost):
+    """Lesson 7: after a write, read the record and confirm it changed."""
+    def after_tool(call, output):
+        if call.name != "set_model":
+            return None
+        cost["extra_tool_calls"] += 1
+        if world.registry[call.input["agent_name"]]["model"] != call.input["model"]:
+            return "the registry doesn't show the change"
+        return None
+    return {"after_tool": after_tool}
+
+
+def grounding(world, messages, scenario, cost):
+    """Lesson 4: every figure in the answer must appear in a successful tool result."""
+    def before_answer(answer):
+        evidence = successful_results(messages)
+        known = [float(n.rstrip("%").replace(",", "")) for n in NUMBER.findall(evidence)]
+        for figure in NUMBER.findall(re.sub(r"\[\d+\]|\d{4}-\d{2}-\d{2}", " ", answer)):
+            value = float(figure.rstrip("%").replace(",", ""))
+            wanted = [value, value / 100] if figure.endswith("%") else [value]
+            if not any(abs(w - k) < 1e-9 for w in wanted for k in known):
+                return f"{figure} appears in no tool result"
+        return None
+    return {"before_answer": before_answer}
+
+
+def report_check(world, messages, scenario, cost):
+    """Lesson 7: every action the answer claims must match a successful call in the log."""
+    def before_answer(answer):
+        for pattern, tool in CLAIMS:
+            for match in pattern.finditer(answer):
+                if not any(e["tool"] == tool and e["ok"] and all(e["input"].get(k) == v for k, v in match.groupdict().items())
+                           for e in world.log):
+                    return f"the answer claims {match.group()!r}, which no successful call did"
+        return None
+    return {"before_answer": before_answer}
+
+
+def missing_part_check(world, messages, scenario, cost):
+    """Lesson 8: if a tool call failed, the answer has to say something is missing."""
+    def before_answer(answer):
+        failed = any(block.get("is_error") for message in messages if message["role"] == "user"
+                     and isinstance(message["content"], list) for block in message["content"])
+        admits = any(phrase in answer.lower() for phrase in ("couldn't", "unavailable", "not available", "failed"))
+        return "a tool failed, and the answer doesn't say what's missing" if failed and not admits else None
+    return {"before_answer": before_answer}
+
+
+def support_judge(world, messages, scenario, cost):
+    """Lesson 4: a model judges each cited claim against its source. Its verdicts are scripted here."""
+    def before_answer(answer):
+        for sentence in re.split(r"(?<=[.!?])\s+", answer):
+            if re.search(r"\[\d+\]", sentence):
+                claim = re.sub(r"\s*\[\d+\]", "", sentence)
+                cost["judge_calls"] += 1
+                if not scenario.verdicts.get(claim, True):
+                    return f"the source doesn't support: {claim!r}"
+        return None
+    return {"before_answer": before_answer}
+
+
+LAYERS = {"result check": result_check, "intent check": intent_check, "session guard": session_guard,
+          "read-back": read_back, "grounding": grounding, "report check": report_check,
+          "missing-part check": missing_part_check,
+          "support judge": support_judge}
+
+
+def checks_from(layer_names: list):
+    """A checks_for function combining the named layers: at each point, the first reason given wins."""
+    def checks_for(world, messages, scenario, cost):
+        parts = [LAYERS[name](world, messages, scenario, cost) for name in layer_names]
+
+        def point(name):
+            hooks = [part[name] for part in parts if name in part]
+            def run(*args):
+                return next((reason for hook in hooks if (reason := hook(*args))), None)
+            return run
+        return Checks(**{name: point(name) for name in ("before_model", "before_tool", "after_tool", "before_answer")})
+    return checks_for
+```
+
+*(defined once here and added to this lesson's shared setup, after the
+previous concept's block)*
+
+`checks_from` is what makes the layers composable: for each of the four
+points, it runs every layer that has a hook there, in order, and returns the
+first objection. Adding or removing a layer is adding or removing a name from
+a list, which is what the next concept's measurements rely on.
+
+</Subsection>
+
+<Subsection title="Every layer at once" variant="a">
+
+<LiveDemo client:load code={EVERYTHING_DEMO} setupCode={SETUP} />
+
+*(Scripted scenarios; the support judge's verdicts are scripted too.)*
+
+Every harm is stopped. The message on a withheld answer shows only the last
+layer to speak; for the two planted instructions, the email had already been
+stopped earlier, at the tool call, and the missing-part check then withheld the
+scripted answer that pretended nothing had gone wrong.
+
+Two fine scenarios are blocked, and both are the costs their lessons warned
+about:
+
+- **"2 agents are still on claude-legacy"** is correct, but 2 is a count the
+  agent worked out, and no tool returned it. It's the derived-number false
+  flag
+  [Lesson 4's grounding check](/06-reliability/04-verifying-claims/04-figures-traced-to-tool-results/)
+  described.
+- **"Move the research agent"** names the agent loosely, and the intent check
+  looks for the exact name `research_agent` in the request. It's the
+  substring matching
+  [Lesson 6's exercise](/06-reliability/06-when-unsure/01-asking-before-acting/)
+  said a real check would do better. A real agent would ask the user which
+  agent was meant, which is the right response, if a slightly annoying one.
+
+</Subsection>
+
+<Subsection title="Some layers only work in pairs" variant="b">
+
+Most layers stop a harm by themselves. Two don't:
+
+<LiveDemo client:load code={PAIRS_DEMO} setupCode={SETUP} />
+
+The result check turns the empty health reading into an error, but an error
+the model ignores still leads to a confident wrong answer. The missing-part
+check alone sees no error to account for. Together, the first marks the
+failure and the second refuses an answer that pretends it didn't happen. The
+read-back and the missing-part check pair in the same way for the lost write.
+
+With a real model the first layer often does more on its own, because a
+model that sees an error usually says so. But a layer that relies on the model
+reacting well is a layer with a gap, and the pair closes it.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "Why does the support judge run after the code checks at the same point?",
+    "options": [
+      "Because it's less accurate than the code checks",
+      "It's the only one that costs a model call",
+      "Because the code checks need its verdict first",
+      "Because the loop requires model checks to be last"
+    ],
+    "correctIndex": 1,
+    "explanation": "The first objection wins. Putting the free checks first means the judge is paid for only on answers that have already passed them."
+  },
+  {
+    "question": "The grounding check blocks \"2 agents are still on claude-legacy\", which is correct. Why?",
+    "options": [
+      "Because the answer itself is wrong",
+      "The agent worked out 2; no tool returned it",
+      "Because the grounding check can't read numbers",
+      "Because the tools actually returned 3"
+    ],
+    "correctIndex": 1,
+    "explanation": "A derived number appears in no tool result. It's the false flag Lesson 4 warned about, and a cost of the check."
+  },
+  {
+    "question": "Why doesn't the result check stop the silent-failure harm on its own in this suite?",
+    "options": [
+      "It doesn't detect the empty fields at all",
+      "It marks an error the scripted model ignores",
+      "It runs at the wrong point in the loop",
+      "It needs a model call to decide anything"
+    ],
+    "correctIndex": 1,
+    "explanation": "Marking a failure only helps if something acts on the mark. The missing-part check refuses an answer that doesn't admit the failure."
+  },
+  {
+    "question": "Why aren't fallbacks and voting counted in this suite?",
+    "options": [
+      "Because they don't work on this agent",
+      "They protect availability and accuracy instead",
+      "Because they're too expensive to run here",
+      "Because they only work with real models"
+    ],
+    "correctIndex": 1,
+    "explanation": "A suite asking \"was harm stopped?\" can't see them. They belong in the agent all the same, measured by other numbers: how often it answers, and how often it's right."
+  }
+]}
+/>
+
+</CheckpointZone>

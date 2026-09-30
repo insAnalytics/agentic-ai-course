@@ -444,3 +444,144 @@ def run_scenario(scenario, checks_for=None) -> dict:
     return {"scenario": scenario.name, "harmful": scenario.harmful,
             "went_wrong": scenario.harm(world, answer), "answer": answer, **cost}
 `;
+
+/**
+ * Module 6 Lesson 10's layers, after SCENARIO_SUITE: the eight check layers
+ * (each returns the hooks it needs), LAYERS and checks_from, which combines
+ * named layers into one Checks. Shown verbatim in Lesson 10 concept 2 (keep
+ * the two byte-identical); generated from the mockup, since its regexes are
+ * full of backslashes.
+ */
+export const CHECK_LAYERS = String.raw`
+NUMBER = re.compile(r"(?<![\w.])\d+(?:,\d{3})*(?:\.\d+)?%?")
+TOOL_LABELS = {"get_agent": {"private"}, "get_health": {"private"}, "search_docs": {"untrusted"},
+               "set_model": {"changes_state"}, "send_email": {"external"}}
+CLAIMS = [(re.compile(r"\bmoved (?P<agent_name>[a-z]+_agent)"), "set_model"),
+          (re.compile(r"\bnotified (?P<to>[a-z]+-team)"), "send_email")]
+
+
+def successful_results(messages: list) -> str:
+    """The text of every tool result that wasn't an error, from the loop's messages."""
+    return " ".join(str(block["content"]) for message in messages if message["role"] == "user"
+                    and isinstance(message["content"], list) for block in message["content"]
+                    if block["type"] == "tool_result" and not block.get("is_error"))
+
+
+def result_check(world, messages, scenario, cost):
+    """Lesson 3: a result with empty fields is a silent failure."""
+    def after_tool(call, output):
+        empty = [key for key, value in json.loads(output).items() if value is None] if output.startswith("{") else []
+        return f"silent failure: {', '.join(empty)} came back empty" if empty else None
+    return {"after_tool": after_tool}
+
+
+def intent_check(world, messages, scenario, cost):
+    """Lesson 6: the agent to change, or the person to email, must come from the request."""
+    from_user = {"set_model": "agent_name", "send_email": "to"}
+    def before_tool(call, messages_so_far):
+        argument = from_user.get(call.name)
+        if argument and call.input[argument].lower() not in scenario.request.lower():
+            return f"ask the user: {argument} {call.input[argument]!r} wasn't in the request"
+        return None
+    return {"before_tool": before_tool}
+
+
+def session_guard(world, messages, scenario, cost):
+    """Lesson 9: what the session has read decides what it may do; a person confirms when needed."""
+    touched = set()
+    def before_tool(call, messages_so_far):
+        labels = TOOL_LABELS.get(call.name)
+        acts = labels is not None and bool(labels & {"changes_state", "external"})
+        if labels is None or (acts and "untrusted" in touched and "external" in labels and "private" in touched):
+            return "denied: this session has read untrusted content and private data"
+        if acts and "untrusted" in touched:
+            cost["approvals"] += 1
+            # a stand-in for the person: they approve what the user really asked for
+            return None if not scenario.harmful else "rejected by the person asked to approve"
+        return None
+    def after_tool(call, output):
+        touched.update(TOOL_LABELS.get(call.name, {"untrusted"}))
+        return None
+    return {"before_tool": before_tool, "after_tool": after_tool}
+
+
+def read_back(world, messages, scenario, cost):
+    """Lesson 7: after a write, read the record and confirm it changed."""
+    def after_tool(call, output):
+        if call.name != "set_model":
+            return None
+        cost["extra_tool_calls"] += 1
+        if world.registry[call.input["agent_name"]]["model"] != call.input["model"]:
+            return "the registry doesn't show the change"
+        return None
+    return {"after_tool": after_tool}
+
+
+def grounding(world, messages, scenario, cost):
+    """Lesson 4: every figure in the answer must appear in a successful tool result."""
+    def before_answer(answer):
+        evidence = successful_results(messages)
+        known = [float(n.rstrip("%").replace(",", "")) for n in NUMBER.findall(evidence)]
+        for figure in NUMBER.findall(re.sub(r"\[\d+\]|\d{4}-\d{2}-\d{2}", " ", answer)):
+            value = float(figure.rstrip("%").replace(",", ""))
+            wanted = [value, value / 100] if figure.endswith("%") else [value]
+            if not any(abs(w - k) < 1e-9 for w in wanted for k in known):
+                return f"{figure} appears in no tool result"
+        return None
+    return {"before_answer": before_answer}
+
+
+def report_check(world, messages, scenario, cost):
+    """Lesson 7: every action the answer claims must match a successful call in the log."""
+    def before_answer(answer):
+        for pattern, tool in CLAIMS:
+            for match in pattern.finditer(answer):
+                if not any(e["tool"] == tool and e["ok"] and all(e["input"].get(k) == v for k, v in match.groupdict().items())
+                           for e in world.log):
+                    return f"the answer claims {match.group()!r}, which no successful call did"
+        return None
+    return {"before_answer": before_answer}
+
+
+def missing_part_check(world, messages, scenario, cost):
+    """Lesson 8: if a tool call failed, the answer has to say something is missing."""
+    def before_answer(answer):
+        failed = any(block.get("is_error") for message in messages if message["role"] == "user"
+                     and isinstance(message["content"], list) for block in message["content"])
+        admits = any(phrase in answer.lower() for phrase in ("couldn't", "unavailable", "not available", "failed"))
+        return "a tool failed, and the answer doesn't say what's missing" if failed and not admits else None
+    return {"before_answer": before_answer}
+
+
+def support_judge(world, messages, scenario, cost):
+    """Lesson 4: a model judges each cited claim against its source. Its verdicts are scripted here."""
+    def before_answer(answer):
+        for sentence in re.split(r"(?<=[.!?])\s+", answer):
+            if re.search(r"\[\d+\]", sentence):
+                claim = re.sub(r"\s*\[\d+\]", "", sentence)
+                cost["judge_calls"] += 1
+                if not scenario.verdicts.get(claim, True):
+                    return f"the source doesn't support: {claim!r}"
+        return None
+    return {"before_answer": before_answer}
+
+
+LAYERS = {"result check": result_check, "intent check": intent_check, "session guard": session_guard,
+          "read-back": read_back, "grounding": grounding, "report check": report_check,
+          "missing-part check": missing_part_check,
+          "support judge": support_judge}
+
+
+def checks_from(layer_names: list):
+    """A checks_for function combining the named layers: at each point, the first reason given wins."""
+    def checks_for(world, messages, scenario, cost):
+        parts = [LAYERS[name](world, messages, scenario, cost) for name in layer_names]
+
+        def point(name):
+            hooks = [part[name] for part in parts if name in part]
+            def run(*args):
+                return next((reason for hook in hooks if (reason := hook(*args))), None)
+            return run
+        return Checks(**{name: point(name) for name in ("before_model", "before_tool", "after_tool", "before_answer")})
+    return checks_for
+`;

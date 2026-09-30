@@ -5488,8 +5488,22 @@ architecture.md §3.1).
    context-step concept, Lesson 3 concepts 1 and 2, Lesson 4 concepts 1 and
    4, Lesson 6 concept 1, Lesson 7 concept 2, Lesson 8 concept 2 and Lesson
    9 concept 2. The mockup's "after `REACT_FAKE_CLIENT`" note reads "after
-   the scripted client from Module 2" on the page. Concepts 2+ and bookends
-   not yet drafted.
+   the scripted client from Module 2" on the page. Concept 2 (layering the
+   checks into one loop) is built, prose, two demos and quiz, no exercise:
+   an eight-row table of where each layer sits and what it costs, code
+   checks before the one model-calling judge (Lesson 2's rule), why
+   fallbacks and voting aren't in the suite; the layers in code; every layer
+   at once (every harm caught, two fine scenarios blocked: the derived count
+   2 and the loosely named agent, the costs Lessons 4 and 6 warned about);
+   and the result check and missing-part check working only as a pair. 4
+   quiz cards. New shared setup `CHECK_LAYERS` (the eight layers, `LAYERS`,
+   `checks_from`) after `SCENARIO_SUITE`, generated from the mockup's bytes
+   and shown verbatim; its regexes were confirmed intact in the built HTML.
+   The layers block runs cleanly and both demos reproduce the mockup's
+   output exactly in Pyodide 0.26.4, run through the real setup. Callbacks
+   (page links): Lesson 3 concept 1, Lesson 2 concept 4, Lesson 8 concept 1,
+   Lesson 4 concepts 2 and 4, Lesson 6 concept 1; Lesson 5's voting stays
+   plain text. Concepts 3+ and bookends not yet drafted.
 
 ---
 
