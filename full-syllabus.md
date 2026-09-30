@@ -5437,7 +5437,18 @@ architecture.md §3.1).
    concept 1 and Module 3's separate-reads-from-writes and blast-radius
    concepts (page links), Lesson 3 concept 1's
    `#four-points-four-different-views` (verified against the built HTML).
-   Concepts 3+ and bookends not yet drafted.
+   Concept 3 (designs that keep untrusted text away from decisions) is
+   built, prose, two demos and quiz, no exercise: Beurer-Kellner et al.'s
+   six design patterns; plan-then-execute (a demo where the plan refuses
+   `send_email` but the email still changes `set_model`'s argument); the
+   action-selector; dual LLM (a `$VAR1` placeholder demo) and CaMeL's
+   code-then-execute (77% against 84% on AgentDojo); choosing between the
+   patterns and the session guard; 4 quiz cards. Both demos reproduce the
+   mockup exactly in Pyodide 0.26.4. The dual LLM demo reads the first
+   demo's `email`, so it's preloaded through `setupCode`, since demos don't
+   share state. Callback: Lesson 7's dry-run concept (page link); "Module
+   10's subject" stays plain text. The mockup marks this as the lesson's
+   last concept; bookends not yet drafted.
 
 ---
 
