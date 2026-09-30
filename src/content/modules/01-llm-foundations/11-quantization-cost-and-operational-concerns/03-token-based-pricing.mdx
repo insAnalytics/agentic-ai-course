@@ -122,8 +122,13 @@ most important cost fact for agents, and it's why a task that runs for
 "just a few more steps" can cost far more than expected.
 
 Caching helps a lot, because each step's history is the previous step's
-history plus a little more: a perfect stable prefix. Two details make it
-less than free:
+history plus a little more: a perfect stable prefix. Teams that run
+agents in production say the same. The Manus team calls the KV-cache hit
+rate "the single most important metric for a production-stage AI agent"
+([Context Engineering for AI Agents](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus),
+2025), because "the context grows with every step" while each output
+stays short: their average input-to-output ratio is "around 100:1." Two
+details make caching less than free:
 
 - **Writing to the cache can cost more than a normal input token.** Some
   providers, Anthropic among them, charge a premium on the tokens that

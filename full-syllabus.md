@@ -117,6 +117,11 @@ match their sources (Liu et al. v3, all 28 values; Kaplan's fits).
   end of the input (Hsieh et al., ACL Findings 2024), and Liu et al.'s
   finding that instruction tuning isn't necessarily responsible. The
   unsourced training-documents explanation is gone.
+- **Concept coverage (second pass, light):** each concept page and intro was
+  checked as a whole. Six prose edits anchor the few builder-facing claims
+  that lacked a source (token counts across languages, penalties, logprobs,
+  when to use a reasoning model, structured outputs, agent cost). The table
+  is at the top of `citation-audit/module-1.md`.
 
 *Being broken down lesson by lesson, starting with Lesson 1 below. The
 rest of the module (decoding parameters, model landscape/benchmark

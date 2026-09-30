@@ -1,5 +1,101 @@
 # Citation audit: Module 1 (LLM Foundations)
 
+## Concept coverage
+
+A second pass, added 2026-09-30 at the owner's request, kept light as the
+owner asked for Modules 1–3. It checks each concept page and lesson intro
+as a whole, and anchors a concept only where a learner would reasonably ask
+"says who?" or "does anyone actually do this?". Most of this module teaches
+how a mechanism works, which counts as backed when the fact is right and
+any named source is verified. Recaps are skipped. Two read-only subagents
+did the check; the lead applied the edits.
+
+**Counts (64 pages):** backed 58, our data only 3, unbacked
+3. Fixed: six prose edits anchor every page that wasn't backed:
+- Petrov et al. (NeurIPS 2023) on token counts across languages;
+- OpenAI's API reference on frequency and presence penalties;
+- OpenAI's logprobs cookbook on flagging uncertain outputs;
+- OpenAI's reasoning guide and Anthropic's effort docs on when a reasoning
+  model is worth it;
+- Anthropic's structured-outputs docs on why plain JSON prompting fails;
+- Manus on agent cost growing with steps.
+
+Four optional additions were skipped. No demo, exercise or test string
+changed, and no internal links were added. `npm run build` passes. Needs a
+decision: none.
+
+The Status column is the status before the fix. The Action column names
+the edit in each lesson group's report: `cc1-A` for L1–L6 and `cc1-B` for
+L7–L11.
+
+| Concept | Central claim | What backs it | Status (before fix) | Action taken |
+|---|---|---|---|---|
+| L1 intro | Tokens are the basic unit; a subword vocabulary means nothing is unrepresentable | Textbook; Sennrich et al. and GPT-2 paper (per-claim audit) | BACKED | none |
+| L1 C1 The vocabulary problem | Text must become numbers; a fixed word vocabulary can't cover everything (`<UNK>`) | Textbook fact | BACKED | none |
+| L1 C2 Subword tokenization (BPE) | BPE builds a subword vocabulary by merging frequent pairs; byte-level fallback | Sennrich et al. ACL 2016, GPT-2 paper, RFC 3629 (per-claim audit, linked) | BACKED | none |
+| L1 C3 Tokens in practice and cost | Tokens are the unit of cost; the same meaning costs more tokens in some languages because tokenizer training skews to English | OpenAI tokens guide for the rule of thumb (per-claim audit); the language claim rests on our tokenizer runs only (Khmer 15 vs English 5) | OUR DATA ONLY | E1: add Petrov et al. (NeurIPS 2023) |
+| L1 C4 Non-text inputs as tokens | Images become patch tokens and count against the same window and price | Anthropic vision docs (per-claim audit, linked) | BACKED | none |
+| L2 intro | Embeddings capture meaning geometrically; token vs text embeddings; cosine similarity | Textbook | BACKED | none |
+| L2 C1 What an embedding is | Distance in vector space stands for similarity in meaning | Textbook; demo uses real GloVe vectors | BACKED | none |
+| L2 C2 Token embeddings | A learned lookup table is the model's input layer, internal to the model | Textbook; GPT-2 vocab size (per-claim audit) | BACKED | none |
+| L2 C3 Text embeddings | A separate model returns one vector per text, used to compare meaning | Textbook fact; demo is a real model (all-MiniLM-L6-v2) | BACKED | none |
+| L2 C4 Cosine similarity | Cosine measures angle, not length; related pairs score higher than unrelated ones | Textbook; baseline wording fixed against our own tool (per-claim audit) | BACKED | none |
+| L3 intro | Attention, position, stacked blocks and MoE are how an LLM computes | Textbook; Vaswani et al. (per-claim audit) | BACKED | none |
+| L3 C1 Why a token needs context | A fixed embedding can't tell "river bank" from "money bank" | Textbook | BACKED | none |
+| L3 C2 The attention mechanism | Query/Key/Value weighted combination; causal mask in GPT-style models | Textbook; Vaswani et al. (per-claim audit) | BACKED | none |
+| L3 C3 Positional encoding | Attention is order-blind; added position vectors, now mostly RoPE | Vaswani et al., GPT-1/2 papers, RoFormer, DeepSeek-V3, gpt-oss (per-claim audit, linked) | BACKED | none |
+| L3 C4 Stacking layers | Multi-head attention + feedforward = a block; residual stacking refines representations | Textbook; Vaswani et al. §3.1 (per-claim audit). The "early layers grammar, later meaning" aside cites "various interpretability studies" unnamed; per-claim E14 (Tenney et al., ACL 2019) was skipped as optional and remains available | BACKED | none (optional: apply per-claim E14) |
+| L3 C5 Mixture of experts | A router sends each token to a few experts, so total size and per-token compute come apart | Mixtral, DeepSeek-V3, gpt-oss (per-claim audit, linked) | BACKED | none |
+| L4 intro | Generation is a repeated mechanical prediction loop; hallucination and cutoff follow from it | Textbook; Kalai et al. (per-claim audit) | BACKED | none |
+| L4 C1 Logits and probabilities | One logit per vocabulary entry; softmax makes a distribution | Textbook; GPT-2 demo (real model) | BACKED | none |
+| L4 C2 Autoregressive generation | One token per pass, fed back in; cost scales with output length | Textbook | BACKED | none |
+| L4 C3 Predicts, doesn't know | No fact-checking step; the same mechanism produces true and fabricated answers | Follows from the mechanism; our demo illustrates | BACKED | none |
+| L4 C4 Hallucination | Hallucination is the mechanism landing on a plausible falsehood; training rewards guessing; allow "I don't know" | Kalai et al. (*Nature* 2026), Anthropic "Reduce hallucinations" (per-claim audit, linked) | BACKED | none |
+| L4 C5 Knowledge cutoff | Parameters freeze at training; later events need the prompt (or tools) | Textbook fact. The "not a sharp line" nuance has no source; Anthropic publishes two cutoff dates per model, which backs it directly | BACKED | none (optional E4 anchors the nuance) |
+| L5 intro | Decoding controls are real API parameters, grounded in logits/softmax | OpenAI, Gemini, Anthropic API refs (per-claim audit) | BACKED | none |
+| L5 C1 Greedy vs sampling | Greedy is deterministic and tends to loop; sampling draws from the distribution | Holtzman et al. ICLR 2020 (per-claim audit, linked) | BACKED | none |
+| L5 C2 Temperature | Divide logits by T before softmax; T→0 is greedy | Textbook | BACKED | none |
+| L5 C3 Top-p and top-k | Top-k keeps k tokens; top-p keeps the smallest set reaching p and adapts to confidence | Holtzman et al. (per-claim audit, linked) | BACKED | none |
+| L5 C4 Frequency vs presence penalty | Frequency grows with count, presence is flat; use frequency against loops, presence to push toward new topics | Mechanism verified in OpenAI and Gemini refs (per-claim audit), but no link on the page (E24 skipped); the "when each fits" advice has no source | UNBACKED | E2: add OpenAI API reference |
+| L5 C5 Logprobs | A logprob shows how confident the model was; useful for flagging outputs to double-check | Which APIs return logprobs verified (per-claim audit); the "useful for flagging" practice has no source | UNBACKED | E3: add OpenAI cookbook "Using logprobs" |
+| L5 C6 Stop sequences and nondeterminism | Stop sequences end generation; temperature 0 isn't byte-identical because of batching | OpenAI ref, Anthropic API ref, Thinking Machines (per-claim audit, linked) | BACKED | none |
+| L6 intro | Window limits, shared budget, KV cache, cache-friendly structure, lost in the middle | Covered by the concept pages' sources | BACKED | none |
+| L6 C1 What a context window is | Hard limit from compute, KV memory and training length; overflow handling varies, incl. compaction | Vaswani Table 1, Kwon et al., FlashAttention, Claude Code docs (per-claim audit, linked) | BACKED | none |
+| L6 C2 Max output vs context window | Input and output share one budget; `max_tokens` is only a ceiling | Anthropic context-windows docs (per-claim audit, linked) | BACKED | none |
+| L6 C3 KV cache | Keys and Values of earlier tokens are computed once and reused | Textbook; Kwon et al. (per-claim audit) | BACKED | none |
+| L6 C4 Prompt structure and cache hits | Stable content first, variable last, for cache hits that cut cost and latency | OpenAI and Anthropic prompt-caching docs (per-claim audit, linked) | BACKED | none |
+| L6 C5 Uneven use of long contexts | Lost in the middle; more context tends to mean worse use; put key content at the edges | Liu et al. TACL 2024, Chroma "Context Rot", Hsieh et al. ACL Findings 2024 (per-claim audit, linked) | BACKED | none |
+| L7 intro | Outcomes: training stages explain model behavior; choose prompting vs retrieval vs fine-tuning | The concepts' anchors (InstructGPT, LIMA, DeepSeek-R1, OpenAI accuracy guide) | BACKED | none |
+| L7 C1 Pretraining | Pretraining is next-token prediction on raw text; a base model doesn't "answer then stop" | Textbook fact; our GPT-2 run illustrates (labelled) | BACKED | none |
+| L7 C2 SFT | SFT teaches behavior, not primarily new facts | LIMA, NeurIPS 2023 (per-claim audit) | BACKED | none |
+| L7 C3 Preference training and roles | RLHF/RLAIF/DPO; roles and tool calls are learned token formats; sycophancy; root of prompt injection | InstructGPT, Constitutional AI, DPO, Anthropic "Define tools" doc, Sharma et al. + OpenAI GPT-4o rollback, Wallace et al. (all per-claim audit) | BACKED | none |
+| L7 C4 RL for reasoning | RL on checkable rewards produces reasoning models; labs also run RL on agentic tasks; agent benchmarks are how models are compared | OpenAI o1 post, DeepSeek-R1, OpenAI Codex post (per-claim audit); the benchmark sentence had no anchor | BACKED | E1 (optional): add Anthropic Opus 4.5 launch on τ2-bench |
+| L7 C5 Fine-tuning as a builder's option | Prompt first; RAG for missing/changing knowledge; fine-tune for consistent behavior; LoRA makes it cheap | OpenAI accuracy guide, LoRA (per-claim audit) | BACKED | none |
+| L8 intro | Outcomes: scaling laws, emergence debate, ICL, test-time compute tradeoff | The concepts' anchors | BACKED | none (the routing advice is anchored by E2) |
+| L8 C1 Scaling laws | Loss falls predictably as a power law; labs extrapolate from small runs; train past compute-optimal | Kaplan, Chinchilla, Llama 3 (per-claim audit) | BACKED | none |
+| L8 C2 Emergent behavior | Emergence is contested; metric choice can create apparent jumps | Wei et al., Schaeffer et al., Du et al. (per-claim audit) | BACKED | none |
+| L8 C3 In-context learning | Frozen weights learn from prompt examples; ability scales | GPT-3 paper (per-claim audit); Pythia demo is labelled our runs | BACKED | none |
+| L8 C4 Test-time compute | More thinking improves answers; route by difficulty: reasoning for hard multi-step tasks, not simple ones | o1 post, self-consistency, reasoning-token billing docs (per-claim audit); the when-to-use advice had no outside source, only our cost demo | UNBACKED (the routing advice) | E2: add OpenAI reasoning best-practices guide + Anthropic effort docs |
+| L9 intro | Outcomes: read/write real request and response fields | The concepts' verified API facts | BACKED | none |
+| L9 C1 Request shape | Endpoint, auth header, JSON body; provider differences; some models drop `temperature` | Anthropic Messages API reference (per-claim audit) | BACKED | none |
+| L9 C2 Response shape | Content, usage and stop_reason; OpenAI field names | Anthropic API ref, stop-reasons doc, OpenAI Responses docs (per-claim audit) | BACKED | none |
+| L9 C3 Multi-turn | API is stateless; client resends history; cost compounds, caching discounts it | OpenAI conversation-state guide, Anthropic prompt caching (per-claim audit) | BACKED | none |
+| L9 C4 Non-text inputs | Typed content blocks; base64 image data | Anthropic vision doc (per-claim audit) | BACKED | none |
+| L9 C5 Streaming | SSE deltas expose token-by-token generation | Anthropic streaming doc (per-claim audit) | BACKED | none |
+| L9 C6 Reasoning output | Thinking blocks are separate, billed, never raw on Claude; send them back unchanged | Anthropic extended-thinking doc (per-claim audit) | BACKED | none |
+| L10 intro | Outcomes: prompting for JSON is a request; constrained decoding guarantees shape | The concepts' anchors | BACKED | none |
+| L10 C1 The naive approach | Asking for JSON in the prompt can fail (extra text, wrong types) | Only the page's own illustrative strings | OUR DATA ONLY | E3: add Anthropic structured-outputs docs |
+| L10 C2 Constrained decoding | Masking invalid tokens guarantees shape; put reasoning before the answer | OpenAI structured-outputs post and guide, Anthropic structured-outputs doc (per-claim audit) | BACKED | E4 (optional): note OpenAI's own chain-of-thought example orders `steps` before `final_answer` |
+| L10 C3 Pydantic to schema | `model_json_schema()` feeds the API's schema field; guarantee holds only for a finished response | Anthropic structured-outputs doc, OpenAI guide (per-claim audit) | BACKED | none |
+| L10 C4 Tool calling | A tool call is structured output; your code decides whether to run it | Anthropic tool-use overview ("returns a structured call that your application executes"), `strict: true` (per-claim audit) | BACKED | none |
+| L10 C5 Full round trip | Tool result goes back as a message, paired by id | Anthropic tool-use docs (per-claim audit) | BACKED | none |
+| L11 intro | Outcomes: quantization, model selection, cost, rate limits | The concepts' anchors | BACKED | none |
+| L11 C1 Quantization | Fewer bits cut memory with some quality risk; matters to whoever hosts the model | Kurtic et al. ACL 2025, OpenRouter docs, DeepSeek-V3 (per-claim audit) | BACKED | none |
+| L11 C2 Model landscape | Open vs closed tradeoff; smallest tier that works; MoE memory vs compute | Anthropic "Choosing a model", Mistral Mixtral post, Hugging Face MoE explainer (per-claim audit); open-vs-closed is uncontroversial | BACKED | none |
+| L11 C3 Token pricing | Cost drivers compound; agent input cost grows about with steps squared; caching helps a lot | Anthropic pricing, caching and batch docs for the facts (per-claim audit); the agent-cost claim rested on our demo alone | OUR DATA ONLY (the agent-cost claim) | E5: add the Manus context-engineering post |
+| L11 C4 Provider rate limits | 429s; exponential backoff with jitter; honor Retry-After | AWS Builders' Library, Anthropic rate-limits doc (per-claim audit) | BACKED | none |
+
+
 Audited 2026-09-30, on branch `citation-audit/module-1`, as a light pass:
 verify what's named, and anchor the practice a learner would question. Two
 read-only subagents did the inventory and verification. Their full reports

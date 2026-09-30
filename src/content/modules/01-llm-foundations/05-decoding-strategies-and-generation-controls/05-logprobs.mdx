@@ -80,10 +80,15 @@ confident or barely edged out a close competitor — that's
 [precisely what made hallucination hard to spot from the text alone, back in Lesson 4](/01-llm-foundations/04-how-llms-generate-text/04-hallucination-as-a-direct-consequence/#not-a-malfunction-the-same-mechanism-landing-on-a-wrong-answer).
 Logprobs give a way to check, after generation, whether a specific claim
 came from a strongly confident distribution or a much closer call — a
-genuinely useful signal for flagging outputs worth double-checking, even
-though this lesson stops short of covering how that signal gets used in
-a real evaluation or confidence-scoring pipeline, which belongs to later
-parts of this course.
+genuinely useful signal for flagging outputs worth double-checking.
+OpenAI's [cookbook on logprobs](https://developers.openai.com/cookbook/examples/using_logprobs)
+shows the pattern: accept outputs above a confidence threshold and
+"send less certain ones for manual review". It also warns that the
+score "measures certainty in the classification, not whether the
+classification is correct", so a threshold needs checking against real
+test cases. This lesson stops short of covering how that signal gets
+used in a real evaluation or confidence-scoring pipeline, which belongs
+to later parts of this course.
 
 </Subsection>
 
