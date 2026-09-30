@@ -5112,9 +5112,18 @@ architecture.md §3.1).
    (3.8x). Read-only, 4 quiz cards, no graded exercise. Callbacks: Lesson
    2's equal-budgets concept and its `#five-options-three-units`, concept 2,
    and Lesson 1's `#how-sure-can-we-be-of-these-numbers` (verified against
-   the built HTML). Snell et al. stays unlinked, as in the mockup. Concepts
-   5 on (the next is about free-text answers) and bookends not yet
-   written.
+   the built HTML). Snell et al. stays unlinked, as in the mockup. Concept
+   5 (free text: when there's nothing to count) is built from Lesson 4's
+   `drafts` run: q27's five drafts (five different answers), universal
+   self-consistency's selection prompt and a `chosen` parser (no model
+   call), and consensus favouring the four drafts' shared `claude-sonnet`
+   mistake (checked by reading the drafts in full). Both demos reproduce
+   the mockup's output exactly in Pyodide 0.26.4; the second preloads the
+   first via `DRAFTS_SETUP`, and they fetch only `drafts.json`. Read-only,
+   4 quiz cards, no graded exercise. Callbacks: Lesson 4 concept 1 and
+   Lesson 3's where-a-check-can-sit concept (page links). All five
+   concepts exist; the bookends (intro, comprehensive quiz and sandbox,
+   recap) are not yet written.
 
 ---
 
