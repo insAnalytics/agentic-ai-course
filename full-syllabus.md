@@ -5391,8 +5391,8 @@ architecture.md §3.1).
    Lesson 8 is now **Locked**: all four concepts plus both bookends exist
    and build cleanly.
 
-9. **Restricting What an Agent Does After Reading** (title provisional) —
-   **Building** (folder `09-restricting-after-reading`). Concept 1
+9. **Guarding What an Agent Does After It Reads** — **Locked** (folder
+   `09-restricting-after-reading`, named before the title existed). Concept 1
    (tracking what the session has read) is built, with no run data: where
    Modules 3, 4 and 5 left the dangerous combination, Meta's Agents Rule of
    Two and Oso's stateful decisions (the session as the unit); a scripted
@@ -5448,7 +5448,26 @@ architecture.md §3.1).
    demo's `email`, so it's preloaded through `setupCode`, since demos don't
    share state. Callback: Lesson 7's dry-run concept (page link); "Module
    10's subject" stays plain text. The mockup marks this as the lesson's
-   last concept; bookends not yet drafted.
+   last concept. Bookends are built: the intro (outcomes, why it matters,
+   which keeps Module 4's "guardrails on what an agent may do with what it
+   recalls: Module 6" promise), a 7-card comprehensive quiz, and a
+   `MultiFileGradedExercise` with `run_calls(calls, guard, approve)` in
+   `run.py` over a read-only `lib.py` (concepts 1 and 2's `SessionGuard`,
+   `decide` and `TOOL_LABELS`, identical to their references, plus stand-in
+   tools); no data files. The mockup's hidden tests are kept as one script,
+   as the multi-file harness runs them; its `fresh()` resets the registry
+   and outbox the Submit run leaves changed. In real Pyodide 0.26.4, run the
+   way the harness does (entry first, then the tests in a fresh namespace),
+   the reference passes and its Submit output matches the mockup exactly,
+   and eight wrong versions each fail (the starter, recording calls that
+   didn't run, running rejected calls, never asking the person, asking about
+   allowed calls, honouring an `approved` argument, a new guard per call,
+   deciding from an empty `touched`). The mockup's "click Run" reads
+   "click Submit", matching the component. The lesson title, provisional
+   until now, is the bookends'.
+
+   Lesson 9 is now **Locked**: all three concepts plus both bookends exist
+   and build cleanly.
 
 ---
 
