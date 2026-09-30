@@ -5414,7 +5414,30 @@ architecture.md §3.1).
    Module 4's memory-poisoning concept (page links), Module 5's
    `#limit-what-the-model-can-do-after-reading` (verified against the
    built HTML). Earlier "Lesson 9" mentions in Lessons 1 and 2 stay plain
-   text. Concepts 2+ and bookends not yet drafted.
+   text. Concept 2 (restricting tools once the session has read) is built,
+   with no run data: allow / approve / deny at the check on the call; a
+   demo of the literal Rule of Two letting `set_model` through after an
+   untrusted email; Willison's objection and the stricter five-row table
+   (deny, not approve, sending out after untrusted + private); never
+   reading arguments; 4 quiz cards; and a graded `decide(tool, arguments,
+   touched, tool_labels)` (`runnable`). The page's reference is the full
+   starter filled in. The demo and the starter's printout reproduce the
+   mockup exactly in Pyodide 0.26.4. Tests split into 5 self-contained
+   tests, each repeating the `check` helper. **Test fix:** the mockup's
+   purity test snapshotted the starter's shared `TOOL_LABELS` sets, which
+   the printout and earlier tests had already passed through `decide`, so
+   a learner adding to the declared sets passed; it now builds its own
+   label dict (architecture.md §4.1). Through the real `TEST_HARNESS` the
+   reference passes all 5 and ten wrong versions each fail (the starter,
+   the literal Rule of Two, honouring `approved`, allowing undeclared tools,
+   denying every act after both, approving the full combination, adding the
+   tool's labels to `touched`, adding to the declared labels, blocking reads
+   after untrusted, gating every act regardless of the session). The
+   starter's stray third blank line was normalized to two. Callbacks:
+   concept 1 and Module 3's separate-reads-from-writes and blast-radius
+   concepts (page links), Lesson 3 concept 1's
+   `#four-points-four-different-views` (verified against the built HTML).
+   Concepts 3+ and bookends not yet drafted.
 
 ---
 

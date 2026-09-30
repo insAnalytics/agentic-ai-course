@@ -2078,6 +2078,17 @@ every test. Test 3 gained a 20-chunk, two-way tie that only a stable sort
 passes. **Takeaway:** any hidden test for "ties keep their order" on a
 numpy ranking needs at least 20 tied elements.
 
+**A "must not mutate" test can't snapshot a starter global (Module 6
+Lesson 9 concept 2, `decide`).** The mockup checked purity by copying
+the starter's `TOOL_LABELS` sets, calling `decide`, and comparing. Each
+test gets a shallow copy of the namespace, so those sets are the same
+objects the starter's own printout and every earlier test already
+passed through `decide`. A learner who mutates them idempotently (e.g.
+`labels.add("checked")`) had already done it before the snapshot, and
+passed. The test now builds its own label dict and calls `decide` on it.
+**Takeaway:** a purity test builds its own fresh mutable inputs; it never
+snapshots shared starter data.
+
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 
 First built for Lesson 0.8 (Docker), once Pyodide's ceiling above stopped
