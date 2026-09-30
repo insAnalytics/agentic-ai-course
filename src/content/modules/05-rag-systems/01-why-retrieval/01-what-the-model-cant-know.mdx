@@ -167,7 +167,15 @@ the row starts with. A real question arrives as words, often not the
 document's words ("why won't the registry let me use the big model?"), and
 the system has to work out which text answers it. That's **retrieval**:
 choosing, for each question, the small part of a corpus worth putting in
-front of the model. The alternative is to skip the choosing and send
+front of the model. Retrieving text and then generating an answer from it
+is called **retrieval-augmented generation**, or **RAG**, a name from
+[Lewis and colleagues (NeurIPS 2020)](https://arxiv.org/abs/2005.11401) at
+Facebook AI Research. Their version trained the search along with the
+model; the name now covers any system that retrieves text for the prompt.
+[OpenAI's accuracy guide](https://developers.openai.com/api/docs/guides/optimizing-llm-accuracy)
+calls for adding context, which is what RAG does, in the cases this page
+listed: knowledge that wasn't in the model's training set, is out of date,
+or is proprietary. The alternative is to skip the choosing and send
 everything. The next concept puts a price on that.
 
 </Subsection>

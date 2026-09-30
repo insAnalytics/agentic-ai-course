@@ -142,7 +142,11 @@ def score_memories(memories: list[dict], relevance: list[float], now: str, weigh
 
 Module 4 said its relevance term would be replaced by search by meaning. The
 obvious change is a one-line swap: similarity between the task and each memory
-instead of shared keywords. Module 4 also left procedures out of this contest,
+instead of shared keywords. It's how
+[Park and colleagues](https://arxiv.org/abs/2304.03442) computed relevance in
+the first place, as cosine similarity between embeddings, with all three
+weights set to 1. Their weights suited their agents' memories; whether they
+suit these is a measurement. Module 4 also left procedures out of this contest,
 since they're always loaded, so ten of the twelve recall tasks have a fact or
 an episode to find.
 
@@ -178,8 +182,8 @@ relevance mostly gives the rest a zero. Recency and importance, unchanged, then
 outvote it.
 
 The general lesson is Module 4's own habit, measure before and after, applied
-to a component swap. The weights were tuned for a relevance term with a
-particular spread. Change the term and the tuning is stale, even though every
+to a component swap. The weights were checked against a relevance term with a
+particular spread. Change the term and that check is stale, even though every
 part of the score is individually better. With ten tasks, 1.5, 2 and 3 all
 score nine; the smallest weight that works keeps recency and importance
 meaningful, so it's the one to choose.

@@ -121,7 +121,14 @@ the other way, since one vector for a long chunk blurs its topics together.
 <Subsection title="Compare at an equal token budget" variant="b">
 
 The fair comparison gives every chunking the same number of tokens to fill
-and asks which one fits the answer into them. `within_budget` wraps any
+and asks which one fits the answer into them. That's how the proposition
+study cited below compared passages, sentences and propositions: "to fairly
+compare different granularity with the same computation budget", it capped
+the retrieved text at 100 or 500 tokens
+([Chen et al., 2023](https://arxiv.org/abs/2312.06648)).
+[LlamaIndex's documentation](https://developers.llamaindex.ai/python/framework/optimizing/basic_strategies/basic_strategies/)
+gives the everyday version: change the chunk size, and you may need to
+change how many results you retrieve. `within_budget` wraps any
 search: it takes results in rank order and stops when the next chunk would
 go over the budget.
 

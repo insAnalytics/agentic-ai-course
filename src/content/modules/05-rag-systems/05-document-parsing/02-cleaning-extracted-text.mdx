@@ -189,10 +189,17 @@ With furniture gone, size and spacing do the rest:
 - **Each page's last paragraph ends with the page,** so text never runs from
   one page's bottom into the next page's header position.
 
+Real converters use the same kind of rules.
+[PyMuPDF4LLM](https://pymupdf.readthedocs.io/en/latest/pymupdf4llm/api.html),
+an open PDF-to-Markdown converter, does when its layout model is switched
+off: it takes the most common font size as body text, maps larger sizes to
+heading levels, and can leave out anything outside set page margins.
+
 The same limits apply as for furniture. Two-column layouts, footnotes, text
 wrapped around a figure, or a document that uses bold body text for headings
 all break these rules in different ways. The last concept in this lesson looks
 at parsers that learn layout from examples instead of following rules.
+PyMuPDF4LLM itself now uses its layout model by default.
 
 </Subsection>
 

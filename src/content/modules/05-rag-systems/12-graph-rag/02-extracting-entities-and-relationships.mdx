@@ -113,7 +113,11 @@ Three choices in that prompt matter:
 - **A fixed list of relations.** A model left to name relationships freely
   writes "calls", "uses", "relies on" and "talks to" for the same thing. A
   small vocabulary keeps the graph queryable, since a question can only follow
-  an edge type it knows exists. It's a choice, not the only one: GraphRAG's own
+  an edge type it knows exists. Graph frameworks offer this directly:
+  LlamaIndex's
+  [`SchemaLLMPathExtractor`](https://developers.llamaindex.ai/python/framework/module_guides/indexing/lpg_index_guide/),
+  for one, holds the model to a fixed schema of allowed entity types and
+  relations. It's a choice, not the only one: GraphRAG's own
   extraction lets the model describe each relationship in its own words, with
   a strength, and summarises those descriptions later. Free descriptions suit
   summarising communities; a fixed list suits following edges of a known type,

@@ -106,6 +106,13 @@ real; they can't say whether it pointed at the right place. What code can do
 is make the dates visible, to a reviewer or to a later check, so an answer
 resting only on the oldest source stands out.
 
+Nor can the model be relied on to notice the conflict itself.
+[WikiContradict](https://proceedings.neurips.cc/paper_files/paper/2024/hash/c63819755591ea972f8570beffca6b1b-Abstract-Datasets_and_Benchmarks_Track.html)
+(Hou and colleagues, NeurIPS 2024) gave models pairs of real Wikipedia
+passages that contradict each other. All five models its authors checked by
+hand struggled to give answers that reflected the conflict, especially when
+spotting it took reasoning.
+
 </Subsection>
 
 <Subsection title="A targeted check for facts that matter" variant="b">
@@ -126,8 +133,11 @@ reading what sources claim and comparing them, which takes a model, and
 that's Module 6's verification work.
 
 One tempting shortcut deserves a warning: boosting newer documents in
-retrieval across the board. It would have helped here, and it's wrong as a
-general rule. Incident reports, postmortems and decision records are old
+retrieval across the board. Search engines make it easy: Azure AI Search,
+for one, has a
+[freshness function](https://learn.microsoft.com/en-us/azure/search/index-add-scoring-profiles)
+that boosts documents by a date field. It would have helped here, but
+applied to every question it's wrong as a general rule. Incident reports, postmortems and decision records are old
 *because* they record the past, and for questions about the past they're the
 right answer. Dates belong in front of whatever makes the judgement, not
 baked into every ranking. Two narrower uses of time hold up: marking a page

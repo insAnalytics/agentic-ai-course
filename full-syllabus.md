@@ -3546,6 +3546,14 @@ text only; no demo or exercise changed. What changed:
   common but costlier (OpenFGA calls it "the most common approach", and
   over-fetching narrows the gap without closing it), with filtering first as
   the default (L13 C1, its quiz, the recap question, and L13 C2's link text).
+- **Concept coverage (second pass):** each concept page and intro was
+  checked as a whole. Of 82 pages, 59 were backed, 15 rested on our data
+  only and 8 had no source for the technique itself. All 23 are now
+  anchored, with 27 prose edits. L1 now names "retrieval-augmented
+  generation", with Lewis et al.'s paper for the term. One decision was
+  flagged and applied as wording only: L8 C3's round-robin merge is labelled
+  as the course's own choice. The table is at the top of
+  `citation-audit/module-5.md`.
 - **Not recorded:** which Claude version wrote the course's model-written
   data (questions, chunk contexts, query variants, graph extraction). No
   record was kept, so the pages and data files say "Claude" without a

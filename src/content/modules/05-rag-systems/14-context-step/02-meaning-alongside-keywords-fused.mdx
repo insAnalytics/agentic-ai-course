@@ -127,9 +127,15 @@ by meaning each catch what the other misses, run both and
 [fuse their rankings](/05-rag-systems/06-hybrid-search/03-fusing-rankings/#reciprocal-rank-fusion)
 with reciprocal rank fusion. Nothing about that is specific to document
 chunks. Tools, memories and anything else with text can be ranked both ways
-and fused, so the same few functions upgrade every matcher in Module 4. They're
-defined once here and already loaded for every demo and exercise from here to
-the end of this lesson:
+and fused, so the same few functions upgrade every matcher in Module 4. Others
+already rank these both ways. Claude's
+[tool search](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool)
+offers a BM25 variant for finding tools, and its docs suggest embeddings for a
+search you build yourself. [Zep](https://arxiv.org/abs/2501.13956), a memory
+store for agents, searches stored facts by meaning and with BM25, and can fuse
+the results with RRF (its paper is a preprint). The functions are defined once
+here and already loaded for every demo and exercise from here to the end of
+this lesson:
 
 ```python
 def text_vectors(texts: list[str]) -> np.ndarray:

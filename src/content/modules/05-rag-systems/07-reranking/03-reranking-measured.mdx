@@ -207,6 +207,14 @@ searches. That's usually a good trade for an agent that sends a few chunks
 to a model call taking seconds, but it's a real addition to every question's
 latency, which is why depth is worth choosing rather than maximising.
 
+It isn't only this corpus's answer.
+[Anthropic's contextual retrieval evaluation](https://www.anthropic.com/news/contextual-retrieval),
+run across several kinds of dataset, found embeddings plus BM25 better than
+embeddings alone, reranking better than none, and the gains adding up. It
+reranked the top 150 and kept 20, and it names the same trade: more
+candidates for accuracy, fewer for latency and cost. Those are a vendor's
+results on its own datasets, with the contextual chunks Lesson 9 covers.
+
 From here on, this module's retrieval is **hybrid search, with the top 30
 reranked**.
 

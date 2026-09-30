@@ -126,7 +126,11 @@ model writes a fluent answer from them.
 So the order for the rest of this module is fixed: every technique is run
 against the same labelled questions, and kept only if the numbers say so.
 When the numbers disagree with a technique's reputation, the lessons say
-so.
+so. It's the order
+[OpenAI's accuracy guide](https://developers.openai.com/api/docs/guides/optimizing-llm-accuracy)
+recommends too: start from "an evaluation set of questions and ground truth
+answers", and treat retrieval as its own thing to optimise, because with the
+wrong context "the model can't possibly answer".
 
 One boundary: this lesson measures **retrieval**, whether the right
 passages come back. Whether the model then writes a good answer from them
