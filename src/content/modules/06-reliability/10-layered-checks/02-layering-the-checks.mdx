@@ -32,6 +32,14 @@ for label, layer_names in pairs.items():
 
 <Subsection title="Where each layer sits" variant="a">
 
+Running several checks at once is standard advice. OpenAI's
+[practical guide to building agents](https://cdn.openai.com/business-guides-and-resources/a-practical-guide-to-building-agents.pdf)
+says to "think of guardrails as a layered defense mechanism", since a
+single one "is unlikely to provide sufficient protection". Its own example
+mixes rules in code with checks that call a model, as this lesson's stack
+does. What the guide doesn't give is a way to tell what each layer is
+worth, which is what the suite is for.
+
 Every layer is a check at one or more of the loop's four points, the ones
 [Lesson 3](/06-reliability/03-checks-in-the-loop/01-where-a-check-can-sit/)
 set out:
@@ -261,8 +269,11 @@ failure and the second refuses an answer that pretends it didn't happen. The
 read-back and the missing-part check pair in the same way for the lost write.
 
 With a real model the first layer often does more on its own, because a
-model that sees an error usually says so. But a layer that relies on the model
-reacting well is a layer with a gap, and the pair closes it.
+model that sees an error usually says so. In the preprint
+[Lesson 3 cited](/06-reliability/03-checks-in-the-loop/02-checking-a-tool-result/#a-success-that-isn-t),
+a tool that reported an error never led to a dishonest answer in the main
+condition, with one model. But a layer that relies on the model reacting
+well is a layer with a gap, and the pair closes it.
 
 </Subsection>
 

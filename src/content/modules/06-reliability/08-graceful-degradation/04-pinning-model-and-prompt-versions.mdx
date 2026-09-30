@@ -176,7 +176,12 @@ The prompt deserves the same care as the model.
 showed a single rewording changing a model's answers, and a system prompt or
 tool description edited in passing is the same kind of change. Keeping
 prompts and tool definitions in version control, and storing a hash of them
-with every run, makes "what did the model see?" answerable later.
+with every run, makes "what did the model see?" answerable later. OpenAI's
+[prompt engineering guide](https://developers.openai.com/api/docs/guides/prompt-engineering)
+recommends both halves of this concept: "pinning your production
+applications to specific model snapshots", and keeping prompts in
+application code, so a change goes through "code review, tests, and your
+normal deployment process".
 
 The same applies at run time with a hosted model: the response names the
 model that answered. Anthropic's Messages API returns it in the response's
