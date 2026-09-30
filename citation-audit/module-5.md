@@ -53,10 +53,13 @@ links were added.
   - Papers: Greshake et al., Ma et al., Nogueira and Cho, MS MARCO, SPLADE,
     ColBERT and Leiden.
 
-## Needs a decision
+## Needs a decision (approved by the owner and applied, 2026-09-30)
 
 1. **Is filtering after ranking wrong, or only worse? (L13 C1, and the
-   recaps.)** The lesson says filtering "has to happen before every stage
+   recaps.)** *Applied:* report D's E1 prose, the two quiz rewordings, and
+   L13 C2's link text ("the filtering afterwards that the first concept
+   found falls short"). The subsection title and its anchor are unchanged,
+   and so is the exercise. The lesson says filtering "has to happen before every stage
    that picks a top k". The course's own demo backs this as a quality
    point: 20 questions come back short. But OpenFGA, the main industry
    source for permission-aware RAG, calls filtering afterwards "the most

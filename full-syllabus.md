@@ -3542,8 +3542,10 @@ text only; no demo or exercise changed. What changed:
 - **Softened:** RRF's k now notes Bruch et al.'s per-list sensitivity;
   "every deployed system", "the usual shape", "most vector stores' default"
   and "a common pattern in production" now say what the source supports.
-- **Held for a decision:** whether filtering after ranking is presented as
-  wrong or only worse (L13 C1 and the recaps; see the audit file).
+- **Approved and applied:** filtering after ranking is now presented as
+  common but costlier (OpenFGA calls it "the most common approach", and
+  over-fetching narrows the gap without closing it), with filtering first as
+  the default (L13 C1, its quiz, the recap question, and L13 C2's link text).
 - **Not recorded:** which Claude version wrote the course's model-written
   data (questions, chunk contexts, query variants, graph extraction). No
   record was kept, so the pages and data files say "Claude" without a
