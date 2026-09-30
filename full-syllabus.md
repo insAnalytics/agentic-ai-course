@@ -6217,6 +6217,23 @@ self-hosting basics, and deployment/cost considerations. Added in response
 to a gap identified when comparing against an outside curriculum that had
 dedicated coverage here.
 
+**To cover here (deferred from the Module 3 citation audit, 2026-09-30):
+MCP authorization.** Module 3 Lesson 5's "Security that comes with the
+network" says only "Require authentication, so a remote server knows who's
+calling". The current MCP spec (2026-07-28, "Authorization") makes
+authorization optional. Servers reached over HTTP that use it follow OAuth
+2.1:
+- an unauthorized request gets a 401 pointing to the server's protected
+  resource metadata;
+- the user approves access in a browser (PKCE);
+- the client sends `Authorization: Bearer <token>` on every request.
+
+Tokens are bound to one server through the `resource` parameter (RFC 8707),
+and a server must reject tokens meant for anyone else. stdio servers
+"SHOULD NOT follow this specification, and instead retrieve credentials
+from the environment". Once this module exists, link it from that Module 3
+bullet.
+
 ---
 
 ## Open items / not yet decided
