@@ -5469,6 +5469,28 @@ architecture.md §3.1).
    Lesson 9 is now **Locked**: all three concepts plus both bookends exist
    and build cleanly.
 
+10. **Putting the Checks Together** (title provisional) — **Building**
+   (folder `10-layered-checks`). Concept 1 (the agent, and what goes wrong
+   without the module) is built, prose, one demo and quiz, no exercise: one
+   agent carrying the whole module, measured on Lesson 2's catches / wrongly
+   blocks / costs; a suite of sixteen scripted scenarios (eight fine, eight
+   harmful), with its two caveats (the scripted model doesn't react to
+   checks; counts describe the suite, not a model); and the no-checks
+   baseline, where every harmful scenario does its harm, mapped to the lesson
+   that addresses each. 4 quiz cards. New shared setup `SCENARIO_SUITE` in
+   `reliabilityData.ts`, loaded after `REACT_FAKE_CLIENT + CHECKED_AGENT` (the
+   mockup's loop is Lesson 3's `CHECKED_AGENT`, confirmed byte-identical),
+   and the page's shown block is exactly the header comment plus those two;
+   both were generated from the mockup, not retyped. The baseline demo
+   reproduces the mockup's 16-line output exactly in Pyodide 0.26.4, run
+   through that real setup. Callbacks (page links, as the mockup names no
+   subsections): Lesson 2 concept 1, Module 5 Lesson 14's retrieval-in-the-
+   context-step concept, Lesson 3 concepts 1 and 2, Lesson 4 concepts 1 and
+   4, Lesson 6 concept 1, Lesson 7 concept 2, Lesson 8 concept 2 and Lesson
+   9 concept 2. The mockup's "after `REACT_FAKE_CLIENT`" note reads "after
+   the scripted client from Module 2" on the page. Concepts 2+ and bookends
+   not yet drafted.
+
 ---
 
 ## Modules 4–11 — current plan
