@@ -23,7 +23,7 @@ one, L8 C4, which is held for the decision below.
 No demo, exercise or test string changed, and no internal links were
 added. `npm run build` passes.
 
-**Needs a decision (1, held).**
+**Needs a decision (1, approved by the owner and applied).**
 - **L8 C4: is Pyodide "often the sweet spot" for an agent's code tool?**
   In the browser, as in this course, NVIDIA's 2024 post backs it.
   Server-side, the industry has moved away:
@@ -35,7 +35,9 @@ added. `npm run build` passes.
 - **Recommendation:** apply report `cc3-B`'s E2. It scopes "sweet spot" to
   the browser, with NVIDIA as the anchor, and says server-side agents usually
   use containers or micro-VMs. What the concept teaches is unchanged: start
-  from no capability, and ask what the host handed in.
+  from no capability, and ask what the host handed in. *Applied* after the owner's approval. The lead re-read Pydantic's
+  archive notice ("those tools were not designed as sandboxes to run
+  untrusted code").
 
 The Status column is the status before the fix. The Action column names
 the edit in each lesson group's report: `cc3-A` for L1–L6 and `cc3-B` for

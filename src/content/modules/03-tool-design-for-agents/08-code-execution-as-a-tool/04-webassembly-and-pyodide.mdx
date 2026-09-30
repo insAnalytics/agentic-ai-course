@@ -103,11 +103,21 @@ free:
   deliberately, which is more work than just letting code do anything,
   and is exactly the point.
 
-For an agent's code-execution tool, this is often the sweet spot: a
-strong boundary, fast enough to start on every call, with the host in
-full control of what crosses it. It's not the only good answer,
-containers and micro-VMs are widely used, but it's a real one, and it's
-the one you've been running on all along.
+Where the Wasm runtime runs matters. In a browser, as here, Pyodide sits
+inside the browser's own sandbox, which was built to run code from
+strangers. NVIDIA
+[describes this design for agents](https://developer.nvidia.com/blog/sandboxing-agentic-ai-workflows-with-webassembly/)
+(2024): send the model's code to the user's browser and run it in
+Pyodide there. On a server, it's different. There Pyodide runs inside a
+JavaScript runtime such as Deno or Node, and its Python can do whatever
+that runtime can, through the same `js` bridge as above. Pydantic
+[retired its Pyodide-based code sandbox](https://github.com/pydantic/mcp-run-python)
+in 2026 for this reason, saying those tools "were not designed as
+sandboxes to run untrusted code". LangChain stopped maintaining its own
+and now recommends sandbox services or the model provider's code
+execution tool. So for an agent running on a server, the usual answer
+is a container or micro-VM. The Wasm lesson still holds either way:
+start from no capability, and ask what the host handed in.
 
 </Subsection>
 

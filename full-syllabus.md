@@ -1633,10 +1633,10 @@ current spec (2026-07-28), and the SDK facts match `mcp` 2.2.0.
   security and deployment module (see its outline below).
 - **Concept coverage (second pass, light):** of 51 pages, 44 were backed,
   1 rested on our data only and 6 lacked a source for the technique. Six
-  prose edits anchor all but one. **Held for a decision:** L8 C4's "Pyodide
-  is often the sweet spot". That holds in the browser, but server-side
-  sandboxes have moved to containers or micro-VMs (Pydantic and LangChain
-  archived their Pyodide sandboxes). The table is at the top of
+  prose edits anchor all but one. **Approved and applied:** L8 C4's "Pyodide
+  is often the sweet spot" is now scoped to the browser (NVIDIA). For agents
+  on a server, it now says the usual answer is a container or micro-VM,
+  since Pydantic and LangChain archived their Pyodide sandboxes. The table is at the top of
   `citation-audit/module-3.md`.
 
 *Working title — the first Module 3 mockup arrived with tool-design
