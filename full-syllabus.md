@@ -1574,6 +1574,10 @@ current spec (2026-07-28), and the SDK facts match `mcp` 2.2.0.
   post, the Amazon Builders' Library, Stripe, GitHub, OWASP LLM01/LLM06
   and SSRF, Invariant Labs, Greshake et al., Microsoft's spotlighting
   preprint).
+- **Added at the owner's request:** one sentence in L9 C4 on respecting
+  robots.txt (RFC 9309), as Anthropic's web fetch and the reference MCP
+  fetch server do. MCP authorization is deferred to the production,
+  security and deployment module (see its outline below).
 
 *Working title — the first Module 3 mockup arrived with tool-design
 content (names/descriptions/parameters as prompts the model reasons

@@ -63,9 +63,14 @@ Pyodide. `npm run build` passes (523 pages). The three changed internal links
 
 ## Not done (content, not sourcing)
 
-- A robots.txt sentence for the web lesson (RFC 9309), and MCP
-  authorization in L7. Neither is claimed anywhere, so both are left to the
-  content owner.
+- **robots.txt, added at the owner's request:** L9 C4 now says
+  well-behaved fetch tools respect a site's robots.txt (RFC 9309). It adds
+  that Anthropic's web fetch tool (its `url_not_allowed` error lists
+  "`robots.txt`") and the reference MCP fetch server (which "will obey a
+  websites robots.txt file if the request came from the model") both do.
+- **MCP authorization, deferred by the owner** to the planned production,
+  security and deployment module. It's recorded in that module's outline in
+  `full-syllabus.md`.
 - L3's "later context and memory module" could now link to Module 4.
 
 ---
