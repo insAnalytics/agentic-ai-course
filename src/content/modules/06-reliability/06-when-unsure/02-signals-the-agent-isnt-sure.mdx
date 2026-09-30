@@ -204,10 +204,14 @@ under 0.9 for a second look would have caught nearly all the mistakes at the
 cost of rechecking some right ones. These are small numbers from two models,
 but the contrast with the answer-line probabilities is large.
 
-The practical rule that follows: read the probability where the decision
-is made. On a one-word classification, such as a verdict, a label or a
-route, the token *is* the decision. On an answer written after reasoning,
-it isn't, and the signal has to come from elsewhere: agreement between
+The practical rule these runs suggest: read the probability where the
+decision is made. On a one-word classification, such as a verdict, a label
+or a route, the token *is* the decision. That's the first use OpenAI's
+[logprobs guide](https://developers.openai.com/cookbook/examples/using_logprobs)
+gives: on a classification, logprobs "provide a probability associated with
+each class prediction, enabling users to set classification or confidence
+thresholds". On an answer written after reasoning, the token isn't the
+decision, and the signal has to come from elsewhere: agreement between
 samples, or a check against sources.
 
 </Subsection>

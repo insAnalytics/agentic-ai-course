@@ -160,8 +160,12 @@ assert r == ["migrated notes_agent", "moved billing_agent"], (
 
 At the end of a run, the agent tells the user what it did: "I've moved
 `research_agent` and notified the team." That report is text the model
-wrote, and like any other text it can be wrong. The failure has a name in
-recent research. Advani's
+wrote, and like any other text it can be wrong. Anthropic's
+[guide to agent evaluations](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)
+draws the same line when grading agents: "A flight-booking agent might say
+'Your flight has been booked' at the end of the transcript, but the outcome
+is whether a reservation exists in the environment's SQL database." The
+failure has a name in recent research. Advani's
 [*From Confident Closing to Silent Failure*](https://arxiv.org/abs/2606.09863)
 (a 2026 preprint accepted to an ICML workshop) calls it **false success**:
 the agent asserts that a task is complete when the environment's actual state

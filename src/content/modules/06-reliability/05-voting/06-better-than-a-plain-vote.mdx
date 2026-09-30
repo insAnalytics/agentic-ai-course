@@ -351,7 +351,7 @@ when a model's most common reply to a question is wrong, more samples only
 make that reply win more reliably.
 
 This concept measures three refinements on the same runs, and adds a fourth
-that matters most for agents:
+aimed at agents:
 
 - **Stop when the samples agree,** and spend the full vote only on the
   questions that are contested.
@@ -517,6 +517,14 @@ proposed calls, and run the winner once.
 
 Two things carry over from answers. What counts as the same call has to be
 decided first, and the same arguments in a different order are the same call.
+Without that, the vote may have nothing to count. Wang, Prasad,
+Stengel-Eskin and Bansal's
+[Soft Self-Consistency](https://arxiv.org/abs/2402.13212) (ACL 2024) voted on
+agents' actions step by step, in tasks such as writing bash commands, and
+found plain voting gave little. With five samples of a bash command, no single
+command had a majority 86% of the time, because the same command can be
+written in different ways. A tool call with named arguments is easier to
+compare, once they're put in a fixed order.
 And a split vote is itself a signal. If the proposals disagree about which
 model to move the agent to, the agent shouldn't pick one. It should look
 the value up or ask, as

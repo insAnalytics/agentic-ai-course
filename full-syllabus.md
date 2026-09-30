@@ -5287,6 +5287,11 @@ exercise changed. What changed:
   ("set it to standard if it's still priority", the dry-run concept's
   compare-and-set applied to the undo); L9 C2 adds Meta's reply to
   Willison, that the second property covers any sensitive system.
+- **Concept coverage (second pass):** each concept page and intro was
+  checked as a whole. Of 56 pages, 42 were backed, 4 rested on our data
+  only and 10 had no source for the technique itself. All 14 are now
+  anchored, with 16 prose edits and no decisions needed. The table is at the
+  top of `citation-audit/module-6.md`.
 
 1. **Why Agents Fail, and What "Reliable" Means** — **Locked** (folder
    `01-per-step-reliability`, named before the title existed). Concept 1 (small errors
