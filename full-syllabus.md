@@ -5329,8 +5329,22 @@ architecture.md §3.1).
    line was normalized to two. Callbacks: Module 2's timeouts-retry and
    Module 3's which-failures-to-retry concepts, Lesson 3 concept 2 and
    Lesson 4 concept 1 (page links); "Module 7's subject" stays plain text.
-   Concepts 2 on (the next is about answering with what's available when
-   one part is missing) and bookends not yet written.
+   Concept 2 (partial answers that say what's missing) is built, with no
+   run data: AWS's graceful-degradation guidance; two scripted answers
+   from the same partial tool results, one inventing an error rate; stale
+   values shown only with their time; and a graded
+   `compose_partial(parts)` (`runnable`). The demo and the starter's
+   printout reproduce the mockup exactly in Pyodide 0.26.4, and the
+   prose's "up to 45%" matches Lesson 3's 45.3%. Tests split into 6
+   self-contained tests, each repeating the parts; through the real
+   `TEST_HARNESS` the reference passes all 6 and five wrong versions each
+   fail (the starter, leaving missing parts unsaid, unlabelled stale
+   values, no all-failed line, only the first missing part, the missing
+   line first). The starter's stray third blank line was normalized to
+   two. Callbacks: Lesson 3 concept 2 and its
+   `#what-a-result-check-looks-for` (verified against the built HTML), and
+   Lesson 7 concept 4. Concepts 3 on (the next is the circuit breaker) and
+   bookends not yet written.
 
 ---
 
