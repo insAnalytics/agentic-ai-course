@@ -716,7 +716,7 @@ they're worth deciding on purpose:
       "Checking in chunks can't find keys at all",
       "The user sees a leaked key before the check fires",
       "Streaming makes every check run twice",
-      "Chunks are too short for any check to be useful"
+      "Chunks are always too short for any check to be useful"
     ],
     "correctIndex": 1,
     "explanation": "Showing text is a side effect. A check that runs after a chunk is on screen can stop the rest, but not undo what was seen, so a check guarding secrets has to run before each chunk is released."
@@ -724,8 +724,8 @@ they're worth deciding on purpose:
   {
     "question": "The classifier guarding an agent's outgoing emails is down. What should the check do?",
     "options": [
-      "Allow the email, since the check didn't object",
-      "Block the email, and log that the check gave no verdict",
+      "Allow the email, since the check didn't object to it",
+      "Block it, and log that the check gave no verdict",
       "Wait for the classifier, however long it takes",
       "Let the model decide whether the email is safe"
     ],

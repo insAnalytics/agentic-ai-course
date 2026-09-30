@@ -545,7 +545,7 @@ in this concept.
   {
     "question": "Voting across four wordings instead of one barely changed the 2B's average accuracy. Why?",
     "options": [
-      "Wordings have no effect on a small model's answers",
+      "Wordings have no real effect on a small model's answers",
       "It fixed lock-ins on some questions and hurt others",
       "Four samples are too few for any vote to matter",
       "The other wordings were written to be ambiguous"
@@ -558,7 +558,7 @@ in this concept.
     "options": [
       "The 2B's samples for e83 were mostly wrong",
       "Its right answer is worked out, not in the sources",
-      "The sources for e83 were never given to the model",
+      "The sources for e83 were never actually given to the model",
       "Checks can't be combined with a vote at all"
     ],
     "correctIndex": 1,
@@ -568,7 +568,7 @@ in this concept.
     "question": "Why can an agent vote on a tool call but not on its effect?",
     "options": [
       "Tool calls are always deterministic, so there's no need",
-      "Sampling a proposal is free; running the call five times isn't",
+      "Proposals are just output; five runs are five changes",
       "Models can't propose the same tool call twice",
       "Votes only work on text answers with a single value"
     ],
@@ -579,9 +579,9 @@ in this concept.
     "question": "The proposals for a set_model call split 3 to 3 between two models at the cap. What should the agent do?",
     "options": [
       "Run the call that was proposed first",
-      "Treat it as undecided: look it up or ask",
+      "Treat it as undecided, then look it up or ask",
       "Run both calls, one after the other",
-      "Keep sampling until one of them wins"
+      "Keep sampling past the cap until one of them wins"
     ],
     "correctIndex": 1,
     "explanation": "A split vote says the model doesn't know which value is right. Acting on either is a guess; the cap exists so the agent stops spending and turns the doubt into a lookup or a question."
