@@ -5009,8 +5009,20 @@ architecture.md §3.1).
    checking-a-tool-result concepts (page links) and
    `#the-loop-with-a-check-at-each-point` (verified against the built
    HTML); "this lesson's first concept" stays plain text, as the mockup
-   doesn't mark it. Concepts 5 on (the next is about false premises) and
-   bookends not yet written.
+   doesn't mark it. Concept 5 (questions built on a false premise) is
+   built from the committed `premises` run and set F: the marker counts
+   (59/238 of 400 false premises rejected, 11/48 true ones), three
+   "answered" replies that did rebut the premise, a 30-reply hand-labelled
+   sample (22 C / 5 I / 3 W, with an assertion that each was counted
+   "answered"), and three true-premise "rejections" (marker used as "no", a
+   real misreading, a cut-off reply quoting the instruction). All four
+   demos reproduce the mockup's output exactly against the committed data;
+   later demos preload the run silently via a `PREMISES_SETUP`. Read-only,
+   5 quiz cards, no graded exercise. Callbacks: Module 1's
+   `#sycophancy-a-real-documented-side-effect`, Lesson 1's
+   `#is-it-the-model-or-the-wording` (verified against the built HTML) and
+   this lesson's concept 2 (page link). Concept 6 (claims with no source to
+   check against) and bookends not yet written.
 
 ---
 

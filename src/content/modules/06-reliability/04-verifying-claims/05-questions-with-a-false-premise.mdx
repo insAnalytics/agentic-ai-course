@@ -1,0 +1,254 @@
+---
+title: "Questions built on a false premise"
+lesson: "04-verifying-claims"
+order: 5
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { LOAD_VERIFICATION } from "../../../../lib/reliabilityData";
+
+export const PREMISES_DATA = ["reliability/set-f.json", "reliability/runs/premises.json"];
+
+export const COUNTS_DEMO = String.raw`from collections import Counter
+
+premise_runs = load_run("premises")["results"]
+questions = {q["id"]: q for q in load_set("set-f")["questions"]}
+print(questions["v36-false"]["question"])
+print(questions["v36-true"]["question"])
+print()
+for premise in ("false", "true"):
+    for prompt in ("allowed", "check_first"):
+        outcomes = Counter(s["outcome"] for r in premise_runs if r["premise"] == premise and r["prompt"] == prompt
+                           for s in r["samples"])
+        print(f"{premise:>5}-premise questions, {prompt:<12} ended on PREMISE: FALSE {outcomes['rejected']:>3} of 400")
+`;
+
+export const PREMISES_SETUP = LOAD_VERIFICATION + String.raw`
+from collections import Counter
+
+premise_runs = load_run("premises")["results"]
+questions = {q["id"]: q for q in load_set("set-f")["questions"]}
+replies = {(r["id"], r["prompt"]): r["samples"] for r in premise_runs}
+`;
+
+export const ANSWERED_DEMO = String.raw`replies = {(r["id"], r["prompt"]): r["samples"] for r in premise_runs}
+for question_id, sample in [("v32-false", 9), ("v21-false", 8), ("v35-false", 9)]:
+    text = replies[(question_id, "allowed")][sample]["text"].strip()
+    print(f"{question_id} (allowed, sample {sample}): ...{text[-260:]}")
+    print()
+`;
+
+export const SAMPLE_DEMO = String.raw`# 30 of the 341 replies that answered a false-premise question under the "allowed" prompt, drawn at random,
+# then labelled by reading each in full: C = said the premise was wrong and answered correctly,
+# I = answered correctly from the true fact without mentioning the premise, W = answered wrongly
+SAMPLED = [("v19", 1), ("v08", 8), ("v24", 7), ("v40", 2), ("v03", 5), ("v04", 8), ("v32", 9), ("v05", 9),
+           ("v21", 8), ("v36", 2), ("v04", 0), ("v31", 0), ("v12", 8), ("v03", 0), ("v05", 5), ("v26", 7),
+           ("v25", 9), ("v04", 6), ("v14", 5), ("v05", 7), ("v34", 6), ("v26", 2), ("v04", 1), ("v35", 3),
+           ("v07", 4), ("v13", 3), ("v39", 1), ("v39", 0), ("v04", 2), ("v35", 9)]
+LABELS = "CWCCCCCCCWWCICIICCCICICCCCCCCC"
+assert all(replies[(f"{item}-false", "allowed")][i]["outcome"] == "answered" for item, i in SAMPLED)
+print(dict(Counter(LABELS)))
+`;
+
+export const TRUE_REJECTED_DEMO = String.raw`for question_id, sample in [("v22-true", 1), ("v38-true", 2), ("v08-true", 1)]:
+    reply = replies[(question_id, "check_first")][sample]
+    print(questions[question_id]["question"])
+    print(f"  finished: {reply['finished']}, ...{reply['text'].strip()[-200:]!r}")
+    print()
+`;
+
+<Subsection title="When the question itself is wrong" variant="a">
+
+Some questions can't be answered as asked. "Since standard-tier agents can
+use `claude-opus`, what do I need to do to move my agent onto it?" assumes
+something the documents contradict. Answering the question as asked means
+agreeing with the mistake; the useful answer says what's wrong first.
+
+Hu et al.'s [FalseQA](https://arxiv.org/abs/2307.02394) (ACL 2023) studied
+these false-premise questions, with examples as plain as "How many eyes
+does the sun have?". They found language models were easily taken in by
+them, and they collected 2,365 such questions, each with an explanation of
+what's wrong with it, which they called a rebuttal. Fine-tuning on a few
+hundred examples taught models to tell these questions apart and to rebut
+them. Newer models handle the plain kind well, the authors of the 2025
+[MultiHoax](https://arxiv.org/abs/2506.00264) benchmark observe, which is why
+research has moved to subtler premises.
+
+An agent's premises are rarely about the sun. They're about the user's own
+systems: a limit, a tier, a date, which only the retrieved sources can
+confirm. And a model that goes along with what the user asserts is
+[the sycophancy Module 1 described](/01-llm-foundations/07-the-training-pipeline/03-preference-training-and-message-roles/#sycophancy-a-real-documented-side-effect).
+
+</Subsection>
+
+<Subsection title="An experiment, and what its counts say" variant="b">
+
+Set F turns each of this lesson's 40 facts into a pair of questions that
+differ only in their premise, one true and one false, with the same sources.
+Qwen3.5-4B answered each 10 times under two prompts. Both said to end with an
+`ANSWER:` line, or instead, if the question assumes something the sources
+contradict, with `PREMISE: FALSE` and the correction. The second also asked it
+to list and check the question's assumptions first. Here's a pair, and how
+often each kind of question ended on `PREMISE: FALSE`:
+
+<LiveDemo client:load dataFiles={PREMISES_DATA} setupCode={LOAD_VERIFICATION} code={COUNTS_DEMO} />
+
+*(Real Qwen3.5-4B replies from the committed run, sorted by the last marker
+in each reply.)*
+
+Read at face value, these counts say the model rejected only 15% of false
+premises when merely allowed to, 60% when asked to check first, and paid
+for it by rejecting 12% of true ones. This page was planned around that
+reading. Reading the replies themselves changed it.
+
+</Subsection>
+
+<Subsection title="What the replies actually say" variant="a">
+
+Here are the endings of three replies to false-premise questions that were
+counted as "answered":
+
+<LiveDemo client:load dataFiles={PREMISES_DATA} setupCode={PREMISES_SETUP} code={ANSWERED_DEMO} />
+
+*(Real replies from the committed run. `premise_runs`, `questions` and
+`Counter` from the demo above are already loaded here.)*
+
+Each one says the premise is wrong, gives the true fact, and then answers
+the question correctly. That's the rebuttal FalseQA asked for. The count
+scored them as failures because they ended on `ANSWER:`, not `PREMISE:
+FALSE`.
+
+To see how typical that is, 30 of the 341 "answered" replies were drawn at
+random and read in full:
+
+<LiveDemo client:load dataFiles={PREMISES_DATA} setupCode={PREMISES_SETUP} code={SAMPLE_DEMO} />
+
+*(The labels are one reader's judgement, written into the code; the
+assertion checks that each sampled reply really was counted as "answered".
+`replies` from the demo above is already loaded here.)*
+
+22 said the premise was wrong and answered correctly, 5 more answered
+correctly from the true fact without mentioning the premise, and 3 answered
+wrongly. Thirty replies can't give a precise rate, but they're enough to
+show what the count was measuring: whether the model *declined* to answer,
+not whether it *noticed* the false premise. With the plain prompt, it
+usually noticed and answered anyway, which is arguably the better response.
+
+The true-premise side has the mirror-image problem:
+
+<LiveDemo client:load dataFiles={PREMISES_DATA} setupCode={PREMISES_SETUP} code={TRUE_REJECTED_DEMO} />
+
+*(Real replies from the committed run.)*
+
+- **The first uses the marker to say "no".** The premise is true, and the
+  answer, that ids can't be reused, is right. The model just put it on the
+  wrong line.
+- **The second is a real mistake.** It confuses maintenance with an outage
+  and rejects a true premise.
+- **The third never finished.** It ran out of tokens while quoting the
+  instruction to itself, and the grader found `PREMISE: FALSE` in the quote.
+
+Reading all 59 true-premise "rejections" gives the same picture. About a
+dozen, by one reader's count, are real misreadings like the second. Four
+are cut-off replies that the grader misread, like the third. Most of the
+rest use the marker to answer "no" or to say the sources don't cover
+something, neither of which is what it was for.
+
+</Subsection>
+
+<Subsection title="What this means for a real agent" variant="b">
+
+Three lessons, in order of how far they reach:
+
+- **A grade built on a format measures the format.** The counts above are
+  accurate counts of which marker each reply ended on, and a poor measure of
+  what they were meant to capture. It's the trap
+  [Lesson 1 warned about](/06-reliability/01-per-step-reliability/04-reliable-across-wordings/#is-it-the-model-or-the-wording):
+  a test that asks something different from what you meant measures the
+  wrong thing, and one of its checks was whether the grader accepts every
+  correct way of giving the answer. Here it didn't. Read a
+  sample of the outputs before trusting any automatic grade, and when the
+  behaviour you care about is a matter of meaning, grade it with a judge
+  you've checked, as in
+  [the second concept](/06-reliability/04-verifying-claims/02-checking-the-checker/).
+- **Don't make the model choose between correcting and answering.** The
+  either/or format pushed a model that wanted to do both into picking one. A
+  format that asks for the assumption check and the answer together, with
+  the correction stated, matches the rebuttal FalseQA describes, and it lets
+  a person see both.
+- **A premise is a claim, so it can be checked like one.** Taking the
+  premise out of the question and running the support check on it against
+  the sources is a natural design. On the built pairs in the second concept,
+  both model judges passed none of the 40 altered claims when given the
+  right chunk. That's encouraging for the checking step, but the hard parts,
+  pulling out the premise and finding the chunk that settles it, weren't
+  tested here.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "Why is a false-premise question a reliability problem for an agent, not just for a chatbot?",
+    "options": [
+      "Because agents can't read questions with conditions in them",
+      "Answering as asked agrees with a mistake about their systems",
+      "Because false premises only ever occur in agent tools",
+      "Because agents always refuse questions they can't verify"
+    ],
+    "correctIndex": 1,
+    "explanation": "An agent's premises are about limits, tiers and dates that only its sources can confirm. Going along with a wrong one gives an answer built on it, which is the kind of agreement with the user Module 1 called sycophancy."
+  },
+  {
+    "question": "The count said Qwen3.5-4B rejected 59 of 400 false premises under the plain prompt. What did reading a sample of the \"answered\" replies show?",
+    "options": [
+      "Most went along with the false premise and answered it",
+      "Most said the premise was wrong, then answered correctly",
+      "Most were cut off before they reached an answer",
+      "Most repeated the question back without answering"
+    ],
+    "correctIndex": 1,
+    "explanation": "22 of 30 sampled replies corrected the premise and answered correctly. They were scored as failures only because they ended on ANSWER: rather than PREMISE: FALSE."
+  },
+  {
+    "question": "What did the marker-based count actually measure?",
+    "options": [
+      "Whether the model noticed the false premise at all",
+      "Whether the model's last line declined to answer",
+      "Whether the model's final answer was correct",
+      "How many assumptions the model listed and checked"
+    ],
+    "correctIndex": 1,
+    "explanation": "A count built on which marker a reply ends with measures the marker. Noticing a false premise is a matter of meaning, which needs a judge that's been checked, or a person reading."
+  },
+  {
+    "question": "A true-premise question was counted as rejected because an unfinished reply quoted the instruction \"PREMISE: FALSE\" to itself. Whose mistake is that?",
+    "options": [
+      "The model's, for mentioning the marker while thinking",
+      "The grader's, for reading a quote as an answer",
+      "The question's, for being built on a premise at all",
+      "Nobody's, since the count of markers is still accurate"
+    ],
+    "correctIndex": 1,
+    "explanation": "The grader took the last occurrence of the marker anywhere in the text. A reply that ran out of tokens while quoting its instructions gave no answer at all, and the grader counted it as a rejection."
+  },
+  {
+    "question": "Why check a premise with the support check from earlier in the lesson?",
+    "options": [
+      "Because a premise the user asserts is itself a claim",
+      "Because the support check is cheaper than answering",
+      "Because premises never appear anywhere in the sources",
+      "Because the support check rewrites the question for you"
+    ],
+    "correctIndex": 0,
+    "explanation": "\"Since standard-tier agents can use claude-opus\" is a claim like any other. Checked against the right source, it fails, and the agent can say so before answering. Extracting the premise and finding that source are the harder parts."
+  }
+]}
+/>
+
+</CheckpointZone>
