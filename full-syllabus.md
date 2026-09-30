@@ -5144,7 +5144,7 @@ architecture.md §3.1).
    Lesson 5 is now **Locked**: all five concepts plus both bookends exist
    and build cleanly.
 
-6. **When the Agent Isn't Sure** (title provisional) — **Building**
+6. **Stop, Ask, or Escalate** — **Locked**
    (folder `06-when-unsure`). Concept 1 (asking before acting) is built,
    with no run data: Wang et al.'s Learning to Ask (agents make up missing
    arguments) and the 2026 Asking What Matters preprint (more questions
@@ -5214,8 +5214,24 @@ architecture.md §3.1).
    written, crashing on no answer line, keeping a third value). The
    starter's stray third blank line was normalized to two. Callbacks:
    Module 1's `#sycophancy-a-real-documented-side-effect` and Lesson 4
-   concept 5. All four concepts exist; the bookends (intro, comprehensive
-   quiz and sandbox, recap) are not yet written.
+   concept 5. Bookends are built: the intro (outcomes, why it matters), a
+   7-card comprehensive quiz, and a `MultiFileGradedExercise` with
+   `next_step(case, min_agreement)` in `policy.py` (with `run_policy`
+   given) over a read-only `lib.py` (the loaders and grading functions,
+   identical to `grading.py`, and `majority_answer`, identical to Lesson
+   5's), with `dataFiles={reliabilityData("plain.smaller", "plain")}`. In
+   real Pyodide 0.26.4 the reference passes the hidden tests and its Submit
+   output matches the mockup (unanimous-only: 263 answered by the 2B, 67 by
+   the 4B, 6 stopped, 329 of 330 right), and eight wrong versions each fail
+   (the starter, `not verified` for `is False`, look_up before ask, no
+   confirm, stopping a risky case, `<=` for `<`, judging confidence before
+   what's missing, never stopping). The `verified=None` assertion was
+   moved first so treating None as a failed check gets its own message,
+   and the starter's stray third blank line was normalized to two. The
+   lesson title, provisional until now, is the bookends'.
+
+   Lesson 6 is now **Locked**: all four concepts plus both bookends exist
+   and build cleanly.
 
 ---
 
