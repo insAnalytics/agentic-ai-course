@@ -40,7 +40,8 @@ the browser; the agent's tools wrap it.
 
 The interesting design question is what the model gets back after each
 action, because a rendered page is not text. The widely used approach,
-and the default in Microsoft's Playwright MCP server, is an
+and the default in Microsoft's
+[Playwright MCP server](https://github.com/microsoft/playwright-mcp), is an
 **accessibility snapshot**: a structured outline of the page built from
 the same information screen readers use. Each meaningful element appears
 with its role, its label, and a short reference the model can use in its
@@ -57,13 +58,17 @@ next action:
 *(Illustrative: the shape of an accessibility snapshot, simplified.)*
 
 To try a name, the model calls something like
-`browser_type(ref="e7", text="triage_agent")` and then
-`browser_click(ref="e8")`, and gets a fresh snapshot showing the result.
+`browser_type(target="e7", text="triage_agent")` and then
+`browser_click(target="e8")`, and gets a fresh snapshot showing the result.
 The snapshot is compact, like the extracted text from the previous
 concept, but it keeps what an action needs: which things on the page can
 be clicked or typed into, and what they're called. And because the model
 refers to elements by reference rather than by position, its actions are
-precise.
+precise. Anthropic's API offers a
+[browser use tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/browser-use-tool)
+built the same way: your application runs the browser, and Claude reads
+the page's accessibility tree and acts on its element references, with
+screenshots as a fallback.
 
 </Subsection>
 

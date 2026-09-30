@@ -1558,6 +1558,27 @@ Langfuse Observability" — these three moved to Modules 3 and 4 below.)*
 
 ## Module 3 — Tool Design for Agents
 
+**Citation audit (2026-09-30).** A light pass; the full per-claim tables
+are in [citation-audit/module-3.md](citation-audit/module-3.md). Prose and
+quiz text only; no demo or exercise changed. The MCP facts match the
+current spec (2026-07-28), and the SDK facts match `mcp` 2.2.0.
+- **Corrected:** Anthropic's parallel tool-use docs no longer say dependent
+  calls come in a later turn; a `tool_result` can hold more than text;
+  Playwright MCP's `target`; not every fetch tool blocks private
+  addresses; Pydantic's `allOf` note is 2.7 only; the SDK also retries 409;
+  a server crash is classified consistently across L5 and L6.
+- **Replaced paraphrases with real quotes:** Saltzer and Schroeder (1975),
+  and Python's own docs on `__builtins__`.
+- **Added:** the spec's `resultType` back-compat rule (one sentence); and
+  industry anchors (Anthropic's tool and error docs and its tool-writing
+  post, the Amazon Builders' Library, Stripe, GitHub, OWASP LLM01/LLM06
+  and SSRF, Invariant Labs, Greshake et al., Microsoft's spotlighting
+  preprint).
+- **Added at the owner's request:** one sentence in L9 C4 on respecting
+  robots.txt (RFC 9309), as Anthropic's web fetch and the reference MCP
+  fetch server do. MCP authorization is deferred to the production,
+  security and deployment module (see its outline below).
+
 *Working title — the first Module 3 mockup arrived with tool-design
 content (names/descriptions/parameters as prompts the model reasons
 over), not the "Agent Frontends" rough outline previously logged here;
@@ -6306,6 +6327,23 @@ Guardrails and red-teaming, a compliance-awareness lesson, fine-tuning and
 self-hosting basics, and deployment/cost considerations. Added in response
 to a gap identified when comparing against an outside curriculum that had
 dedicated coverage here.
+
+**To cover here (deferred from the Module 3 citation audit, 2026-09-30):
+MCP authorization.** Module 3 Lesson 5's "Security that comes with the
+network" says only "Require authentication, so a remote server knows who's
+calling". The current MCP spec (2026-07-28, "Authorization") makes
+authorization optional. Servers reached over HTTP that use it follow OAuth
+2.1:
+- an unauthorized request gets a 401 pointing to the server's protected
+  resource metadata;
+- the user approves access in a browser (PKCE);
+- the client sends `Authorization: Bearer <token>` on every request.
+
+Tokens are bound to one server through the `resource` parameter (RFC 8707),
+and a server must reject tokens meant for anyone else. stdio servers
+"SHOULD NOT follow this specification, and instead retrieve credentials
+from the environment". Once this module exists, link it from that Module 3
+bullet.
 
 ---
 

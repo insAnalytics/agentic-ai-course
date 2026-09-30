@@ -151,7 +151,8 @@ block of definitions resent on every step.
 
 These toy definitions are short, about 90 tokens each. Real ones are
 much longer, with detailed descriptions, many parameters and nested
-schemas. Anthropic's documentation gives a real example: a typical setup
+schemas. [Anthropic's documentation](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool)
+gives a real example: a typical setup
 of five servers, such as GitHub, Slack, Sentry, Grafana and Splunk, uses
 around 55,000 tokens of tool definitions before the model has done any
 work at all.
@@ -163,7 +164,8 @@ and caching does nothing for the second problem.
 **Worse choices.** The more tools a model sees, the more likely it is to
 pick the wrong one. Anthropic's documentation puts the threshold
 plainly: Claude's ability to pick the right tool degrades once it has
-more than about 30 to 50 tools available. Anthropic's engineering team
+more than about 30 to 50 tools available.
+[Anthropic's engineering team](https://www.anthropic.com/engineering/advanced-tool-use)
 reports that the most common failures are choosing the wrong tool and
 passing incorrect parameters, especially when tools have similar names.
 The demo's catalog has five `get_status` tools; a real multi-server

@@ -64,10 +64,16 @@ interpreter has loaded, some of which can run shell commands. This is a
 single, well-known example, and the point isn't the specific trick. It's
 the general fact underneath it: **hiding names is not the same as
 removing capability.** The code runs with all the power of the process it
-runs in, and no amount of cleaning the namespace changes that. Libraries
-exist that harden this approach much further, but the security
-community's consistent verdict is that in-process restriction of a full
-language is the wrong foundation to bet safety on.
+runs in, and no amount of cleaning the namespace changes that. Python's
+own documentation says so:
+[overriding `__builtins__`](https://docs.python.org/3/library/functions.html#eval)
+"is not a security mechanism: the executed code can still access all
+builtins." Libraries exist that harden this approach much further, but
+even the best known,
+[RestrictedPython](https://restrictedpython.readthedocs.io/en/latest/),
+describes itself as "not a sandbox system or a secured environment".
+In-process restriction of a full language is the wrong foundation to bet
+safety on.
 
 There's a plainer way to see it: the interpreter running the untrusted
 code is the same interpreter running your agent. They share one process,

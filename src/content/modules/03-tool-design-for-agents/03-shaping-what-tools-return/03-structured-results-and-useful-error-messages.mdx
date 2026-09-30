@@ -56,7 +56,8 @@ for a subtle misreading to creep in.
 
 A `tool_result`'s content is text —
 [the same message format from Module 2's hand-written loop](/02-the-agent-loop/04-writing-the-loop-by-hand/02-from-round-trip-to-loop/#the-actual-loop-written-and-running-for-real)
-— so "structured" here means structured *text*: JSON, produced with
+(the Claude API also accepts images and documents there, but data comes
+back as text) — so "structured" here means structured *text*: JSON, produced with
 [`json.dumps`, from Module 0](/00-python-essentials/06-files-errors-and-validation/02-working-with-json/#json-loads-json-dumps-the-string-versions).
 
 <LiveDemo client:load code={`import json
@@ -90,6 +91,13 @@ object spread, `{agentName, ...info}`.
 *relay* to a user — a short summary, a confirmation message — doesn't
 need JSON. Structure earns its place when the model needs to *act on*
 specific fields, not just read them out.
+
+JSON isn't the only way to label fields.
+[Anthropic reports](https://www.anthropic.com/engineering/writing-tools-for-agents)
+that even a tool response's format, "XML, JSON, or Markdown", can change
+how well an agent does, and that "there is no one-size-fits-all
+solution." Labeled fields are the point. Which format carries them best
+is worth testing on your own agent.
 
 </Subsection>
 
@@ -130,7 +138,10 @@ else — its most likely next move is to retry the exact same call, which
 [Module 2's repeated-action detection](/02-the-agent-loop/06-termination-failure-and-control/03-repeated-action-detection/#a-sharper-signal-than-too-many-steps)
 would then have to catch. The better message names what failed, shows
 real valid options, and points at the likely cause (casing) — giving the
-model an obvious, correct next call to make. `[:5]` caps the list of
+model an obvious, correct next call to make. It's the same advice as
+[Anthropic's guide to writing tools](https://www.anthropic.com/engineering/writing-tools-for-agents):
+error responses should "clearly communicate specific and actionable
+improvements, rather than opaque error codes or tracebacks." `[:5]` caps the list of
 names,
 [the same result-size discipline from truncation and pagination](/03-tool-design-for-agents/03-shaping-what-tools-return/02-truncation-and-pagination/#the-fix-for-a-result-that-could-be-huge-cap-it-and-say-so),
 applied to an error message: a helpful error for a 5,000-agent registry

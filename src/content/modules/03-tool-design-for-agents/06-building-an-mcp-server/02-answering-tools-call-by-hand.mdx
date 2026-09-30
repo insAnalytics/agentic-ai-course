@@ -205,6 +205,11 @@ explicitly as tool execution errors, for exactly the reason in the
 table: the model wrote those arguments, and a clear message like
 "agent_name: Field required" lets it fix them on the next call.
 
+The crash row is a judgment call. The spec lists "server errors" as
+protocol errors, but doesn't single out a bug inside one tool. The
+official Python SDK reports that case as a tool error with a generic
+message, and this server does the same.
+
 </Subsection>
 
 <Subsection title="Raise, don't return" variant="b">

@@ -95,11 +95,13 @@ lookups, that cost nothing. Now that tools call the outside world, each
 one can take hundreds of milliseconds, and the waits add up.
 
 The model is telling you something useful when it puts several calls in
-one response. Anthropic's tool-use documentation spells it out: tool
-calls in a single turn are unordered, you can run them concurrently,
-sequentially or in any order, and when one call needs another's result,
-Claude asks for it in a later turn instead. Calls in the same response
-are meant to be independent.
+one response: they're usually independent.
+[Anthropic's parallel tool use documentation](https://platform.claude.com/docs/en/agents-and-tools/tool-use/parallel-tool-use)
+says the API "doesn't prescribe an execution order". You can run the
+calls concurrently, one after another, or a mix. Its advice is to choose
+by what the tools do: "Independent, read-only operations are usually
+safe to run in parallel for lower latency", while tools with side
+effects or ordering needs "might be better run sequentially."
 
 </Subsection>
 
@@ -328,20 +330,24 @@ design points hide in `run_one`:
 
 <Subsection title="When calls in one batch aren't really independent" variant="b">
 
-Calls in one response are meant to be independent, but a model can
+Calls in one response are usually independent, but a model can
 occasionally batch two that aren't, for example creating an agent and
 updating that same agent in one turn. Run concurrently, the update can
 arrive first and fail because the agent doesn't exist yet.
 
-You don't need to detect this ahead of time. Anthropic's guidance is to
-dispatch the whole batch and return the failed call's natural error with
+You don't need to detect this ahead of time. For a batch run in
+parallel,
+[Anthropic's guidance](https://platform.claude.com/docs/en/agents-and-tools/tool-use/parallel-tool-use)
+is to return the failed call's natural error with
 `is_error: true`. The model sees that the update failed because its
 prerequisite wasn't there, and asks for it again in the next turn, after
 the create has completed. The concurrent loop above already handles this
 correctly, because a failure is just another observation. If a particular
 agent genuinely must never run two calls at once, the Claude API can turn
 off parallel tool calls entirely with `disable_parallel_tool_use` in
-`tool_choice`, at the cost of one tool call per turn.
+`tool_choice`, at the cost of one tool call per turn. The same page
+suggests a lighter fix first: add "Only batch tool calls that are
+independent of each other." to the system prompt.
 
 </Subsection>
 
@@ -408,7 +414,7 @@ off parallel tool calls entirely with `disable_parallel_tool_use` in
       ],
       correctIndex: 2,
       explanation:
-        "Calls in one turn are meant to be independent, and when they occasionally aren't, the error observation is enough for the model to recover. Turning parallelism off entirely is possible, but costs a turn per call.",
+        "Calls in one turn are usually independent, and when they occasionally aren't, the error observation is enough for the model to recover. Turning parallelism off entirely is possible, but costs a turn per call.",
     },
   ]}
 />

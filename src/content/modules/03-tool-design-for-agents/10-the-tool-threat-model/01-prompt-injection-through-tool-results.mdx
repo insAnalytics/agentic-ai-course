@@ -62,9 +62,11 @@ print("after: ", REGISTRY)
 ended on a page containing a line written for AI assistants. That's an
 example of **prompt injection**: text that arrives in a model's context
 from somewhere other than the person it's working for, written to change
-what the model does. The term was coined by Simon Willison, who named it
-after SQL injection on purpose: the underlying flaw is the same, mixing
-trusted instructions and untrusted content in one place.
+what the model does. The term was
+[coined by Simon Willison](https://simonwillison.net/2022/Sep/12/prompt-injection/)
+in 2022, who named it after SQL injection on purpose: the underlying
+flaw is the same, mixing trusted instructions and untrusted content in
+one place.
 
 It helps to separate two kinds:
 
@@ -80,6 +82,10 @@ It helps to separate two kinds:
 Indirect injection is the one that matters for agents, because agents read
 things constantly, and every tool that brings in outside text is a way for
 a stranger's words to reach the model.
+[Greshake et al.](https://arxiv.org/abs/2302.12173) (AISec 2023) showed
+indirect injection working against real LLM-integrated apps, and prompt
+injection is the first risk on the
+[OWASP Top 10 for LLM applications](https://genai.owasp.org/llmrisk/llm01-prompt-injection/).
 
 </Subsection>
 

@@ -103,13 +103,15 @@ assert r["vulnerable"] is False and not any(r["legs"].values())`,
 
 <Subsection title="One injected instruction needs somewhere to send the data" variant="a">
 
-[Concept 1's injection](/03-tool-design-for-agents/10-the-tool-threat-model/01-prompt-injection-through-tool-results/#one-injected-instruction-one-real-action)
+[The ticket injection earlier in this lesson](/03-tool-design-for-agents/10-the-tool-threat-model/01-prompt-injection-through-tool-results/#one-injected-instruction-one-real-action)
 changed a value in a registry. Bad, but contained: the damage stayed
 inside the system, and an admin could undo it. The worst outcome, private
 data leaving to a stranger, needs the agent to be able to *send*
 something out. Line up the pieces and a shape appears.
 
-Simon Willison named it the **lethal trifecta**: an agent is exposed to
+Simon Willison named it the
+[**lethal trifecta**](https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/):
+an agent is exposed to
 data theft when it combines three capabilities.
 
 - **Access to private data.** Your emails, customer records, source code,
