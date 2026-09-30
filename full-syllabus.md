@@ -5249,8 +5249,23 @@ architecture.md §3.1).
    third blank line was normalized to two. Callbacks: Module 3's
    separate-reads-from-writes concept, its
    `#retrying-a-write-can-do-it-twice` (verified against the built HTML),
-   and its validate-and-return-failures concept. Concepts 2 on (the next
-   checks after the action that it took effect) and bookends not yet
+   and its validate-and-return-failures concept. Concept 2 (reading the
+   result back) is built, with no run data: why an "ok" isn't proof
+   (DynamoDB's eventually consistent reads, lost replies, silent
+   failures); a `Registry` stand-in that applies writes one step late, and
+   a subclass whose write lands but whose reply times out; the three
+   read-back states; and a graded `confirm(plan, current)` (`runnable`).
+   Both demos (the second preloads the first) and the starter's printout
+   reproduce the mockup exactly in Pyodide 0.26.4. Tests split into 4
+   self-contained tests, each repeating the `change` helper; through the
+   real `TEST_HARNESS` the reference passes all 4 and six wrong versions
+   each fail (the starter, crashing on a missing agent, always reading
+   `model`, unsorted lists, only two outcomes, a missing agent as not
+   applied). The starter's stray third blank line was normalized to two.
+   Callbacks: Module 3's `#retrying-a-write-can-do-it-twice`, Lesson 3's
+   checking-a-tool-result concept, and Module 2's goal-state and
+   timeouts-retry concepts (page links). Concepts 3 on (the next is about
+   undoing earlier steps when a later one fails) and bookends not yet
    written.
 
 ---

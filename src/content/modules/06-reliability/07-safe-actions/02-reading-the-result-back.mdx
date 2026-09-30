@@ -1,0 +1,280 @@
+---
+title: "Reading the result back"
+lesson: "07-safe-actions"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+export const DELAYED_DEMO = String.raw`class Registry:
+    """A stand-in for a registry whose writes are acknowledged at once but applied a moment later,
+    and whose reads may lag behind them: the behaviour of an eventually consistent store."""
+
+    def __init__(self, records: dict):
+        self.records = {name: dict(record) for name, record in records.items()}
+        self.pending = []
+
+    def set_model(self, agent: str, model: str) -> dict:
+        self.pending.append((agent, model))
+        return {"status": "ok", "agent": agent, "model": model}
+
+    def settle(self) -> None:
+        for agent, model in self.pending:
+            self.records[agent]["model"] = model
+        self.pending.clear()
+
+    def get_model(self, agent: str) -> str:
+        return self.records[agent]["model"]
+
+
+registry = Registry({"research_agent": {"model": "claude-legacy"}})
+reply = registry.set_model("research_agent", "claude-sonnet")
+print("the write's reply:", reply)
+print("read back straight away:", registry.get_model("research_agent"))
+registry.settle()
+print("read back a moment later:", registry.get_model("research_agent"))
+`;
+
+export const TIMEOUT_DEMO = String.raw`class TimingOutRegistry(Registry):
+    """The write goes through, but the reply is lost on the way back."""
+
+    def set_model(self, agent: str, model: str) -> dict:
+        self.records[agent]["model"] = model
+        raise TimeoutError("no reply from registry-api within 5 seconds")
+
+
+registry = TimingOutRegistry({"research_agent": {"model": "claude-legacy"}})
+try:
+    registry.set_model("research_agent", "claude-sonnet")
+except TimeoutError as error:
+    print("the call failed:", error)
+print("but reading back shows:", registry.get_model("research_agent"))
+`;
+
+export const STARTER = String.raw`def confirm(plan: list[dict], current: dict) -> dict:
+    """Compare each planned change with the state read back afterwards. current maps each agent to its
+    record as read now; an agent missing from it is treated as changed by someone else."""
+    ...
+
+
+plan = [{"agent": "research_agent", "field": "model", "before": "claude-legacy", "after": "claude-sonnet"},
+        {"agent": "notes_agent", "field": "model", "before": "claude-legacy", "after": "claude-haiku"}]
+print(confirm(plan, {"research_agent": {"model": "claude-sonnet"}, "notes_agent": {"model": "claude-legacy"}}))
+`;
+
+export const REFERENCE = String.raw`def confirm(plan: list[dict], current: dict) -> dict:
+    """Compare each planned change with the state read back afterwards. current maps each agent to its
+    record as read now; an agent missing from it is treated as changed by someone else."""
+    result = {"applied": [], "not_applied": [], "overwritten": []}
+    for change in plan:
+        now = current.get(change["agent"], {}).get(change["field"])
+        if now == change["after"]:
+            result["applied"].append(change["agent"])
+        elif now == change["before"]:
+            result["not_applied"].append(change["agent"])
+        else:
+            result["overwritten"].append(change["agent"])
+    return {key: sorted(agents) for key, agents in result.items()}
+
+
+plan = [{"agent": "research_agent", "field": "model", "before": "claude-legacy", "after": "claude-sonnet"},
+        {"agent": "notes_agent", "field": "model", "before": "claude-legacy", "after": "claude-haiku"}]
+print(confirm(plan, {"research_agent": {"model": "claude-sonnet"}, "notes_agent": {"model": "claude-legacy"}}))
+`;
+
+export const TESTS = [
+// each hidden test runs in its own copy of the learner's namespace, so every test repeats the helper it uses
+String.raw`def change(agent, before="claude-legacy", after="claude-sonnet", field="model"):
+    return {"agent": agent, "field": field, "before": before, "after": after}
+
+
+plan = [change("research_agent"), change("notes_agent", after="claude-haiku"), change("billing_agent")]
+current = {"research_agent": {"model": "claude-sonnet"}, "notes_agent": {"model": "claude-legacy"},
+           "billing_agent": {"model": "claude-opus"}}
+r = confirm(plan, current)
+assert isinstance(r, dict) and set(r) == {"applied", "not_applied", "overwritten"}, (
+    "return applied, not_applied and overwritten")
+assert r["applied"] == ["research_agent"], f"applied {r['applied']}: research_agent now holds the planned value"
+assert r["not_applied"] == ["notes_agent"], f"not_applied {r['not_applied']}: notes_agent still holds its old value"
+assert r["overwritten"] == ["billing_agent"], (
+    f"overwritten {r['overwritten']}: billing_agent holds neither the old nor the planned value; someone else changed it")
+`,
+String.raw`def change(agent, before="claude-legacy", after="claude-sonnet", field="model"):
+    return {"agent": agent, "field": field, "before": before, "after": after}
+
+
+try:
+    r = confirm([change("gone_agent")], {})
+except KeyError:
+    raise AssertionError("confirm raised KeyError for an agent missing from the read-back: count it as overwritten, "
+                         "don't crash") from None
+assert r == {"applied": [], "not_applied": [], "overwritten": ["gone_agent"]}, (
+    f"got {r}: an agent that's no longer there can't be confirmed; count it as overwritten, don't crash")
+`,
+String.raw`def change(agent, before="claude-legacy", after="claude-sonnet", field="model"):
+    return {"agent": agent, "field": field, "before": before, "after": after}
+
+
+r = confirm([change("x_agent", field="tier", before="standard", after="priority")],
+            {"x_agent": {"tier": "priority", "model": "claude-legacy"}})
+assert r["applied"] == ["x_agent"], f"got {r}: compare the planned field, here tier, not always model"
+`,
+String.raw`def change(agent, before="claude-legacy", after="claude-sonnet", field="model"):
+    return {"agent": agent, "field": field, "before": before, "after": after}
+
+
+r = confirm([change(name) for name in ("c_agent", "a_agent", "b_agent")],
+            {name: {"model": "claude-sonnet"} for name in ("a_agent", "b_agent", "c_agent")})
+assert r["applied"] == ["a_agent", "b_agent", "c_agent"], f"applied {r['applied']}: sort each list"
+assert confirm([], {}) == {"applied": [], "not_applied": [], "overwritten": []}, "no plan: three empty lists"
+`,
+];
+
+<Subsection title="A reply isn't proof" variant="a">
+
+When a write tool replies "ok", it's tempting to count the action as done.
+The reply says what the service claims, and several ordinary things can make
+that claim differ from what actually happened:
+
+- **The write is accepted but applied later.** Many stores acknowledge a
+  write before every copy of the data reflects it. Amazon DynamoDB's
+  [documentation on read consistency](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.ReadConsistency.html)
+  says its default reads may not reflect a recently completed write, and that
+  repeating the read after a short time should return the latest data.
+- **The reply is lost, not the write.** A timeout says no reply arrived, not
+  that nothing happened, the point
+  [Module 3 made](/03-tool-design-for-agents/04-tools-that-call-the-outside-world/02-which-failures-to-retry-and-how/#retrying-a-write-can-do-it-twice)
+  about retrying writes.
+- **The tool fails silently.** It reports success and did something else, or
+  nothing: the silent failures
+  [Lesson 3 checked results for](/06-reliability/03-checks-in-the-loop/02-checking-a-tool-result/).
+
+The fix is the one
+[Module 2's goal-state check](/02-the-agent-loop/06-termination-failure-and-control/04-goal-state-termination-checks/)
+used to decide when a task was done: look at the real state. Here it's
+applied to each action that matters: after the write, read the record back
+and compare it with what the write was meant to produce.
+
+</Subsection>
+
+<Subsection title={'An "ok" that hasn\'t happened yet'} variant="b">
+
+<LiveDemo client:load code={DELAYED_DEMO} />
+
+*(An in-memory stand-in that applies writes one step late.)*
+
+An agent that reported success on the reply alone would have been right
+here only by luck of timing. A read straight after the write shows the old
+value, so the read-back needs to allow for delay: read again a few times, a
+short wait apart, and give up after a limit, which is
+[Module 2's retry with backoff](/02-the-agent-loop/06-termination-failure-and-control/06-timeouts-retry-and-graceful-give-up/)
+applied to reads. Where the store offers it, a strongly consistent read,
+such as DynamoDB's `ConsistentRead` option, removes the wait, at a higher cost
+per read.
+
+</Subsection>
+
+<Subsection title="A failure that has already happened" variant="a">
+
+The opposite case is just as common:
+
+<LiveDemo client:load setupCode={DELAYED_DEMO} code={TIMEOUT_DEMO} />
+
+*(`Registry` from the demo above is already loaded here.)*
+
+The call raised an error, and the change was made anyway. An agent that
+trusted the error would retry, and for a write without an idempotency key,
+that's the double write Module 3 warned about. Reading back first shows
+there's nothing to retry. So a read-back is useful on both sides: it catches
+a success that isn't one, and a failure that isn't one either.
+
+</Subsection>
+
+<Subsection title="Comparing what was planned with what's there" variant="b">
+
+With a plan from the previous concept's dry run, the read-back has something
+precise to compare with: for each change, the value before and the value
+it should now hold. Each record read back is in one of three states:
+
+- **Applied:** it holds the planned value.
+- **Not applied:** it still holds the old value. Wait and read again, or
+  retry if the write is safe to repeat.
+- **Changed by someone else:** it holds neither. Something else wrote to
+  it, and the agent shouldn't overwrite that without checking, as with the
+  stale plan in the previous concept.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "A write tool replies {\"status\": \"ok\"}. Why read the record back?",
+    "options": [
+      "Because replies from write tools are usually malformed",
+      "It may land later, or not at all, whatever the reply says",
+      "Because reads always cost less than writes do",
+      "Because the model can't read a tool's replies"
+    ],
+    "correctIndex": 1,
+    "explanation": "The reply reports what the service claims. Delayed writes, silent failures and partial updates all produce an \"ok\" that doesn't match the state. Only the state can confirm it."
+  },
+  {
+    "question": "A write call times out. Reading back shows the new value. What should the agent do?",
+    "options": [
+      "Retry the write, since the call itself failed",
+      "Treat the write as done, and don't retry it",
+      "Report the action to the user as failed",
+      "Undo the change and then try it again"
+    ],
+    "correctIndex": 1,
+    "explanation": "A timeout means the reply was lost, not the write. Retrying a write without an idempotency key could apply it twice."
+  },
+  {
+    "question": "The read-back shows a value that is neither the old one nor the planned one. What does that mean?",
+    "options": [
+      "The write partly succeeded and partly failed",
+      "Someone else wrote it; don't overwrite it unchecked",
+      "The read is stale and can safely be ignored",
+      "The plan was wrong from the very start"
+    ],
+    "correctIndex": 1,
+    "explanation": "A third value is someone else's write. Overwriting it would repeat the stale-plan problem from the previous concept; the agent should preview and check again."
+  },
+  {
+    "question": "A read straight after a write shows the old value. What's the sound response?",
+    "options": [
+      "Report the failure to the user immediately",
+      "Retry the write at once, just in case",
+      "Re-read a few times, a short wait apart",
+      "Assume it worked, since the reply said ok"
+    ],
+    "correctIndex": 2,
+    "explanation": "On an eventually consistent store, a fresh write may not be visible at once. A bounded re-read allows for that without waiting forever, and a strongly consistent read, where offered, removes the wait."
+  }
+]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Write confirm(plan, current). plan is a list of changes, each with \"agent\", \"field\", \"before\" and \"after\". current maps each agent to its record as read back now. Return three sorted lists of agents: \"applied\", where the field now holds the \"after\" value; \"not_applied\", where it still holds the \"before\" value; and \"overwritten\", where it holds anything else, including an agent that's no longer in current at all."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  runnable
+  hint={"current.get(agent, {}).get(field) reads the value without failing when the agent or the field is missing, and gives None, which matches neither planned value, so a missing agent falls through to overwritten."}
+  correctAnswer={{
+    code: REFERENCE,
+    explanation: "Three outcomes, not two, because \"not what I planned\" covers two different situations that need different responses. A record still holding its old value is a write that hasn't landed, and waiting or a safe retry may fix it. A record holding some third value is a write by someone else, and writing over it would repeat the stale-plan problem. The planned field is read, not always model, so the same check works for any change the plan describes.",
+  }}
+/>
+
+</CheckpointZone>
