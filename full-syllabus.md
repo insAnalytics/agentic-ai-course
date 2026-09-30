@@ -5021,8 +5021,17 @@ architecture.md §3.1).
    5 quiz cards, no graded exercise. Callbacks: Module 1's
    `#sycophancy-a-real-documented-side-effect`, Lesson 1's
    `#is-it-the-model-or-the-wording` (verified against the built HTML) and
-   this lesson's concept 2 (page link). Concept 6 (claims with no source to
-   check against) and bookends not yet written.
+   this lesson's concept 2 (page link). Concept 6 (claims with no source
+   to check) is built, with no run data: Chain-of-Verification's four
+   steps, the paper's 17% vs. ~70% and 0.17 to 0.36 figures, and the
+   joint / two-step / factored comparison, with a read-only demo that
+   builds the joint and factored prompts (no model call) and counts which
+   see the draft and what each costs; its output matches the mockup
+   exactly. 4 quiz cards, no graded exercise. Callbacks: Lesson 2's
+   `#reflection-the-calls-are-certain-the-benefit-isn-t` (verified against
+   the built HTML) and Module 2 Lesson 9's shared-blind-spots concept (page
+   link). All six concepts exist; the bookends (intro, comprehensive quiz
+   and sandbox, recap) are not yet written.
 
 ---
 
