@@ -432,6 +432,13 @@ assert len(store.search("u", limit=100, include_superseded=True, include_archive
 made the right memories rise. The store still grows by a routine note a week,
 forever, and every recall has to rank all of it against the few that matter.
 Something has to leave.
+[Anthropic's memory tool docs](https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool)
+say the same: cap how large memory can grow, and periodically delete memory
+files that haven't been accessed in a long time. This lesson archives rather
+than deletes. That's its own judgment call: archiving costs storage, and buys
+a way back from a bad decision, the kind of rollback
+[OWASP's agentic Top 10](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/)
+asks memory stores to support.
 
 As with
 [Lesson 10's superseding](/04-context-and-memory/10-deciding-what-to-remember/02-duplicates-and-contradictions/#supersede-don-t-delete),
@@ -573,7 +580,11 @@ uneventful all year. **Consolidation** keeps that. From time to time, a
 model reads a cluster of similar memories and writes one memory that sums
 them up, such as "support_agent's weekly reviews were routine from January
 to December; nothing unusual was found". The new memory records which ones
-it came from, and those are archived.
+it came from, and those are archived. Memory frameworks build this in:
+[LangMem's](https://langchain-ai.github.io/langmem/concepts/conceptual_guide/)
+memory managers consolidate existing memories, and
+[Letta](https://docs.letta.com/agent-sdk/memory/) can run background agents
+that review recent conversations and consolidate what they learned.
 
 The Generative Agents paper
 ([Park et al.](https://arxiv.org/abs/2304.03442)) calls a related step

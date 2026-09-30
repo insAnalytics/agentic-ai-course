@@ -589,9 +589,14 @@ The extraction output is scripted.
 - **The block** is always present, costs tokens on every request, and suits
   only a few lines.
 
-Real systems often combine them: a block for the few things always needed,
-tools for what the model notices along the way, and a pipeline to catch what
-it missed.
+[LangChain's memory guide](https://docs.langchain.com/oss/python/concepts/memory)
+draws the same line between the first two: writing memories "in the hot
+path", as the agent works, or "in the background", after it. Real systems
+often combine them: a block for the few things always needed, tools for what
+the model notices along the way, and a pipeline to catch what it missed.
+[Letta](https://docs.letta.com/agent-sdk/memory/), for example, keeps a few
+memory files in the prompt on every turn, and can run background agents that
+review recent conversations and update memory.
 
 </Subsection>
 

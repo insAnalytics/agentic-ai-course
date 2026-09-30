@@ -211,6 +211,12 @@ class TurnTracker:
         return sum(row["input_total"] for row in self.rows)
 ```
 
+Some providers now keep a running budget like this for the model itself.
+On some Claude models, the API
+[tells the model after each tool call](https://platform.claude.com/docs/en/build-with-claude/context-windows#context-awareness)
+how many tokens it has used and how many remain, so it can plan against
+the space that's left.
+
 </Subsection>
 
 <Subsection title="An agent reading logs" variant="b">

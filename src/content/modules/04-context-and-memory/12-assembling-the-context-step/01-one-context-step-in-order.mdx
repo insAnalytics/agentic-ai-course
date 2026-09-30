@@ -888,10 +888,14 @@ assert "<current_plan>" in anchor_text(history, Notes(), block, block.text, ["se
 
 This module built one piece at a time. In a working agent, they all live in
 one place: the step that prepares each request, between the loop keeping its
-history and the model call.
+history and the model call. Google's Agent Development Kit is built around
+the same idea. Its team describes each request as
+["a compiled view over a richer stateful system"](https://developers.googleblog.com/architecting-efficient-context-aware-multi-agent-framework-for-production/),
+built from the session's full record by "named, ordered processors", with the
+stable parts at the front and the changing parts at the end.
 [Lesson 3](/04-context-and-memory/03-prompt-caching/00-intro/) started that
 step, and every lesson since has added to it. Assembled, it works in three
-phases:
+phases. The split into phases is this course's way of organizing it:
 
 - **At session start,** everything in the prefix is decided, once:
   - the tool list
@@ -921,8 +925,10 @@ phases:
 <Subsection title="The integration rules" variant="b">
 
 Each piece worked on its own page. Putting them together brings out rules that
-aren't obvious from any single lesson, and each one traces back to a
-problem shown somewhere in this module:
+aren't obvious from any single lesson. They're this course's rules, not a
+published standard. Each one traces back to a problem shown somewhere in this
+module. Several also rest on the sources cited there; the others are
+engineering judgement from this module's own demos:
 
 - **Anchors are read from the full history, never the prepared copy.** After
   compaction, the calls that set the plan and rules are gone from the copy
