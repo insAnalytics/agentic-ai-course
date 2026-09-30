@@ -5176,9 +5176,28 @@ architecture.md §3.1).
    Read-only, 4 quiz cards, no graded exercise. Callbacks: Module 1's
    logprobs concept, Module 5's abstaining-when-retrieval-is-weak concept,
    Lesson 5 concept 3 (twice), and Lesson 4 concepts 1 and 2 (page links);
-   "Module 7's subject" stays plain text. Concepts 3 on (the next is about
-   escalating to a stronger model or a person) and bookends not yet
-   written.
+   "Module 7's subject" stays plain text. Concept 3 (escalating to a
+   stronger model, or to a person) is built: escalation vs. Module 3's
+   approval gate; FrugalGPT's cascade and its learned DistilBERT scorer; a
+   graded `run_cascade(small, large, questions, k, min_agreement)`
+   (`runnable`, `namespaceSetup={LOAD_UNSURE}`, the `plain.smaller` and
+   `plain` runs), placed mid-page because the person-escalation section
+   refers to its Run output; and escalating to a person as a load on
+   people. In real Pyodide 0.26.4 the reference prints the mockup's four
+   lines (4B alone 98.9% at 31 GPU-ms; the unanimous-only cascade 99.7% at
+   92) and the starter's printout degrades gracefully. Tests split into 4
+   self-contained tests sharing a header; through the real `TEST_HARNESS`
+   the reference passes all 4 and eight wrong versions each fail
+   (the starter, overlapping groups, always the large model's sample 0,
+   large tokens over escalated decisions only, `>` for `>=`, small tokens
+   only on accepted decisions, crashing on no decisions, grading the vote
+   by its samples' labels). The starter's stray third blank line before
+   `seconds_per_token` was normalized to two. Callbacks: concept 2,
+   Module 3's separate-reads-from-writes concept, Lesson 4 concept 2,
+   Lesson 5 concept 3, and Lesson 2's equal-budgets and
+   spend-where-the-risk-is concepts (page links); "Module 9's subject"
+   stays plain text. Concepts 4 on (the next is about users who push back
+   on a correct answer) and bookends not yet written.
 
 ---
 
