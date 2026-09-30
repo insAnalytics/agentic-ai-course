@@ -5053,7 +5053,7 @@ architecture.md §3.1).
    Lesson 4 is now **Locked**: all six concepts plus both bookends exist
    and build cleanly.
 
-5. **Voting on Answers** (title provisional) — **Building** (folder
+5. **Self-Consistency and Voting** — **Locked** (folder
    `05-voting`; data: set E and the `plain` / `plain.smaller` runs from
    Lesson 1). Shared setup `LOAD_VOTING` in `reliabilityData.ts`, shown
    verbatim in concept 1, with `extract_answer`, `normalize` and
@@ -5121,9 +5121,28 @@ architecture.md §3.1).
    the mockup's output exactly in Pyodide 0.26.4; the second preloads the
    first via `DRAFTS_SETUP`, and they fetch only `drafts.json`. Read-only,
    4 quiz cards, no graded exercise. Callbacks: Lesson 4 concept 1 and
-   Lesson 3's where-a-check-can-sit concept (page links). All five
-   concepts exist; the bookends (intro, comprehensive quiz and sandbox,
-   recap) are not yet written.
+   Lesson 3's where-a-check-can-sit concept (page links). Bookends are
+   built: the intro (outcomes, why it matters), a 7-card comprehensive
+   quiz, and a `MultiFileGradedExercise` with `decide(replies, answer_type,
+   min_agreement)` and `evaluate(records, questions, k, min_agreement)` in
+   `policy.py` over a read-only `lib.py` (the loaders and `extract_answer`,
+   `normalize`, `as_number` and `is_correct`, identical to `grading.py`,
+   plus concept 1's `majority_answer`, identical to its reference), with
+   `dataFiles={reliabilityData("plain.smaller", "plain")}`. In real Pyodide
+   0.26.4 the reference passes the hidden tests and its Submit output
+   matches the mockup's eight lines (2B unanimous-only: escalate 21.7%,
+   accepted right 99.6%). One assertion was added to the mockup's hidden
+   tests: grading by string comparison instead of `is_correct` passed all
+   of them, so a group whose winner is written "7 days" now checks that it
+   counts as the number 7. With it, ten wrong versions each fail (the
+   starter, agreement from `counted`, `<=` for `<`, overlapping groups,
+   keeping the leftover group, accuracy over all decisions, tokens charged
+   only for accepted decisions, 0 instead of None, string grading,
+   crashing on no records). The lesson title, provisional until now, is
+   the bookends'.
+
+   Lesson 5 is now **Locked**: all five concepts plus both bookends exist
+   and build cleanly.
 
 ---
 
