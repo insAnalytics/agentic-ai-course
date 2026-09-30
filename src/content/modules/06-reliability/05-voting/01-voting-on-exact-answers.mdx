@@ -1,0 +1,338 @@
+---
+title: "Voting on exact answers"
+lesson: "05-voting"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { LOAD_VOTING, reliabilityData } from "../../../../lib/reliabilityData";
+
+export const SMALLER_DATA = reliabilityData("plain.smaller");
+export const BOTH_DATA = reliabilityData("plain.smaller", "plain");
+
+export const FORMS_DEMO = String.raw`questions = {q["id"]: q for q in load_set("set-e")["questions"]}
+replies = {r["id"]: r["samples"] for r in load_run("plain.smaller")["results"]}
+
+question = questions["e73"]
+print(question["wordings"][0], "| expected:", question["answer"])
+print("as written:", dict(Counter(s["answer"] for s in replies["e73"])))
+print("as numbers:", dict(Counter(as_number(s["answer"]) for s in replies["e73"])))
+`;
+
+export const QUESTIONS_SETUP = LOAD_VOTING + String.raw`
+questions = {q["id"]: q for q in load_set("set-e")["questions"]}
+`;
+
+export const VOTE_DEMO = String.raw`import random
+
+
+def answer_key(question: dict, answer: str | None):
+    """What counts as the same answer: the value for a number, the normalized text otherwise."""
+    if answer is None:
+        return None
+    return as_number(answer) if question["type"] == "number" else normalize(answer) or None
+
+
+def vote_is_correct(question: dict, samples: list[dict]) -> bool:
+    """Whether the most common answer among these samples is right; ties go to the answer seen first."""
+    keys = [answer_key(question, s["answer"]) for s in samples]
+    counts = Counter(key for key in keys if key is not None)
+    if not counts:
+        return False
+    winner = counts.most_common(1)[0][0]
+    return next(s["correct"] for s, key in zip(samples, keys) if key == winner)
+
+
+def vote_accuracy(run_name: str, k: int, draws: int = 200) -> float:
+    """Accuracy of a vote over k of each question's 20 samples, averaged over random choices of the k."""
+    rng = random.Random(0)
+    scores = []
+    for record in load_run(run_name)["results"]:
+        question = questions[record["id"]]
+        wins = sum(vote_is_correct(question, rng.sample(record["samples"], k)) for _ in range(draws))
+        scores.append(wins / draws)
+    return sum(scores) / len(scores)
+
+
+for label, run_name in [("Qwen3.5-2B", "plain.smaller"), ("Qwen3.5-4B", "plain")]:
+    samples = [s for record in load_run(run_name)["results"] for s in record["samples"]]
+    single = sum(s["correct"] for s in samples) / len(samples)
+    votes = "  ".join(f"vote of {k}: {vote_accuracy(run_name, k):.1%}" for k in (3, 5, 9))
+    print(f"{label}  one sample: {single:.1%}  {votes}")
+`;
+
+export const STARTER = String.raw`def majority_answer(replies: list[str], answer_type: str) -> dict:
+    """The most common answer across replies to one question. Numbers are compared by value, text
+    after normalize(); replies with no usable answer don't vote; ties go to the answer seen first."""
+    ...
+
+
+samples = load_run("plain.smaller")["results"]
+e73 = next(record for record in samples if record["id"] == "e73")
+print(majority_answer([s["text"] for s in e73["samples"]], "number"))
+`;
+
+export const REFERENCE = String.raw`def majority_answer(replies: list[str], answer_type: str) -> dict:
+    """The most common answer across replies to one question. Numbers are compared by value, text
+    after normalize(); replies with no usable answer don't vote; ties go to the answer seen first."""
+    counts, first_written = Counter(), {}
+    for reply in replies:
+        answer = extract_answer(reply)
+        if answer is None:
+            continue
+        key = as_number(answer) if answer_type == "number" else normalize(answer)
+        if key is None or key == "":
+            continue
+        counts[key] += 1
+        first_written.setdefault(key, answer)
+    if not counts:
+        return {"answer": None, "votes": 0, "counted": 0}
+    winner, votes = counts.most_common(1)[0]
+    return {"answer": first_written[winner], "votes": votes, "counted": sum(counts.values())}
+
+
+samples = load_run("plain.smaller")["results"]
+e73 = next(record for record in samples if record["id"] == "e73")
+print(majority_answer([s["text"] for s in e73["samples"]], "number"))
+`;
+
+export const TESTS = [
+// each hidden test runs in its own copy of the learner's namespace, so every test repeats the reply helper
+String.raw`def reply(answer: str) -> str:
+    return f"Some reasoning first.\nANSWER: {answer}"
+
+
+r = majority_answer([reply("20"), reply("20.0"), reply("twenty"), reply("21"), "no answer line"], "number")
+assert isinstance(r, dict) and set(r) == {"answer", "votes", "counted"}, "return {'answer': ..., 'votes': ..., 'counted': ...}"
+assert r["votes"] == 2 and r["answer"] == "20", (
+    f"got {r}: 20 and 20.0 are the same number, so they're one answer with 2 votes; report it as first written, '20'")
+assert r["counted"] == 3, (
+    f"counted {r['counted']}: 'twenty' has no digits to read and the last reply has no ANSWER line, so only 3 replies vote")
+`,
+String.raw`def reply(answer: str) -> str:
+    return f"Some reasoning first.\nANSWER: {answer}"
+
+
+r = majority_answer([reply("${"`"}REG-1007${"`"}"), reply("reg-1007."), reply("REG-1003"), reply("**REG-1007**")], "text")
+assert r == {"answer": "${"`"}REG-1007${"`"}", "votes": 3, "counted": 4}, (
+    f"got {r}: text answers are compared after normalize(), so all three forms of REG-1007 are one answer")
+`,
+String.raw`def reply(answer: str) -> str:
+    return f"Some reasoning first.\nANSWER: {answer}"
+
+
+r = majority_answer([reply("priority"), reply("standard"), reply("standard"), reply("priority")], "text")
+assert r["answer"] == "priority" and r["votes"] == 2, (
+    f"got {r}: a 2-2 tie goes to the answer seen first, 'priority', not to the alphabetical or last one")
+`,
+String.raw`def reply(answer: str) -> str:
+    return f"Some reasoning first.\nANSWER: {answer}"
+
+
+r = majority_answer([reply("b"), reply("a"), reply("a"), reply("b")], "text")
+assert r["answer"] == "b", f"got {r}: ties go to the answer seen first, here 'b'"
+`,
+String.raw`def reply(answer: str) -> str:
+    return f"Some reasoning first.\nANSWER: {answer}"
+
+
+r = majority_answer([reply(""), reply("   "), "nothing here"], "text")
+assert r == {"answer": None, "votes": 0, "counted": 0}, (
+    f"got {r}: empty answers and replies with no ANSWER line don't vote; with no votes, return None, 0, 0")
+`,
+String.raw`def reply(answer: str) -> str:
+    return f"Some reasoning first.\nANSWER: {answer}"
+
+
+assert majority_answer([], "number") == {"answer": None, "votes": 0, "counted": 0}, "no replies: None, 0, 0"
+`,
+];
+
+<Subsection title="Ask several times, take the most common answer" variant="a">
+
+[Lesson 1](/06-reliability/01-per-step-reliability/02-the-same-question-run-twice/)
+showed that the same question, asked twice, can get different answers. If
+that variation is the problem, one fix is to lean into it: ask several
+times, and take the answer that comes up most often.
+
+That's self-consistency, from Wang et al.,
+[*Self-Consistency Improves Chain of Thought Reasoning in Language Models*](https://arxiv.org/abs/2203.11171)
+(ICLR 2023). They sampled several reasoning paths for each question instead
+of one, and took the most common final answer. The intuition is that a hard
+problem can be reasoned through in many ways that reach the same correct
+answer, while mistakes tend to scatter. On arithmetic and commonsense
+reasoning benchmarks it improved accuracy by wide margins, including 17.9
+points on GSM8K, a set of grade-school maths problems. Voting over several
+calls has since become a common way to spend extra compute: Chen et al.
+open their [study of it](https://arxiv.org/abs/2403.02419) (NeurIPS 2024)
+by noting that many state-of-the-art results came from systems that make
+several model calls and aggregate the answers.
+
+This lesson uses the runs behind Lesson 1: Qwen3.5-2B and Qwen3.5-4B, each
+answering set E's 84 questions 20 times.
+
+```python
+import json
+import re
+from collections import Counter
+from pathlib import Path
+
+DATA = Path("/data/reliability")
+
+
+def load_run(name: str) -> dict:
+    """One committed run file, such as "plain" (Qwen3.5-4B) or "plain.smaller" (Qwen3.5-2B)."""
+    return json.loads((DATA / "runs" / f"{name}.json").read_text(encoding="utf-8"))
+
+
+def load_set(name: str) -> dict:
+    """One of the built sets, such as "set-e"."""
+    return json.loads((DATA / f"{name}.json").read_text(encoding="utf-8"))
+
+
+# how set E replies were graded: the same code as scripts/reliability/grading.py
+MARKER = "ANSWER:"
+NUMBER = re.compile(r"-?\d[\d,]*(?:\.\d+)?")
+
+
+def extract_answer(reply: str) -> str | None:
+    """The text after the last ANSWER: marker, or None if there isn't one."""
+    head, marker, tail = reply.rpartition(MARKER)
+    if not marker:
+        return None
+    return tail.strip().splitlines()[0].strip() if tail.strip() else ""
+
+
+def normalize(text: str) -> str:
+    text = text.strip().strip("*_`\"'").strip().rstrip(".").strip().strip("*_`\"'")
+    return " ".join(text.lower().split())
+
+
+def as_number(text: str) -> float | None:
+    match = NUMBER.search(text)
+    return float(match.group().replace(",", "")) if match else None
+```
+
+*(defined once here and already loaded for every demo in this lesson. The
+first Run downloads the run files, a couple of megabytes each, so it takes
+a moment.)*
+
+</Subsection>
+
+<Subsection title="First, decide what counts as the same answer" variant="b">
+
+Counting votes means deciding when two answers are the same, and the
+answers don't arrive in one form:
+
+<LiveDemo client:load dataFiles={SMALLER_DATA} setupCode={LOAD_VOTING} code={FORMS_DEMO} />
+
+*(Real Qwen3.5-2B replies from the committed run.)*
+
+"2" and "2 hours" are the same answer, and comparing them as strings would
+split the vote. So votes are counted on the same rules the replies were
+graded by: numbers by value, and text after `normalize` removes case,
+quotes, Markdown marks and a final full stop. "Two hours" and "two-hour
+blocks" have no digits, so they don't read as numbers at all; they don't
+vote, just as the grader marked them wrong.
+
+Getting this step wrong is the easiest way to make voting look worse than it
+is. Whatever rule decides what counts as the same answer decides the vote.
+
+</Subsection>
+
+<Subsection title="Voting on the real runs" variant="a">
+
+Here's the most common answer among 3, 5 or 9 samples, compared with a
+single sample:
+
+<LiveDemo client:load dataFiles={BOTH_DATA} setupCode={QUESTIONS_SETUP} code={VOTE_DEMO} />
+
+*(The votes are estimates, averaged over 200 random choices of k samples
+from each question's 20. `questions` from the demo above is already loaded
+here.)*
+
+For the 2B, a vote of five lifts accuracy from 92.9% to 97.1%. The 4B was
+already right 98.9% of the time, so there was less to gain, but voting still
+closed most of the gap. Each extra sample adds less than the one before.
+
+The gain comes from the questions a model gets right most of the time but
+not always. The next concept looks at them one by one, including the ones
+where voting makes things worse.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "What does self-consistency do differently from asking once?",
+    "options": [
+      "It asks a larger model to check the answer",
+      "It samples several answers and takes the most common one",
+      "It asks the model how confident it is",
+      "It reuses the previous answer as context"
+    ],
+    "correctIndex": 1,
+    "explanation": "Wang et al. sampled several reasoning paths and took the majority final answer. Right answers tend to agree, and mistakes tend to scatter, so the most common answer is right more often than a single one."
+  },
+  {
+    "question": "Five replies answer \"2\", \"2 hours\", \"2\", \"two hours\" and \"3\". What's the majority, counted the way this lesson counts?",
+    "options": [
+      "\"2\", with 2 votes, since strings must match exactly",
+      "The number 2, with 3 votes; \"two hours\" doesn't vote",
+      "The number 2, with 4 votes",
+      "No majority, since every reply is different"
+    ],
+    "correctIndex": 1,
+    "explanation": "Numbers are compared by value, so \"2\", \"2 hours\" and \"2\" are one answer. \"Two hours\" has no digits, so it can't be read as a number and doesn't vote, just as the grader marked it wrong."
+  },
+  {
+    "question": "Why does voting help the 2B more than the 4B in these runs?",
+    "options": [
+      "The 2B is wrong more often, so there's more to outvote",
+      "Because the 4B's votes are counted by different rules",
+      "Because the 4B was run with far fewer samples per question",
+      "Because voting only ever works on smaller models"
+    ],
+    "correctIndex": 0,
+    "explanation": "The 4B was already right 98.9% of the time, so there was little left to fix. The 2B's occasional wrong answers on questions it usually gets right are exactly what a majority outvotes."
+  },
+  {
+    "question": "Why fix a tie rule, such as \"the answer seen first wins\"?",
+    "options": [
+      "Because ties are the most common outcome of a vote",
+      "So the same replies always produce the same answer",
+      "Because the first answer is more likely to be right",
+      "Because Python can't compare two tied counts"
+    ],
+    "correctIndex": 1,
+    "explanation": "Without a rule, a tie could be broken differently each time, and the same replies could give different answers. The first-seen rule isn't more accurate, just repeatable."
+  }
+]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Write majority_answer(replies, answer_type). replies are full replies to one question, each meant to end with an ANSWER: line, and answer_type is \"number\" or \"text\". Use the lesson's grading functions. Read each reply's answer with extract_answer; a reply with no answer line doesn't vote. Compare numbers by as_number and text by normalize; a number that can't be read, or text that normalizes to nothing, doesn't vote. Pick the answer with the most votes; if two tie, the one seen first wins. Return {\"answer\": ..., \"votes\": ..., \"counted\": ...}: the winning answer as it was first written, its number of votes, and how many replies voted. With no votes at all, return {\"answer\": None, \"votes\": 0, \"counted\": 0}."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  namespaceSetup={LOAD_VOTING}
+  dataFiles={SMALLER_DATA}
+  runnable
+  hint={"A Counter keyed by the normalized form counts the votes, and a dict filled with setdefault remembers how each form was first written. Counter.most_common(1) breaks ties by the order keys were first counted, which is exactly the rule you need."}
+  correctAnswer={{
+    code: REFERENCE,
+    explanation: "The vote is only as good as the rule for what counts as the same answer. Comparing raw strings would split \"20\" and \"20.0\" into two answers, and could hand the win to a wrong answer that happened to be written consistently. Counting only replies that give a usable answer keeps a reply the grader couldn't read from voting for anything. A fixed tie rule makes the vote repeatable: given the same replies, it always picks the same answer. Counter.most_common keeps keys with equal counts in the order they were first seen, so it gives that rule for free.",
+  }}
+/>
+
+</CheckpointZone>

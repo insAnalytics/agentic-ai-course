@@ -206,3 +206,52 @@ def split_claims(answer: str) -> list[dict]:
             claims.append({"text": text, "cites": sorted(cited_numbers(sentence))})
     return claims
 `;
+
+/**
+ * Module 6 Lesson 5's shared setup: load_run, load_set and set E's grading
+ * functions. Shown verbatim in Lesson 5 concept 1 (keep the two
+ * byte-identical), and extract_answer, normalize and as_number must stay
+ * identical to scripts/reliability/grading.py, which graded every stored
+ * reply. Pass dataFiles={reliabilityData(...)}.
+ */
+export const LOAD_VOTING = String.raw`
+import json
+import re
+from collections import Counter
+from pathlib import Path
+
+DATA = Path("/data/reliability")
+
+
+def load_run(name: str) -> dict:
+    """One committed run file, such as "plain" (Qwen3.5-4B) or "plain.smaller" (Qwen3.5-2B)."""
+    return json.loads((DATA / "runs" / f"{name}.json").read_text(encoding="utf-8"))
+
+
+def load_set(name: str) -> dict:
+    """One of the built sets, such as "set-e"."""
+    return json.loads((DATA / f"{name}.json").read_text(encoding="utf-8"))
+
+
+# how set E replies were graded: the same code as scripts/reliability/grading.py
+MARKER = "ANSWER:"
+NUMBER = re.compile(r"-?\d[\d,]*(?:\.\d+)?")
+
+
+def extract_answer(reply: str) -> str | None:
+    """The text after the last ANSWER: marker, or None if there isn't one."""
+    head, marker, tail = reply.rpartition(MARKER)
+    if not marker:
+        return None
+    return tail.strip().splitlines()[0].strip() if tail.strip() else ""
+
+
+def normalize(text: str) -> str:
+    text = text.strip().strip("*_${"`"}\"'").strip().rstrip(".").strip().strip("*_${"`"}\"'")
+    return " ".join(text.lower().split())
+
+
+def as_number(text: str) -> float | None:
+    match = NUMBER.search(text)
+    return float(match.group().replace(",", "")) if match else None
+`;

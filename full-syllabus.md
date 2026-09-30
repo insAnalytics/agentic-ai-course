@@ -5053,6 +5053,27 @@ architecture.md §3.1).
    Lesson 4 is now **Locked**: all six concepts plus both bookends exist
    and build cleanly.
 
+5. **Voting on Answers** (title provisional) — **Building** (folder
+   `05-voting`; data: set E and the `plain` / `plain.smaller` runs from
+   Lesson 1). Shared setup `LOAD_VOTING` in `reliabilityData.ts`, shown
+   verbatim in concept 1, with `extract_answer`, `normalize` and
+   `as_number` identical to `scripts/reliability/grading.py`. Concept 1
+   (voting on exact answers) is built: self-consistency (Wang et al., +17.9
+   on GSM8K) and Chen et al.; e73's answer forms as written vs. as numbers;
+   votes of 3/5/9 against one sample (2B 92.9% to 97.1% at 5; 4B 98.9% to
+   99.7%), averaged over 200 random draws (about 2.4 s in Pyodide). All
+   three demos reproduce the mockup's output exactly in real Pyodide 0.26.4.
+   4 quiz cards and a graded `majority_answer(replies, answer_type)`
+   (`runnable`, `namespaceSetup={LOAD_VOTING}`); tests split into 6
+   self-contained tests, each repeating the `reply` helper. Through the real
+   `TEST_HARNESS` the reference passes all 6 and prints the mockup's
+   `{'answer': '2', 'votes': 18, 'counted': 18}`, and nine wrong versions
+   each fail (the starter, raw-string keys, counting every reply, returning
+   the normalized key, alphabetical or last-seen tie-breaks, empty text
+   voting, no empty case, last-written form). Callback: Lesson 1's
+   same-question-run-twice concept (page link). Concepts 2 on (the next
+   looks at voting question by question) and bookends not yet written.
+
 ---
 
 ## Modules 4–11 — current plan
