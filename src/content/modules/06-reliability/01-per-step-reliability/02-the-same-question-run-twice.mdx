@@ -303,14 +303,16 @@ this kind of care, is Module 7's subject.
 <Subsection title="How many questions are enough?" variant="a">
 
 An interval that's too wide to tell two agents apart isn't worth the runs
-that produced it, so it's worth knowing in advance how many to make. Miller's
-paper includes a power analysis for exactly this: given the smallest
-difference worth detecting, how many questions and how many runs of each are
-needed. Anthropic's
-[summary of the paper](https://www.anthropic.com/research/statistical-approach-to-model-evals)
-recommends using it to decide the number of questions an evaluation should
-have and how many times to resample each. It can also show that a small
-evaluation isn't worth running.
+that produced it, so it's worth knowing in advance how many to make.
+Anthropic's
+[guidance on evaluating models](https://www.anthropic.com/research/statistical-approach-to-model-evals)
+recommends a power analysis before running an evaluation: work out how many
+questions it needs, and how many times to resample each, to detect the
+smallest difference that matters. It notes that this can also show a small
+evaluation isn't worth running. The method is in Miller's paper, which gives
+the calculation from the smallest difference worth detecting and the two
+sources of variation this lesson has met: between questions, and between
+runs of one question.
 
 The clustering above says where the runs should go. Here are three ways to
 spend the 2B's replies:
@@ -352,7 +354,7 @@ OpenAI's Kalai et al.,
 [*Why Language Models Hallucinate*](https://openai.com/index/why-language-models-hallucinate/)
 (2025), argue that this way of counting is part of why models guess.
 Benchmarks that only score accuracy give nothing for "I don't know", so a
-model that guesses scores higher. Their blog shows the effect on SimpleQA.
+model that guesses scores higher. OpenAI's blog shows the effect on SimpleQA, with its own models' figures.
 gpt-5-thinking-mini abstained on 52% of questions and was right on 22%, wrong
 on 26%. o4-mini abstained on 1% and was right on 24%, but wrong on 75%. On
 accuracy alone, the second looks slightly better, while it makes about three

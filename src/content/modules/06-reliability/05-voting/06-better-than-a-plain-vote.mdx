@@ -512,13 +512,14 @@ the value up or ask, as
 describes.
 
 Voting on every step can go a long way. Meyerson et al.'s
-[MAKER](https://arxiv.org/abs/2511.09030) (2025) split a 20-disk Towers of
+[MAKER](https://arxiv.org/abs/2511.09030), a 2025 preprint from Cognizant's AI
+lab, split a 20-disk Towers of
 Hanoi, 1,048,575 moves, into one model call per move. It chose each move with
 *first-to-ahead-by-3*, the stop-at-a-lead rule from earlier in this concept
 with a lead of 3. It also threw out any sample that was too long or badly
 formatted before it could vote, since those tended to be the confused ones.
-With a small model, gpt-4.1-mini, it finished all million moves without an
-error, against the arithmetic of
+With a small model, gpt-4.1-mini, the authors report finishing all million
+moves without an error, against the arithmetic of
 [Lesson 1's compounding](/06-reliability/01-per-step-reliability/01-small-errors-compound/).
 The caveat is the task. Every Hanoi move is fully specified and can be checked
 on its own, so voting corrects random slips, not a mistake every sample shares. The exercise builds this vote, with the early stop from earlier
