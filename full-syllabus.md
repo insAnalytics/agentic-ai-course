@@ -5082,8 +5082,25 @@ architecture.md §3.1).
    is 0.686, giving 88.3%). Later demos preload the first via
    `PER_QUESTION_SETUP`. Read-only, 4 quiz cards, no graded exercise.
    Callbacks: Lesson 1's same-question-run-twice and pass^k concepts (page
-   links). Concepts 3 on (the next uses vote agreement as a confidence
-   signal) and bookends not yet written.
+   links). Concept 3 (agreement as a confidence signal) is built: Xiong et
+   al. on stated vs. consistency-based confidence; votes of 5 by agreement
+   for both models (2B unanimous 78.4% of votes, right 99.6%; 2-2-1 right
+   50.7%); the unanimous-but-wrong votes all from e21 and e68; and a
+   threshold as a check with Lesson 2's two numbers. Both demos reproduce
+   the mockup's output exactly in Pyodide 0.26.4 (the second preloads only
+   the first's definitions via `VOTES_OF_SETUP`, so it needs just the 2B's
+   run); the prose's 21.6% was checked. 4 quiz cards and a graded
+   `trade_off(votes, min_agreement)` (`runnable`, no data); tests split
+   into 5 self-contained tests, each repeating the `votes` it uses. Through
+   the real `TEST_HARNESS` the reference passes all 5 and prints the
+   mockup's three lines, and eight wrong versions each fail (the starter,
+   `>` for `>=`, wrong_caught over all votes, right_escalated over the
+   escalated, 0 instead of None twice, crashing on no votes, counting
+   accepted wrong votes as caught). Callbacks: concept 2 and Lesson 4
+   concept 1 (page links); "Lesson 6's subject" and "Lesson 2's two
+   numbers" stay plain text, as the mockup doesn't mark them. Concepts 4
+   on (the next compares voting with thinking and a stronger model) and
+   bookends not yet written.
 
 ---
 

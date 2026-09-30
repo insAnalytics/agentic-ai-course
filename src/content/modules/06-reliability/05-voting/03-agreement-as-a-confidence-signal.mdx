@@ -1,0 +1,325 @@
+---
+title: "Agreement as a confidence signal"
+lesson: "05-voting"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { LOAD_VOTING, reliabilityData } from "../../../../lib/reliabilityData";
+
+export const SMALLER_DATA = reliabilityData("plain.smaller");
+export const BOTH_DATA = reliabilityData("plain.smaller", "plain");
+
+export const AGREEMENT_DEMO = String.raw`import random
+
+questions = {q["id"]: q for q in load_set("set-e")["questions"]}
+
+
+def answer_key(question: dict, answer: str | None):
+    """As in the previous concepts: the value for a number, the normalized text otherwise."""
+    if answer is None:
+        return None
+    return as_number(answer) if question["type"] == "number" else normalize(answer) or None
+
+
+def vote(question: dict, samples: list[dict]) -> tuple[int, bool]:
+    """How many of the samples agree with the winning answer, and whether that answer is right."""
+    keys = [answer_key(question, s["answer"]) for s in samples]
+    counts = Counter(key for key in keys if key is not None)
+    if not counts:
+        return 0, False
+    winner, votes = counts.most_common(1)[0]
+    return votes, next(s["correct"] for s, key in zip(samples, keys) if key == winner)
+
+
+def votes_of(run_name: str, k: int = 5, draws: int = 100) -> list[tuple[str, int, bool]]:
+    """(question, agreement, correct) for many random votes of k samples per question."""
+    rng = random.Random(0)
+    return [(record["id"], *vote(questions[record["id"]], rng.sample(record["samples"], k)))
+            for record in load_run(run_name)["results"] for _ in range(draws)]
+
+
+for label, run_name in [("Qwen3.5-2B", "plain.smaller"), ("Qwen3.5-4B", "plain")]:
+    results = votes_of(run_name)
+    print(f"{label}, votes of 5:")
+    for agreement in (5, 4, 3, 2):
+        rows = [correct for _, votes, correct in results if votes == agreement]
+        if rows:
+            print(f"  {agreement} of 5 agree: {len(rows) / len(results):6.1%} of votes, right {sum(rows) / len(rows):6.1%}")
+`;
+
+export const VOTES_OF_SETUP = LOAD_VOTING + String.raw`import random
+
+questions = {q["id"]: q for q in load_set("set-e")["questions"]}
+
+
+def answer_key(question: dict, answer: str | None):
+    """As in the previous concepts: the value for a number, the normalized text otherwise."""
+    if answer is None:
+        return None
+    return as_number(answer) if question["type"] == "number" else normalize(answer) or None
+
+
+def vote(question: dict, samples: list[dict]) -> tuple[int, bool]:
+    """How many of the samples agree with the winning answer, and whether that answer is right."""
+    keys = [answer_key(question, s["answer"]) for s in samples]
+    counts = Counter(key for key in keys if key is not None)
+    if not counts:
+        return 0, False
+    winner, votes = counts.most_common(1)[0]
+    return votes, next(s["correct"] for s, key in zip(samples, keys) if key == winner)
+
+
+def votes_of(run_name: str, k: int = 5, draws: int = 100) -> list[tuple[str, int, bool]]:
+    """(question, agreement, correct) for many random votes of k samples per question."""
+    rng = random.Random(0)
+    return [(record["id"], *vote(questions[record["id"]], rng.sample(record["samples"], k)))
+            for record in load_run(run_name)["results"] for _ in range(draws)]
+`;
+
+export const CONFIDENT_WRONG_DEMO = String.raw`results = votes_of("plain.smaller")
+confident_and_wrong = Counter(question_id for question_id, votes, correct in results if votes == 5 and not correct)
+print("unanimous but wrong, by question:", dict(confident_and_wrong))
+`;
+
+export const STARTER = String.raw`def trade_off(votes: list[tuple[int, bool]], min_agreement: int) -> dict:
+    """What accepting only votes with at least min_agreement agreeing samples would do.
+    Each vote is (agreement, correct); the rest would be escalated."""
+    ...
+
+
+# (agreement, correct) for twelve made-up votes of 5, to try your code on
+votes = [(5, True)] * 7 + [(5, False), (4, True), (4, False), (3, True), (2, False)]
+for threshold in (3, 4, 5):
+    print(threshold, trade_off(votes, threshold))
+`;
+
+export const REFERENCE = String.raw`def trade_off(votes: list[tuple[int, bool]], min_agreement: int) -> dict:
+    """What accepting only votes with at least min_agreement agreeing samples would do.
+    Each vote is (agreement, correct); the rest would be escalated."""
+    accepted = [correct for agreement, correct in votes if agreement >= min_agreement]
+    escalated = [correct for agreement, correct in votes if agreement < min_agreement]
+    wrong = sum(not correct for _, correct in votes)
+    right = len(votes) - wrong
+    return {
+        "accepted": len(accepted) / len(votes) if votes else None,
+        "accepted_accuracy": sum(accepted) / len(accepted) if accepted else None,
+        "wrong_caught": escalated.count(False) / wrong if wrong else None,
+        "right_escalated": escalated.count(True) / right if right else None,
+    }
+
+
+# (agreement, correct) for twelve made-up votes of 5, to try your code on
+votes = [(5, True)] * 7 + [(5, False), (4, True), (4, False), (3, True), (2, False)]
+for threshold in (3, 4, 5):
+    print(threshold, trade_off(votes, threshold))
+`;
+
+export const TESTS = [
+// each hidden test runs in its own copy of the learner's namespace, so every test repeats what it uses
+String.raw`import math
+
+
+def close(a, b):
+    return a is not None and math.isclose(a, b)
+
+
+votes = [(5, True)] * 6 + [(5, False)] + [(4, True)] * 2 + [(3, False)] * 2 + [(3, True)] * 2 + [(2, False)]
+r = trade_off(votes, 4)
+assert isinstance(r, dict) and set(r) == {"accepted", "accepted_accuracy", "wrong_caught", "right_escalated"}, (
+    "return accepted, accepted_accuracy, wrong_caught and right_escalated")
+assert close(r["accepted"], 9 / 14), f"accepted {r['accepted']}: 9 of the 14 votes have 4 or more agreeing"
+assert close(r["accepted_accuracy"], 8 / 9), f"accepted_accuracy {r['accepted_accuracy']}: 8 of the 9 accepted votes are right"
+assert close(r["wrong_caught"], 3 / 4), (
+    f"wrong_caught {r['wrong_caught']}: of the 4 wrong votes, 3 are escalated; out of the wrong votes, not all 14")
+assert close(r["right_escalated"], 2 / 10), (
+    f"right_escalated {r['right_escalated']}: of the 10 right votes, 2 are escalated; out of the right votes")
+`,
+String.raw`import math
+
+
+def close(a, b):
+    return a is not None and math.isclose(a, b)
+
+
+votes = [(5, True)] * 6 + [(5, False)] + [(4, True)] * 2 + [(3, False)] * 2 + [(3, True)] * 2 + [(2, False)]
+r = trade_off(votes, 5)
+assert close(r["accepted"], 7 / 14) and close(r["wrong_caught"], 3 / 4) and close(r["right_escalated"], 4 / 10), (
+    f"min_agreement 5 accepts only unanimous votes; got {r}. Accept when agreement >= min_agreement")
+`,
+String.raw`import math
+
+
+def close(a, b):
+    return a is not None and math.isclose(a, b)
+
+
+votes = [(5, True)] * 6 + [(5, False)] + [(4, True)] * 2 + [(3, False)] * 2 + [(3, True)] * 2 + [(2, False)]
+assert trade_off(votes, 6)["accepted_accuracy"] is None, "nothing accepted: accepted_accuracy is None, not 0"
+`,
+String.raw`import math
+
+
+def close(a, b):
+    return a is not None and math.isclose(a, b)
+
+
+all_right = trade_off([(5, True), (3, True)], 4)
+assert all_right["wrong_caught"] is None, "no wrong votes: wrong_caught can't be measured, so None"
+assert close(all_right["right_escalated"], 0.5), "1 of the 2 right votes is escalated"
+`,
+String.raw`import math
+
+
+def close(a, b):
+    return a is not None and math.isclose(a, b)
+
+
+assert trade_off([], 3) == {"accepted": None, "accepted_accuracy": None, "wrong_caught": None, "right_escalated": None}, (
+    "no votes: every value is None")
+`,
+];
+
+<Subsection title="Asking the model how sure it is doesn't work well" variant="a">
+
+An agent that knew when it was likely wrong could stop, ask, or hand over
+in exactly those cases, which is Lesson 6's subject. The obvious way to find
+out is to ask the model how confident it is. Xiong et al.,
+[*Can LLMs Express Their Uncertainty?*](https://arxiv.org/abs/2306.13063)
+(ICLR 2024), tested that across five models, GPT-4 among them, and found
+that models stating their confidence tend to be overconfident. Among the
+things that helped was measuring consistency: sampling several answers and
+checking how many agree. These are black-box methods, which need nothing but
+the model's replies, and they came close to methods that read the model's
+internal probabilities.
+
+A vote already produces this signal for free. If five samples all give the
+same answer, the vote is confident; if they split three to two, it isn't.
+
+</Subsection>
+
+<Subsection title="Agreement on the real runs" variant="b">
+
+Here's how often a vote of five is right, grouped by how many of the five
+agreed with the winning answer:
+
+<LiveDemo client:load dataFiles={BOTH_DATA} setupCode={LOAD_VOTING} code={AGREEMENT_DEMO} />
+
+*(100 random votes of 5 per question, from each model's 20 committed
+samples.)*
+
+For both models, the more samples agree, the more often the vote is right.
+For the 2B, a unanimous vote was right 99.6% of the time, a 3-to-2 split
+83.0%, and a 2-2-1 split only about half the time. That makes agreement a
+usable threshold: accepting only unanimous votes from the 2B would have
+accepted 78.4% of them at 99.6% accuracy, and sent the other 21.6% on for
+more checking.
+
+</Subsection>
+
+<Subsection title="Where the signal fails" variant="a">
+
+The unanimous votes that were wrong are worth finding:
+
+<LiveDemo client:load dataFiles={SMALLER_DATA} setupCode={VOTES_OF_SETUP} code={CONFIDENT_WRONG_DEMO} />
+
+*(`votes_of` from the demo above is already loaded here.)*
+
+They're all from the two questions in
+[the previous concept](/06-reliability/05-voting/02-when-voting-helps-and-hurts/)
+where the 2B has one favourite wrong answer. Agreement measures how
+consistent the model is, not whether it's right, and on these questions the
+model is consistently wrong. No threshold on agreement can catch them,
+because they look exactly like the questions the model reliably gets right.
+
+That's the limit to keep in mind. Agreement catches a model that's unsure:
+answers that scatter because the model is guessing. It can't catch a model
+that's sure and wrong, and those need a check from outside the model, such
+as the source checks in
+[Lesson 4](/06-reliability/04-verifying-claims/01-checking-each-claim/).
+
+</Subsection>
+
+<Subsection title="Choosing a threshold" variant="b">
+
+A threshold on agreement is a check like any other, with Lesson 2's two
+numbers: how many wrong answers it catches, and how many right answers it
+sends on needlessly. Sending on means more cost later: another vote, a
+stronger model, or a person. The exercise computes both, so a threshold can
+be chosen on measured numbers.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "What did Xiong et al. find about models stating their own confidence?",
+    "options": [
+      "Stated confidence was well calibrated in every model tested",
+      "They tended to overstate it; agreement among samples helped",
+      "The models refused to state any confidence at all",
+      "Only GPT-4 was able to state a confidence in its answer"
+    ],
+    "correctIndex": 1,
+    "explanation": "Stated confidence tended to be too high. Measuring how consistent several sampled answers are was among the approaches that reduced the problem, using nothing but the model's replies."
+  },
+  {
+    "question": "In the 2B's votes of five, a unanimous vote was right 99.6% of the time and a 2-2-1 split about half the time. What does that make agreement?",
+    "options": [
+      "A usable signal for when to trust a vote or escalate",
+      "A guarantee that any unanimous vote is right",
+      "Useless, since some unanimous votes were wrong",
+      "A full replacement for checking against sources"
+    ],
+    "correctIndex": 0,
+    "explanation": "Agreement separates likely-right votes from likely-wrong ones well enough to set a threshold on, which is what makes it useful. It's not a guarantee, as the unanimous wrong votes show."
+  },
+  {
+    "question": "Every unanimous wrong vote came from two questions. Why can't an agreement threshold catch them?",
+    "options": [
+      "Because the threshold was set far too low",
+      "Consistently wrong looks just like consistently right",
+      "Because each vote used too few samples",
+      "Because the grader was wrong about those questions"
+    ],
+    "correctIndex": 1,
+    "explanation": "Agreement measures consistency, not correctness. A model sure of a wrong answer agrees with itself; only a check from outside the model, like a source, can tell."
+  },
+  {
+    "question": "Raising the agreement threshold escalates more votes. What do you need to know to choose it?",
+    "options": [
+      "Only how many of the wrong votes it catches",
+      "Wrong votes caught, right ones escalated, and the cost",
+      "Only the accuracy of the votes it accepts",
+      "Nothing, since a higher threshold is always safer"
+    ],
+    "correctIndex": 1,
+    "explanation": "Every escalation costs something later, and escalating right answers is the check's false-block rate. A threshold is chosen by weighing both against what a wrong answer would cost."
+  }
+]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Write trade_off(votes, min_agreement). Each vote is (agreement, correct): how many samples agreed with the winning answer, and whether it was right. Votes with at least min_agreement are accepted; the rest are escalated. Return a dict with \"accepted\", the fraction of all votes accepted; \"accepted_accuracy\", the fraction of accepted votes that are right; \"wrong_caught\", the fraction of wrong votes that are escalated; and \"right_escalated\", the fraction of right votes that are escalated. Any value whose denominator is zero is None."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  runnable
+  hint={"Split the votes into accepted and escalated first. Each rate has its own denominator: all votes, accepted votes, wrong votes, right votes. The last two are the ones most easily confused with the number escalated."}
+  correctAnswer={{
+    code: REFERENCE,
+    explanation: "wrong_caught and right_escalated are the two numbers from Lesson 2's rule for any check: the share of the bad outcomes it catches, and the share of good ones it blocks. Each is out of the votes where that outcome was possible, so the numbers don't depend on how many right and wrong votes the test set happens to hold. In the starter's example, raising the threshold from 4 to 5 catches one more wrong vote, but escalates one more right one; the made-up unanimous wrong vote is never caught at any threshold, which is the previous section's point.",
+  }}
+/>
+
+</CheckpointZone>
