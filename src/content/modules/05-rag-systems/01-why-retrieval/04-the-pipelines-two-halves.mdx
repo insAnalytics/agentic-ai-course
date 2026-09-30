@@ -203,6 +203,11 @@ two halves that run at different times:
 - **Querying** runs for every question. It takes the question, searches the
   stored pieces, puts the best few into a prompt, and calls the model.
 
+[Anthropic's description of a standard RAG system](https://www.anthropic.com/engineering/contextual-retrieval)
+has the same two halves: it preprocesses the knowledge base into chunks and
+stores them for search, then "at runtime", for each query, finds the most
+relevant chunks and adds them to the prompt.
+
 The split decides where work belongs. Anything that depends only on the
 documents belongs in indexing, because there it's paid once per document.
 Anything done in querying is paid again on every question, and the user is

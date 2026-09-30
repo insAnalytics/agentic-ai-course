@@ -104,7 +104,11 @@ like that is cheap, but it only sees the question, so it can't tell when an
 easy-looking question will retrieve badly.
 
 **React after retrieving.** Run the pipeline first, grade what came back,
-and only when the grade is poor, make a second attempt. That's the approach
+and only when the grade is poor, make a second attempt. Frameworks build
+this in: LangGraph's
+[agentic RAG tutorial](https://docs.langchain.com/oss/python/langgraph/agentic-rag),
+for one, has a model grade whether the retrieved documents are relevant, and
+if they aren't, rewrites the question and searches again. That's the approach
 the rest of this concept measures, because this corpus has everything needed
 to test it: the reranker's scores and the labelled questions.
 

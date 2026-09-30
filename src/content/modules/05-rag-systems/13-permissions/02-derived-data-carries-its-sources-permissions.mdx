@@ -153,7 +153,10 @@ stopped by a chunk filter unless someone decides it should be.
 <Subsection title="Rules for each kind of derived data" variant="b">
 
 The principle is that **derived data inherits the permissions of what it was
-derived from.** How that works depends on what it was derived from:
+derived from.** Microsoft 365 Copilot follows it with sensitivity labels: when
+it writes new content from labelled sources, the new content
+[inherits the highest-priority label](https://learn.microsoft.com/en-us/microsoft-365/copilot/microsoft-365-copilot-architecture-data-protection-auditing)
+among them. How that works here depends on what it was derived from:
 
 - **Derived from one chunk:** a context, a vector, a header. It gets the chunk's
   access, and it's filtered with the chunk. `PermittedRetriever` already does
