@@ -4799,6 +4799,18 @@ real Pyodide 0.26.4.
   (judge on the answer path, approval waits); and the suite can't show
   shared blind spots or run-to-run variation (pass^k). 1 quiz card.
 
+- **L9:**
+  - C1 has a new subsection, "Taint spreads through what the model writes".
+    It names taint tracking and information-flow control, contrasts
+    per-session labels with CaMeL's and FIDES's per-value labels, and demos
+    a summary laundered into a clean session unless its labels travel with
+    it (links Module 4's source rule). 1 quiz card.
+  - C3 adds what dual LLM and CaMeL leave open, and a new subsection,
+    "Splitting the work": the utility cost of labels that only accumulate,
+    an LLM map-reduce demo (isolated readers return one word from a fixed
+    set, checked in code), and context-minimization. 2 quiz cards.
+  - Outcome 1 is extended, and the recap has a new question.
+
 Still open from that review: L8 recap's `record_run` hashes a system prompt
 that `call_model` never receives, and L10's "invented argument" scenario is
 caught only because the request omits the agent name, since the intent check

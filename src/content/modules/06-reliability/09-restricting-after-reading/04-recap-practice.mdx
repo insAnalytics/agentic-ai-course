@@ -280,6 +280,17 @@ assert log == [{"tool": "send_email", "decision": "deny", "ran": False}], (
     "explanation": "A tool that didn't run didn't read or change anything. Only what actually happened goes in the record."
   },
   {
+    "question": "An agent reads outside emails all day, and after the first one every action needs approval. What's the structural fix?",
+    "options": [
+      "Clear the session's labels after each email",
+      "Read each email in a session that can't act",
+      "Stop recording labels for email tools",
+      "Approve everything after the first email"
+    ],
+    "correctIndex": 1,
+    "explanation": "Labels can't be cleared: the text is still in the context. Isolated readers that return only a value from a fixed set, checked in code, keep the acting session clean without trusting the emails."
+  },
+  {
     "question": "What does plan-then-execute leave open?",
     "options": [
       "Nothing at all; the plan is fully safe",
