@@ -5358,9 +5358,24 @@ architecture.md §3.1).
    `>` for `>=` on the wait, restarting a failed trial's wait from the
    first open, calling while open, swallowing the error). The starter's
    stray third blank line was normalized to two. Callback: concept 1 (page
-   link); "Module 10's territory" stays plain text. Concepts 4 on (the next
-   is about keeping the model and prompt the same from day to day) and
-   bookends not yet written.
+   link); "Module 10's territory" stays plain text. Concept 4 (pinning
+   model and prompt versions) is built: Chen, Zaharia and Zou's GPT-4 drift
+   (84% to 51% on primes); fixed, floating and commit-pinned model names;
+   the committed `plain` run's own record (model, commit, engine, sampling,
+   set version, prompt hash), read from `plain.json` alone; and a graded
+   `record_run(requested, answered, system_prompt, tools)` (`runnable`).
+   The demo and the starter's printout reproduce the mockup exactly in
+   Pyodide 0.26.4 (prompt hash `c1a5578f570f`; the reference's
+   `976b40ae6a24`). Tests split into 4 self-contained tests, the
+   hash comparisons kept with the record they compare against; through the
+   real `TEST_HARNESS` the reference passes all 4 and seven wrong versions
+   each fail (the starter, unsorted keys, default separators, sorting the
+   tools list, the built-in `hash()`, ignoring tools, `model_changed`
+   inverted). The starter's stray third blank line was normalized to two.
+   Callback: Lesson 1's reliable-across-wordings concept (page link);
+   "Module 7's subject" stays plain text. All four concepts exist; the
+   bookends (intro, comprehensive quiz and sandbox, recap) are not yet
+   written.
 
 ---
 
