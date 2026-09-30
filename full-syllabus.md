@@ -6207,3 +6207,16 @@ dedicated coverage here.
 - Downloadable flagship projects per module (mentioned early on, explicitly
   deferred) — not yet scoped.
 - Whether Module 6 gets an 11th lesson on sandboxing/approval gates.
+- **Module 0 gap list, additions from the Module 6 review (2026-09-30).**
+  The list itself lives in `course-improvement-backlog.md`, outside this
+  repo; copy these across. The review's new code uses them freely, per the
+  "write idiomatic Python" rule.
+  - Plain syntax or library calls: `asyncio.wait_for`, `copy.deepcopy`,
+    `json.dumps(sort_keys=True)` to compare nested dicts by content,
+    `dict.setdefault`, `random.Random(seed)` with `rng.sample(range(n), k)`,
+    `Counter.most_common(2)`, `set` comprehensions, `str.strip(chars)` on
+    answer text.
+  - Genuinely complicated, a likely Module 0 topic: closures created in a
+    loop, bound with an immediately called lambda
+    (`(lambda real: lambda **kwargs: ...)(tools[name])`), used to wrap each
+    tool in Lesson 10's fault injection.
