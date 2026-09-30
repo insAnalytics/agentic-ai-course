@@ -55,10 +55,13 @@ need to have learned during training like anything else.
 None of this means a model can never discuss anything recent — it means
 it can't do so from its own trained-in parameters alone. Providing
 genuinely current information directly *in the prompt*, as part of the
-input rather than relying on what's baked into the weights, sidesteps
-the problem entirely for that one conversation — the model can reason
+input rather than relying on what's baked into the weights, largely
+sidesteps the problem for that one conversation — the model can reason
 over information handed to it right now, even if that information
-postdates its training. This is the natural entry point into two things
+postdates its training. "Largely", because provided context isn't
+guaranteed to win: a model can still misread it, overlook it in a long
+input, or lean on a strongly learned older fact instead, which is why
+grounded systems are also evaluated, not just built. This is the natural entry point into two things
 covered properly later in this course: retrieval — finding and
 injecting relevant, current information into context, the actual
 mechanism behind RAG — and tool use — letting a model call a live data

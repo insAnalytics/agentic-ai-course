@@ -92,6 +92,17 @@ tool-use response and `check_price` on the second, purely by looking up
 entry to `TOOL_REGISTRY`; the loop's own logic never needs to change at
 all, no matter how many tools exist.
 
+One consequence of a loop that no longer knows its tools: it can't
+assume what they return. A real API expects a `tool_result`'s `content`
+to be text (or a list of content blocks), not an arbitrary Python value.
+Both tools here happen to return strings, but a registry tool that
+returns `True`, a number or a dict would produce a request a real API
+rejects. So from here on the loop sends `str(result)`, which costs
+nothing for a string and makes every other return value safe. (Tools
+that return structured data usually send JSON instead, as
+[Module 3's lesson on shaping tool results](/03-tool-design-for-agents/03-shaping-what-tools-return/00-intro/)
+covers.)
+
 </Subsection>
 
 <CheckpointZone>
@@ -253,7 +264,7 @@ def run_agent_loop(client, messages):
             tool_function = TOOL_REGISTRY[block.name]
             result = tool_function(**block.input)
             messages.append({"role": "assistant", "content": [block]})
-            messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
+            messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": str(result)}]})
         elif block.type == "text":
             return block.text`,
     explanation:

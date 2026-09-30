@@ -49,7 +49,7 @@ while True:
     results = []
     for call in tool_calls:
         output = get_weather(**call.input)
-        results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+        results.append({"type": "tool_result", "tool_use_id": call.id, "content": str(output)})
     messages.append({"role": "user", "content": results})`} />
 
 (The updated fake client from the last lesson is already defined for this

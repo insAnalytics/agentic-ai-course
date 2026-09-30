@@ -17,10 +17,12 @@ sequence of steps**:
 - **Chatbot** — a human decides what happens next, at every turn. The
   system responds to whatever the human asks; it has no say over the
   sequence of the interaction itself.
-- **Workflow** — the *code* decides the sequence, fixed in advance by
-  whoever wrote it — even if individual steps call an LLM, the *order*
-  and *number* of those steps is predetermined, not decided dynamically
-  at runtime.
+- **Workflow** — the *code* decides the sequence, laid out in advance by
+  whoever wrote it — even if individual steps call an LLM. Every path
+  the work can take was written into the code; at most, an LLM's output
+  picks *which* of those written paths to follow (a classifier sending
+  a ticket to the billing branch or the technical branch, say). It
+  never invents a step the code didn't already contain.
 - **Agent** — the *model itself* decides the sequence and number of
   steps, dynamically, based on what happens along the way —
   [exactly the loop from the previous concept](/02-the-agent-loop/01-agents-workflows-and-the-loop/01-the-perceive-reason-act-observe-cycle/#the-round-trip-wrapped-in-a-loop).
@@ -66,12 +68,22 @@ dynamically, that two calls were actually needed, and which two.
 <Subsection title="The line, restated plainly" variant="b">
 
 A workflow can call an LLM at every single step and still be structurally
-a workflow, as long as the *sequence itself* is fixed by the code. An
+a workflow, as long as every possible path is written in the code. It
+can even branch on what an LLM says, choosing between paths someone
+already wrote, and still be a workflow:
+[the routing pattern later in this module](/02-the-agent-loop/10-workflow-patterns-beyond-a-single-loop/01-prompt-chaining-and-routing/)
+is exactly that. An
 agent can make a single, trivial tool call and still be structurally an
 agent, as long as *whether* to make that call, and *what* to do next, was
 the model's own decision at runtime — not something predetermined.
 Sophistication and structure are genuinely independent axes; this concept
 is only about the second one.
+
+This way of drawing the line, and the advice that comes with it (start
+with the simplest structure that works, and reach for an agent only when
+the steps genuinely can't be laid out in advance), is widely used in
+practice; one clear source is Anthropic's engineering post "Building
+effective agents" (2024), which is worth reading alongside this module.
 
 </Subsection>
 

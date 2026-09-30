@@ -95,6 +95,34 @@ see it split into its real tokens, each one highlighted separately:
 
 </Subsection>
 
+<Subsection title="Side effects you'll meet: spaces, letters and digits" variant="b">
+
+Because a model works in tokens rather than characters, a few of its
+well-known weaknesses follow directly from this lesson:
+
+- **A leading space is part of the token.** In most tokenizers `" cat"`
+  (with a space, as it appears mid-sentence) and `"cat"` (at the start
+  of a line) are *different tokens* with different IDs. Try both in the
+  box above. It rarely matters, but it's why small formatting changes
+  can shift a model's output more than you'd expect.
+- **Letters are mostly invisible.** Asked how many r's are in
+  "strawberry", a model sees a few multi-letter tokens, not ten letters,
+  so it has to recall the spelling rather than look at it. Counting
+  characters, reversing strings and spotting typos inside a word are
+  harder for a model than they look.
+- **Numbers split irregularly.** Depending on the tokenizer, `12345`
+  might become `"123"` + `"45"`, while `12346` splits differently, so
+  digit-by-digit arithmetic doesn't line up the way it does on paper.
+  Models have become much better at arithmetic, but exact calculation
+  over long numbers is still not their strength.
+
+For an agent this has a practical answer: don't ask the model to do
+what tokens make hard. Give it a tool. A calculator or
+[a code execution tool](/03-tool-design-for-agents/08-code-execution-as-a-tool/00-intro/)
+counts letters and multiplies numbers exactly, every time.
+
+</Subsection>
+
 <CheckpointZone>
 
 <QuizGroup
@@ -149,6 +177,18 @@ see it split into its real tokens, each one highlighted separately:
       correctIndex: 1,
       explanation:
         "Because the smallest pieces are individual characters (single bytes, in the byte-level BPE modern tokenizers use), there's always some way to build any string out of pieces already in the vocabulary — the worst case is falling back to those smallest pieces, never an unrepresentable word.",
+    },
+    {
+      question: "Why do models often miscount the letters in a word like \"strawberry\"?",
+      options: [
+        "They see the word as a few multi-letter tokens, not as individual letters",
+        "Their vocabulary doesn't include the letter r",
+        "Counting is disabled during generation",
+        "They always round counts to the nearest even number",
+      ],
+      correctIndex: 0,
+      explanation:
+        "The model receives token IDs, and a token can stand for several letters, so the spelling has to be recalled rather than read. A code tool that counts characters avoids the problem entirely.",
     },
   ]}
 />

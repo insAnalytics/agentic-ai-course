@@ -107,6 +107,15 @@ writes `to_dict()` by hand because it's teaching *why* serialization is
 necessary and what it actually has to do, not because a real project
 would reimplement something Pydantic already provides for free.
 
+There's a second reason to prefer `.model_dump()` with a real model: it
+keeps *every* field. A real thinking block carries a `signature`, which
+[the API checks when the block is sent back](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/06-reasoning-output-in-responses/#sending-thinking-back-leave-it-exactly-as-it-came).
+A hand-written `to_dict()` that saves only the `thinking` text, like the
+teaching one here, would produce a checkpoint that looks complete but
+can't be resumed with a thinking model: the restored blocks no longer
+match what the model produced. Whatever you use, a saved scratchpad has
+to round-trip byte for byte.
+
 </Subsection>
 
 <CheckpointZone>

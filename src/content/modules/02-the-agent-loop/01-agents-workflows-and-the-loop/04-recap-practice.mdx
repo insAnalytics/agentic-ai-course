@@ -122,12 +122,12 @@ to check whether it actually could, or should, be built as one.
    and decides themselves what to ask next.
 
 *Reasoning to check against:* (1) is a **workflow** — classify, then
-route is a fixed two-step sequence; even though classification uses an
-LLM, the *order* never changes based on what either step actually
-produces. Applying the decision test: this task's steps are fully
-knowable in advance (always classify, always route), so a workflow is
-the right call here — no runtime-only information is actually driving
-the control flow. (2) is a genuine **agent** — whether to search again
+route is a fixed two-step sequence. The classification's output does
+decide which template gets used, but only among templates someone
+already wrote; the model never adds a step or invents a path. Applying
+the decision test: this task's steps are fully knowable in advance
+(always classify, always route), so a workflow is the right call here —
+the LLM picks a branch, it doesn't design the control flow. (2) is a genuine **agent** — whether to search again
 is a decision only the model can make, based on results it can't know in
 advance,
 [exactly the runtime-dependent case the decision test identifies as earning an agent's cost](/02-the-agent-loop/01-agents-workflows-and-the-loop/03-the-honest-case-for-not-using-an-agent/#the-actual-decision-test).

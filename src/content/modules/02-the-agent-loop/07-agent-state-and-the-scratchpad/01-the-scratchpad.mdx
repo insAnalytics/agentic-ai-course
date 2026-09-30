@@ -68,7 +68,7 @@ while True:
     for call in tool_calls:
         tool_function = TOOL_REGISTRY[call.name]
         output = tool_function(**call.input)
-        results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})
+        results.append({"type": "tool_result", "tool_use_id": call.id, "content": str(output)})
     messages.append({"role": "user", "content": results})
     print(f"after tool call -- messages: {len(messages)} entries")
 

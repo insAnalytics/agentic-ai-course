@@ -50,13 +50,15 @@ evaluation_client = FakeLLMClient(scripted_responses=[
     [EvaluationBlock(passed=True)],
 ])
 
-def run_evaluator_optimizer(generation_client, evaluation_client, prompt: str, max_attempts: int = 3) -> str:
+def run_evaluator_optimizer(generation_client, evaluation_client, prompt: str, criteria: str, max_attempts: int = 3) -> str:
     current_prompt = prompt
     for attempt in range(max_attempts):
         gen_response = generation_client.create(messages=[{"role": "user", "content": current_prompt}])
         candidate = gen_response.content[0].text
 
-        eval_response = evaluation_client.create(messages=[{"role": "user", "content": f"Evaluate this: {candidate}"}])
+        # the evaluator gets the task and explicit criteria, not just the candidate
+        eval_message = f"Task: {prompt}\\nCriteria: {criteria}\\nCandidate: {candidate}\\nDoes the candidate meet every criterion? If not, say which it misses and why."
+        eval_response = evaluation_client.create(messages=[{"role": "user", "content": eval_message}])
         evaluation = eval_response.content[0]
 
         if evaluation.passed:
@@ -65,13 +67,27 @@ def run_evaluator_optimizer(generation_client, evaluation_client, prompt: str, m
         current_prompt = f"{prompt}\\n\\nPrevious attempt: {candidate}\\nCritique: {evaluation.critique}\\nPlease revise."
     return f"Error: no passing candidate produced after {max_attempts} attempts"
 
-result = run_evaluator_optimizer(generation_client, evaluation_client, "Write a one-sentence product description.")
+result = run_evaluator_optimizer(
+    generation_client, evaluation_client,
+    "Write a one-sentence product description.",
+    criteria="Names the kind of product, at least one concrete feature, and who it is for.",
+)
 print(result)`} />
 
 (The updated fake client is already defined for this demo;
 `EvaluationBlock` is new.) `EvaluationBlock` is a teaching stand-in, not
 a real API block type: in practice an evaluation arrives as structured
 output, such as a JSON object with a pass/fail field and a critique.
+
+Look at what the evaluator is sent: the original task, the **criteria**
+a good answer must meet, and the candidate. All three matter. An
+evaluator that only sees "Evaluate this: …" has nothing to check
+against, so it falls back on a vague sense of "good", which is exactly
+the open-ended judgment this pattern is meant to avoid. Writing the
+criteria down, as concrete and checkable as you can make them, is most
+of the work of a useful evaluator. It's also what makes a critique
+actionable: "misses the target audience" gives the next attempt
+something specific to fix.
 
 The first candidate fails — the critique becomes part of the prompt for
 the *next* attempt, exactly
@@ -142,8 +158,8 @@ other; they fit different kinds of success conditions entirely.
 
 <GradedExercise
   client:load
-  task={'Implement `run_evaluator_optimizer(generation_client, evaluation_client, prompt, max_attempts=3)` exactly as shown in this concept, with `max_attempts` acting as a real backstop if no candidate ever passes. Each attempt asks `generation_client` (a text block) for a candidate, then asks `evaluation_client` (a block with `.passed` and `.critique`) to evaluate it, sending the candidate text in the message. Return the first passing candidate\'s text. When one fails, the next generation prompt must include the original prompt, the previous attempt and its critique. If no candidate passes, return a string starting with `"Error"`.'}
-  starterCode={`def run_evaluator_optimizer(generation_client, evaluation_client, prompt: str, max_attempts: int = 3) -> str:
+  task={'Implement `run_evaluator_optimizer(generation_client, evaluation_client, prompt, criteria, max_attempts=3)` exactly as shown in this concept, with `max_attempts` acting as a real backstop if no candidate ever passes. Each attempt asks `generation_client` (a text block) for a candidate, then asks `evaluation_client` (a block with `.passed` and `.critique`) to evaluate it, sending the task (`prompt`), the `criteria` and the candidate text in one message. Return the first passing candidate\'s text. When one fails, the next generation prompt must include the original prompt, the previous attempt and its critique. If no candidate passes, return a string starting with `"Error"`.'}
+  starterCode={`def run_evaluator_optimizer(generation_client, evaluation_client, prompt: str, criteria: str, max_attempts: int = 3) -> str:
     # TODO: generate a candidate, evaluate it, and either return it or feed
     # the critique into a revised prompt and try again, up to max_attempts.
     pass`}
@@ -158,7 +174,7 @@ evaluation_client = FakeLLMClient(scripted_responses=[
     [EvaluationBlock(passed=True)],
 ])
 
-result = run_evaluator_optimizer(generation_client, evaluation_client, "Explain agentic AI in one sentence.")
+result = run_evaluator_optimizer(generation_client, evaluation_client, "Explain agentic AI in one sentence.", "One sentence, with real technical content.")
 assert result == "Agentic AI systems use LLMs to autonomously plan, act, and adapt across multi-step tasks."
 assert generation_client.call_count == 2
 assert evaluation_client.call_count == 2
@@ -167,7 +183,7 @@ assert evaluation_client.call_count == 2
 # a scenario that never passes, confirming the backstop
 never_passes_gen = FakeLLMClient(scripted_responses=[[TextBlock(text="attempt")] for _ in range(3)])
 never_passes_eval = FakeLLMClient(scripted_responses=[[EvaluationBlock(passed=False, critique="still not good enough")] for _ in range(3)])
-result_2 = run_evaluator_optimizer(never_passes_gen, never_passes_eval, "...", max_attempts=3)
+result_2 = run_evaluator_optimizer(never_passes_gen, never_passes_eval, "...", "any criteria", max_attempts=3)
 assert isinstance(result_2, str) and result_2.startswith("Error")
 assert never_passes_gen.call_count == 3
 assert never_passes_eval.call_count == 3
@@ -179,22 +195,25 @@ ev = RecordingClient(scripted_responses=[
     [EvaluationBlock(passed=False, critique="needs a concrete example")],
     [EvaluationBlock(passed=True)],
 ])
-assert run_evaluator_optimizer(gen, ev, "Describe our product.") == "second draft"
+assert run_evaluator_optimizer(gen, ev, "Describe our product.", "Mentions a concrete example.") == "second draft"
 assert gen.seen[0][-1]["content"] == "Describe our product."
 revised = gen.seen[1][-1]["content"]
 assert "Describe our product." in revised
 assert "first draft" in revised
 assert "needs a concrete example" in revised
 
-# the evaluator is sent the candidate it must judge
+# the evaluator is sent the candidate it must judge, plus the task and the criteria to judge it against
 assert "first draft" in ev.seen[0][-1]["content"]
 assert "second draft" in ev.seen[1][-1]["content"]
+assert "Describe our product." in ev.seen[0][-1]["content"]
+assert "Mentions a concrete example." in ev.seen[0][-1]["content"]
+assert "Mentions a concrete example." in ev.seen[1][-1]["content"]
 `,
     PRE + String.raw`
 # passing on the first attempt returns immediately, with no revision
 gen = FakeLLMClient(scripted_responses=[[TextBlock(text="perfect")]])
 ev = FakeLLMClient(scripted_responses=[[EvaluationBlock(passed=True)]])
-assert run_evaluator_optimizer(gen, ev, "Write something.") == "perfect"
+assert run_evaluator_optimizer(gen, ev, "Write something.", "c") == "perfect"
 assert gen.call_count == 1 and ev.call_count == 1
 `,
     PRE + String.raw`
@@ -205,31 +224,33 @@ ev = FakeLLMClient(scripted_responses=[
     [EvaluationBlock(passed=False, critique="still no")],
     [EvaluationBlock(passed=True)],
 ])
-assert run_evaluator_optimizer(gen, ev, "p", max_attempts=3) == "c"
+assert run_evaluator_optimizer(gen, ev, "p", "c", max_attempts=3) == "c"
 assert gen.call_count == 3 and ev.call_count == 3
 `,
     PRE + String.raw`
 # max_attempts is honored (a smaller value, and the default of 3)
 gen = FakeLLMClient(scripted_responses=[[TextBlock(text="x")] for _ in range(6)])
 ev = FakeLLMClient(scripted_responses=[[EvaluationBlock(passed=False, critique="no")] for _ in range(6)])
-assert run_evaluator_optimizer(gen, ev, "p", max_attempts=2).startswith("Error")
+assert run_evaluator_optimizer(gen, ev, "p", "c", max_attempts=2).startswith("Error")
 assert gen.call_count == 2 and ev.call_count == 2
 
 gen = FakeLLMClient(scripted_responses=[[TextBlock(text="x")] for _ in range(6)])
 ev = FakeLLMClient(scripted_responses=[[EvaluationBlock(passed=False, critique="no")] for _ in range(6)])
-assert run_evaluator_optimizer(gen, ev, "p").startswith("Error")
+assert run_evaluator_optimizer(gen, ev, "p", "c").startswith("Error")
 assert gen.call_count == 3 and ev.call_count == 3
 `,
   ]}
   hint={'This is this concept\'s exact function, unchanged — a `for attempt in range(max_attempts):` loop calling `generation_client` then `evaluation_client` each pass, returning immediately on `evaluation.passed`, and updating `current_prompt` with the critique otherwise.'}
   correctAnswer={{
-    code: `def run_evaluator_optimizer(generation_client, evaluation_client, prompt: str, max_attempts: int = 3) -> str:
+    code: `def run_evaluator_optimizer(generation_client, evaluation_client, prompt: str, criteria: str, max_attempts: int = 3) -> str:
     current_prompt = prompt
     for attempt in range(max_attempts):
         gen_response = generation_client.create(messages=[{"role": "user", "content": current_prompt}])
         candidate = gen_response.content[0].text
 
-        eval_response = evaluation_client.create(messages=[{"role": "user", "content": f"Evaluate this: {candidate}"}])
+        # the evaluator gets the task and explicit criteria, not just the candidate
+        eval_message = f"Task: {prompt}\\nCriteria: {criteria}\\nCandidate: {candidate}\\nDoes the candidate meet every criterion? If not, say which it misses and why."
+        eval_response = evaluation_client.create(messages=[{"role": "user", "content": eval_message}])
         evaluation = eval_response.content[0]
 
         if evaluation.passed:

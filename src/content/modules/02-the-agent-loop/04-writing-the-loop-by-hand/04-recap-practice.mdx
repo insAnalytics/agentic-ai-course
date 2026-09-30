@@ -109,7 +109,7 @@ export const PRE = FAKE_CLIENT + RECORDING_CLIENT;
 <MultiFileGradedExercise
   client:load
   entry="agent_loop.py"
-  task={'Implement both files so a scripted sequence of `check_agent_exists` and `create_agent_entry` calls, followed by a final text response, runs correctly end to end — including actually updating `_registry`, not just returning plausible-looking results. As in earlier exercises, after each tool call append the assistant\'s tool call and a `tool_result` message (carrying the block\'s `id` as `tool_use_id`) to `messages`, and return the final text. `agent_loop.py` is the entry file.'}
+  task={'Implement both files so a scripted sequence of `check_agent_exists` and `create_agent_entry` calls, followed by a final text response, runs correctly end to end — including actually updating `_registry`, not just returning plausible-looking results. As in earlier exercises, after each tool call append the assistant\'s tool call and a `tool_result` message (carrying the block\'s `id` as `tool_use_id`) to `messages`, and return the final text. `check_agent_exists` returns a bool, and a real API needs a tool result\'s content to be text, so send `str(result)`. `agent_loop.py` is the entry file.'}
   files={[
     {
       name: "tools.py",
@@ -185,7 +185,7 @@ assert [m["role"] for m in seen] == ["user", "assistant", "user", "assistant", "
 assert seen[1]["content"][0] is first and seen[3]["content"][0] is second
 assert seen[2]["content"][0]["tool_use_id"] == first.id
 assert seen[4]["content"][0]["tool_use_id"] == second.id
-assert seen[2]["content"][0]["content"] in (False, "False")
+assert seen[2]["content"][0]["content"] == "False"
 assert seen[4]["content"][0]["content"] == "created agent 'writer' with model 'claude-haiku'"
 
 # a different starting state gives a different result
@@ -196,7 +196,7 @@ recording = RecordingClient(scripted_responses=[
     TextBlock(text="It already exists."),
 ])
 assert run_agent_loop(recording, [{"role": "user", "content": "..."}]) == "It already exists."
-assert recording.seen[1][2]["content"][0]["content"] in (True, "True")
+assert recording.seen[1][2]["content"][0]["content"] == "True"
 assert tools._registry == {"known": {"model": "claude-sonnet"}}
 
 # dispatch really goes through the registry: a tool added to it later is found
@@ -216,7 +216,7 @@ client = FakeLLMClient(scripted_responses=[TextBlock(text="Hello!")])
 assert run_agent_loop(client, [{"role": "user", "content": "hi"}]) == "Hello!"
 assert client.call_count == 1
 `}
-  hint={"tools.py's three functions are each one or two lines — check_agent_exists is a single `return name in _registry`; create_agent_entry sets `_registry[name] = {\"model\": model}` then returns the formatted string; TOOL_REGISTRY is exactly [the dict-of-callables pattern from the multiple-tools concept](/02-the-agent-loop/04-writing-the-loop-by-hand/03-handling-multiple-tools/#the-fix-a-dict-mapping-names-to-actual-callables). agent_loop.py's run_agent_loop is [the exact dispatch-based loop from that concept's exercise](/02-the-agent-loop/04-writing-the-loop-by-hand/03-handling-multiple-tools/), unchanged — only the specific tools being dispatched to have changed."}
+  hint={"tools.py's three functions are each one or two lines — check_agent_exists is a single `return name in _registry`; create_agent_entry sets `_registry[name] = {\"model\": model}` then returns the formatted string; TOOL_REGISTRY is exactly [the dict-of-callables pattern from the multiple-tools concept](/02-the-agent-loop/04-writing-the-loop-by-hand/03-handling-multiple-tools/#the-fix-a-dict-mapping-names-to-actual-callables). agent_loop.py's run_agent_loop is [the dispatch-based loop from that concept](/02-the-agent-loop/04-writing-the-loop-by-hand/03-handling-multiple-tools/#the-fix-a-dict-mapping-names-to-actual-callables), sending str(result) so check_agent_exists's bool arrives as the text \"False\" or \"True\"."}
   correctFiles={[
     {
       name: "tools.py",
@@ -247,7 +247,7 @@ def run_agent_loop(client, messages):
             tool_function = TOOL_REGISTRY[block.name]
             result = tool_function(**block.input)
             messages.append({"role": "assistant", "content": [block]})
-            messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": result}]})
+            messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": str(result)}]})
         elif block.type == "text":
             return block.text`,
     },

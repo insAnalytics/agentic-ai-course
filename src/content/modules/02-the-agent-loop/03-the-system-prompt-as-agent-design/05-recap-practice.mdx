@@ -8,27 +8,11 @@ import GradedExercise from "../../../../components/lesson/GradedExercise";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 export const PARSE = String.raw`import re
-_t = " ".join(system_prompt.lower().split())
 _norm = re.sub(r"[ \t]*\n(?![ \t]*(?:\n|[-*]|\d+[.)]))", " ", system_prompt.lower())
-_sents = [s.strip() for s in re.split(r"(?<=[.!?])\s+|\n+", _norm) if s.strip()]
+_sents = [s.strip() for s in re.split(r"(?<=[.!?])\s+|\n+", _norm) if len(s.split()) >= 3]
 _CHK, _CRE = "check_agent_exists", "create_agent_entry"
-_chk = [i for i, s in enumerate(_sents) if _CHK in s]
-_cre = [i for i, s in enumerate(_sents) if _CRE in s]
-_rule = re.compile(r"\b(?:always|never|must not|do not|don't)\b")
-_when = re.compile(r"\b(?:whenever|when|if|before|first|prior to|each time|every time|once|after|only|otherwise)\b")
-_res = re.compile(r"\b(?:returns?|returned|results?|true|false)\b|already exists?|(?:does(?:n't| not)|not) exist|not found")
-_act = re.compile(r"\b(?:proceed|call|inform|tell|say|report|respond|create|register|stop|skip|do not|don't|only|should|must|never|ask|let)\b")
+_other = [s for s in _sents if _CHK not in s and _CRE not in s]
 `;
-
-export const T_ROLE = String.raw`assert re.search(r"\byou are (?:a|an|the|our)\b", _t)`;
-export const T_RULE = String.raw`assert any(_rule.search(s) and _CHK not in s and _CRE not in s and not re.search(r"\b(?:returns?|returned|results?)\b", s) for s in _sents)`;
-export const T_SEQ = String.raw`assert any(
-    (_CHK in s and re.search(r"\b(?:before|first|prior to|beforehand)\b", s) and re.search(r"creat|regist|" + _CRE, s))
-    or (_CRE in s and re.search(r"\b(?:only if|only when|only after|after|once|unless|if)\b", s) and re.search(_CHK + r"|false|not exist|n't exist|not already|no existing", s))
-    or (_CRE in s and re.search(r"\botherwise\b", s))
-    or re.search(_CHK + r"[^.!?]*\bthen\b[^.!?]*creat", s)
-    for s in _sents)`;
-export const T_NOREV = String.raw`assert not re.search(r"(?:call|use|run|invoke)\s+" + _CRE + r"\s+first|" + _CRE + r"\s*,?\s*(?:and\s+)?then\s+(?:call\s+)?" + _CHK, _t)`;
 
 <CheckpointZone>
 
@@ -128,7 +112,7 @@ export const T_NOREV = String.raw`assert not re.search(r"(?:call|use|run|invoke)
 
 <GradedExercise
   client:load
-  task={'An agent has two tools available: `check_agent_exists(name: str) -> bool` and `create_agent_entry(name: str, model: str)`, working against [the same agent registry app introduced back in Module 0](/00-python-essentials/09-building-apis-with-fastapi/11-recap-practice/). Write a complete system prompt for an agent that helps a user register new agents in the registry. It must include: a defined role (for example "You are a..."); at least one explicit always/never constraint that isn\'t itself tool instructions (for example, against creating a duplicate entry); tool guidance naming *both* tools, including when each should be called and how to use the check\'s `True`/`False` result; and a phase structure — the agent should always **check** whether an agent with the given name already exists *before* attempting to **create** one, never the reverse. Assign your prompt to the `system_prompt` variable.'}
+  task={'An agent has two tools available: `check_agent_exists(name: str) -> bool` and `create_agent_entry(name: str, model: str)`, working against [the same agent registry app introduced back in Module 0](/00-python-essentials/09-building-apis-with-fastapi/11-recap-practice/). Write a complete system prompt for an agent that helps a user register new agents in the registry. It must include: a defined role (for example "You are a..."); at least one explicit always/never constraint that isn\'t itself tool instructions (for example, against creating a duplicate entry); tool guidance naming *both* tools, including when each should be called and how to use the check\'s `True`/`False` result; and a phase structure — the agent should always **check** whether an agent with the given name already exists *before* attempting to **create** one, never the reverse. Assign your prompt to the `system_prompt` variable. The automatic checks confirm the prompt names both tools and has room for each part; a self-check list then covers what each part says.'}
   starterCode={`system_prompt = """
 TODO: write your system prompt here.
 A role, an always/never constraint, guidance for
@@ -136,14 +120,16 @@ check_agent_exists and for create_agent_entry, and
 an explicit check-before-create ordering.
 """`}
   hiddenTests={[
-    PARSE + T_ROLE,
-    PARSE + T_RULE,
-    PARSE + "assert _chk and _cre",
-    PARSE + "assert any(_when.search(_sents[i]) for i in _chk)",
-    PARSE + "assert _chk and any(_res.search(s) and _act.search(s) for s in _sents[_chk[0]:])",
-    PARSE + "assert any(_when.search(_sents[i]) for i in _cre)",
-    PARSE + T_SEQ,
-    PARSE + T_NOREV,
+    PARSE + "assert any(_CHK in s for s in _sents) and any(_CRE in s for s in _sents), 'name both tools'",
+    PARSE + "assert len(_sents) >= 5, 'a role, a constraint, guidance for two tools and an ordering: at least five sentences'",
+    PARSE + "assert len(_other) >= 2, 'a role and a general constraint, in sentences of their own'",
+  ]}
+  selfCheck={[
+    "A role: who the agent is and what it helps with.",
+    "An always/never rule that isn't a tool instruction, such as never creating a duplicate entry, ideally with the reason.",
+    "When each tool should be called, stated separately for check_agent_exists and create_agent_entry.",
+    "What to do with each result of the check: True means the name is taken and the user should be told; False means it's safe to create.",
+    "The order is unambiguous: check first, create only after a False result, never the reverse.",
   ]}
   hint={'This is every piece from this lesson, composed: role and constraint first, exactly as in the role-and-constraints concept; tool guidance for each tool separately, exactly as in the tool-guidance concept; and a phase-ordering instruction — check first, create second, only if the check came back negative — applying [phase-awareness](/02-the-agent-loop/03-the-system-prompt-as-agent-design/04-phase-aware-prompting/) at the prompt level, since a single tool call round trip doesn\'t need the code-driven version that concept also covered. Keep the closing triple quotes on their own line.'}
   correctAnswer={{
@@ -159,7 +145,7 @@ agent with that name already exists instead of attempting to create
 one.
 """`,
     explanation:
-      "Every piece here does distinct, necessary work: the role and constraint frame the agent's purpose and its one hard rule; the tool guidance covers both tools' calling conditions and result handling separately, since neither tool's own schema could specify any of this; and the explicit check-then-create ordering is phase-awareness expressed directly in the prompt — the simplest version of [the phase-awareness idea](/02-the-agent-loop/03-the-system-prompt-as-agent-design/04-phase-aware-prompting/), appropriate here since this flow is only two steps, not something needing the loop's own code-tracked state the way a longer, more complex task would. Note that this exercise grades your prompt text directly, not a model's output, since no live model is available here.",
+      "Every piece here does distinct, necessary work: the role and constraint frame the agent's purpose and its one hard rule; the tool guidance covers both tools' calling conditions and result handling separately, since neither tool's own schema could specify any of this; and the explicit check-then-create ordering is phase-awareness expressed directly in the prompt — the simplest version of [the phase-awareness idea](/02-the-agent-loop/03-the-system-prompt-as-agent-design/04-phase-aware-prompting/), appropriate here since this flow is only two steps, not something needing the loop's own code-tracked state the way a longer, more complex task would. One thing a prompt can't do is guarantee the order: a model can still skip the check. The stronger protection is structural, a create_agent_entry that rejects a duplicate itself, as [Module 3's lesson on validation](/03-tool-design-for-agents/02-tool-schemas-and-argument-validation/00-intro/) builds; the prompt is the nudge on top. The automatic checks here confirm the prompt's structure, and the self-check covers its wording, since no live model is available to try it on.",
   }}
 />
 

@@ -117,88 +117,111 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 <GradedExercise
   client:load
-  task={'Implement update_agent_model(agent_name: str, model: str, registry: dict, fallback_model: str | None = None) -> str. Validate with a Pydantic model: model must be one of {"claude-sonnet", "claude-haiku", "claude-opus"} (a field_validator). fallback_model is optional; when it\'s given, a model_validator must check that it\'s also one of those models and that it differs from model (a message containing "must differ"). Then check agent_name exists in registry. Return "Error: ..." strings on any failure, and change nothing in registry when one happens. On success, set the agent\'s "model" (and "fallback_model", only when one was given) and return "<agent_name> updated to <model>".'}
-  starterCode={`from pydantic import BaseModel, field_validator, model_validator
+  task={'Implement update_agent_model(agent_name: str, model: str, registry: dict, fallback_model: str | None = None) -> str, validating with the UpdateModelArgs Pydantic model. model and fallback_model are one of a fixed set of models, so type them with Literal (as in [Lesson 1\'s parameter design](/03-tool-design-for-agents/01-designing-tools-a-model-can-use-well/02-parameter-design/#allowed-values-literal-instead-of-a-free-form-string)); fallback_model is optional. agent_name must follow the registry\'s naming rule, lowercase and ending in _agent: a field_validator, with a message containing "lowercase". When a fallback is given, a model_validator must check that it differs from model (a message containing "must differ"). Then check agent_name exists in registry. Return "Error: ..." strings on any failure, trimming validation errors with the provided short_error, and change nothing in registry when one happens. On success, set the agent\'s "model" (and "fallback_model", only when one was given) and return "<agent_name> updated to <model>".'}
+  starterCode={`from typing import Literal
+from pydantic import BaseModel, ValidationError, field_validator, model_validator
 
-VALID_MODELS = {"claude-sonnet", "claude-haiku", "claude-opus"}
+ModelName = Literal["claude-sonnet", "claude-haiku", "claude-opus"]
+
+# --- provided: the trimmed error message from this lesson ---
+def short_error(e: ValidationError) -> str:
+    problems = []
+    for error in e.errors():
+        field = ".".join(str(part) for part in error["loc"])
+        problems.append(f"{field}: {error['msg']}" if field else error["msg"])
+    return "; ".join(problems)
+# --- end of provided code ---
 
 class UpdateModelArgs(BaseModel):
     agent_name: str
-    model: str
-    fallback_model: str | None = None
+    # TODO: type model and fallback_model (optional, default None) with ModelName
 
-    @field_validator("model")
+    @field_validator("agent_name")
     @classmethod
-    def model_must_be_valid(cls, value: str) -> str:
-        # TODO: raise ValueError if value isn't in VALID_MODELS
+    def name_follows_convention(cls, value: str) -> str:
+        # TODO: raise ValueError unless value is lowercase and ends in "_agent"
         ...
 
     @model_validator(mode="after")
-    def fallback_must_be_valid_and_different(self):
-        # TODO: if fallback_model was given, raise ValueError if it isn't in
-        #       VALID_MODELS, or if it's the same as model; return self
+    def fallback_must_differ(self):
+        # TODO: if fallback_model was given, raise ValueError if it's the same as model; return self
         ...
 
 def update_agent_model(agent_name: str, model: str, registry: dict, fallback_model: str | None = None) -> str:
-    # TODO: build UpdateModelArgs, catching a validation error
+    # TODO: build UpdateModelArgs, returning a trimmed Error: string on a ValidationError
     # TODO: check agent_name exists in registry
     # TODO: update registry and return the success message
     ...`}
   hiddenTests={[
     `registry = {"research_agent": {"model": "claude-haiku"}}
-assert "no agent named" in update_agent_model("ghost", "claude-sonnet", registry)`,
+assert "no agent named" in update_agent_model("ghost_agent", "claude-sonnet", registry)`,
     `registry = {"research_agent": {"model": "claude-haiku"}}
-assert "not a valid model" in update_agent_model("research_agent", "gpt-5", registry)`,
+result = update_agent_model("research_agent", "gpt-5", registry)
+assert result.startswith("Error:") and "claude-sonnet" in result and "claude-opus" in result
+assert registry == {"research_agent": {"model": "claude-haiku"}}`,
+    `# the allowed models are in the schema itself, where the model sees them before it calls
+schema = UpdateModelArgs.model_json_schema()
+assert set(schema["properties"]["model"]["enum"]) == {"claude-sonnet", "claude-haiku", "claude-opus"}`,
     `registry = {"research_agent": {"model": "claude-haiku"}}
-assert update_agent_model("research_agent", "claude-sonnet", registry) == "research_agent updated to claude-sonnet"`,
-    `registry = {"research_agent": {"model": "claude-haiku"}}
-update_agent_model("research_agent", "claude-sonnet", registry)
+assert update_agent_model("research_agent", "claude-sonnet", registry) == "research_agent updated to claude-sonnet"
 assert registry["research_agent"]["model"] == "claude-sonnet"`,
+    `registry = {"research_agent": {"model": "claude-haiku"}}
+result = update_agent_model("Research-Agent", "claude-sonnet", registry)
+assert result.startswith("Error:") and "lowercase" in result
+assert registry == {"research_agent": {"model": "claude-haiku"}}`,
     `registry = {"research_agent": {"model": "claude-haiku"}}
 result = update_agent_model("research_agent", "claude-sonnet", registry, fallback_model="claude-sonnet")
 assert result.startswith("Error:") and "must differ" in result
 assert registry["research_agent"] == {"model": "claude-haiku"}`,
-    `registry = {"research_agent": {"model": "claude-haiku"}}
-result = update_agent_model("research_agent", "claude-sonnet", registry, fallback_model="gpt-5")
-assert result.startswith("Error:") and "not a valid model" in result`,
+    `# errors are trimmed: no Pydantic header or documentation link for the model to read around
+registry = {"research_agent": {"model": "claude-haiku"}}
+for result in [update_agent_model("research_agent", "gpt-5", registry),
+               update_agent_model("Research-Agent", "claude-sonnet", registry),
+               update_agent_model("research_agent", "claude-sonnet", registry, fallback_model="gpt-5")]:
+    assert result.startswith("Error:")
+    assert "pydantic.dev" not in result and "validation error" not in result, result`,
     `registry = {"research_agent": {"model": "claude-haiku"}}
 result = update_agent_model("research_agent", "claude-sonnet", registry, fallback_model="claude-haiku")
 assert result == "research_agent updated to claude-sonnet"
 assert registry["research_agent"] == {"model": "claude-sonnet", "fallback_model": "claude-haiku"}`,
   ]}
-  hint={"Same two-stage shape as the lesson's pause_agent. Stage one, Pydantic: field_validator for model on its own, and a model_validator(mode=\"after\") for the rule that involves two fields. In the model_validator, return self straight away if fallback_model is None; otherwise raise ValueError for an unknown fallback (include \"not a valid model\") or one equal to model (include \"must differ\"), and return self at the end. Wrap the UpdateModelArgs(...) construction in try/except and return an Error: string. Stage two, the tool body: check the registry, and only then write model (and fallback_model if given) into it."}
+  hint={"Same two-stage shape as the lesson's pause_agent. Stage one, Pydantic: model: ModelName and fallback_model: ModelName | None = None do the allowed-values check with no code at all; a field_validator on agent_name raises ValueError unless value == value.lower() and value.endswith(\"_agent\"); a model_validator(mode=\"after\") returns self straight away if fallback_model is None, and otherwise raises ValueError (\"must differ\") when it equals model. Wrap the UpdateModelArgs(...) construction in try/except ValidationError and return f\"Error: {short_error(e)}\". Stage two, the tool body: check the registry, and only then write model (and fallback_model if given) into it."}
   correctAnswer={{
-    code: `from pydantic import BaseModel, field_validator, model_validator
+    code: `from typing import Literal
+from pydantic import BaseModel, ValidationError, field_validator, model_validator
 
-VALID_MODELS = {"claude-sonnet", "claude-haiku", "claude-opus"}
+ModelName = Literal["claude-sonnet", "claude-haiku", "claude-opus"]
+
+def short_error(e: ValidationError) -> str:
+    problems = []
+    for error in e.errors():
+        field = ".".join(str(part) for part in error["loc"])
+        problems.append(f"{field}: {error['msg']}" if field else error["msg"])
+    return "; ".join(problems)
 
 class UpdateModelArgs(BaseModel):
     agent_name: str
-    model: str
-    fallback_model: str | None = None
+    model: ModelName
+    fallback_model: ModelName | None = None
 
-    @field_validator("model")
+    @field_validator("agent_name")
     @classmethod
-    def model_must_be_valid(cls, value: str) -> str:
-        if value not in VALID_MODELS:
-            raise ValueError(f"'{value}' is not a valid model")
+    def name_follows_convention(cls, value: str) -> str:
+        if value != value.lower() or not value.endswith("_agent"):
+            raise ValueError(f"'{value}' must be lowercase and end in _agent")
         return value
 
     @model_validator(mode="after")
-    def fallback_must_be_valid_and_different(self):
-        if self.fallback_model is None:
-            return self
-        if self.fallback_model not in VALID_MODELS:
-            raise ValueError(f"fallback '{self.fallback_model}' is not a valid model")
-        if self.fallback_model == self.model:
+    def fallback_must_differ(self):
+        if self.fallback_model is not None and self.fallback_model == self.model:
             raise ValueError("fallback_model must differ from model")
         return self
 
 def update_agent_model(agent_name: str, model: str, registry: dict, fallback_model: str | None = None) -> str:
     try:
         args = UpdateModelArgs(agent_name=agent_name, model=model, fallback_model=fallback_model)
-    except Exception as e:
-        return f"Error: {str(e)}"
+    except ValidationError as e:
+        return f"Error: {short_error(e)}"
     if args.agent_name not in registry:
         return f"Error: no agent named '{args.agent_name}' exists in the registry"
     registry[args.agent_name]["model"] = args.model
@@ -206,7 +229,7 @@ def update_agent_model(agent_name: str, model: str, registry: dict, fallback_mod
         registry[args.agent_name]["fallback_model"] = args.fallback_model
     return f"{args.agent_name} updated to {args.model}"`,
     explanation:
-      "This composes the whole lesson on one tool. field_validator handles a rule about one field (model must be real). model_validator handles the rule that needs two fields at once (a fallback must differ from the model it backs up). The registry check handles the world's current state. Every failure comes back as an observation string, and nothing is written to the registry until all three pass. The last test checks the registry itself, so a function that only returns the right string wouldn't pass.",
+      "This composes the whole lesson, and Lesson 1, on one tool. Each rule sits in the place that fits it. The fixed set of models is a Literal, so the allowed values are in the schema the model reads before it calls, and Pydantic rejects anything else with a message listing them (the schema test checks they really are there). A rule a type can't express, the naming convention, is a field_validator. A rule that needs two fields at once, a fallback that differs from the model it backs up, is a model_validator. The registry check handles the world's current state. Every failure comes back as a short observation, trimmed with short_error, and nothing is written to the registry until all of them pass. A field_validator is still the right tool for a set of allowed values when that set isn't fixed, for example models that change at runtime, since a Literal is frozen when the code is written.",
   }}
 />
 

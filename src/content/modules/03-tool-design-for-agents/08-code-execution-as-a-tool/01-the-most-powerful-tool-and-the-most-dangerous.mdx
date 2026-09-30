@@ -4,8 +4,34 @@ lesson: "08-code-execution-as-a-tool"
 order: 1
 ---
 import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+export const FIXED_VS_CODE_DEMO = String.raw`import statistics
+
+numbers = [4, 8, 15, 16, 23, 42]
+
+# fixed tools: one function per task, each written ahead of time
+FIXED_TOOLS = {"mean": statistics.mean, "median": statistics.median}
+
+def call_fixed_tool(name: str, data: list) -> str:
+    if name not in FIXED_TOOLS:
+        return f"Error: no tool named {name!r}"
+    return str(FIXED_TOOLS[name](data))
+
+# one code-execution tool: runs whatever Python the model writes
+def run_code(code: str) -> None:
+    exec(code, {"numbers": numbers})
+
+print("fixed tool, mean: ", call_fixed_tool("mean", numbers))
+print("fixed tool, stdev:", call_fixed_tool("stdev", numbers))   # nobody wrote this one
+
+# the model asks for a standard deviation by writing the code for it
+run_code("import statistics; print('model-written stdev:', round(statistics.stdev(numbers), 2))")
+
+# the same tool runs this just as happily
+run_code("import os; print('model-written file listing:', sorted(os.listdir('/'))[:5])")`;
 
 <Subsection title="Some tasks are better solved by writing code than by calling a tool" variant="a">
 
@@ -25,18 +51,29 @@ writes and runs the Python. This is the most capable tool an agent can
 have: instead of a menu of fixed actions, it has a general-purpose
 computer.
 
-Anthropic and others have found that letting a model *write code* to
+[Anthropic](https://www.anthropic.com/engineering/code-execution-with-mcp)
+and others have found that letting a model *write code* to
 orchestrate its work, rather than emit a long series of individual tool
 calls, can be dramatically more efficient for certain tasks: the model
 writes a short script that loops, filters and combines results, instead
 of making dozens of separate calls. Code execution is increasingly a
 core agent capability, not a niche one.
 
+<LiveDemo client:load code={FIXED_VS_CODE_DEMO} />
+
+*The fixed tools answer only what someone wrote ahead of time. The code
+tool answered the new question, and then listed the root of the
+filesystem it runs on, because nothing about it limits what the code
+does. Here that's a harmless in-browser filesystem
+([more on why later in this lesson](/03-tool-design-for-agents/08-code-execution-as-a-tool/04-webassembly-and-pyodide/#what-the-wasm-boundary-gives-you));
+on your own machine, it would be yours.*
+
 </Subsection>
 
 <Subsection title="The same property that makes it powerful makes it dangerous" variant="b">
 
-A fixed tool can only do the one thing it was written to do.
+That last call is the problem. A fixed tool can only do the one thing
+it was written to do.
 `get_agent_model` reads a name and returns a string; there is no
 argument that makes it delete a file. A code-execution tool is the
 opposite: its whole point is that it runs *whatever the model writes*,
@@ -74,38 +111,38 @@ getting it wrong that looks correct.
     {
       question: "Why give an agent a code-execution tool instead of building a fixed tool for each task?",
       options: [
-        "Fixed tools are slower to run than generated code",
-        "A general task space, like arbitrary calculation and data reshaping, can't be covered by any finite set of fixed tools",
-        "Code execution removes the need for any other tools",
-        "Models can't call more than a few fixed tools reliably",
+        "Generated code runs faster than a library of pre-written functions",
+        "Open-ended tasks can't be covered by any finite set of fixed tools",
+        "Models pick one code tool more reliably than choosing among many",
+        "Once it exists, every other tool in the agent becomes redundant",
       ],
       correctIndex: 1,
       explanation:
-        "The next task is always slightly different. One tool that runs code the model writes covers the open-ended space a fixed menu can't.",
+        "The next task is always slightly different. One tool that runs code the model writes covers the open-ended space a fixed menu can't. It doesn't replace fixed tools, though: a well-described fixed tool is still the better choice for a known, repeated action.",
     },
     {
       question: "In what sense is model-written code \"untrusted\", even from a non-malicious model?",
       options: [
-        "The model deliberately writes harmful code",
-        "The code is always lower quality than a human's",
-        "The model can be wrong, and can be manipulated by instruction-like text it has read, so the code it writes can't be assumed safe",
-        "Untrusted just means unreviewed; it's fine once a human reads it",
+        "Models are trained to probe for weaknesses in the systems that run them",
+        "Generated code is lower quality than a human's, so it breaks things more often",
+        "It can be simply wrong, or steered by instructions hidden in text it read",
+        "It hasn't been reviewed yet; once a human reads it, it's trusted",
       ],
       correctIndex: 2,
       explanation:
-        "Both failure modes matter: an honest mistake, and text in the model's context steering what it writes. Neither requires bad intent.",
+        "Both failure modes matter: an honest mistake, and text in the model's context steering what it writes. Neither requires bad intent, and a human skimming the code doesn't reliably catch either one.",
     },
     {
       question: "What actually separates a safe code-execution tool from a dangerous one?",
       options: [
-        "Whether the model is a reasoning model",
-        "Whether the generated code is reviewed by a linter first",
-        "Whether the code runs somewhere it can't reach the host's files, network and credentials",
-        "Whether the tool is exposed over MCP or called directly",
+        "Whether a linter or static checker reviews the code before it runs",
+        "Whether the model writing the code is a strong reasoning model that makes few mistakes",
+        "What the running code can reach: host files, network, credentials",
+        "Whether the tool's description tells the model which code is forbidden",
       ],
       correctIndex: 2,
       explanation:
-        "The capability is the same either way. The risk is entirely about what the running code can reach, which is isolation.",
+        "The capability is the same either way. Checks, stronger models and instructions all lower the odds of bad code, but none of them limit what bad code can do once it runs. That limit is isolation.",
     },
   ]}
 />

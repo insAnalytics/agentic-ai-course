@@ -147,7 +147,7 @@ TOOL_REGISTRY = {
 <MultiFileGradedExercise
   client:load
   entry="plan_execute.py"
-  task={'Implement the full cycle in `plan_execute.py`, then verify it against a scenario where the first planned step conflicts with existing registry state, triggering a genuine replan that succeeds. `run_plan_execute_replan(planning_client, execution_client, goal)` decomposes `goal` via `planning_client` (a plan block with `.sub_tasks`) and executes each sub-task by sending it to `execution_client` as a single user message. A `"failure"` block (with a `.reason`) means: ask `planning_client` again with that reason included, and replace the remaining plan with the result. A `"tool_use"` block means: dispatch it through `TOOL_REGISTRY` and append the real tool result. A `"text"` block means: append its `.text`. Return the accumulated results. `tools.py` is provided read-only, unchanged from [Lesson 4\'s comprehensive sandbox](/02-the-agent-loop/04-writing-the-loop-by-hand/04-recap-practice/).'}
+  task={'Implement the full cycle in `plan_execute.py`, then verify it against a scenario where the first planned step conflicts with existing registry state, triggering a genuine replan that succeeds. `run_plan_execute_replan(planning_client, execution_client, goal)` decomposes `goal` via `planning_client` (a plan block with `.sub_tasks`) and executes each sub-task by sending it to `execution_client` as a single user message that includes the goal, the results so far, and the sub-task. A `"failure"` block (with a `.reason`) means: ask `planning_client` again with the goal, the results so far and that reason included, and replace the remaining plan with the result. A `"tool_use"` block means: dispatch it through `TOOL_REGISTRY` and append the real tool result. A `"text"` block means: append its `.text`. Return the accumulated results. `tools.py` is provided read-only, unchanged from [Lesson 4\'s comprehensive sandbox](/02-the-agent-loop/04-writing-the-loop-by-hand/04-recap-practice/).'}
   files={[
     { name: "tools.py", readOnly: true, code: TOOLS_PY },
     {
@@ -158,9 +158,10 @@ import tools
 def run_plan_execute_replan(planning_client, execution_client, goal: str) -> list:
     """
     TODO: decompose goal via planning_client (a PlanBlock). For each
-    sub-task, call execution_client and handle three possible response
-    types: "failure" (replan the remainder via planning_client, using
-    the failure reason as context), "tool_use" (dispatch via
+    sub-task, call execution_client (with the goal, the results so far,
+    and the sub-task) and handle three possible response types:
+    "failure" (replan the remainder via planning_client, with the goal,
+    the results so far and the failure reason as context), "tool_use" (dispatch via
     TOOL_REGISTRY, append the real tool result), or "text" (append
     directly). Return the list of accumulated results.
     """
@@ -206,8 +207,23 @@ execution_client = RecordingClient(scripted_responses=[
 assert run_plan_execute_replan(planning_client, execution_client, "the goal") == ["revised done"]
 assert "the goal" in planning_client.seen[0][-1]["content"]
 assert "step one is impossible" in planning_client.seen[1][-1]["content"]
-assert execution_client.seen[0][-1]["content"] == "step one"
-assert execution_client.seen[1][-1]["content"] == "revised step"
+assert "step one" in execution_client.seen[0][-1]["content"] and "the goal" in execution_client.seen[0][-1]["content"]
+assert "revised step" in execution_client.seen[1][-1]["content"]
+
+# a real tool result from an earlier step reaches both the next step and the replan
+tools._registry.clear()
+planning_client = RecordingClient(scripted_responses=[
+    [PlanBlock(sub_tasks=["create writer", "create editor"])],
+    [PlanBlock(sub_tasks=[])],
+])
+execution_client = RecordingClient(scripted_responses=[
+    [ToolUseBlock(name="create_agent_entry", input={"name": "writer", "model": "claude-haiku"})],
+    [FailureBlock(reason="editor name is taken")],
+])
+run_plan_execute_replan(planning_client, execution_client, "goal")
+assert "created agent 'writer'" in execution_client.seen[1][-1]["content"]
+assert "created agent 'writer'" in planning_client.seen[1][-1]["content"]
+assert "editor name is taken" in planning_client.seen[1][-1]["content"]
 
 # all three response types in one plan: text and tool calls append in order, tools really run
 tools._registry.clear()
@@ -271,12 +287,14 @@ def run_plan_execute_replan(planning_client, execution_client, goal: str) -> lis
     remaining_tasks = list(plan.sub_tasks)
     while remaining_tasks:
         sub_task = remaining_tasks.pop(0)
-        response = execution_client.create(messages=[{"role": "user", "content": sub_task}])
+        done = "; ".join(str(r) for r in results) or "nothing yet"
+        step_message = f"Goal: {goal}\\nDone so far: {done}\\nYour step: {sub_task}"
+        response = execution_client.create(messages=[{"role": "user", "content": step_message}])
         result_block = response.content[0]
 
         if result_block.type == "failure":
             replan_response = planning_client.create(messages=[
-                {"role": "user", "content": f"Original goal: {goal}. This happened: {result_block.reason}. What should the remaining steps be?"}
+                {"role": "user", "content": f"Original goal: {goal}. Done so far: {done}. The step '{sub_task}' failed: {result_block.reason}. What should the remaining steps be?"}
             ])
             new_plan = replan_response.content[0]
             remaining_tasks = list(new_plan.sub_tasks)

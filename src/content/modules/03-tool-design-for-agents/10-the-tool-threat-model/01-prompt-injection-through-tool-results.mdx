@@ -131,21 +131,21 @@ running code that printed something unexpected.
   {
     "question": "What makes prompt injection \"indirect\"?",
     "options": [
-      "The injected text arrives through something a tool brought in, written by someone other than the user",
-      "The user types it indirectly, through a form",
-      "It targets the model's training rather than its context",
-      "It only works on agents without a system prompt"
+      "It arrives inside content a tool fetched, written by someone other than the user",
+      "The user phrases it as a question, so the model doesn't notice it's an instruction",
+      "It targets the model's training data instead of what's in its context window",
+      "It's split across several messages so no single one looks like an attack"
     ],
     "correctIndex": 0,
-    "explanation": "Direct injection comes from the user themselves. Indirect injection rides in on tool results: pages, emails, tickets, documents."
+    "explanation": "Direct injection comes from the user themselves. Indirect injection rides in on tool results: pages, emails, tickets, documents. Phrasing and splitting are tactics; what makes it indirect is where the text comes from."
   },
   {
     "question": "In the ticket demo, what did the attacker need access to?",
     "options": [
-      "The registry's database",
-      "The agent's credentials",
-      "Only the ability to write a support ticket, which anyone can do",
-      "The agent's source code"
+      "Read access to the registry, so they'd know which agent to target",
+      "The agent's API credentials, to authorise the model change",
+      "Only the ability to submit a support ticket, which anyone has",
+      "A copy of the agent's code, to know which tools it has"
     ],
     "correctIndex": 2,
     "explanation": "The attacker's text reached the model through a tool the agent used as intended, and the agent's own permission did the rest."
@@ -153,24 +153,24 @@ running code that printed something unexpected.
   {
     "question": "Which bug in the demo's code allowed the change?",
     "options": [
-      "The loop should have stopped after reading the ticket",
-      "There's no bug: every tool and the loop worked as written, which is exactly the problem",
-      "`set_agent_model` didn't validate its arguments",
-      "The ticket should have been returned as JSON"
+      "The loop should have stopped for review after reading the ticket",
+      "None: every tool and the loop worked as written, which is the problem",
+      "`set_agent_model` didn't check that its model name was on an approved list",
+      "`get_ticket` returned raw text instead of a structured JSON object"
     ],
     "correctIndex": 1,
-    "explanation": "Prompt injection isn't a coding error you can patch in one place. It comes from a model acting on text it was only meant to read."
+    "explanation": "Prompt injection isn't a coding error you can patch in one place. It comes from a model acting on text it was only meant to read. Validating the model name wouldn't have helped either: claude-haiku is a perfectly valid model."
   },
   {
     "question": "What limits how much harm an injected instruction can cause?",
     "options": [
-      "How cleverly the attacker phrases it",
-      "How long the injected text is",
-      "Whether the user reads the tool result",
-      "What the agent's tools allow it to do, since the injected text can only try to use the agent's own permissions"
+      "How cleverly the attacker words it, since better wording gets further",
+      "What the agent's own tools can do, since it borrows their permissions",
+      "Whether the user reads the tool results before the agent acts on them",
+      "How long the injected text is, since longer text is more persuasive"
     ],
-    "correctIndex": 3,
-    "explanation": "The attacker borrows the agent's capabilities. An agent that can only read can be misled; one that can act can be made to act."
+    "correctIndex": 1,
+    "explanation": "Wording changes how often an injection works, not how much it can do. The attacker borrows the agent's capabilities: an agent that can only read can be misled; one that can act can be made to act."
   }
 ]}
 />

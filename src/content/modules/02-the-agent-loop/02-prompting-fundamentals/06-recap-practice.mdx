@@ -14,26 +14,22 @@ _blocks = sorted(
     [(m.start(), m.end(), m.group(2)) for m in re.finditer(r"<(\w+)>(.*?)</\1>", _p, re.S)]
     + [(m.start(), m.end(), m.group(1)) for m in re.finditer(r"\x60\x60\x60(.*?)\x60\x60\x60", _p, re.S)]
 )
-_reason = re.compile(r"step[- ]by[- ]step|show (?:your|the) (?:reasoning|work|steps)|explain (?:your|the) reasoning|(?:reason|think|work) (?:it |this |the problem )?through|walk through|reasoning (?:process|steps)")
-_num = r"\d+(?:\.\d+)?"
-_chain = re.compile(r"((?:\$?\s*" + _num + r"\s*\+\s*)+\$?\s*" + _num + r")\s*=\s*\$?\s*(" + _num + r")")
+def _items_total(body):
+    # the receipt's item prices, skipping discount and tax lines
+    total = 0.0
+    for line in body.splitlines():
+        if re.search(r"discount|tax", line, re.I):
+            continue
+        total += sum(float(x) for x in re.findall(r"\$\s*(\d+\.\d{2})", line))
+    return round(total, 2)
 def _worked_example(i):
     s, e, body = _blocks[i]
     nxt = _blocks[i + 1][0] if i + 1 < len(_blocks) else len(_p)
-    after = _p[e:nxt]
-    c = _chain.search(after)
-    t = re.search(r"total:\s*\$\s*(\d+\.\d{2})", after, re.I)
-    if not (c and t):
-        return False
-    nums = [float(x) for x in re.findall(_num, c.group(1))]
-    have = {round(float(x), 2) for x in re.findall(_num, body)}
-    return (abs(sum(nums) - float(c.group(2))) < 0.005
-            and abs(float(t.group(1)) - float(c.group(2))) < 0.005
-            and all(round(n, 2) in have for n in nums))
+    t = re.search(r"total:\s*\$\s*(\d+\.\d{2})", _p[e:nxt], re.I)
+    return (bool(t) and len(re.findall(r"\$\s*\d+\.\d{2}", body)) >= 2
+            and abs(float(t.group(1)) - _items_total(body)) < 0.005)
 `;
 
-export const T_FORMAT = String.raw`assert re.search(r"total:\s*\$\s*x+\.x+", _t)`;
-export const T_IGNORE = String.raw`assert re.search(r"discount|tax", _t) and re.search(r"ignor|exclud|skip|do not (?:include|count)|don't (?:include|count)|only (?:the )?item", _t)`;
 export const T_FINAL = String.raw`assert len(_blocks) >= 2 and len(re.findall(r"\d+\.\d{2}", _blocks[-1][2])) >= 2 and all(_blocks[-1][2].strip() != b[2].strip() for b in _blocks[:-1]) and not re.search(r"\d", _p[_blocks[-1][1]:])`;
 
 <CheckpointZone>
@@ -158,7 +154,7 @@ export const T_FINAL = String.raw`assert len(_blocks) >= 2 and len(re.findall(r"
 
 <GradedExercise
   client:load
-  task={'Write a prompt that, given receipt-style text listing several items and prices, computes the total cost (summing only item prices — ignoring any discount or tax lines) and outputs it in the exact format `Total: $X.XX`. Your prompt must: (1) clearly separate the instructions from the receipt data using a delimiter such as `<receipt>...</receipt>`; (2) include at least one worked few-shot example showing the exact computation (an addition like `4.50 + 8.25 = 12.75`) and the output format; (3) explicitly request step-by-step reasoning before the final total; (4) specify the exact output format, `Total: $X.XX`; (5) state that discount and tax lines are ignored; and (6) end with a new, unanswered receipt for the model to actually process. Assign your prompt to the `prompt` variable.'}
+  task={'Write a prompt that, given receipt-style text listing several items and prices, computes the total cost (summing only item prices — ignoring any discount or tax lines) and outputs it in the exact format `Total: $X.XX`. Your prompt must: (1) clearly separate the instructions from the receipt data using a delimiter such as `<receipt>...</receipt>`; (2) include at least one worked few-shot example showing the exact computation (an addition like `4.50 + 8.25 = 12.75`) and the output format; (3) explicitly request step-by-step reasoning before the final total; (4) specify the exact output format, `Total: $X.XX`; (5) state that discount and tax lines are ignored; and (6) end with a new, unanswered receipt for the model to actually process. Assign your prompt to the `prompt` variable. The automatic checks cover the structure: instructions before delimited receipts, a worked example whose total is right for its own receipt, and a final receipt left unanswered. A self-check list then covers the wording, which can be good in many different phrasings.'}
   starterCode={`prompt = """
 TODO: write your prompt here.
 Instructions first, then a worked example, then a new receipt
@@ -167,12 +163,16 @@ whose total is left for the model to compute.
   hiddenTests={[
     PARSE + "assert len(_blocks) >= 2 and len(_p[:_blocks[0][0]].split()) >= 5",
     PARSE + "assert any(_worked_example(i) for i in range(len(_blocks) - 1))",
-    PARSE + 'assert _blocks and _reason.search(" ".join(_p[:_blocks[-1][0]].lower().split()))',
-    PARSE + T_FORMAT,
-    PARSE + T_IGNORE,
     PARSE + T_FINAL,
   ]}
-  hint={'This combines every piece from this lesson, each doing its own job: the delimiter marks where the actual receipt data starts and ends; the worked example pins down the exact summation and format (write the addition out, and make its numbers come from the example receipt); the step-by-step request scaffolds the arithmetic itself, [exactly as demonstrated in the chain-of-thought concept](/02-the-agent-loop/02-prompting-fundamentals/04-chain-of-thought-prompting/); the format instruction narrows what a "correct" response even looks like. Keep the closing triple quotes on their own line.'}
+  selfCheck={[
+    "The instructions ask for the working before the total, in whatever words you chose, so the arithmetic is scaffolded rather than guessed.",
+    "The output format, Total: $X.XX, is stated in the instructions, not only shown in the example.",
+    "The instructions say that discount and tax lines don't count, and your example includes one such line so the model sees the rule applied.",
+    "Your worked example shows the addition itself (for example 4.50 + 8.25 = 12.75), not only the result.",
+    "Everything outside the delimiters is instruction or example; everything inside is data.",
+  ]}
+  hint={'This combines every piece from this lesson, each doing its own job: the delimiter marks where the actual receipt data starts and ends; the worked example pins down the exact summation and format (write the addition out, and make its total match the example receipt\'s item prices, leaving out any discount or tax line); the step-by-step request scaffolds the arithmetic itself, [exactly as demonstrated in the chain-of-thought concept](/02-the-agent-loop/02-prompting-fundamentals/04-chain-of-thought-prompting/); the format instruction narrows what a "correct" response even looks like. Keep the closing triple quotes on their own line.'}
   correctAnswer={{
     code: `prompt = """
 Compute the total cost of the items in the receipt below, ignoring any
@@ -196,7 +196,7 @@ Tax - $0.80
 </receipt>
 """`,
     explanation:
-      "Every technique from this lesson does real, distinct work here: the <receipt> delimiter removes any ambiguity about what's actual data; the worked example pins down both the \"ignore discount/tax lines\" constraint and the exact output format; the explicit step-by-step request scaffolds the arithmetic itself; and the final, unanswered receipt is what the model actually has to process — a genuine composition of every piece from this lesson, not five separate techniques applied in isolation. Note that this exercise grades your prompt text directly, not a model's output, since no live model is available here.",
+      "Every technique from this lesson does real, distinct work here: the <receipt> delimiter removes any ambiguity about what's actual data; the worked example pins down both the \"ignore discount/tax lines\" constraint and the exact output format; the explicit step-by-step request scaffolds the arithmetic itself; and the final, unanswered receipt is what the model actually has to process — a genuine composition of every piece from this lesson, not five separate techniques applied in isolation. The automatic checks can confirm that structure, and even that the example's arithmetic is right; whether the instructions say the right things is yours to judge with the self-check, since good instructions come in many phrasings and no live model is available here.",
   }}
 />
 

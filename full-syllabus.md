@@ -1983,7 +1983,8 @@ below describe each lesson as first converted; see the git log
    `client.py` (entry file, with this lesson's `build_http_request` and
    `to_tool_output` exercise solutions pre-filled) talking to a
    read-only simulated Streamable HTTP `server.py`. The server supports
-   only `2025-11-25`, checks `_meta` and the headers, and records every
+   only `2026-07-28` (the client prefers a stand-in future revision,
+   `2027-07-01`, so there is something to negotiate), checks `_meta` and the headers, and records every
    request. The learner implements `_send_once` (fresh id, `_meta`,
    headers, send, parse), `request` (a single `-32022` fallback to the
    first mutually supported version, remembered for later calls) and
@@ -2269,6 +2270,28 @@ below describe each lesson as first converted; see the git log
    is plain text. Callbacks link to verified anchors in Lesson 3.1, 3.3
    and 3.4, Module 0's Docker lesson, Module 1's prompt-injection
    subsection and Module 2's tool-errors subsection.
+   **Review pass (2026-09-24):** Concept 4 overstated Pyodide's
+   isolation. This site loads Pyodide on the page's main thread, so
+   learner code has the `js` bridge (`js.document`, `js.fetch`, page
+   storage), verified in Chromium. The "no network" and "reaches nothing
+   that matters" claims were replaced by a new "What this page hands in"
+   subsection with a live `js` demo: the boundary protects the learner's
+   computer, not the page. The "no server / no backend" wording now
+   acknowledges the E2B (Firecracker micro-VM) Docker exercises, which
+   Concept 3's micro-VM bullet also names. All 14 quiz cards were
+   rebalanced (the correct option had been the longest in every one) and
+   throwaway distractors replaced. Concept 3's quiz no longer says the
+   timeout is part of the wrapper. Concept 1 gained a live demo (fixed
+   tools vs. one code tool, which also lists the filesystem root) and a
+   source link for the code-execution-efficiency claim. The multi-file
+   callback now points at Lesson 0.3's modules concept. The graded
+   exercise moved from Concept 4 to Concept 3, where the wrapper is
+   taught (still 0/6 starter, 6/6 reference in Chromium).
+   **Recap follow-up (2026-09-25):** the recap's 8-question quiz was
+   rewritten with new questions instead of repeats of the concept
+   quizzes, and rebalanced (the correct option had been the longest in
+   every one). Its hint now links the wrapper exercise, which the review
+   pass moved to Concept 3.
 
 9. **Web Interaction** — Locked
    Title confirmed by the bookends mockup (folder renamed from the working
@@ -2336,6 +2359,18 @@ below describe each lesson as first converted; see the git log
    Pyodide 0.26.4: the reference passes; the starter and four wrong versions
    (no destructive list, no cut, `any` instead of `all`, counts instead of
    names) each fail. Lesson 10 is now fully Locked.
+   **Review pass (2026-09-25):** all 27 quiz cards rebalanced (the
+   correct option had been the longest in every one) and throwaway
+   distractors replaced. The recap quiz is 8 new questions instead of
+   repeats of the concept quizzes. Concept 3's "private database + web
+   browsing" question now uses support tickets, because Concept 3 itself
+   says fetching any URL is an external channel. Concept 2's Willison
+   quote is corrected to "99% is a failing grade". Concept 4's
+   blast-radius demo now runs the real loop with a scripted fooled model
+   against two toolsets, instead of a set-membership check. Its "broad
+   tools safely" claim is softened to note honest mistakes. The recap's
+   test-4 comment and explanation are fixed (the notes agent has the
+   private-data leg).
 
 11. **Designing for Least Privilege** — Locked
    Working title (folder `11-designing-for-least-privilege`), taken from
@@ -2379,6 +2414,24 @@ below describe each lesson as first converted; see the git log
    a per-tool (not per-call) approval, so an 8th test (approving a
    different call id must not release a delete) was added. Lesson 11 is now
    fully Locked; it is the last Module 3 lesson built so far.
+   **Review pass (2026-09-25):** the approval gate was redesigned. It
+   used to answer a gated call with an "awaiting approval" `tool_result`
+   and run the same call id later, which the real API rejects, since
+   every `tool_use` gets exactly one `tool_result`. It now pauses the
+   loop before answering and resumes on the same `messages` once a human
+   decides (see architecture.md §4.1). Concept 2's prose, demo, quiz and
+   exercise were rewritten (6 hidden tests; verified in Chromium: starter
+   0/6, reference 6/6; answering early, re-asking the model on resume,
+   per-tool approval and ignoring a decline each fail). The recap
+   exercise uses the same pausing loop (8 tests, reference passes). Its
+   old test 6, which only checked read-only `backend.py`, is replaced by
+   a real per-tool-credential test: read tools work with no write or
+   mail access, and delete works with no read access. Concept 1's demos
+   now run real SQLite (`run_query` really returns the whole table; the
+   narrow tool's `?` placeholder defeats SQL-shaped input). Concept 3's
+   credential demo uses a read-only SQLite connection, so the refusal
+   comes from the database. All 22 quiz cards were rebalanced, and the
+   recap quiz is 8 new questions.
 
 ---
 

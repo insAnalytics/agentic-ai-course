@@ -71,7 +71,7 @@ assert after["legs"]["private_data"] and after["legs"]["untrusted_content"]
 # 3. destructive tools are still flagged after the cut (they're a separate concern from the trifecta)
 assert after["destructive_tools"] == ["delete_email"]
 
-# 4. a read-only research agent (trusted notes only) trips no legs and is not vulnerable
+# 4. a notes agent that reads only trusted content has the private-data leg, but no untrusted leg, so it is not vulnerable
 notes_agent = [
     {"name": "search_notes", "reads_private_data": True, "reads_untrusted_content": False, "sends_externally": False, "destructive": False},
     {"name": "get_note",     "reads_private_data": True, "reads_untrusted_content": False, "sends_externally": False, "destructive": False},
@@ -95,92 +95,92 @@ assert r["legs"]["untrusted_content"] == ["browse_and_post"] and r["legs"]["exte
   client:load
   questions={[
   {
-    "question": "What is indirect prompt injection?",
+    "question": "Which of these is an example of indirect prompt injection?",
     "options": [
-      "The user typing an instruction to override the system prompt",
-      "Instruction-like text inside something a tool brought in, such as a page, email or ticket, written by someone other than the user",
-      "An attack on the model's training data",
-      "A bug in the agent loop"
+      "A calendar invite telling the assistant to forward the guest list",
+      "A user typing \"ignore your instructions\" into the agent's chat box",
+      "A developer's system prompt telling the agent to refuse some requests",
+      "A model misreading an ambiguous request and deleting the wrong file"
     ],
-    "correctIndex": 1,
-    "explanation": "Direct injection comes from the user. Indirect injection rides in on tool results, which is why every content-fetching tool is a way in."
+    "correctIndex": 0,
+    "explanation": "The invite's text was written by a stranger and reached the model through a tool. A user typing an override is direct injection, a system prompt is the developer's own instruction, and a misreading is an honest mistake, not an attack."
   },
   {
-    "question": "Why can't a system prompt reliably stop injection?",
+    "question": "Why can't role labels (system, user, tool result) do the job of a parameterized query's placeholder?",
     "options": [
-      "System prompts are ignored by tool results",
-      "The instruction and the rule against it reach the model as one sequence of tokens, and the roles that separate them are learned tendencies, not enforced boundaries",
-      "System prompts are too short",
-      "It can, as long as it's detailed enough"
+      "The model learned to respect roles in training; nothing enforces them",
+      "Roles are stripped out by the API before the text reaches the model",
+      "Placeholders only exist for SQL, and nobody has adapted them to text",
+      "Only the system role is separated; user and tool text are merged"
     ],
-    "correctIndex": 1,
-    "explanation": "Unlike a parameterized SQL query, nothing structurally separates data from instructions in the model's input."
+    "correctIndex": 0,
+    "explanation": "Roles do reach the model, and it does tend to respect them. But a tendency learned in training isn't a boundary, so text in a tool result can still act like an instruction."
   },
   {
-    "question": "Why is a filter that blocks 95% of injections weak protection?",
+    "question": "A detection filter catches 99% of injection attempts. An attacker makes 200 attempts. Roughly how likely is at least one to get through?",
     "options": [
-      "95% is below the legal minimum",
-      "Filters make the agent too slow",
-      "An attacker can retry, and the chance one attempt gets through climbs toward certainty",
-      "Filters only work on emails"
+      "About 1%, since that's the filter's miss rate on any attempt",
+      "About 87%: misses compound across repeated attempts",
+      "About 50%, since the attacker has to beat the filter and the model",
+      "Zero once the filter has seen an attempt and learned to block it"
+    ],
+    "correctIndex": 1,
+    "explanation": "1 − 0.99²⁰⁰ ≈ 0.87, the same arithmetic as the 95% demo. That's why 99% is still a failing grade in application security."
+  },
+  {
+    "question": "Which change removes the lethal trifecta from the inbox-triage agent?",
+    "options": [
+      "Adding \"never forward emails to outside addresses\" to its system prompt",
+      "Wrapping each email body in <untrusted> tags before the model sees it",
+      "Letting `send_email` deliver only to the user's own address",
+      "Switching to a newer model that's trained to resist injection"
     ],
     "correctIndex": 2,
-    "explanation": "Security is judged by the worst case. Against repeated attempts, \"usually blocked\" becomes \"eventually through\"."
+    "explanation": "Only that one removes a leg: with no way to send to an outsider, there's no external channel. The other three are mitigations that make a leak less likely, not impossible."
   },
   {
-    "question": "What three capabilities make up the lethal trifecta?",
+    "question": "One tool, `summarise_url(url)`, fetches any page and returns a summary. Which legs can it supply on its own?",
     "options": [
-      "A big model, many tools, a long context",
-      "Reading files, running code, browsing the web",
-      "Access to private data, exposure to untrusted content, and the ability to communicate externally",
-      "Search, fetch, extraction"
+      "Untrusted content, and external communication via the URL",
+      "Only untrusted content, since all it does is read a page",
+      "Only external communication, since summaries are generated, not read",
+      "None, as long as it returns a summary rather than the raw page"
     ],
-    "correctIndex": 2,
-    "explanation": "Combined in one agent, they let an attacker's text reach the model, pick up a secret, and send it out."
+    "correctIndex": 0,
+    "explanation": "The page is untrusted content, and a summary can still carry an injected instruction. Because it fetches any URL, an injection can also put a secret in the URL, so the same tool is an external channel."
   },
   {
-    "question": "An agent reads a private database and browses untrusted pages, but can only reply to its own user. Is it exposed to the trifecta?",
+    "question": "Two agents both hold `delete_customer`. One reads only internal dashboards; the other reads public support tickets. Which statement is right?",
     "options": [
-      "Yes, two legs is enough",
-      "No: with no external-communication leg, an injected instruction has nowhere to send data",
-      "Yes, browsing counts as external communication",
-      "Can't tell"
+      "Same blast radius, but the ticket agent is exposed to strangers",
+      "They're equally at risk, since both hold exactly the same tool",
+      "The dashboard agent is riskier, since internal data is more sensitive",
+      "Neither is exposed, since deletion isn't part of the lethal trifecta"
     ],
-    "correctIndex": 1,
-    "explanation": "All three legs are required. Cutting any one breaks the chain."
+    "correctIndex": 0,
+    "explanation": "Blast radius is set by the tools, so the worst case is the same. Exposure differs: strangers can put text in front of the ticket agent, so that's the one whose delete most needs narrowing or a gate."
   },
   {
-    "question": "Why can one tool count toward two legs of the trifecta?",
+    "question": "Why does the audit flag `delete_email` separately, when it provides no trifecta leg?",
     "options": [
-      "It can't; each tool is exactly one leg",
-      "The legs are capabilities, not tools, so a tool like `read_email` can supply both private data and untrusted content",
-      "Only broad tools count for two legs",
-      "Only if the tool is destructive"
+      "A fooled agent can still destroy data with it, even if nothing leaks",
+      "Destructive tools always count as the external-communication leg",
+      "The audit flags every tool that isn't read-only, as a formality",
+      "Deleting an email sends a notification to its original sender"
     ],
-    "correctIndex": 1,
-    "explanation": "An audit counts capabilities present anywhere in the toolset, so a single tool can contribute to more than one leg."
+    "correctIndex": 0,
+    "explanation": "The trifecta is about data leaving. Destruction is a different harm inside the blast radius, so it needs its own flag."
   },
   {
-    "question": "What is an agent's blast radius?",
+    "question": "Why is blast radius something you can design around, when injection itself can't be prevented?",
     "options": [
-      "How many injection attempts it faces",
-      "The worst-case set of things a fully compromised agent could do, set by its tools and their reach",
-      "The size of its context window",
-      "How many tools it has, exactly"
+      "It's set by tools and permissions, which are ordinary code you control",
+      "It shrinks automatically as models get better at resisting injection",
+      "It only depends on how much untrusted content the agent happens to read",
+      "It's measured after an attack, so you can patch the specific hole"
     ],
-    "correctIndex": 1,
-    "explanation": "It's the damage ceiling if every injection succeeded, which is what you can design around because it's fixed in code."
-  },
-  {
-    "question": "The same \"delete everything\" instruction hits a read-only agent and an admin agent. Why does only one carry it out?",
-    "options": [
-      "The admin agent uses a weaker model",
-      "The read-only agent detected the attack",
-      "The read-only agent has no destructive tool, so the instruction has nothing to act through",
-      "The admin agent has a worse system prompt"
-    ],
-    "correctIndex": 2,
-    "explanation": "An injected instruction can only reach for tools the agent actually has. Blast radius is set by the toolset."
+    "correctIndex": 0,
+    "explanation": "You can't decide what the model will be talked into, but you do decide what tools it has and how far they reach. That's the whole premise of the next lesson."
   }
 ]}
 />
@@ -203,7 +203,7 @@ assert r["legs"]["untrusted_content"] == ["browse_and_post"] and r["legs"]["exte
     { name: "catalog.py", readOnly: true, code: CATALOG_PY },
     { name: "audit.py", code: AUDIT_REFERENCE },
   ]}
-  explanation={"This is the whole lesson as a tool a team would actually run before shipping. The audit names which tools form each leg (test 1), not just whether the trifecta is present, so a reviewer knows what to change. Test 2 applies the structural fix: cut the external leg and the trifecta clears, while the agent keeps reading private and untrusted content, exactly the kind of tradeoff the next lesson makes deliberately. Test 3 is a reminder that destructive tools are a separate worry from the trifecta: delete_email sends nothing outward, but a compromised agent using it still does real damage, which is why the audit flags it on its own. Tests 4 and 5 cover the two ends: an agent exposed to no untrusted content is safe with broad tools, and one tool can supply two legs at once."}
+  explanation={"This is the whole lesson as a tool a team would actually run before shipping. The audit names which tools form each leg (test 1), not just whether the trifecta is present, so a reviewer knows what to change. Test 2 applies the structural fix: cut the external leg and the trifecta clears, while the agent keeps reading private and untrusted content, exactly the kind of tradeoff the next lesson makes deliberately. Test 3 is a reminder that destructive tools are a separate worry from the trifecta: delete_email sends nothing outward, but a compromised agent using it still does real damage, which is why the audit flags it on its own. Tests 4 and 5 cover the two ends: an agent that reads private data but no untrusted content has only one leg and isn't exposed to the trifecta, and one tool can supply two legs at once."}
 />
 
 </CheckpointZone>

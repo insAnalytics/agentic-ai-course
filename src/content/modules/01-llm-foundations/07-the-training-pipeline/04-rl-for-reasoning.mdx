@@ -71,6 +71,27 @@ deliberate training stage, not an emergent accident.
 
 </Subsection>
 
+<Subsection title="The same idea, applied to agents" variant="b">
+
+Correct final answers aren't the only thing that can be checked
+automatically. So can a finished task: did the code's tests pass after
+the model's changes, did the file end up with the right contents, did
+the booking in a simulated system get made correctly? Labs increasingly
+run reinforcement learning on exactly this kind of **multi-step agentic
+task**. The model works inside an environment with real tools, calling
+them over many turns, and is rewarded when the task is completed
+correctly.
+
+This is where much of a modern model's skill as an agent comes from:
+deciding which tool to call next, reading a tool's error and trying
+something different, knowing when the task is done. It's also why
+agent benchmarks, which score models on completing realistic tasks with
+tools rather than answering questions, have become a standard part of
+how new models are compared. When you choose a model for an agent, those
+results often tell you more than general chat quality does.
+
+</Subsection>
+
 <CheckpointZone>
 
 <QuizGroup
@@ -123,6 +144,18 @@ deliberate training stage, not an emergent accident.
       correctIndex: 1,
       explanation:
         "The extended-reasoning behavior is what this stage explicitly rewards, so it comes from deliberate training rather than an accident.",
+    },
+    {
+      question: "How can reinforcement learning train a model to be a better agent, when there's no single \"correct answer\" to check?",
+      options: [
+        "It can't; agent skills come only from pretraining on more text",
+        "Human raters score each individual tool call as it happens",
+        "The finished task can be checked, such as whether the tests pass, and used as the reward",
+        "The model is rewarded for making as many tool calls as possible",
+      ],
+      correctIndex: 2,
+      explanation:
+        "The same idea as rewarding correct math answers: a completed task in an environment with real tools is automatically checkable, so the whole multi-step run can be rewarded or not. Rewarding the number of calls would train the opposite of what you want.",
     },
   ]}
 />

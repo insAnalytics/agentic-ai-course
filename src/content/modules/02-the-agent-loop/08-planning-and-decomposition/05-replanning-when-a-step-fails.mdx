@@ -66,13 +66,15 @@ def run_plan_execute_replan(planning_client, execution_client, goal: str) -> lis
     remaining_tasks = list(plan.sub_tasks)
     while remaining_tasks:
         sub_task = remaining_tasks.pop(0)
-        response = execution_client.create(messages=[{"role": "user", "content": sub_task}])
+        done = "; ".join(str(r) for r in results) or "nothing yet"
+        step_message = f"Goal: {goal}\\nDone so far: {done}\\nYour step: {sub_task}"
+        response = execution_client.create(messages=[{"role": "user", "content": step_message}])
         result_block = response.content[0]
 
         if result_block.type == "failure":
             print(f"step failed: {result_block.reason} -- replanning remaining work")
             replan_response = planning_client.create(messages=[
-                {"role": "user", "content": f"Original goal: {goal}. This happened: {result_block.reason}. What should the remaining steps be?"}
+                {"role": "user", "content": f"Original goal: {goal}. Done so far: {done}. The step '{sub_task}' failed: {result_block.reason}. What should the remaining steps be?"}
             ])
             new_plan = replan_response.content[0]
             remaining_tasks = list(new_plan.sub_tasks)
@@ -104,7 +106,16 @@ than either retrying the same doomed step or blindly executing a
 second step written for a world that turned out not to be true. The
 revised plan correctly drops "create" (already unnecessary) in favor of
 "update" — genuinely different from the original, because it now
-reflects what was actually learned. (`FailureBlock` is a teaching
+reflects what was actually learned.
+
+What goes into that replan message matters as much as calling the
+planner at all. It carries three things: the original goal, what has
+**already been done**, and what failed and why. Without the completed
+steps, a planner can happily re-plan work that already happened, like
+creating an agent that step one already created. Each executor call
+gets the same goal and results so far, as in
+[the previous concept](/02-the-agent-loop/08-planning-and-decomposition/04-plan-and-execute-vs-reactive/#plan-and-execute-concretely).
+(`FailureBlock` is a teaching
 stand-in too: in practice a failed step arrives as a tool error, like
 the `"Error: ..."` results from Lesson 6.)
 
@@ -162,7 +173,7 @@ and stop cleanly with a message once the cap is hit.
 
 <GradedExercise
   client:load
-  task={'Implement `run_plan_execute_replan(planning_client, execution_client, goal)` exactly as shown in this concept — asking `planning_client` for a plan for `goal` (a block with `.sub_tasks`), then executing the sub-tasks in order by sending each one to `execution_client` as a single user message. A `"text"` block\'s `.text` is that step\'s result. On encountering a `"failure"` block, call `planning_client` again with the failure\'s `.reason` included in the message, and replace the remaining plan with the result. Return the list of results.'}
+  task={'Implement `run_plan_execute_replan(planning_client, execution_client, goal)` exactly as shown in this concept — asking `planning_client` for a plan for `goal` (a block with `.sub_tasks`), then executing the sub-tasks in order, sending each one to `execution_client` as a single user message that includes the goal, the results so far, and the sub-task itself. A `"text"` block\'s `.text` is that step\'s result. On encountering a `"failure"` block, call `planning_client` again with a message that includes the goal, the results so far, and the failure\'s `.reason`, and replace the remaining plan with the result. Return the list of results.'}
   starterCode={`def run_plan_execute_replan(planning_client, execution_client, goal: str) -> list:
     # TODO: get a plan, execute its sub-tasks in order, and when a step
     # comes back as a "failure" block, ask the planner for a revised plan
@@ -200,10 +211,29 @@ run_plan_execute_replan(planning_client, execution_client, "Set up support_agent
 assert "Set up support_agent" in planning_client.seen[0][-1]["content"]
 assert "support_agent already exists" in planning_client.seen[1][-1]["content"]
 
-# each step goes to the executor as its own user message; the old second step never runs
-assert execution_client.seen[0][-1]["content"] == "Create support_agent"
-assert execution_client.seen[1][-1]["content"] == "Send update notification instead"
-assert all(m["content"] != "Send welcome notification" for msgs in execution_client.seen for m in msgs)
+# each step goes to the executor as its own user message, with the goal; the old second step never runs
+assert len(execution_client.seen[0]) == 1 and len(execution_client.seen[1]) == 1
+assert "Create support_agent" in execution_client.seen[0][-1]["content"]
+assert "Set up support_agent" in execution_client.seen[0][-1]["content"]
+assert "Send update notification instead" in execution_client.seen[1][-1]["content"]
+assert all("Send welcome notification" not in m["content"] for msgs in execution_client.seen for m in msgs)
+`,
+    PRE + String.raw`
+# later steps and the replan both see what has already been done
+planning_client = RecordingClient(scripted_responses=[
+    [PlanBlock(sub_tasks=["A", "B", "C"])],
+    [PlanBlock(sub_tasks=["D"])],
+])
+execution_client = RecordingClient(scripted_responses=[
+    [TextBlock(text="A finished with id 42")],
+    [FailureBlock(reason="B blocked")],
+    [TextBlock(text="D done")],
+])
+assert run_plan_execute_replan(planning_client, execution_client, "the goal") == ["A finished with id 42", "D done"]
+assert "A finished with id 42" in execution_client.seen[1][-1]["content"]
+assert "A finished with id 42" in execution_client.seen[2][-1]["content"]
+replan = planning_client.seen[1][-1]["content"]
+assert "the goal" in replan and "B blocked" in replan and "A finished with id 42" in replan
 `,
     PRE + String.raw`
 # no failure: every step runs in order, and the planner is only asked once
@@ -280,12 +310,14 @@ assert execution_client.call_count == 0
     remaining_tasks = list(plan.sub_tasks)
     while remaining_tasks:
         sub_task = remaining_tasks.pop(0)
-        response = execution_client.create(messages=[{"role": "user", "content": sub_task}])
+        done = "; ".join(str(r) for r in results) or "nothing yet"
+        step_message = f"Goal: {goal}\\nDone so far: {done}\\nYour step: {sub_task}"
+        response = execution_client.create(messages=[{"role": "user", "content": step_message}])
         result_block = response.content[0]
 
         if result_block.type == "failure":
             replan_response = planning_client.create(messages=[
-                {"role": "user", "content": f"Original goal: {goal}. This happened: {result_block.reason}. What should the remaining steps be?"}
+                {"role": "user", "content": f"Original goal: {goal}. Done so far: {done}. The step '{sub_task}' failed: {result_block.reason}. What should the remaining steps be?"}
             ])
             new_plan = replan_response.content[0]
             remaining_tasks = list(new_plan.sub_tasks)
@@ -293,7 +325,7 @@ assert execution_client.call_count == 0
             results.append(result_block.text)
     return results`,
     explanation:
-      "planning_client.call_count == 2 confirms replanning genuinely happened — one call for the original plan, one for the revision — and the final result reflects the revised plan's single remaining step, not the original, now-invalid one.",
+      "planning_client.call_count == 2 confirms replanning genuinely happened — one call for the original plan, one for the revision — and the final result reflects the revised plan's single remaining step, not the original, now-invalid one. The context test checks what each call is told: a later step, and the replan, both see the earlier result, so neither the executor nor the planner works blind.",
   }}
 />
 

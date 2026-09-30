@@ -97,38 +97,38 @@ system.
     {
       question: "After exec(code, {\"__builtins__\": {}}), why can the code still reach dangerous classes?",
       options: [
-        "exec ignores the globals argument",
-        "The code runs in your process, and Python objects carry references through which other classes can be reached",
-        "__builtins__ can't actually be emptied",
-        "The dangerous classes were left in the globals by mistake",
+        "exec quietly falls back to the real builtins when a name is missing",
+        "It runs in your interpreter, and objects link back to its internals",
+        "Emptying __builtins__ only hides functions, not the modules already imported",
+        "The dangerous classes were left in the globals dict by mistake",
       ],
       correctIndex: 1,
       explanation:
-        "Emptying the namespace hides names. The code still executes with the full power of the interpreter it runs in, and can navigate to capabilities from any object.",
+        "Emptying the namespace hides names, and exec really does respect that (print() failed). But the code still executes with the full power of the interpreter it runs in, and can navigate to capabilities from any object, even a bare ().",
     },
     {
       question: "What's the general lesson the subclasses example illustrates?",
       options: [
-        "One specific expression needs to be blocked",
-        "eval is safe but exec is not",
+        "That one expression needs to be blocked, and then it's safe",
+        "eval is the unsafe function here; exec with empty builtins is fine",
         "Hiding names is not the same as removing capability",
-        "Restriction works if you also ban underscores",
+        "Restriction works as long as you also ban double underscores",
       ],
       correctIndex: 2,
       explanation:
-        "Blocking that one expression wouldn't make in-process execution safe. The problem is structural: shared process, shared power.",
+        "Blocking that one expression, or underscores, only closes the path you happen to know about. The problem is structural: shared process, shared power. The demo used eval only for brevity; exec has the same problem.",
     },
     {
       question: "Is stripping builtins and allowing a small name set ever worth doing?",
       options: [
-        "No, it provides nothing and should be skipped",
-        "Yes, but only as a convenience filter on top of a real boundary, never as the only protection",
-        "Yes, it's a complete sandbox on its own",
-        "Only for trusted code",
+        "No, a bypass exists, so it adds nothing and just costs you effort",
+        "Yes, as a mistake-catching filter on top of a real boundary",
+        "Yes, if the allowlist is small enough it becomes a sandbox by itself",
+        "Only when the code comes from a trusted model you've already tested well",
       ],
       correctIndex: 1,
       explanation:
-        "It catches honest mistakes early and makes the intended surface clear. It just can't be the thing you rely on to contain untrusted code.",
+        "It catches honest mistakes early and makes the intended surface clear. It just can't be the thing you rely on to contain untrusted code, however small the allowlist.",
     },
   ]}
 />

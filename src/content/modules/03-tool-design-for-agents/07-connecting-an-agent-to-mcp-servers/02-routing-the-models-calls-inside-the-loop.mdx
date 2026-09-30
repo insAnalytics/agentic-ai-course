@@ -172,7 +172,7 @@ def build_tool_catalog(servers: dict) -> tuple:
     for label, client in servers.items():
         for tool in client.list_tools():
             name = model_tool_name(label, tool["name"])
-            if len(name) > 64:
+            if len(name) > 64 or name in routes:
                 continue
             tools_for_model.append({"name": name, "description": tool["description"], "input_schema": tool["inputSchema"]})
             routes[name] = (label, tool["name"])

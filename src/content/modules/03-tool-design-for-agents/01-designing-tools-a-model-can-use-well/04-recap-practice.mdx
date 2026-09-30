@@ -117,7 +117,7 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 <GradedExercise
   client:load
-  task={"Given this tool from [the agent registry app introduced back in Module 0](/00-python-essentials/09-building-apis-with-fastapi/11-recap-practice/) — redesign it as a well-designed, narrow tool for looking up a single registered agent's configuration by name. Your version must have: a descriptive function name (not q), a docstring specifying exactly what's returned and what the parameter means, a well-typed parameter, and (in a comment) a one-line justification for why this stays narrow rather than becoming a broader run_query-style tool."}
+  task={"Given this tool from [the agent registry app introduced back in Module 0](/00-python-essentials/09-building-apis-with-fastapi/11-recap-practice/) — redesign it as a well-designed, narrow tool for looking up a single registered agent's configuration by name. Your version must have: a descriptive function name (not q), a docstring specifying exactly what's returned and what the parameter means, a single, clearly named and type-hinted parameter, and (in a comment) a one-line justification for why this stays narrow rather than becoming a broader run_query-style tool."}
   starterCode={`def q(s: str) -> str:
     """Query."""
     ...`}
@@ -146,7 +146,7 @@ _comment_lines = [l for l in _src_lines if "#" in l]
 _comment_text = " ".join(_comment_lines).lower()
 assert any(word in _comment_text for word in ("narrow", "broad", "granular"))`,
   ]}
-  hint={"Compose the whole lesson: a name and docstring specific enough to disambiguate, exactly as in [the names-and-descriptions concept](/03-tool-design-for-agents/01-designing-tools-a-model-can-use-well/01-names-and-descriptions-as-prompts/); a real type hint on the parameter rather than a vague str, as in [the parameter-design concept](/03-tool-design-for-agents/01-designing-tools-a-model-can-use-well/02-parameter-design/); and a one-line comment stating this stays narrow on purpose, per [the granularity concept](/03-tool-design-for-agents/01-designing-tools-a-model-can-use-well/03-granularity-narrow-vs-broad-tools/)."}
+  hint={"Compose the whole lesson: a name and docstring specific enough to disambiguate, exactly as in [the names-and-descriptions concept](/03-tool-design-for-agents/01-designing-tools-a-model-can-use-well/01-names-and-descriptions-as-prompts/); a parameter whose name says what it is (agent_name, not s), as in [the parameter-design concept](/03-tool-design-for-agents/01-designing-tools-a-model-can-use-well/02-parameter-design/); and a one-line comment stating this stays narrow on purpose, per [the granularity concept](/03-tool-design-for-agents/01-designing-tools-a-model-can-use-well/03-granularity-narrow-vs-broad-tools/)."}
   correctAnswer={{
     code: `def get_agent_config(agent_name: str) -> dict:
     """
@@ -154,11 +154,11 @@ assert any(word in _comment_text for word in ("narrow", "broad", "granular"))`,
     exact registered name. Use this for a specific, already-known
     agent name -- not for searching or listing multiple agents.
     """
-    ...
     # kept narrow: a single, unambiguous lookup is far less error-prone
-    # for the model to call correctly than a general query tool would be`,
+    # for the model to call correctly than a general query tool would be
+    ...`,
     explanation:
-      "Every piece here composes something from this lesson: get_agent_config and its docstring are specific enough that the model knows exactly what it returns and what agent_name means; agent_name: str is a real type hint, not the original's ambiguous str-for-everything; and the trailing comment states the granularity tradeoff explicitly, the same reasoning as run_sql's broader, riskier alternative.",
+      "Every piece here composes something from this lesson: get_agent_config and its docstring are specific enough that the model knows exactly what it returns and what agent_name means; the parameter is still a str, since a name is a string, but agent_name plus the docstring's \"exact registered name\" now say what that string must be, where s said nothing; and the trailing comment states the granularity tradeoff explicitly, the same reasoning as run_sql's broader, riskier alternative.",
   }}
 />
 

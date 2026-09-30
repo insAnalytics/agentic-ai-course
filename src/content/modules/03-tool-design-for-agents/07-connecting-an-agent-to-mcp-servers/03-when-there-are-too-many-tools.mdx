@@ -90,7 +90,7 @@ export const REFERENCE = String.raw`def build_tool_catalog(servers: dict, allowe
             if allowed[label] != "*" and tool["name"] not in allowed[label]:
                 continue
             name = model_tool_name(label, tool["name"])
-            if len(name) > 64:
+            if len(name) > 64 or name in routes:
                 continue
             tools_for_model.append({"name": name, "description": tool["description"], "input_schema": tool["inputSchema"]})
             routes[name] = (label, tool["name"])
@@ -315,7 +315,7 @@ well-chosen allowlist is enough.
 
 <GradedExercise
   client:load
-  task={"Extend build_tool_catalog(servers, allowed) from [this lesson's first concept](/03-tool-design-for-agents/07-connecting-an-agent-to-mcp-servers/01-discovering-tools-from-several-servers/#the-fix-prefix-clean-up-and-keep-a-route-back) with an allowlist. model_tool_name is provided at the top of the editor. allowed maps a server label either to a set of the server's original tool names, or to the string \"*\" meaning every tool on that server. A server whose label isn't in allowed is skipped entirely: don't even call its list_tools(). For an allowed server, keep only the tools its entry allows (or all of them for \"*\"). Everything else is as before: prefixed, cleaned names; inputSchema stored as input_schema; a route to (label, original_name); names over 64 characters left out."}
+  task={"Extend build_tool_catalog(servers, allowed) from [this lesson's first concept](/03-tool-design-for-agents/07-connecting-an-agent-to-mcp-servers/01-discovering-tools-from-several-servers/#the-fix-prefix-clean-up-and-keep-a-route-back) with an allowlist. model_tool_name is provided at the top of the editor. allowed maps a server label either to a set of the server's original tool names, or to the string \"*\" meaning every tool on that server. A server whose label isn't in allowed is skipped entirely: don't even call its list_tools(). For an allowed server, keep only the tools its entry allows (or all of them for \"*\"). Everything else is as before: prefixed, cleaned names; inputSchema stored as input_schema; a route to (label, original_name); names over 64 characters, or already taken, left out."}
   starterCode={PROVIDED + STARTER}
   hiddenTests={TESTS}
   hint={"Two continue checks do all the new work: one at the top of the server loop (label not in allowed), and one at the top of the tool loop (allowed[label] != \"*\" and tool[\"name\"] not in allowed[label]). The rest of the loop body is the first concept's solution, unchanged."}

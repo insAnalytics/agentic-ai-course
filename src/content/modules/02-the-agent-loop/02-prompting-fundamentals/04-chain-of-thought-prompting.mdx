@@ -10,13 +10,10 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
 export const PARSE = String.raw`import re
 _t = " ".join(prompt.lower().split())
-_reason = re.compile(r"step[- ]by[- ]step|show (?:your|the) (?:reasoning|work|steps)|explain (?:your|the) reasoning|(?:reason|think|work) (?:it |this |the problem )?through|walk through|reasoning (?:process|steps)")
-_t2 = re.sub(r"before\s+(?:\w+\s+){0,3}(?:your\s+|the\s+|a\s+)?final answer", " ", _t)
-_r = _reason.search(_t2)
-_f = re.search(r"final answer|then (?:give|state|provide|tell|answer|conclude)|(?:^|[.,;] )finally", _t2)
+_PROBLEM = "a library has 140 books. it lends out 45 books, then receives a donation of 70 more books. later, it removes a third of its current collection for repairs. how many books remain available?"
+_words = lambda text: set(re.findall(r"[a-z]+", text))
+_added = _words(_t) - _words(_PROBLEM)
 `;
-
-export const BARE = String.raw`assert not re.search(r"(?:just|only|simply)\s+(?:give\s+|state\s+|provide\s+)?(?:me\s+)?(?:the\s+)?(?:final\s+)?(?:answer|number)|no (?:explanation|work|reasoning)|nothing else|without (?:any )?(?:explanation|reasoning|work)|don'?t (?:show|explain)", _t)`;
 
 <Subsection title="The pain: jumping straight to an answer, on a multi-step problem" variant="a">
 
@@ -144,7 +141,7 @@ use, rather than reasoning about a standalone question in isolation.
 
 <GradedExercise
   client:load
-  task={'Write a prompt for this problem: "A library has 140 books. It lends out 45 books, then receives a donation of 70 more books. Later, it removes a third of its current collection for repairs. How many books remain available?" Your prompt must explicitly ask the model to reason through the problem step by step *before* stating a final answer — not just ask for the final answer alone. Assign your prompt to the `prompt` variable.'}
+  task={'Write a prompt for this problem: "A library has 140 books. It lends out 45 books, then receives a donation of 70 more books. Later, it removes a third of its current collection for repairs. How many books remain available?" Your prompt must explicitly ask the model to reason through the problem step by step *before* stating a final answer — not just ask for the final answer alone. Assign your prompt to the `prompt` variable. The automatic check only confirms your prompt contains the problem plus an instruction of your own; a self-check list then covers what the instruction should do, since that can be phrased in many good ways.'}
   starterCode={`prompt = """
 TODO: write your prompt here.
 Include the full word problem, and ask for the reasoning
@@ -152,9 +149,13 @@ before the final answer.
 """`}
   hiddenTests={[
     PARSE + 'assert all(k in _t for k in ("library", "140", "45", "70", "third", "books"))',
-    PARSE + "assert _r",
-    PARSE + "assert _r and (_f is None or _r.start() < _f.start())",
-    PARSE + BARE,
+    PARSE + "assert len(_added) >= 3, _added",
+  ]}
+  selfCheck={[
+    "Your prompt asks for the reasoning itself: the working, step by step, in whatever words you chose.",
+    "It asks for the reasoning before the final answer, not after it, since reasoning written after an answer can only justify it.",
+    "It asks for a clearly marked final answer, so the result is easy to find in the output.",
+    "Nothing in it tells the model to skip the working, such as \"just give the number\".",
   ]}
   hint={'The structure that worked in this concept\'s demo: state the problem, then add something like `"Think step by step, then give your final answer."` — the key requirement is that the prompt asks for the reasoning process itself, not just a bare final number. Keep the closing triple quotes on their own line.'}
   correctAnswer={{
@@ -165,7 +166,7 @@ collection for repairs. How many books remain available? Think step by
 step, then give your final answer.
 """`,
     explanation:
-      "This explicitly requests the intermediate reasoning — each step (140 − 45 = 95, + 70 = 165, minus a third of 165, which is 55, leaving 110) gets written out and becomes part of what the model conditions on for the next step, rather than jumping straight to a single, unscaffolded final number. Note that this exercise grades your prompt text directly, not a model's output, since no live model is available here.",
+      "This explicitly requests the intermediate reasoning — each step (140 − 45 = 95, + 70 = 165, minus a third of 165, which is 55, leaving 110) gets written out and becomes part of what the model conditions on for the next step, rather than jumping straight to a single, unscaffolded final number. There are many good ways to phrase that request, which is why the check is a self-check rather than a keyword match: no code here can tell a well-phrased request for reasoning from a badly phrased one, and no live model is available to try it on.",
   }}
 />
 

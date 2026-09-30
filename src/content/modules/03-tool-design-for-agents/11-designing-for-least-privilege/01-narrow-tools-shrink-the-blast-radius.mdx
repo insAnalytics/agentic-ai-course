@@ -9,45 +9,49 @@ import QuizGroup from "../../../../components/lesson/QuizGroup";
 import GradedExercise from "../../../../components/lesson/GradedExercise";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 
-export const BROAD_DEMO = String.raw`REGISTRY = {
-    "research_agent": {"model": "claude-opus", "owner": "alice", "monthly_cost": 4200},
-    "support_agent": {"model": "claude-haiku", "owner": "bob", "monthly_cost": 900},
-}
+export const BROAD_DEMO = String.raw`import sqlite3
 
-# one broad tool: the agent can ask anything of the database
+db = sqlite3.connect(":memory:")
+db.execute("CREATE TABLE agents (name TEXT, model TEXT, owner TEXT, monthly_cost INTEGER)")
+db.executemany("INSERT INTO agents VALUES (?, ?, ?, ?)", [
+    ("research_agent", "claude-opus", "alice", 4200),
+    ("support_agent", "claude-haiku", "bob", 900),
+])
+
+# one broad tool: the agent can ask the database anything
 def run_query(sql: str) -> str:
-    # a real tool runs the SQL; the point here is what the tool CAN be asked to return
-    if "*" in sql or "monthly_cost" in sql:
-        return str(REGISTRY)                     # the whole table: costs, owners, everything
-    return "claude-opus"                          # a normal single-field answer
+    return str(db.execute(sql).fetchall())
 
 # the intended use, from a normal request
-print("normal request -> ", run_query("SELECT model FROM agents WHERE name = 'research_agent'"))
+print("normal request   ->", run_query("SELECT model FROM agents WHERE name = 'research_agent'"))
 
 # what an injected instruction can ask the very same tool for
-print("injected request ->", run_query("SELECT * FROM agents"))
-`;
+print("injected request ->", run_query("SELECT * FROM agents"))`;
 
-export const NARROW_DEMO = String.raw`REGISTRY = {
-    "research_agent": {"model": "claude-opus", "owner": "alice", "monthly_cost": 4200},
-    "support_agent": {"model": "claude-haiku", "owner": "bob", "monthly_cost": 900},
-}
+export const NARROW_DEMO = String.raw`import sqlite3
+
+db = sqlite3.connect(":memory:")
+db.execute("CREATE TABLE agents (name TEXT, model TEXT, owner TEXT, monthly_cost INTEGER)")
+db.executemany("INSERT INTO agents VALUES (?, ?, ?, ?)", [
+    ("research_agent", "claude-opus", "alice", 4200),
+    ("support_agent", "claude-haiku", "bob", 900),
+])
 
 # the same capability, as narrow purpose-built tools
 def get_agent_model(agent_name: str) -> str:
-    if agent_name not in REGISTRY:
-        return f"Error: no agent named '{agent_name}'."
-    return REGISTRY[agent_name]["model"]
+    row = db.execute("SELECT model FROM agents WHERE name = ?", (agent_name,)).fetchone()
+    return row[0] if row else f"Error: no agent named '{agent_name}'."
 
 def list_agent_names() -> str:
-    return ", ".join(REGISTRY)
+    return ", ".join(name for (name,) in db.execute("SELECT name FROM agents"))
 
-# the normal request still works
+# the normal requests still work
 print("normal:", get_agent_model("research_agent"))
+print("names: ", list_agent_names())
 
-# there is simply no tool that returns costs or owners; the injected 'SELECT *' has nowhere to go
-print("injected 'dump everything': no tool exposes monthly_cost or owner, so it can't be read")
-`;
+# an injection can only choose the argument, and no argument reaches the other columns
+for attempt in ["SELECT * FROM agents", "x' OR '1'='1"]:
+    print(f"injected {attempt!r} ->", get_agent_model(attempt))`;
 
 export const NARROW_STARTER = String.raw`def get_agent_model(agent_name: str, registry: dict) -> str:
     # TODO: return only this agent's model, or an error if it doesn't exist
@@ -113,8 +117,10 @@ the agent doesn't have is a thing no injected instruction can make it do.
 <Subsection title="The pain: one broad tool, asked the wrong way" variant="b">
 
 Here's a registry that holds more than just models: it also has each
-agent's owner and monthly cost, which shouldn't leave the system. The
-agent has one broad tool, `run_query`:
+agent's owner and monthly cost, which shouldn't leave the system. It's a
+real SQLite table, the same built-in database from
+[the parameterized-query demo](/03-tool-design-for-agents/10-the-tool-threat-model/02-why-the-model-cant-be-the-security-boundary/#sql-injection-has-a-fix-prompt-injection-doesn-t-yet).
+The agent has one broad tool, `run_query`:
 
 <LiveDemo client:load code={BROAD_DEMO} />
 
@@ -135,7 +141,10 @@ what a real task needs and nothing more:
 
 `get_agent_model` returns one field of one agent. `list_agent_names`
 returns names. Neither can return a cost or an owner, because neither was
-written to, and there is no `run_query` any more. The sensitive columns
+written to, and there is no `run_query` any more. The most an injected
+instruction can do is pick the argument, and the argument travels through
+a `?` placeholder, so even SQL-shaped text is only ever an agent name that
+doesn't exist. The sensitive columns
 aren't guarded by a rule the model has to follow: they're simply not
 reachable through any tool the agent has. That's the difference between a
 mitigation and a structural limit,
@@ -162,43 +171,43 @@ put it.
   {
     "question": "Why is replacing `run_query(sql)` with `get_agent_model(name)` a security improvement, not just a usability one?",
     "options": [
-      "The narrow tool runs faster",
-      "The narrow tool validates SQL syntax",
-      "It isn't; both have the same blast radius",
-      "The narrow tool can only return one agent's model, so a compromised agent can't use it to read the whole database"
+      "The narrow tool runs faster, so an attacker has less time to act",
+      "It can return one agent's model, never the whole database",
+      "It validates SQL syntax, so malformed injected queries are rejected",
+      "It doesn't change security; both tools can reach the same rows"
     ],
-    "correctIndex": 3,
+    "correctIndex": 1,
     "explanation": "Blast radius is set by what a tool can do. `run_query` can return anything in the database; `get_agent_model` can return one field of one row."
   },
   {
     "question": "In the demo, why does the broad `run_query` tool return the whole table for `SELECT *`?",
     "options": [
-      "A bug in the tool",
-      "The model chose to leak data",
-      "Returning whatever the query asks for is the tool's entire purpose, so it has no reason to refuse",
-      "The injection disabled the tool's checks"
+      "A bug: it should have refused any query that selects every column",
+      "Returning whatever the query asks for is the tool's whole job",
+      "The model decided to leak it after seeing the cost column exists",
+      "The injected text switched off the tool's built-in safety checks"
     ],
-    "correctIndex": 2,
+    "correctIndex": 1,
     "explanation": "The tool is working exactly as written. Its broad design is the vulnerability, not any error in it."
   },
   {
     "question": "After the fix, why can't an injected \"dump everything\" instruction read agent costs?",
     "options": [
-      "The model refuses because the system prompt forbids it",
-      "A filter removes cost data from tool results",
-      "The cost column is encrypted",
-      "No tool the agent has returns cost data, so there's no path to it regardless of what the model is told to do"
+      "The system prompt now forbids the model from asking about costs",
+      "A filter strips cost figures out of every tool result it sees",
+      "No tool the agent has can return cost data, whatever it's told",
+      "The ? placeholder encrypts the cost column before any query runs"
     ],
-    "correctIndex": 3,
-    "explanation": "It's a structural limit, not a rule the model must choose to follow. The capability simply isn't present."
+    "correctIndex": 2,
+    "explanation": "It's a structural limit, not a rule the model must choose to follow. The placeholder keeps the argument from being run as SQL, but the real reason is simpler: no tool was written to return costs."
   },
   {
     "question": "What is the real cost of narrow tools?",
     "options": [
-      "They're slower to run",
-      "Less flexibility: a question nobody built a tool for has no tool to answer it",
-      "They use more of the context window",
-      "They can't be used by an agent at all"
+      "They're slower, since each question needs several separate calls",
+      "Less flexibility: an unforeseen question may have no tool for it",
+      "They take up more of the context window with extra tool schemas",
+      "They can't be used by agents that read untrusted content"
     ],
     "correctIndex": 1,
     "explanation": "That's the least-privilege trade: give up open-ended flexibility for a blast radius you can reason about. It's the right trade when the agent sees untrusted content."
@@ -218,7 +227,7 @@ put it.
   hint={"get_agent_model reads registry[agent_name][\"model\"] after checking the name exists; it never touches the other fields. \", \".join(registry) gives the names."}
   correctAnswer={{
     code: NARROW_REFERENCE,
-    explanation: "The security property here is what the tools don't do. There's no parameter on either tool that could be steered toward owner or monthly_cost, so those fields are unreachable no matter what an injected instruction asks for. The test that matters is the one checking a \"dump everything\" style request can't retrieve a cost: it can't, because nothing in the toolset exposes it.",
+    explanation: "The security property here is what the tools don't do. There's no parameter on either tool that could be steered toward owner or monthly_cost, so those fields are unreachable no matter what an injected instruction asks for. Tests 3 and 4 are the ones that matter: no input to either tool returns an owner or a cost, and neither signature has a field or column parameter an injected instruction could aim at them.",
   }}
 />
 

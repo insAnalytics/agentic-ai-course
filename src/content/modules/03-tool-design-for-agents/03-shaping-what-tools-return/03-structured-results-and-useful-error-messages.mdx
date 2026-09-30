@@ -136,6 +136,17 @@ names,
 applied to an error message: a helpful error for a 5,000-agent registry
 shouldn't itself become a 50,000-token result.
 
+One line to draw carefully: **an empty result isn't an error.** Looking
+up an agent by a name that doesn't exist is a failed call; the model
+asked for something that isn't there. But a search that correctly finds
+nothing succeeded, and its answer happens to be "none". Report it as a
+normal result, such as an empty list with `"total": 0`, not as
+`Error: ...`. A result labeled as an error tells the model its *call* was
+wrong, and it will try to fix a call that was fine: rephrasing the
+search, or retrying it. The helpful context still belongs there, as a
+note alongside the empty list, such as which values would have matched
+something.
+
 </Subsection>
 
 <CheckpointZone>

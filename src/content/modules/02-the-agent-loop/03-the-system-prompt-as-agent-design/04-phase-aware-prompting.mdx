@@ -69,7 +69,42 @@ recognizing its own stage every time.
 
 </Subsection>
 
-<Subsection title="Where this actually gets implemented" variant="b">
+<Subsection title="Where the phase instruction goes: keep the prefix stable" variant="b">
+
+There's a cost to swapping the *system prompt* itself, and it's easy to
+miss. The system prompt is the very start of every request, and
+[prompt caching only reuses an identical prefix](/01-llm-foundations/06-context-windows-and-kv-cache/04-prompt-structure-and-cache-hits/#the-cache-benefit-extends-across-separate-requests-not-just-within-one).
+Change the first sentence and nothing after it matches any more: at
+every phase change, the whole conversation so far, which in an agent
+can be many thousands of tokens, is reprocessed at the full price.
+
+The usual fix keeps the system prompt fixed, describing each phase once,
+and sends the *current* phase as a short instruction at the end of the
+conversation, where it's new anyway:
+
+```python
+SYSTEM_PROMPT = """You work in two phases. RESEARCH: use tools to gather facts, don't answer yet.
+WRITE: answer from what you've gathered, and call no more tools.
+Follow the phase named in the latest message."""   # never changes, so it stays cached
+
+messages.append({"role": "user", "content": [
+    *tool_results,                                                   # this turn's tool results
+    {"type": "text", "text": f"Current phase: {current_phase.upper()}"},
+]})
+```
+
+*(Illustrative: the shape of the request, not a runnable loop.)*
+
+The code still owns the phase, exactly as above; only where the
+instruction sits has changed. Some APIs now offer a dedicated way to add
+an instruction partway through a conversation without touching the
+original system prompt, for the same reason. It's a pattern worth
+remembering beyond phases: anything that changes during a run belongs
+at the end of the request, not the beginning.
+
+</Subsection>
+
+<Subsection title="Where this actually gets implemented" variant="a">
 
 Tracking `current_phase` and deciding *when* to transition between phases
 is something the loop's own logic has to actually do —
@@ -132,6 +167,18 @@ into a real, running loop is where this goes next.
       correctIndex: 1,
       explanation:
         "This concept covers why and which approach; the loop that owns `current_phase` gets written next.",
+    },
+    {
+      question: "An agent swaps its whole system prompt each time the phase changes. What does that cost, beyond the new prompt's own tokens?",
+      options: [
+        "Nothing, since the system prompt is small",
+        "The model forgets the conversation so far",
+        "The cached prefix no longer matches, so the whole conversation is reprocessed at full price",
+        "The API rejects a changed system prompt partway through a conversation",
+      ],
+      correctIndex: 2,
+      explanation:
+        "Caching reuses an identical prefix, and the system prompt is where the prefix starts. Keeping it fixed and sending the current phase near the end keeps the history cached. The model doesn't forget anything either way, since the history is resent.",
     },
   ]}
 />

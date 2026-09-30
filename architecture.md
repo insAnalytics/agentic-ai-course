@@ -102,7 +102,7 @@ sidebar navigation, not one very long scroll.
       CodeEditor.tsx               # shared CodeMirror 6 editor (VS Code dark theme, Python highlighting)
       LiveDemo.tsx               # editable, ungraded code demo (Pyodide, manual run)
       QuizGroup.tsx                # cycles one multiple-choice question at a time
-      GradedExercise.tsx          # editable code, graded against hidden tests
+      GradedExercise.tsx          # editable code, graded against hidden tests; optional `selfCheck` rubric shown after passing (prompt-writing exercises)
       MultiFileEditor.tsx          # shared file-tab strip + CodeEditor, used by both multi-file components below
       MultiFileLiveDemo.tsx        # multi-file LiveDemo — real cross-file imports, editable or readOnly per file
       MultiFileGradedExercise.tsx  # multi-file GradedExercise — real imports, graded via a real Pyodide FS + sys.modules
@@ -2170,6 +2170,77 @@ Things that stand-in doesn't cover:
 - Numpy calls that need newer numpy. The 2026-09-29 additions use
   `np.packbits`/`np.unpackbits` for Hamming counts (Lesson 4), since numpy
   1.26 has no `bitwise_count`.
+
+**Lessons 3.8, 3.10 and 3.11 review pass (findings):**
+
+- **Pyodide runs on the page's main thread** (`window.loadPyodide` in
+  `src/lib/pyodide.ts`), so learner code has the `js` bridge: page
+  DOM, page storage and the browser's `fetch`. Lesson 3.8 Concept 4
+  teaches this as "what this page hands in". Never describe the
+  in-browser sandbox as having "no network" or reaching nothing. If the
+  site ever holds anything sensitive, move Pyodide into a Web Worker
+  first.
+- **`sqlite3` works in LiveDemos**. `loadPackagesFromImports` fetches
+  Pyodide's `sqlite3` package on first import. Lessons 3.10 and 3.11
+  use it for real queries, and `file:...?mode=ro` with `uri=True` gives
+  a genuinely read-only connection (verified in Chromium: "attempt to
+  write a readonly database"). Pyodide's shared interpreter keeps the
+  file between runs, so demos use `CREATE TABLE IF NOT EXISTS` /
+  `INSERT OR REPLACE` to stay re-runnable.
+- **Approval gates pause; they never answer early.** The API needs
+  exactly one `tool_result` for every `tool_use`, in the next message.
+  So a gated call can't be answered "awaiting approval" and run later.
+  Lesson 3.11's `run_agent(llm, messages, tools, gated, decisions)`
+  returns `{"status": "paused", "waiting": [...]}` *before* answering
+  anything in the turn, and calling it again on the same `messages`
+  resumes the turn (it only calls the model when the last message isn't
+  an assistant message). `decisions` maps call id to `True`/`False`, and
+  a declined call gets an error `tool_result`. The hidden tests check
+  that nothing in a paused turn runs, that a resume doesn't re-ask the
+  model, and that approval is per call id.
+- **Scratch verification without the CDN**: when `cdn.jsdelivr.net` is
+  unreachable from a session, Playwright can serve Pyodide from the
+  local `pyodide` npm package through `page.route`. Packages that aren't
+  in the npm package, like `sqlite3`, can be extracted from the GitHub
+  release tarball (`pyodide-0.26.4.tar.bz2`).
+- **Prompt-writing exercises: structure in code, wording in a self-check**
+  (Module 2 QC). Lessons 2.2 and 2.3 used to grade a learner's prompt
+  text with keyword regexes ("step by step", "you are a", "always"),
+  which failed good prompts written in other words and passed
+  keyword-stuffed bad ones. Their hidden tests now check only structure
+  a regex can judge fairly: the problem is present plus added
+  instruction words; delimited receipts with a worked example whose
+  `Total: $X.XX` equals that receipt's item prices (discount/tax lines
+  skipped) and a final receipt left unanswered; the tool names present
+  with enough separate sentences for each required part. What the
+  wording should do moves to `GradedExercise`'s `selfCheck` prop, a
+  checklist shown once the tests pass. Each conversion was run in
+  Pyodide with the reference, a good prompt in unusual wording (passes)
+  and structurally incomplete prompts (fail).
+- **Early exits must still answer the whole response** (Module 2 QC).
+  Lesson 2.6's repeat check and goal check used to `return` in the
+  middle of a response's tool calls, leaving `tool_use` blocks with no
+  `tool_result`. Both now run after the response's results are
+  appended; a repeated call is answered with an error result instead of
+  run. The hidden tests include a repeat and a goal hit that come
+  *before* another call in the same response.
+- **MCP versions: 2026-07-28 is the only "modern" revision** (checked
+  against the spec repo's `schema/2026-07-28/schema.ts` and
+  `docs/specification/2026-07-28/basic/versioning.mdx`). `2025-11-25`
+  and earlier are *legacy*: they open with an `initialize` handshake and
+  keep a session, so a client can't fall back to them by changing the
+  version string in `_meta`. Lesson 3.5's negotiation demos and recap
+  now negotiate between a stand-in future revision, `2027-07-01`, and
+  `2026-07-28`, and a new subsection covers legacy servers and the
+  spec's dual-era detection. Lesson 3.6's `mcp` 2.2.0 code was re-run
+  outside the sandbox: imports resolve, the printed output and the 4
+  pytest tests match the page.
+- **Tool-name rules** (Claude API docs, checked 2026-09): names must
+  match `^[a-zA-Z0-9_-]{1,128}$`. Lesson 3.7 keeps its 64-character cap
+  as the cross-provider safe limit (OpenAI's is 64) and says so.
+- **Pydantic in scratch verification**: the local `pyodide` npm package
+  has no `pydantic` wheel. Exercises that need it were checked in CPython
+  with `pydantic==2.7.0`, the version Pyodide 0.26.4 ships.
 
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 

@@ -71,6 +71,10 @@ concern.
   lookup or a basic format transformation rarely benefits meaningfully
   from extra reasoning tokens; the added cost and latency there is often
   simply wasted.
+- **Takes up room, not just money** — reasoning tokens are output
+  tokens, so they count against the request's `max_tokens` and, while
+  they're being generated, against the context window. A tight
+  `max_tokens` can run out mid-thought, before any answer appears.
 
 This is a genuine, practical design decision when building an agent, not
 an academic curiosity: routing every request through a reasoning model
@@ -85,6 +89,17 @@ models are hybrid: the same model can answer directly or think first,
 controlled per request by a thinking-token budget or an effort setting
 (low, medium, high). So the dial is often a request parameter rather
 than a model choice. The decision itself is the same either way.
+
+Longer reasoning is also only one way to spend compute at answer time.
+Two others matter to this course. **Sampling several answers and
+choosing** (generate five candidates, then take the most common answer
+or the one a checker prefers) spends more compute on the same question
+and often beats a single attempt; it's the idea behind "self-consistency"
+and "best-of-N". And **an agent loop is test-time compute too**: every
+extra step, tool call and look at a result is the model spending more
+work on one task before it answers. The trade-off in the list above,
+more cost and time for a better answer on hard problems, is exactly the
+trade-off of using an agent at all, which Module 2 opens with.
 
 </Subsection>
 

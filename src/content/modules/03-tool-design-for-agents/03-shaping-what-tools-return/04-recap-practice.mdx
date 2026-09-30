@@ -127,13 +127,14 @@ registry = {
 
 <GradedExercise
   client:load
-  task={'Implement search_agents_by_model(model: str, registry: dict, offset: int = 0, limit: int = 2) -> str. It returns JSON text with this exact shape: {"model": "...", "agents": ["...", "..."], "total": 5, "next_offset": 2}. agents is the page of matching agent names (in registry order), starting at offset and at most limit long. total is the number of matches across all pages. next_offset is the offset for the next page, or None (JSON null) if this is the last page. If no agents match at all, return an error string starting with "Error:" that names the model searched for and lists the distinct models that do exist in the registry.'}
+  task={'Implement search_agents_by_model(model: str, registry: dict, offset: int = 0, limit: int = 2) -> str. It returns JSON text with this exact shape: {"model": "...", "agents": ["...", "..."], "total": 5, "next_offset": 2}. agents is the page of matching agent names (in registry order), starting at offset and at most limit long. total is the number of matches across all pages. next_offset is the offset for the next page, or None (JSON null) if this is the last page. If no agents match at all, that is still a successful search, not an error: return the same shape with an empty agents list, total 0 and next_offset None, plus a "note" field that names the model searched for and lists the distinct models that do exist in the registry. A negative offset is a genuinely invalid call: return an error string starting with "Error:" that says offset must be 0 or more.'}
   starterCode={`import json
 
 def search_agents_by_model(model: str, registry: dict, offset: int = 0, limit: int = 2) -> str:
+    # TODO: return an "Error: ..." string if offset is negative
     # TODO: collect the names of every agent whose model matches
-    # TODO: if nothing matches, return an "Error: ..." string naming the
-    #       model searched for and listing the distinct models in use
+    # TODO: if nothing matches, return an empty page (total 0) with a
+    #       "note" naming the model searched for and the models in use
     # TODO: slice out this page, work out total and next_offset
     #       (None when this is the last page)
     # TODO: return the result as JSON text
@@ -141,23 +142,27 @@ def search_agents_by_model(model: str, registry: dict, offset: int = 0, limit: i
   hiddenTests={[
     REGISTRY + 'assert json.loads(search_agents_by_model("claude-haiku", registry, offset=0, limit=2)) == {"model": "claude-haiku", "agents": ["a1", "a3"], "total": 3, "next_offset": 2}',
     REGISTRY + 'assert json.loads(search_agents_by_model("claude-haiku", registry, offset=2, limit=2)) == {"model": "claude-haiku", "agents": ["a4"], "total": 3, "next_offset": None}',
-    REGISTRY + 'assert search_agents_by_model("gpt-5", registry).startswith("Error:")',
-    REGISTRY + 'assert "gpt-5" in search_agents_by_model("gpt-5", registry)',
-    REGISTRY + 'assert "claude-sonnet" in search_agents_by_model("gpt-5", registry) and "claude-opus" in search_agents_by_model("gpt-5", registry)',
+    REGISTRY + 'r = json.loads(search_agents_by_model("gpt-5", registry))\nassert r["agents"] == [] and r["total"] == 0 and r["next_offset"] is None and r["model"] == "gpt-5"',
+    REGISTRY + 'note = json.loads(search_agents_by_model("gpt-5", registry))["note"]\nassert "gpt-5" in note and "claude-sonnet" in note and "claude-opus" in note and "claude-haiku" in note',
+    REGISTRY + 'r = search_agents_by_model("claude-haiku", registry, offset=-1)\nassert r.startswith("Error:") and "offset" in r',
   ]}
-  hint={"Build the full list of matches first with a list comprehension over registry.items(), then slice it [offset:offset + limit] for the page — the same slicing as the pagination concept. next_offset is offset + limit when that's still less than total, otherwise None — json.dumps turns None into JSON null automatically. For the error, a set comprehension over the registry's model values gives the distinct models."}
+  hint={"Build the full list of matches first with a list comprehension over registry.items(), then slice it [offset:offset + limit] for the page — the same slicing as the pagination concept. next_offset is offset + limit when that's still less than total, otherwise None — json.dumps turns None into JSON null automatically. For the empty case's note, a set comprehension over the registry's model values gives the distinct models. Check the offset first, before doing any work."}
   correctAnswer={{
     code: `import json
 
 def search_agents_by_model(model: str, registry: dict, offset: int = 0, limit: int = 2) -> str:
+    if offset < 0:
+        return f"Error: offset must be 0 or more, got {offset}. Use 0 for the first page."
+
     matches = [name for name, info in registry.items() if info["model"] == model]
 
     if not matches:
+        # a search that finds nothing succeeded: an empty page, with a note on what would match
         existing_models = sorted({info["model"] for info in registry.values()})
-        return (
-            f"Error: no agents use model '{model}'. "
-            f"Models in use: {', '.join(existing_models)}."
-        )
+        return json.dumps({
+            "model": model, "agents": [], "total": 0, "next_offset": None,
+            "note": f"No agents use model '{model}'. Models in use: {', '.join(existing_models)}.",
+        })
 
     total = len(matches)
     page = matches[offset:offset + limit]
@@ -165,7 +170,7 @@ def search_agents_by_model(model: str, registry: dict, offset: int = 0, limit: i
 
     return json.dumps({"model": model, "agents": page, "total": total, "next_offset": next_offset})`,
     explanation:
-      "Each part of the lesson shows up here. The page is capped by limit (the cost of oversized results). total and next_offset tell the model how much exists and how to get more, so partial data is never mistaken for the whole (truncation and pagination). The result is parseable JSON with labeled fields, including a next_offset the model can pass straight back into its next call (structured results). The error names the failed search and shows what would work. sorted(...) just makes the error's order stable, since sets have no guaranteed order.",
+      "Each part of the lesson shows up here. The page is capped by limit (the cost of oversized results). total and next_offset tell the model how much exists and how to get more, so partial data is never mistaken for the whole (truncation and pagination). The result is parseable JSON with labeled fields, including a next_offset the model can pass straight back into its next call (structured results). A search that finds nothing isn't an error, so it comes back as an ordinary empty page, with a note naming the search and showing what would match. The one real error, a negative offset, says what's valid (useful errors). sorted(...) just makes the note's order stable, since sets have no guaranteed order.",
   }}
 />
 

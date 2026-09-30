@@ -189,6 +189,12 @@ then a final input with its answer left blank.
     PARSE + "assert len({_lines[i] for i in _ex}) >= 2 and len({_lines[j] for j in _ex_in if j >= 0}) >= 2",
     PARSE + "assert _ex and _final > max(_ex) and not _tail.search(_lines[_final]) and len(_lines[_final].split()) >= 3 and _lines[_final] not in {_lines[j] for j in _ex_in if j >= 0}",
   ]}
+  selfCheck={[
+    "Every example's output uses exactly the format you want back, em dash and dollar sign included, since the model copies what it sees.",
+    "Your examples differ in the ways real inputs will (different products, prices and sentence shapes), so the model learns the pattern rather than one sentence.",
+    "The instruction says what to extract, and the examples show how it should look; neither contradicts the other.",
+    "The final input is a new sentence, not a copy of an example, and its answer is left blank.",
+  ]}
   hint={'Structure: one instruction sentence, then two or more input/output pairs (for example `Text: "..."` followed by `Output: Name — $Price`) using two different example sentences, then a final new `Text: "..."` with no answer filled in. Keep the closing triple quotes on their own line.'}
   correctAnswer={{
     code: `prompt = """
@@ -204,7 +210,7 @@ Text: "The new NightGlow desk lamp retails for $32.00."
 Output:
 """`,
     explanation:
-      "Two genuinely distinct worked examples pin down the exact format — product name, an em dash, a dollar sign, the price — before the final unanswered input, giving a model far more reliable footing than a one-line format description alone would. Note that this exercise grades your prompt text directly, not a model's output, since no live model is available here.",
+      "Two genuinely distinct worked examples pin down the exact format — product name, an em dash, a dollar sign, the price — before the final unanswered input, giving a model far more reliable footing than a one-line format description alone would. The automatic checks confirm that structure; the self-check covers what they can't, such as whether your examples vary in useful ways, since no live model is available here to try the prompt on.",
   }}
 />
 

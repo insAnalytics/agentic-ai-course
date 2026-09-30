@@ -171,92 +171,92 @@ assert llm.seen[1][-1]["content"][0]["is_error"] is True
   client:load
   questions={[
   {
-    "question": "Why is model-written code treated as untrusted, even from a model that isn't malicious?",
+    "question": "A model is asked for the median of 500 numbers. Why is a code-execution tool a better fit than adding a `median` tool?",
     "options": [
-      "Models always write lower-quality code than people",
-      "The model can make mistakes, and instruction-like text it has read can steer the code it writes",
-      "Only code that imports `os` is untrusted",
-      "It's untrusted until a linter has checked it"
-    ],
-    "correctIndex": 1,
-    "explanation": "Neither failure needs bad intent. An honest mistake and a manipulated model both produce code you didn't expect."
-  },
-  {
-    "question": "A tool runs model code with `exec(code, {\"__builtins__\": {}})`. Is that a sandbox?",
-    "options": [
-      "Yes, since no dangerous names are available",
-      "Yes, as long as underscores are also blocked",
-      "No, because the code still runs in your process with its full power, and can reach capability through Python's own objects",
-      "No, because `exec` ignores its globals argument"
-    ],
-    "correctIndex": 2,
-    "explanation": "Hiding names isn't removing capability. The code shares your interpreter, so the boundary has to be outside it."
-  },
-  {
-    "question": "Moving from a separate process to a container to a micro-VM, what generally increases?",
-    "options": [
-      "Only startup time",
-      "Only boundary strength",
-      "Neither; they're equivalent",
-      "Both boundary strength and per-run overhead"
-    ],
-    "correctIndex": 3,
-    "explanation": "Stronger isolation costs more per run. The right choice depends on how hostile the code might be and how fast each run must start."
-  },
-  {
-    "question": "What makes WebAssembly a strong boundary for running untrusted code?",
-    "options": [
-      "Wasm code starts with no access to the host's files, network or processes, and gets only what the host explicitly grants",
-      "Wasm scans code for dangerous patterns before running it",
-      "Wasm only runs code written in WebAssembly",
-      "Wasm runs code faster than native"
+      "Tomorrow's request will be slightly different, and code covers them all",
+      "A median tool would be slower than a script the model writes itself",
+      "Models can't pass 500 numbers as a tool argument, but code can hold them",
+      "Adding tools changes the system prompt, which resets the conversation"
     ],
     "correctIndex": 0,
-    "explanation": "Starting from zero capability and granting narrowly is far easier to get right than trying to take capability away."
+    "explanation": "A median tool answers one question. The next request (a trimmed mean, a percentile, a reshaped CSV) needs another, and code covers the open-ended space a fixed menu can't."
   },
   {
-    "question": "Why does this course's in-browser Python let exercises write files, safely?",
+    "question": "A tool runs model code with `exec()` and an empty `__builtins__`. What should you call that setup?",
     "options": [
-      "The files are written to a temporary folder on your disk and deleted afterward",
-      "Pyodide's filesystem lives in memory inside the sandbox and never touches your real disk",
-      "File writes are faked and nothing is actually stored",
-      "Only reads are allowed"
-    ],
-    "correctIndex": 1,
-    "explanation": "The files are real to the code and isolated from your machine, which is exactly the property a code-execution tool needs."
-  },
-  {
-    "question": "Model-written code computes a value but never prints it. What should the tool return?",
-    "options": [
-      "An empty string",
-      "An error, since nothing happened",
-      "A note that the code ran but printed nothing, so the model knows to print its result",
-      "The value of the last variable assigned"
-    ],
-    "correctIndex": 2,
-    "explanation": "The model only sees what the tool returns. A blank result is a confusing non-answer; a note tells it what to change."
-  },
-  {
-    "question": "Model-written code contains an infinite loop. Which protection handles it?",
-    "options": [
-      "Emptying `__builtins__`",
-      "Truncating the output",
-      "The allowlist of available names",
-      "A time limit on the run, which stops the code and reports it to the model"
-    ],
-    "correctIndex": 3,
-    "explanation": "A loop needs no dangerous names at all, so no namespace restriction stops it. Only a limit on how long it runs does."
-  },
-  {
-    "question": "Why is it worth keeping an allowlist of names, if it isn't the real protection?",
-    "options": [
-      "It catches honest mistakes early with a clear error, and makes the intended surface explicit",
-      "It's what actually keeps the code from reaching your files",
-      "The model API requires it",
-      "It makes the code run faster"
+      "A filter that catches honest mistakes, but not a sandbox",
+      "A sandbox, since no dangerous names are reachable from the code",
+      "A sandbox, as long as double underscores are also blocked",
+      "Useless, since exec ignores the globals it's given anyway"
     ],
     "correctIndex": 0,
-    "explanation": "A stray `open()` fails immediately with a `NameError` the model can read and fix. The safety still comes from the sandbox underneath."
+    "explanation": "Hiding names isn't removing capability: the code still runs in your process and can reach dangerous classes through Python's own objects. It's still worth having as a filter on top of a real boundary."
+  },
+  {
+    "question": "Which boundary gives each execution its own kernel?",
+    "options": [
+      "A micro-VM, like those behind this course's Docker exercises",
+      "A container, since it has its own filesystem and network rules",
+      "A separate process running under a locked-down user account",
+      "WebAssembly, since the runtime replaces the operating system"
+    ],
+    "correctIndex": 0,
+    "explanation": "Containers share the host's kernel and processes share the machine. A micro-VM such as Firecracker boots its own, a stronger boundary that still starts in a fraction of a second."
+  },
+  {
+    "question": "On this course's pages, Python can call the browser's `fetch()` through the `js` module. What does that show about Wasm isolation?",
+    "options": [
+      "The host decides what crosses the boundary, and this page grants that",
+      "The Wasm boundary is broken, and the code can reach your computer",
+      "Pyodide has no sandbox; only the browser's permission prompts protect you",
+      "fetch() is part of WebAssembly itself, so every Wasm runtime has it"
+    ],
+    "correctIndex": 0,
+    "explanation": "Wasm starts from nothing and gets only what the host hands in. This page hands in a bridge to its own JavaScript, which is harmless here; an agent product holding secrets would grant less. Your computer stays outside the boundary either way."
+  },
+  {
+    "question": "Where does a code-execution tool's time limit belong?",
+    "options": [
+      "In the sandbox boundary, which can stop the code from outside",
+      "In the allowlist, by leaving `while` and `for` out of the names",
+      "In the output truncation, which ends the run at 2,000 characters",
+      "In the tool description, telling the model to avoid long loops"
+    ],
+    "correctIndex": 0,
+    "explanation": "A loop needs no names at all, and a loop that prints nothing never hits the output limit. Only something outside the running code can stop it, which is why this lesson's exercise gets its limit from sandbox.py."
+  },
+  {
+    "question": "Model code prints 50,000 lines. What should the wrapper send back?",
+    "options": [
+      "The first MAX_OUTPUT_CHARS characters, plus a note that it was cut",
+      "All of it, since the model asked for that output explicitly",
+      "An error, since output that long means the code is broken",
+      "Only the last line, since that's usually where the answer is"
+    ],
+    "correctIndex": 0,
+    "explanation": "A tool result is more input tokens. Truncating with a marker keeps the conversation usable and tells the model its output was cut, so it can print something smaller."
+  },
+  {
+    "question": "Model code raises `ZeroDivisionError`. What should the tool do?",
+    "options": [
+      "Return it as an error observation the model can read and fix",
+      "Let it propagate, so the agent stops before something worse happens",
+      "Return an empty result, since the code produced no output",
+      "Retry the same code, since errors in generated code are often flaky"
+    ],
+    "correctIndex": 0,
+    "explanation": "Model-written code raises often. Returned as an error observation, the exception is information the model can act on; raised, it crashes the agent over an ordinary mistake."
+  },
+  {
+    "question": "Why does the course run its Docker terminal exercises in cloud micro-VMs instead of Pyodide?",
+    "options": [
+      "They need a real Linux machine, which a Wasm runtime can't provide",
+      "Pyodide's sandbox is too weak for commands that learners type in",
+      "Docker commands would be too slow to run inside a web browser tab",
+      "Micro-VMs are cheaper to run than Pyodide for every exercise"
+    ],
+    "correctIndex": 0,
+    "explanation": "Docker needs a real kernel, processes and networking, none of which exist inside Wasm. The course picks the boundary that fits what the code needs, the same choice a code-execution tool makes."
   }
 ]}
 />
@@ -274,7 +274,7 @@ assert llm.seen[1][-1]["content"][0]["is_error"] is True
     { name: "agent.py", code: AGENT_STARTER },
   ]}
   hiddenTests={HIDDEN_TESTS}
-  hint={"code_execution_tool is [the previous concept's exercise](/03-tool-design-for-agents/08-code-execution-as-a-tool/04-webassembly-and-pyodide/) with one more except clause, for SandboxTimeout, placed *before* the general except Exception so a timeout gets its own message. run_agent is the loop from the previous lessons with a single tool; for each call, check its name, then turn code_execution_tool's dict into a tool_result."}
+  hint={"code_execution_tool is [the wrapper exercise from earlier in this lesson](/03-tool-design-for-agents/08-code-execution-as-a-tool/03-real-isolation-and-the-tool-around-it/#the-part-you-actually-write-the-wrapper) with one more except clause, for SandboxTimeout, placed *before* the general except Exception so a timeout gets its own message. run_agent is the loop from the previous lessons with a single tool; for each call, check its name, then turn code_execution_tool's dict into a tool_result."}
   correctFiles={[
     { name: "sandbox.py", readOnly: true, code: SANDBOX_PY },
     { name: "agent.py", code: AGENT_REFERENCE },

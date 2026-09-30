@@ -185,54 +185,54 @@ was actually given narrows that channel.
   {
     "question": "What three capabilities make up the lethal trifecta?",
     "options": [
-      "A large model, many tools, and a long context window",
-      "Reading files, running code, and browsing the web",
-      "Search, fetch, and text extraction",
-      "Access to private data, exposure to untrusted content, and the ability to communicate externally"
+      "A capable model, a large toolset, and a long-running session",
+      "Reading local files, running code, and browsing the open web",
+      "Private data, untrusted content, and a way to send data out",
+      "Persistent memory, tool access, and autonomy to act without review"
     ],
-    "correctIndex": 3,
+    "correctIndex": 2,
     "explanation": "Together they let an attacker's instruction reach the model, pick up a secret, and send it out. It's the capabilities that matter, not which tools provide them."
   },
   {
     "question": "In the inbox demo, which leg does `read_email` provide?",
     "options": [
-      "Only access to private data",
-      "Only exposure to untrusted content",
-      "Neither; only `send_email` matters",
-      "Both: it reads the confidential email and the attacker's newsletter"
+      "Only private data, since the newsletter is just marketing",
+      "Only untrusted content, since reading doesn't count as access",
+      "Both, since it reads the boss's email and the newsletter",
+      "Neither; only `send_email` matters, since it's the one that acts"
     ],
-    "correctIndex": 3,
+    "correctIndex": 2,
     "explanation": "One tool can supply more than one leg. `read_email` brings in both the secret and the untrusted instruction."
   },
   {
-    "question": "An agent can read a private database and browse untrusted web pages, but can only return text to its own user. Is it exposed to the trifecta?",
+    "question": "An agent can read a private customer database and incoming support tickets, but its only output is a reply to its own user. Is it exposed to the trifecta?",
     "options": [
-      "Yes, since it has private data and untrusted content",
-      "Yes, because browsing always counts as external communication",
-      "No: without a way to send data to an outside party, the external-communication leg is missing",
-      "It can't be determined from this"
+      "Yes: private data plus untrusted tickets is already enough",
+      "Yes, because replying to its user counts as external communication",
+      "No: with no channel to an outside party, the third leg is missing",
+      "Only if the tickets contain instructions aimed at the assistant"
     ],
     "correctIndex": 2,
-    "explanation": "Two legs isn't enough. With no external channel, an injected instruction has nowhere to send what it reads."
+    "explanation": "Two legs isn't enough. With no external channel, an injected instruction has nowhere to send what it reads. (Note it can't fetch URLs either; an agent that can would have that leg.)"
   },
   {
     "question": "Why is cutting one leg a stronger fix than improving the system prompt?",
     "options": [
-      "It isn't; a good system prompt is equivalent",
-      "It makes the model faster",
-      "It stops the injection from reaching the model",
-      "It removes a capability in code, so even a fully fooled model has no path to complete the leak"
+      "It isn't; a well-written system prompt is equally effective",
+      "It removes a capability in code, so even a fooled model can't leak",
+      "It stops the injected text from ever reaching the model's context",
+      "It lets the model spot injected instructions more reliably"
     ],
-    "correctIndex": 3,
-    "explanation": "A system prompt lowers the odds the model is fooled. Removing a leg removes the path entirely, whether or not the model is fooled."
+    "correctIndex": 1,
+    "explanation": "A system prompt lowers the odds the model is fooled. Removing a leg removes the path entirely, whether or not the model is fooled. The injected text still arrives; it just has nothing to work with."
   },
   {
     "question": "How does an agent that can fetch any URL have an external-communication leg?",
     "options": [
-      "Fetching is read-only, so it doesn't",
-      "Only if the page it fetches is malicious",
-      "An injected instruction can tell it to fetch a URL with the secret embedded in it, so the data leaves in the request",
-      "Only when it uses browser automation"
+      "It doesn't: fetching only reads, so nothing leaves the agent",
+      "Only when the page it fetches turns out to contain an attack",
+      "An injection can have it fetch a URL with the secret in it",
+      "Only when it fills in and submits forms with browser automation"
     ],
     "correctIndex": 2,
     "explanation": "A request to `attacker.example/?data=<secret>` sends the secret outward. That's why restricting which URLs can be fetched narrows the channel."

@@ -79,6 +79,33 @@ billed for.
 
 </Subsection>
 
+<Subsection title="Sending thinking back: leave it exactly as it came" variant="a">
+
+A conversation continues by resending the history,
+[as the multi-turn concept showed](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/03-multi-turn-conversations/#the-api-itself-has-no-memory-between-calls).
+With a reasoning model, the assistant turns in that history contain
+thinking blocks too, and they come with a rule that's easy to break by
+accident: **send them back exactly as you received them.**
+
+On Claude's API a thinking block carries a `signature` field, an
+encrypted value the API uses to check that the block is the model's own
+and hasn't been altered. It matters most in the middle of a tool call:
+when the model thinks, then asks for a tool, the thinking block must go
+back unchanged in that assistant turn alongside the tool result, so the
+model can pick up its reasoning where it left off. Deleting it,
+shortening it, or rebuilding the turn from just the text drops or
+invalidates that reasoning, and some models reject the request outright.
+Editing *earlier* turns of the history can invalidate the thinking that
+followed them, too.
+
+The practical habit is simple: append the model's response content to
+the history whole, every block, and don't tidy it up. How much of an old
+thinking block the model actually reads on later turns is the API's
+business, and it varies by model; your code's job is only to not tamper
+with it. The agent loops in Module 2 follow exactly this habit.
+
+</Subsection>
+
 <CheckpointZone>
 
 <QuizGroup
@@ -119,6 +146,18 @@ billed for.
       correctIndex: 1,
       explanation:
         "Visibility differs by provider, but billing doesn't depend on visibility: the reasoning tokens were generated either way.",
+    },
+    {
+      question: "An agent loop gets a response with a thinking block and a tool call. What should go back in the history?",
+      options: [
+        "Only the tool call, since the thinking was just for the model",
+        "The whole assistant content, unchanged, thinking block and signature included",
+        "The tool call plus a shortened summary of the thinking, to save tokens",
+        "The thinking text only, re-labeled as an ordinary text block",
+      ],
+      correctIndex: 1,
+      explanation:
+        "The thinking block is checked by its signature and continues the model's reasoning into the tool result. Dropping, shortening or re-labeling it loses that reasoning or gets the request rejected.",
     },
   ]}
 />

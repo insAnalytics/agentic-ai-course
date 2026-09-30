@@ -377,11 +377,20 @@ saw exactly what went wrong and could tell the user.
 
 <GradedExercise
   client:load
-  task={'Given registry = {"support_agent": {}}, implement schedule_maintenance exactly as shown above, validating both the future-date constraint and registry existence, returning "Error: ..." strings rather than raising.'}
-  starterCode={`from pydantic import BaseModel, field_validator
+  task={'Given registry = {"support_agent": {}}, implement schedule_maintenance exactly as shown above, validating both the future-date constraint and registry existence, returning "Error: ..." strings rather than raising. Trim validation errors with the provided short_error, as in the complete tool above.'}
+  starterCode={`from pydantic import BaseModel, ValidationError, field_validator
 from datetime import date
 
 registry = {"support_agent": {}}
+
+# --- provided: the trimmed error message from above ---
+def short_error(e: ValidationError) -> str:
+    problems = []
+    for error in e.errors():
+        field = ".".join(str(part) for part in error["loc"])
+        problems.append(f"{field}: {error['msg']}" if field else error["msg"])
+    return "; ".join(problems)
+# --- end of provided code ---
 
 class ScheduleMaintenanceArgs(BaseModel):
     agent_name: str
@@ -400,15 +409,24 @@ def schedule_maintenance(agent_name: str, date: str, registry: dict) -> str:
     ...`}
   hiddenTests={[
     'assert "in the past" in schedule_maintenance("support_agent", "2020-01-01", registry)',
+    'r = schedule_maintenance("support_agent", "2020-01-01", registry)\nassert r.startswith("Error:") and "pydantic.dev" not in r and "validation error" not in r',
+    'r = schedule_maintenance("support_agent", "next tuesday", registry)\nassert r.startswith("Error:") and "date" in r and "pydantic.dev" not in r',
     'assert "no agent named" in schedule_maintenance("ghost_agent", "2030-01-01", registry)',
     'assert schedule_maintenance("support_agent", "2030-01-01", registry) == "maintenance scheduled for support_agent on 2030-01-01"',
   ]}
-  hint={"Two separate checks, two separate failure paths: wrap the ScheduleMaintenanceArgs(...) construction in a try/except and return an Error: string built from the caught exception (this is what field_validator's raise ValueError(...) ends up surfacing as); then, only once construction succeeds, check args.agent_name against registry and return a second Error: string if it's missing. Only after both checks pass should you return the success string."}
+  hint={"Two separate checks, two separate failure paths: wrap the ScheduleMaintenanceArgs(...) construction in a try/except ValidationError and return an Error: string built with short_error(e) (this is what field_validator's raise ValueError(...) ends up surfacing as); then, only once construction succeeds, check args.agent_name against registry and return a second Error: string if it's missing. Only after both checks pass should you return the success string."}
   correctAnswer={{
-    code: `from pydantic import BaseModel, field_validator
+    code: `from pydantic import BaseModel, ValidationError, field_validator
 from datetime import date
 
 registry = {"support_agent": {}}
+
+def short_error(e: ValidationError) -> str:
+    problems = []
+    for error in e.errors():
+        field = ".".join(str(part) for part in error["loc"])
+        problems.append(f"{field}: {error['msg']}" if field else error["msg"])
+    return "; ".join(problems)
 
 class ScheduleMaintenanceArgs(BaseModel):
     agent_name: str
@@ -424,8 +442,8 @@ class ScheduleMaintenanceArgs(BaseModel):
 def schedule_maintenance(agent_name: str, date: str, registry: dict) -> str:
     try:
         args = ScheduleMaintenanceArgs(agent_name=agent_name, date=date)
-    except Exception as e:
-        return f"Error: {str(e)}"
+    except ValidationError as e:
+        return f"Error: {short_error(e)}"
     if args.agent_name not in registry:
         return f"Error: no agent named '{args.agent_name}' exists in the registry"
     return f"maintenance scheduled for {args.agent_name} on {args.date}"`,
