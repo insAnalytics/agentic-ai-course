@@ -4695,6 +4695,54 @@ Folder `06-reliability` (module title and description provisional). Data:
 `README-reliability.md`; loaded from Lesson 1 concept 2 on, see
 architecture.md §3.1).
 
+**Content review fixes (2026-09-30).** A module-wide quality review found
+correctness problems that were fixed directly in the `.mdx`; the mockups were
+not updated to match. Every changed exercise was re-verified in real Pyodide
+0.26.4. Each reference still passes, every changed exercise's Run output is
+unchanged, and wrong variants fail the new tests. By lesson:
+- **L1:** C3 separates pass^1 (the average user's experience) from pass^k
+  (whether a task can be promised), in the prose and in Q1. C2 now says
+  τ-bench's 40+ runs per task were for validating the tasks. Miller's figure
+  is now "three or more times". C4's "assumes wordings fail independently"
+  was replaced: the product is exact per question.
+- **L3:** C2's `check_health_result` rejects numbers sent as text,
+  unreadable timestamps and timestamps with no time zone, with 3 new hidden
+  tests (16 in all). The demo's `PLACEHOLDERS` includes `None`.
+- **L4:** "the small model" is now "the NLI model" throughout. ContraDoc is
+  described as contradictions within one document.
+- **L5:** C4 no longer says "no practical limit" (15% of 4096-budget replies
+  were still cut off). It discloses that most matched-budget thinking was
+  truncated, and the different sampling settings.
+- **L6:** in C4's pushback exercise, test 3's fixture said "lowered from 100
+  to 60", so it rewarded switching to an outdated value. The test now has its
+  own source. New prose says `in_sources` checks presence, not support, and
+  links L4's support check. C1's demo runbook now lists two agents. C2 notes
+  that OpenAI's reasoning models don't return logprobs, reports the 77.6% low
+  band, and replaces a quiz distractor that was actually true.
+- **L7:** C3 adds the fourth detail, "a step that failed may still have
+  taken effect". C4 adds the log's two limits. In the recap `lib.py`,
+  `restore()` now logs `restore_model` and `unsupported_claims` skips undone
+  calls, so a report that claims a rolled-back move now fails.
+- **L8:** timeouts trip breakers: `trips_on=(ConnectionError,
+  TimeoutError)` in C3 and the recap, with a new recap test. C3 notes the
+  simple half-open, and failure-rate windows. C1 says to classify errors by
+  type, not by HTTP status. C4 notes that a pinned ID doesn't pin the
+  serving stack, and that with a floating alias you compare against the
+  evaluated snapshot.
+- **L9:** a tool is labelled by where its arguments go, so `fetch_url` is
+  `untrusted` + `external`. The C2 table row now reads "only reads, and
+  nothing it's given leaves the system", with a paragraph on outbound reads
+  and rendered links and images. C2 has a new hidden test. "Security tooling
+  enforces exactly this" is now "some tooling".
+- **L10:** three layers catch nothing alone, not two: the read-back as well.
+  The session guard's stand-in person no longer reads `scenario.harmful`; it
+  approves everything. Every demo and the recap produce identical output.
+
+Still open from that review: L8 recap's `record_run` hashes a system prompt
+that `call_model` never receives, and L10's "invented argument" scenario is
+caught only because the request omits the agent name, since the intent check
+never looks at `model`.
+
 1. **Why Agents Fail, and What "Reliable" Means** — **Locked** (folder
    `01-per-step-reliability`, named before the title existed). Concept 1 (small errors
    compound over many steps) is built: *p*ⁿ and three live demos (the

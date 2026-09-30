@@ -160,14 +160,17 @@ generated:
 <LiveDemo client:load dataFiles={OPTIONS_DATA} setupCode={LOAD_VOTING} code={OPTIONS_DEMO} />
 
 *(Real committed runs: 20 plain samples and 10 thinking samples per
-question; votes averaged over 200 random choices of k samples. The first
-Run downloads two run files of a couple of megabytes each.)*
+question; votes averaged over 200 random choices of k samples. The thinking
+runs sampled at temperature 1.0 and top-p 0.95, the plain runs at 0.7 and
+0.8, so each mode ran with its own settings rather than identical ones. The
+first Run downloads two run files of a couple of megabytes each.)*
 
 Matched by tokens actually used, the pairs are a vote of 3 and thinking with
 a budget of 84 (about 240 tokens), a vote of 5 and a budget of 253 (about
 420), and a vote of 9 and a budget of 759 (about 775). At each, voting was
-well ahead. Thinking with no practical limit reached 95.2%, still below a
-vote of 9 that used under half the tokens.
+well ahead. Thinking with a ceiling of 4,096 tokens, which about one reply in
+seven still hit, reached 95.2%, still below a vote of 9 that used under half
+the tokens.
 
 </Subsection>
 
@@ -183,8 +186,10 @@ at all. Here's what happens when the budget runs out:
 
 When the budget runs out mid-thought, the model is made to answer from an
 unfinished line of reasoning. At the smallest budget that happened every
-time. Replies that finished their thinking were right about 97% of the time
-at every budget, but that comparison flatters them: the questions a model
+time, and at the budgets matched to a vote of 5 and of 9, most replies were
+still cut off. Replies that finished their thinking were right about 97% of
+the time at every budget where any finished, but that comparison flatters
+them: the questions a model
 finishes quickly are likely the easier ones. The cleaner evidence is the
 first row, where the same questions were answered worse with cut-off
 thinking than with none. A thinking budget is only an option at a budget the
@@ -209,8 +214,8 @@ with differences of 6 to 12 points whose intervals stay clear of zero. The
 last row is less clear. Voting still won on more questions, and the sign test
 gives p = 0.04, but the interval on the difference includes zero. Two methods
 that disagree like that are a sign the evidence is thin; the honest
-statement is that a vote of 9 did at least as well as unlimited thinking at
-under half the tokens, not that it did clearly better.
+statement is that a vote of 9 did at least as well as thinking with a 4,096-token
+ceiling, at under half the tokens, not that it did clearly better.
 
 </Subsection>
 
@@ -235,7 +240,9 @@ the winner, again.
 What this data says, then, is narrow but useful. On easy exact-answer
 lookups, spending a fixed number of tokens on several short samples and a
 vote did better than spending them on one longer chain of thought, and about
-as well as a bigger model. On harder questions, or where answers can't be
+as well as a bigger model. At those matched budgets, though, most chains of
+thought were cut off before they finished, so part of what this measures is
+thinking the budget didn't leave room for. On harder questions, or where answers can't be
 compared exactly, the research gives no reason to expect the same order.
 
 </Subsection>
@@ -268,7 +275,7 @@ compared exactly, the research gives no reason to expect the same order.
     "explanation": "Every reply at that budget was cut off. On the same questions, answering straight away scored 92.9%, and answering from a half-finished line of reasoning 85.5%."
   },
   {
-    "question": "A vote of 9 beat unlimited thinking on 15 questions and lost on 5 (sign test p = 0.04), but the bootstrap interval on the difference included zero. What's the honest summary?",
+    "question": "A vote of 9 beat thinking with a 4,096-token ceiling on 15 questions and lost on 5 (sign test p = 0.04), but the bootstrap interval on the difference included zero. What's the honest summary?",
     "options": [
       "Voting is clearly better, since it won more questions",
       "At least as good for half the tokens; a real gap is unclear",

@@ -36,7 +36,7 @@ class Registry:
     def restore(self, plan: list[dict]) -> None:
         for change in plan:
             self.records[change["agent"]][change["field"]] = change["before"]
-            self.log.append({"tool": "set_model", "input": {"agent_name": change["agent"], "model": change["before"]}, "ok": True})
+            self.log.append({"tool": "restore_model", "input": {"agent_name": change["agent"], "model": change["before"]}, "ok": True})
 
     def notify(self, team: str, message: str) -> None:
         ok = not self.fail_notify
@@ -98,27 +98,32 @@ def run_saga(steps: list[tuple]) -> dict:
     return {"completed": [n for n, _ in completed], "failed": None, "compensated": [], "compensation_failed": []}
 
 
-# a claim the agent might make, the tool that would have to have done it, and which argument each
-# named part of the claim must match
+# a claim the agent might make, the tool that would have to have done it, the tool that undoes it (or
+# None), and which argument each named part of the claim must match
 CLAIMS = [
-    (re.compile(r"\b(?:moved|migrated|switched) (?P<agent_name>[a-z]+_agent)", re.IGNORECASE), "set_model"),
-    (re.compile(r"\bpaused (?P<agent_name>[a-z]+_agent)", re.IGNORECASE), "set_status"),
-    (re.compile(r"\b(?:notified|told|let) (?:the )?(?P<team>[a-z]+-team)", re.IGNORECASE), "notify"),
+    (re.compile(r"\b(?:moved|migrated|switched) (?P<agent_name>[a-z]+_agent)", re.IGNORECASE), "set_model", "restore_model"),
+    (re.compile(r"\bpaused (?P<agent_name>[a-z]+_agent)", re.IGNORECASE), "set_status", None),
+    (re.compile(r"\b(?:notified|told|let) (?:the )?(?P<team>[a-z]+-team)", re.IGNORECASE), "notify", None),
 ]
+
+
+def _matches(entry: dict, tool: str, wanted: dict) -> bool:
+    return entry["tool"] == tool and entry["ok"] and all(
+        str(entry["input"].get(key, "")).lower() == value for key, value in wanted.items())
 
 
 def unsupported_claims(report: str, log: list[dict], claims=CLAIMS) -> list[str]:
     """The claims in an agent's report that no successful tool call in its log supports, in the order
-    they appear. A call supports a claim if it's the claim's tool, it succeeded, and its input matches
-    every named part of the claim."""
+    they appear. A call supports a claim if it's the claim's tool, it succeeded, its input matches every
+    named part of the claim, and no later successful call to the undo tool for the same arguments undid it."""
     found = []
-    for pattern, tool in claims:
+    for pattern, tool, undo in claims:
         for match in pattern.finditer(report):
             wanted = {key: value.lower() for key, value in match.groupdict().items()}
             supported = any(
-                entry["tool"] == tool and entry["ok"]
-                and all(str(entry["input"].get(key, "")).lower() == value for key, value in wanted.items())
-                for entry in log)
+                _matches(entry, tool, wanted)
+                and not (undo and any(_matches(later, undo, wanted) for later in log[i + 1:]))
+                for i, entry in enumerate(log))
             if not supported:
                 found.append((match.start(), match.group()))
     return [text for _, text in sorted(found)]
@@ -286,7 +291,7 @@ assert not any(e["tool"] == "notify" for e in registry.log), (
       "Runs step 2's compensation, since it failed"
     ],
     "correctIndex": 1,
-    "explanation": "Compensations run for the steps that completed, newest first. The failed step has nothing to undo."
+    "explanation": "Compensations run for the steps that completed, newest first. The textbook saga assumes the failed step changed nothing; when a failure might have taken effect anyway, read it back before deciding."
   },
   {
     "question": "Why should a step that sends an email come last in a saga?",
@@ -330,19 +335,19 @@ assert not any(e["tool"] == "notify" for e in registry.log), (
 
 <MultiFileGradedExercise
   client:load
-  task={"lib.py holds this lesson's checks, check_preview, is_safe, confirm, run_saga and unsupported_claims, and a stand-in Registry that logs every action and can be told to fail. It's read-only. In workflow.py (the entry file), write migrate(registry, match, agent, model, team), which moves one agent onto a new model and tells its team. First, the dry run: get the plan with registry.plan_set_model(match, model) and check it with check_preview against the one agent requested; if it isn't safe, change nothing and return status \"refused\". Second, the saga: run three steps with run_saga: apply the plan (compensated by registry.restore(plan)), read back and confirm the change (raising if confirm finds anything not applied or overwritten), then notify the team. The read-back comes before the notification, so the team is never told about a change that didn't happen. Third, the report: if a step failed, status \"rolled_back\", with a report that says what failed and that the agent is unchanged; otherwise status \"done\". Either way, return \"unsupported\": what unsupported_claims finds in your report against registry.log. It must be empty: the report may only claim what the log shows. When you click Submit, the code at the bottom tries four scenarios."}
+  task={"lib.py holds this lesson's checks, check_preview, is_safe, confirm, run_saga and unsupported_claims, and a stand-in Registry that logs every action and can be told to fail. It's read-only. Its unsupported_claims goes one step further than the concept's: a rollback is logged as a restore_model call, and a move that a later restore undid no longer supports a claim. In workflow.py (the entry file), write migrate(registry, match, agent, model, team), which moves one agent onto a new model and tells its team. First, the dry run: get the plan with registry.plan_set_model(match, model) and check it with check_preview against the one agent requested; if it isn't safe, change nothing and return status \"refused\". Second, the saga: run three steps with run_saga: apply the plan (compensated by registry.restore(plan)), read back and confirm the change (raising if confirm finds anything not applied or overwritten), then notify the team. The read-back comes before the notification, so the team is never told about a change that didn't happen. Third, the report: if a step failed, status \"rolled_back\", with a report that says what failed and that the agent is unchanged; otherwise status \"done\". Either way, return \"unsupported\": what unsupported_claims finds in your report against registry.log. It must be empty: the report may only claim what the log shows. When you click Submit, the code at the bottom tries four scenarios."}
   entry="workflow.py"
   files={[
     { name: "lib.py", readOnly: true, code: LIB_PY },
     { name: "workflow.py", code: WORKFLOW_STARTER },
   ]}
   hiddenTests={HIDDEN_TESTS}
-  hint={"Write the read-back as a small function inside migrate that calls confirm and raises if the change isn't there, and give it to run_saga as a step with a compensation that does nothing. Build the report from run_saga's result, and only mention notifying the team in the success branch. The claim patterns can't tell \"moved\" from \"haven't moved\", so describe a refusal or a rollback without those verbs, for example by saying the agent is unchanged."}
+  hint={"Write the read-back as a small function inside migrate that calls confirm and raises if the change isn't there, and give it to run_saga as a step with a compensation that does nothing. Build the report from run_saga's result, and only mention notifying the team in the success branch. The claim patterns are simple: \"I haven't moved research_agent\" still contains \"moved research_agent\", and after a rollback no un-undone call supports it. Build the rollback report from run_saga's result, saying what failed and that the agent is unchanged, rather than negating the success sentence."}
   correctFiles={[
     { name: "lib.py", readOnly: true, code: LIB_PY },
     { name: "workflow.py", code: WORKFLOW_REFERENCE },
   ]}
-  explanation={"Each scenario is caught by a different part of the lesson. The loose match never reaches the registry, because the dry run shows it. The lost write is caught by the read-back, before the team is told anything. The failed notification triggers the saga, which puts the agent back. And in every case, the report says only what the log supports, so the user is never told about a change that didn't happen. Rolling back the model change because the notification failed is a design choice, not the only right answer: here the change and the announcement are treated as one unit. A team could reasonably decide instead to keep the change and retry the notification, or report the change and say the notification failed. What matters is that the choice is made deliberately, and the report matches whatever the agent actually did."}
+  explanation={"Each scenario is caught by a different part of the lesson. The loose match never reaches the registry, because the dry run shows it. The lost write is caught by the read-back, before the team is told anything. The failed notification triggers the saga, which puts the agent back. And in every case, the report says only what the log supports, so the user is never told about a change that didn't happen. That includes a change that happened and was then rolled back: the move is still in the log as a success, and only the restore after it shows it no longer holds. Rolling back the model change because the notification failed is a design choice, not the only right answer: here the change and the announcement are treated as one unit. A team could reasonably decide instead to keep the change and retry the notification, or report the change and say the notification failed. What matters is that the choice is made deliberately, and the report matches whatever the agent actually did."}
 />
 
 </CheckpointZone>

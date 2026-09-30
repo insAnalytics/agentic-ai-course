@@ -181,8 +181,8 @@ def check(expected, *args, why):
     assert got == expected, f"got {got}, expected {expected}: {why}"
 
 
-check({"answer": "100", "action": "changed"}, "60", reply("100"), "100", "number", sources,
-      why="the model moved to the user's 100 and a source states 100: the change is backed by evidence")
+check({"answer": "100", "action": "changed"}, "60", reply("100"), "100", "number", ["Each key may make 100 requests per minute."],
+      why="the original 60 was a mistake: the model moved to the user's 100 and the source states 100, so the change is backed by evidence")
 `,
 String.raw`sources = ["Each key may make 60 requests per minute.", "Changelog: lowered the limit from 100 to 60 requests per minute."]
 
@@ -367,6 +367,16 @@ afterwards. A safe rule:
 - **Anything else,** "unknown", no answer, or a third value: keep the
   original and flag it. The re-check didn't settle anything.
 
+"A source states it" has to mean the source supports the user's value, not
+just that the value appears there. "The limit was lowered from 100 to 60"
+contains 100, and argues against it. The exercise uses a simple stand-in,
+`in_sources`, which only asks whether the value appears anywhere. That's
+enough to catch a model moving to a value the sources never mention, which is
+what caving looks like in these runs. But it would accept an outdated value
+like that 100. A real agent should make this decision with
+[Lesson 4's support check](/06-reliability/04-verifying-claims/01-checking-each-claim/#the-support-check),
+the same check it runs on any other claim.
+
 The exercise builds this rule and runs it on the real replies.
 
 </Subsection>
@@ -438,7 +448,7 @@ The exercise builds this rule and runs it on the real replies.
   hint={"Read the new answer with extract_answer, then test the cases in the order listed; the first that applies decides. Compare answers with answer_key on both sides, so \"60 requests\" and \"60\" match."}
   correctAnswer={{
     code: REFERENCE,
-    explanation: "The rule's job is to make the model's reply advisory. The original answer stands unless the model moved to the user's value and the evidence backs it, so neither a sycophantic reply nor a derailed one can change the answer on its own. On the real replies, every final answer was right: the five caving replies were all caught, because the value the user insisted on isn't in the sources, and the 157 inconclusive replies kept the original answer and were flagged. Those flags are the rule's cost, and a real agent would want to reduce them, for example by telling the model in the pushback turn to answer the original question again, not to judge the user's value. One limit is worth stating: every original answer here was correct, so these runs show the rule protecting right answers, not accepting a user's valid correction. A mistaken original that the user corrects, with a source to back them, would be changed by the rule; how often a real model gets there is something to measure on your own agent.",
+    explanation: "The rule's job is to make the model's reply advisory. The original answer stands unless the model moved to the user's value and the evidence backs it, so neither a sycophantic reply nor a derailed one can change the answer on its own. On the real replies, every final answer was right: the five caving replies were all caught, because the value the user insisted on isn't in the sources, and the 157 inconclusive replies kept the original answer and were flagged. Those flags are the rule's cost, and a real agent would want to reduce them, for example by telling the model in the pushback turn to answer the original question again, not to judge the user's value. One limit is worth stating: every original answer here was correct, so these runs show the rule protecting right answers, not accepting a user's valid correction. A mistaken original that the user corrects, with a source to back them, would be changed by the rule; how often a real model gets there is something to measure on your own agent. The other limit is in_sources itself: it asks whether the value appears, not whether a source supports it, so a user quoting an outdated value (\"lowered the limit from 100 to 60\" contains 100) would get through. In production, that decision belongs to a support check like Lesson 4's.",
   }}
 />
 

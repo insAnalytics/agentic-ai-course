@@ -85,9 +85,9 @@ Published research shows how large this effect can be:
   to evaluate over several paraphrases rather than one.
 - **In agent benchmarks, varied phrasing is built in.** τ-bench's simulated
   customer is sampled at temperature 1, so it phrases the same request
-  differently on every run. The agent itself ran at temperature 0, and the
-  paper attributes the variation between runs to sampling in both the
-  customer and the agent.
+  differently on every run. The agent itself ran at temperature 0, so the
+  variation between runs came mostly from the customer's phrasing, plus the
+  nondeterminism that remains even at temperature 0.
 
 Those studies vary the instructions and the prompt format. In an agent,
 the part that varies most is the user's own request, which is what the
@@ -139,9 +139,11 @@ pass^k values, averaged over questions as before:
 because the extra wordings were run 10 times each.)*
 
 Requiring every wording to succeed lowers pass^10 for both models, and for
-the 2B it drops below one half. Treating each wording's runs as a separate
-pass^k and multiplying them assumes the wordings fail independently, which
-is a simplification. The measurement itself is the useful habit:
+the 2B it drops below one half. For each question, multiplying the wordings' pass^k is exact,
+since every run is a separate sample. The simplifications are elsewhere: four
+wordings written by the course stand in for however real users ask, and
+requiring every wording to pass is a strict test, closer to the worst user's
+experience than the average one's. The measurement itself is the useful habit:
 reliability is measured over the inputs users will actually send, not just
 the one you happened to test.
 
@@ -216,7 +218,7 @@ ask or stop.
       "That the original wording succeeds k times"
     ],
     "correctIndex": 2,
-    "explanation": "It combines both kinds of consistency: runs and phrasings. Here it's computed as the product of each wording's pass^k, which assumes the wordings fail independently. For both models it came out lower than pass^k on the original wording alone."
+    "explanation": "It combines both kinds of consistency: runs and phrasings. Here it's computed as the product of each wording's pass^k, since every run is a separate sample. For both models it came out lower than pass^k on the original wording alone."
   },
   {
     "question": "One wording of a question fails 9 times in 10 and the others never fail. What should you check first?",

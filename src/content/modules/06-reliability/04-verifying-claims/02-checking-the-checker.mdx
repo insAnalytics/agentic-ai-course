@@ -30,7 +30,7 @@ def model_verdicts(model: str) -> dict:
 
 
 def nli_verdicts() -> dict:
-    # the small model says "supported" when entailment is its most likely label
+    # the NLI model says "supported" when entailment is its most likely label
     return {r["id"]: max(r["probs"], key=r["probs"].get) == "entailment"
             for r in load_run("nli")["results"] if r["set"] == "support"}
 
@@ -203,8 +203,8 @@ that doesn't.
 
 The same 120 pairs went to three judges: Qwen3.5-9B and Qwen3.5-4B with
 the prompt from the previous concept, and `cross-encoder/nli-deberta-v3-base`,
-a small language-inference model that scores a pair as entailment,
-contradiction or neutral. It counts as saying "supported" when entailment
+a small natural language inference (NLI) model that scores a pair as
+entailment, contradiction or neutral. It counts as saying "supported" when entailment
 is its most likely label.
 
 <LiveDemo client:load dataFiles={JUDGES_DATA} setupCode={LOAD_VERIFICATION} code={JUDGES_DEMO} />
@@ -215,7 +215,7 @@ per pair.)*
 - **The 9B agreed with every label.**
 - **The 4B flagged 3 claims its source supports,** and passed nothing it
   shouldn't have.
-- **The small model flagged 4 supported claims and passed 1 altered one.**
+- **The NLI model flagged 4 supported claims and passed 1 altered one.**
 
 On these pairs, then, the model judges' mistakes were all false flags: they
 passed nothing unsupported. That's what happened on 120 pairs with these
@@ -276,7 +276,7 @@ Here are the other judges' costs on the same GPU:
 *(Real timings on one Colab G4 GPU, each run batching all its pairs
 together; model loading isn't included, and other hardware will differ.)*
 
-The small inference model is about seven times cheaper per pair than the
+The NLI model is about seven times cheaper per pair than the
 9B, and made 5 mistakes where the 9B made none. Which is right depends on
 where the check sits: a cheap first pass over every claim, with the 9B only
 on the claims it flags or on answers that lead to an action, is one way to

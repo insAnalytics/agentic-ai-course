@@ -189,14 +189,16 @@ single reply. Each wrong reply reads just as confidently as the right ones.
 
 One unsure question isn't a pattern. The research shows that it is one.
 Tasks in a benchmark differ widely in how often a model gets them right:
-τ-bench's authors ran each of their retail tasks more than 40 times with
-one model and found success rates spread across a wide range, including
-tasks it never solved. Evan Miller's
+while checking their retail tasks, τ-bench's authors ran each one more than
+40 times with one model. Success rates spread across a wide range, and they
+checked by hand the tasks it rarely or never solved, since a task nobody
+solves may be badly written rather than hard. The
+wordings concept later in this lesson comes back to that question. Evan Miller's
 [*Adding Error Bars to Evals*](https://arxiv.org/abs/2411.00640) (2024)
 draws the statistical consequence: runs of the same question aren't
 independent evidence, because they share that question's difficulty, and
-treating them as independent can make results look up to three times more
-certain than they are. His recommendation is the one this lesson follows:
+treating them as independent can make error bars three or more times too
+narrow. His recommendation is the one this lesson follows:
 run each question several times, keep the results per question, and
 measure uncertainty by question.
 
@@ -238,8 +240,8 @@ together:
 *(Real runs from both models.)*
 
 Resampling whole questions gives intervals about twice as wide for the 4B
-and nearly three times as wide for the 2B, in line with Miller's "up to three
-times". The naive interval is too narrow because it counts twenty runs of
+and nearly three times as wide for the 2B, in line with Miller's finding of
+three times or more. The naive interval is too narrow because it counts twenty runs of
 e41 as twenty separate pieces of evidence, when they're twenty looks at one
 question.
 
@@ -325,7 +327,7 @@ is to measure the variation, not to hide it.
       "Because intervals only apply when the accuracy is below 90%"
     ],
     "correctIndex": 1,
-    "explanation": "The runs are clustered by question. Resampling whole questions gave intervals about two to three times wider than the naive ones here, which matches Miller's finding that ignoring the clustering can overstate certainty by up to three times."
+    "explanation": "The runs are clustered by question. Resampling whole questions gave intervals about two to three times wider than the naive ones here, in line with Miller's finding that ignoring the clustering can make error bars three or more times too narrow."
   },
   {
     "question": "A colleague proposes setting temperature to 0 so the agent gives the same answer every time. What's the main problem?",

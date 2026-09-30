@@ -176,7 +176,7 @@ labels of natural language inference, alongside entailment (one supports
 the other) and neutral (neither). Research on how well language models do it
 over real documents is sobering. Li, Raheja and Kumar's
 [ContraDoc](https://arxiv.org/abs/2311.09182) (NAACL 2024) had people
-annotate contradictions in long documents from several domains and tested
+annotate contradictions within single long documents, from several domains, and tested
 GPT-3.5, GPT-4, PaLM 2 and Llama 2 on finding them. GPT-4 did best, and
 could outperform people at the task, but the authors still found it
 unreliable, and weakest on contradictions that need nuance and context to
@@ -206,7 +206,7 @@ statements could be true at once about the same system:
 
 On these pairs, the model judges' failures went one way: they missed
 contradictions, 5 for the 9B and 15 for the 4B, and raised no false alarms.
-The small inference model did both, missing 8 contradictions and calling 7
+The NLI model did both, missing 8 contradictions and calling 7
 compatible pairs contradictory. That's what happened on 120 pairs with these
 judges. ContraDoc is the evidence that missed contradictions are a general
 weakness; the absence of false alarms here is only this data.
@@ -249,7 +249,7 @@ mistakes, not the model's.
 
 <Subsection title="False alarms on unrelated statements" variant="b">
 
-The small inference model's false alarms look different:
+The NLI model's false alarms look different:
 
 <LiveDemo client:load dataFiles={STATEMENTS_DATA} setupCode={JUDGES_SETUP} code={FALSE_ALARM_DEMO} />
 
@@ -328,7 +328,7 @@ documents, which someone should reconcile.
       "Because the judge needs the subject passed as an argument"
     ],
     "correctIndex": 1,
-    "explanation": "20 statements make 190 pairs. A cheap filter in code sends only the plausible ones to the model, and in this data it would also have kept the small inference model away from its false alarms."
+    "explanation": "20 statements make 190 pairs. A cheap filter in code sends only the plausible ones to the model, and in this data it would also have kept the NLI model away from its false alarms."
   }
 ]}
 />

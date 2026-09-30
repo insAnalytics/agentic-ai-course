@@ -82,7 +82,8 @@ confidence signal would come later. That's where this concept starts.
 
 Not every provider returns them. OpenAI's Chat Completions API does when
 asked, through its `logprobs` and `top_logprobs` parameters, as
-[its documentation shows](https://developers.openai.com/cookbook/examples/using_logprobs).
+[its documentation shows](https://developers.openai.com/cookbook/examples/using_logprobs),
+though not for every model: its reasoning models generally don't return them.
 Open models served with engines such as vLLM, which produced this module's
 runs, return them too. Anthropic's Messages API has no such option: its
 [reference for creating a message](https://platform.claude.com/docs/en/api/messages/create)
@@ -104,10 +105,11 @@ relates to being right:
 probability and are left out. `load_run`, `load_set` and the grading
 functions from Lesson 5 are already loaded for every demo in this lesson.)*
 
-It barely relates at all. For the 2B, answers written with 99% or more
-probability were right 92.8% of the time, and answers in the 50–90% band
-were right more often, 97.7%. For the 4B, the least probable answers were all
-right. Two things explain this:
+The relationship is weak, and it doesn't run the way a confidence signal
+should. For the 2B, answers written with 99% or more probability were right
+92.8% of the time, and answers in the 50–90% band were right more often,
+97.7%. Only the lowest band, about one answer in twenty, was clearly worse,
+at 77.6%. For the 4B, the least probable answers were all right. Two things explain this:
 
 - **The probability is of an exact string, not an answer.** A correct
   `GET /agents/me` can come out at 55%, because the model was nearly as
@@ -193,7 +195,7 @@ a whole system, calibration, is Module 7's subject.
       "Because the judges always use a larger model",
       "The verdict word is the decision itself, not a copy",
       "Because verdicts are graded more leniently",
-      "Because the judges ran with greedy decoding"
+      "Because the judges were shown more of the source"
     ],
     "correctIndex": 1,
     "explanation": "On a one-word decision, the token's probability is the model's hesitation between the options. That's where a logprob carries information about whether the decision is right."
@@ -210,7 +212,7 @@ a whole system, calibration, is Module 7's subject.
     "explanation": "Logprobs are one signal among several. Agreement, source checks and retrieval scores need nothing from the provider beyond replies, and stated confidence needs only a prompt, though it must be checked."
   },
   {
-    "question": "Tian et al. found stated confidence well calibrated; Xiong et al. found it overconfident. What should a builder conclude?",
+    "question": "Tian et al. found stated confidence better calibrated than token probabilities; Xiong et al. found it overconfident. What should a builder conclude?",
     "options": [
       "Trust stated confidence, since one study supports it",
       "Never use stated confidence for anything",

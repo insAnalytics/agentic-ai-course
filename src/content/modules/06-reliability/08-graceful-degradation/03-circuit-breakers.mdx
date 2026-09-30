@@ -46,7 +46,7 @@ class CircuitBreaker:
 
 
 now = [0.0]
-breaker = CircuitBreaker(threshold=2, reset_after=30, clock=lambda: now[0], trips_on=(ConnectionError,))
+breaker = CircuitBreaker(threshold=2, reset_after=30, clock=lambda: now[0], trips_on=(ConnectionError, TimeoutError))
 
 
 def health_service():
@@ -96,7 +96,7 @@ class CircuitBreaker:
 
 
 now = [0.0]
-breaker = CircuitBreaker(threshold=2, reset_after=30, clock=lambda: now[0], trips_on=(ConnectionError,))
+breaker = CircuitBreaker(threshold=2, reset_after=30, clock=lambda: now[0], trips_on=(ConnectionError, TimeoutError))
 
 
 def health_service():
@@ -246,7 +246,7 @@ def bad_request():
     raise ValueError("malformed request")
 
 
-breaker = CircuitBreaker(threshold=2, reset_after=30, clock=Clock(), trips_on=(ConnectionError,))
+breaker = CircuitBreaker(threshold=2, reset_after=30, clock=Clock(), trips_on=(ConnectionError, TimeoutError))
 for _ in range(5):
     expect_raise(breaker, bad_request, ValueError)
 assert breaker.state == "closed", (
@@ -288,11 +288,20 @@ That gives three states:
 - **Open:** calls fail immediately, without reaching the dependency.
 - **Half-open:** the wait is over, and the next call is a trial.
 
+The version in the exercise is the simplest form. It lets any call through
+while half-open, which is fine when calls arrive one at a time. With many at
+once, a real breaker lets one trial through and keeps failing the rest fast
+until the trial comes back. Production libraries also usually trip on the
+*rate* of failures over a recent window, not a count in a row, and can count
+slow calls as failures too.
+
 Two details from Fowler's description matter for agents:
 
 - **Not every error should trip it.** A malformed request says nothing about
   whether the dependency is healthy. Only errors that do, timeouts, refused
-  connections, server errors, should count. It's the same distinction as
+  connections, server errors, should count. In the code here that's
+  `trips_on=(ConnectionError, TimeoutError)`: Python's `TimeoutError`
+  isn't a kind of `ConnectionError`, so it has to be listed too. It's the same distinction as
   the fallback rules in
   [the first concept](/06-reliability/08-graceful-degradation/01-falling-back-to-another-model/).
 - **The caller still has to decide what to do.** An open breaker is a fast

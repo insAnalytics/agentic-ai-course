@@ -232,9 +232,13 @@ of the results:
   do, run after run.
 
 An agent serving users doesn't get to keep its best attempt. Each user
-gets one run, and a thousand users asking the same thing get a thousand
-runs. What matters is how often *every* one of them goes right, and that's
-pass^k.
+gets one run, so the share of users served correctly is the plain success
+rate, pass^1. pass^k asks a different question: can this task be *promised*?
+A task with pass^8 near 1 goes right every time it comes up, for every user
+who asks it and every time a scheduled workflow repeats it. A task with the
+same average success rate but a low pass^k is the one that fails someone
+eventually, and you can't say who. When an agent has to be dependable,
+not just right on average, pass^k is the measure.
 
 The metric comes from
 [τ-bench](https://arxiv.org/abs/2406.12045) (Yao et al., 2024), a benchmark
@@ -368,12 +372,12 @@ it's the yardstick for each technique.
     "question": "A support agent will answer the same question for thousands of users. Which measure of its repeated runs matters for them, and why?",
     "options": [
       "pass@k, because it shows the best the agent can do on each question",
-      "pass^k, because each user gets one run, and what matters is how often every run goes right",
+      "pass^k, because it shows which questions go right every time they're asked, not just on average",
       "The success rate alone, because pass^k and pass@k are both derived from it",
       "pass@k, because users can ask again if the first answer is wrong"
     ],
     "correctIndex": 1,
-    "explanation": "pass@k credits an agent for succeeding at least once in k tries, which suits settings where you can check every attempt and keep the good one, such as code with unit tests. Users don't get to pick the best of several runs, so consistency across runs is what they experience. The success rate can't be the whole story, because two agents with the same success rate can have very different pass^k."
+    "explanation": "pass@k credits an agent for succeeding at least once in k tries, which suits settings where you can check every attempt and keep the good one, such as code with unit tests. Users don't get to pick the best of several runs. The success rate says how many users are served correctly on average, but not which questions the agent can be trusted with: two agents with the same success rate can have very different pass^k, and the one with the lower pass^k fails some question every so often, for someone."
   },
   {
     "question": "A task succeeded in 6 of 8 runs. Why is its pass^3 estimated as C(6,3)/C(8,3) ≈ 0.36 rather than 0.75³ ≈ 0.42?",

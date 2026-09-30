@@ -16,7 +16,7 @@ export const SETUP = REACT_FAKE_CLIENT + RECORDING_CLIENT + CHECKED_AGENT;
 export const RECORD_CHECK_DEMO = String.raw`import json
 
 REQUIRED = {"agent_name", "model", "tier", "owner"}
-PLACEHOLDERS = {"", "[REDACTED]", "N/A", "unknown"}
+PLACEHOLDERS = {None, "", "[REDACTED]", "N/A", "unknown"}
 
 
 def check_agent_record(call, output: str):
@@ -71,6 +71,10 @@ REQUIRED = ("agent_name", "error_rate", "p95_ms", "checked_at")
 MAX_AGE = timedelta(minutes=15)
 
 
+def is_number(value) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
 def check_health_result(output: str, now: datetime) -> str | None:
     """None if a get_health result is usable; otherwise a short reason, for an is_error observation."""
     try:
@@ -83,11 +87,17 @@ def check_health_result(output: str, now: datetime) -> str | None:
         return f"get_health's record is missing {missing}"
     if empty := [field for field in REQUIRED if record[field] is None]:
         return f"get_health returned no usable value for {empty}"
-    if not 0 <= record["error_rate"] <= 1:
-        return f"error_rate {record['error_rate']} is outside 0 to 1"
-    if record["p95_ms"] < 0:
-        return f"p95_ms {record['p95_ms']} is negative"
-    age = now - datetime.fromisoformat(record["checked_at"])
+    if not is_number(record["error_rate"]) or not 0 <= record["error_rate"] <= 1:
+        return f"error_rate {record['error_rate']!r} isn't a number from 0 to 1"
+    if not is_number(record["p95_ms"]) or record["p95_ms"] < 0:
+        return f"p95_ms {record['p95_ms']!r} isn't a number of 0 or more"
+    try:
+        checked_at = datetime.fromisoformat(record["checked_at"])
+    except (TypeError, ValueError):
+        return f"checked_at {record['checked_at']!r} isn't a timestamp"
+    if checked_at.tzinfo is None:
+        return f"checked_at {record['checked_at']!r} has no time zone, so its age can't be known"
+    age = now - checked_at
     if age > MAX_AGE:
         return f"the health check is stale: taken {age} ago, more than {MAX_AGE} allowed"
     return None
@@ -464,6 +474,93 @@ def blocked(output: str, *words: str) -> bool:
 assert blocked(health(checked_at="2026-09-29T11:44:00+00:00"), "stale"), (
     "a check 16 minutes old is stale; the reason should say so")
 `,
+String.raw`import json
+from datetime import datetime, timezone
+
+NOW = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+
+
+def health(**changes) -> str:
+    record = {"agent_name": "research_agent", "error_rate": 0.02, "p95_ms": 840,
+              "checked_at": "2026-09-29T11:55:00+00:00"}
+    record.update(changes)
+    return json.dumps({k: v for k, v in record.items() if v != "DROP"})
+
+
+def verdict(output: str):
+    try:
+        return check_health_result(output, NOW)
+    except Exception as error:
+        raise AssertionError(f"check_health_result raised {type(error).__name__} on {output!r}: "
+                             "a check should return a reason, not crash the loop") from None
+
+
+def blocked(output: str, *words: str) -> bool:
+    reason = verdict(output)
+    return isinstance(reason, str) and all(w in reason for w in words)
+
+
+assert blocked(health(error_rate="0.02"), "error_rate") and blocked(health(p95_ms="840"), "p95_ms"), (
+    "a number sent as text isn't a number: name the field, don't crash comparing it")
+`,
+String.raw`import json
+from datetime import datetime, timezone
+
+NOW = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+
+
+def health(**changes) -> str:
+    record = {"agent_name": "research_agent", "error_rate": 0.02, "p95_ms": 840,
+              "checked_at": "2026-09-29T11:55:00+00:00"}
+    record.update(changes)
+    return json.dumps({k: v for k, v in record.items() if v != "DROP"})
+
+
+def verdict(output: str):
+    try:
+        return check_health_result(output, NOW)
+    except Exception as error:
+        raise AssertionError(f"check_health_result raised {type(error).__name__} on {output!r}: "
+                             "a check should return a reason, not crash the loop") from None
+
+
+def blocked(output: str, *words: str) -> bool:
+    reason = verdict(output)
+    return isinstance(reason, str) and all(w in reason for w in words)
+
+
+assert blocked(health(checked_at="yesterday"), "checked_at") and blocked(health(checked_at=1759140000), "checked_at"), (
+    "a checked_at that isn't an ISO timestamp: name it, don't crash parsing it")
+`,
+String.raw`import json
+from datetime import datetime, timezone
+
+NOW = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+
+
+def health(**changes) -> str:
+    record = {"agent_name": "research_agent", "error_rate": 0.02, "p95_ms": 840,
+              "checked_at": "2026-09-29T11:55:00+00:00"}
+    record.update(changes)
+    return json.dumps({k: v for k, v in record.items() if v != "DROP"})
+
+
+def verdict(output: str):
+    try:
+        return check_health_result(output, NOW)
+    except Exception as error:
+        raise AssertionError(f"check_health_result raised {type(error).__name__} on {output!r}: "
+                             "a check should return a reason, not crash the loop") from None
+
+
+def blocked(output: str, *words: str) -> bool:
+    reason = verdict(output)
+    return isinstance(reason, str) and all(w in reason for w in words)
+
+
+assert blocked(health(checked_at="2026-09-29T11:55:00"), "checked_at"), (
+    "a timestamp with no time zone can't be compared with now: name checked_at, don't crash subtracting it")
+`,
 ];
 
 <Subsection title="A success that isn't" variant="a">
@@ -617,13 +714,13 @@ to catch, and good ones it must let through.
 
 <GradedExercise
   client:load
-  task={"The registry's get_health tool returns JSON text like {\"agent_name\": \"research_agent\", \"error_rate\": 0.02, \"p95_ms\": 840, \"checked_at\": \"2026-09-29T11:55:00+00:00\"}. Write check_health_result(output, now). It returns None if the result is usable, and otherwise a short reason. Check, in this order: (1) the text is valid JSON; if not, say so, mentioning \"JSON\". (2) It's a non-empty object; if not, say no health record came back, mentioning \"record\". (3) Every field in REQUIRED is present; if not, name the missing ones. (4) No required field is null; if one is, name it. (5) error_rate is between 0 and 1 inclusive, and p95_ms isn't negative; if not, name the field. (6) checked_at is no more than MAX_AGE before now; if it's older, say the reading is \"stale\". A check should never crash the loop: every problem comes back as a reason."}
+  task={"The registry's get_health tool returns JSON text like {\"agent_name\": \"research_agent\", \"error_rate\": 0.02, \"p95_ms\": 840, \"checked_at\": \"2026-09-29T11:55:00+00:00\"}. Write check_health_result(output, now). It returns None if the result is usable, and otherwise a short reason. Check, in this order: (1) the text is valid JSON; if not, say so, mentioning \"JSON\". (2) It's a non-empty object; if not, say no health record came back, mentioning \"record\". (3) Every field in REQUIRED is present; if not, name the missing ones. (4) No required field is null; if one is, name it. (5) error_rate is a number between 0 and 1 inclusive, and p95_ms is a number that isn't negative (a number sent as text, like \"0.02\", doesn't count); if not, name the field. (6) checked_at is an ISO timestamp with a time zone; if not, name checked_at. (7) checked_at is no more than MAX_AGE before now; if it's older, say the reading is \"stale\". A check should never crash the loop: every problem comes back as a reason."}
   starterCode={STARTER}
   hiddenTests={TESTS}
-  hint={"Catch json.JSONDecodeError around json.loads. For step 2, null parses to None and [] to an empty list, so check isinstance(record, dict) as well as emptiness. For step 4, compare with is None, never with not, since 0.0 and 0 are real readings. datetime.fromisoformat reads the timestamp, and subtracting two datetimes gives a timedelta you can compare with MAX_AGE."}
+  hint={"Catch json.JSONDecodeError around json.loads. For step 2, null parses to None and [] to an empty list, so check isinstance(record, dict) as well as emptiness. For step 4, compare with is None, never with not, since 0.0 and 0 are real readings. For step 5, isinstance(value, (int, float)) tells a number from text, and bool counts as an int in Python, so rule it out too. datetime.fromisoformat reads the timestamp and raises ValueError or TypeError if it can't; its tzinfo is None when there's no time zone. Subtracting two datetimes gives a timedelta you can compare with MAX_AGE."}
   correctAnswer={{
     code: REFERENCE,
-    explanation: "The order matters, because each step assumes the ones before it passed: you can't look up a field in text that didn't parse, or compare a value that's null. Each failure returns a reason instead of raising, so the loop can hand it to the model as an error observation instead of crashing. The tests check both directions. The bad results have to be caught, and a perfectly healthy agent, with an error rate of exactly 0 and a reading exactly 15 minutes old, has to pass. A version that tests fields with not blocks the healthiest agents in the registry, which is a false block that would look, from outside, like a flaky tool.",
+    explanation: "The order matters, because each step assumes the ones before it passed: you can't look up a field in text that didn't parse, or compare a value that's null. Each failure returns a reason instead of raising, so the loop can hand it to the model as an error observation instead of crashing. That includes the shapes a real service sends sooner or later: a number as text, a timestamp in another format, a timestamp with no time zone, which Python refuses to subtract from an aware one. The tests check both directions. The bad results have to be caught, and a perfectly healthy agent, with an error rate of exactly 0 and a reading exactly 15 minutes old, has to pass. A version that tests fields with not blocks the healthiest agents in the registry, which is a false block that would look, from outside, like a flaky tool.",
   }}
 />
 

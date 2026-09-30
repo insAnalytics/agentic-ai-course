@@ -221,7 +221,7 @@ completed run in reverse order, newest first, since later steps may depend
 on earlier ones.
 
 The idea is now a standard pattern for work that spans several services,
-and three details from it matter for agents:
+and four details from it matter for agents:
 
 - **A compensation undoes the effect, not the history.** The registry's
   change log will show the tier going up and back down. That's correct: the
@@ -240,6 +240,16 @@ and three details from it matter for agents:
   still fails, an escalation to a person with the state it's left behind, as
   [the previous lesson](/06-reliability/06-when-unsure/03-escalating/)
   described.
+- **A step that failed may still have taken effect.** The textbook saga
+  compensates only the steps that completed, which assumes a step that
+  raised an error changed nothing. With a remote service, that isn't
+  guaranteed:
+  [the previous concept's timeout](/06-reliability/07-safe-actions/02-reading-the-result-back/#a-failure-that-has-already-happened)
+  was a failure whose write had landed. When a step's outcome is unknown,
+  read back what it would have changed before deciding. Otherwise, run its
+  compensation too, written so it's safe to run even if the step never
+  happened, for example "set the tier to standard", not "lower the tier by
+  one".
 
 </Subsection>
 
@@ -319,14 +329,14 @@ that outlives the process, is the part to take from here.
 
 <GradedExercise
   client:load
-  task={"Write run_saga(steps). Each step is a tuple (name, action, compensate), where action and compensate take no arguments. Run the actions in order. If one raises an exception: stop, and don't run any later actions; run the compensations of the steps that completed, newest first (the failed step isn't compensated, since it didn't complete); and if a compensation raises, record its step and carry on with the rest. Return {\"completed\": [...], \"failed\": ..., \"compensated\": [...], \"compensation_failed\": [...]}: the steps that completed, the name of the one that failed (or None), and the steps whose compensations succeeded or failed, in the order they ran."}
+  task={"Write run_saga(steps). Each step is a tuple (name, action, compensate), where action and compensate take no arguments. Run the actions in order. If one raises an exception: stop, and don't run any later actions; run the compensations of the steps that completed, newest first (the failed step isn't compensated: this exercise's actions change nothing when they raise); and if a compensation raises, record its step and carry on with the rest. Return {\"completed\": [...], \"failed\": ..., \"compensated\": [...], \"compensation_failed\": [...]}: the steps that completed, the name of the one that failed (or None), and the steps whose compensations succeeded or failed, in the order they ran."}
   starterCode={STARTER}
   hiddenTests={TESTS}
   runnable
   hint={"Keep a list of (name, compensate) for each step whose action succeeded. When an action raises, walk that list with reversed(), giving each compensation its own try, so one failure doesn't stop the others."}
   correctAnswer={{
     code: REFERENCE,
-    explanation: "A step joins the completed list only after its action succeeds, which is why the failed step is never compensated: there's nothing of it to undo. Reverse order matters because later steps can depend on earlier ones: undoing the tier change before the model change, in a run where both had succeeded, would leave a moment where claude-opus sits on the standard tier, which the registry forbids. Catching each compensation's failure separately means one stuck undo doesn't leave every other step undone too, and the report says exactly which parts need a person.",
+    explanation: "A step joins the completed list only after its action succeeds, which is why the failed step isn't compensated: these actions change nothing when they raise. A real remote call can fail after its change has landed, and then the failed step needs a read-back, or a compensation that's safe to run either way. Reverse order matters because later steps can depend on earlier ones: undoing the tier change before the model change, in a run where both had succeeded, would leave a moment where claude-opus sits on the standard tier, which the registry forbids. Catching each compensation's failure separately means one stuck undo doesn't leave every other step undone too, and the report says exactly which parts need a person.",
   }}
 />
 

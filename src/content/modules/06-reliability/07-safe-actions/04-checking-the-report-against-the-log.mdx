@@ -190,7 +190,7 @@ report claims with the calls the agent actually made.
 <Subsection title="What the log says" variant="b">
 
 The agent's loop already records everything it needs: each tool call, its
-arguments, and whether it succeeded. Here's the end of a run:
+arguments, and whether the tool reported success. Here's the end of a run:
 
 <LiveDemo client:load code={LOG_DEMO} />
 
@@ -213,7 +213,18 @@ The check needs three things for each kind of claim the agent can make:
 - **The arguments** the claim names, which must match the call's input: a
   claim about `notes_agent` isn't supported by a call for `research_agent`.
 
-A claim is supported only by a call that matches all three and succeeded. It's
+A claim is supported only by a call that matches all three and succeeded.
+Two limits come from the log itself:
+
+- **The log's "ok" is the tool's own reply.**
+  [Reading back](/06-reliability/07-safe-actions/02-reading-the-result-back/)
+  showed that a reply isn't proof. A write whose effect has been read back is
+  stronger evidence than one that only replied "ok".
+- **A later call can undo an earlier one.** After a rollback, the move is
+  still in the log as a success. The recap's version of this check logs each
+  undo, and doesn't count a call that has been undone since.
+
+The check is
 [Lesson 4's grounding check](/06-reliability/04-verifying-claims/04-figures-traced-to-tool-results/)
 applied to actions instead of facts: every claim must be traceable to
 something that happened. And like that check, it can only find claims its
@@ -254,7 +265,7 @@ the responses from
       "Because reports are too long for judges to read"
     ],
     "correctIndex": 1,
-    "explanation": "In Advani's study, no judge configuration exceeded an AUROC of 0.65, since false success sounds exactly like success. A call either ran and succeeded or it didn't."
+    "explanation": "In Advani's study, no judge configuration exceeded an AUROC of 0.65, since false success sounds exactly like success. The log records what each call returned, however the report is worded. Reading the state back is stronger still."
   },
   {
     "question": "The report says \"I migrated notes_agent\", and the log has a successful set_model call for research_agent. Is the claim supported?",

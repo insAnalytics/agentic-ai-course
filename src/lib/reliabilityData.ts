@@ -495,9 +495,8 @@ def session_guard(world, messages, scenario, cost):
         if labels is None or (acts and "untrusted" in touched and "external" in labels and "private" in touched):
             return "denied: this session has read untrusted content and private data"
         if acts and "untrusted" in touched:
+            # a person must confirm; this stand-in approves every request, the worst case for a busy reviewer
             cost["approvals"] += 1
-            # a stand-in for the person: they approve what the user really asked for
-            return None if not scenario.harmful else "rejected by the person asked to approve"
         return None
     def after_tool(call, output):
         touched.update(TOOL_LABELS.get(call.name, {"untrusted"}))

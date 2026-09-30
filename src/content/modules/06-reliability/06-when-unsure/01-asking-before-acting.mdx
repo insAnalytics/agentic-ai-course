@@ -21,7 +21,8 @@ def unsupported(arguments: dict, request: str, tool_results: list[str]) -> dict:
             if source in evidence and name in arguments and str(arguments[name]).lower() not in evidence[source]}
 
 
-runbook = ['{"agent_name": "research_agent", "owner": "research-team", "target_model": "claude-sonnet"}']
+runbook = ['{"agent_name": "research_agent", "owner": "research-team", "target_model": "claude-sonnet"}',
+           '{"agent_name": "notes_agent", "owner": "notes-team", "target_model": "claude-sonnet"}']
 cases = [
     ("Move research_agent to the new model.", [], {"agent_name": "research_agent", "model": "claude-sonnet"}),
     ("Move research_agent to the new model.", runbook, {"agent_name": "research_agent", "model": "claude-sonnet"}),
@@ -261,7 +262,7 @@ The three cases need three different responses:
 - **The same call, after the lookup:** everything is supported, and the
   call can run.
 - **A choice the user never made:** the runbook lists `research_agent`, but
-  it lists other agents too. Which one to migrate is the user's decision, so
+  it lists `notes_agent` too. Which one to migrate is the user's decision, so
   the value has to come from the user. The response is one question: which
   agent?
 

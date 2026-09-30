@@ -266,6 +266,15 @@ depends on the error:
   invalid parameter: every model would refuse it. Falling back only hides a
   bug and wastes calls. Raise it.
 
+Sort errors by what they mean, not by their HTTP status alone. On the major
+APIs a prompt that's too long also comes back as a 400 "invalid request",
+the same status as a malformed schema, so it's the error's type or message
+that tells them apart. And "every model would refuse it" is an assumption to
+check. A parameter or schema feature one model supports may be rejected by
+another, so a request can be wrong for one model and fine for the next.
+Treat those as their own kind of error: fall back only to models known to
+accept the request.
+
 This is the same split as Module 3's retry rules, one level up: retry what
 might succeed on a second try, fall back on what might succeed somewhere else,
 and fix what would fail everywhere.
