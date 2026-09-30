@@ -5144,6 +5144,26 @@ architecture.md §3.1).
    Lesson 5 is now **Locked**: all five concepts plus both bookends exist
    and build cleanly.
 
+6. **When the Agent Isn't Sure** (title provisional) — **Building**
+   (folder `06-when-unsure`). Concept 1 (asking before acting) is built,
+   with no run data: Wang et al.'s Learning to Ask (agents make up missing
+   arguments) and the 2026 Asking What Matters preprint (more questions
+   often don't help); a demo marking each `set_model` parameter's source
+   (user, lookup, model) and checking three scripted calls; and a graded
+   `before_acting(arguments, schema, request, tool_results)` (`runnable`).
+   The demo and the starter's printout reproduce the mockup exactly in
+   Pyodide 0.26.4. Tests split into 8 self-contained tests, each repeating
+   `SCHEMA` and `runbook`; through the real `TEST_HARNESS` the reference
+   passes all 8 and eight wrong versions each fail (the starter, pooled
+   evidence, lookups trusting the request, case-sensitive matching,
+   checking model-source parameters, not checking optional parameters,
+   treating missing optional ones as needed, ignoring missing required
+   ones). Callbacks: Lesson 4 concepts 4 and 5, Lesson 3's
+   where-a-check-can-sit concept, and Module 3's
+   validate-and-return-failures concept (page links); "Module 9's subject"
+   stays plain text. Concepts 2 on (the next looks at signals that an agent
+   partway through a task isn't sure) and bookends not yet written.
+
 ---
 
 ## Modules 4–11 — current plan
