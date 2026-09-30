@@ -32,7 +32,10 @@ information is exactly as relevant and clearly stated as content at
 either edge.
 
 Below is real published data on exactly this, from the study that named
-the effect (Liu et al., 2023). Each model was asked the same kind of
+the effect: Liu et al.,
+["Lost in the Middle"](https://aclanthology.org/2024.tacl-1.9/)
+(TACL 2024; first posted in 2023, figures from its final arXiv
+version). Each model was asked the same kind of
 question over 20 retrieved documents, with exactly one document
 containing the answer — and the *only* thing that changed between
 measurements was where in the 20 that answer-containing document sat.
@@ -59,19 +62,22 @@ the middle is used less reliably.
 Those four models are from 2023, and the field has moved. Current
 long-context models do far better on the simplest version of this test,
 finding one clearly stated fact in a long input (often called a "needle
-in a haystack" test), and many score close to perfectly on it wherever
-the needle sits. So the sharp U above overstates the problem for a plain
+in a haystack" test); the Chroma report below calls their scores on it
+"near-perfect". So the sharp U above overstates the problem for a plain
 lookup with today's models.
 
 What hasn't gone away is the broader effect: **more context tends to
-mean worse use of it.** A 2025 study by Chroma, "Context Rot", tested 18
-current models, including frontier models from several labs, on tasks
+mean worse use of it.** In July 2025, Chroma, a company that makes a
+vector database, published a technical report,
+["Context Rot"](https://research.trychroma.com/context-rot), that tested
+18 current models, including frontier models from several labs, on tasks
 kept deliberately simple while only the input length changed.
 Performance still fell as inputs grew, unevenly and in model-specific
 ways, and fell further when the input held *distractors*: passages that
 look relevant but aren't, like an old tool result about a similar agent,
-or a superseded instruction. Tasks that need the model to connect
-several pieces, rather than find one, degrade more.
+or a superseded instruction. Real tasks are harder than these, and the
+authors expect the effect of length to be "even more pronounced in
+practice".
 
 That's exactly the situation an agent creates for itself. Every step
 adds tool calls and results to the history, much of it no longer

@@ -15,7 +15,8 @@ A separate, more contested question: do specific downstream
 *capabilities* — a model's ability to do multi-step arithmetic, or solve
 a particular kind of reasoning puzzle — also improve smoothly, or does
 something different happen? Some research (notably Wei et al., 2022,
-"Emergent Abilities of Large Language Models") has reported **emergent
+["Emergent Abilities of Large Language Models"](https://arxiv.org/abs/2206.07682),
+TMLR) has reported **emergent
 abilities**: a capability performing at essentially chance level below a
 certain scale, then jumping sharply once a model crosses some threshold,
 almost like a phase transition rather than a gradual climb.
@@ -24,8 +25,9 @@ almost like a phase transition rather than a gradual climb.
 
 <Subsection title="The counterargument: an artifact of how capability gets measured" variant="b">
 
-A well-known, credible counterargument (Schaeffer et al., 2023, "Are
-Emergent Abilities of Large Language Models a Mirage?") holds that much
+A well-known, credible counterargument (Schaeffer et al.,
+["Are Emergent Abilities of Large Language Models a Mirage?"](https://arxiv.org/abs/2304.15004),
+NeurIPS 2023) holds that much
 of this apparent suddenness comes from *how the capability is scored*,
 not necessarily from a real, sudden jump in the underlying ability
 itself. Many benchmarks use **all-or-nothing** scoring — a multi-digit
@@ -52,8 +54,9 @@ score is that per-digit accuracy multiplied by itself once per digit:
 Same model, same underlying ability, two scoring rules — one looks like a
 gradual climb, the other like a sudden jump, and the longer the answer,
 the sharper the jump. (This chart is an illustration of the *mechanism*,
-not measured data; the real measurements behind the argument are in the
-Schaeffer et al. paper.)
+not measured data. It uses the same simple model Schaeffer et al. use to
+state their argument: exact match equals per-token accuracy raised to
+the answer's length. Their real measurements are in the paper.)
 
 </Subsection>
 
@@ -64,7 +67,10 @@ This is worth being direct about, in the same spirit as
 "emergent abilities" is a genuinely contested claim in current research,
 not a settled fact in either direction. Some researchers maintain there
 are real, qualitative capability jumps that measurement artifacts don't
-fully explain away; others argue the measurement-artifact explanation
+fully explain away: Du et al.
+([NeurIPS 2024](https://arxiv.org/abs/2403.15796)) report abilities that
+appear once pretraining loss falls below a threshold "regardless of the
+continuity of metrics." Others argue the measurement-artifact explanation
 accounts for most or all of the apparent suddenness observed so far.
 Both positions are held by serious researchers, and this course isn't
 the place to declare a winner — the honest position is naming the debate

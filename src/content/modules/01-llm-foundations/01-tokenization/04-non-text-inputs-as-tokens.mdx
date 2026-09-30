@@ -43,11 +43,14 @@ the conceptual fact underneath it.
 Whatever tokens an image or document turns into count against the same
 context window and the same per-token pricing as any text token would
 — there's no separate, free allowance for non-text input. A single
-image can easily cost several hundred to over a thousand tokens
-depending on its resolution and the specific model — often far more
-than a learner's first intuition would expect, given that "one image"
-feels like it should be one small thing, not a few hundred tokens'
-worth of context space and cost.
+image can easily cost hundreds to thousands of tokens, depending on its
+resolution and the specific model. Anthropic's
+[vision docs](https://platform.claude.com/docs/en/build-with-claude/vision),
+for example, count one token per 28×28-pixel patch: a 1000×1000 image
+costs 1,296 tokens, and a large image on its newest models up to 4,784.
+That's often far more than a learner's first intuition would expect,
+given that "one image" feels like it should be one small thing, not
+thousands of tokens' worth of context space and cost.
 
 </Subsection>
 
@@ -85,13 +88,13 @@ worth of context space and cost.
         'Why might a learner\'s first intuition about how "expensive" a single image is, in terms of tokens, be wrong?',
       options: [
         "Images are always cheaper than any amount of text",
-        'A single image can cost several hundred to over a thousand tokens, which is often far more than "one image" intuitively feels like it should cost',
+        'A single image can cost hundreds to thousands of tokens, which is often far more than "one image" intuitively feels like it should cost',
         "An image always costs exactly one token, since the whole picture is passed to the model as a single unit",
         "Token cost for images is identical regardless of resolution",
       ],
       correctIndex: 1,
       explanation:
-        "\"One image\" feels like a single small thing, but it can actually decompose into several hundred to over a thousand tokens depending on resolution and model — a much bigger context/cost footprint than intuition suggests.",
+        "\"One image\" feels like a single small thing, but it can actually decompose into hundreds to thousands of tokens depending on resolution and model — a much bigger context/cost footprint than intuition suggests.",
     },
   ]}
 />

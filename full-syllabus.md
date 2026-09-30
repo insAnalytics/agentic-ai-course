@@ -97,6 +97,24 @@
 
 ## Module 1 — LLM Foundations
 
+**Citation audit (2026-09-30).** A light pass; the full per-claim tables
+are in [citation-audit/module-1.md](citation-audit/module-1.md). Prose and
+quiz text, plus two comments in LiveDemo code (all three demos on those
+pages re-run in Pyodide 0.26.4, output unchanged). The data-backed charts
+match their sources (Liu et al. v3, all 28 values; Kaplan's fits).
+- **Corrected:** UTF-8's byte counts; how o200k splits digits; the
+  cosine-similarity baseline, to match the page's own tool; GPT-2's learned
+  positions; RoPE for open-weight models; Chroma's claim on multi-part
+  tasks; Kaplan et al. as not the first on power laws; RL for reasoning
+  rewards correct answers (DeepSeek-R1); API users can choose quantization
+  on open-weight hosts; INT4's cost; image token counts; vocabulary sizes.
+- **Updated:** Kalai et al. now cites *Nature* (2026); each model's own
+  output cap is mentioned alongside the window.
+- **Linked** every named paper (Vaswani, Liu, Kaplan, Chinchilla, Wei,
+  Schaeffer, Sharma, InstructGPT, DPO, LoRA and others) with its venue.
+- **Held for a decision:** the cause of lost-in-the-middle (L6 C5; see the
+  audit file).
+
 *Being broken down lesson by lesson, starting with Lesson 1 below. The
 rest of the module (decoding parameters, model landscape/benchmark
 literacy, raw API mechanics, structured outputs) is still a rough

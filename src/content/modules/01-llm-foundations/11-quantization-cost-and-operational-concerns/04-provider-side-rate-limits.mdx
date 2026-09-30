@@ -67,7 +67,12 @@ Two refinements real implementations commonly add on top of this bare
 shape: a small random **jitter** on each wait (so many clients that were
 rate-limited at the same moment don't all retry at the same instant), and
 honoring the `Retry-After` header when the provider sends one, since it
-states directly how long to wait.
+states directly how long to wait. Both are standard guidance. AWS's
+[Builders' Library](https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/)
+calls backoff "the preferred solution that we use in Amazon" and adds
+jitter "to spread the retries around in time," and Anthropic's API
+answers a rate-limited request with a `429` "along with a `retry-after`
+header indicating how long to wait."
 
 </Subsection>
 

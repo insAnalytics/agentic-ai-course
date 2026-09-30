@@ -47,9 +47,11 @@ get renormalized so they still sum to `1`.
 
 <Subsection title="Top-p (nucleus sampling): keep just enough to cover a probability mass" variant="a">
 
-Top-p works differently: instead of a fixed *count*, it keeps the
-smallest set of tokens whose cumulative probability reaches at least
-`p`:
+Top-p, also called nucleus sampling after
+[the paper that introduced it](https://arxiv.org/abs/1904.09751)
+(Holtzman et al., ICLR 2020), works differently: instead of a fixed
+*count*, it keeps the smallest set of tokens whose cumulative
+probability reaches at least `p`:
 
 <LiveDemo client:load code={`distribution = {"mat": 0.618, "floor": 0.207, "chair": 0.153, "moon": 0.008, "xylophone": 0.002}
 

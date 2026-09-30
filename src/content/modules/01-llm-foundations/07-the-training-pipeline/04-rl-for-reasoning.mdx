@@ -19,7 +19,9 @@ training stage built for exactly that: training a model, via
 reinforcement learning, to generate extended intermediate reasoning
 before producing a final answer — with the reward signal here often
 being something more objective than human preference: whether the
-*final answer* is actually correct.
+*final answer* is actually correct. OpenAI introduced this publicly
+with its o1 models in 2024:
+["Our large-scale reinforcement learning algorithm teaches the model how to think productively using its chain of thought"](https://openai.com/index/learning-to-reason-with-llms/).
 
 [The pipeline so far](/01-llm-foundations/07-the-training-pipeline/01-pretraining/#what-actually-produces-the-parameters-behind-every-logit),
 now completed with RL for reasoning as its fourth and most recent
@@ -41,7 +43,11 @@ reasoning steps, is actually correct, and use that as a reward signal
 reinforcing whichever reasoning patterns tend to *lead to* correct
 answers. This is a genuinely more scalable, automatable training signal
 than human preference judgments, at least for the specific domains where
-"correct" is unambiguous and checkable. Here is what one such training
+"correct" is unambiguous and checkable. DeepSeek's
+[R1 paper](https://arxiv.org/abs/2501.12948) spells out its version:
+"Accuracy rewards evaluate whether the response is correct," checked by
+rule for math answers and, for code, against "a suite of predefined test
+cases." Here is what one such training
 problem looks like — a math word problem with a known final answer, and
 the automatic check that turns a model's attempt into a reward:
 
@@ -67,7 +73,11 @@ it's actually worth the extra cost, are covered directly in
 [the next lesson](/01-llm-foundations/08-scaling-laws-and-emergent-behavior/04-test-time-compute/)
 under **test-time compute** — this concept's job is only
 establishing where that behavior actually comes from: a specific,
-deliberate training stage, not an emergent accident.
+deliberate training stage, not an accident. One nuance: the reward is
+usually for a correct final answer, not for length. Longer reasoning
+grows because it reaches correct answers more often; DeepSeek reports
+its R1-Zero model showing "a steady increase in thinking time throughout
+training."
 
 </Subsection>
 
@@ -80,7 +90,8 @@ the booking in a simulated system get made correctly? Labs increasingly
 run reinforcement learning on exactly this kind of **multi-step agentic
 task**. The model works inside an environment with real tools, calling
 them over many turns, and is rewarded when the task is completed
-correctly.
+correctly. OpenAI, for example, says its codex-1 coding model
+["was trained using reinforcement learning on real-world coding tasks in a variety of environments"](https://openai.com/index/introducing-codex/).
 
 This is where much of a modern model's skill as an agent comes from:
 deciding which tool to call next, reading a tool's error and trying

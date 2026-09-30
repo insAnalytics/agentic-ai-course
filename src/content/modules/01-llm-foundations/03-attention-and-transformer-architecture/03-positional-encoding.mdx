@@ -33,7 +33,8 @@ either way, since neither depends on sequence position at all.
 
 <Subsection title="The original fix: adding a position vector to the input" variant="b">
 
-The original transformer, and early GPT models including GPT-2, solved
+[The original transformer](https://arxiv.org/abs/1706.03762) (Vaswani
+et al., NeurIPS 2017), and early GPT models including GPT-2, solved
 this with **positional encoding**: each *position* in the sequence —
 1st, 2nd, 3rd, and so on — gets its own distinct vector, added onto a
 token's embedding once, before the first layer runs. The same token
@@ -44,8 +45,9 @@ easiest version of the idea to picture, so it's worth seeing first:
 <LiveDemo client:load code={`token_embedding = {"the": [0.10, 0.10]}   # the same vector every time "the" appears
 
 # a simplified stand-in for real positional encoding -- one distinct
-# vector per position (real positional encodings are computed with a
-# formula, not hand-set like this, but the shape of the idea is the same)
+# vector per position (the original transformer computes these with a
+# formula and GPT-2 learns them in training; neither hand-sets them like
+# this, but the shape of the idea is the same)
 positional_encoding = {
     1: [0.00, 0.00],
     5: [-0.03, 0.08],
@@ -70,8 +72,11 @@ what each token's representation encodes.
 
 <Subsection title="How most current models do it: rotary position embeddings (RoPE)" variant="a">
 
-Most current LLMs, open and closed, use a different design called
-**rotary position embeddings**, or **RoPE**. Instead of adding a vector
+Most current open-weight LLMs, such as DeepSeek-V3 and OpenAI's gpt-oss,
+use a different design called **rotary position embeddings**, or
+**RoPE**, introduced in [RoFormer](https://arxiv.org/abs/2104.09864)
+(Su et al.). Closed models don't publish their architecture, so from
+outside no one can say for sure. Instead of adding a vector
 to the input once, RoPE works *inside attention*, at every layer. Right
 before a token's Query and Key are compared, each one is **rotated** by
 an angle that depends on the token's position: a token at position 10 is

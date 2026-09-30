@@ -14,8 +14,10 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 After a sequence has passed through
 [every transformer block, stacked as covered in Lesson 3](/01-llm-foundations/03-attention-and-transformer-architecture/04-stacking-layers-into-a-transformer/),
 the model produces one final set of numbers: a raw score, called a
-**logit**, for *every single token in the entire vocabulary* — tens of
-thousands of numbers, one per possible next token, each representing
+**logit**, for *every single token in the entire vocabulary* — tens or
+hundreds of thousands of numbers (about 50,000 for GPT-2, the model in
+the demo below; about 200,000 for the tokenizer from the tokenization
+lesson), one per possible next token, each representing
 how strongly the model favors that specific token as what comes next.
 
 These raw logits aren't probabilities yet. They can be any real number
@@ -94,7 +96,7 @@ covers.
       ],
       correctIndex: 1,
       explanation:
-        "The final layer produces one raw logit per vocabulary entry — tens of thousands of numbers, not a single answer or a pre-trimmed shortlist.",
+        "The final layer produces one raw logit per vocabulary entry — tens or hundreds of thousands of numbers, not a single answer or a pre-trimmed shortlist.",
     },
     {
       question: "Why can't raw logits be used directly as probabilities?",

@@ -54,11 +54,12 @@ print(f"stopped because: {response_data['stop_reason']}")`} />
 *(the underlying `response_data` dict is illustrative, but this parsing
 code is ordinary Python)*
 
-Field names differ a little between providers — for instance,
-OpenAI-style responses put the text under `choices[0].message.content`
-and report `usage.prompt_tokens` / `usage.completion_tokens` — but the
-same three things are always there: the generated content, a token
-count, and a reason generation stopped.
+Field names differ a little between providers — for instance, OpenAI's
+Chat Completions API puts the text under `choices[0].message.content`
+and reports `usage.prompt_tokens` / `usage.completion_tokens` (its newer
+Responses API reports `input_tokens` / `output_tokens`, like Anthropic's)
+— but the same three things are always there: the generated content, a
+token count, and a reason generation stopped.
 
 </Subsection>
 

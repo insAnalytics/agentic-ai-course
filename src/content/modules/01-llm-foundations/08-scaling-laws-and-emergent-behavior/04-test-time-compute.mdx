@@ -16,7 +16,9 @@ model is ever actually used. **Test-time compute** is a genuinely
 different axis: improving performance not by training a bigger model at
 all, but by letting a model spend *more compute at the moment of
 actually answering a specific question* — generating more tokens of
-reasoning before producing its final answer.
+reasoning before producing its final answer. OpenAI reported exactly
+this with its o1 models: performance
+["consistently improves with more reinforcement learning (train-time compute) and with more time spent thinking (test-time compute)"](https://openai.com/index/learning-to-reason-with-llms/).
 
 </Subsection>
 
@@ -95,7 +97,8 @@ Two others matter to this course. **Sampling several answers and
 choosing** (generate five candidates, then take the most common answer
 or the one a checker prefers) spends more compute on the same question
 and often beats a single attempt; it's the idea behind "self-consistency"
-and "best-of-N". And **an agent loop is test-time compute too**: every
+([Wang et al., ICLR 2023](https://arxiv.org/abs/2203.11171)) and
+"best-of-N". And **an agent loop is test-time compute too**: every
 extra step, tool call and look at a result is the model spending more
 work on one task before it answers. The trade-off in the list above,
 more cost and time for a better answer on hard problems, is exactly the

@@ -18,6 +18,10 @@ not by asking nicely in the prompt. At every single generation step,
 before softmax runs, any token that would violate the required schema —
 producing invalid JSON syntax, or a value of the wrong type for the
 current field — gets its logit set to effectively negative infinity.
+This is how the major APIs do it. OpenAI describes using the schema to
+"mask the next sampling step, which effectively lowers the probability
+of invalid tokens to 0," and Anthropic's docs say its structured outputs
+"guarantee schema-compliant responses through constrained decoding."
 
 <LiveDemo client:load code={`import math
 
@@ -79,7 +83,11 @@ can only justify a choice already made. Two common fixes: put a
 reasoning field *first* (`{"reason": ..., "verdict": ...}`), so the
 answer is generated after the thinking that should lead to it, or let
 a reasoning model think before its structured output, where its
-thinking isn't constrained at all.
+thinking isn't constrained at all. OpenAI's docs confirm the order
+holds: outputs "will be produced in the same order as the ordering of
+keys in the schema." One catch on Anthropic's API: required fields are
+generated before optional ones, so make the reasoning field required
+too, or it can land after the verdict.
 
 </Subsection>
 

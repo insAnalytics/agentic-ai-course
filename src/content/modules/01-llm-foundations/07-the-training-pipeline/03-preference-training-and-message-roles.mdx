@@ -30,8 +30,14 @@ in **RLAIF**, another AI model acting as the judge) indicate which one
 is genuinely better. **RLHF** uses this preference data to train a
 separate reward model that learns to predict which responses would be
 preferred, then further trains the main model — via reinforcement
-learning — to produce responses that score well against it. **DPO**
-(Direct Preference Optimization) is a more modern, more direct way of
+learning — to produce responses that score well against it. That's the
+recipe OpenAI published for
+[InstructGPT](https://arxiv.org/abs/2203.02155) (Ouyang et al., 2022),
+and Anthropic's
+[Constitutional AI](https://arxiv.org/abs/2212.08073) paper (Bai et al.,
+2022) is where the AI-judge version got the name RLAIF. **DPO**
+([Direct Preference Optimization](https://arxiv.org/abs/2305.18290),
+Rafailov et al., NeurIPS 2023) is a more modern, more direct way of
 using the same kind of preference data, without needing that separate
 reward-model step — a simplification of the same underlying idea, not a
 fundamentally different one.
@@ -94,7 +100,9 @@ call, the tool's name, and its arguments as JSON. The API recognizes
 those markers and hands them back to you as a structured tool-call
 block, and the result you send back goes into the sequence under its
 own role marker. (The exact format differs between models, and
-providers don't always publish it.)
+providers don't always publish it. Anthropic's docs do state the first
+step: when a request includes `tools`, the API "constructs a special
+system prompt from the tool definitions.")
 
 <LiveDemo client:load code={`# illustrative: roughly how a tool definition, a call and its result sit in one token sequence
 formatted_conversation = (
@@ -123,15 +131,21 @@ and recovering from errors.
 <Subsection title="Sycophancy: a real, documented side effect" variant="a">
 
 One genuine consequence of training on human preference judgments:
-people, on average, tend to rate agreeable, validating responses more
-favorably than responses that push back or say something they don't
-want to hear — even when the pushback is actually more accurate.
-Training on this kind of preference data can inadvertently teach a
-model to lean toward telling users what they want to hear, rather than
-what's correct — not a deliberate design goal, but a real, well-documented
-side effect of exactly how preference training data gets generated
-(see, for example, Sharma et al., 2023, "Towards Understanding
-Sycophancy in Language Models").
+people tend to rate responses that agree with them more favorably, even
+when pushback would be more accurate. Training on this kind of
+preference data can inadvertently teach a model to lean toward telling
+users what they want to hear, rather than what's correct — not a
+deliberate design goal, but a documented side effect. Sharma et al.,
+[*Towards Understanding Sycophancy in Language Models*](https://arxiv.org/abs/2310.13548)
+(ICLR 2024), found that a response matching the user's views was more
+likely to be preferred, and that people and preference models sometimes
+preferred a convincing sycophantic answer over a correct one. They
+conclude sycophancy is "likely driven in part by human preference
+judgments." It shows up in real products too: in April 2025 OpenAI
+[rolled back a GPT-4o update](https://openai.com/index/sycophancy-in-gpt-4o/)
+that, in its words, "focused too much on short-term feedback" from
+thumbs-up and thumbs-down ratings and "skewed towards responses that
+were overly supportive but disingenuous."
 
 </Subsection>
 
@@ -143,7 +157,12 @@ security boundary, and instructions and data are ultimately processed
 as the exact same kind of tokens through the exact same mechanism, a
 model can't always reliably tell a genuinely trusted instruction apart
 from untrusted text that merely *resembles* one — this is the actual
-mechanistic root of prompt injection. Defenses come later:
+mechanistic root of prompt injection. OpenAI researchers name the same
+cause in their
+[instruction hierarchy](https://arxiv.org/abs/2404.13208) preprint
+(Wallace et al., 2024): models "often consider system prompts (e.g.,
+text from an application developer) to be the same priority as text
+from untrusted users and third parties." Defenses come later:
 [Module 2's delimiters concept](/02-the-agent-loop/02-prompting-fundamentals/03-output-format-and-delimiters/#the-fix-delimiters-mark-the-boundary-explicitly)
 covers the first one (clearly marking where untrusted data begins and
 ends), and the tool-design module's later lessons on the tool threat

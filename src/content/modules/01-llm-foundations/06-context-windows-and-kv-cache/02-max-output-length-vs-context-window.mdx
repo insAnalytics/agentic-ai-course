@@ -42,10 +42,15 @@ actual available output is whichever is *smaller*: the requested ceiling,
 or whatever's genuinely left in the shared context window. With only
 500 tokens of room remaining, requesting 4000 doesn't help at all; the
 response still gets cut off at 500, regardless of what was asked for.
-(Providers differ on the edge case: some clamp the output like this
-demo does, while others reject a request outright if input plus the
-requested `max_tokens` can't fit — the same "exactly what happens past
-the limit varies" caveat from the previous concept.)
+(Providers differ on the edge case, and so can one provider's models.
+[Anthropic's API](https://platform.claude.com/docs/en/build-with-claude/context-windows)
+accepts such a request on its newer models and stops generation when
+the window fills, but returns a validation error on older ones — the
+same "exactly what happens past the limit varies" caveat from the
+previous concept.) Models also have their own maximum output length, often far below the
+window: Anthropic's 1M-token-window models can generate up to 128k
+output tokens in one request. So the real ceiling is the smallest of
+three numbers.
 
 </Subsection>
 

@@ -50,9 +50,10 @@ That store,
 grows by one entry per token for as long as the request runs. For a large
 model and a long context it can take many gigabytes of accelerator
 memory, for a single request. Efficient attention implementations such
-as FlashAttention cut attention's *own* working memory substantially,
-but they don't change the quadratic compute above, and the KV cache
-still grows with every token.
+as [FlashAttention](https://arxiv.org/abs/2205.14135) (Dao et al.,
+NeurIPS 2022) cut attention's *own* working memory to linear in the
+sequence length, but they don't change the quadratic compute above, and
+the KV cache still grows with every token.
 
 **3. Training length.** A model is trained on sequences up to some
 length. Positions beyond that range are ones it has seen rarely or never
@@ -78,9 +79,10 @@ long conversation and discarding what came before it. A fourth pattern
 is **context compression**: rather than dropping older content
 outright, the system has the model *summarize* it, then replaces the
 original turns with that shorter summary so the essentials stay in the
-window. AI coding assistants such as Claude Code do exactly this — as a
-long session approaches its context limit, the earlier conversation is
-condensed into a summary and the work continues from that. It
+window. AI coding assistants such as Claude Code do exactly this:
+[its docs](https://code.claude.com/docs/en/costs) describe
+"auto-compaction, which summarizes conversation history when approaching
+context limits", and the work continues from that summary. It
 preserves the gist far better than blind truncation, but it is lossy:
 exact wording, small details, and anything the summary didn't think to
 keep are gone from the model's view afterward. None of these are

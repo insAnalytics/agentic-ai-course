@@ -19,7 +19,9 @@ whatever's newly being said. (That's true of the Messages and Chat
 Completions-style APIs this course uses. Some APIs, such as OpenAI's
 Responses API with a previous-response ID, can keep the conversation on
 the server for you, but the model itself is still stateless: the
-provider is just resending the history on your behalf.)
+provider is just resending the history on your behalf. OpenAI's docs
+say so: "Even when using `previous_response_id`, all previous input
+tokens for responses in the chain are billed as input tokens.")
 
 <LiveDemo client:load code={`conversation = [
     {"role": "system", "content": "You are a helpful assistant."},
