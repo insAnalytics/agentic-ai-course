@@ -255,7 +255,8 @@ def run_memory_session(llm, store, blocks: dict, user_id: str, base: str, task: 
             try:
                 content = tools[call.name](**call.input)
             except TypeError as error:
-                # wrong or extra arguments come back as an observation, as Module 3 taught
+                # wrong or extra arguments come back as an observation, as Module 3 taught;
+                # an unknown tool name would still raise a KeyError, a shortcut a production loop wouldn't take
                 content = f"Error: invalid arguments for {call.name}: {error}"
             results.append({"type": "tool_result", "tool_use_id": call.id, "content": content})
         history.append({"role": "user", "content": results})

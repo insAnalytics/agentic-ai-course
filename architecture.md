@@ -368,6 +368,20 @@ served as plain static files. Module 5 (RAG) uses `public/data/rag/`:
   cached bge-small; checked when generated: both model fields are the real
   model, keys match the texts' hashes and the task ids, vectors unit
   length, no NaNs, every file valid UTF-8.
+- Content-review additions (2026-09-29): two small model-written files,
+  written in the content session with each source in view and served as
+  scripted replies. There are no vectors for either, so pages search them
+  with keyword search only.
+  - `generated-questions.json` (Lesson 2) holds 20 corpus sections, each
+    with a question written in the passage's words and a paraphrased
+    question, plus both prompts, to show generated questions' wording
+    bias. Loaded inline as `[...RAG_EVAL_DATA, "rag/generated-questions.json"]`.
+  - `query-filters.json` (Lesson 8's filters concept) holds the extraction
+    prompt, a reply for each of the 46 main questions (8 non-empty), 2
+    extra questions, 2 labelled mistaken extractions and 6 scripted
+    untrusted replies. Loaded as `[...RAG_VARIANTS_DATA,
+    "rag/query-filters.json"]`. The page's filter code isn't in
+    `ragCorpus.ts`; no later setup needs it.
 
 Module 6 (Reliability) uses `public/data/reliability/`, generated offline
 per `README-reliability.md` (real Qwen3.5 replies, sampled once on a Colab
@@ -2102,6 +2116,60 @@ listed last, and a two-layer set that beats one-layer sets on blocks and
 judge calls. **Takeaway:** for each tie-break, test a case where the
 expected winner comes later in iteration order and loses on every later
 criterion.
+
+**The fake client dropped the system prompt (Module 5 Lesson 10 recap,
+`answer_question`; found in the 2026-09-29 content review).** The shared
+`FakeLLMClient.create(messages)` takes no `system`, so the exercise's
+reference sent only `request["messages"]` and the tests enforced it,
+though the whole lesson builds `request["system"]` (the citing and
+declining rules) and concept 1's test checks it. Learners were taught to
+drop the one part that makes the model cite. The hidden tests now define
+`AnsweringClient(RecordingClient)` with `create(messages, system="")`,
+recording each system prompt; the reference sends
+`system=request["system"]`, and test 2 asserts it matches
+`assemble_request`'s. Verified in CPython 3.11 with numpy 1.26.4 (the
+Pyodide wheel CDN was unreachable from the session): the reference
+passes, and leaving `system` out or sending an empty one fails test 2
+with the new message. The concept demos keep the plain client and their
+comment saying a real client also sends `system`. **Takeaway:** when an
+exercise assembles a request with a `system` part, the grading client
+must accept and record it, as Module 4's `WindowedClient` already does.
+
+The same holds in Lesson 11's recap, whose hidden tests use an
+`AgentClient` that accepts `system=` and `tools=` and records `system`. The
+shared `run_agent` takes no system prompt, so the learner's `agent.py`
+wraps the client to send one. SQL rows the agent may cite carry
+tool-minted ids of the form `table:key` (`[agents:notes_agent]`). The
+model never sees a row without them, so every cited row can be checked.
+
+**Source tags neutralise a planted closing tag (Module 5, 2026-09-29).**
+`format_source` wrapped chunk text in `<source>` tags without escaping a
+`</source>` inside the text. A planted document could close its own tag
+early and place text outside every source. It now writes such a tag as
+`&lt;/source&gt;`, the same step Module 3's `as_untrusted` teaches:
+- in `ragCorpus.ts` and the `lib.py` copies in the recaps of Lessons 10
+  to 14;
+- in Lesson 10 concept 1, which gains a test that fails the unescaped
+  version.
+
+The corpus has no such tag, so no output changed.
+
+**Checking pages without Pyodide.** When the Pyodide package CDN can't be
+reached, a page's code can be checked in CPython 3.11 with numpy 1.26.4,
+networkx 3.3 and pydantic 2.7.0, matching Pyodide 0.26.4:
+1. Bundle the page's own `import`/`export` statements (component imports
+   dropped, fenced prose code skipped, imported `.mdx` exports followed)
+   with esbuild against `src/lib/*.ts`.
+2. Run the exports the way LiveDemo, GradedExercise and
+   MultiFileGradedExercise do, with `/data/rag` pointed at `public/data/rag`.
+
+Things that stand-in doesn't cover:
+- Pyodide-only behaviour, such as `sqlite3`'s authorizer and progress
+  handler, and anything that depends on the browser. Recheck those in real
+  Pyodide when it's available.
+- Numpy calls that need newer numpy. The 2026-09-29 additions use
+  `np.packbits`/`np.unpackbits` for Hamming counts (Lesson 4), since numpy
+  1.26 has no `bitwise_count`.
 
 ### 4.2 E2B + Cloudflare Worker (real Docker, one call from the browser)
 

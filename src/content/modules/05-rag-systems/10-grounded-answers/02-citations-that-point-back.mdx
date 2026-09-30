@@ -48,6 +48,46 @@ print(f"\nS3 is {request['sources']['S3']['section']}:")
 print(request["sources"]["S3"]["text"].splitlines()[4])
 `;
 
+export const QUOTES_DEMO = String.raw`QUOTED = re.compile(r'\[(S\d+): "([^"]+)"\]')
+PLAIN = str.maketrans({"${"\\"}u2018": "'", "${"\\"}u2019": "'", "${"\\"}u201c": '"', "${"\\"}u201d": '"', "${"`"}": None})
+
+def plain(text: str) -> str:
+    """Text as quotes are compared: curly quotes made straight, Markdown's code backticks dropped, whitespace collapsed."""
+    return " ".join(text.translate(PLAIN).split())
+
+def check_quotes(answer: str, sources: dict) -> list[dict]:
+    """Each quoted citation in the answer, and whether its quote appears word for word in the source it cites."""
+    checked = []
+    for source_id, quote in QUOTED.findall(answer):
+        if source_id not in sources:
+            problem = "unknown id"
+        elif plain(quote) not in plain(sources[source_id]["text"]):
+            problem = "quote not in source"
+        else:
+            problem = None
+        checked.append({"cites": source_id, "quote": quote, "problem": problem})
+    return checked
+
+query = next(q for q in load_queries()["main"] if q["id"] == "q35")
+request = assemble_request(query["query"], AnswerRetriever().search(query, k=5), budget=1500)
+replies = {
+    "quotes the source it cites": 'Each key may make 60 requests per minute [S1: "Each key may make 60 requests per minute."]. '
+                                  'Going over it returns REG-1009 [S1: "Requests past the limit get HTTP 429 with error REG-1009"].',
+    "cites a source it wasn't given": 'The limit resets every hour [S7: "The limit resets every hour."].',
+    "cites the wrong source": 'Each key may make 60 requests per minute [S3: "Each key may make 60 requests per minute."].',
+    "invents its quote": 'The limit resets every hour [S1: "The limit resets at the start of every hour."].',
+    "quotes words that don't support it": 'Each key may make 60 requests per minute [S3: "The key made too many requests this minute."].',
+}
+for problem, reply in replies.items():
+    checked = check_quotes(reply, request["sources"])
+    results = ", ".join(f"{c['cites']} {c['problem'] or 'found'}" for c in checked)
+    print(f"{problem:<36} {results:<22} -> {'flagged' if any(c['problem'] for c in checked) else 'passes'}")
+
+first = replies["quotes the source it cites"]
+unquoted = QUOTED.sub(r"[\1]", first)
+print(f"\nthe first reply is {count_tokens(first)} tokens; without its quotes it would be {count_tokens(unquoted)}")
+`;
+
 <Subsection title="Citations a program can read" variant="a">
 
 An answer built from retrieved sources is only as trustworthy as the link
@@ -128,6 +168,131 @@ something to check.
 
 </Subsection>
 
+<Subsection title="Quotes that code can check" variant="b">
+
+There's a layer between a regular expression and full verification that
+still costs no model call. Ask the model to back each citation with a short
+quote, copied word for word from the source it cites, by changing the
+citation line of the instructions to something like:
+
+```text
+After each statement, cite the source it comes from by id, with a short quote copied word for word from that source, like [S2: "the exact words"].
+```
+
+Then code can check that each quote really is in the source it's attributed
+to. Anthropic's guidance recommends both halves of this idea: for long
+documents, [asking the model to quote the relevant parts
+first](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices),
+and, [to reduce
+hallucinations](https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-hallucinations),
+making a response auditable "by having it cite quotes and sources for each
+of its claims". The check itself is plain string matching, after
+normalising what a model might reasonably change: curly quotes, line breaks
+and runs of spaces, and the backticks Markdown puts around code. Here it is on the rate-limit question's sources, with the
+wrong-source reply from above now carrying a quote, and some others:
+
+<LiveDemo client:load dataFiles={RAG_EXPANSION_DATA} setupCode={SETUP} code={QUOTES_DEMO} />
+
+*The replies are scripted to show what the check can and can't catch.*
+
+- **The wrong source is now caught.** Here the model took the 60 from S1
+  and labelled it S3. The words it quotes are S1's, and they aren't in S3.
+- **An invented quote is caught.** S1 is the right source for a rate-limit
+  statement, but it never says the limit resets every hour, so no quote can
+  come from it.
+- **Normalising matters.** The good reply's second quote leaves out the
+  backticks around `REG-1009` that the source's Markdown has. Compared
+  exactly, it would have been flagged.
+- **A real quote that doesn't support the statement still passes.** S3 does
+  say "The key made too many requests this minute", and it says nothing
+  about 60. A quote proves the words are in the source, not that they
+  support the statement, so that's still Module 6's job. A very short quote,
+  like "60", proves even less, so a check can also insist on a minimum
+  length.
+
+The quote check runs alongside the id checks above, not instead of them: a
+statement with no citation has no quote to check. And quotes cost output
+tokens. The first reply is 47 tokens with its quotes and 21 without, more
+than double.
+
+</Subsection>
+
+<Subsection title="Citations built into the API" variant="a">
+
+Some providers build citations into the API itself. On
+[Anthropic's Messages API](https://platform.claude.com/docs/en/build-with-claude/citations),
+each source can be sent as a `document` content block with citations turned
+on, instead of as a tagged source inside one text message. The reply
+then comes back as several text blocks, and each block that draws on a
+document carries a `citations` list. Each citation says which document it
+points to, by its position among the documents sent, and gives `cited_text`,
+the exact text cited, with where it sits: character positions for a
+plain-text document, pages for a PDF, or block positions for a document
+sent as a list of text blocks. Here's the shape, for this lesson's chunks:
+
+```python
+# Illustrative only: this needs the anthropic package and an API key, so it doesn't run on this page.
+# instructions are this lesson's, minus the line asking for [S2] ids: the API does the citing now
+documents = [{"type": "document",
+              "source": {"type": "text", "media_type": "text/plain", "data": chunk["text"]},
+              "title": chunk["section"],
+              "context": f"{chunk['doc_id']}, dated {chunk['date']}, {chunk['source_type']}",
+              "citations": {"enabled": True}}
+             for chunk in results]
+response = client.messages.create(
+    model=MODEL, max_tokens=1024, system=instructions,
+    messages=[{"role": "user", "content": [*documents, {"type": "text", "text": question}]}])
+
+for block in response.content:
+    if block.type == "text":
+        for citation in block.citations or []:
+            # a plain-text document is cited by character positions within it
+            chunk = results[citation.document_index]
+            print(f"{block.text!r} <- {chunk['doc_id']}: {citation.cited_text!r} "
+                  f"(characters {citation.start_char_index} to {citation.end_char_index})")
+```
+
+The `title` and `context` go to the model but can't be cited, which makes
+`context` the place for the date and type. A search tool can return
+results in the same form: a `search_result` block, with a source, a title
+and a list of text blocks, can go inside a tool result, so a tool like
+[Lesson 11's search](/05-rag-systems/11-agentic-rag/01-from-pipeline-to-tool/#the-tool-designed-like-any-other)
+could hand back citable results, and citations to them come back naming the
+source and title each result was given. OpenAI's file search tool, which
+searches files uploaded to OpenAI, similarly marks its answers with
+`file_citation` annotations naming the file drawn on.
+
+What this gains over the `[S1]` scheme:
+
+- **The pointers are guaranteed.** Anthropic's documentation says citations
+  are "guaranteed to contain valid pointers to the provided documents", and
+  `cited_text` is extracted by the API rather than written by the model. An
+  unknown id or an invented quote can't happen, so both checks above come
+  built in.
+- **Exact spans, without paying for them.** Each citation is tied to the
+  part of the answer it supports and to an exact span of the source, and
+  `cited_text` doesn't count towards output tokens. Anthropic also reports
+  that, in its own evaluations, the feature cites the most relevant quotes
+  significantly more often than prompting alone.
+
+And what it costs:
+
+- **It's one provider's format.** The request, the reply and the code that
+  reads them are specific to that API. The `[S1]` scheme is plain text: it
+  works with any model, and with this course's fake client.
+- **Some features don't combine with it.** Citations and structured outputs
+  can't be used together: the API returns an error if a request enables
+  citations and asks for a JSON output format. The next concept suggests
+  [an explicit `"answerable"` field in structured output](/05-rag-systems/10-grounded-answers/03-abstaining-when-retrieval-is-weak/#what-a-threshold-can-t-see);
+  with citations on, that has to come some other way.
+- **Support is still not checked.** A valid pointer to a real sentence can
+  still be a sentence that doesn't support the claim. And text blocks with no
+  citations are normal, since connecting words like " and " get their own
+  blocks, so spotting a claim with no source takes more than finding blocks
+  without citations.
+
+</Subsection>
+
 <CheckpointZone>
 
 <QuizGroup
@@ -176,6 +341,50 @@ something to check.
     ],
     "correctIndex": 0,
     "explanation": "Whether a source supports a claim is a question about what both say. That needs a model or a person, and it's the job of verification in Module 6. The mechanical checks make sure every citation points somewhere real first."
+  },
+  {
+    "question": "A statement cites [S3] with a quote that isn't in S3 but appears word for word in S1. What does that suggest?",
+    "options": [
+      "The words came from S1, so the citation names the wrong source",
+      "The model reworded S3's text, which a quote check should forgive",
+      "S3 is a table, and a quote check can't search inside a table",
+      "S1 and S3 cover the same topic, so either id is acceptable here"
+    ],
+    "correctIndex": 0,
+    "explanation": "A quote is copied from whatever the model was actually reading. If it's in S1 and not in S3, the statement's source is S1, and the id attached to it is wrong. The id checks alone pass this reply."
+  },
+  {
+    "question": "A statement's quote is found word for word in the source it cites. What has that shown?",
+    "options": [
+      "The quoted words are in that source, and nothing more than that",
+      "The source supports the statement, so it needs no further checks",
+      "The statement is true, because the quote comes from an official page",
+      "The model read every source sent before writing its answer"
+    ],
+    "correctIndex": 0,
+    "explanation": "S3's \"The key made too many requests this minute\" is a real quote, and it doesn't support a statement about 60 requests per minute. Whether quoted words support a claim is a question of meaning, which is Module 6's verification."
+  },
+  {
+    "question": "With Anthropic's built-in citations, which of this lesson's checks come built in?",
+    "options": [
+      "Unknown ids and invented quotes: every pointer is into a document sent",
+      "Whether each cited sentence actually supports the claim it's attached to",
+      "Whether any statement came from general knowledge rather than a source",
+      "Whether retrieval found the answer before the model was ever called"
+    ],
+    "correctIndex": 0,
+    "explanation": "The API guarantees valid pointers into the documents sent, and extracts cited_text itself, so a citation can't name a missing document or misquote one. Support, and claims with no citation, still need checking."
+  },
+  {
+    "question": "A team enables built-in citations and also asks for structured output with an \"answerable\" field, in the same request. What happens?",
+    "options": [
+      "The API rejects the request: the two can't be combined",
+      "The citations are moved into the JSON output as an extra field",
+      "The structured output is ignored and only citations come back",
+      "Both work, but cited_text then counts towards output tokens"
+    ],
+    "correctIndex": 0,
+    "explanation": "Citations interleave cited text blocks with the answer, which a strict JSON schema can't allow, so the API returns an error. A provider's built-in feature comes with that provider's restrictions."
   }
 ]}
 />

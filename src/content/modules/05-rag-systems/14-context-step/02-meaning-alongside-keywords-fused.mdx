@@ -200,10 +200,13 @@ where keywords found nine. The twelfth shows what fusion doesn't fix. Module 4's
 `recall` returned nothing for "Who do I report to?", which was at least honest.
 Search by meaning always returns its top three, however weak, and here they're
 three memories about support_agent and reports, none of them the manager. A
-ranking has no notion of "nothing relevant". The fix is the one Lesson 10 used:
-a floor on similarity, measured on labelled examples, below which the answer is
-"nothing found". The next concept chooses exactly that kind of threshold, for
-duplicates.
+ranking has no notion of "nothing relevant". The fix is the idea Lesson 10
+used to abstain: a floor, measured on labelled examples, below which the answer
+is "nothing found". Lesson 10's floor was on the reranker's score, which reads
+question and passage together; a floor on similarity is weaker, because
+similarity scores from one embedding model bunch together, and it belongs to
+that model, so a new model means measuring it again. The next concept chooses
+that kind of threshold, for duplicates.
 
 </Subsection>
 

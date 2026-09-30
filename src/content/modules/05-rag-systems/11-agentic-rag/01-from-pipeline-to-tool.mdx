@@ -144,6 +144,7 @@ def run_agent(client, messages: list, tools: dict, max_steps: int = 8) -> str:
         calls = [block for block in response.content if block.type == "tool_use"]
         if not calls:
             return "".join(b.text for b in response.content if b.type == "text")
+        # kept short: an unknown tool name raises a KeyError here, where a production loop returns an is_error result
         results = [{"type": "tool_result", "tool_use_id": call.id, "content": tools[call.name](**call.input)}
                    for call in calls]
         messages.append({"role": "user", "content": results})
@@ -159,7 +160,11 @@ def run_agent(client, messages: list, tools: dict, max_steps: int = 8) -> str:
   every tool call, answers each by id in one message, and stops when there are
   none. It works on a conversation, so a follow-up question sees earlier turns.
   A real client would also be sent `tools=[SEARCH_TOOL]`; the fake client
-  doesn't need it.
+  doesn't need it. To stay short, it also leaves out two things a production
+  loop has: a system prompt, which the lesson's final exercise adds, and a
+  check for a tool name that isn't in `tools`, which here would raise a
+  `KeyError` instead of coming back as
+  [an `is_error` result the model can act on](/02-the-agent-loop/06-termination-failure-and-control/05-tool-errors-as-observations/#the-fix-catch-it-and-let-the-model-see-it).
 - **The index is BM25, and that's a deliberate constraint of this page.** An
   agent writes its own queries, and search by meaning or reranking would need
   their models running to handle a query nobody wrote in advance. This page's
@@ -256,7 +261,7 @@ and choosing between tools, and with keeping the loop under control.
   hint={"min(max(int(k), 1), 10) keeps k in range. f\"{query!r}\" quotes the query the way the message needs. format_source from Lesson 10 already tags each result with its document, section, date and type."}
   correctAnswer={{
     code: SEARCH_DOCUMENTS.trimStart(),
-    explanation: "Every choice here is about the model on the other end. Ids of the form D03:1 name the exact chunk, so an answer can cite it and the citation checks from Lesson 10 still work. The tags carry dates and document types, which Lesson 10 showed the model needs to judge stale sources. And neither problem case raises an exception: an empty query or a search with no matches comes back as a message the model can read and act on, usually by searching again with different words, as the next concept does deliberately."
+    explanation: "Every choice here is about the model on the other end. Ids of the form D03:1 name the exact chunk, so an answer can cite it and code can check the citation, the Lesson 10 idea with a pattern for the new form: [S1] only meant something within one request, and D03:1 means the same chunk in every search. The tags carry dates and document types, which Lesson 10 showed the model needs to judge stale sources. And neither problem case raises an exception: an empty query or a search with no matches comes back as a message the model can read and act on, usually by searching again with different words, as the next concept does deliberately."
   }}
 />
 

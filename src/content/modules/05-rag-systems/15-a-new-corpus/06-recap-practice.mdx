@@ -1,0 +1,270 @@
+---
+title: "Recap & Practice"
+lesson: "15-a-new-corpus"
+order: 6
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { RAG_GRAPH_DATA } from "../../../../lib/ragCorpus";
+import { LIB_PY as MODULE_LIB_PY } from "../13-permissions/05-recap-practice.mdx";
+
+export const LIB_PY = MODULE_LIB_PY + String.raw`
+# --- Lesson 2, added: how uncertain one number is ---
+
+def wilson(successes: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    """A 95% confidence interval for successes out of n: the Wilson score interval."""
+    rate = successes / n
+    centre = (rate + z * z / (2 * n)) / (1 + z * z / n)
+    spread = z / (1 + z * z / n) * math.sqrt(rate * (1 - rate) / n + z * z / (4 * n * n))
+    return centre - spread, centre + spread
+`;
+
+export const REPORT_STARTER = String.raw`from lib import answerable, sign_test, wilson
+
+def ledger(stages: dict, questions: list[dict], k: int = 5) -> list[dict]:
+    """One row per stage, in order: how many questions it answers in the top k and at rank 1,
+    and which it gained and lost in the top k against the stage before it."""
+    # TODO
+    ...
+
+def final_check(search, labelled: dict, threshold: float, k: int = 5) -> dict:
+    """The finished system, run once on the held-out questions only."""
+    # TODO
+    ...
+`;
+
+export const REPORT_REFERENCE = String.raw`from lib import answerable, sign_test, wilson
+
+def ledger(stages: dict, questions: list[dict], k: int = 5) -> list[dict]:
+    """One row per stage, in order: how many questions it answers in the top k and at rank 1,
+    and which it gained and lost in the top k against the stage before it."""
+    scored = [q for q in questions if q["evidence"]]
+    rows, previous = [], None
+    for name, search in stages.items():
+        top = {q["id"] for q in scored if answerable(search(q, k), q)}
+        first = {q["id"] for q in scored if answerable(search(q, 1), q)}
+        row = {"stage": name, "top": len(top), "first": len(first), "gained": [], "lost": [], "p": None}
+        if previous is not None:
+            row["gained"], row["lost"] = sorted(top - previous), sorted(previous - top)
+            row["p"] = round(sign_test(len(row["gained"]), len(row["lost"])), 3)
+        rows.append(row)
+        previous = top
+    return rows
+
+def final_check(search, labelled: dict, threshold: float, k: int = 5) -> dict:
+    """The finished system, run once on the held-out questions only."""
+    runs = [(q, search(q, k)) for q in labelled["held_out"]]
+    scored = [(q, results) for q, results in runs if q["evidence"]]
+    unanswerable = [results for q, results in runs if not q["evidence"]]
+    top = sum(answerable(results, q) for q, results in scored)
+    low, high = wilson(top, len(scored))
+    return {
+        "top": top,
+        "of": len(scored),
+        "interval": (round(low, 2), round(high, 2)),
+        "kept": sum(answerable(results, q) and bool(results) and results[0]["score"] >= threshold for q, results in scored),
+        "declined": sum(not results or results[0]["score"] < threshold for results in unanswerable),
+        "unanswerable": len(unanswerable),
+    }
+`;
+
+export const HIDDEN_TESTS = String.raw`import lib
+from report import final_check, ledger
+
+# shared by the tests below: tiny questions and chunks, so every count is known
+def question(qid, *quotes):
+    return {"id": qid, "type": "test", "query": f"question {qid}",
+            "evidence": [[{"doc_id": "D1", "quote": quote}] for quote in quotes]}
+def chunk(text, score=1.0):
+    return {"doc_id": "D1", "chunk": 0, "section": "S", "text": text, "score": score}
+HIT, MISS = chunk("the answer is alpha beta gamma"), chunk("nothing useful here")
+QUESTIONS = [question("a", "alpha beta gamma"), question("b", "alpha beta gamma"),
+             question("c", "alpha beta gamma"), question("x")]
+class Stage:
+    """A fake search: for each question id, the ranked list it returns. Records every call."""
+    def __init__(self, lists):
+        self.lists, self.calls = lists, []
+    def __call__(self, query, k):
+        self.calls.append((query["id"], k))
+        return self.lists.get(query["id"], [])[:k]
+first = Stage({"a": [MISS, HIT], "b": [MISS, MISS], "c": [HIT]})
+second = Stage({"a": [HIT], "b": [MISS, HIT], "c": [MISS]})
+third = Stage({"a": [HIT], "b": [HIT], "c": [HIT]})
+
+# 1. one row per stage, in order, with counts in the top k and at rank 1
+rows = ledger({"one": first, "two": second, "three": third}, QUESTIONS, k=2)
+assert isinstance(rows, list) and len(rows) == 3, f"ledger should return one row per stage; got {rows!r}"
+assert [r["stage"] for r in rows] == ["one", "two", "three"], "rows keep the stages' order"
+counts = [(r["top"], r["first"]) for r in rows]
+assert counts != [(3, 2), (3, 2), (4, 4)], \
+    "a question with no evidence was counted as answered: answerable() is vacuously true for it, so skip those questions"
+assert counts == [(2, 1), (2, 1), (3, 3)], f"count answerable questions in the top k and at rank 1; got {counts}"
+
+# 2. the first row has nothing to compare with; later rows compare with the row before, not the first
+assert (rows[0]["gained"], rows[0]["lost"], rows[0]["p"]) == ([], [], None), f"the first row has no comparison; got {rows[0]}"
+assert (rows[1]["gained"], rows[1]["lost"]) == (["b"], ["c"]), f"gained and lost are against the previous row, sorted; got {rows[1]}"
+assert (rows[2]["gained"], rows[2]["lost"]) == (["c"], []), \
+    f"the third row compares with the second, not the first; got {rows[2]}"
+assert rows[1]["p"] == 1.0 and rows[2]["p"] == 1.0, f"p is sign_test(gained, lost), rounded to 3 places; got {rows[1]['p']}, {rows[2]['p']}"
+
+# 3. questions with no evidence are never searched, and each stage is asked for k and for 1
+assert all(qid != "x" for stage in (first, second, third) for qid, _ in stage.calls), \
+    "skip questions with no evidence: they can't be answerable, and running them only costs time"
+assert sorted(set(k for _, k in first.calls)) == [1, 2], f"search each question with k and with 1; got {first.calls}"
+
+# 4. the final check runs the held-out questions only, and splits them by whether they have an answer
+calls = []
+def finished(query, k):
+    calls.append(query["id"])
+    return {"h1": [chunk("alpha beta gamma", 2.0)], "h2": [chunk("alpha beta gamma", 0.0)],
+            "h3": [chunk("alpha beta gamma", -1.0)], "h4": [chunk("no", 3.0)],
+            "h5": [chunk("no", -2.0)], "h6": [chunk("no", 0.5)], "h7": []}.get(query["id"], [])[:k]
+labelled = {"main": [question("m1", "alpha beta gamma")],
+            "held_out": [question("h1", "alpha beta gamma"), question("h2", "alpha beta gamma"),
+                         question("h3", "alpha beta gamma"), question("h4", "alpha beta gamma"),
+                         question("h5"), question("h6"), question("h7")]}
+check = final_check(finished, labelled, threshold=0.0)
+assert isinstance(check, dict), f"final_check should return a dict; got {check!r}"
+assert "m1" not in calls, "the final check must never search the main questions: they chose every setting being checked"
+assert sorted(calls) == ["h1", "h2", "h3", "h4", "h5", "h6", "h7"], f"search every held-out question once; got {sorted(calls)}"
+assert (check["top"], check["of"]) == (3, 4), f"answered in the top k, out of the held-out questions that have an answer; got {check}"
+assert check["interval"] == tuple(round(x, 2) for x in lib.wilson(3, 4)), \
+    f"interval is wilson(top, of), each end rounded to 2 places; got {check['interval']}"
+assert check["kept"] == 2, f"kept counts answered questions whose best score is at or above the threshold; got {check['kept']}"
+assert (check["declined"], check["unanswerable"]) == (2, 3), \
+    f"a question with no answer is declined when its best score is below the threshold or nothing came back; got {check}"
+
+# 5. the real corpus: the first and last rows of the module's ledger, then the held-out check
+chunks = [c for d in lib.load_documents() for c in lib.structured_chunks(d, 200)]
+overlap = lib.KeywordIndex()
+overlap.add(chunks)
+answers = lib.AnswerRetriever()
+queries = lib.load_queries()
+rows = ledger({"overlap": lambda q, k: overlap.search(q["query"], k), "finished": answers.search}, queries["main"])
+assert [(r["top"], r["first"]) for r in rows] == [(23, 17), (36, 26)], [(r["top"], r["first"]) for r in rows]
+assert (len(rows[1]["gained"]), rows[1]["lost"]) == (13, []), (rows[1]["gained"], rows[1]["lost"])
+assert rows[1]["p"] == 0.0, f"p is rounded to 3 places, so 13 gains and no losses give 0.0; got {rows[1]['p']}"
+check = final_check(answers.search, queries, threshold=0.0)
+assert check == {"top": 9, "of": 10, "interval": (0.6, 0.98), "kept": 7, "declined": 1, "unanswerable": 1}, check
+`;
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "A colleague proposes dropping fusion, because on INC-2093 it pushed the answer from rank 4 to rank 12. What's the right response?",
+      "options": [
+        "Agree, since one clear failure is enough to remove a stage",
+        "Measure it over all the labelled questions, not one",
+        "Keep fusion but weight search by meaning twice as heavily",
+        "Drop BM25 instead, since it found nothing for this question"
+      ],
+      "correctIndex": 1,
+      "explanation": "One question shows how a stage can fail, not whether it helps overall. Over all 43, fusion traded one top-five answer for five more at rank 1. Whether that's a gain depends on how many results the model reads, and only the full set can say."
+    },
+    {
+      "question": "Every step in the ledger has a sign test of 0.12 or more. Which reading is right?",
+      "options": [
+        "The pipeline hasn't been shown to beat word overlap at all",
+        "Only the steps with the lowest sign test should be kept",
+        "Each step is unproven alone; together they clearly helped",
+        "The questions should be re-labelled until the tests pass"
+      ],
+      "correctIndex": 2,
+      "explanation": "Word overlap to the finished pipeline gained 13 questions and lost none, a sign test of 0.0002. Small steps are hard to prove on 43 questions, which is why each lesson kept gains and losses rather than only totals."
+    },
+    {
+      "question": "A corpus changes hourly and gets a few questions a day. Which stage's cost profile fits it worst?",
+      "options": [
+        "Contextual chunks: a model call per chunk, again with every edit",
+        "Reranking: 30 scored candidates on every single question it answers",
+        "BM25: word counts rebuilt for every edited chunk across the corpus",
+        "Rewriting follow-ups: one short model call before each search"
+      ],
+      "correctIndex": 0,
+      "explanation": "An indexing cost is paid per change and repaid per question. Hourly edits and few questions mean paying often and gaining rarely. The per-question costs here are small, because there are few questions."
+    },
+    {
+      "question": "The held-out interval, 0.60 to 0.98, contains the main set's. What would it have taken for the held-out check to raise an alarm?",
+      "options": [
+        "A held-out rate above the main set's, which would suggest luck",
+        "Any held-out question that failed, since each one matters",
+        "A held-out rate well below the main set's, beyond the noise",
+        "An interval narrower than the main set's interval is"
+      ],
+      "correctIndex": 2,
+      "explanation": "The held-out set is there to catch overfitting: settings that suit the questions they were chosen on and not new ones. That shows up as a clearly lower rate on the held-out questions. One miss among ten is within the noise."
+    },
+    {
+      "question": "h06 needs the fact that research_agent uses kb-search, and then the team that owns kb-search, from two documents. Which stage is built for it?",
+      "options": [
+        "A reranker, which reads the question and each chunk together",
+        "Contextual chunks, which add each chunk's subject to its text",
+        "An agent that searches again with what it found first",
+        "A lower threshold, so partial answers aren't declined"
+      ],
+      "correctIndex": 2,
+      "explanation": "The second search needs a word, kb-search, that only the first search's results contain. No single search can use it, however well it ranks; that's what a second search is for."
+    },
+    {
+      "question": "A team's baseline has the answer in the top 30 for most misses, but rarely in the top five. What should they try first?",
+      "options": [
+        "A reranker over the top 30 candidates",
+        "An agent that retries with new wording",
+        "A graph built from the documents",
+        "A larger embedding model for the index"
+      ],
+      "correctIndex": 0,
+      "explanation": "The first stage already found the answers; they're ranked too low. That's the reranker's job, and it's cheaper than an agent or a graph. A new embedding model changes what's found, not just the order, and means re-embedding everything."
+    },
+    {
+      "question": "A deployment's decline rate doubles over a month while its labelled-set scores stay the same. What does that most likely mean?",
+      "options": [
+        "The reranker's scores have drifted and need recalibrating",
+        "Users are asking questions the labelled set doesn't cover",
+        "The held-out questions should be merged into the main set now",
+        "The threshold should be lowered until declines are back down"
+      ],
+      "correctIndex": 1,
+      "explanation": "The system still does what it did on the questions it was measured on, so the questions have changed. Look at the declined questions, add examples of them to the labelled set, and measure again. Lowering the threshold would hide the change rather than explain it."
+    },
+    {
+      "question": "Why is a semantic cache keyed by the reader's permission set as well as the question?",
+      "options": [
+        "Readers with more access ask different kinds of question",
+        "Answers from restricted sources must not reach others",
+        "Permission sets make the cache smaller and faster to search",
+        "The same question embeds differently for different readers"
+      ],
+      "correctIndex": 1,
+      "explanation": "A cached answer is derived from its sources, and derived data carries its sources' permissions. Without the key, the first reader's answer, restricted sources and all, goes to everyone who asks something similar."
+    }
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<MultiFileGradedExercise
+  client:load
+  task={"lib.py holds the module's code, including answerable, sign_test and the Wilson interval, wilson(successes, n). It's read-only. In report.py, write two functions. (1) ledger(stages, questions, k=5): stages is a dict from a name to a search, called as search(query, k) and returning ranked chunks. Return one dict per stage, in order, with \"stage\" (its name), \"top\" (how many questions it answers in the top k) and \"first\" (how many at rank 1, from search(query, 1)), counting only questions with evidence. From the second row on, add \"gained\" and \"lost\" (sorted ids answered in the top k by this stage and not the one before, and the reverse) and \"p\", sign_test of their counts rounded to 3 places; the first row has empty lists and p None. (2) final_check(search, labelled, threshold, k=5) runs the finished search once on labelled[\"held_out\"] only, and returns \"top\" and \"of\" (answered in the top k, out of the held-out questions with evidence), \"interval\" (wilson of those, each end rounded to 2 places), \"kept\" (answered questions whose best result's \"score\" is at or above the threshold), \"declined\" (questions with no evidence whose best score is below the threshold, or that got no results) and \"unanswerable\" (how many have no evidence)."}
+  entry="report.py"
+  files={[
+    { name: "lib.py", readOnly: true, code: LIB_PY },
+    { name: "report.py", code: REPORT_STARTER },
+  ]}
+  hiddenTests={HIDDEN_TESTS}
+  dataFiles={RAG_GRAPH_DATA}
+  hint={"Skip questions whose evidence is empty before searching: answerable() is true for them by default, since there's nothing to find. Keep the previous row's set of answered ids to compute gained and lost. In final_check, split the held-out runs by q[\"evidence\"] first; everything else is a count over one of the two lists."}
+  correctFiles={[
+    { name: "lib.py", readOnly: true, code: LIB_PY },
+    { name: "report.py", code: REPORT_REFERENCE },
+  ]}
+  explanation={"These two functions are the habits this module ran on, written down as code. ledger compares each stage with the one before, on the same questions, and keeps which questions moved, because the totals alone hide the trade: fusion's +2 -3 looks like a loss until rank 1 is counted too. final_check can't be pointed at the main questions: it reads only the held-out ones, and test 4 fails any version that searches the rest. Test 5 runs the real thing. Word overlap to the finished pipeline gains 13 questions and loses none, and the finished pipeline answers 9 of 10 held-out questions in the top five, with an interval of 0.6 to 0.98. Lesson 10's threshold keeps 7 of those 9 and declines the one question with no answer. Those two numbers, and the questions behind them, are what a team should know before it adds the next stage."}
+/>
+
+</CheckpointZone>

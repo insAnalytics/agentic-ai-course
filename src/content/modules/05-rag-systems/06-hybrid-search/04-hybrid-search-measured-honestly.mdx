@@ -175,6 +175,19 @@ questions wrap the code in ordinary words, which search by meaning handles
 well, so fusion's benefit shows up in ranking rather than coverage. The way
 to know for your corpus is this table, run on your questions.
 
+Two other designs sit between keywords and meaning, and are worth knowing by
+name. **Learned sparse retrieval**, such as SPLADE, has a model write a
+keyword-style index: each chunk gets weights for its own words and for
+related words it doesn't contain, so exact matching keeps its speed and
+gains some of meaning's reach. **Late interaction**, such as ColBERT, keeps
+one vector per token rather than one per chunk, and scores each question
+word against its best match in the chunk, which is closer to reading them
+together, at the cost of storing many vectors per chunk. In production,
+hybrid search usually isn't assembled by hand as it is here: search engines
+and vector databases, from Elasticsearch and OpenSearch to Qdrant, Weaviate
+and PostgreSQL with extensions, run both searches and fuse them, with RRF or
+a weighted sum among the options.
+
 There's also a setting between the two. RRF can give each ranking a weight
 that multiplies its 1/(k + rank) shares, so a smaller weight for BM25 makes
 its confident votes count for less against search by meaning's, while still

@@ -4,8 +4,29 @@ lesson: "05-document-parsing"
 order: 5
 ---
 import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { COUNT_TOKENS } from "../../../../lib/fakeClient";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, SIGN_TEST, FIXED_CHUNKS, STRUCTURE_HELPERS, STRUCTURED_CHUNKS, WITHIN_BUDGET, VECTORS, VECTOR_INDEX, MEANING_SEARCH, PDF_LOADERS, PDF_LINES, TO_MARKDOWN, PDF_TABLES, RAG_PDF_DATA } from "../../../../lib/ragCorpus";
+
+export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION + METRICS + SIGN_TEST + FIXED_CHUNKS + STRUCTURE_HELPERS + STRUCTURED_CHUNKS + WITHIN_BUDGET + VECTORS + VECTOR_INDEX + MEANING_SEARCH + PDF_LOADERS + PDF_LINES + TO_MARKDOWN + PDF_TABLES;
+
+export const CHECK_DEMO = String.raw`def not_on_page(transcript: str, extracted: dict) -> list[str]:
+    """Words and numbers in a transcript that the PDF's own text layer doesn't contain."""
+    tokens = lambda text: re.findall(r"\d+(?:\.\d+)?%?|[a-z]+", text.lower())
+    layer = {token for page in extracted["pages"] for word in page["words"] for token in tokens(word["text"])}
+    return list(dict.fromkeys(token for token in tokens(transcript) if token not in layer))
+
+tiers = load_pdf_extraction()["P02"]
+faithful = to_markdown(tiers)
+# scripted: the same Markdown with three errors of the kinds a VLM makes
+scripted = (faithful.replace("| 99.5% |", "| 99.95% |")
+                    .replace("| 15 minutes |", "| 30 minutes |")
+                    .replace("whatever the tier.", "whatever the tier, and are resolved within five business days."))
+print("to_markdown's text:  ", not_on_page(faithful, tiers))
+print("scripted transcript: ", not_on_page(scripted, tiers))
+`;
 
 <Subsection title="A scan has no text" variant="a">
 
@@ -141,6 +162,14 @@ character, and it's exactly the kind of error that turns a correct answer
 into a wrong one without anything looking broken. OCR output has to be
 checked, at least by sampling, before it's trusted.
 
+Cheap automatic checks find the worst pages before anyone reads a sample:
+the number of characters on each page, where almost none means a missing
+text layer or a failed OCR run; the share of words that aren't in a
+dictionary, where a high share means garbled text; and the OCR engine's own
+confidence, which Tesseract reports for every word. The
+[recap's exercise](/05-rag-systems/05-document-parsing/06-recap-practice/)
+builds the simplest of these, a warning for every page with no text.
+
 </Subsection>
 
 <Subsection title="Layout-aware parsers" variant="a">
@@ -157,6 +186,10 @@ page layout analysis, reading order, table structure recognition and OCR for
 scanned pages, with output as Markdown or structured JSON, and it runs
 locally. It downloads its layout models on first use, which this page's
 sandbox can't do, so there's no demo here.
+[Marker](https://github.com/datalab-to/marker) and
+[MinerU](https://github.com/opendatalab/MinerU) are other open-source
+converters in the same vein, combining several models for layout, text,
+tables and formulas, with Markdown or JSON as output.
 
 What such a parser changes is where the effort goes: fewer rules to write and
 maintain, in exchange for model inference on every page at indexing time,
@@ -165,10 +198,110 @@ spot-check, because models make mistakes too.
 
 </Subsection>
 
-<Subsection title="Choosing an approach" variant="b">
+<Subsection title="Vision-language models as parsers" variant="b">
 
-There's no single best way to ingest documents. The right one depends on what
-the documents are:
+A layout model labels the regions of a page, and other steps read them. A
+**vision-language model (VLM)** can do the whole job in one step: given an
+image of a page, it writes out what the page says, and it can be asked to
+write it as Markdown, with headings marked and tables as tables.
+
+Frontier multimodal models take this directly. Claude and Gemini both accept
+a whole PDF in a request, as a content block alongside the text, like the
+images in
+[Module 1's lesson on non-text inputs](/01-llm-foundations/09-calling-llm-apis-and-processing-responses/04-sending-non-text-inputs/#content-becomes-an-array-of-typed-blocks-not-a-plain-string):
+
+```json
+{
+  "role": "user",
+  "content": [
+    {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": "JVBERi0xLjcK..."}},
+    {"type": "text", "text": "Transcribe this document as Markdown. Mark headings with #, write tables as Markdown tables, and leave out running headers and page numbers. Copy the text exactly: don't correct, complete or summarise anything."}
+  ]
+}
+```
+
+*Illustrative request shape for Anthropic's Messages API, not sent from this
+page.*
+
+[Anthropic's PDF support documentation](https://platform.claude.com/docs/en/build-with-claude/pdf-support)
+says each page is converted into an image, and the page's text is extracted
+and provided alongside it, so the model has both. It puts a page's text at
+typically 1,500 to 3,000 tokens, with the page image billed on top as an
+image. [Google's documentation](https://ai.google.dev/gemini-api/docs/document-processing)
+describes Gemini processing PDFs with native vision in the same spirit. A
+scan split into page images can be sent as image blocks instead.
+
+The same idea comes in other forms:
+
+- **Open models you run yourself.**
+  [olmOCR](https://github.com/allenai/olmocr), from the Allen Institute for
+  AI, is a fine-tuned vision-language model with 7 billion parameters that
+  turns PDF pages and images into Markdown, released under Apache 2.0.
+  [Docling's VLM pipeline](https://docling-project.github.io/docling/usage/vision_models/)
+  swaps Docling's separate layout models for one small VLM, such as IBM's
+  Granite-Docling, with 258 million parameters.
+- **Managed services,** paid per page, with nothing to run:
+  [LlamaParse](https://www.llamaindex.ai/llamaparse),
+  [Mistral OCR](https://docs.mistral.ai/studio/document-processing/basic_ocr),
+  [Azure AI Document Intelligence](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/prebuilt/layout?view=doc-intel-4.0.0),
+  whose layout model can return Markdown, and
+  [Amazon Textract](https://aws.amazon.com/textract/features/), which returns
+  layout, tables and form fields with a confidence score for each.
+
+A VLM brings a risk that Tesseract doesn't have. Tesseract's errors are
+misread characters: a quote mark for a "1", a stray `|`. A VLM writes fluent
+text, and it predicts what's likely as well as reading what's there. So its
+errors read like correct text: a plausible number that isn't on the page, a
+typo quietly "fixed", a sentence completed past where the page cut it off, a
+table cell filled in where the page had none. The
+[olmOCR paper](https://arxiv.org/abs/2502.18443) reports this kind of
+error: models prompted with only the page image were prone to completing
+unfinished sentences, or to inventing longer passages where the image was
+ambiguous.
+Adding the text and positions from the PDF's own text layer to the prompt,
+which the authors call document anchoring, gave significantly fewer
+hallucinations.
+
+So a VLM's output needs checking against something independent of it. Where
+the PDF has a text layer, that's the text layer. Here's `to_markdown`'s
+Markdown for the support-tiers page, and the same Markdown edited to carry
+three errors of the kinds a VLM makes, each checked for words and numbers the
+page's own text doesn't contain:
+
+<LiveDemo client:load dataFiles={RAG_PDF_DATA} setupCode={SETUP} code={CHECK_DEMO} />
+
+*The errors are scripted, not a model's output. The check runs on the stored
+extraction.*
+
+The faithful version passes, and two of the three errors are caught: the
+invented 99.95% and the invented end of a sentence, though not its word
+"business", which the page uses elsewhere. The third error isn't caught. The
+priority tier's first response was changed from 15 minutes to 30, and 30 is
+on the page, in the severity table, so a check by vocabulary can't see that
+it moved. It catches text that isn't on the page, not text in the wrong place.
+A stricter check compares table by table, cell by cell, with the extractor's
+own tables where they exist. Where there's no text layer at all, as with a
+scan, compare with a cheap OCR pass, which errs differently, and look first
+where the two disagree; failing that, sample pages by eye, numbers and table
+cells first. The cheap checks described for OCR, such as characters per
+page, apply here too.
+
+</Subsection>
+
+<Subsection title="Choosing an approach" variant="a">
+
+There's no single best way to ingest documents. Here are the four
+approaches side by side. The costs and speeds are relative, not measured,
+apart from the OCR timing earlier on this page:
+
+| Approach | What it needs | Cost per page | Speed | What it misses | How it fails |
+|---|---|---|---|---|---|
+| Text layer and rules, like `to_markdown` | A PDF with a text layer | Almost nothing | Fastest | Anything in an image; layouts the rules don't expect | Visibly and consistently: a missed heading or a scrambled order, on every page laid out alike |
+| OCR, then rules | Page images, at a decent resolution | Low, on an ordinary CPU | About two seconds a page here | Structure, which has to be rebuilt; anything that isn't text | Misread characters, more on poor scans; dictionary checks and confidence scores catch some |
+| Layout model, like Docling | Model inference, with a GPU for large collections | Moderate | Slower than rules | Layouts unlike the pages it was trained on | A region labelled wrongly: a table split, a heading read as body text |
+| Vision-language model | A large model, by API or on your own GPU | Highest | Slowest: it writes out every word | Least, since it reads the whole page as an image | Fluently: text that isn't on the page, with nothing looking wrong |
+
+The right one depends on what the documents are:
 
 - **Born-digital PDFs with simple layouts,** like this lesson's: a plain
   extractor plus rules, like `to_markdown`. Fast, free and fully under your
@@ -177,8 +310,15 @@ the documents are:
   scan resolution, and sample the output by eye.
 - **Complex layouts,** or many different document styles: a layout-aware
   parser, accepting its cost at indexing time.
-- **Mostly visual documents,** such as slides, charts and forms: image
+- **Pages the others get wrong,** such as dense tables, handwriting or poor
+  scans: a vision-language model, with its output checked against the text
+  layer or an OCR pass, and sampled.
+- **Mostly visual documents,** such as charts, diagrams and forms: image
   descriptions, or page-image retrieval like ColPali.
+
+They also combine. One way is to use the cheapest approach that works for
+each page, and to send only the pages that fail the cheap checks on to a more
+expensive one.
 
 Whichever you choose, the test is the one this module keeps coming back to:
 labelled questions over your own documents, measured before and after. An
@@ -235,6 +375,28 @@ question needs, as the rota showed.
     ],
     "correctIndex": 0,
     "explanation": "A model trained on many layouts replaces brittle rules, but it costs compute on every page and still makes mistakes, so its output needs checking too."
+  },
+  {
+    "question": "Why are a vision-language model's errors harder to spot than Tesseract's?",
+    "options": [
+      "They read as fluent, likely text rather than as misread marks",
+      "They only happen on scans, which are rarely checked by anyone",
+      "A VLM hides its errors inside the Markdown formatting it adds",
+      "They're rarer, so sampling a few pages seldom finds any at all"
+    ],
+    "correctIndex": 0,
+    "explanation": "Tesseract misreads characters, often leaving non-words or low-confidence words that cheap checks can flag. A VLM predicts what's likely as well as reading what's there, so an invented value or a completed sentence reads like the real thing. Only a comparison with something independent, such as the text layer, shows it."
+  },
+  {
+    "question": "A check flags every word or number in a VLM's transcript that the page's text layer doesn't contain. Which error gets past it?",
+    "options": [
+      "An availability of 99.95% where the page says 99.5%",
+      "A sentence finished with words that aren't on the page",
+      "A table cell filled in with a value found nowhere on the page",
+      "A response time of 30 minutes, where 30 appears elsewhere"
+    ],
+    "correctIndex": 3,
+    "explanation": "The check compares vocabulary, not position. A value copied from another part of the page is in the text layer, so it passes even in the wrong cell. Catching that needs a comparison cell by cell with the extractor's tables."
   }
 ]}
 />

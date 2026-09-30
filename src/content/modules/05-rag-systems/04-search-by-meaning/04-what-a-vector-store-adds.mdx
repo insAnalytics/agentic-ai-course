@@ -17,13 +17,20 @@ export const PERSIST_DEMO = String.raw`import json
 chunks = [c for d in load_documents() for c in structured_chunks(d, 200)]
 vectors = vectors_for(chunks)
 
-# save: the vectors as a numpy file, the chunks and their metadata as JSON
+# save: the vectors as a numpy file, the chunks and their metadata as JSON,
+# and a record of how the vectors were made
 store = Path("/tmp/vector-store")
 store.mkdir(exist_ok=True)
 np.save(store / "vectors.npy", vectors)
 (store / "chunks.json").write_text(json.dumps(chunks))
+made_with = {"model": "BAAI/bge-small-en-v1.5", "chunking": "structured-200",
+             "query_prefix": "Represent this sentence for searching relevant passages: "}
+(store / "made-with.json").write_text(json.dumps(made_with))
 
-# load, as a later process would, without embedding anything again
+# a later process checks the record against how it will embed questions,
+# then loads the index without embedding anything again
+if json.loads((store / "made-with.json").read_text()) != made_with:
+    raise ValueError("this index was made differently: embed every chunk again before searching it")
 index = VectorIndex()
 index.add(json.loads((store / "chunks.json").read_text()), np.load(store / "vectors.npy"))
 top = index.search(query_vectors()["q01"], 1)[0]
@@ -93,6 +100,68 @@ for probes in [1, 2, 4, 8, 32]:
     print(f"{probes:>18}{scored / len(queries) / len(chunks):>15.0%}{found / (5 * len(queries)):>19.0%}")
 `;
 
+export const QUANTIZE_DEMO = String.raw`queries = load_queries()["main"]
+chunks = [c for d in load_documents() for c in structured_chunks(d, 200)]
+matrix = vectors_for(chunks)
+vectors = query_vectors()
+
+# 8 bits: one scale per dimension, so each column's largest value becomes 127
+scale = np.abs(matrix).max(axis=0) / 127
+as_int8 = np.round(matrix / scale).astype(np.int8)
+# 1 bit: only the sign of each number, packed 8 to a byte
+as_bits = np.packbits(matrix > 0, axis=1)
+
+def signs_differing(query: np.ndarray) -> np.ndarray:
+    """For every chunk, how many of the 384 signs differ from the query's."""
+    return np.unpackbits(as_bits ^ np.packbits(query > 0), axis=1).sum(axis=1)
+
+def first(n: int, x: np.ndarray) -> np.ndarray:
+    """The first n numbers of each vector, scaled back to length 1."""
+    part = x[..., :n]
+    return part / np.linalg.norm(part, axis=-1, keepdims=True)
+
+formats = {  # name: (bytes per stored vector, scores for a query)
+    "16-bit (stored)": (matrix.shape[1] * 2, lambda q: matrix @ q),
+    "8-bit": (as_int8.shape[1], lambda q: (as_int8 * scale) @ q),
+    "1-bit": (as_bits.shape[1], lambda q: -signs_differing(q)),
+    "first 192, 16-bit": (192 * 2, lambda q: first(192, matrix) @ first(192, q)),
+    "first 96, 16-bit": (96 * 2, lambda q: first(96, matrix) @ first(96, q)),
+}
+
+print(f"{'format':<19}{'bytes':>6}{'exact top 5 found':>19}{'answered':>12}")
+for name, (size, score) in formats.items():
+    found, answered = 0, 0
+    for q in queries:
+        exact = np.argsort(-(matrix @ vectors[q["id"]]), kind="stable")[:5]
+        top = np.argsort(-score(vectors[q["id"]]), kind="stable")[:5]
+        found += len(set(exact) & set(top))
+        answered += bool(q["evidence"]) and answerable([chunks[row] for row in top], q)
+    print(f"{name:<19}{size:>6}{found / (5 * len(queries)):>19.0%}{answered:>6} of 43")
+`;
+
+export const RESCORE_DEMO = String.raw`queries = load_queries()["main"]
+chunks = [c for d in load_documents() for c in structured_chunks(d, 200)]
+matrix = vectors_for(chunks)
+vectors = query_vectors()
+as_bits = np.packbits(matrix > 0, axis=1)
+
+def two_stage(query: np.ndarray, candidates: int, k: int = 5) -> np.ndarray:
+    """Shortlist by 1-bit vectors, then rank the shortlist by the full vectors."""
+    differing = np.unpackbits(as_bits ^ np.packbits(query > 0), axis=1).sum(axis=1)
+    shortlist = np.argsort(differing, kind="stable")[:candidates]
+    return shortlist[np.argsort(-(matrix[shortlist] @ query), kind="stable")[:k]]
+
+print(f"{'1-bit shortlist':>15}{'exact top 5 found':>19}{'answered':>12}")
+for candidates in [5, 20, 50, 100]:
+    found, answered = 0, 0
+    for q in queries:
+        exact = np.argsort(-(matrix @ vectors[q["id"]]), kind="stable")[:5]
+        top = two_stage(vectors[q["id"]], candidates)
+        found += len(set(exact) & set(top))
+        answered += bool(q["evidence"]) and answerable([chunks[row] for row in top], q)
+    print(f"{candidates:>15}{found / (5 * len(queries)):>19.0%}{answered:>6} of 43")
+`;
+
 <Subsection title="A matrix in memory isn't a database" variant="a">
 
 The search so far is a numpy matrix and a list of chunks, rebuilt every
@@ -104,7 +173,7 @@ it leaves out three things any real system needs:
 - **Filtering.** A search usually has conditions: only documents this user
   may read, only this team's runbooks, only pages from this year.
 - **Scale.** Scoring every vector is fine for 2,000 chunks and too slow for
-  hundreds of millions.
+  hundreds of millions, and holding them all in memory gets expensive.
 
 A **vector store**, whether a library like FAISS or a database built around
 the same ideas, provides these. Each is worth understanding before using
@@ -115,11 +184,19 @@ one, because each has a trap.
 <Subsection title="Keeping the index" variant="b">
 
 Saving an index means saving what indexing produced: the vectors, and the
-chunks with their metadata. Nothing else about the index needs keeping.
+chunks with their metadata. It also means recording how the vectors were
+made: the embedding model and its version, the query prefix, and the
+chunker's settings. Vectors from two different models can't be compared, so
+a question embedded by a new model can't search chunks embedded by the old
+one, and when the two models make vectors of the same length,
+[nothing reports the mistake](/05-rag-systems/04-search-by-meaning/02-queries-arent-documents/#vectors-from-different-models-don-t-mix).
+Changing the model means embedding the whole corpus again, and the record
+is what tells you it's needed.
 
 <LiveDemo client:load dataFiles={RAG_BGE_DATA} setupCode={SETUP} code={PERSIST_DEMO} />
 
-The reloaded index answers the same way without a single model call.
+The reloaded index answers the same way without a single model call, and a
+process that would embed its questions differently stops before searching.
 What a real store adds beyond this is the hard part of persistence: adding,
 changing and deleting chunks as documents change, without rebuilding
 everything. Keeping an index in step with its documents is Module 10's
@@ -142,8 +219,12 @@ back empty even when plenty of permitted chunks exist. Filtering **before**
 ranking lets only permitted chunks compete, so all five places go to text
 this reader may see.
 
-Vector stores offer filters for exactly this, applied during the search.
-Two principles follow, and Lesson 13 builds on both:
+Vector stores offer filters for exactly this, but check where a store
+applies them. With the approximate search described below, some stores find
+a fixed number of nearest candidates first and filter those, which is
+filtering after, with the same short or empty lists. Stores differ, and
+versions of the same store differ, so read the documentation and test it
+with a strict filter. Two principles follow, and Lesson 13 builds on both:
 
 - **The filter runs before the ranking picks its results,** not after.
 - **The filter is code.** The finance chunks were never candidates, so no
@@ -232,17 +313,99 @@ the knob: a wider search is slower and finds more.
 
 </Subsection>
 
+<Subsection title="What each vector costs to store" variant="b">
+
+Every chunk's vector is kept, and for fast search it's kept in memory. This
+module's vectors ship as 16-bit floats: 384 numbers of 2 bytes each, 768
+bytes a chunk. In memory, numpy works on a 32-bit copy, twice that, which
+is why the index saved above took 3.0 MB. For 1,968 chunks that's nothing. For a
+hundred million chunks, 768 bytes each is about 77 GB, before any index
+structure.
+
+Vectors can be stored more coarsely. Two common ways:
+
+- **8 bits a number.** Scale each dimension so its largest value becomes
+  127, round, and keep whole numbers from -127 to 127: half the size of 16
+  bits. The 384 scales are stored once, for the whole index.
+- **1 bit a number.** Keep only whether each number is positive, packed
+  eight to a byte: 48 bytes a vector, a sixteenth of the size. Two such
+  vectors are compared by counting the positions where their signs differ.
+
+Here's each, measured against the exact search on the labelled questions.
+The first row is the exact search itself, and the last two shrink the
+vectors a different way, by keeping only their first numbers:
+
+<LiveDemo client:load dataFiles={RAG_BGE_DATA} setupCode={SETUP} code={QUANTIZE_DEMO} />
+
+Rounding to 8 bits changed nothing here: every question's top five holds
+the same chunks as the exact search's, and the same 28 questions are
+answered, at half the memory. One bit is much coarser. It finds half of the exact top
+five and answers 23. Cutting the vectors does worse than rounding them at
+the same size: the first 192 numbers take 384 bytes, like the 8-bit
+version, and find only 69% of the exact top five, answering one question
+fewer. The first 96 do about as well as 1 bit, at four times the size.
+
+That last result depends on the model. Some models are trained so that the
+first numbers of each vector carry the most, and any prefix works as a
+smaller vector on its own. They're called **Matryoshka** embeddings, after
+the nesting dolls
+([Kusupati et al., 2022](https://arxiv.org/abs/2205.13147)). Models built
+to be shortened often take it as a setting: OpenAI's text-embedding-3
+models, for example, accept the number of dimensions to return. bge-small
+wasn't trained this way, and its documentation offers only the full 384,
+so cutting its vectors throws away information spread across all of them. Whether a model's vectors can be
+shortened is part of its documentation, like its prefix.
+
+</Subsection>
+
+<Subsection title="Search small, then rescore" variant="a">
+
+One bit loses too much to be the whole search, but it makes a good
+shortlist. The common pattern has two stages: search the compressed
+vectors for more candidates than you need, then score only those with the
+full vectors, and keep the best. The compressed vectors stay in memory. The
+full ones can stay on disk, since each question reads only its shortlist.
+
+<LiveDemo client:load dataFiles={RAG_BGE_DATA} setupCode={SETUP} code={RESCORE_DEMO} />
+
+A shortlist of 5 is plain 1-bit search, with the same 50% as before.
+Shortlisting 50 and rescoring them finds 92% of the exact top five, and 100
+finds 96%, while the search itself reads 48 bytes a chunk. The 29 answered
+at 50 is one more than exact search, and it's luck. The extra question is
+the bare "MON-2002", where exact search's top five are all unrelated pages.
+The shortlist happened to leave some of them out, and a relevant chunk
+moved up. It's no reason to expect a compressed search to beat an exact
+one.
+
+Vector stores offer this as a setting. Qdrant, for example, rescores the
+shortlist from its compressed vectors with the original ones, and a factor
+it calls
+[oversampling](https://qdrant.tech/documentation/manage-data/quantization/)
+sets how many more candidates the shortlist holds than the results asked
+for.
+Hugging Face's measurements of the same idea kept up to about 96% of
+retrieval quality with 1-bit vectors and rescoring, on their benchmark
+([Shakir, Aarsen and Lee, 2024](https://huggingface.co/blog/embedding-quantization)).
+Like approximate search, compression trades some of the exact result for
+memory and speed, and the trade is measured the same way: on your labelled
+questions, before and after.
+
+</Subsection>
+
 <Subsection title="When a plain matrix is enough" variant="b">
 
-For this corpus, none of that is needed. 1,968 chunks is a few million
-multiplications per question, which numpy does in well under a second, and
-the result is exact. That holds well into the tens of thousands of chunks
-on an ordinary machine.
+For this corpus, none of that is needed. 1,968 chunks is under a million
+multiplications per question, which numpy does almost instantly, and
+the result is exact. That holds into the hundreds of thousands of chunks on
+an ordinary machine, as long as the vectors fit in memory: a million vectors
+of 384 numbers take about 1.5 GB as 32-bit floats, or 384 MB at 8 bits, and
+scoring them all takes a fraction of a second.
 
 So the order of decisions is: start with exact search and a matrix, measure
-retrieval quality with it, and add approximate search when speed at your
-real size demands it. Then measure again, because the recall it trades away
-is recall your labelled questions can see.
+retrieval quality with it, and add approximate search or compressed vectors
+when speed or memory at your real size demands it. Then measure again,
+because the recall they trade away is recall your labelled questions can
+see.
 
 </Subsection>
 
@@ -283,6 +446,28 @@ is recall your labelled questions can see.
     ],
     "correctIndex": 0,
     "explanation": "Each layer is a graph over a smaller subset, so the top layer's links span long distances. Greedy steps there cover ground fast, and each lower layer narrows in. It's approximate: a wider search (efSearch) finds more of the true top results."
+  },
+  {
+    "question": "At the same 384 bytes a vector, 8-bit bge-small vectors found all of the exact top five, and 16-bit vectors cut to their first 192 numbers found 69%. Why the gap?",
+    "options": [
+      "bge-small spreads its information over all 384 numbers, so cutting loses more",
+      "Rounding to 8 bits preserves any model's rankings exactly, while cutting never works",
+      "A cosine needs all 384 numbers, so a shorter vector can't be compared at all",
+      "The first 192 numbers encode only the query prefix, which the chunks don't have"
+    ],
+    "correctIndex": 0,
+    "explanation": "Rounding keeps every dimension, slightly blurred. Cutting drops half of them outright, and bge-small wasn't trained to put the most in the first numbers. A Matryoshka-trained model is, which is why its vectors can be shortened, and why that's a question for the model's documentation."
+  },
+  {
+    "question": "1-bit vectors found only half of the exact top five. What's the common way to keep most of their memory saving and recover the results?",
+    "options": [
+      "Shortlist more candidates by 1 bit, then rescore them with the full vectors",
+      "Take the 1-bit top five, then reorder those five using their full vectors",
+      "Keep the first 24 numbers at 16 bits instead, for the same 48 bytes each",
+      "Store the questions as 1-bit vectors too, so both sides compare the same way"
+    ],
+    "correctIndex": 0,
+    "explanation": "Rescoring only reorders what the shortlist contains, so it must hold more than k: a shortlist of 50 found 92% of the exact top five here, and 100 found 96%. The compressed vectors stay in memory; the full ones are read only for each question's shortlist."
   },
   {
     "question": "For this module's corpus of about 2,000 chunks, what's the right index?",

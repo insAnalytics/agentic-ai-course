@@ -94,7 +94,12 @@ weights with no fixed upper limit; they depend on how many rare words match
 and how long the chunk is. Cosine similarities sit in a narrow band below 1.
 Add them, and BM25 decides almost everything. Rescaling each list to the
 range 0 to 1 helps less than it seems: it depends on each question's spread
-of scores, and one unusually high score squashes all the others.
+of scores, and one unusually high score squashes all the others. Rescaled
+scores can still be combined well, with a weight for each search, and
+[Bruch and colleagues (2023)](https://arxiv.org/abs/2210.11934) found that a
+weighted sum tuned on labelled questions can beat rank-based fusion. The
+catch is the tuning: it needs labelled questions, and a weight fitted to one
+corpus may not suit another.
 
 </Subsection>
 
@@ -145,8 +150,8 @@ too:
 <LiveDemo client:load dataFiles={RAG_BGE_DATA} setupCode={SETUP} code={K_DEMO} />
 
 One question separates every value of k tried. RRF's appeal is exactly
-this: nothing to tune, no scores to calibrate, and it works for any number
-of rankings, which is why it's widely used to combine keyword and vector
+this: almost nothing to tune, no scores to calibrate, and it works for any
+number of rankings, which is why it's widely used to combine keyword and vector
 results. Whether the combination is *better* than either search alone on
 this corpus is a separate question, and the next concept answers it.
 

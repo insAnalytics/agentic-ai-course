@@ -66,6 +66,7 @@ plus an `on_event` parameter:
 
         results = []
         for call in tool_calls:
+            # kept short: a production loop returns an unknown tool or bad arguments as an is_error result (Lesson 6)
             output = tools[call.name](**call.input)
             on_event({"step": step, "event": "tool_result", "tool": call.name, "output": output})
             results.append({"type": "tool_result", "tool_use_id": call.id, "content": output})

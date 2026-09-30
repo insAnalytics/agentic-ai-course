@@ -151,7 +151,9 @@ from every incident report at once.
 These are questions about **records**: lists, counts, comparisons, joins.
 Similarity search finds passages that sound like the question; it can't count or
 sort. If the facts exist as structured data, in a database or a spreadsheet, a
-query answers these questions exactly, in one step. Most organisations have
+correct query answers these questions exactly, in one step. Writing the
+correct query is the hard part: a wrong join or a misspelt value returns a
+confident, precise and wrong result, or no rows at all. Most organisations have
 both kinds of knowledge, and an agent can be given a tool for each.
 
 This lesson's company keeps its registry and incident log in a database as well
@@ -280,6 +282,14 @@ These are [Module 3's least-privilege rules](/03-tool-design-for-agents/11-desig
 applied to data: the tool gets exactly the access answering questions needs.
 The exercise builds the first four into the tool itself.
 
+Two things this tool doesn't do yet. It answers every caller the same way,
+though not every caller may see every row;
+[Lesson 13](/05-rag-systems/13-permissions/01-permissions-at-retrieval-time/)
+binds a tool to the reader it's answering for. And its query is written by a
+model that has read retrieved text, which may contain planted instructions.
+The guardrails above are what keep such a query harmless, which is why they
+live in the tool and not in the prompt.
+
 </Subsection>
 
 <Subsection title="Two tools, and the model routes" variant="b">
@@ -293,8 +303,12 @@ answer are scripted; the query and the search run for real:
 The model sent both calls in one response, and the loop answered both, each
 by its id, in one message, as Module 2's loop requires. The database answered
 "which agents", exactly. Search answered "by when", from the runbook, with a
-citation. A database row has no chunk id, so an answer that uses one should
-say it came from the registry, the same way Lesson 10 made sources traceable.
+citation. The first sentence, from the database, cites nothing, because this
+tool's rows carry no id. The fix is the one Lesson 10 used for passages: the
+tool, not the model, gives every row an id, here the table and the record's
+key, such as `agents:notes_agent`. The answer can then cite
+`[agents:notes_agent]`, and code can check that a query really returned that
+row. The lesson's final exercise adds those ids.
 
 </Subsection>
 
@@ -339,13 +353,13 @@ say it came from the registry, the same way Lesson 10 made sources traceable.
     {
       "question": "How should an answer cite a fact from the database?",
       "options": [
-        "Say it came from the registry, since a row has no document chunk id",
-        "It shouldn't; database facts need no citation",
-        "Invent a chunk id for the row",
-        "Quote the SQL query as the source"
+        "Not at all, since a fact read from a database is exact",
+        "By the id the tool gives the row: its table and key",
+        "By the document chunk that mentions the same record",
+        "By quoting the SQL query that returned the row"
       ],
-      "correctIndex": 0,
-      "explanation": "Every fact should be traceable to where it came from. For a database, that's the table or system it was read from, not a passage."
+      "correctIndex": 1,
+      "explanation": "Every fact should be traceable to where it came from, and checkable in code. An id like agents:notes_agent, added by the tool, names the exact record. A query isn't a source: a wrong one returns confident, precise, wrong rows."
     },
     {
       "question": "A SQL tool bans queries containing DELETE or DROP. What's wrong with that guardrail?",

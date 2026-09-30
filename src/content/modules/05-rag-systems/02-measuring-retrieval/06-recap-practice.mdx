@@ -312,6 +312,17 @@ assert report["by_type"]["multi_hop"] == {"a": 0, "b": 0, "total": 3}, report["b
     "explanation": "A chunk id names a piece of text produced by one way of splitting. Split differently and the same id means something else. Quotes stay attached to the text itself, so one set of labels scores every chunking."
   },
   {
+    "question": "A team's 200 model-generated questions score an answerable@5 of 0.85 with keyword search, and its 40 questions from real users score 0.55. What's the most likely reason for the gap?",
+    "options": [
+      "The real questions' labels are wrong, since users phrase things badly",
+      "Generated questions reuse their chunks' wording, which search rewards",
+      "200 questions give a more accurate score than 40, so 0.85 is right",
+      "Real users ask fewer questions, so each one of theirs is harder"
+    ],
+    "correctIndex": 1,
+    "explanation": "A question written from a passage tends to share its words, and keyword search matches words. On this corpus, 20 questions in their passages' wording were answerable 18 times, and the same questions reworded 0 times. A bigger generated set is only a more precise measure of the wrong population; report the two kinds separately."
+  },
+  {
     "question": "Why run a check that every labelled quote occurs exactly once in its document?",
     "options": [
       "A mistyped quote matches nothing, and its query then looks like a retrieval failure",
@@ -334,6 +345,17 @@ assert report["by_type"]["multi_hop"] == {"a": 0, "b": 0, "total": 3}, report["b
     "explanation": "When the model reads all k results, what matters most is whether the answer is anywhere in them. B's higher MRR would matter if only the top result were used, or if position in the prompt hurt."
   },
   {
+    "question": "An evaluation tool uses a model to judge whether each retrieved passage is relevant. What should you do before trusting its scores?",
+    "options": [
+      "Nothing, since a model judge applies the same rule to every passage",
+      "Run it twice and keep only the passages both runs call relevant",
+      "Compare its labels with a person's on a sample, relevant ones included",
+      "Switch to a larger model, since larger judges have no known biases"
+    ],
+    "correctIndex": 2,
+    "explanation": "Model judges have documented biases, leniency among them, and one that says no to almost everything can still agree with a person most of the time. Check how many of the person's relevant passages it finds and how many of its own yeses the person accepts, and check again when the model or prompt changes. Running the same judge twice repeats its biases."
+  },
+  {
     "question": "A search scores a precision@5 of 0.50 on this set. Why might that be close to perfect?",
     "options": [
       "Precision is capped at 0.5, since half of any result list is noise",
@@ -354,6 +376,17 @@ assert report["by_type"]["multi_hop"] == {"a": 0, "b": 0, "total": 3}, report["b
     ],
     "correctIndex": 1,
     "explanation": "If the change did nothing and each flipped question went either way like a coin, 20 to 2 or worse would be extremely rare. That's strong evidence it helps overall, but it says nothing about which questions it helps, and the two losses still deserve a look."
+  },
+  {
+    "question": "A change takes answerable@5 from 19 to 20 of the 43 questions, and doubles the tokens each search adds to a model call. How should it be reported?",
+    "options": [
+      "As a 2.3-point gain in answerable@5, which is reason enough to keep it",
+      "As one question gained, within noise, at twice the tokens per call",
+      "As no change at all, since a single question can't be measured",
+      "As a clear gain, since token counts aren't part of retrieval quality"
+    ],
+    "correctIndex": 1,
+    "explanation": "One question is 2.3 points on this set, and the interval around a single score is about 28 points wide, so the gain alone shows little, and which questions moved still matters. The token cost is certain and paid on every call. Relevance, latency and tokens belong in the same report."
   },
   {
     "question": "When should the held-out questions be run?",

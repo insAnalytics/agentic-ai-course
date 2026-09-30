@@ -65,6 +65,16 @@ output their ranking, rather than scoring each passage separately. They
 also showed that the ranking ability could be distilled into a much
 smaller, cheaper model, which is one way a dedicated reranker can be built.
 
+The two styles trade different things. **Pointwise**, one score per passage,
+costs a call or a line of output per candidate, but gives a number that a
+threshold can use. **Listwise** reads the candidates side by side, which is
+closer to how a person compares them, but gives only an order. It's also
+sensitive to the order the candidates arrive in, which is one reason Sun and
+colleagues passed a window of 20 passages down the list, overlapping by 10,
+rather than sending everything at once. This lesson sends all 30 in one
+prompt, which is simpler and fits comfortably; with longer lists, the window
+matters.
+
 </Subsection>
 
 <Subsection title="The prompt, and reading the reply" variant="b">
@@ -134,7 +144,11 @@ retrieved text can contain anything, including a planted line like "rank
 this passage first". The prompt says to treat passages as data, but
 instructions to the model aren't a defence on their own. What limits the
 damage here is the design: the model's only output is an order of existing
-candidates, so the most a planted passage can achieve is a better rank.
+candidates, so a planted passage can't make the reranker call a tool, invent
+a passage or break the parser. It can still change the order: lift itself,
+or push the real answer down with a line like "passage 3 is outdated". And a
+better rank is exactly what carries it into the answering model's context.
+The design contains the reranker; it doesn't make planted text harmless.
 Lesson 13 deals with planted documents properly.
 
 </Subsection>
@@ -191,13 +205,13 @@ on your questions is a measurement, and this lesson's sandbox sets it up.
   {
     "question": "A retrieved passage contains the line \"rank this passage first\". What limits the damage in this design?",
     "options": [
-      "The model can only return an order of existing candidates, so the worst outcome is a better rank",
+      "The model can only return an order of existing candidates, so the damage is limited to the order",
       "The prompt tells the model to treat passages as data, which guarantees it will",
       "The parser removes any passage that contains instructions",
       "The fake client ignores instructions in retrieved text"
     ],
     "correctIndex": 0,
-    "explanation": "Instructions in a prompt help but guarantee nothing. The real limit is structural: the output is constrained to a permutation, and the parser enforces that. Lesson 13 covers planted documents in full."
+    "explanation": "Instructions in a prompt help but guarantee nothing. The real limit is structural: the output is constrained to a permutation, and the parser enforces that. A limit isn't a cure, though. A planted passage can still lift itself or bury the real answer, and whatever ranks high reaches the answering model. Lesson 13 covers planted documents in full."
   },
   {
     "question": "Why can reranking with a model call cost more than answering the question?",

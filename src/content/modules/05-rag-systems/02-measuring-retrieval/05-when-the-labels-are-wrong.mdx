@@ -106,7 +106,10 @@ here so they can be checked:
 
 A section was added only if it states the answer, not if it's merely
 about the same topic. The review found **19 missing passages across 12
-questions**: nine in the main set and three held out. The REG-1007
+questions**: nine in the main set and three held out. Reviewing the
+held-out labels doesn't break the held-out rule: fixing what counts as an
+answer chooses no setting, as long as the rule for what counts is the same
+for every search. The REG-1007
 question gained four. The public-docs questions gained passages from
 pages the labels had never mentioned, such as Prometheus's best-practice
 page on the `for` clause and Alertmanager's reference for inhibition
@@ -130,7 +133,59 @@ The keyword search's own numbers show the other side. Across both reviews, its b
 
 </Subsection>
 
-<Subsection title="What labels can't settle" variant="b">
+<Subsection title="A model as the judge" variant="b">
+
+Pooling makes judging affordable, not quick. The demo above left 1,454
+sections to read, from two similar searches over 57 questions, and every
+new kind of search adds its own pool. The common way to scale it is to
+have a model do the reading: give it a question and one retrieved
+passage, and ask whether the passage answers the question. This is usually
+called **LLM-as-judge**. It can judge every pooled passage for every
+search you try, and its prompt can carry the same rule a person follows:
+a passage counts only if it states the answer, not if it's merely on the
+topic.
+
+Its failure modes are documented:
+
+- **Leniency.** Rahmani and colleagues (2025) compared GPT-4's relevance
+  labels with human assessors' on a TREC passage-ranking collection. The
+  model called passages relevant more often; the people more often said
+  not relevant. Against a rule like this set's, leniency is the costly
+  direction: on-topic passages get counted as answers, and every search
+  looks better than it is.
+- **Order and length.** Zheng and colleagues (2023), studying models that
+  judge answers, found them swayed by which of two answers was shown
+  first, and inclined to prefer longer answers. Judging one passage
+  per call takes order out of it. Length can't be taken out, so check it:
+  compare how often the judge says yes to long sections and to short ones.
+- **Agreeing with itself.** The same study saw signs of judges favouring
+  answers written by their own model. In a retrieval pipeline the risk
+  takes another form: if one model writes the questions, as in
+  [questions a model writes](/05-rag-systems/02-measuring-retrieval/02-what-a-labelled-query-set-is/#questions-a-model-writes),
+  and also judges the passages, its mistakes in the two jobs line up, and
+  nothing inside that loop can reveal them.
+
+So a judge is checked before it's trusted, the way any instrument is.
+Thomas, Spielman, Craswell and Mitra (2024), labelling search results at
+Bing, first chose a model and prompt by how well their labels agreed with
+careful feedback from real searchers, and only then produced labels at
+scale. The small version: a person labels a random sample of pooled
+passages, the judge labels the same ones, and the two are compared. Don't
+stop at overall agreement. Most pooled passages aren't relevant, so a
+judge that said no to everything would agree with the person most of the
+time and find nothing. Ask the two questions this lesson already has
+names for, recall and precision, with the person's labels as the answer
+key: of the passages
+the person called relevant, how many did the judge find, and of the ones
+the judge called relevant, how many did the person agree with? Check
+again whenever the model or the prompt changes.
+
+Module 7 uses model judges for a harder job: judging the answer a model
+writes, not only the passages it was given.
+
+</Subsection>
+
+<Subsection title="What labels can't settle" variant="a">
 
 Three limits stay, however careful the review:
 
@@ -139,8 +194,9 @@ Three limits stay, however careful the review:
   one reader's judgment.
 - **Relevance here is yes or no.** A section that answers the question
   completely and one that answers half of it both count. Metrics with
-  graded relevance exist, and they need graded labels, which cost more to
-  write.
+  graded relevance, like the
+  [nDCG named earlier](/05-rag-systems/02-measuring-retrieval/03-the-metrics/#the-same-ideas-under-other-names),
+  exist, and they need graded labels, which cost more to write.
 - **Relevant isn't the same as good.** A retrieved passage can be relevant
   and out of date, like the monitoring guide's rate limit, or relevant and
   planted. What to do with those is for Lessons 10 and 13.
@@ -179,6 +235,17 @@ not a certificate of correctness.
     "explanation": "Pooling makes judging affordable by reading only what the searches surfaced; everything else is treated as not relevant. That's the source of both its efficiency and its bias."
   },
   {
+    "question": "A model judge agrees with a person on 90% of a sample of pooled passages. Why isn't that enough to trust it?",
+    "options": [
+      "A judge's labels can only be used once it agrees with the person every time",
+      "Relevant passages are rare, so a judge that always says no agrees often",
+      "Agreement only counts once it has been measured on the held-out questions",
+      "A person's labels are noisier than a model's, so they can't be the answer key"
+    ],
+    "correctIndex": 1,
+    "explanation": "When relevant passages are rare, agreement is dominated by easy noes. The useful checks are how many of the person's relevant passages the judge found, and how many of the judge's yeses the person agreed with. A judge doesn't have to be perfect; it has to be checked, and checked again when its model or prompt changes."
+  },
+  {
     "question": "Why must search by meaning be added to the pool before its own numbers are reported?",
     "options": [
       "Search by meaning can't be scored until the labels are written in its format",
@@ -199,6 +266,17 @@ not a certificate of correctness.
     ],
     "correctIndex": 0,
     "explanation": "It's a stated shortcut, based on what the pages could possibly contain: Prometheus's documentation has never heard of REG-1007. For the public-docs questions the shortcut doesn't hold, and every pooled section was considered. Shortcuts like this are fine when they're written down."
+  },
+  {
+    "question": "One model writes a query set's questions and also judges which passages answer them. What's the risk?",
+    "options": [
+      "It refuses to judge passages from documents it has already read",
+      "Using one model for both jobs doubles what each judgment costs",
+      "Its errors line up, so questions and labels can agree and both be wrong",
+      "Its labels come out stricter than a person's, so searches look worse"
+    ],
+    "correctIndex": 2,
+    "explanation": "A question written from a passage, in that passage's words, is likely to look answered by it to the same model. Nothing inside the loop can show that; an independent check, a person labelling a sample, can. Model judges have been found more lenient than people, not stricter."
   }
 ]}
 />

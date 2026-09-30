@@ -25,6 +25,68 @@ for (subject, relation, obj), sources in graph.items():
         print(f"  {subject} -[{relation}]-> {obj}   from {sources}")
 `;
 
+export const LINK_DEMO = String.raw`import difflib
+
+graph = build_graph(load_graph_data()["triples"])
+# the named entities: everything except the short phrases extracted as causes and monitoring gaps
+NAMES = sorted({s for s, _, _ in graph} | {o for _, r, o in graph if r not in ("root_cause", "monitoring_gap")})
+
+def plain(text: str) -> str:
+    """Lowercase words only, so "registry-api", "Registry API" and "registry_api" all read "registry api"."""
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", text.lower()).split())
+
+# every way of writing a name that's known in advance: the names themselves, and the alias table
+KNOWN = {plain(name): name for name in NAMES} | {plain(alias): name for alias, name in ALIASES.items()}
+
+def link_entities(question: str, floor: float = 0.8, margin: float = 0.05) -> list[tuple[str, list]]:
+    """The entities a question names, as (words, [(score, entity), ...]) pairs. Every run of one to three
+    words is looked up exactly first, then scored against every known way of writing a name. The best
+    runs are kept first, no word is used twice, and a run keeps every entity within margin of its best."""
+    words = plain(question).split()
+    candidates = []
+    for n in (3, 2, 1):
+        for start in range(len(words) - n + 1):
+            span = " ".join(words[start:start + n])
+            if span in KNOWN:
+                candidates.append((1.0, n, start, span, [(1.0, KNOWN[span])]))
+                continue
+            best = defaultdict(float)
+            for written, name in KNOWN.items():
+                best[name] = max(best[name], difflib.SequenceMatcher(None, span, written).ratio())
+            top = max(best.values())
+            if top >= floor:
+                close = sorted(((score, name) for name, score in best.items()
+                                if score >= max(floor, top - margin)), reverse=True)
+                candidates.append((top, n, start, span, close))
+    links, used = [], set()
+    for top, n, start, span, close in sorted(candidates, key=lambda c: (-c[0], -c[1], c[2])):
+        if used.isdisjoint(range(start, start + n)):
+            used.update(range(start, start + n))
+            links.append((span, close))
+    return links
+
+def show(question: str, floor: float = 0.8) -> None:
+    print(question)
+    links = link_entities(question, floor)
+    if not links:
+        print("   no entity found: answer it with search instead")
+    for span, close in links:
+        matches = " or ".join(f"{name} ({score:.2f})" for score, name in close)
+        print(f'   "{span}" -> {matches}' + ("" if len(close) == 1 else ": too close to call"))
+
+print(f"{len(NAMES)} named entities, {len(KNOWN)} ways of writing them\n")
+for question in ("Which agents stop working if auth-service goes down?",
+                 "What else breaks when the registry is unavailable?",
+                 "Does the billing agent depend on the paymnts gateway?",
+                 "What fails if registry goes down?",
+                 "Is the login service down?",
+                 "How do I rotate an API key?",
+                 "How do I search for help articles?"):
+    show(question)
+print("\nthe first question again, with the floor lowered to 0.6:")
+show("Which agents stop working if auth-service goes down?", floor=0.6)
+`;
+
 export const STARTER = String.raw`def affected_by(graph: dict, failed: str, relations: tuple = ("depends_on", "hands_work_to")) -> dict[str, list[str]]:
     """Everything that stops working when ${"`"}failed${"`"} does: every entity with a chain of ${"`"}relations${"`"}
     edges leading to it. Maps each one to the sorted chunk ids of the edges on the way."""
@@ -130,6 +192,67 @@ model, through Lesson 10's answer step, like any other retrieved text.
 
 </Subsection>
 
+<Subsection title="Finding where to start" variant="b">
+
+Every traversal on this page starts from a name it's handed:
+`affected_by(graph, "auth-service")`. People don't ask questions in the
+graph's own names. They write "the auth service", "the registry", or a name
+with a typo in it. Before the graph can answer, something has to work out
+which of its entities the question means. That's **entity linking**, the question's side of the
+entity resolution the previous concept did on the extracted names.
+
+The graph tool at the end of this lesson leaves it to the model: given a name
+it doesn't know, the tool says so and lists every name it does know, and the
+model tries again. That works with this graph's handful of services and
+agents. With thousands of entities, the list wouldn't fit in a tool result,
+and the linking has to happen before the traversal. Here's a small linker
+over the graph's 20 named entities; the other nine are the cause and gap
+phrases, which nobody names in a question. It looks each run of words up
+exactly first, among the names and the alias table, and otherwise scores it
+by string similarity with Python's `difflib`, keeping only matches above a
+**floor**:
+
+<LiveDemo client:load dataFiles={RAG_GRAPH_DATA} setupCode={SETUP} code={LINK_DEMO} />
+
+Each question shows a different case:
+
+- **Exact matches.** "auth-service" matches once case and punctuation are
+  ignored, and "the registry" matches through the alias table.
+- **A typo.** "paymnts gateway" scores 0.97 against payments-gateway. An exact
+  lookup would have found nothing.
+- **Ambiguity.** Bare "registry" scores 0.84 against registry-db and 0.80
+  against registry-api, too close to pick one. The linker reports both rather
+  than guessing, and the agent can ask which was meant, or traverse from each
+  and say which answer belongs to which. ("The registry" is different: the
+  alias table says what the documents meant by it.)
+- **No entity.** "How do I rotate an API key?" names nothing in the graph,
+  so it goes to search, where it belongs. So does "Is the login service
+  down?", but for a worse reason: if people call auth-service "the login
+  service", spelling similarity has no way to know that.
+- **A wrong link.** "search" links to the Search team, with a perfect score.
+  The alias was written for the extracted names, where "Search" meant the
+  team; in a question, it's usually a verb. An exact match is only as good as
+  the table behind it.
+
+The floor is what stops the linker from finding an entity in every question.
+Lowered to 0.6, it links "which agents" to `research_agent`. Too high, and it
+misses typos; too low, and it links ordinary words. Like every threshold in
+this module, it's a setting to measure on real questions.
+
+At scale, linking is done by meaning rather than spelling: each entity's name
+and description are embedded when the graph is built, and a question is
+matched against those vectors, so it can find an entity by what it is, not
+how it's spelt. That's how
+[Microsoft GraphRAG's local search](https://microsoft.github.io/graphrag/query/local_search/)
+starts: it embeds entity descriptions, finds the entities most related to the
+question, then gathers their neighbours, relationships, source text and
+community reports. This page can't run that for a new question, since the
+browser can only compare text that was embedded in advance. Either way, a
+link is a guess. A graph tool should say which entity it started from, so
+the model, and the reader, can see when the guess was wrong.
+
+</Subsection>
+
 <CheckpointZone>
 
 <QuizGroup
@@ -178,6 +301,28 @@ model, through Lesson 10's answer step, like any other retrieved text.
       ],
       "correctIndex": 0,
       "explanation": "Support_agent needs kb-search only for help articles. The graph treats every dependency as total, which the cited chunks let a reader, or the answering model, correct."
+    },
+    {
+      "question": "Why does the entity linker only accept matches above a floor?",
+      "options": [
+        "Without one, ordinary words like \"which agents\" link to the nearest name",
+        "difflib returns no score at all for a pair of strings that differ that much",
+        "Exact matches from the alias table would otherwise rank last",
+        "A traversal can't start from a name that was matched fuzzily"
+      ],
+      "correctIndex": 0,
+      "explanation": "Every run of words has some nearest name. At 0.6, \"which agents\" linked to research_agent. The floor trades missed typos against false links, so it's a setting to measure on real questions."
+    },
+    {
+      "question": "How does Microsoft GraphRAG's local search find the entities a question is about?",
+      "options": [
+        "By comparing the question with entity descriptions embedded at indexing time",
+        "By asking the model to pick from a list of every entity name the graph contains",
+        "By matching the question's words against a hand-written alias table",
+        "By running community detection on the entities the question mentions"
+      ],
+      "correctIndex": 0,
+      "explanation": "Matching by meaning finds an entity however the question spells it, and scales to thousands of entities. A list of every name, which this lesson's graph tool returns on a miss, only works while the list is short."
     }
   ]}
 />

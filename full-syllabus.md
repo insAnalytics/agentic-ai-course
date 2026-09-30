@@ -3368,7 +3368,7 @@ below describe each lesson as first converted; see the git log
 ## Module 5 — RAG Systems
 
 Folder `05-rag-systems`. Corpus: `public/data/rag/` (architecture.md §3.1).
-All 14 lessons are **Locked** (Lesson 14's recap is the module's last page).
+All 15 lessons are **Locked** (Lesson 15's recap is the module's last page).
 **Final audit (2026-09-29), all against the built site and real Pyodide:**
 - **Callbacks:** no `(→ ...)` left in any Module 5 source. Every internal
   link on the 88 built pages resolves to a built page, and all 54 anchored
@@ -3393,6 +3393,186 @@ All 14 lessons are **Locked** (Lesson 14's recap is the module's last page).
   3.12.1, numpy 1.26.4, sqlite 3.39.0 (read-only URI and authorizer
   working), networkx 3.3 (Louvain on the lesson graph) and pydantic 2.7.0
   (Module 4's `m4` imports and builds).
+
+**Content review and accuracy pass (2026-09-29).** A full read of all 88
+pages for coverage and accuracy (report kept outside the repo) led to these
+fixes, each checked against the lesson's own code or data:
+- **L10 recap:** the exercise now sends `system=request["system"]`, and the
+  hidden tests check it (architecture.md §4.1).
+- **L8:** the recap explanation and intro no longer claim that rewriting
+  every question gained nothing. It reached 36 against the router's 34; the
+  router is now described as the conservative choice. "Keep the original
+  too" now lowers the drift risk rather than removing it.
+- **L7:** a planted passage can demote the real answer too, and a high
+  rank carries it to the answering model.
+- **L13:** uses Module 3's name, the lethal trifecta. Read-only tools and
+  rendered answers can still leak (Markdown images, EchoLeak). The
+  trifecta doesn't cover planted false facts.
+- **L12:**
+  - the fixed-schema graph and its traversal are labelled as the lesson's
+    own design;
+  - the Leiden vs Louvain note is added;
+  - global search is described as batched calls rather than one call per
+    community;
+  - LazyGraphRAG's saving is credited to model-free concept extraction.
+- **L2:**
+  - the "structural" zeros are softened (the stopword fix gains q21 and
+    q31);
+  - the count reads 43 labelled of 46;
+  - the half-quote "never counted twice" exception (an exact middle cut)
+    is noted;
+  - the held-out rule now reads "never used to choose a setting", matching
+    the later lessons that count over it. No lesson yet reports the final
+    held-out number the rule anticipates.
+- **L4:**
+  - a saved index records its embedding model and settings;
+  - some vector stores filter after approximate search;
+  - the brute-force arithmetic and scale are corrected.
+- **L5:**
+  - tagged PDFs and outlines do mark structure;
+  - the intro credits 7→9 to image descriptions.
+- **L1:**
+  - cache lifetime is five minutes by default, with a paid one-hour option;
+  - the module map lists Lesson 5.
+- **L3:**
+  - the heading path isn't searchable until Lesson 9;
+  - Chroma's is no longer "the one" study.
+- **L6:**
+  - tuned weighted score fusion (Bruch et al.) is added as an alternative
+    to RRF.
+- **L10:**
+  - adds the cache minimum size and lifetime;
+  - recency boosting is narrowed to the across-the-board case.
+- **L11:**
+  - the citation-check claim is corrected;
+  - caching does cut time to first token;
+  - "no single search" and "SQL answers exactly" are softened.
+- **L14:**
+  - cleared results are still citable but no longer visible to the model;
+  - Lesson 10's floor was on the reranker score;
+  - retrieval as a tool is justified by the agent choosing when to search;
+  - the clearing explanation is corrected;
+  - stray `*` at the ends of explanations are removed.
+
+**Prose additions from the same review (2026-09-29).** No new demos,
+exercises or quiz cards, only paragraphs:
+- **L1:** why fine-tuning doesn't replace retrieval (Ovadia et al. 2023);
+  agents that search files with no index, as a third option.
+- **L3:**
+  - scored and sent pieces can differ (forward reference to Lesson 9);
+  - long-input embedders move the input-limit problem to dilution;
+  - structure has to be recovered first for PDFs and tables (forward
+    reference to Lesson 5);
+  - semantic, proposition, LLM and late chunking, with Chroma's and Qu et
+    al.'s evidence.
+- **L4:** input types as the hosted form of query prefixes; forward
+  references to Lesson 7 and HyDE.
+- **L6:** standard analysers split `REG-1007`; SPLADE, ColBERT, and where
+  hybrid search runs in production.
+- **L7:**
+  - scores aren't probabilities (forward reference to Lesson 10's
+    threshold);
+  - current rerankers and the call's shape;
+  - pointwise vs listwise, and RankGPT's sliding window.
+- **L8:**
+  - multi-query vs splitting;
+  - dependent parts need multi-hop (forward reference to Lesson 11);
+  - an agent writes its own queries, and can ask a clarifying question.
+- **L11:** forward references to Lesson 12 (graphs for chains), Lesson 13
+  (reader-bound tools, queries written after reading untrusted text) and
+  Lesson 14 (clearing old results).
+- **Recorded in this file:** the Module 6/7/9/10 promises, and Lesson 15.
+
+**Content additions from the review (2026-09-29).** Written directly in
+Claude Code (no mockups, at the author's request), one lesson per commit.
+Each lesson's demos and exercises were checked from the page text in the
+CPython stand-in (architecture.md §4.1), every new exercise has a
+wrong-answer matrix, and every link and anchor was checked against the
+build.
+- **L2:**
+  - where real questions come from;
+  - model-written questions and their wording bias (`generated-questions.json`:
+    18 of 20 answerable when written in the passage's words, 0 of 20
+    paraphrased, against 19 of 43 for the set's own);
+  - a model as the relevance judge;
+  - nDCG, hit rate and the RAGAS names;
+  - Wilson intervals, McNemar and the paired bootstrap;
+  - latency and tokens as metrics.
+- **L4:**
+  - choosing a model beyond one page (MTEB and its limits);
+  - vectors from different models don't mix. The mixed pairings still
+    answer 19 and 17 of 43, so a mixed index looks like a worse search,
+    not a broken one; the reordered control answers 0;
+  - the index records what made its vectors;
+  - 8-bit and 1-bit storage, 1-bit shortlists rescored with full vectors,
+    and Matryoshka.
+- **L5:**
+  - vision-language models as parsers, with a check against the text layer
+    and a comparison table;
+  - page numbers kept per chunk (a demo-only helper);
+  - ColPali reframed, and single-vector page embedders;
+  - DOCX, HTML, PPTX and spreadsheets.
+- **L8:** a new concept, "Filters hidden in the question"
+  (`05-filters-in-the-question`, with the `validate_filters` and
+  `filtered_search` exercise and `query-filters.json`). Filters gain one
+  question (32 to 33); a model-written access filter is stripped by the
+  schema; a wrong filter hides answers, so the search falls back when
+  nothing passes. The recap moved to `06`, and the agents paragraph moved
+  from HyDE to the new concept.
+- **L10:**
+  - quote-backed citations checked by code;
+  - built-in citation features (Anthropic citations and `search_result`
+    blocks, OpenAI annotations);
+  - the threshold confirmed on the held-out questions (run once, with
+    nothing chosen on them);
+  - partial answers;
+  - the recap's `fact_pattern` disagreement flag.
+- **L11:**
+  - a new concept, "Whether, where and how hard to search"
+    (`06-whether-where-and-how-hard-to-search`): adaptive retrieval,
+    Adaptive-RAG, CRAG and Self-RAG, a demo of the reranker-score grade
+    as a second-attempt trigger (at 0 it catches 4 of 10 failures and
+    re-sends 3 of 36 good answers), and choosing between sources,
+    including MCP and web search;
+  - the recap, moved to `07`, reworked so the agent gets grounding rules as
+    a system prompt, cites SQL rows by id, and reports uncited statements,
+    declines and answers that cite nothing.
+- **L12:**
+  - finding where to start, with fuzzy entity linking over the 20 named
+    entities;
+  - graphs and vectors together (local search, DRIFT, LightRAG, HippoRAG
+    1 and 2);
+  - a graph database as an agent's tool (text-to-Cypher guardrails);
+  - incremental indexing.
+- **L13:**
+  - the answer as an exfiltration channel, with EchoLeak and an allowlist
+    output filter;
+  - deletion reaching every derived store (demo on D11);
+  - permission changes at the source (a two-layer check, Zanzibar-style
+    systems);
+  - detection classifiers and their limits;
+  - links to Module 3's `as_untrusted` and Module 4's memory poisoning;
+  - the recap's graph now built only from indexed documents (a
+    quarantined document's edges had reached the tool; test 8).
+- **L10 to L14 recap libraries:** `format_source` neutralises a planted
+  `</source>` (architecture.md §4.1).
+
+Decided by the author (2026-09-29):
+- **Unknown-tool shortcut.** The agent loops that run tools with a bare
+  `tools[call.name](**call.input)` stay as they are, each with a one-line
+  comment saying a production loop returns an unknown tool or bad arguments
+  as an `is_error` result. The loops are: Module 2 Lesson 11's framework
+  demo; Module 4 Lesson 6's offloading demo and Lesson 9's recap reference;
+  and Module 5's shared `run_agent` (`ragCorpus.ts`, Lesson 11's page and
+  the Lesson 11 to 14 recap libraries, kept byte-identical). Module 3's
+  least-privilege loop already handles it properly.
+- **Position-keyed graph triples.** Lesson 12's "Keeping it current" now
+  explains that triples filed under `D11:1`-style positions go silently
+  wrong when an edit renumbers chunks, and that filing them under a hash of
+  the chunk's text, as Lesson 4 does for vectors, makes the change visible.
+  Doing it on a live system is still Module 10's.
+- **Cache lifetime.** Module 4 Lesson 3 concept 1 now says five minutes by
+  default on Anthropic's API, with longer lifetimes at a higher write price.
 
 1. **Why Retrieval, When the Window Is Huge** — **Locked** (folder
    `01-why-retrieval`; the title comes from the bookends mockup).
@@ -4686,6 +4866,66 @@ All 14 lessons are **Locked** (Lesson 14's recap is the module's last page).
    Lesson 14 is now **Locked**: all five concepts plus both bookends exist
    and build cleanly, and with it Module 5 is complete.
 
+15. **A Retrieval System for a New Corpus** — **Locked** (folder
+   `15-a-new-corpus`, written in Claude Code on 2026-09-29, after the
+   module's content review, at the author's request; no mockups). Five
+   concepts plus bookends:
+   - **1. One question through the whole pipeline.** The indexing and
+     querying halves, mapped to the lessons that built each step. A live
+     trace of q11, "What happened in INC-2093?", for an all-staff reader:
+     - 1,951 of 1,968 chunks readable;
+     - BM25 has no answer in its top 100, because none of the four D11
+       chunks contains "INC-2093";
+     - search by meaning ranks it 4th, fusion 12th, the reranker 2nd, and
+       contextual chunks 1st;
+     - the best score is 7.53, and the request is 140 tokens of
+       instructions plus 5 sources.
+   - **2. What each stage bought.** A live ledger on the 43 main
+     questions, at rank 1 and in the top 5: word overlap 17/23, BM25 17/25,
+     meaning 15/28, fused 20/27, reranked 22/32, contextual 26/36. No
+     single step has a sign test below 0.12; the first row to the last is
+     +13 -0, sign test 0.0002. Also a table of results measured in other
+     lessons (PDFs, rewriting, filters, neighbours, the threshold, agent
+     retries, the graph, permissions) and a cost table (at indexing and per
+     question).
+   - **3. One honest number.** The finished pipeline on the held-out
+     questions, run once, with Lesson 10's threshold of 0:
+     - top 5: 9 of 10 (Wilson 0.60 to 0.98), against 36 of 43 (0.70 to
+       0.92) on the main set;
+     - rank 1: 5 of 10, against 26 of 43;
+     - the threshold keeps 7 of 9 and declines h09, the one held-out
+       question with no answer;
+     - h06 is multi-hop and only partly found; h05 and h11 are answered but
+       score below 0.
+
+     It explains why the threshold isn't lowered on these questions, and
+     points to Module 7 for live traffic.
+   - **4. A new corpus, in order.** A quiz-only design guide:
+     - first, questions, whether retrieval is needed at all (Anthropic's
+       200,000-token guidance, checked; this corpus is 232,241 tokens) and
+       permissions;
+     - then the baseline;
+     - then a table of which misses call for which later stage.
+   - **5. Where the module leaves off.** Quiz-only. What Modules 10, 7, 6
+     and 9 take over, and semantic caching with its three risks (close in
+     meaning isn't the same question, staleness, permissions), set against
+     prompt caching.
+   - **Recap.** 8 mixed questions, and a multi-file sandbox. `lib.py` is
+     Lesson 13's recap `LIB_PY` (imported from that page) plus `wilson`.
+     The learner writes `ledger(stages, questions, k)` and
+     `final_check(search, labelled, threshold, k)` in `report.py`.
+     - 5 hidden tests: fixtures with exact counts, comparison with the row
+       before and not the first, no-evidence questions never searched,
+       held-out-only searching, and the real corpus (23/17 to 36/26, +13 -0,
+       and held-out 9 of 10, (0.6, 0.98), kept 7, declined 1 of 1).
+     - The reference passes and the starter fails. A wrong-answer matrix of
+       12 all fail with clear messages, including a no-evidence question
+       counted through `answerable`'s vacuous `all()`.
+
+   Every demo was checked from the page in the CPython stand-in
+   (architecture.md §4.1), all links were checked against the build, and
+   Lesson 1's module map gained a line for this lesson.
+
 ---
 
 ## Module 6 — Reliability
@@ -5734,6 +5974,27 @@ modules (0–11). Modules 0–3 are above; the rest, in order:*
 from the earlier 8-module plan; they're kept for their scope notes, with
 headings updated to the new module numbers. The new modules (Context &
 Memory, Reliability, UX, Capstone) have no outline yet.*
+
+**Promised by Module 5 (2026-09-29).** Module 5's pages hand these topics
+to later modules by name, so each module's plan has to include them:
+- **Module 6 (Reliability):**
+  - checking whether a cited source actually supports its statement (Lesson
+    10, four places);
+  - detecting contradictions between sources in general (Lesson 10, whose
+    check covers one kind of fact).
+- **Module 7 (Evaluation & Observability):**
+  - measuring the answers a model writes from retrieved passages, as
+    opposed to the retrieval itself (Lesson 2);
+  - evaluating agent search loops with a live model (Lesson 11). Lesson
+    11 concept 5 also cites RAGAS faithfulness and answer correctness
+    without defining them.
+- **Module 9 (UX):** presenting citations to users (Lesson 10).
+- **Module 10 (Production):** keeping an index in step with changing
+  documents (Lessons 4, 9, 10 and 12):
+  - adding, changing and deleting chunks without a full rebuild;
+  - regenerating contextual chunks, graph extractions and summaries when
+    a document changes;
+  - re-embedding everything when the embedding model changes.
 
 ---
 

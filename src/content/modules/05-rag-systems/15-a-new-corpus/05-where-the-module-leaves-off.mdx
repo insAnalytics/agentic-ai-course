@@ -1,0 +1,125 @@
+---
+title: "Where the module leaves off"
+lesson: "15-a-new-corpus"
+order: 5
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+
+<Subsection title="A system that keeps running" variant="a">
+
+This module built retrieval for a corpus that holds still, measured on
+questions someone wrote. A deployed system has neither. Its documents change
+every day, its questions come from people nobody has met, and it answers
+for as long as it runs. Four jobs follow from that, and each has a module of
+its own.
+
+**Keeping the index in step with the documents: Module 10.** Every lesson
+that built something at indexing time left this open:
+
+- A new or edited document needs its chunks, contexts, vectors and graph
+  edges rebuilt, and its old ones removed, without rebuilding everything
+  else.
+- A deleted document has to disappear from everything derived from it,
+  [as Lesson 13 traced](/05-rag-systems/13-permissions/02-derived-data-carries-its-sources-permissions/#deleting-a-document-reaches-everything-built-from-it),
+  including caches.
+- A new embedding model means
+  [re-embedding every chunk](/05-rag-systems/04-search-by-meaning/02-queries-arent-documents/#vectors-from-different-models-don-t-mix),
+  building the new index beside the old one and switching when it's
+  complete.
+
+**Watching it work: Module 7.** The labelled questions measured retrieval.
+Two more measurements are needed on a live system:
+
+- **The answers themselves:** whether an answer is faithful to its sources
+  and answers what was asked. That needs its own methods, often a model
+  acting as judge, checked against people.
+- **Signals from real traffic:** how often the system declines, how often a
+  search comes back empty, how often a citation check fails, and how
+  latency and cost per question move. A rise in any of them is a question
+  for the labelled set. So is a shift in what people ask, which is the cue
+  to add new questions to it.
+
+**Checking what the model says: Module 6.** Lesson 10's checks catch
+citations that point nowhere, and quotes that aren't in their source. Whether
+a real quote actually supports its statement needs reading both, and that's
+verification.
+
+**Showing sources to the people who asked: Module 9.** A citation only helps
+if a person can follow it: which document, which passage, and on which page.
+
+</Subsection>
+
+<Subsection title="Caching answers, carefully" variant="b">
+
+One idea comes up in every deployed system, and this module hasn't built it:
+**semantic caching**. Store each answer with its question's vector, and when
+a new question lands close enough to an old one, return the old answer
+without searching or calling the model. For repetitive traffic it saves a
+great deal, and it brings three risks this module has already met:
+
+- **Close in meaning isn't the same question.** Lesson 14 found
+  [no similarity threshold separated duplicates from contradictions](/05-rag-systems/14-context-step/03-duplicates-in-different-words/#choosing-a-threshold):
+  and "Priya owns support_agent" against "Priya owns billing_agent", which
+  differ in the one word that matters, passed the threshold that caught
+  duplicates. "What can a read key do?" and "What can a write key do?" are
+  that kind of pair, and a cache would give one the other's answer.
+- **An answer goes stale with its sources.** When a document changes, every
+  cached answer built from it is wrong until it's cleared, so each entry has
+  to record which chunks it used.
+- **An answer carries its sources' permissions.** An answer written from a
+  security-team report must never be served to an all-staff reader, so the
+  cache is keyed by the reader's permission set as well as the question,
+  [as Lesson 13 set out](/05-rag-systems/13-permissions/02-derived-data-carries-its-sources-permissions/#rules-for-each-kind-of-derived-data).
+
+A prompt cache, which Lesson 1 and Lesson 10 relied on, has none of these
+problems. It reuses the identical start of a request, and the model still
+reads every source and writes a fresh answer. A semantic cache skips both.
+Where it's used, it's measured like any other stage: on labelled questions,
+including pairs that look alike and shouldn't share an answer.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "A team's retrieval scores are unchanged on its labelled set, but users complain more. Which signal from live traffic is the likeliest lead?",
+    "options": [
+      "The share of chunks whose vectors are stored at full precision",
+      "The number of documents added to the index in the last month",
+      "A rise in declines, empty searches or failed citation checks",
+      "The embedding model's position on a public leaderboard"
+    ],
+    "correctIndex": 2,
+    "explanation": "The labelled set measures the questions someone wrote. Declines, empty results and failed checks show where real questions go wrong, and a shift in what people ask is the cue to add those questions to the set."
+  },
+  {
+    "question": "A semantic cache returns the stored answer when a new question is close in meaning to an old one. What's the main risk?",
+    "options": [
+      "Similar questions can need different answers, such as read and write limits",
+      "Cached answers use more tokens than answering the same question again from scratch",
+      "The cache makes the reranker's scores unreliable for every new question after it",
+      "Stored answers can't carry citations back to the sources they came from"
+    ],
+    "correctIndex": 0,
+    "explanation": "Similarity measures closeness, not sameness; Lesson 14 found contradictions scoring as close as duplicates. A cache also has to be cleared when its sources change and keyed by the reader's permissions."
+  },
+  {
+    "question": "Why is a prompt cache safe in ways a semantic cache isn't?",
+    "options": [
+      "A prompt cache is cleared after every question automatically",
+      "A prompt cache stores the answer along with its permissions",
+      "The model still reads the sources and writes a new answer",
+      "A prompt cache only works for questions with no sources"
+    ],
+    "correctIndex": 2,
+    "explanation": "A prompt cache only reuses the identical start of a request; everything after it, including the sources and the answer, is processed fresh. A semantic cache skips both retrieval and the model, so anything wrong with the stored answer is repeated."
+  }
+  ]}
+/>
+
+</CheckpointZone>

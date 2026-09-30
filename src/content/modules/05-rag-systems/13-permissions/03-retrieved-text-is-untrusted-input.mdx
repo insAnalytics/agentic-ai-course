@@ -90,7 +90,10 @@ source is lying.
 
 Lesson 10's instructions tell the model that sources are documents, not
 instructions, and to prefer a newer *official* source when sources disagree,
-which would favour the API reference over the wiki here. That helps, and it
+which would favour the API reference over the wiki here. Each source also
+arrives in its own tagged `<source>` block, the same habit as
+[Module 3's `as_untrusted` wrapper](/03-tool-design-for-agents/09-web-interaction/04-everything-from-the-web-is-untrusted-input/#one-habit-that-helps-label-what-s-untrusted)
+for fetched pages: it marks where data starts and ends. That helps, and it
 guarantees nothing. As
 [Module 3 showed for tool results](/03-tool-design-for-agents/10-the-tool-threat-model/01-prompt-injection-through-tool-results/#two-sources-of-instructions),
 text that reaches a model can steer it, and whether a given model follows a
@@ -116,6 +119,14 @@ Two things make retrieval systems exposed in a way a model on its own isn't:
 - **Retrieval selects for relevance, not trustworthiness.** The more closely a
   planted page matches a question, the more reliably it's delivered, and
   writing a closely matching page is easy.
+
+It's the threat
+[Module 4 met in memory](/04-context-and-memory/10-deciding-what-to-remember/03-memory-poisoning-and-the-source-rule/#an-injection-that-doesn-t-go-away),
+in a different store. There, a planted instruction written into memory was
+replayed into every later session. Here, a planted page is served to every
+question that retrieves it, whoever asks. In both, what holds is a rule in
+code about what each source may put into the store, not the model
+recognising the text when it reads it.
 
 There are two kinds of harm, and they need different defences. **False
 facts**, like "the limit was removed", mislead the answer. **Instructions**,
@@ -173,7 +184,18 @@ reliably by looking at the text.
         "Only white-box attackers succeed"
       ],
       "correctIndex": 0,
-      "explanation": "Five passages per question were enough in their experiments, and the defences they tried didn't stop it.*"
+      "explanation": "Five passages per question were enough in their experiments, and the defences they tried didn't stop it."
+    },
+    {
+      "question": "How is a planted wiki page like the poisoned memory Module 4 described?",
+      "options": [
+        "Both are attacker text in a store, served later to users the attacker never meets",
+        "Both need the attacker to send a message to the model during the victim's session",
+        "Both stop working once the page or conversation that carried them has been deleted",
+        "Both can be stopped by wrapping the stored text in tags that mark it as data"
+      ],
+      "correctIndex": 0,
+      "explanation": "The store does the delivering: memory replays the instruction into later sessions, and retrieval serves the page to every question it matches. Tags mark the boundary but don't stop a model crossing it, so the defence is a rule about what each source may write to the store."
     }
   ]}
 />

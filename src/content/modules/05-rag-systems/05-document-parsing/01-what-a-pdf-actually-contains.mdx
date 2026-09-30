@@ -112,7 +112,7 @@ The words are all there, and almost nothing else is:
 
 <Subsection title="What's actually stored in a PDF" variant="a">
 
-A PDF doesn't store paragraphs, headings or tables. It stores instructions to
+A PDF's page content isn't paragraphs, headings or tables. It's instructions to
 draw: this piece of text, in this font, at this size, at this position. Here's
 what pdfplumber recovers from the same page, one example word for each font
 and size it found:
@@ -123,8 +123,26 @@ That's enough to rebuild the structure, with rules. The 18-point bold line is
 the title and the 14-point bold one a heading. The 8-point words at the very
 top and bottom of the page are the header and footer. The body is 10-point,
 and bold 10-point text sits in the table's header row. None of this is stated
-in the PDF; it's inferred from how the page looks, and it holds only as long
+in this PDF; it's inferred from how the page looks, and it holds only as long
 as the document follows its own conventions.
+
+Some PDFs do state it. A **tagged PDF**, which Word and other editors can
+export, carries a structure tree that marks headings, paragraphs and tables,
+and many PDFs carry an outline of bookmarks that names their sections. When
+those exist, read them first: they're the author's structure, not a guess.
+Many PDFs, including this lesson's four and every scan, carry neither, and
+then inference from the page is all there is.
+
+Other common formats are kinder. A Word document (DOCX), a web page (HTML)
+and a slide deck (PPTX) carry their structure in the file itself: a heading
+is marked as a heading, a list as a list, a table as rows and cells. A
+converter for them reads the structure rather than inferring it, and open
+tools such as [Docling](https://github.com/docling-project/docling) take
+these formats as well as PDFs. Spreadsheets are different again. They're
+records, not prose, and the questions asked of them are usually counts,
+comparisons and lookups, which chunked text answers badly. They're better
+served by a tool that queries them, like
+[the SQL tool Lesson 11 gives an agent](/05-rag-systems/11-agentic-rag/04-when-the-answer-is-in-a-table/#questions-a-search-can-t-answer-well).
 
 </Subsection>
 
@@ -189,6 +207,17 @@ meaning, images that are invisible, and, for scanned pages, no text at all.
     ],
     "correctIndex": 0,
     "explanation": "In a table, meaning comes from a value's row and column. Flattened to one cell per line, the values survive, but which month and which measure each belongs to has to be reconstructed."
+  },
+  {
+    "question": "A team's documents include Word files, slide decks and a spreadsheet of every agent's settings. How should each be ingested?",
+    "options": [
+      "All three as page images, so that one parser handles every format",
+      "All three with the PDF rules, since each is converted to a PDF first",
+      "Read the files' own structure; query the spreadsheet with a tool",
+      "Chunk the spreadsheet row by row, and infer the files' headings"
+    ],
+    "correctIndex": 2,
+    "explanation": "DOCX and PPTX mark their headings, lists and tables in the file, so a converter can read them rather than guess them from font sizes. A spreadsheet holds records, and questions about records are counts, comparisons and lookups, which a query answers exactly and chunked text answers badly."
   },
   {
     "question": "Why can't any text search find that notification-service calls auth-service?",

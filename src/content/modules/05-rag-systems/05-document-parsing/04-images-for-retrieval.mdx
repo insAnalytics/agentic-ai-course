@@ -159,12 +159,31 @@ ColPali outperformed the other retrieval systems they tested. They note that
 some of ViDoRe's queries were written by a commercial language model, which
 may bias it.
 
-The trade is familiar from this module. It needs a GPU-scale vision model at
-indexing time and a different kind of index. It returns pages, not chunks,
-and a page is a large unit to send to the answering model. And the answering
-model then has to read an image, not text. It isn't something this page can
-run, but it's a real alternative when documents are mostly charts, forms or
-scans, where extraction has little to work with.
+The trade is familiar from this module. Indexing runs a vision-language
+model with about three billion parameters, PaliGemma-3B, over every page
+image. The index is a different kind, too. This module's index holds one
+vector per chunk, 384 numbers from bge-small. ColPali is a *late-interaction*
+model, a design
+[Lesson 6 names for text](/05-rag-systems/06-hybrid-search/04-hybrid-search-measured-honestly/#what-to-use-then):
+it keeps one vector for each small patch of the page, 1,030 vectors of 128
+numbers per page in its paper, and scores a question by matching each of its
+words to its best patch. That takes a vector store built for many vectors
+per item, which some, such as Vespa and Qdrant, support, and far more
+storage per page.
+
+There are simpler variants. **Single-vector** models embed a screenshot of a
+page as one vector, which an ordinary index like this module's can hold:
+[DSE, Document Screenshot Embedding (EMNLP 2024)](https://aclanthology.org/2024.emnlp-main.373/),
+and Voyage AI's [voyage-multimodal-3](https://blog.voyageai.com/2024/11/12/voyage-multimodal-3/),
+are examples. The usual trade applies:
+one vector per page is cheaper to store and search, and a thousand keep more
+of the page's detail.
+
+Either way, page-image retrieval returns pages, not chunks, and a page is a
+large unit to send to the answering model. And the answering model then has
+to read an image, not text. It isn't something this page can run, but it's a
+real alternative when documents are mostly charts, forms or scans, where
+extraction has little to work with.
 
 </Subsection>
 
@@ -215,7 +234,18 @@ scans, where extraction has little to work with.
       "It converts tables into rows automatically"
     ],
     "correctIndex": 0,
-    "explanation": "It skips extraction entirely, using a vision-language model on page images. It needs GPU-scale models, returns whole pages, and leaves the answering model to read an image."
+    "explanation": "It skips extraction entirely, using a vision-language model on page images. It runs that model over every page, stores many vectors per page, returns whole pages, and leaves the answering model to read an image."
+  },
+  {
+    "question": "ColPali stores 1,030 vectors per page. What does that ask of the index, compared with this module's?",
+    "options": [
+      "Nothing new: each page's vectors are averaged into one before storing",
+      "Support for many vectors per item, and far more storage for each page",
+      "A keyword index alongside it, since patches can't be compared with words",
+      "A smaller embedding model, so that the vectors fit in the same space"
+    ],
+    "correctIndex": 1,
+    "explanation": "Late interaction scores a question by matching each of its words to its best patch, so every patch vector has to be kept. That needs a vector store that holds many vectors per item, and far more numbers per page than one bge-small vector. Single-vector page embedders, such as DSE, fit an ordinary index instead."
   }
 ]}
 />

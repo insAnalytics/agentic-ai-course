@@ -113,7 +113,11 @@ Three choices in that prompt matter:
 - **A fixed list of relations.** A model left to name relationships freely
   writes "calls", "uses", "relies on" and "talks to" for the same thing. A
   small vocabulary keeps the graph queryable, since a question can only follow
-  an edge type it knows exists.
+  an edge type it knows exists. It's a choice, not the only one: GraphRAG's own
+  extraction lets the model describe each relationship in its own words, with
+  a strength, and summarises those descriptions later. Free descriptions suit
+  summarising communities; a fixed list suits following edges of a known type,
+  which is what the next concept does.
 - **Names as written.** The model isn't asked to resolve names, because it
   sees only one chunk and can't know what another chunk calls the same thing.
   That's done afterwards, across the whole extraction.

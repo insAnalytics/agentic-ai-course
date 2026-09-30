@@ -165,15 +165,23 @@ Each hop adds its results to every later call, so the third call carries both
 searches' results: 1,315 tokens against 19 for the first. The agent's three
 calls send about 2,000 input tokens, plus the tool definition every time,
 where the pipeline sends one request of about 800. That's two and a half times
-the input, and three model calls' latency instead of one. Prompt caching,
+the input, and three model calls' latency instead of one. Over a longer
+task, results that stay in the conversation for every later call add up
+until they crowd the window;
+[Lesson 14](/05-rag-systems/14-context-step/05-retrieval-in-the-context-step/)
+puts them under Module 4's context step, which clears old ones. Prompt caching,
 from Module 4, softens the input cost, since each call starts with the
-previous one, but not the latency.
+previous one, and it shortens each call's wait for the first token too. What
+it can't remove is the sequence: three calls, one after another, each
+writing its own reply, and a search between each pair.
 
 For a question that one search answers, the agent is simply a more expensive
 pipeline. Most of this module's labelled questions are like that: 3 of the
 43 answerable ones are multi-hop. That's why many systems use a pipeline by
 default and an agent only when a question needs one, or give the agent the
 pipeline as its search tool, so each search is as good as possible.
+[A later concept](/05-rag-systems/11-agentic-rag/06-whether-where-and-how-hard-to-search/#routing-by-complexity)
+looks at how to tell which questions those are.
 
 </Subsection>
 

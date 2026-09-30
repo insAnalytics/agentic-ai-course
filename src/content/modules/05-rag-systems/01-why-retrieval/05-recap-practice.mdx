@@ -243,13 +243,13 @@ assert (result["sent_tokens"], result["everything_tokens"]) == (262, 232_256), \
   {
     "question": "An internal help desk gets a question about every fifteen minutes, and the whole corpus is cached as a fixed prefix. Why might the cache barely help?",
     "options": [
-      "Cache entries expire after a few minutes unused, so most questions pay the write again",
+      "With the default cache lifetime of a few minutes, most questions arrive after it expires and pay the write again",
       "Caches only discount the first question in a session, not later ones",
       "A fifteen-minute gap makes the provider re-read the corpus from disk",
       "Help desks ask different questions, and caches only match identical questions"
     ],
     "correctIndex": 0,
-    "explanation": "The saving comes from reading an identical prefix back while it's still cached. With questions further apart than the cache lasts, each one finds nothing to reuse and pays the write, which costs more than sending the corpus uncached. What varies between requests is the question at the end, which a prefix cache doesn't need to match."
+    "explanation": "The saving comes from reading an identical prefix back while it's still cached. With questions further apart than the cache lasts, each one finds nothing to reuse and pays the write, which on a provider that charges extra for writes costs more than sending the corpus uncached. A longer cache lifetime, where a provider offers one, changes this arithmetic, at a higher price per write. What varies between requests is the question at the end, which a prefix cache doesn't need to match."
   },
   {
     "question": "Which of these questions should an agent answer by retrieving documents, rather than by calling a tool?",

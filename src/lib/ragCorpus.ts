@@ -1004,10 +1004,12 @@ ANSWER_INSTRUCTIONS = """You answer questions about the company's agent platform
  */
 export const ASSEMBLE_REQUEST = String.raw`
 def format_source(source_id: str, chunk: dict) -> str:
-    """One source, tagged with everything the model needs to cite it and judge it."""
+    """One source, tagged with everything the model needs to cite it and judge it. A closing tag
+    inside the text is neutralised, so a document can't end its own source early."""
+    text = chunk["text"].replace("</source>", "&lt;/source&gt;")
     return (f'<source id="{source_id}" doc="{chunk["doc_id"]}" title="{chunk["title"]}" '
             f'section="{chunk["section"]}" date="{chunk["date"]}" type="{chunk["source_type"]}">\n'
-            f'{chunk["text"]}\n</source>')
+            f'{text}\n</source>')
 
 def assemble_request(question: str, chunks: list[dict], budget: int = 1500) -> dict:
     """The request for the answering model: stable instructions first, then the sources in rank order
@@ -1100,6 +1102,7 @@ def run_agent(client, messages: list, tools: dict, max_steps: int = 8) -> str:
         calls = [block for block in response.content if block.type == "tool_use"]
         if not calls:
             return "".join(b.text for b in response.content if b.type == "text")
+        # kept short: an unknown tool name raises a KeyError here, where a production loop returns an is_error result
         results = [{"type": "tool_result", "tool_use_id": call.id, "content": tools[call.name](**call.input)}
                    for call in calls]
         messages.append({"role": "user", "content": results})

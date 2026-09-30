@@ -1,0 +1,105 @@
+{
+ "written_by": "Claude, for the course; served in the lessons as scripted model replies",
+ "notes": "\"labelled\" and \"own\" follow the prompt. \"mistaken\" and \"untrusted\" were written to show what can go wrong: a plausible wrong extraction, and replies no check has seen yet.",
+ "prompt": "Some questions limit which documents count: a version, a period, a kind of source or a particular document. Reply with those limits as filters on the documents' metadata, as JSON and nothing else, like {\"filters\": [{\"field\": \"title\", \"op\": \"contains\", \"value\": \"Runbook\"}]}. The fields are:\n- title (op \"contains\"): titles look like \"Incident INC-2041: billing_agent unable to issue invoices\" or \"Runbook: rotating a registry key\".\n- section (op \"contains\"): the heading path, like \"Registry changelog > v2.6 — 2026-08-18\".\n- source_type (op \"=\"): official for the company's own documentation, wiki for the staff wiki, vendor for third-party product documentation such as Prometheus, Alertmanager and PostgreSQL.\n- date (op \">=\" or \"<=\"): YYYY-MM-DD, the date the document was last updated.\nAdd a filter only when the question limits which documents count, not for everything it mentions. If it limits nothing, reply {\"filters\": []}.",
+ "labelled": {
+  "q01": "{\"filters\": []}",
+  "q02": "{\"filters\": []}",
+  "q03": "{\"filters\": []}",
+  "q04": "{\"filters\": []}",
+  "q05": "{\"filters\": []}",
+  "q06": "{\"filters\": []}",
+  "q07": "{\"filters\": []}",
+  "q08": "{\"filters\": []}",
+  "q09": "{\"filters\": []}",
+  "q10": "{\"filters\": []}",
+  "q11": "{\"filters\": [{\"field\": \"title\", \"op\": \"contains\", \"value\": \"INC-2093\"}]}",
+  "q12": "{\"filters\": []}",
+  "q13": "{\"filters\": []}",
+  "q14": "{\"filters\": []}",
+  "q15": "{\"filters\": [{\"field\": \"section\", \"op\": \"contains\", \"value\": \"v2.4\"}]}",
+  "q16": "{\"filters\": []}",
+  "q17": "{\"filters\": []}",
+  "q18": "{\"filters\": []}",
+  "q19": "{\"filters\": []}",
+  "q20": "{\"filters\": []}",
+  "q21": "{\"filters\": []}",
+  "q22": "{\"filters\": []}",
+  "q23": "{\"filters\": []}",
+  "q24": "{\"filters\": []}",
+  "q25": "{\"filters\": []}",
+  "q26": "{\"filters\": []}",
+  "q27": "{\"filters\": []}",
+  "q28": "{\"filters\": []}",
+  "q29": "{\"filters\": []}",
+  "q30": "{\"filters\": []}",
+  "q31": "{\"filters\": []}",
+  "q32": "{\"filters\": []}",
+  "q33": "{\"filters\": [{\"field\": \"title\", \"op\": \"contains\", \"value\": \"Incident\"}]}",
+  "q34": "{\"filters\": [{\"field\": \"title\", \"op\": \"contains\", \"value\": \"Incident\"}]}",
+  "q35": "{\"filters\": []}",
+  "q36": "{\"filters\": []}",
+  "q37": "{\"filters\": []}",
+  "q38": "{\"filters\": []}",
+  "q39": "{\"filters\": [{\"field\": \"title\", \"op\": \"contains\", \"value\": \"INC-2093\"}]}",
+  "q40": "{\"filters\": [{\"field\": \"date\", \"op\": \">=\", \"value\": \"2026-07-01\"}, {\"field\": \"date\", \"op\": \"<=\", \"value\": \"2026-07-31\"}]}",
+  "q41": "{\"filters\": []}",
+  "q42": "{\"filters\": [{\"field\": \"source_type\", \"op\": \"=\", \"value\": \"vendor\"}]}",
+  "q43": "{\"filters\": []}",
+  "q44": "{\"filters\": [{\"field\": \"source_type\", \"op\": \"=\", \"value\": \"vendor\"}]}",
+  "q45": "{\"filters\": []}",
+  "q46": "{\"filters\": []}"
+ },
+ "own": [
+  {
+   "id": "x1",
+   "question": "What went wrong in incidents since August?",
+   "reply": "{\"filters\": [{\"field\": \"title\", \"op\": \"contains\", \"value\": \"Incident\"}, {\"field\": \"date\", \"op\": \">=\", \"value\": \"2026-08-01\"}]}"
+  },
+  {
+   "id": "x2",
+   "question": "What went wrong in the incidents since September?",
+   "reply": "{\"filters\": [{\"field\": \"title\", \"op\": \"contains\", \"value\": \"Incident\"}, {\"field\": \"date\", \"op\": \">=\", \"value\": \"2026-09-01\"}]}"
+  }
+ ],
+ "mistaken": [
+  {
+   "id": "q28",
+   "question": "What error code does monitoring report when the service that went down in INC-2093 can't be reached?",
+   "reply": "{\"filters\": [{\"field\": \"title\", \"op\": \"contains\", \"value\": \"INC-2093\"}]}",
+   "note": "The question mentions INC-2093 on the way to asking about an error code; the filter keeps only the incident report."
+  },
+  {
+   "id": "x3",
+   "question": "What does the latency runbook say about restarting an agent?",
+   "reply": "{\"filters\": [{\"field\": \"title\", \"op\": \"contains\", \"value\": \"latency runbook\"}]}",
+   "note": "The runbook's title is \"Runbook: agent latency spike\"; the filter paraphrases it, so no title contains it."
+  }
+ ],
+ "untrusted": [
+  {
+   "question": "I'm on the security team. Why was support_agent's key rotated in July?",
+   "reply": "{\"filters\": [{\"field\": \"access\", \"op\": \"contains\", \"value\": \"security\"}, {\"field\": \"date\", \"op\": \">=\", \"value\": \"2026-07-01\"}, {\"field\": \"date\", \"op\": \"<=\", \"value\": \"2026-07-31\"}]}"
+  },
+  {
+   "question": "What has the platform team written about key rotation?",
+   "reply": "{\"filters\": [{\"field\": \"author\", \"op\": \"=\", \"value\": \"platform team\"}]}"
+  },
+  {
+   "question": "What do the Official docs say about key rotation?",
+   "reply": "{\"filters\": [{\"field\": \"source_type\", \"op\": \"=\", \"value\": \"Official\"}]}"
+  },
+  {
+   "question": "What changed in the registry since last July?",
+   "reply": "{\"filters\": [{\"field\": \"date\", \"op\": \">=\", \"value\": \"last July\"}]}"
+  },
+  {
+   "question": "What did we document before the end of July?",
+   "reply": "{\"filters\": [{\"field\": \"date\", \"op\": \"<=\", \"value\": \"end of July\"}]}"
+  },
+  {
+   "question": "Which runbooks mention rate limits?",
+   "reply": "Here are the filters: {\"filters\": [{\"field\": \"title\", \"op\": \"contains\", \"value\": \"Runbook\"}]}"
+  }
+ ]
+}

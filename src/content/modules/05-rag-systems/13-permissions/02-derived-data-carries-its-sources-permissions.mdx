@@ -29,6 +29,42 @@ for community in graph_communities(graph):
     print(f"  {anchor}'s community summary rests on {len(sources)} chunks, {len(hidden)} restricted {hidden}")
 `;
 
+export const DELETION_DEMO = String.raw`graph_data = load_graph_data()
+graph = build_graph(graph_data["triples"])
+deleted = "D11"
+from_deleted = lambda chunk_id: chunk_id.split(":")[0] == deleted
+title = next(d["title"] for d in load_documents() if d["doc_id"] == deleted)
+print(f"Deleting {deleted}, {title}, reaches:")
+
+chunks = [c for c in CORPUS_CHUNKS if c["doc_id"] == deleted]
+ids = [f"{c['doc_id']}:{c['chunk']}" for c in chunks]
+print(f"  {len(chunks)} chunks {ids}, and {sum(1 for key in CONTEXTS if from_deleted(key))} model-written contexts")
+for chunking, texts in (("structured-200", [c["text"] for c in chunks]),
+                        ("structured-200-contextual", [with_context(c, CONTEXTS)["text"] for c in chunks])):
+    stored = set(json.loads((EMBEDDINGS / "bge-small-en-v1.5" / f"{chunking}.json").read_text())["keys"])
+    print(f"  {sum(1 for text in texts if text_key(text) in stored)} vectors in {chunking}")
+
+only = [edge for edge, sources in graph.items() if all(from_deleted(s) for s in sources)]
+shared = [edge for edge, sources in graph.items() if any(from_deleted(s) for s in sources) and edge not in only]
+print(f"  {len(only)} graph edges with no other source, to delete, such as {only[0]}")
+print(f"  {len(shared)} graph edges with other sources, to keep without it:")
+for edge in shared:
+    print(f"    {edge}: {graph[edge]} -> {[s for s in graph[edge] if not from_deleted(s)]}")
+for community in graph_communities(graph):
+    sources = community_sources(graph, community)
+    anchor = next(name for name in graph_data["community_summaries"] if name in community)
+    if any(from_deleted(s) for s in sources):
+        print(f"  the {anchor} summary, written from {len(sources)} chunks, {sum(map(from_deleted, sources))} of them {deleted}'s")
+
+edited = {edge: [s for s in sources if not from_deleted(s)] for edge, sources in graph.items() if edge not in only}
+rebuilt = build_graph({key: triples for key, triples in graph_data["triples"].items() if not from_deleted(key)})
+print(f"\nthe edited graph is the one rebuilt without {deleted}: {edited == rebuilt}")
+print("its communities, and the stored summary each has:")
+for community in graph_communities(rebuilt):
+    anchors = [name for name in graph_data["community_summaries"] if name in community]
+    print(f"  {anchors[0] if anchors else 'none'} ({len(community)} entities, including {sorted(community)[:2]})")
+`;
+
 export const STARTER = String.raw`def graph_for_reader(graph: dict, groups) -> dict:
     """The graph as this reader may see it: each edge keeps only the sources they may read,
     and an edge with no readable source is dropped."""
@@ -143,6 +179,87 @@ derived from.** How that works depends on what it was derived from:
 
 </Subsection>
 
+<Subsection title="Deleting a document reaches everything built from it" variant="a">
+
+Derived data follows its sources out of the index, too. When a document is
+deleted, everything built from it has to go or be rebuilt, or the index
+keeps serving what the source system no longer holds. The rules above say
+which. Here's what deleting D11, the INC-2093 report, would touch
+in the structures this module has built:
+
+<LiveDemo client:load dataFiles={RAG_GRAPH_DATA} setupCode={SETUP} code={DELETION_DEMO} />
+
+- **Derived from its chunks alone:** the 4 chunks, their 4 contexts, and a
+  vector for each chunk in each index that embedded it. These are deleted
+  with the chunks. Vectors are filed by a hash of their text, so the text
+  finds them.
+- **Graph edges:** the rule that decided who may see an edge decides what
+  happens to it. 8 edges rest on D11 alone and are deleted. 3 are also
+  stated elsewhere: they stay, citing only their other sources. Deleting
+  edge by edge like this gives exactly the graph a rebuild without D11
+  would.
+- **Summaries:** two were written partly from D11, and nothing in a
+  summary's text records which sentence came from which chunk. So each is
+  written again from what's left, or dropped. The communities themselves
+  can change, so summaries are regenerated from the rebuilt graph's
+  communities: INC-2093 existed only in D11's edges, so its community is
+  gone, and what's left of it, SEC-014, `support_agent` and `triage_agent`,
+  is a new community with no summary at all.
+- **Caches:** any answer or prompt prefix cached from D11's chunks. A cache
+  keyed by question and permission set, as above, can't be searched by
+  source, so either record which chunks each entry used, or clear the cache
+  when a document is deleted.
+
+Doing this reliably, at scale, as documents change every day, and honouring
+a person's right to have their data deleted, belongs to Module 10
+(Production). The rule it rests on is this lesson's: whatever holds part of
+a document is removed or rebuilt with it.
+
+</Subsection>
+
+<Subsection title="When permissions change at the source" variant="b">
+
+Every chunk's `access` field is a copy, taken from the document when it was
+indexed. The permissions themselves live in the source system: the wiki,
+the document store, the directory that says who's in which group. When they
+change there, a page made private or a document's audience narrowed, the
+copy is wrong until the index catches up, and so is everything derived from
+it. A user removed from a group is the same problem wherever their groups
+were looked up once and kept, for example at login.
+
+Between the change and the next sync, retrieval enforces the old
+permissions. The gap is as long as the sync interval, and longer if a sync
+fails without anyone noticing. So a common pattern in production checks
+twice:
+
+1. **Filter by the index's copy before ranking,** as the first concept
+   does. This keeps ranking fair, and needs nothing outside the index.
+2. **Check each result against the source system's current permissions
+   before it reaches the model.** This catches whatever changed since the last sync,
+   at the cost of one check for each of a handful of results.
+
+The second check doesn't replace the first, and it isn't the
+[filtering afterwards that the first concept rejected](/05-rag-systems/13-permissions/01-permissions-at-retrieval-time/#filtering-afterwards-isn-t-enough).
+Every ranking stage still sees only what the index says the reader may
+read. The second layer removes only results whose permissions changed since
+the sync, usually few, so results are seldom short; fetching a few extra
+candidates covers it when they are.
+
+The live check is often answered by a dedicated authorisation service.
+Google described its own in
+[Zanzibar](https://research.google/pubs/zanzibar-googles-consistent-global-authorization-system/)
+(USENIX ATC 2019): permissions are stored as relationships, such as this
+user is a member of this group, this group may view this folder, and this
+folder holds this document, and a check follows them. This is
+**relationship-based access control**. OpenFGA and SpiceDB are open-source
+services built on the same design, and OpenFGA's guidance for retrieval
+describes both layers: listing the documents a reader may see, for a filter
+in the search, and checking a batch of results before they reach the model.
+Keeping indexes in step with their sources is, again, Module 10's
+subject.
+
+</Subsection>
+
 <CheckpointZone>
 
 <QuizGroup
@@ -191,6 +308,28 @@ derived from.** How that works depends on what it was derived from:
       ],
       "correctIndex": 0,
       "explanation": "Morris and colleagues recovered 92% of 32-token inputs exactly. A vector is a form of the text, not an anonymous number."
+    },
+    {
+      "question": "D11 is deleted. Why is the registry-api summary written again, when its community keeps all six entities?",
+      "options": [
+        "It was written partly from D11, and its text doesn't record which sentence came from where",
+        "Louvain gives different communities every time the graph changes, so every summary must go",
+        "Its community's edges now cite fewer chunks, so its token count no longer matches",
+        "Summaries are keyed by chunk ids, so the old one can no longer be looked up"
+      ],
+      "correctIndex": 0,
+      "explanation": "Two of the eight chunks behind it were D11's, and a summary can repeat anything from any source. Only rewriting it from what's left, or dropping it, removes what it took from D11. The same demo shows communities can change too: INC-2093's disappeared."
+    },
+    {
+      "question": "A wiki page is made private at 9:00, and the index next syncs at 10:00. What keeps it from reaching the model at 9:30?",
+      "options": [
+        "Checking each result against the wiki's current permissions before it's used",
+        "Filtering on each chunk's access field before any stage ranks the chunks",
+        "The answer instructions, which tell the model not to quote private pages",
+        "Nothing can, since an index always lags the system it copies from"
+      ],
+      "correctIndex": 0,
+      "explanation": "The access field is a copy taken at indexing time, so until the sync it still says the page is public. The filter before ranking stays, and keeps ranking fair; a live check of the few results before the model sees them catches what changed since the sync."
     }
   ]}
 />

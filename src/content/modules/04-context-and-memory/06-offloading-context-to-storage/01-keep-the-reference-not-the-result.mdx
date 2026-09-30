@@ -145,6 +145,7 @@ def run(offloading: bool) -> list:
             return sizes
         results = []
         for call in calls:
+            # kept short: a production loop returns an unknown tool or bad arguments as an is_error result (Module 2)
             output = tools[call.name](**call.input)
             if offloading and call.name not in readers:
                 output = offload(output, store, threshold=500)

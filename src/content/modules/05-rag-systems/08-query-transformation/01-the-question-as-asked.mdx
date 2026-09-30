@@ -199,8 +199,10 @@ overlapping with anything. It's small, a short prompt and a short reply,
 but it's never free. Two design choices soften its risks:
 
 - **Keep the original too.** Search with both the question and its
-  rewrite, and fuse the results with RRF, so a rewrite that drifts can't
-  lose what the original would have found.
+  rewrite, and fuse the results with RRF, so the original's best results
+  stay in contention even when the rewrite drifts. It lowers the risk
+  rather than removing it: fusion reorders, so a result the original
+  ranked fifth can still fall below the cut. Like any change, measure it.
 - **Rewrite only when needed.** Follow-up questions nearly always need it;
   a question that already names the exact code may not.
 
@@ -245,7 +247,7 @@ but it's never free. Two design choices soften its risks:
     "explanation": "The identifier was kept, but a new word came with it, and in this corpus \"incident\" matches Alertmanager's incident.io settings. Every word a rewrite adds is a word the search acts on."
   },
   {
-    "question": "How can a system use rewriting without risking what the original question would have found?",
+    "question": "How can a system use rewriting while limiting what a drifting rewrite can cost?",
     "options": [
       "Search with both the question and the rewrite, and fuse the results",
       "Rewrite the question several times until the results stop changing",
@@ -253,7 +255,7 @@ but it's never free. Two design choices soften its risks:
       "Ask the model whether its rewrite is better than the question"
     ],
     "correctIndex": 0,
-    "explanation": "Fusing both searches keeps the original's results in play, so a drifting rewrite can add answers without taking any away. It costs a second search, which is cheap next to the model call."
+    "explanation": "Fusing both searches keeps the original's results in play, so a drifting rewrite has to outrank them to push them out. It narrows the risk rather than removing it, since fusion reorders the list and something near the cut can still drop below it. It costs a second search, which is cheap next to the model call."
   }
 ]}
 />

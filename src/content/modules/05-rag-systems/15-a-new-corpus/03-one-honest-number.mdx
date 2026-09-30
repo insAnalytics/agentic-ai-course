@@ -1,0 +1,154 @@
+---
+title: "One honest number"
+lesson: "15-a-new-corpus"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { COUNT_TOKENS, REACT_FAKE_CLIENT, RECORDING_CLIENT } from "../../../../lib/fakeClient";
+import { LOAD_DOCUMENTS, SECTION_SEARCH, KEYWORD_INDEX, EVALUATION, METRICS, SIGN_TEST, FIXED_CHUNKS, STRUCTURE_HELPERS, STRUCTURED_CHUNKS, WITHIN_BUDGET, VECTORS, VECTOR_INDEX, MEANING_SEARCH, TERMS, BM25_INDEX, RERANK_SCORES, RERANK, LISTWISE_RERANK, MODULE_PIPELINE, REWRITE_QUERY, SPLIT_QUERY, INTERLEAVE, HYDE, WITH_HEADER, VERSIONED_PIPELINE, WITH_CONTEXT, EXPAND_NEIGHBOURS, ANSWER_RETRIEVER, ANSWER_INSTRUCTIONS, ASSEMBLE_REQUEST, CHECK_CITATIONS, DECLINED, AGENT_SEARCH, SEARCH_DOCUMENTS, CONTEXTUAL_SEARCH, SEARCH_BUDGET, REGISTRY_DB, QUERY_DATABASE, GRAPH_DATA, BUILD_GRAPH, AFFECTED_BY, GRAPH_COMMUNITIES, PERMITTED_RETRIEVER, READABLE, READER_VIEWS, RAG_GRAPH_DATA } from "../../../../lib/ragCorpus";
+export const SETUP = COUNT_TOKENS + LOAD_DOCUMENTS + SECTION_SEARCH + KEYWORD_INDEX + EVALUATION + METRICS + SIGN_TEST + FIXED_CHUNKS + STRUCTURE_HELPERS + STRUCTURED_CHUNKS + WITHIN_BUDGET + VECTORS + VECTOR_INDEX + MEANING_SEARCH + TERMS + BM25_INDEX + RERANK_SCORES + RERANK + LISTWISE_RERANK + MODULE_PIPELINE + REWRITE_QUERY + SPLIT_QUERY + INTERLEAVE + HYDE + WITH_HEADER + VERSIONED_PIPELINE + WITH_CONTEXT + EXPAND_NEIGHBOURS + ANSWER_RETRIEVER + ANSWER_INSTRUCTIONS + ASSEMBLE_REQUEST + CHECK_CITATIONS + DECLINED + AGENT_SEARCH + SEARCH_DOCUMENTS + CONTEXTUAL_SEARCH + SEARCH_BUDGET + REGISTRY_DB + QUERY_DATABASE + GRAPH_DATA + BUILD_GRAPH + AFFECTED_BY + GRAPH_COMMUNITIES + REACT_FAKE_CLIENT + RECORDING_CLIENT + PERMITTED_RETRIEVER + READABLE;
+
+export const HELD_OUT_DEMO = String.raw`def wilson(successes: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    """A 95% confidence interval for successes out of n: the Wilson score interval, from Lesson 2."""
+    rate = successes / n
+    centre = (rate + z * z / (2 * n)) / (1 + z * z / n)
+    spread = z / (1 + z * z / n) * math.sqrt(rate * (1 - rate) / n + z * z / (4 * n * n))
+    return centre - spread, centre + spread
+
+labelled = load_queries()
+answers = AnswerRetriever()
+THRESHOLD = 0.0   # Lesson 10's, chosen on the main questions
+
+print(f"{'':<9}{'top 5':>9}{'95% interval':>15}{'rank 1':>9}{'kept by threshold':>19}{'no-answer declined':>20}")
+for name in ("main", "held_out"):
+    runs = [(q, answers.search(q, 5)) for q in labelled[name]]
+    scored = [(q, results) for q, results in runs if q["evidence"]]
+    top = sum(answerable(results, q) for q, results in scored)
+    first = sum(answerable(results[:1], q) for q, results in scored)
+    kept = sum(answerable(results, q) and results[0]["score"] >= THRESHOLD for q, results in scored)
+    unanswerable = [results for q, results in runs if not q["evidence"]]
+    declined = sum(results[0]["score"] < THRESHOLD for results in unanswerable)
+    low, high = wilson(top, len(scored))
+    print(f"{name.replace('_', '-'):<9}{f'{top} of {len(scored)}':>9}{f'{low:.2f} to {high:.2f}':>15}{f'{first} of {len(scored)}':>9}"
+          f"{f'{kept} of {top}':>19}{f'{declined} of {len(unanswerable)}':>20}")
+
+print("\nthe held-out questions:")
+for q in labelled["held_out"]:
+    results = answers.search(q, 5)
+    if not q["evidence"]:
+        outcome = "no answer exists"
+    elif answerable(results, q):
+        outcome = "answered at rank 1" if answerable(results[:1], q) else "answered in top 5"
+    else:
+        outcome = "partly found" if any(is_relevant_to_query(c, q) for c in results) else "missed"
+    print(f"  {q['id']}  {q['type']:<15}{outcome:<20}best score {results[0]['score']:5.2f}   {q['query']}")
+`;
+
+<Subsection title="The questions nothing was chosen on" variant="a">
+
+[Lesson 2 held 11 questions back](/05-rag-systems/02-measuring-retrieval/04-reading-the-numbers-honestly/#the-held-out-set)
+because every choice made while looking at the main questions fits them a
+little: a stopword list, a chunk size, a fusion depth, a threshold. A number
+measured on the questions that chose the settings flatters the system. A
+number measured on questions no setting was chosen on doesn't.
+
+Nothing in this module was tuned on the held-out questions. Lesson 10 ran
+them once, to confirm its threshold without changing it, and later lessons
+included them only where a count had to cover every question. Here is the
+finished pipeline on them, with Lesson 10's threshold of 0, next to the main
+questions it was built on. It builds the pipeline, so allow a few seconds:
+
+<LiveDemo client:load dataFiles={RAG_GRAPH_DATA} setupCode={SETUP} code={HELD_OUT_DEMO} />
+
+</Subsection>
+
+<Subsection title="Reading it" variant="b">
+
+**The top five holds up.** 9 of the 10 answerable held-out questions have
+their whole answer in the top five, against 36 of 43 on the main set. That
+isn't evidence the system is better on new questions: the interval on ten
+questions runs from 0.60 to 0.98, and it contains the main set's whole
+interval. What it rules out is the failure the held-out set exists to catch,
+a system tuned so closely to its own questions that new ones fall apart.
+
+**Rank 1 is weaker.** 5 of 10 held-out answers come first, against 26 of 43.
+Ten questions can't say whether that's a real gap, but it's the column to
+watch if the answering model will read only one or two results.
+
+**Each miss has a cause the module already named:**
+
+- **h06 is a multi-hop question.** That research_agent finds its sources
+  through kb-search is in an incident report; the team that owns kb-search
+  is in another document, which never mentions research_agent. One search
+  finds part of it, as
+  [Lesson 11](/05-rag-systems/11-agentic-rag/02-multi-hop-questions/)
+  predicted; an agent searching twice is the fix.
+- **h05 and h11 are answered, then declined.** Their best scores, −1.89 and
+  −4.70, fall below the threshold, so the finished system would say the
+  sources don't say. h05 asks two things at once, and h11, "How was it
+  finally noticed?", means nothing without the conversation before it: the
+  right chunk came first, but the reranker, reading a question with no
+  subject, had little confidence in it. The threshold keeps 7 of the 9
+  answers, and it declines the one question with no answer, h09.
+
+The tempting move is to lower the threshold, since two good answers fell
+below it. That would choose a setting on the held-out questions, and after
+that they'd be one more set of questions the system was tuned on. The honest
+options are to rewrite follow-up questions before searching, as
+[Lesson 8](/05-rag-systems/08-query-transformation/02-follow-up-questions/)
+does, and to collect more questions, fold the old held-out set into the
+main one, and hold out a fresh set for the next round.
+
+Even a held-out set is a sample of the questions someone thought to write.
+Real users ask others, and the questions drift as the product changes.
+Watching the system on real traffic, how often it declines, how often a
+search comes back empty, how often a citation check fails, is where
+evaluation goes next, in Module 7.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+  {
+    "question": "The finished pipeline answers 9 of 10 held-out questions in the top five, and 36 of 43 main ones. What does the held-out number show?",
+    "options": [
+      "The pipeline works better on new questions than on familiar ones",
+      "Tuning on the main questions didn't make new questions fall apart",
+      "The held-out questions are easier, so they should be replaced",
+      "The main set's number was wrong and should be replaced by this one"
+    ],
+    "correctIndex": 1,
+    "explanation": "Ten questions give an interval from 0.60 to 0.98, which contains the main set's result, so there's no evidence of a difference either way. The held-out set's job is to catch overfitting to the main questions, and it found none."
+  },
+  {
+    "question": "Two answerable held-out questions fall below the threshold of 0. Why not lower the threshold to keep them?",
+    "options": [
+      "Lowering it would decline more of the main set's questions too",
+      "The threshold was fixed by Lesson 10 and can't be changed later",
+      "Choosing it on them would turn them into tuned-on questions",
+      "A lower threshold would stop the reranker from sorting candidates"
+    ],
+    "correctIndex": 2,
+    "explanation": "Once a setting is chosen by looking at the held-out questions, they no longer measure anything the tuning didn't see. Improve the system another way, or collect more questions and hold out a fresh set."
+  },
+  {
+    "question": "h11, \"How was it finally noticed?\", had its answer at rank 1 but a best score of −4.70. What does the low score reflect?",
+    "options": [
+      "A question with no subject gives the reranker little to judge",
+      "The answer chunk was restricted, so the reranker was penalised",
+      "The reranker scores follow-up questions below zero by design",
+      "The contextual chunk for the answer was missing its context"
+    ],
+    "correctIndex": 0,
+    "explanation": "Without the conversation, \"it\" could be anything. The right chunk came first, but the reranker's score measures how clearly a passage answers the question as written, and this one is barely a question on its own. Rewriting follow-ups before searching gives it a subject."
+  }
+  ]}
+/>
+
+</CheckpointZone>
