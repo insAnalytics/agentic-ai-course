@@ -1,5 +1,88 @@
 # Citation audit: Module 2 (The Agent Loop)
 
+## Concept coverage
+
+A second pass, added 2026-09-30 at the owner's request, kept light as the
+owner asked for Modules 1–3. It checks each concept page and lesson intro
+as a whole, and anchors a concept only where a learner would reasonably ask
+"says who?" or "does anyone actually do this?". Recaps are skipped. Two
+read-only subagents did the check; the lead applied the edits.
+
+**Counts (53 pages):** backed 47, our data only 0, unbacked
+6. Fixed: six prose edits anchor every page that wasn't backed:
+- OpenAI's prompt engineering guide, on testing prompts as you iterate;
+- Anthropic's and OpenAI's tool docs, on where tool guidance goes;
+- LangChain's unit-testing guide, on a fake LLM client;
+- Anthropic's "Building effective agents", on ground truth each step;
+- Anthropic's tool-call docs, on errors as observations;
+- LangChain's plan-and-execute post, on goal decomposition.
+
+The goal-state edit also says plainly that doing that check in code is the
+course's own framing. Two optional additions were skipped. No demo,
+exercise or test string changed, and no internal links were added. `npm run
+build` passes. Needs a decision: none.
+
+The Status column is the status before the fix. The Action column names
+the edit in each lesson group's report: `cc2-A` for L1–L6 and `cc2-B` for
+L7–L11.
+
+| Concept | Central claim | What backs it | Status (before fix) | Action taken |
+|---|---|---|---|---|
+| L1 intro | An agent is the tool round trip in a model-controlled loop. Reach for one only when control flow needs it | L1 C1 to C3 anchors (Anthropic "Building effective agents", per-claim audit) | BACKED | none |
+| L1 C1 Perceive-reason-act-observe | The agent is a loop whose length isn't fixed in advance | Anthropic BEA: "LLMs using tools based on environmental feedback in a loop" (per-claim audit C1); the four-word label is a teaching name | BACKED | none |
+| L1 C2 Agent vs workflow vs chatbot | Who controls the sequence separates them. Start with the simplest structure | Anthropic BEA, linked and quoted (per-claim audit) | BACKED | none |
+| L1 C3 Honest case against an agent | Agents cost more, are less predictable and harder to debug. Use a fixed workflow when control flow is known | Anthropic BEA, linked (per-claim audit) | BACKED | none |
+| L2 intro | Prompting techniques are the tools for writing an agent's instructions | L2 C1 to C5 | BACKED | none |
+| L2 C1 Specificity | Say what, how and the constraints. Vagueness in an agent's instructions causes behavioural failures | Fundamental. Anthropic prompting best practices, "Be clear and direct": "Being specific about your desired output can help enhance results" (checked here in `m2A/cpbp.html`; the same guide is linked from L2 C2 to C4) | BACKED | none |
+| L2 C2 Examples in the prompt | Few-shot, 3–5 diverse examples; more can stop helping | Anthropic best practices; Agarwal et al. (per-claim audit) | BACKED | none |
+| L2 C3 Output format and delimiters | Delimit sections (XML tags). Prompted format is a request, not a guarantee | Anthropic best practices; Module 1's constrained-decoding facts (per-claim audit) | BACKED | none |
+| L2 C4 Chain of thought | Ask for reasoning before the answer. Reasoning models don't need scripted steps | Wei et al., Kojima et al., OpenAI and Anthropic reasoning guidance (per-claim audit) | BACKED | none |
+| L2 C5 Iterating systematically | Judge a prompt change against a small representative set, not one output | Nothing on the page. The course's own illustrative test set | UNBACKED | E1: add OpenAI prompt engineering guide |
+| L3 intro | The system prompt shapes the whole run; apply Lesson 2's techniques to it | L3 C1 to C4 | BACKED | none |
+| L3 C1 What the system prompt is | System-role priority is a trained tendency, not a guarantee | Wallace et al., Instruction Hierarchy (per-claim audit); Module 1 | BACKED | none |
+| L3 C2 Role and constraints | Give the agent a role and explicit always/never rules. They nudge, not guarantee | Fundamental. Anthropic best practices, "Give Claude a role": "Setting a role in the system prompt focuses Claude's behavior and tone for your use case" (checked here in `m2A/cpbp.html`) | BACKED | none |
+| L3 C3 Tool guidance | The schema covers shape. When to call a tool, and what to do with its result, belongs in the description and/or system prompt | Nothing on the page (the strict-mode fact is verified, per-claim audit C15) | UNBACKED | E2: add Anthropic define-tools and OpenAI function-calling best practices |
+| L3 C4 Phase-aware prompting | Code tracks the phase and sends phase-specific instructions at the end, keeping the prefix stable | Placement: Manus "Keep your prompt prefix stable", Anthropic mid-conversation system messages (per-claim audit). Code-owned phase is argued in the text as engineering judgement | BACKED | none (optional E6: Manus's state machine as a production example of code-owned state) |
+| L4 intro | The hand-written loop is the base for every later lesson | L4 C1 to C3 | BACKED | none |
+| L4 C1 Fake LLM client | Script a fake client's responses to run and grade loop code deterministically | The course's own harness only. A learner may ask "does anyone test agents this way?" | UNBACKED | E3: add LangChain unit-testing guide (`GenericFakeChatModel`) |
+| L4 C2 From round trip to loop | Call, check for `tool_use`, execute or stop | Plain mechanics of the API (Module 1); BEA's "in a loop" | BACKED | none |
+| L4 C3 Handling multiple tools | Dispatch through a name-to-function registry; `tool_result` content must be text or blocks | Anthropic "Handle tool calls" (per-claim audit C18); a dispatch table is textbook | BACKED | none |
+| L5 intro | Reasoning before acting improves tool choice; native tool calling replaced text parsing | L5 C1 to C3 | BACKED | none |
+| L5 C1 The ReAct pattern | Reason before each action; handle every block and answer every tool call in one message | ReAct paper, linked in L5 C2 and C3 (per-claim audit); the one-message rule is Anthropic's (per-claim audit C20) | BACKED | none |
+| L5 C2 Why reasoning improves tool choice | Reasoning first helps when the tool choice is ambiguous | Wei et al.; Yao et al. ReAct vs Act figures (per-claim audit) | BACKED | none |
+| L5 C3 Text-parsed vs native tool calling | Text formats need fragile parsing; native tool calling replaced them | LangChain MRKL prompt, OpenAI June 2023 launch, ReAct (per-claim audit) | BACKED | none |
+| L6 intro | Each guard answers a distinct failure mode | L6 C1 to C6 | BACKED | none |
+| L6 C1 A loop that never stops | Nothing in the bare loop stops a stuck model, and every call is billed | Plain fact (Module 1 billing); BEA on agent cost (L1 C3) | BACKED | none |
+| L6 C2 Max steps | A hard iteration cap is the first guard | Anthropic BEA, linked (per-claim audit) | BACKED | none |
+| L6 C3 Repeated-action detection | Stop on repeated identical calls; real systems allow a few repeats | Gemini CLI `loopDetectionService.ts` (per-claim audit) | BACKED | none |
+| L6 C4 Goal-state termination | Code checks real state after each step and stops once the goal is met | Nothing on the page. The course's demo shows the saved calls | UNBACKED | E4: add Anthropic BEA "ground truth" line |
+| L6 C5 Tool errors as observations | Catch a tool's exception and return it to the model as a `tool_result` | `is_error` is verified (per-claim audit C28), but the page names no source for the technique | UNBACKED (on the page) | E5: link Anthropic "Handle tool calls" |
+| L6 C6 Timeouts, retry, give-up | Timeout every call, retry transient failures with backoff and jitter, then give up cleanly | AWS Builders' Library, linked (per-claim audit) | BACKED | none |
+| L7 intro | The scratchpad is the agent's whole state. Checkpointing lets long tasks survive interruption | L7 C1 to C3 anchors (LangChain `agent_scratchpad`; LangGraph checkpointers and idempotency, per-claim audit) | BACKED | none |
+| L7 C1 The scratchpad | The accumulating `messages` list is the agent's state, because the model is stateless | Plain fact (Module 1 statelessness). Term: LangChain classic `agent_scratchpad` (per-claim audit) | BACKED | none |
+| L7 C2 Serializing state | Block objects must be converted to dicts before JSON. Real SDK blocks are Pydantic models, and thinking signatures must round-trip | anthropic-sdk-python `_models.py` and `thinking_block.py` (per-claim audit) | BACKED | none |
+| L7 C3 Checkpoint and resume | Save after every step. Make side-effecting tools safe to run twice | LangGraph checkpointers and Functional API §Idempotency (per-claim audit) | BACKED | none |
+| L8 intro | Upfront planning is a real alternative to a reactive loop. Choose between them deliberately | LangChain plan-and-execute blog, Tree of Thoughts (per-claim audit) | BACKED | none |
+| L8 C1 Goal decomposition | Decompose a goal into sub-tasks before acting. Step-at-a-time loops can be inefficient and lose the bigger picture | The planning anchor sits two concepts later (L8 C4). Nothing backs it where decomposition is introduced | UNBACKED (here) | E1: add LangChain "Plan-and-Execute Agents" motivation |
+| L8 C2 Plan representations | Linear, tree and dependency-graph plans. A DAG exposes independent work that can run concurrently | Textbook data structures and topological order | BACKED | none (optional E2: add LLMCompiler as a real DAG planner) |
+| L8 C3 Tree of Thought | Search over candidate steps with evaluation and backtracking. Worth it only where CoT struggles | Yao et al., NeurIPS 2023 (per-claim audit: 4% vs 74%, 5–100x tokens) | BACKED | none |
+| L8 C4 Plan-and-execute vs reactive | Plan-and-execute trades adaptiveness for predictability. Executors need the goal and prior results | LangChain plan-and-execute blog; Anthropic multi-agent research post (per-claim audit) | BACKED | none |
+| L8 C5 Replanning | On a failed step, call the planner again with what was done and why it failed. Cap the replans | LangChain blog re-planning prompt (per-claim audit). The cap reuses Lesson 6's `max_steps` | BACKED | none |
+| L9 intro | Evaluator-optimizer for success conditions code can't check. Reflection has a shared-blind-spot limit | L9 C1 to C3 anchors | BACKED | none |
+| L9 C1 Evaluator-optimizer | Generate, evaluate against explicit criteria, revise, and repeat under a cap | Anthropic "Building effective agents" ×2 (per-claim audit) | BACKED | none |
+| L9 C2 When a second pass helps | Checking is often easier than generating, mainly where checking is easy | Self-Refine, NeurIPS 2023; Kamoi et al., TACL 2024 (per-claim audit) | BACKED | none |
+| L9 C3 Shared blind spots | Same-model review shares the generator's gaps. External feedback (tests, tools) is the strongest check | Goel et al., ICML 2025; Panickssery et al., NeurIPS 2024; Huang et al., ICLR 2024 (per-claim audit) | BACKED | none |
+| L10 intro | A fixed chain, a router or parallel dispatch is often a better fit than a full agent | Anthropic "Building effective agents" (per-claim audit); Lesson 1 | BACKED | none |
+| L10 C1 Chaining and routing | Fixed sequence with a gate between steps; classify, then dispatch to fixed paths | Anthropic "Building effective agents" (per-claim audit) | BACKED | none |
+| L10 C2 Parallelization | Run independent calls concurrently (sectioning). Majority of repeated samples is more reliable (voting) | Anthropic guide (per-claim audit). Voting's evidence is Wang et al. self-consistency, ICLR 2023, linked from the Module 1 and Module 6 pages this concept links to | BACKED | none |
+| L10 C3 Orchestrator-workers | An LLM decomposes at runtime, workers run the sub-tasks, and results are synthesized | Anthropic "Building effective agents" (per-claim audit) | BACKED | none |
+| L11 intro | A framework is the same loop, state and guards, packaged at the cost of visibility | L11 C1 and C3 anchors | BACKED | none |
+| L11 C1 What a framework provides | Frameworks package the loop, state, tracing and a deployment path. A tracing hook is an `on_event` callback | OpenAI Agents SDK docs (per-claim audit). The deployment path is a forward pointer; LangChain's docs have a LangSmith deployment section (`agents.md` l.720) | BACKED | none |
+| L11 C2 Rebuilding in LangChain | `create_agent`, `@tool`, `recursion_limit`, `ModelCallLimitMiddleware` map onto the hand-built pieces | LangChain/LangGraph docs and source (per-claim audit) | BACKED | none |
+| L11 C3 Control given up | Framework defaults hide or change behaviour. Understand the mechanics before adopting | Anthropic "Building effective agents" (per-claim audit); LangGraph `GraphRecursionError` source | BACKED | none |
+| L11 C4 A minimal agent class | Wrapping the module's loop in a class shows what a framework packages | The course's own code, illustrating L11 C1's anchored claim. It makes no effectiveness claim | BACKED | none |
+
+
 Audited 2026-09-30, on branch `citation-audit/module-2`, as a light pass:
 verify what's named, and add a source only where a learner would ask "says
 who?". Two read-only subagents did the inventory and verification. Their full

@@ -22,7 +22,13 @@ agent loop's *code* against something that behaves exactly like
 — without making a real, non-deterministic network call. A **fake LLM
 client** does exactly this: it mirrors a real client's call pattern and
 response structure, but returns a pre-configured, scripted sequence of
-responses instead of anything actually generated.
+responses instead of anything actually generated. Frameworks ship the
+same tool for their own tests. LangChain's
+[unit testing guide](https://docs.langchain.com/oss/python/langchain/test/unit-testing)
+replaces "the real LLM with an in-memory fake", so "you can script exact
+responses (text, tool calls, and errors)". Its `GenericFakeChatModel`
+takes an iterator of responses and "returns one per invocation", just like the
+client below.
 
 </Subsection>
 

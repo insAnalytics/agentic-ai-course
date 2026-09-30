@@ -910,6 +910,11 @@ links before this pass. Now:
   printed a wait that never happened. It now prints "no retries left". The
   hidden tests are unchanged. Re-verified in Pyodide 0.26.4: the demos, 7 of
   7 exercise tests, the recap's tests, and a wrong variant still failing.
+- **Concept coverage (second pass, light):** each concept page and intro was
+  checked as a whole. Six prose edits anchor the concepts that lacked a
+  source (iterating on prompts with tests, where tool guidance goes, a fake
+  LLM client, goal-state checks, tool errors as observations, goal
+  decomposition). The table is at the top of `citation-audit/module-2.md`.
 
 *Renamed from "Build Intelligent Conversation Agents" as part of a newer,
 more refined syllabus structure. The 7-item list below is the **old**

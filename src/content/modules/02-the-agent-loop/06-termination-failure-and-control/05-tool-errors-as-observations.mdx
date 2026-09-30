@@ -127,7 +127,11 @@ error as information and produces a sensible response about it, rather
 than the entire interaction simply ending. (Claude's API also has an
 `is_error: true` flag on a `tool_result` for exactly this case. The
 `"Error: ..."` string convention works, but the flag tells the model
-unambiguously that the call failed.)
+unambiguously that the call failed.) This is the documented pattern, not
+a workaround. Anthropic's
+[guide to handling tool calls](https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls)
+says to return the error message as the tool result, and "Claude will
+then incorporate this error into its response to the user".
 
 </Subsection>
 
