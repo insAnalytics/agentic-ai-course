@@ -6220,3 +6220,33 @@ dedicated coverage here.
     loop, bound with an immediately called lambda
     (`(lambda real: lambda **kwargs: ...)(tools[name])`), used to wrap each
     tool in Lesson 10's fault injection.
+- **Module 6 source claims still to check against their primary source.**
+  The review session could only reach anthropic.com, platform.claude.com and
+  GitHub. It confirmed these from primary text: Kim et al. and Goel et al.
+  (official PMLR PDFs), DiVeRSe and Adaptive-Consistency (ACL Anthology
+  records; 7.9× is the EMNLP figure, the repo's 6.0× is an older preprint),
+  The Tail at Scale, Anthropic's evals and statistics posts, its Claude 3.7
+  and 4 announcements, its deprecation and thinking docs, the OpenAI Agents
+  SDK and NeMo Guardrails docs, the gRPC deadlines guide, *Building Secure
+  and Reliable Systems* ch. 1, the Principles of Chaos, Lilian Weng's
+  reward-hacking post, FIDES's repo, and MAKER's code (gpt-4.1-mini, ahead-by-k
+  voting, format-based discards). It couldn't reach the rest, whose figures come
+  from search extracts that agreed across sources. They need a check:
+  - METR, "Recent Frontier Models Are Reward Hacking": 30.4% vs 0.7%, 14 of 20 (L7 C5)
+  - ImpossibleBench: GPT-5 54% → 9% with an abort option (L7 C5)
+  - OpenAI / Baker et al. on chain-of-thought monitoring and obfuscation (L7 C5)
+  - Claude 3.7 Sonnet system card on special-casing tests (L7 C5)
+  - Zheng et al.: GPT-4 about 65% order-consistent; 91%/91%/9% for the
+    repetition attack (L4 C2)
+  - Panickssery et al. on self-preference (L4 C2); Hamel Husain's "over 30
+    companies" (L4 C2)
+  - Cobbe et al.: 6B + verifier vs 175B, "30x", peak at 400 completions (L5 C6)
+  - MAKER's k = 3 and zero-error result (the page now states neither k nor a
+    length rule) (L5 C6)
+  - Kalai et al. / OpenAI SimpleQA table: 52/22/26 vs 1/24/75 (L1 C2);
+    possibly now also published in Nature
+  - Brooker (243×, "selfish") and Gabrielson on fallback (L8 C1, C5)
+  - Basiri et al. (IEEE Software 2016) and ToolEmu's 68.8% (L10 C3)
+  - Beurer-Kellner et al.'s map-reduce and context-minimization definitions (L9 C3)
+  - DeepMind's specification-gaming definition (quoted via Weng's
+    paraphrase, which was verified) (L7 C5)

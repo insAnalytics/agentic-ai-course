@@ -399,11 +399,15 @@ was put:
 [Lesson 1 found](/06-reliability/01-per-step-reliability/04-reliable-across-wordings/)
 questions whose accuracy swung by 50 points or more with the wording. If
 every sample sees the same wording, every sample shares that wording's pull.
-Li et al.'s
+Anthropic's
+[guide to building agents](https://www.anthropic.com/engineering/building-effective-agents)
+gives this as a use of voting: "reviewing a piece of code for
+vulnerabilities, where several different prompts review and flag the code if
+they find a problem." Li et al.'s
 [DiVeRSe](https://aclanthology.org/2023.acl-long.291/) (ACL 2023) sampled
 answers from several different prompts instead of one, and combined that
-with a verifier. With both, GSM8K accuracy rose from 74.4% to 83.2%. This module's runs asked every question in four
-wordings, so the idea can be tested directly: a vote of four samples of the
+with a verifier. With both, GSM8K accuracy rose from 74.4% to 83.2%.
+This module's runs asked every question in four wordings, so the idea can be tested directly: a vote of four samples of the
 original wording, against one sample from each of the four.
 
 <LiveDemo client:load dataFiles={WORDINGS_DATA} setupCode={VOTE_SETUP} code={MIXED_DEMO} />
@@ -439,7 +443,12 @@ across providers. A vote across models is less independent than it looks.
 
 Counting treats every sample as equally likely to be right. If something
 can tell a right answer from a wrong one, it can do better: sample several
-answers, and keep the one the check passes. Cobbe et al.
+answers, and keep the one the check passes. That's how Anthropic reports its
+highest coding-benchmark scores. For its
+[Claude 4 results](https://www.anthropic.com/news/claude-4), it sampled
+several attempts in parallel, discarded patches that broke the repository's
+visible regression tests, and had a scoring model choose among the rest.
+The research behind the idea goes back further. Cobbe et al.
 [trained such a verifier](https://arxiv.org/abs/2110.14168) for grade-school
 maths (2021). A 6B model choosing among its samples with the verifier slightly outperformed a fine-tuned 175B model, a gain the authors put at about what a thirtyfold larger model would give. Lightman et al.'s
 [*Let's Verify Step by Step*](https://arxiv.org/abs/2305.20050) (2023)
@@ -515,10 +524,11 @@ Voting on every step can go a long way. Meyerson et al.'s
 [MAKER](https://arxiv.org/abs/2511.09030), a 2025 preprint from Cognizant's AI
 lab, split a 20-disk Towers of
 Hanoi, 1,048,575 moves, into one model call per move. It chose each move with
-*first-to-ahead-by-3*, the stop-at-a-lead rule from earlier in this concept
-with a lead of 3. It also threw out any sample that was too long or badly
-formatted before it could vote, since those tended to be the confused ones.
-With a small model, gpt-4.1-mini, the authors report finishing all million
+*first-to-ahead-by-k* voting, the stop-at-a-lead rule from earlier in this
+concept, and threw out any sample that wasn't in the expected format before
+it could vote. The authors'
+[published code](https://github.com/cognizant-ai-lab/neuro-san-benchmarking)
+shows both. With a small model, gpt-4.1-mini, the authors report finishing all million
 moves without an error, against the arithmetic of
 [Lesson 1's compounding](/06-reliability/01-per-step-reliability/01-small-errors-compound/).
 The caveat is the task. Every Hanoi move is fully specified and can be checked

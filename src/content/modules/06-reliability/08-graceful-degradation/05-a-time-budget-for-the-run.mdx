@@ -126,7 +126,13 @@ three retries at each of five layers can send 243 times the load to the
 bottom one. Time multiplies the same way.
 
 The fix is a **deadline**: a time budget for the whole run, with each call
-getting only what's left of it.
+getting only what's left of it. RPC frameworks build this in. gRPC's
+[guide to deadlines](https://grpc.io/docs/guides/deadlines/) warns that by
+default it sets none, "which means it is possible for a client to end up
+waiting for a response effectively forever". With one set, a call that runs
+out fails with `DEADLINE_EXCEEDED`. Some implementations also pass the
+deadline on to the calls the server makes in turn, converted to a timeout
+with the time already spent deducted.
 
 <LiveDemo client:load code={DEADLINE_DEMO} />
 
