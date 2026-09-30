@@ -5503,7 +5503,28 @@ architecture.md §3.1).
    output exactly in Pyodide 0.26.4, run through the real setup. Callbacks
    (page links): Lesson 3 concept 1, Lesson 2 concept 4, Lesson 8 concept 1,
    Lesson 4 concepts 2 and 4, Lesson 6 concept 1; Lesson 5's voting stays
-   plain text. Concepts 3+ and bookends not yet drafted.
+   plain text. Concept 3 (what each layer earns) is built: each layer alone
+   on the suite (none stops more than 2 of 8 harms, all together stop 8
+   with 2 wrong blocks, 2 judge calls, 4 extra reads, 1 approval); what the
+   stack loses without each layer (every layer uniquely stops at least one
+   harm, and only grounding and the intent check cause wrong blocks); the
+   real judge's per-call cost from Lesson 4's committed `draft-support.large`
+   run (452 calls, 253 prompt tokens, 7.3 generated, 12.5 GPU-ms), with
+   Lesson 4's accuracy figures (40/80 clean, up to about 7%, 33 of 390),
+   checked against Lesson 4's pages; 4 quiz cards; and a graded
+   `summarise(results)` (`runnable`, with the lesson's setup as
+   `namespaceSetup`). All three demos reproduce the mockup exactly in
+   Pyodide 0.26.4 (two through the real setup, the cost demo from the run
+   file alone), and so does the reference's Run output. The page's reference
+   is the full starter filled in; the starter's stray third blank line was
+   normalized to two. Tests split into 4 self-contained tests (each rebuilds
+   its results); through the real `TEST_HARNESS` with the setup as prelude,
+   the reference passes all 4 and seven wrong versions each fail (the
+   starter, counting fine runs as catches, `missed` as a count, wrong blocks
+   inverted, costs over harmful runs only, names out of order, an extra key,
+   `None` for no results). Callbacks: Lesson 2 concepts 1 and 3 (page
+   links); "Module 7's subject" stays plain text. The mockup marks this as
+   the lesson's last concept; bookends not yet drafted.
 
 ---
 
