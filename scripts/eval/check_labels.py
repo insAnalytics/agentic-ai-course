@@ -1,7 +1,11 @@
 """
 Check a labels file exported from the labelling page (labeller/index.html) against the reading sample: every
 trace in the reader's order labelled exactly once, the required fields present, and every value from the lists
-in README-labeller.md. Prints the counts.
+in README-labeller.md and the reading standard (standard.md). Prints the counts.
+
+A re-review file (labels-simar-v2.json, with "review_of") must also mark every label "changed" true or false,
+correctly, against the first labels it names. Revised labels may keep their earlier values in "<field>_original"
+fields, with the reason in the file's "revisions".
 
     python scripts/eval/check_labels.py labels-simar.json            # exit 1 if anything is wrong
     python scripts/eval/check_labels.py labels-simar.json --partial  # mid-way: unlabelled traces aren't errors
@@ -15,10 +19,13 @@ from collections import Counter
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-SAMPLE = HERE.parents[1] / "public" / "data" / "eval" / "reading" / "sample.json"
+READING = HERE.parents[1] / "public" / "data" / "eval" / "reading"
+SAMPLE = READING / "sample.json"
 VERDICTS = ("pass", "fail", "unsure")
-FAULTS = ("agent", "task", "simulated_user", "environment", "unclear")
-FIELDS = {"trial_id", "verdict", "first_failure", "fault", "how", "reference_viewed", "seconds"}
+FAULTS = ("agent", "harness", "task", "simulated_user", "environment", "unclear")
+REVISABLE = ("verdict", "first_failure", "fault", "how")
+FIELDS = ({"trial_id", "reference_viewed", "seconds", "changed", "standard_version"} | set(REVISABLE)
+          | {f"{key}_original" for key in REVISABLE})
 
 
 def problems_with(label: dict) -> list[str]:
@@ -31,17 +38,22 @@ def problems_with(label: dict) -> list[str]:
     for key in ("first_failure", "how"):
         if label.get(key) is not None and not isinstance(label[key], str):
             problems.append(f"{key} must be text or null")
-    if label.get("fault") is not None and label["fault"] not in FAULTS:
-        problems.append(f"fault is {label['fault']!r}, not one of {', '.join(FAULTS)}")
+    for key in ("fault", "fault_original"):
+        if label.get(key) not in (None, "") and label[key] not in FAULTS:  # "" is no fault, as null is
+            problems.append(f"{key} is {label[key]!r}, not one of {', '.join(FAULTS)}")
+    if "verdict_original" in label and label["verdict_original"] not in VERDICTS:
+        problems.append(f"verdict_original is {label['verdict_original']!r}, not one of {', '.join(VERDICTS)}")
+    if "changed" in label and not isinstance(label["changed"], bool):
+        problems.append("changed must be true or false")
     if label.get("verdict") in ("fail", "unsure"):
         if not (label.get("first_failure") or "").strip():
             problems.append(f"a {label['verdict']} needs the first failure")
-        if label.get("fault") is None:
+        if not label.get("fault"):
             problems.append(f"a {label['verdict']} needs whose fault it was")
     if not isinstance(label.get("reference_viewed"), bool):
         problems.append("reference_viewed must be true or false")
-    seconds = label.get("seconds")
-    if isinstance(seconds, bool) or not isinstance(seconds, (int, float)) or seconds < 0:
+    seconds = label.get("seconds")  # null for labels made without the page, which can't time them
+    if seconds is not None and (isinstance(seconds, bool) or not isinstance(seconds, (int, float)) or seconds < 0):
         problems.append(f"seconds is {seconds!r}, not a time")
     return problems
 
@@ -54,6 +66,12 @@ def check(data: dict, sample: dict, partial: bool) -> tuple[list[str], list[dict
         return [f"sample_version is {data.get('sample_version')!r}; the sample is version {sample['version']}"], []
     if not isinstance(data.get("labels"), list):
         return ["no labels list"], []
+    revisions = data.get("revisions", [])
+    if not isinstance(revisions, list) or not all(isinstance(r, str) for r in revisions):
+        return ["revisions must be a list of notes"], []
+    revised = any(key.endswith("_original") for label in data["labels"] for key in label)
+    if revised and not revisions:
+        return ["labels keep *_original values but the file has no revisions note saying why"], []
 
     order = sample["order"][data["reader"]]
     problems, seen, labelled = [], Counter(), []
@@ -70,10 +88,30 @@ def check(data: dict, sample: dict, partial: bool) -> tuple[list[str], list[dict
         else:
             labelled.append(label)
     problems += [f"{trial_id}: labelled {n} times" for trial_id, n in seen.items() if n > 1]
+    if data.get("review_of"):
+        problems += changed_problems(data)
     if not partial:
         problems += [f"{trial_id}: not labelled" for trial_id in order
                      if not any(l.get("trial_id") == trial_id and l.get("verdict") for l in data["labels"])]
     return problems, labelled
+
+
+def changed_problems(data: dict) -> list[str]:
+    """A re-review's "changed" flags, checked against the first labels."""
+    first_path = READING / data["review_of"]
+    if not first_path.exists():
+        return [f"review_of names {data['review_of']}, which isn't in {READING.name}/"]
+    first = {l["trial_id"]: l for l in json.loads(first_path.read_text(encoding="utf-8"))["labels"]}
+    norm = lambda value: (value.strip() if isinstance(value, str) else value) or None
+    problems = []
+    for label in data["labels"]:
+        if label.get("verdict") is None or label.get("trial_id") not in first:
+            continue
+        actual = any(norm(label.get(key)) != norm(first[label["trial_id"]].get(key)) for key in REVISABLE)
+        if label.get("changed") is not actual:
+            problems.append(f"{label['trial_id']}: changed is {label.get('changed')!r}, but it "
+                            f"{'differs from' if actual else 'matches'} {data['review_of']}")
+    return problems
 
 
 def report(labelled: list[dict], sample: dict, reader: str) -> None:
@@ -91,8 +129,9 @@ def report(labelled: list[dict], sample: dict, reader: str) -> None:
         print("  fault (fail and unsure): " + ", ".join(f"{f} {faults[f]}" for f in FAULTS if faults[f]))
     print(f"  reference viewed: {sum(l['reference_viewed'] for l in labelled)}")
     print(f"  with a note on how: {sum(1 for l in labelled if (l.get('how') or '').strip())}")
-    if labelled:
-        seconds = [l["seconds"] for l in labelled]
+    if any("changed" in l for l in labelled):
+        print(f"  changed since the first labels: {sum(1 for l in labelled if l.get('changed'))}")
+    if seconds := [l["seconds"] for l in labelled if l.get("seconds") is not None]:
         print(f"  seconds per trace: median {statistics.median(seconds):.0f}, total {sum(seconds) / 60:.0f} min")
 
 

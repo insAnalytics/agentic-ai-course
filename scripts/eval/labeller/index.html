@@ -60,8 +60,14 @@
   .call { margin-top: 6px; }
   .call .name { font-family: ui-monospace, Consolas, monospace; font-weight: 600; }
   .change { font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
-  .guide blockquote { margin: 0; }
+  .guide h1 { font-size: 18px; margin: 0 0 8px; }
+  .guide h2 { font-size: 15px; text-transform: none; letter-spacing: 0; color: var(--ink); margin: 16px 0 6px; }
   .guide li { margin: 6px 0; }
+  .guide table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  .guide th, .guide td { border: 1px solid var(--line); padding: 5px 8px; text-align: left; vertical-align: top; }
+  .guide th { background: var(--soft); }
+  .guide code, .fault-help code { font-size: 13px; }
+  .fault-help { font-size: 13px; margin-top: 4px; }
   form label.opt { display: inline-flex; align-items: center; gap: 4px; margin-right: 14px; cursor: pointer; }
   form .field { margin: 10px 0; }
   form .field > .lbl { font-weight: 600; display: block; margin-bottom: 4px; }
@@ -78,7 +84,7 @@
 <body>
 <header>
   <h1>Reading the runs</h1>
-  <label>Reader <select id="reader"><option value="">choose…</option><option value="simar">simar</option><option value="claude">claude</option></select></label>
+  <label>Reader <select id="reader"><option value="">choose…</option><option value="simar">simar</option><option value="claude">claude</option><option value="simar-review" disabled>simar (re-review)</option></select></label>
   <span id="progress" class="muted"></span>
   <span class="spacer"></span>
   <a href="#" id="guide-link">How to read</a>
@@ -89,28 +95,7 @@
 <main>
   <div id="loading" class="muted">Loading the sample…</div>
   <section id="guide" class="card guide" hidden>
-    <h2>How to read</h2>
-    <blockquote>
-      <p>Read each run as the person who asked would, and note the first thing that went wrong.</p>
-      <ul>
-        <li><strong>Pass or fail?</strong> Would the person who asked be satisfied, and is the world (the registry, the emails) as it
-          should be? A run that ends right but told the user something false fails. Read passes as carefully as
-          failures: a pass can hide a wrong step.</li>
-        <li><strong>The first failure.</strong> Write down the earliest point where the run went wrong, in your own words, specific
-          enough that someone else could find it: "moved support_agent without asking which of support-team's three
-          agents was meant", not "bad action". Later problems usually follow from the first; one note per run is
-          enough.</li>
-        <li><strong>Don't sort yet.</strong> Don't try to fit notes into categories while reading. Grouping comes afterwards, from
-          all the notes together.</li>
-        <li><strong>Whose fault?</strong> Usually the agent's. It's the task's if the request was ambiguous or its expected outcome
-          was wrong; the simulated user's if it broke its instructions (invented facts, forgot to answer, started
-          acting as the assistant); the environment's if a tool or the world misbehaved in a way the task didn't
-          intend. Pick "unclear" rather than guess.</li>
-        <li><strong>How it got there.</strong> If the reasoning shows why the agent did something, or that a pass was luck, say so
-          in "how". Reasoning is evidence, not proof: check it against what the agent actually did.</li>
-        <li><strong>The reference</strong> is there if you need it, but form your own view first.</li>
-      </ul>
-    </blockquote>
+    <p class="muted">Loading the reading standard…</p>
   </section>
   <div id="trace"></div>
 </main>
@@ -119,13 +104,26 @@
 "use strict";
 const DATA = "/public/data/eval/reading/";
 const VERDICTS = ["pass", "fail", "unsure"];
-const FAULTS = ["agent", "task", "simulated_user", "environment", "unclear"];
-const FAULT_NAMES = {agent: "agent", task: "task", simulated_user: "simulated user", environment: "environment", unclear: "unclear"};
+const FAULTS = ["agent", "harness", "task", "simulated_user", "environment", "unclear"];
+const FAULT_NAMES = {agent: "agent", harness: "harness", task: "task", simulated_user: "simulated user", environment: "environment",
+                     unclear: "unclear"};
+// as the reading standard (standard.md) describes them
+const FAULT_HELP = {
+  agent: "the model's own decision, given what it saw",
+  harness: "the way the course built the agent: the system prompt, a tool's description, the checks, or a document planted in the corpus on purpose",
+  task: "the request was ambiguous, or its expected outcome was wrong",
+  simulated_user: "the simulated user broke its instructions",
+  environment: "a tool or the world misbehaved in a way the task didn't intend",
+  unclear: "say why in the note",
+};
+// the re-review pass: Simar's 40 again, prefilled from their first labels (labels-simar.json), exported as v2
+const REVIEW = "simar-review";
+const baseReader = (name) => name === REVIEW ? "simar" : name;
 const DEFAULT_GROUPS = ["all-staff", "finance", "oncall", "security"];
 const FAULT_TEXT = {lose_writes: "the write is lost", empty_agent: "the record comes back empty",
                     health_timeout: "the health service times out"};
 
-let sample, traces, reader = null, index = 0, labels = {};
+let sample, traces, firstLabels = null, reader = null, index = 0, labels = {};
 let shownAt = null;   // when the current trace's on-screen time started counting; null while hidden
 
 // ---------- storage (every read and write guarded: the page still works without it) ----------
@@ -178,7 +176,7 @@ window.addEventListener("pagehide", flushTime);
 setInterval(() => { if (shownAt != null) flushTime(); }, 5000);
 
 // ---------- labels ----------
-const order = () => sample.order[reader];
+const order = () => sample.order[baseReader(reader)];
 const currentId = () => order()[index];
 function labelFor(id) {
   return labels[id] ||= {verdict: null, first_failure: "", fault: null, how: "", reference_viewed: false, seconds: 0};
@@ -193,18 +191,36 @@ function missing(label) {
 }
 const isDone = (id) => missing(labels[id]).length === 0;
 
+const norm = (value) => (typeof value === "string" ? value.trim() : value) || null;
+function changedFromFirst(id) {
+  const first = firstLabels[id], now = labels[id];
+  return ["verdict", "first_failure", "fault", "how"].some((key) => norm(first[key]) !== norm(now[key]));
+}
+function prefillFromFirst() {
+  for (const id of order()) {
+    const first = firstLabels[id];
+    if (labels[id] || !first) continue;
+    labels[id] = {verdict: first.verdict, first_failure: first.first_failure || "", fault: first.fault || null,
+                  how: first.how || "", reference_viewed: false, seconds: 0};
+  }
+}
+
 function exportFile() {
   flushTime();
-  const out = {reader, sample_version: sample.version, labels: order().filter((id) => labels[id]).map((id) => {
+  const review = reader === REVIEW;
+  const out = {reader: baseReader(reader), sample_version: sample.version,
+               ...(review ? {review_of: "labels-simar.json"} : {}),
+               labels: order().filter((id) => labels[id]).map((id) => {
     const l = labels[id];
     return {trial_id: id, verdict: l.verdict,
-            first_failure: (l.first_failure || "").trim() || null,
+            first_failure: norm(l.first_failure),
             fault: l.fault || null,
-            how: (l.how || "").trim() || null,
-            reference_viewed: !!l.reference_viewed, seconds: Math.round(l.seconds || 0)};
+            how: norm(l.how),
+            reference_viewed: !!l.reference_viewed, seconds: Math.round(l.seconds || 0),
+            ...(review ? {changed: changedFromFirst(id)} : {})};
   })};
   const blob = new Blob([JSON.stringify(out, null, 1) + "\n"], {type: "application/json"});
-  const a = el("a", {href: URL.createObjectURL(blob), download: `labels-${reader}.json`});
+  const a = el("a", {href: URL.createObjectURL(blob), download: review ? "labels-simar-v2.json" : `labels-${reader}.json`});
   document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
@@ -217,21 +233,56 @@ async function importFile(file) {
   const known = new Set(sample.order[data.reader]);
   const unknown = data.labels.filter((l) => !known.has(l.trial_id));
   if (unknown.length) { alert(`${unknown.length} of its labels are for traces not in ${data.reader}'s list (first: ${unknown[0].trial_id}).`); return; }
+  const target = data.review_of ? REVIEW : data.reader;
+  if (data.review_of && data.reader !== "simar") { alert("Only Simar's labels have a re-review pass."); return; }
+  if (target === REVIEW && !firstLabels) { alert("The re-review pass needs labels-simar.json, which didn't load."); return; }
   if (reader) flushTime();
-  const existing = store.get(`labeller:v${sample.version}:${data.reader}:labels`) || {};
+  const existing = store.get(`labeller:v${sample.version}:${target}:labels`) || {};
   const overwritten = data.labels.filter((l) => existing[l.trial_id] && existing[l.trial_id].verdict).length;
-  if (overwritten && !confirm(`Importing replaces ${overwritten} label(s) already saved in this browser for ${data.reader}. Go ahead?`)) return;
+  if (overwritten && !confirm(`Importing replaces ${overwritten} label(s) already saved in this browser for ${target}. Go ahead?`)) return;
   for (const l of data.labels) {
     existing[l.trial_id] = {verdict: VERDICTS.includes(l.verdict) ? l.verdict : null,
                             first_failure: l.first_failure || "", fault: FAULTS.includes(l.fault) ? l.fault : null,
                             how: l.how || "", reference_viewed: !!l.reference_viewed, seconds: Number(l.seconds) || 0};
   }
-  store.set(`labeller:v${sample.version}:${data.reader}:labels`, existing);
+  store.set(`labeller:v${sample.version}:${target}:labels`, existing);
   // resume at the first trace without a complete label
   const firstOpen = sample.order[data.reader].findIndex((id) => missing(existing[id]).length);
-  store.set(`labeller:v${sample.version}:${data.reader}:index`, firstOpen === -1 ? 0 : firstOpen);
+  store.set(`labeller:v${sample.version}:${target}:index`, firstOpen === -1 ? 0 : firstOpen);
   shownAt = null;
-  chooseReader(data.reader);
+  chooseReader(target);
+}
+
+// ---------- the reading standard: a small Markdown renderer (headings, paragraphs, lists, tables, **bold**,
+// `code`) that builds DOM nodes, so nothing in the file is ever parsed as HTML ----------
+function inline(text) {
+  return text.split(/(\*\*[^*]+\*\*|`[^`]+`)/).filter(Boolean).map((part) =>
+    part.startsWith("**") ? el("strong", {}, part.slice(2, -2)) : part.startsWith("`") ? el("code", {}, part.slice(1, -1)) : part);
+}
+function renderMarkdown(source) {
+  const nodes = [];
+  for (const block of source.replace(/\r\n/g, "\n").trim().split(/\n\s*\n/)) {
+    const lines = block.split("\n");
+    const heading = lines[0].match(/^(#{1,3})\s+(.*)$/);
+    if (heading && lines.length === 1) {
+      nodes.push(el(`h${heading[1].length}`, {}, inline(heading[2])));
+    } else if (lines.every((line) => line.trim().startsWith("|"))) {
+      const cells = (line) => line.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+      const rows = lines.filter((line) => !/^\s*\|?\s*:?-{3,}/.test(line)).map(cells);
+      nodes.push(el("table", {}, el("thead", {}, el("tr", {}, rows[0].map((c) => el("th", {}, inline(c))))),
+                    el("tbody", {}, rows.slice(1).map((r) => el("tr", {}, r.map((c) => el("td", {}, inline(c))))))));
+    } else if (/^[-*]\s/.test(lines[0])) {
+      const items = [];
+      for (const line of lines) {
+        if (/^[-*]\s/.test(line)) items.push(line.replace(/^[-*]\s+/, ""));
+        else items[items.length - 1] += " " + line.trim();
+      }
+      nodes.push(el("ul", {}, items.map((item) => el("li", {}, inline(item)))));
+    } else {
+      nodes.push(el("p", {}, inline(lines.map((l) => l.trim()).join(" "))));
+    }
+  }
+  return nodes;
 }
 
 // ---------- rendering ----------
@@ -320,10 +371,13 @@ function renderForm(id) {
   const status = el("span", {class: "status"});
   const reqNote = el("span", {class: "req"});
   const faultReq = el("span", {class: "req"});
+  const faultHelp = el("div", {class: "fault-help muted"});
   const update = () => {
     const gaps = missing(label);
     status.className = `status ${gaps.length ? "todo" : "done"}`;
     status.textContent = gaps.length ? `Still needed: ${gaps.join(", ")}` : "Labelled";
+    if (reader === REVIEW) status.textContent += changedFromFirst(id) ? " · changed from your first label" : " · same as your first label";
+    faultHelp.textContent = label.fault ? `${FAULT_NAMES[label.fault]}: ${FAULT_HELP[label.fault]}` : "";
     const needed = label.verdict && label.verdict !== "pass";
     reqNote.textContent = needed ? " required" : " for fail and unsure";
     faultReq.textContent = needed ? " required" : " for fail and unsure";
@@ -331,7 +385,7 @@ function renderForm(id) {
     save();
   };
   const radios = (name, values, names, key) => values.map((value) =>
-    el("label", {class: "opt"},
+    el("label", {class: "opt", title: key === "fault" ? FAULT_HELP[value] : null},
        el("input", {type: "radio", name, value, checked: label[key] === value,
                     onchange: () => { label[key] = value; update(); }}),
        names ? names[value] : value));
@@ -341,14 +395,15 @@ function renderForm(id) {
     return area;
   };
   const form = el("form", {class: "card", onsubmit: (e) => e.preventDefault()},
-    el("h2", {}, "Your label"),
+    el("h2", {}, reader === REVIEW ? "Your label (re-review: prefilled from your first label)" : "Your label"),
     el("div", {class: "field"}, el("span", {class: "lbl"}, "Verdict ", el("span", {class: "req"}, "required")),
        radios("verdict", VERDICTS, null, "verdict")),
     el("div", {class: "field"}, el("span", {class: "lbl"}, "The first thing that went wrong", reqNote),
        text("first_failure", "Specific enough that someone else could find it")),
     el("div", {class: "field"}, el("span", {class: "lbl"}, "Whose fault", faultReq),
        radios("fault", FAULTS, FAULT_NAMES, "fault"),
-       el("button", {type: "button", onclick: () => { label.fault = null; form.querySelectorAll("input[name=fault]").forEach((r) => r.checked = false); update(); }}, "clear")),
+       el("button", {type: "button", onclick: () => { label.fault = null; form.querySelectorAll("input[name=fault]").forEach((r) => r.checked = false); update(); }}, "clear"),
+       faultHelp),
     el("div", {class: "field"}, el("span", {class: "lbl"}, "How it got there ", el("span", {class: "req muted"}, "optional")),
        text("how", "From its reasoning or its steps; including a pass that got there by luck or for the wrong reason")),
     el("div", {class: "nav"},
@@ -414,6 +469,7 @@ function go(next) {
 function chooseReader(name) {
   if (reader) flushTime();
   reader = name || null;
+  if (reader === REVIEW && !firstLabels) reader = null;
   document.getElementById("reader").value = reader || "";
   document.getElementById("export").disabled = !reader;
   store.set("labeller:reader", reader);
@@ -425,6 +481,7 @@ function chooseReader(name) {
     return;
   }
   labels = store.get(labelsKey()) || {};
+  if (reader === REVIEW) { prefillFromFirst(); save(); }
   const saved = store.get(indexKey());
   index = Number.isInteger(saved) && saved >= 0 && saved < order().length ? saved : 0;
   renderTrace();
@@ -459,6 +516,20 @@ document.getElementById("guide-link").addEventListener("click", (e) => {
   }
   document.getElementById("loading").remove();
   document.getElementById("import").disabled = false;
+  const guide = document.getElementById("guide");
+  try {
+    const response = await fetch(DATA + "standard.md");
+    if (!response.ok) throw new Error(response.status);
+    guide.replaceChildren(...renderMarkdown(await response.text()));
+  } catch (error) {
+    guide.replaceChildren(el("p", {class: "muted"}, `Couldn't load the reading standard (${DATA}standard.md).`));
+  }
+  try {
+    const response = await fetch(DATA + "labels-simar.json");
+    if (!response.ok) throw new Error(response.status);
+    firstLabels = Object.fromEntries((await response.json()).labels.map((l) => [l.trial_id, l]));
+    document.querySelector(`#reader option[value=${REVIEW}]`).disabled = false;
+  } catch { /* no first labels: the re-review pass stays unavailable */ }
   chooseReader(store.get("labeller:reader") || "");
 })();
 </script>
