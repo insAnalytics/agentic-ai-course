@@ -6689,6 +6689,35 @@ spot check and the m02 task gap) is in
    over the union, whole labels compared, any set_model counted, verdict
    ignored, unsorted, any get_agent as a read-back).
 
+4. **Building a Task Suite** (`04-task-suite`, title provisional) —
+   **Building.** Data: `public/data/eval/suite/grades-2a.json` (each phase
+   2a suite task, its code-check result on every trial of `suite-2a-a`, and
+   whether its reference run passes; written by
+   `scripts/eval/suite_grades.py`, `--check`). Concept 1 (what makes a good
+   task) is built: Anthropic's three tests for a task (unambiguous,
+   everything checked is in the task, a reference solution) and its
+   should/shouldn't balance, the Agentic Benchmark Checklist's findings
+   (Zhu et al., NeurIPS 2025), s13 as a shouldn't-act task beside Lesson
+   3's a19; new shared `suiteData`, `LOAD_SUITE` (shown verbatim, checked
+   by `check-copies.mjs`) and `TRIAGE`; a read-only demo of s13 and a
+   graded `triage(tasks, trials, reference_passes)` exercise (the mockup's
+   hidden tests split into 5 self-contained tests, plus one assertion the
+   mockup lacked, a broken task with no trials, which an ordering bug
+   otherwise passed), then the triage of the 29 tasks (3 read the runs,
+   8 mixed, 18 always pass); 5 quiz cards. Verified in real Pyodide 0.26.4:
+   both demos match the mockup exactly, the reference passes, the starter
+   and seven wrong versions fail. Corrected from the mockup after checking
+   the sources and runs: ABC audited ten benchmarks (of 17 surveyed), not
+   17; Anthropic's broken-task warning is for frontier models over many
+   trials; the priority-tier check was the pilot's (Lesson 1 concept 5),
+   the any-email one the baseline's (Lesson 3 concept 3); s06 and s09:
+   nine of ten runs answered right with an invented citation (eight D07,
+   one D05), the tenth hit the step limit; s05: four of five runs claimed
+   both moves, the fifth hit the step limit. Callbacks: Lesson 1's
+   `#one-run-and-the-words-for-its-parts`, Lesson 1 concept 5's
+   `#the-pilot-went-round-once`, Lesson 3 concept 3's `#the-grader`
+   (anchors verified). No bookends yet.
+
 ### Old-plan outline (where it was Module 4)
 
 *Rough outline — deliberately sequenced before Modules 5 and 6 ("you

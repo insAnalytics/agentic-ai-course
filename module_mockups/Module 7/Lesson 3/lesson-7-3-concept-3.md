@@ -15,7 +15,7 @@ A failed run isn't always the agent's fault. When you evaluate an agent, you als
 - **The environment**: a tool or the world misbehaving in a way the task didn't intend.
 - **The grader**: the check that judged the run. This one only shows up when a grade is compared with a reading, so readers never pick it; it's found afterwards.
 
-[Lesson 1](→ Module 7, the what to evaluate in an agent lesson, the why an agent is harder to grade than an answer concept, one run, and the words for its parts) said that evaluating an agent evaluates the model and its harness together. Telling them apart still matters, because the fix lives in a different place: a failure in the harness is fixed by changing what the course built, and a failure in the task or the grader isn't the agent's to fix at all. Blaming the agent for a broken test sends you off improving the wrong thing.
+[Lesson 1](→ Module 7, the why agents are hard to grade lesson, the why an agent is harder to grade than an answer concept, one run, and the words for its parts) said that evaluating an agent evaluates the model and its harness together. Telling them apart still matters, because the fix lives in a different place: a failure in the harness is fixed by changing what the course built, and a failure in the task or the grader isn't the agent's to fix at all. Blaming the agent for a broken test sends you off improving the wrong thing.
 
 ---
 

@@ -387,3 +387,61 @@ def tally(assignments: dict[str, str], read: list[str]) -> list[dict]:
              "share": round(runs[category] / len(read), 3)} for category in runs]
     return sorted(rows, key=lambda row: (-row["runs"], -row["tasks"], row["category"]))
 `;
+
+/**
+ * Module 7 Lesson 4's suite file under public/data/eval/suite/: each phase 2a
+ * suite task, its code-check result on every trial, and whether its reference
+ * run passes (written by scripts/eval/suite_grades.py).
+ */
+export function suiteData(...names: string[]): string[] {
+  return names.map((name) => `eval/suite/${name}.json`);
+}
+
+/**
+ * Module 7 Lesson 4's shared setup, introduced in concept 1 and shown there
+ * verbatim (keep the two byte-identical: scripts/check-copies.mjs checks it).
+ * Every demo in the lesson starts from it.
+ */
+export const LOAD_SUITE = String.raw`import json
+from pathlib import Path
+
+SUITE = Path("/data/eval/suite")
+
+
+def load_suite(name: str = "grades-2a") -> dict:
+    """The phase 2a suite: its tasks, each trial's code-check result, and whether each reference run passes."""
+    return json.loads((SUITE / f"{name}.json").read_text(encoding="utf-8"))
+`;
+
+/**
+ * Module 7 Lesson 4 concept 1's triage: the exercise's reference, shown there
+ * as the correct answer by using this constant (with the starter's example
+ * call after it). The demo after the exercise appends it to LOAD_SUITE.
+ */
+export const TRIAGE = String.raw`def triage(tasks: list[dict], trials: dict[str, list[bool]], reference_passes: dict[str, bool]) -> dict[str, str]:
+    """What each task needs before its results can be trusted. The first of these that applies wins:
+
+    "no criteria"    its expect has no checks, no notes and no reference answer, so nothing says what success is
+    "broken"         its reference run fails its own checks, so even a correct run can't pass
+    "not run"        it has no trials
+    "read the runs"  no trial passed: more often a broken task than a hard one, until someone reads them
+    "always passes"  every trial passed
+    "mixed"          some trials passed and some didn't
+    """
+    labels = {}
+    for task in tasks:
+        expect, results = task["expect"], trials.get(task["id"], [])
+        if not (expect.get("checks") or expect.get("notes") or expect.get("answer")):
+            labels[task["id"]] = "no criteria"
+        elif not reference_passes.get(task["id"], False):
+            labels[task["id"]] = "broken"
+        elif not results:
+            labels[task["id"]] = "not run"
+        elif not any(results):
+            labels[task["id"]] = "read the runs"
+        elif all(results):
+            labels[task["id"]] = "always passes"
+        else:
+            labels[task["id"]] = "mixed"
+    return labels
+`;

@@ -534,12 +534,25 @@ Lesson 3's recap sandbox (`MultiFileGradedExercise`, no `setupCode`:
 `check-copies.mjs`'s `CONTAINED` list checks that `LOAD_READING`'s
 `load_reading`, `TALLY`, and the `task_bootstrap` and `read_back` defined
 in concepts 4 and 5's demos appear in it byte for byte.
+Lesson 4 (building a task suite) adds `suiteData(...names)` (files under
+`public/data/eval/suite/`: `grades-2a.json`, 15 KB, each phase 2a suite
+task with its code-check result on every trial of `suite-2a-a.json` and
+whether its reference run passes its own checks, written by
+`scripts/eval/suite_grades.py`, `--check` fails if it's out of date;
+grading needs the registry world, so it's precomputed) and `LOAD_SUITE`
+(`load_suite(name)`; shown verbatim in concept 1, kept identical by the
+copy check), the setup of every demo in the lesson. Concept 1 adds
+`TRIAGE` (`triage(tasks, trials, reference_passes)`: no criteria, broken,
+not run, read the runs, always passes, mixed, first match wins; the
+exercise's reference, passed to its exercise as `namespaceSetup` alongside
+`LOAD_SUITE`'s data). The demo after the exercise appends it to
+`LOAD_SUITE`.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
 code block has drifted: currently the pilot's `tasks.json` against
-`scripts/eval/tasks/pilot.json`, `LOAD_PILOT` and `LOAD_READING` against
-the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
+`scripts/eval/tasks/pilot.json`, `LOAD_PILOT`, `LOAD_READING` and `LOAD_SUITE`
+against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
 the demos that show them, the replay exercise's static provided block
 against its constant, and each `public/data/eval/code/*.py` against its
 source. A second list, `CONTAINED`, checks that code a page shows appears
