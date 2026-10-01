@@ -564,20 +564,28 @@ Lesson 4's recap sandbox (`MultiFileGradedExercise`, no `setupCode`:
 `load_suite` and `triage`; `check-copies.mjs`'s `CONTAINED` list checks
 that `LOAD_SUITE`'s `load_suite` and `TRIAGE` appear in it byte for byte.
 Lesson 5 (code graders) reuses `LOAD_SUITE`, shown again verbatim in
-concept 1 (a second copy-check pair). Concept 1 adds
+concepts 1 and 2 (a copy-check pair each). Concept 1 adds
 `suite/end-states.json` (7 KB: the registry as every trial starts it, and
 five baseline-a trials' requests, faults, expected registry changes and
 outbox, final states and first 140 characters of the last answer), written
 by `scripts/eval/end_states.py` (`--check`), and `STATE_DIFF`
 (`state_diff(initial, final, changes)`, the exercise's reference; the demo
 after the exercise appends it to `LOAD_SUITE`). The exercise needs no
-setup or data: its hidden tests build their own registries.
+setup or data: its hidden tests build their own registries. Concept 2
+adds `suite/reply-answers.json` (87 KB: the final answer, current
+`answer_includes` and first-written `answer_includes_v1` of every
+baseline and phase 2a suite trial of a dev task with an answer check),
+written by `scripts/eval/reply_answers.py` (`--check`), and `CONTAINS`
+(`normalize` and `contains`, the exercise's reference: the same matcher as
+`grading.py`'s `contains` version 2; the starter takes its `normalize`
+from it). The second demo's hidden setup is `LOAD_SUITE`, `CONTAINS` and
+the first demo's `contains_v0`/`contains_v1` without its printing.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
 code block has drifted: currently the pilot's `tasks.json` against
 `scripts/eval/tasks/pilot.json`, `LOAD_PILOT`, `LOAD_READING` and `LOAD_SUITE`
-(twice: Lessons 4 and 5) against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
+(Lesson 4 concept 1, Lesson 5 concepts 1 and 2) against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
 the demos that show them, the replay exercise's static provided block
 against its constant, and each `public/data/eval/code/*.py` against its
 source. A second list, `CONTAINED`, checks that code a page shows appears

@@ -475,3 +475,29 @@ export const STATE_DIFF = String.raw`def state_diff(initial: dict, final: dict, 
                     problems.append(f"{agent}.{field}: expected {want!r}, got {got!r}")
     return problems
 `;
+
+/**
+ * Module 7 Lesson 5 concept 2's normalize and contains: the exercise's
+ * reference (the same matcher as grading.py's contains, version 2), shown
+ * there as the correct answer by using this constant (with the starter's
+ * example call after it). The demo after the exercise loads it as hidden setup.
+ */
+export const CONTAINS = String.raw`import re
+
+
+def normalize(text: str) -> str:
+    """Lower case, a straight apostrophe for a curly one, and single spaces."""
+    return re.sub(r"\s+", " ", text.lower().replace("\u2019", "'")).strip()
+
+
+def contains(text: str, phrase: str) -> bool:
+    """Whether the text contains the phrase as whole words, after normalizing both."""
+    text, phrase = normalize(text), normalize(phrase)
+    start = r"(?<!\w)" if re.match(r"\w", phrase[0]) else ""
+    if phrase[-1].isdigit():
+        # a number may be followed by a unit, but not by more digits or a decimal or thousands part
+        end = r"(?![0-9]|[.,][0-9])"
+    else:
+        end = r"(?!\w)" if re.match(r"\w", phrase[-1]) else ""
+    return re.search(start + re.escape(phrase) + end, text) is not None
+`;

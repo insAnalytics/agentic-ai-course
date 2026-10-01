@@ -6867,8 +6867,30 @@ torch 2.13.0+cu130, `torchaudio` removed,
    should have asked about, not "the wrong agent". 5 quiz cards.
    Callbacks: Module 2 Lesson 6 concept 4's
    `#a-deterministic-check-on-real-state`, Lesson 1 concept 1's
-   `#the-reply-isn-t-the-outcome` (anchors verified). Concepts 2 onward
-   and the bookends are not drafted yet.
+   `#the-reply-isn-t-the-outcome` (anchors verified).
+   Concept 2 (checking the reply in code) is built: what code can check in
+   a reply (facts, forbidden phrases, formats; Anthropic's guide on string
+   matches as code graders), substring vs whole-word matching and the
+   "840ms" failure (first demo, `contains_v0`/`contains_v1`), a graded
+   `contains(text, phrase)` exercise with the number rule (the mockup's 17
+   cases split into 4 tests by theme), and both matchers on the 115
+   dev-task runs with answer checks (`suite/reply-answers.json`, written by
+   `scripts/eval/reply_answers.py`, `--check`, identical to the zip's copy
+   apart from line endings): 13 fixed by the number rule (all a03 and m03,
+   the latency written with its unit), 3 by s29's date alternatives, 2
+   still failing (step limit, no answer); then paraphrase, forbidden
+   phrases and correctness as what code can't check. Verified in real
+   Pyodide 0.26.4: the reference passes all 4 tests, the starter fails all
+   4, and eight wrong versions each fail (whole-word only, substring, no
+   `re.escape`, `\b` on both sides, anything after a digit, no dot after a
+   digit, no normalizing, `lower()` only); both demos match the mockup
+   exactly. Corrected from the mockup: `grading.py` matched whole words
+   from its first commit, so the substring test is presented as the
+   obvious first idea the matcher was written against, not a shipped
+   version; the 13-runs bullet says the latency's unit was what failed
+   (the error rates passed either way). 5 quiz cards. Callback: Lesson 3
+   concept 3's `#the-grader` (anchor verified); Lesson 6 is plain prose.
+   Concepts 3 onward and the bookends are not drafted yet.
 
 ### Old-plan outline (where it was Module 4)
 
