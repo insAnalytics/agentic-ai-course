@@ -6474,7 +6474,30 @@ architecture.md §3.1).
    span kinds; 5 quiz cards. Both live demos reproduce the mockup's output
    exactly in real Pyodide 0.26.4 with the page's own setup strings.
    Callback to Module 4 Lesson 12's seeing-inside-each-request (page
-   link). Further concepts and bookends not yet drafted.
+   link).
+   Concept 3 (what this course adds to a trace) is built: the three
+   records outside the conventions (manifest, check records, version
+   record) under a `registry_agent.` prefix; Module 4's 17-turn task
+   traced, with `build_context` spans carrying the manifest and
+   `gen_ai.conversation.compacted` on every call from turn 10; checks as
+   spans (blocks keep `UNSET`, passes recorded too); a graded
+   `traced_checks` exercise (hidden tests split into 5 self-contained
+   tests); the registry agent instrumented with `TracedChat`, `instrument`
+   and `config_hash`; 5 quiz cards. New shared constants `TRACED_CHECKS`,
+   `INSTRUMENT_WRAPPERS` and `INSTRUMENT`, and
+   `scripts/eval/course/m7trace.py` built from them for the main runs
+   (imports cleanly; its `config_hash` gives the demo's `02755d619c75`).
+   Verified in real Pyodide 0.26.4 with the page's own setup strings: both
+   demos match the mockup exactly; the reference passes all 5 tests, the
+   starter fails, and eleven wrong versions each fail (a closure defined in
+   a loop, tool attributes at every point, blocks marked `ERROR`, only
+   blocks recorded, the check called twice, the action from the wrong
+   point, copied arguments, a swallowed crash, defaults left unwrapped,
+   every verdict "blocked"). Callbacks: Module 4 Lesson 12's
+   seeing-inside-each-request and measuring-the-before-and-after, Module 6
+   Lesson 3's what-a-failed-check-does and Lesson 8's pinning page, Module
+   2 Lesson 11's `#the-fix-by-hand-a-tracing-hook`. Further concepts and
+   bookends not yet drafted.
 
 ### Old-plan outline (where it was Module 4)
 

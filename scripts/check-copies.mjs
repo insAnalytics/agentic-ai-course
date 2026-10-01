@@ -51,6 +51,17 @@ const PAIRS = [
       },
     ],
   },
+  {
+    what: "INSTRUMENT_WRAPPERS (Module 7 Lesson 2 concept 3)",
+    a: ["src/lib/evalData.ts", () => rawConstant("src/lib/evalData.ts", "INSTRUMENT_WRAPPERS")],
+    b: [
+      "the page's instrumentation demo, up to its run",
+      () => {
+        const demo = rawConstant("src/content/modules/07-evaluation/02-tracing/03-what-this-course-adds.mdx", "INSTRUMENT_DEMO");
+        return demo.slice(0, demo.indexOf("\n\n\nSYSTEM = ")) + "\n";
+      },
+    ],
+  },
 ];
 
 let failed = false;

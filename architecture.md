@@ -452,12 +452,27 @@ capture_content=False)`: a pilot trial rebuilt as spans with
 OpenTelemetry's GenAI names, no timings since the pilot recorded none),
 appended after `TRACING_SETUP` + `TRACER`; it's the first half of concept
 2's first demo, and the copy check keeps the two identical.
+Concept 3 adds `TRACED_CHECKS` (`POINTS`, `ACTIONS`, `traced_checks`: the
+exercise's reference, shown as the correct answer via the constant itself)
+and `INSTRUMENT_WRAPPERS` (`TracedChat`, `instrument`, `config_hash`: the
+instrumentation demo up to its run, kept identical by the copy check);
+`INSTRUMENT` is the two joined. This is the instrumentation the module's
+main runs use: `scripts/eval/build_course_libs.py` builds
+`scripts/eval/course/m7trace.py` from `TRACER`, `TRACED_CHECKS` and
+`INSTRUMENT_WRAPPERS` (with `import json` and `from m6loop import Checks`,
+which are globals on the page), and `--check` fails if it drifts. Concept
+3's first demo imports Module 4's `INSPECT_SETUP` straight from that
+lesson's seeing-inside-each-request page and appends `TRACER`; its
+exercise loads the fake client, `COUNT_TOKENS`, `CHECKED_AGENT` and
+`TRACER` as `namespaceSetup`, since the learner's function uses `Checks`
+and `Tracer` as globals.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
 code block has drifted: currently the pilot's `tasks.json` against
 `scripts/eval/tasks/pilot.json`, `LOAD_PILOT` against the page's static
-setup block, and `TRACE_FROM_RECORDING` against the demo that shows it. Add any new must-stay-identical pair to its `PAIRS` list.
+setup block, and `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
+the demos that show them. Add any new must-stay-identical pair to its `PAIRS` list.
 
 **Loading rule (every Module 5, 6 and 7 page):** fetch these files at runtime, on the
 learner's first Run click, and let the browser cache them — never `import`

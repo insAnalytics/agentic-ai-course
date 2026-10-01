@@ -1,0 +1,503 @@
+---
+title: "What this course adds to a trace"
+lesson: "02-tracing"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, COUNT_TOKENS } from "../../../../lib/fakeClient";
+import { CHECKED_AGENT } from "../../../../lib/reliabilityData";
+import { TRACER, TRACED_CHECKS } from "../../../../lib/evalData";
+import { INSPECT_SETUP } from "../../04-context-and-memory/12-assembling-the-context-step/03-seeing-inside-each-request.mdx";
+
+export const CONTEXT_SPAN_SETUP =
+  // Module 4's 17-turn task with its real context step, plus this lesson's tracer
+  INSPECT_SETUP + "\n\n" + TRACER;
+
+export const CHECKS_SETUP =
+  // loaded into the exercise's namespace: the fake client, _plain, Module 6's loop and the tracer
+  REACT_FAKE_CLIENT + COUNT_TOKENS + CHECKED_AGENT + "\n\n" + TRACER;
+
+export const INSTRUMENT_SETUP =
+  // the exercise's reference traced_checks, loaded before the instrumentation demo
+  CHECKS_SETUP + "\n\n" + TRACED_CHECKS;
+
+export const CONTEXT_SPAN_DEMO = String.raw`class TracedLLM:
+    """A client whose every model call is a chat span. Everything else, such as its log, is the client's own."""
+
+    def __init__(self, client, tracer: Tracer, model: str):
+        self.client, self.tracer, self.model = client, tracer, model
+
+    def create(self, messages: list, **kwargs):
+        attributes = {"gen_ai.operation.name": "chat", "gen_ai.request.model": self.model}
+        first = messages[0]["content"]
+        # the conventions mark a call whose context is a compacted view of the conversation
+        if isinstance(first, str) and "<summary_of_earlier_work>" in first:
+            attributes["gen_ai.conversation.compacted"] = True
+        with self.tracer.span(f"chat {self.model}", attributes):
+            return self.client.create(messages=messages, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self.client, name)
+
+
+class TracedContext:
+    """Module 4's context step, inspected as before, with each build recorded as a span carrying its manifest."""
+
+    def __init__(self, inspected, tracer: Tracer):
+        self.inspected, self.tracer = inspected, tracer
+
+    def build(self, history: list) -> dict:
+        with self.tracer.span("build_context") as span:
+            request = self.inspected.build(history)
+            manifest = self.inspected.manifests[-1]
+            span.attributes["registry_agent.context.step"] = manifest["step"]
+            for section, tokens in manifest["sections"].items():
+                span.attributes[f"registry_agent.context.tokens.{section}"] = tokens
+            span.attributes["registry_agent.context.tokens.total"] = manifest["total"]
+            span.attributes["registry_agent.context.cleared_results"] = manifest["cleared_results"]
+            span.attributes["registry_agent.context.extra_calls"] = manifest["extra_calls"]
+            return request
+
+
+memory, notes, results, block = fresh()
+tracer = Tracer()
+llm = TracedLLM(WindowedScripted(script(), window=3_500), tracer, "scripted")
+context = ContextManager(llm, BASE, TOOLS, window=3_500, max_tokens=1_000, memory=memory, user_id="u_simar", task=TASK,
+                         now="2026-09-28T09:00:00", block=block, notes=notes, results=results, write_tools=["set_cache"])
+with tracer.span("invoke_agent ops_agent"):
+    answer, history, sent = run(TracedContext(Inspected(context, llm), tracer), llm, TASK, make_impls(notes, results, block))
+
+root = tracer.spans[0]
+builds = [span for span in tracer.spans if span.name == "build_context"]
+turn_calls = [span for span in tracer.spans if span.parent_id == root.span_id and span.name.startswith("chat")]
+for turn in (9, 10, 11):
+    build, call = builds[turn - 1], turn_calls[turn - 1]
+    a = build.attributes
+    print(f"turn {turn}")
+    print(f"    build_context  step={a['registry_agent.context.step']}  total={a['registry_agent.context.tokens.total']}  "
+          f"summary={a['registry_agent.context.tokens.summary']}  extra_calls={a['registry_agent.context.extra_calls']}")
+    for span in tracer.spans:
+        if span.parent_id == build.span_id:
+            print(f"        {span.name}")
+    print(f"    {call.name}  compacted={call.attributes.get('gen_ai.conversation.compacted', False)}")
+`;
+
+export const STARTER = String.raw`POINTS = ("before_model", "before_tool", "after_tool", "before_answer")
+# what Module 6's loop does when a check at each point gives a reason
+ACTIONS = {"before_model": "stopped the run", "before_tool": "returned to the model as an error",
+           "after_tool": "returned to the model as an error", "before_answer": "withheld the answer"}
+
+
+def traced_checks(checks: Checks, tracer: Tracer) -> Checks:
+    """The same checks, each call recorded as a span: where it ran, on what, and what it decided."""
+    # your code here
+`;
+
+export const TESTS = [
+// each hidden test runs in its own copy of the learner's namespace, so every test defines what it uses
+String.raw`call = ToolUseBlock("set_model", {"agent_name": "research_agent", "model": "claude-opus"})
+calls = []
+
+
+def blocks_errors(call, output):
+    calls.append(("after_tool", call.name))
+    return output if output.startswith("Error:") else None
+
+
+def no_secrets(answer):
+    calls.append(("before_answer", answer))
+    return "mentions a password" if "password" in answer else None
+
+
+tracer = Tracer()
+original = Checks(after_tool=blocks_errors, before_answer=no_secrets)
+traced = traced_checks(original, tracer)
+assert isinstance(traced, Checks), "traced_checks should return a Checks object"
+
+try:
+    first = traced.after_tool(call, '{"status": "ok"}')
+except TypeError:
+    raise AssertionError("each point's wrapper must call that point's own check; "
+                         "a closure created in a loop can end up calling the last check instead")
+assert first is None, "a check that passes should still return None"
+assert traced.after_tool(call, "Error: REG-1007") == "Error: REG-1007", "a check that blocks should return its reason unchanged"
+try:
+    clean_answer = traced.before_answer("Moved it.")
+except AttributeError:
+    raise AssertionError("only before_tool and after_tool receive a tool call; don't read tool attributes at the other points")
+assert clean_answer is None, "before_answer should pass a clean answer"
+assert traced.before_answer("The password is x") == "mentions a password", "before_answer should return the original check's reason"
+assert calls == [("after_tool", "set_model"), ("after_tool", "set_model"), ("before_answer", "Moved it."),
+                 ("before_answer", "The password is x")], \
+    "each wrapped check should call the original exactly once, with the same arguments, at its own point"
+
+assert len(tracer.spans) == 4, f"every call to a wrapped check records one span: expected 4, got {len(tracer.spans)}"
+passed, blocked, clean, withheld = tracer.spans
+assert [s.name for s in tracer.spans] == ["check after_tool"] * 2 + ["check before_answer"] * 2, \
+    "name each span \"check <point>\""
+assert passed.attributes == {"registry_agent.check.point": "after_tool", "gen_ai.tool.name": "set_model",
+                             "gen_ai.tool.call.id": call.id, "registry_agent.check.verdict": "passed"}, \
+    f"a passing tool check records its point, the tool's name and call id, and verdict \"passed\": got {passed.attributes}"
+assert blocked.attributes == {"registry_agent.check.point": "after_tool", "gen_ai.tool.name": "set_model",
+                              "gen_ai.tool.call.id": call.id, "registry_agent.check.verdict": "blocked",
+                              "registry_agent.check.reason": "Error: REG-1007",
+                              "registry_agent.check.action": "returned to the model as an error"}, \
+    f"a blocking check also records its reason and what the loop does next: got {blocked.attributes}"
+assert clean.attributes == {"registry_agent.check.point": "before_answer", "registry_agent.check.verdict": "passed"}, \
+    f"a check that isn't on a tool call records no tool attributes: got {clean.attributes}"
+assert withheld.attributes["registry_agent.check.action"] == "withheld the answer", \
+    "the action comes from ACTIONS for the check's own point"
+assert all(s.status == "UNSET" for s in tracer.spans), \
+    "a check that blocks did its job: that isn't an error, so leave the status alone"
+`,
+String.raw`call = ToolUseBlock("set_model", {"agent_name": "research_agent", "model": "claude-opus"})
+
+tracer = Tracer()
+traced = traced_checks(Checks(), tracer)
+messages = [{"role": "user", "content": "hi"}]
+assert traced.before_model(messages) is None and traced.before_tool(call, messages) is None, \
+    "the default checks pass, and their wrapped versions should too"
+assert [s.attributes["registry_agent.check.point"] for s in tracer.spans] == ["before_model", "before_tool"], \
+    "every one of the four points is wrapped, including checks left at their default"
+`,
+String.raw`messages = [{"role": "user", "content": "hi"}]
+
+seen = []
+traced = traced_checks(Checks(before_model=lambda m: seen.append(m)), Tracer())
+traced.before_model(messages)
+assert seen[0] is messages, "pass the check the very same arguments, not copies"
+`,
+String.raw`def broken(answer):
+    raise ValueError("check crashed")
+
+
+tracer = Tracer()
+try:
+    traced_checks(Checks(before_answer=broken), tracer).before_answer("x")
+except ValueError:
+    pass
+else:
+    raise AssertionError("a check that raises should still raise once it's wrapped")
+assert tracer.spans[0].status == "ERROR", "a check that crashes is recorded as an ERROR span"
+`,
+String.raw`call = ToolUseBlock("set_model", {"agent_name": "research_agent", "model": "claude-opus"})
+calls = []
+
+
+def blocks_errors(call, output):
+    calls.append(("after_tool", call.name))
+    return output if output.startswith("Error:") else None
+
+
+def no_secrets(answer):
+    calls.append(("before_answer", answer))
+    return "mentions a password" if "password" in answer else None
+
+
+# the agent behaves exactly as before
+def run(checks):
+    ToolUseBlock._next_id = 1
+    client = FakeLLMClient(scripted_responses=[[ToolUseBlock("set_model", {"agent_name": "research_agent", "model": "claude-opus"})],
+                                               [TextBlock("It can't be moved.")]])
+    messages = [{"role": "user", "content": "Move research_agent to claude-opus."}]
+    tools = {"set_model": lambda agent_name, model: "Error: REG-1007 claude-opus is not allowed on tier standard"}
+    answer = run_checked_agent(client, messages, tools, checks)
+    return answer, _plain(messages)
+
+
+assert run(traced_checks(Checks(after_tool=blocks_errors), Tracer())) == run(Checks(after_tool=blocks_errors)), \
+    "wrapping the checks must not change what the agent does"
+`,
+];
+
+export const INSTRUMENT_DEMO = String.raw`import dataclasses
+import hashlib
+
+
+class TracedChat:
+    """A client for Module 6's loop, with each model call as a chat span named and described by the conventions."""
+
+    def __init__(self, client, tracer: Tracer, model: str, provider: str):
+        self.client, self.tracer, self.model, self.provider = client, tracer, model, provider
+
+    def create(self, messages: list):
+        attributes = {"gen_ai.operation.name": "chat", "gen_ai.provider.name": self.provider,
+                      "gen_ai.request.model": self.model}
+        with self.tracer.span(f"chat {self.model}", attributes) as span:
+            response = self.client.create(messages=messages)
+            # a real client reports these; the course's scripted client doesn't, so they're added only when present
+            if usage := getattr(response, "usage", None):
+                span.attributes["gen_ai.usage.input_tokens"] = usage["input_tokens"]
+                span.attributes["gen_ai.usage.output_tokens"] = usage["output_tokens"]
+            if answered := getattr(response, "model", None):
+                span.attributes["gen_ai.response.model"] = answered
+            span.attributes["registry_agent.tool_calls"] = [b.name for b in response.content if b.type == "tool_use"]
+            return response
+
+
+def instrument(client, tools: dict, checks: Checks, tracer: Tracer, model: str, provider: str):
+    """The agent's client, tools and checks, each recording spans; Module 6's loop runs them unchanged."""
+    # before_tool always runs just before its tool, so it can tell the tool's span which call it belongs to
+    current = {}
+
+    def remember(check):
+        def run(call, messages):
+            current["call"] = call
+            return check(call, messages)
+        return run
+
+    def wrap_tool(name, function):
+        def call(**arguments):
+            attributes = {"gen_ai.operation.name": "execute_tool", "gen_ai.tool.name": name,
+                          "gen_ai.tool.call.id": current["call"].id, "gen_ai.tool.type": "function"}
+            with tracer.span(f"execute_tool {name}", attributes) as span:
+                output = function(**arguments)
+                if str(output).startswith("Error:"):
+                    span.status = "ERROR"
+                    span.attributes["error.type"] = "tool_error"
+                return output
+        return call
+
+    traced = traced_checks(dataclasses.replace(checks, before_tool=remember(checks.before_tool)), tracer)
+    return (TracedChat(client, tracer, model, provider),
+            {name: wrap_tool(name, function) for name, function in tools.items()}, traced)
+
+
+def config_hash(system: str, tools: list) -> str:
+    """Module 6's record_run hash of the prompt and tool definitions."""
+    config = json.dumps({"system": system, "tools": tools}, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(config.encode("utf-8")).hexdigest()[:12]
+
+
+SYSTEM = "You are the operations assistant for the company's agent registry."
+TOOL_SPECS = [{"name": "set_model", "description": "Change the model an agent runs on.", "input_schema": {"type": "object"}}]
+tools = {"set_model": lambda agent_name, model: 'Error: {"code": "REG-1007", "message": "claude-opus is not allowed on tier standard"}'}
+checks = Checks(after_tool=lambda call, output: output if output.startswith("Error:") else None)
+client = FakeLLMClient(scripted_responses=[
+    [ToolUseBlock("set_model", {"agent_name": "research_agent", "model": "claude-opus"})],
+    [TextBlock("I couldn't: claude-opus isn't allowed on research_agent's standard tier.")],
+])
+
+tracer = Tracer()
+root_attributes = {"gen_ai.operation.name": "invoke_agent", "gen_ai.agent.name": "registry_agent",
+                   "gen_ai.request.model": "scripted", "registry_agent.config_hash": config_hash(SYSTEM, TOOL_SPECS)}
+with tracer.span("invoke_agent registry_agent", root_attributes):
+    traced_client, traced_tools, traced = instrument(client, tools, checks, tracer, model="scripted", provider="course.fake")
+    messages = [{"role": "user", "content": "Move research_agent to claude-opus."}]
+    answer = run_checked_agent(traced_client, messages, traced_tools, traced)
+
+# the attributes worth reading at a glance; the trace holds the rest
+SHOWN = ("registry_agent.config_hash", "registry_agent.tool_calls", "registry_agent.check.verdict",
+         "registry_agent.check.action", "error.type")
+for span in tracer.spans:
+    depth = 0 if span.parent_id is None else 1
+    shown = {key.split(".")[-1]: span.attributes[key] for key in SHOWN if key in span.attributes}
+    status = "  ERROR" if span.status == "ERROR" else ""
+    print(f"{'    ' * depth}{span.name}{status}  {shown or ''}")
+print("\nanswer:", answer)
+`;
+
+<Subsection title="Three records the conventions don't cover" variant="a">
+
+OpenTelemetry's conventions describe model calls and tool calls. Three of
+the records this course has kept fall outside them:
+
+- **The context step's manifest.**
+  [Module 4](/04-context-and-memory/12-assembling-the-context-step/03-seeing-inside-each-request/)
+  recorded what went into each request, section by section, and said this
+  module would build the tracing that the manifest is the context step's
+  part of.
+- **Module 6's check records.**
+  [Module 6](/06-reliability/03-checks-in-the-loop/03-what-a-failed-check-does/)
+  said to record which check fired, on what, and what happened next, and
+  that this module would build those records into traces.
+- **The version record.**
+  [Module 6's `record_run`](/06-reliability/08-graceful-degradation/04-pinning-model-and-prompt-versions/)
+  kept the model asked for, the model that answered, and a hash of the
+  prompt and tool definitions.
+
+A span can carry any attributes, so these go in as attributes of the
+course's own. OpenTelemetry's naming guidance is to prefix names like these
+with your company's reverse domain name, or with your application's name if
+they're only used inside it, and never to borrow a namespace the
+conventions already use, such as `gen_ai`, where a future version could
+define the same name differently. This course uses `registry_agent.` as its
+prefix.
+
+All three are added the way
+[Module 2's tracing hook](/02-the-agent-loop/11-from-hand-rolled-to-a-runtime/01-what-a-framework-actually-provides/#the-fix-by-hand-a-tracing-hook)
+worked: by wrapping the pieces the loop calls, so the loop itself doesn't
+change.
+
+</Subsection>
+
+<Subsection title="The context step as a span" variant="b">
+
+The demo runs
+[Module 4's 17-turn task](/04-context-and-memory/12-assembling-the-context-step/02-measuring-the-before-and-after/)
+again, with its real context step and its scripted model. Two wrappers do
+the tracing. `TracedContext` wraps Module 4's `Inspected`, which already
+builds a manifest for each request, opens a `build_context` span around
+each build, and copies the manifest onto it. `TracedLLM` makes each model
+call a chat span. When a call's first message holds a summary of earlier
+work, it sets the conventions' own attribute for that,
+`gen_ai.conversation.compacted`. The demo prints the turns around the
+compaction:
+
+<LiveDemo client:load setupCode={CONTEXT_SPAN_SETUP} code={CONTEXT_SPAN_DEMO} />
+
+*(The model's replies are scripted, and token counts are the course's
+~4-characters-per-token estimate. Module 4's context step and this
+lesson's `Tracer` are already loaded for you.)*
+
+The numbers are the ones Module 4's manifest table showed: 2,151 tokens on
+turn 9, then on turn 10 a compaction that brings the request down to 1,157
+with a 94-token summary. The trace adds two things the table couldn't:
+
+- **Where the extra call went.** The summary request on turn 10 sits inside
+  that turn's `build_context` span, so the wait it caused belongs visibly
+  to building the request, not to the agent's own call.
+- **Which calls ran on a compacted view.** Every model call from turn 10
+  onwards carries `gen_ai.conversation.compacted`, because every one of
+  them sends the summary in place of the older turns. If an answer goes
+  wrong later in a run, that's one of the first things to check.
+
+</Subsection>
+
+<Subsection title="Checks as spans" variant="a">
+
+A check record says where a check ran, on what, what it decided, and what
+the loop did about it. As a span, that's one `check <point>` span per call,
+with:
+
+- `registry_agent.check.point`: which of Module 6's four points it ran at
+- for checks on a tool call, the conventions' `gen_ai.tool.name` and
+  `gen_ai.tool.call.id`
+- `registry_agent.check.verdict`: `passed` or `blocked`
+- for a block, the check's reason and the action Module 6's loop takes at
+  that point
+
+Two details matter. A check that blocks something hasn't failed, it's done
+its job, so its span keeps status `UNSET` and the verdict attribute records
+the block. And passes are recorded too, not only blocks. Module 6 counted
+each check's catches and false blocks from its records, and a block rate
+needs to know how often a check ran, not just how often it fired.
+(OpenInference has a span kind for exactly this, `GUARDRAIL`;
+OpenTelemetry's GenAI conventions don't have one yet.)
+
+</Subsection>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Write traced_checks(checks, tracer), which returns a new Checks whose four functions each wrap the original at the same point. Each wrapped function: opens a span named check <point> (for example check after_tool) with the attribute registry_agent.check.point set to the point; at before_tool and after_tool only, whose first argument is the tool call, also sets gen_ai.tool.name to the call's name and gen_ai.tool.call.id to its id; calls the original check once, with exactly the arguments it was given; sets registry_agent.check.verdict to \"blocked\" if the check returned a reason, or \"passed\" if it returned None; for a block, also sets registry_agent.check.reason to the reason and registry_agent.check.action to ACTIONS[point]; returns the original check's result unchanged. Don't change any span's status yourself: a block isn't an error, and a check that crashes is already recorded as one by the tracer. Span, Tracer, Checks, run_checked_agent and the fake client are loaded."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  namespaceSetup={CHECKS_SETUP}
+  hint={"Write a helper wrap(point, check) that returns a run(*args) function, and build the result with Checks(**{point: wrap(point, getattr(checks, point)) for point in POINTS}). Passing point and check into wrap gives each wrapper its own copies; defining run directly inside a for loop would leave every wrapper reading the loop's last values. Inside run, build the attributes, then do the work inside with tracer.span(...) as span: so a crashing check still closes its span."}
+  correctAnswer={{
+    code: TRACED_CHECKS,
+    explanation: "Everything that makes the wrapper safe is about not changing behaviour. It calls the original once, with the same arguments, and returns its result, so the agent decides exactly as before; the last test runs Module 6's loop both ways and checks the conversations are identical. The factory function wrap(point, check) gives each wrapper its own point and check: a closure defined directly in a for loop would look those names up when it's called, by which time the loop has moved on to before_answer, so every point would run the last check. Only the two tool points read a tool call from the first argument, because before_model gets the messages and before_answer gets the answer. And the status is left to the tracer: a block is a verdict, recorded as an attribute, while an exception from the check itself is a genuine failure, which the tracer already marks.",
+  }}
+/>
+
+</CheckpointZone>
+
+<Subsection title="Instrumenting the registry agent" variant="b">
+
+With the checks wrapped, the rest is two more wrappers and the version
+record on the root span. `TracedChat` names each model call by the
+conventions and adds the token counts and the answering model when the
+client reports them; the course's scripted client doesn't, so this demo has
+none. Tool spans get their call id from the `before_tool` check, which
+always runs just before the tool. The root span carries Module 6's
+configuration hash. The demo runs a scripted version of the refused change
+from the pilot:
+
+<LiveDemo client:load setupCode={INSTRUMENT_SETUP} code={INSTRUMENT_DEMO} />
+
+*(The model's replies are scripted. `traced_checks` is the exercise's
+reference version, already loaded for you.)*
+
+Everything that happened is in one tree, in order: the model asked for
+`set_model`, the tool failed, the `after_tool` check turned its result into
+an error for the model, the model answered, and the answer passed its
+check. The configuration hash on the root says which prompt and tool
+definitions produced the run, so two runs can be compared knowing whether
+their configuration matched.
+
+This instrumentation is the one the module's main runs use, applied to the
+registry agent's real client, tools and checks. Module 6's loop runs inside
+it unchanged.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "Why does this course name its own attributes registry_agent.check.verdict and so on, rather than gen_ai.check.verdict?",
+      "options": [
+        "A later version of the conventions could define it differently",
+        "Attribute names under gen_ai are rejected by OpenTelemetry's SDK",
+        "Shorter prefixes make each span smaller to store and to send on",
+        "Only the gen_ai namespace may describe model calls and tool calls"
+      ],
+      "correctIndex": 0,
+      "explanation": "OpenTelemetry's guidance is to put your own attributes under your company's or your application's name, and never to borrow a namespace the conventions use, so your names can't collide with ones the conventions add later. Nothing in the SDK rejects such names; the risk is a silent clash, not an error."
+    },
+    {
+      "question": "An after_tool check blocks a tool result and turns it into an error for the model. What status should the check's span have?",
+      "options": [
+        "UNSET: it did its job, and the verdict records the block",
+        "ERROR, since the check found a problem with the tool's result",
+        "OK, since the check ran and returned a reason as it should",
+        "The same status as the tool call span that it was checking"
+      ],
+      "correctIndex": 0,
+      "explanation": "A span's status says whether the step itself failed. A check that blocks something worked as intended, so the block belongs in an attribute, where a query can count it. Marking it ERROR would mix up \"the check caught something\" with \"the check crashed\", which the tracer already records as ERROR."
+    },
+    {
+      "question": "Why record a span for every check that passes, not just the ones that block?",
+      "options": [
+        "Without passes, there's no count of how often each check ran",
+        "The conventions require a span for every function the loop calls",
+        "Passing checks are where most of a run's time tends to go",
+        "A pass might later turn out to have been a block after all"
+      ],
+      "correctIndex": 0,
+      "explanation": "Module 6 judged checks by their catches and false blocks, and a rate needs a denominator: how many times the check ran. Recording only blocks would show that a check fired twice, but not whether that was twice in ten runs or twice in ten thousand."
+    },
+    {
+      "question": "On turn 10 of Module 4's task, the context step compacted the history. Where does the summary request appear in the trace?",
+      "options": [
+        "Inside that turn's build_context span",
+        "As a sibling of the turn's own chat span",
+        "Inside the turn's own chat span, before it",
+        "Nowhere, because it isn't the agent's call"
+      ],
+      "correctIndex": 0,
+      "explanation": "The summary request is made while the context step is building the request, so it nests inside build_context. That's what makes the extra wait show up as part of preparing the turn rather than as part of the agent's own model call."
+    },
+    {
+      "question": "Why do the model calls on turn 11 onwards also carry gen_ai.conversation.compacted, not just turn 10's?",
+      "options": [
+        "Each of them sends the summary in place of the older turns",
+        "The attribute is copied to every span once it's been set",
+        "Compaction happens again at the start of every later turn",
+        "The conventions say to set it on every span after the first"
+      ],
+      "correctIndex": 0,
+      "explanation": "The attribute marks a call whose context is a compacted view of the conversation, and from turn 10 on, every request opens with the summary rather than the turns it replaced. Turn 11 didn't compact again (its step was \"send\"); it's still working from the compacted view."
+    }
+  ]}
+/>
+
+</CheckpointZone>

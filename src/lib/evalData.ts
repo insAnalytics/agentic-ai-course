@@ -159,3 +159,104 @@ export const TRACE_FROM_RECORDING = String.raw`def trace_from_recording(run: dic
             spans.append(tool)
     return spans
 `;
+
+/**
+ * Module 7 Lesson 2 concept 3's traced_checks (with POINTS and ACTIONS): the
+ * exercise's reference, shown there as the correct answer by using this
+ * constant, so the two can't drift.
+ */
+export const TRACED_CHECKS = String.raw`POINTS = ("before_model", "before_tool", "after_tool", "before_answer")
+# what Module 6's loop does when a check at each point gives a reason
+ACTIONS = {"before_model": "stopped the run", "before_tool": "returned to the model as an error",
+           "after_tool": "returned to the model as an error", "before_answer": "withheld the answer"}
+
+
+def traced_checks(checks: Checks, tracer: Tracer) -> Checks:
+    """The same checks, each call recorded as a span: where it ran, on what, and what it decided."""
+    def wrap(point, check):
+        def run(*args):
+            attributes = {"registry_agent.check.point": point}
+            if point in ("before_tool", "after_tool"):
+                call = args[0]
+                attributes |= {"gen_ai.tool.name": call.name, "gen_ai.tool.call.id": call.id}
+            with tracer.span(f"check {point}", attributes) as span:
+                reason = check(*args)
+                span.attributes["registry_agent.check.verdict"] = "blocked" if reason else "passed"
+                if reason:
+                    span.attributes["registry_agent.check.reason"] = reason
+                    span.attributes["registry_agent.check.action"] = ACTIONS[point]
+                return reason
+        return run
+    return Checks(**{point: wrap(point, getattr(checks, point)) for point in POINTS})
+`;
+
+/**
+ * Module 7 Lesson 2 concept 3's TracedChat, instrument and config_hash: the
+ * second demo there, up to its run (keep the two byte-identical:
+ * scripts/check-copies.mjs checks it).
+ */
+export const INSTRUMENT_WRAPPERS = String.raw`import dataclasses
+import hashlib
+
+
+class TracedChat:
+    """A client for Module 6's loop, with each model call as a chat span named and described by the conventions."""
+
+    def __init__(self, client, tracer: Tracer, model: str, provider: str):
+        self.client, self.tracer, self.model, self.provider = client, tracer, model, provider
+
+    def create(self, messages: list):
+        attributes = {"gen_ai.operation.name": "chat", "gen_ai.provider.name": self.provider,
+                      "gen_ai.request.model": self.model}
+        with self.tracer.span(f"chat {self.model}", attributes) as span:
+            response = self.client.create(messages=messages)
+            # a real client reports these; the course's scripted client doesn't, so they're added only when present
+            if usage := getattr(response, "usage", None):
+                span.attributes["gen_ai.usage.input_tokens"] = usage["input_tokens"]
+                span.attributes["gen_ai.usage.output_tokens"] = usage["output_tokens"]
+            if answered := getattr(response, "model", None):
+                span.attributes["gen_ai.response.model"] = answered
+            span.attributes["registry_agent.tool_calls"] = [b.name for b in response.content if b.type == "tool_use"]
+            return response
+
+
+def instrument(client, tools: dict, checks: Checks, tracer: Tracer, model: str, provider: str):
+    """The agent's client, tools and checks, each recording spans; Module 6's loop runs them unchanged."""
+    # before_tool always runs just before its tool, so it can tell the tool's span which call it belongs to
+    current = {}
+
+    def remember(check):
+        def run(call, messages):
+            current["call"] = call
+            return check(call, messages)
+        return run
+
+    def wrap_tool(name, function):
+        def call(**arguments):
+            attributes = {"gen_ai.operation.name": "execute_tool", "gen_ai.tool.name": name,
+                          "gen_ai.tool.call.id": current["call"].id, "gen_ai.tool.type": "function"}
+            with tracer.span(f"execute_tool {name}", attributes) as span:
+                output = function(**arguments)
+                if str(output).startswith("Error:"):
+                    span.status = "ERROR"
+                    span.attributes["error.type"] = "tool_error"
+                return output
+        return call
+
+    traced = traced_checks(dataclasses.replace(checks, before_tool=remember(checks.before_tool)), tracer)
+    return (TracedChat(client, tracer, model, provider),
+            {name: wrap_tool(name, function) for name, function in tools.items()}, traced)
+
+
+def config_hash(system: str, tools: list) -> str:
+    """Module 6's record_run hash of the prompt and tool definitions."""
+    config = json.dumps({"system": system, "tools": tools}, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(config.encode("utf-8")).hexdigest()[:12]
+`;
+
+/**
+ * The instrumentation the module's main runs use: traced_checks plus the
+ * wrappers. Needs TRACER, CHECKED_AGENT's Checks, and json in scope;
+ * scripts/eval/build_course_libs.py builds course/m7trace.py from it.
+ */
+export const INSTRUMENT = TRACED_CHECKS + "\n\n" + INSTRUMENT_WRAPPERS;
