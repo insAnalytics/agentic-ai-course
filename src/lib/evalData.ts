@@ -530,3 +530,29 @@ def unsupported_citations(answer: str, retrieved: list[str]) -> list[str]:
     """The ids the answer cites that no tool returned in the run, sorted."""
     return sorted(cited_ids(answer) - set(retrieved))
 `;
+
+/**
+ * Module 7 Lesson 6's judge file under public/data/eval/judges/: every phase 3
+ * judge decision, without the judges' replies, and for each reply-failure item
+ * whether the task's code checks passed the same run (written by
+ * scripts/eval/judge_digest.py).
+ */
+export function judgesData(...names: string[]): string[] {
+  return names.map((name) => `eval/judges/${name}.json`);
+}
+
+/**
+ * Module 7 Lesson 6's shared setup, introduced in concept 1 and shown there
+ * verbatim (keep the two byte-identical: scripts/check-copies.mjs checks it).
+ * Every demo in the lesson starts from it.
+ */
+export const LOAD_JUDGES = String.raw`import json
+from pathlib import Path
+
+JUDGES = Path("/data/eval/judges")
+
+
+def load_digest() -> dict:
+    """Every phase 3 judge decision, by judge: gemma (Gemma 4 31B) and qwen9b (Qwen3.5-9B)."""
+    return json.loads((JUDGES / "digest.json").read_text(encoding="utf-8"))["judges"]
+`;

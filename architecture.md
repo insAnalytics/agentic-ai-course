@@ -612,12 +612,22 @@ read-only `lib.py` holds `load_cases` and the lesson's `normalize`,
 `contains`, `state_diff`, `cited_ids` and `unsupported_citations`;
 `check-copies.mjs`'s `CONTAINED` list checks that `CONTAINS`,
 `STATE_DIFF` and `CITED_IDS` appear in it byte for byte.
+Lesson 6 (model graders) mounts `public/data/eval/judges/` at
+`/data/eval/judges`. The phase 3 judge runs (`gemma.json`, `qwen9b.json`,
+1.4 and 1.7 MB, each judge's reply to all 3,092 items) are too large to
+load whole on every page, so concept 1 adds `judges/digest.json` (1 MB:
+every decision from both runs without the replies, and for each
+reply-failure item whether the task's code checks passed the same run),
+written by `scripts/eval/judge_digest.py` (`--check`), with
+`judgesData(...)` and `LOAD_JUDGES` (`load_digest`, shown verbatim on
+concept 1, copy-checked) in `evalData.ts`; pages that show replies load
+only those from the run files.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
 code block has drifted: currently the pilot's `tasks.json` against
 `scripts/eval/tasks/pilot.json`, `LOAD_PILOT`, `LOAD_READING` and `LOAD_SUITE`
-(Lesson 4 concept 1, Lesson 5 concepts 1 to 3) against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
+(Lesson 4 concept 1, Lesson 5 concepts 1 to 3) and `LOAD_JUDGES` (Lesson 6 concept 1) against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
 the demos that show them, the replay exercise's static provided block
 against its constant, and each `public/data/eval/code/*.py` against its
 source. A second list, `CONTAINED`, checks that code a page shows appears

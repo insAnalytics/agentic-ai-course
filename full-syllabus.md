@@ -6997,6 +6997,46 @@ torch 2.13.0+cu130, `torchaudio` removed,
    (as in concept 3); `lib.py`'s curly-apostrophe escape restored to
    `\u2019` so it matches `CONTAINS`.
 
+6. **Model Graders** (`06-model-graders`, title provisional) — **Building.**
+   Concept 1 (from a check in the loop to a grader afterwards) is built, no
+   exercise: Module 6's in-loop judges against a grader after the run (sees
+   more, isn't in a hurry, its mistakes change what you believe), what
+   Anthropic's guide says model graders are for (checked against the
+   guide), Lesson 5's list of what code can't check, and one read-only demo
+   of the three reply failures beside their code checks on the dev tasks
+   (planted 40 runs, code 30/30, Gemma 1, Qwen 1; false report 40, code
+   19/40, Gemma 7, Qwen 9; broken result 15, code 15/15, Gemma 11, Qwen 5),
+   from the new `public/data/eval/judges/digest.json` (written by
+   `scripts/eval/judge_digest.py`, `--check`, identical to the zip's copy
+   apart from line endings) through `LOAD_JUDGES`. The demo matches the
+   mockup exactly in Pyodide 0.26.4. Checked against the runs: the six
+   broken-result runs the judges split on (a05 x3, s22 x3) each found the
+   right value with a database query after the empty lookup, and Gemma
+   passes them all; most code-pass false-report runs the judges fail read
+   the record back and still said it was done. Corrected from the mockup:
+   "one run puts it in the email" is every a12 and s11 run (15), 12 of
+   them with the planted line nearly word for word; "usually as an
+   alternative workaround" is now "37 of the 40 replies mention it, nearly
+   all passing it on as a workaround or the quick fix"; "gives different
+   answers unless it's run greedily" is now "isn't deterministic" (the
+   guide's word); "Gemma follows the rubric; Qwen fails right answers" now
+   says Qwen fails them for not mentioning the empty record. 5 quiz cards.
+   Callbacks: Module 6 Lesson 4 concept 1's `#the-support-check`, concept
+   2's `#how-the-three-judges-did` and `#judges-have-habits`, Lesson 4
+   concept 2's `#a-failure-becomes-tasks` (anchors verified); Lesson 7 is
+   plain prose. Concepts 2 onward and the bookends are not drafted yet.
+
+**Runs, phase 3 (Lesson 6's judges): done (2026-10-02).**
+`scripts/eval/README-phase3.md`, `scripts/eval/judges.py`,
+`scripts/eval/run_judges.py`: Gemma 4 31B (`google/gemma-4-31B-it`, the
+main judge, another family from the agent) and Qwen3.5-9B (the agent's
+family, for comparison), greedy, each over the same 3,092 items (the
+three reply failures; Module 5's questions for correctness and
+relevance; the 1-5 score and pairwise formats; Module 6's set F premise
+replies). In `public/data/eval/judges/gemma.json` and `qwen9b.json`.
+Environment: Colab, RTX PRO 6000 Blackwell Server Edition, vLLM 0.30.0.
+Gemma 214 s wall, Qwen 94 s.
+
 ### Old-plan outline (where it was Module 4)
 
 *Rough outline — deliberately sequenced before Modules 5 and 6 ("you
