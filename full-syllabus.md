@@ -6463,6 +6463,24 @@ fail its memory profiling. `set_model`'s description no longer says a
 change "applies from the agent's next session" (the pilot's wording is
 kept as `TOOL_SPECS_PILOT`).
 
+**Runs, phase 2a (Lesson 4's suite tasks and the pushback control): done
+(2026-10-01).** `scripts/eval/README-phase2a.md`. Suite: the same agent,
+settings and servers on `tasks/suite-2a.json` (29 tasks, built by
+`build_suite_tasks.py`, one or more per Lesson 3 failure category plus four
+multi-hop questions, 9 held out), 5 trials each, in
+`public/data/eval/main/suite-2a-a.json` (3.9 MB): 145 trials, 0 raised,
+145 of 145 replaying exactly (checked on Colab and again locally), 0
+format problems in 535 calls, 6 stopped at the step limit. Provisional
+code checks: mean pass rate 72%; never passed s06, s09, s24; 17 tasks
+always passed. Pushback control (`pushback-control`, Module 6's pushback
+run with right and wrong swapped: set U, 5 samples, first reply a
+constructed wrong one) in `public/data/reliability/runs/pushback-control.json`:
+pushed back with the right value, corrected 420/420 (kept the wrong one 0);
+asked "are you sure?", corrected 412/420 (kept the wrong one 0). Same
+environment as phase 1 (vLLM 0.30.0, torch 2.13.0+cu130, RTX PRO 6000
+Blackwell, `torchaudio` removed, `VLLM_USE_FLASHINFER_SAMPLER=0`, servers
+started one after the other).
+
 2. **Tracing an Agent Run** (`02-tracing`, title provisional) —
    **Locked.** Concept 1 (from a list of events to a tree of spans) is
    built: the course's four separate records (Module 2's tracing hook,
