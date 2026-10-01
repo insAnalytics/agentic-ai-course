@@ -90,6 +90,11 @@ const CONTAINED = [
   })),
   { what: "the replay exercise's reference ReplayClient", text: rawConstant(REPLAY_PAGE, "REFERENCE").trim(),
     file: "scripts/eval/eval_client.py" },
+  // the main runs' scripts/eval/tracing.py: every definition of the tracing Lesson 2 teaches, byte for byte
+  ...["TRACER", "TRACED_CHECKS", "INSTRUMENT_WRAPPERS", "SUMMARIZE"].flatMap((name) =>
+    rawConstant("src/lib/evalData.ts", name).split("\n\n\n").map((piece) => piece.trim())
+      .filter((piece) => piece && !/^(import|from) /.test(piece))
+      .map((piece) => ({ what: `${name}'s ${piece.split("\n")[0].slice(0, 40)}`, text: piece, file: "scripts/eval/tracing.py" }))),
   // Lesson 2's recap lib.py: every definition from the lesson's shared code, byte for byte (imports are
   // gathered at its top, and config_hash isn't needed there)
   ...["TRACER", "TRACED_CHECKS", "INSTRUMENT_WRAPPERS", "SUMMARIZE", "LOAD_PILOT"].flatMap((name) =>

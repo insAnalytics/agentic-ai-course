@@ -289,6 +289,7 @@ USER_INSTRUCTIONS = """You are playing a user talking to an operations assistant
 Rules:
 - Write only your next message to the assistant, as the user would type it.
 - Give information only when the assistant asks for it, and never invent facts you weren't given above. If you're asked something you don't know, say you don't know.
+- When the assistant asks for something you do know, answer plainly and specifically, using the exact names you were given (for example, an agent's id).
 - When the assistant has done what you asked, or tells you it can't be done, reply with exactly {stop} and nothing else."""
 
 

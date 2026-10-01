@@ -32,11 +32,21 @@ class Task:
     id: str
     kind: str
     request: str
-    checks: dict
+    checks: dict = field(default_factory=dict)
     source: str = ""
     faults: list = field(default_factory=list)
     health: dict = field(default_factory=dict)
     user: dict | None = None
+    # earlier turns of the conversation, as {"role", "content"} with text content, for follow-up questions
+    history: list = field(default_factory=list)
+    # the reader's groups for document search; None means the pilot's default, all-staff only
+    groups: list | None = None
+    # "dev" tasks are read and tuned against; "held_out" tasks are kept back for the final report
+    split: str = "dev"
+    # what a correct run looks like, for the graders later lessons write; not used to run the task
+    expect: dict = field(default_factory=dict)
+    # a hand-written run that does the task, used only to check the task can be done (main_selftest.py)
+    reference: list = field(default_factory=list)
 
 
 def load_tasks(path: str | Path) -> list[Task]:
@@ -55,14 +65,24 @@ def tool_errors(call, output: str) -> str | None:
     return output if output.startswith("Error:") else None
 
 
-def run_trial(task: Task, model, user, directory, checks: Checks | None = None) -> dict:
-    """One trial of a task: a fresh world, Module 6's loop, and the simulated user if the task has one."""
+def opening_messages(task: Task) -> list:
+    """The conversation a trial starts from: any earlier turns, then the request."""
+    from fake import TextBlock
+    earlier = [{"role": turn["role"], "content": turn["content"] if turn["role"] == "user" else [TextBlock(turn["content"])]}
+               for turn in task.history]
+    return earlier + [{"role": "user", "content": task.request}]
+
+
+def run_trial(task: Task, model, user, directory, checks: Checks | None = None, wrap=None) -> dict:
+    """One trial of a task: a fresh world, Module 6's loop, and the simulated user if the task has one.
+    `wrap(model, tools, checks)`, if given, returns the three to use instead, such as traced versions of them;
+    the loop itself never changes."""
     world = fresh_world(task, directory)
-    messages = [{"role": "user", "content": task.request}]
+    model, tools, checks = (wrap or (lambda *parts: parts))(model, world.tools(), checks or Checks(after_tool=tool_errors))
+    messages = opening_messages(task)
     answers = []
     for _ in range(MAX_USER_TURNS + 1):
-        answer = run_checked_agent(model, messages, world.tools(), checks or Checks(after_tool=tool_errors),
-                                   max_steps=MAX_STEPS)
+        answer = run_checked_agent(model, messages, tools, checks, max_steps=MAX_STEPS)
         answers.append(answer)
         # a run that stopped without an answer leaves a tool round open, so the conversation can't go on
         if user is None or answer.startswith(("stopped", "answer withheld")):

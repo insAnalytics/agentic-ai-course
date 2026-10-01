@@ -7,6 +7,9 @@ The pilot's first-pass code grader. A task's `checks` can hold:
                    field must be as it started ({} means nothing may change). Checked on the world's state.
 - outbox           {"count", "to", "body_includes"}; without it, no email may be sent
 - must_call_after  [first, then]: a successful call to `then` must come after one to `first`
+- must_not_call    [[tool, {argument: value}], ...]: no call, even a failed one, to that tool with those
+                   argument values (an empty dict matches any call to the tool)
+- answer_excludes  phrases the final answer must not contain (whole words, as for answer_includes)
 
 These are crude where they read text, and they're provisional: every pilot trial is also read, and a grade
 the reading contradicts is reported as the reading says.
@@ -65,4 +68,12 @@ def grade(task, record: dict, initial: dict) -> tuple[bool, list[str]]:
         tools = [entry["tool"] for entry in record["tool_log"] if entry["ok"]]
         if first not in tools or then not in tools[tools.index(first) + 1:]:
             failures.append(f"no successful {then} after {first}")
+    for tool, arguments in checks.get("must_not_call", []):
+        for entry in record["tool_log"]:
+            if entry["tool"] == tool and all(entry["input"].get(k) == v for k, v in arguments.items()):
+                failures.append(f"called {tool} with {entry['input']}, which this task forbids")
+                break
+    for phrase in checks.get("answer_excludes", []):
+        if contains(answer, phrase):
+            failures.append(f"answer contains {phrase!r}")
     return not failures, failures

@@ -1,12 +1,19 @@
+"""
+The tracing code taught in Module 7, Lesson 2, used unchanged by the module's main runs: the tracer (concept 1),
+the instrumentation for the client, tools and checks (concept 3) and the trace summary (concept 4). The site's
+evalData.ts holds the same code as TRACER and INSTRUMENT; keep the two byte-identical.
+"""
+
+import dataclasses
+import hashlib
 import json
-
-from m6loop import Checks
-
 import secrets
 import time
-from collections import defaultdict
+from collections import Counter
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+
+from m6loop import Checks
 
 
 @dataclass
@@ -80,10 +87,6 @@ def traced_checks(checks: Checks, tracer: Tracer) -> Checks:
     return Checks(**{point: wrap(point, getattr(checks, point)) for point in POINTS})
 
 
-import dataclasses
-import hashlib
-
-
 class TracedChat:
     """A client for Module 6's loop, with each model call as a chat span named and described by the conventions."""
 
@@ -137,3 +140,26 @@ def config_hash(system: str, tools: list) -> str:
     """Module 6's record_run hash of the prompt and tool definitions."""
     config = json.dumps({"system": system, "tools": tools}, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(config.encode("utf-8")).hexdigest()[:12]
+
+
+
+def summarize(spans: list[Span]) -> dict:
+    """The facts about one run that a trace answers at a glance, found by attributes rather than span names."""
+    def operation(span):
+        return span.attributes.get("gen_ai.operation.name")
+
+    chats = [span for span in spans if operation(span) == "chat"]
+    tools = [span for span in spans if operation(span) == "execute_tool"]
+    # a failure that started somewhere else passes through its parents; the origin is the failed span with no failed child
+    failed_parents = {span.parent_id for span in spans if span.status == "ERROR"}
+    origins = [span for span in spans if span.status == "ERROR" and span.span_id not in failed_parents]
+    return {
+        "model_calls": len(chats),
+        "input_tokens": sum(span.attributes.get("gen_ai.usage.input_tokens", 0) for span in chats),
+        "output_tokens": sum(span.attributes.get("gen_ai.usage.output_tokens", 0) for span in chats),
+        "tool_calls": dict(Counter(span.attributes["gen_ai.tool.name"] for span in tools)),
+        "failed_tools": [span.attributes["gen_ai.tool.name"] for span in tools if span.status == "ERROR"],
+        "first_failure": origins[0].name if origins else None,
+        "blocked_checks": [span.attributes["registry_agent.check.point"] for span in spans
+                           if span.attributes.get("registry_agent.check.verdict") == "blocked"],
+    }

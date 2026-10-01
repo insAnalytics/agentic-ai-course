@@ -256,8 +256,9 @@ def config_hash(system: str, tools: list) -> str:
 
 /**
  * The instrumentation the module's main runs use: traced_checks plus the
- * wrappers. Needs TRACER, CHECKED_AGENT's Checks, and json in scope;
- * scripts/eval/build_course_libs.py builds course/m7trace.py from it.
+ * wrappers. Needs TRACER, CHECKED_AGENT's Checks, and json in scope. The
+ * main runs' scripts/eval/tracing.py holds the same code (checked by
+ * scripts/check-copies.mjs).
  */
 export const INSTRUMENT = TRACED_CHECKS + "\n\n" + INSTRUMENT_WRAPPERS;
 

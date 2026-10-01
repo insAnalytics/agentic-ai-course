@@ -6440,6 +6440,22 @@ architecture.md §3.1).
    forbidden calls skipped, stopping at the first failure, ignoring
    `reply_matters`, mutating the trial, returning a list).
 
+**Main runs, phase 1 (baseline): scripts ready, not yet run (2026-10-01).**
+`scripts/eval/README-main.md`: the registry agent on the full 96-task pool
+(`tasks/main.json`: Module 5's 57 questions as 59 tasks, plus 37 registry
+tasks and conversations), two batches of 5 trials, traced as they run with
+`scripts/eval/tracing.py` (the lesson's tracing code, kept identical by
+`check-copies.mjs`). `set_model`'s description no longer says a change
+"applies from the agent's next session" (the pilot's wording is kept as
+`TOOL_SPECS_PILOT`). All pre-GPU checks pass: `build_main_tasks --check`,
+`main_selftest`, `grader_selftest`, all 90 pilot recordings replaying
+exactly with the changed code, and a 2-trial dry run whose 384 traced
+trials replay exactly without tracing. The site's served copies of
+`eval_client.py`, `registry_world.py` and `harness.py` were refreshed, and
+Lesson 2's replay demos and recap sandbox re-verified in Pyodide with them.
+Results (`public/data/eval/main/baseline-{a,b}.json`) come back after the
+Colab runs.
+
 2. **Tracing an Agent Run** (`02-tracing`, title provisional) —
    **Locked.** Concept 1 (from a list of events to a tree of spans) is
    built: the course's four separate records (Module 2's tracing hook,
@@ -6484,9 +6500,9 @@ architecture.md §3.1).
    `traced_checks` exercise (hidden tests split into 5 self-contained
    tests); the registry agent instrumented with `TracedChat`, `instrument`
    and `config_hash`; 5 quiz cards. New shared constants `TRACED_CHECKS`,
-   `INSTRUMENT_WRAPPERS` and `INSTRUMENT`, and
-   `scripts/eval/course/m7trace.py` built from them for the main runs
-   (imports cleanly; its `config_hash` gives the demo's `02755d619c75`).
+   `INSTRUMENT_WRAPPERS` and `INSTRUMENT`, which the main runs' own
+   `scripts/eval/tracing.py` repeats byte for byte (checked by
+   `check-copies.mjs`; its `config_hash` gives the demo's `02755d619c75`).
    Verified in real Pyodide 0.26.4 with the page's own setup strings: both
    demos match the mockup exactly; the reference passes all 5 tests, the
    starter fails, and eleven wrong versions each fail (a closure defined in

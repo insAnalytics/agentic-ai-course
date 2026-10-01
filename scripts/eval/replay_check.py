@@ -17,10 +17,10 @@ sys.path[:0] = [str(HERE), str(HERE / "course")]
 
 from eval_client import ReplayClient, ReplayDiverged, ReplayUser  # noqa: E402
 from harness import SYSTEM_V1, config_hash, load_tasks, run_trial  # noqa: E402
-from registry_world import TOOL_SPECS  # noqa: E402
+from registry_world import TOOL_SPECS, TOOL_SPECS_PILOT  # noqa: E402
 from tokens import _plain  # noqa: E402
 
-TASKS = HERE / "tasks" / "pilot.json"
+ROOT = HERE.parents[1]
 
 
 def replay(record: dict, task, model_id: str, directory: str) -> str | None:
@@ -44,16 +44,17 @@ def replay(record: dict, task, model_id: str, directory: str) -> str | None:
 
 
 def main() -> None:
-    tasks = {t.id: t for t in load_tasks(TASKS)}
     directory = tempfile.mkdtemp(prefix="replay-")
     failed = 0
     for path in sys.argv[1:]:
         run = json.loads(Path(path).read_text(encoding="utf-8"))
         # a replay never renders the prompt, so check the system prompt and tools separately, by hash
-        if run["config_hash"] != config_hash(SYSTEM_V1, TOOL_SPECS):
-            print(f"{Path(path).name}: recorded with another system prompt or tool set ({run['config_hash']})")
+        known = run["system"] == SYSTEM_V1 and run["tools"] in (TOOL_SPECS, TOOL_SPECS_PILOT)
+        if not known or run["config_hash"] != config_hash(run["system"], run["tools"]):
+            print(f"{Path(path).name}: recorded with a system prompt or tool set this code doesn't have ({run['config_hash']})")
             failed += 1
             continue
+        tasks = {t.id: t for t in load_tasks(ROOT / run["tasks_file"]["path"])}
         problems = [(r["trial_id"], why) for r in run["trials"]
                     if (why := replay(r, tasks[r["task_id"]], run["model"], directory))]
         failed += len(problems)

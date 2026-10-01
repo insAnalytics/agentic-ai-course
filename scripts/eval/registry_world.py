@@ -43,6 +43,14 @@ FAULTS = {
     "empty_agent",      # get_agent returns a record with every field empty
 }
 
+# The pilot's wording, which a model used to explain away a lost write (Module 7, Lessons 1-2), and the
+# wording from the main runs on, which says what a stale record after a successful write means.
+SET_MODEL_DESCRIPTION_PILOT = ("Change the model an agent runs on. The change applies from the agent's next session. "
+                               "The model must be allowed on the agent's tier.")
+SET_MODEL_DESCRIPTION = ("Change the model an agent runs on. The model must be allowed on the agent's tier. "
+                         "The registry record changes immediately; a session that's already running keeps its old "
+                         "model until it ends.")
+
 TOOL_SPECS = [
     {"name": "get_agent",
      "description": "Look up one agent in the registry: its model, tier, owner and status.",
@@ -56,8 +64,7 @@ TOOL_SPECS = [
                       "properties": {"agent_name": {"type": "string", "description": "The agent's id."}},
                       "required": ["agent_name"]}},
     {"name": "set_model",
-     "description": "Change the model an agent runs on. The change applies from the agent's next session. "
-                    "The model must be allowed on the agent's tier.",
+     "description": SET_MODEL_DESCRIPTION,
      "input_schema": {"type": "object",
                       "properties": {"agent_name": {"type": "string", "description": "The agent's id."},
                                      "model": {"type": "string", "description": "The model to move it to, such as claude-sonnet."}},
@@ -219,4 +226,9 @@ class RegistryWorld:
 def fresh_world(task, directory: str | Path) -> RegistryWorld:
     """The world for one trial of a task, in its own database file."""
     path = Path(directory) / f"{task.id}-{time.monotonic_ns()}.db"
-    return RegistryWorld(str(path), health=task.health, faults=task.faults)
+    groups = tuple(task.groups) if getattr(task, "groups", None) else ("all-staff",)
+    return RegistryWorld(str(path), health=task.health, faults=task.faults, groups=groups)
+
+# the tool definitions exactly as the pilot sent them, so its recordings can still be checked against them
+TOOL_SPECS_PILOT = [{**spec, "description": SET_MODEL_DESCRIPTION_PILOT} if spec["name"] == "set_model" else spec
+                    for spec in TOOL_SPECS]

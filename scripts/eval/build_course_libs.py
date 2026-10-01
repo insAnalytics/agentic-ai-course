@@ -7,7 +7,6 @@ runs on Colab is the code learners read:
     m4.py      Module 4's whole library    (Lesson 12 recap, LIB_PY)
     m5.py      Module 5's whole library    (Lesson 14 recap, LIB_PY; imports m4)
     m6loop.py  Module 6's checked loop     (CHECKED_AGENT: Checks, run_checked_agent)
-    m7trace.py Module 7's tracing          (TRACER, then INSTRUMENT: traced_checks, TracedChat, instrument, config_hash)
 
     python scripts/eval/build_course_libs.py            # writes into scripts/eval/course/
     python scripts/eval/build_course_libs.py --check    # fails if a written file differs from the pages
@@ -25,7 +24,6 @@ OUT = Path(__file__).resolve().parent / "course"
 MODULES = ROOT / "src" / "content" / "modules"
 FAKE_TS = ROOT / "src" / "lib" / "fakeClient.ts"
 RELIABILITY_TS = ROOT / "src" / "lib" / "reliabilityData.ts"
-EVAL_TS = ROOT / "src" / "lib" / "evalData.ts"
 M4_RECAP = MODULES / "04-context-and-memory" / "12-assembling-the-context-step" / "05-recap-practice.mdx"
 M5_RECAP = MODULES / "05-rag-systems" / "14-context-step" / "06-recap-practice.mdx"
 
@@ -59,10 +57,6 @@ def build() -> dict[str, str]:
         "m4.py": raw_string(M4_RECAP, "LIB_PY"),
         "m5.py": raw_string(M5_RECAP, "LIB_PY"),
         "m6loop.py": raw_string(RELIABILITY_TS, "CHECKED_AGENT"),
-        # the instrumentation the main runs use, exactly as Lesson 2 concept 3 shows it (INSTRUMENT = TRACED_CHECKS
-        # + INSTRUMENT_WRAPPERS); json and Checks are globals there, so they're imported here
-        "m7trace.py": "import json\n\nfrom m6loop import Checks\n\n" + raw_string(EVAL_TS, "TRACER") + "\n\n"
-                      + raw_string(EVAL_TS, "TRACED_CHECKS") + "\n\n" + raw_string(EVAL_TS, "INSTRUMENT_WRAPPERS"),
     }
 
 

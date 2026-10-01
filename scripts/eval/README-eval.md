@@ -9,7 +9,7 @@ made in the content chat; this README is only about running it.
 
 | File | What it is |
 |---|---|
-| `build_course_libs.py` | Rebuilds `course/` (Module 4's and 5's libraries, Module 6's loop, the fake client's blocks, and Module 7's tracing and instrumentation in `m7trace.py`) from the lesson pages. `--check` fails if they've drifted. |
+| `build_course_libs.py` | Rebuilds `course/` (Module 4's and 5's libraries, Module 6's loop, the fake client's blocks) from the lesson pages. `--check` fails if they've drifted. |
 | `build_pilot_traces.py` | Builds the trace viewer's data, `public/data/eval/pilot/traces/<setup>.json`, by running Lesson 2's own `TRACER` and `TRACE_FROM_RECORDING` (from `evalData.ts`) on every pilot trial with content captured; span ids are made deterministic. `--check` fails if the files have drifted. |
 | `registry_world.py` | The tool world, fresh per trial: Lesson 10's five tools plus Module 5's SQL tool. |
 | `eval_client.py` | The client interface: live model client, replay client, simulated user; the Qwen3.5 chat format and parser. |
