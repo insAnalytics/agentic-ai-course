@@ -70,7 +70,8 @@ def check(data: dict, sample: dict, partial: bool) -> tuple[list[str], list[dict
     if not isinstance(revisions, list) or not all(isinstance(r, str) for r in revisions):
         return ["revisions must be a list of notes"], []
     revised = any(key.endswith("_original") for label in data["labels"] for key in label)
-    if revised and not revisions:
+    if revised and not revisions and not data.get("review_of"):
+        # a re-review carries the first labels' *_original fields over; their note is in the file it reviews
         return ["labels keep *_original values but the file has no revisions note saying why"], []
 
     order = sample["order"][data["reader"]]

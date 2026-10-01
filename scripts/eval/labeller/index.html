@@ -209,7 +209,7 @@ function exportFile() {
   flushTime();
   const review = reader === REVIEW;
   const out = {reader: baseReader(reader), sample_version: sample.version,
-               ...(review ? {review_of: "labels-simar.json"} : {}),
+               ...(review ? {pass: "re-review", review_of: "labels-simar.json"} : {}),
                labels: order().filter((id) => labels[id]).map((id) => {
     const l = labels[id];
     return {trial_id: id, verdict: l.verdict,
