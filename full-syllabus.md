@@ -6461,8 +6461,20 @@ architecture.md §3.1).
    `#the-fix-by-hand-a-tracing-hook` (anchor verified), Module 4 Lesson
    12's seeing-inside-each-request, Module 6 Lesson 3's
    what-a-failed-check-does and Lesson 8's pinning page, Module 2 Lesson
-   6's tool-errors-as-observations (page links). Further concepts and
-   bookends not yet drafted.
+   6's tool-errors-as-observations (page links).
+   Concept 2 (a shared format: OpenTelemetry's conventions for AI calls)
+   is built: semantic conventions and the `semantic-conventions-genai`
+   repo (all Development), the four span kinds (`invoke_agent`, `chat`,
+   `execute_tool`, `retrieval`), a demo rebuilding `4b-think/p07/0` as
+   GenAI spans (new shared `TRACE_FROM_RECORDING`, kept identical to the
+   demo by `check-copies.mjs`), why content is opt-in and a demo of its
+   size (62 KB to 239 KB over 30 traces), the same spans in the real
+   OpenTelemetry SDK (a static block: its printed output was checked by
+   running it against `opentelemetry-sdk` 1.45.0), and OpenInference's
+   span kinds; 5 quiz cards. Both live demos reproduce the mockup's output
+   exactly in real Pyodide 0.26.4 with the page's own setup strings.
+   Callback to Module 4 Lesson 12's seeing-inside-each-request (page
+   link). Further concepts and bookends not yet drafted.
 
 ### Old-plan outline (where it was Module 4)
 

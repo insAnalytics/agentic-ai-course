@@ -447,12 +447,17 @@ as the correct answer by using the constant itself, so the two can't
 drift). Demos after that exercise append `TRACER` to `TRACING_SETUP`; a
 demo that reuses an earlier demo's helpers gets them as hidden setup by
 slicing the earlier demo's constant up to its run.
+Concept 2 adds `TRACE_FROM_RECORDING` (`trace_from_recording(run, trial,
+capture_content=False)`: a pilot trial rebuilt as spans with
+OpenTelemetry's GenAI names, no timings since the pilot recorded none),
+appended after `TRACING_SETUP` + `TRACER`; it's the first half of concept
+2's first demo, and the copy check keeps the two identical.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
 code block has drifted: currently the pilot's `tasks.json` against
-`scripts/eval/tasks/pilot.json`, and `LOAD_PILOT` against the page's static
-setup block. Add any new must-stay-identical pair to its `PAIRS` list.
+`scripts/eval/tasks/pilot.json`, `LOAD_PILOT` against the page's static
+setup block, and `TRACE_FROM_RECORDING` against the demo that shows it. Add any new must-stay-identical pair to its `PAIRS` list.
 
 **Loading rule (every Module 5, 6 and 7 page):** fetch these files at runtime, on the
 learner's first Run click, and let the browser cache them — never `import`

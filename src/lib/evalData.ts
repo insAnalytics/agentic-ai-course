@@ -96,3 +96,66 @@ class Tracer:
             span.end_ns = self.clock()
             self._open.pop()
 `;
+
+/**
+ * Module 7 Lesson 2 concept 2's trace_from_recording: a pilot trial rebuilt as
+ * spans with OpenTelemetry's GenAI names. The first demo there shows it
+ * (keep the two byte-identical: scripts/check-copies.mjs checks it); demos
+ * after it, and later concepts, append it after TRACING_SETUP + TRACER.
+ */
+export const TRACE_FROM_RECORDING = String.raw`def trace_from_recording(run: dict, trial: dict, capture_content: bool = False) -> list[Span]:
+    """A pilot trial's recording as spans named and described by OpenTelemetry's GenAI conventions.
+    The pilot recorded no timestamps, so these spans have none. Message content, tool arguments and
+    tool results are left out unless capture_content is set, as the conventions recommend."""
+    trace_id = secrets.token_hex(16)
+
+    def new_span(name, parent, attributes):
+        return Span(name=name, trace_id=trace_id, span_id=secrets.token_hex(8),
+                    parent_id=parent.span_id if parent else None, start_ns=None, attributes=attributes)
+
+    root = new_span("invoke_agent registry_agent", None, {
+        "gen_ai.operation.name": "invoke_agent",
+        "gen_ai.agent.name": "registry_agent",
+        "gen_ai.conversation.id": trial["trial_id"],
+    })
+    spans = [root]
+    log = iter(trial["tool_log"])
+    for call in trial["calls"]:
+        chat = new_span(f"chat {run['model']}", root, {
+            "gen_ai.operation.name": "chat",
+            # no well-known value covers a self-hosted vLLM server, so this is a custom one
+            "gen_ai.provider.name": "vllm",
+            "gen_ai.request.model": run["model"],
+            "gen_ai.response.model": run["setup"]["agent_server"]["models"][0],
+            "gen_ai.request.temperature": run["sampling"]["temperature"],
+            "gen_ai.request.top_p": run["sampling"]["top_p"],
+            "gen_ai.request.top_k": run["sampling"]["top_k"],
+            "gen_ai.request.max_tokens": run["max_tokens"],
+            "gen_ai.request.seed": call["seed"],
+            "gen_ai.usage.input_tokens": call["prompt_tokens"],
+            "gen_ai.usage.output_tokens": call["completion_tokens"],
+            "gen_ai.response.finish_reasons": [call["finish_reason"]],
+        })
+        if capture_content:
+            chat.attributes["gen_ai.output.messages"] = [{"role": "assistant", "parts": call["content"]}]
+        spans.append(chat)
+        for block in call["content"]:
+            if block["type"] != "tool_use":
+                continue
+            entry = next(log)
+            assert entry["tool"] == block["name"], "the tool log and the model's calls are out of step"
+            tool = new_span(f"execute_tool {block['name']}", root, {
+                "gen_ai.operation.name": "execute_tool",
+                "gen_ai.tool.name": block["name"],
+                "gen_ai.tool.call.id": block["id"],
+                "gen_ai.tool.type": "function",
+            })
+            if not entry["ok"]:
+                tool.status = "ERROR"
+                tool.attributes["error.type"] = "tool_error"
+            if capture_content:
+                tool.attributes["gen_ai.tool.call.arguments"] = entry["input"]
+                tool.attributes["gen_ai.tool.call.result"] = entry["output"]
+            spans.append(tool)
+    return spans
+`;

@@ -40,6 +40,17 @@ const PAIRS = [
       ),
     ],
   },
+  {
+    what: "TRACE_FROM_RECORDING (Module 7 Lesson 2 concept 2)",
+    a: ["src/lib/evalData.ts", () => rawConstant("src/lib/evalData.ts", "TRACE_FROM_RECORDING")],
+    b: [
+      "the page's first demo, up to its run",
+      () => {
+        const demo = rawConstant("src/content/modules/07-evaluation/02-tracing/02-a-shared-format.mdx", "RECORDING_DEMO");
+        return demo.slice(0, demo.indexOf("\n\n\nrun = load_pilot(")) + "\n";
+      },
+    ],
+  },
 ];
 
 let failed = false;
