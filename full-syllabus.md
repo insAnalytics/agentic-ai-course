@@ -6588,7 +6588,15 @@ kept as `TOOL_SPECS_PILOT`).
    `check-copies.mjs`); two read-only demos (the sample's spread, Simar's
    reading times), both matching the mockup exactly; 5 quiz cards.
    Callbacks: Module 6 Lesson 1's `#using-the-map-on-a-failed-run` and
-   Lesson 2 concept 4's `#two-runs-summarized` (anchors verified). Not yet
+   Lesson 2 concept 4's `#two-runs-summarized` (anchors verified).
+   Concept 2 (one note per trace, at the first failure) is built: what a
+   useful note asks for (first failure, specific, observable, own words),
+   Who&When's 14.2% step-finding result as the reason a person reads, and
+   three read-only demos over `traces.json` and the labels (two of Simar's
+   notes beside outlined traces; q07's rewrite and the two q30 notes; four
+   passes with Claude's "how" notes), the later two taking the first
+   demo's `traces`/`labels`/`outline` as hidden setup sliced from it; all
+   three match the mockup exactly; 5 quiz cards. No callbacks. Not yet
    drafted: the remaining concepts and the bookends.
 
 ### Old-plan outline (where it was Module 4)
