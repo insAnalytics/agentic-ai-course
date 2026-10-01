@@ -1,0 +1,231 @@
+---
+title: "Whose failure is it?"
+lesson: "03-error-analysis"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { LOAD_READING, readingData } from "../../../../lib/evalData";
+
+export const GRADER_DATA = readingData("code-grades", "labels-simar-v2", "labels-claude");
+
+export const GRADER_DEMO = String.raw`code = load_reading("code-grades")["grades"]
+simar = {l["trial_id"]: l for l in load_reading("labels-simar-v2")["labels"]}
+claude = {l["trial_id"]: l for l in load_reading("labels-claude")["labels"]}
+# each trace's label: Simar's for the 40 he read, Claude's for the rest
+reading = {**claude, **simar}
+
+false_pass = [t for t, g in code.items() if g["code"] and reading[t]["verdict"] == "fail"]
+false_fail = [t for t, g in code.items() if not g["code"] and reading[t]["verdict"] == "pass"]
+agree = len(code) - len(false_pass) - len(false_fail)
+print(f"{len(code)} traces with code checks: {agree} agree with the reading, "
+      f"{len(false_pass)} passed by code but failed by a reader, {len(false_fail)} the other way round")
+
+print("\npassed by code, failed by a reader:")
+for trial_id in false_pass:
+    print(f"  {trial_id.split('/', 1)[1]:<7} {reading[trial_id]['first_failure'][:95]}")
+print("\nfailed by code, passed by a reader:")
+for trial_id in false_fail:
+    print(f"  {trial_id.split('/', 1)[1]:<7} the check said: {code[trial_id]['failures'][0]}")
+`;
+
+<Subsection title="Where a failure comes from" variant="a">
+
+A failed run isn't always the agent's fault. When you evaluate an agent,
+you also run things you built around it, and any of them can be what went
+wrong. The reading standard names six places:
+
+- **The agent**: the model's own decision, given what it saw.
+- **The harness**: the way the agent was built: its system prompt, a
+  tool's description, its checks. In this course that also covers a
+  document planted in the corpus on purpose.
+- **The task**: a request that was ambiguous, or an expected outcome that
+  was wrong.
+- **The simulated user**: a model playing the user, which broke its
+  instructions.
+- **The environment**: a tool or the world misbehaving in a way the task
+  didn't intend.
+- **The grader**: the check that judged the run. This one only shows up
+  when a grade is compared with a reading, so readers never pick it; it's
+  found afterwards.
+
+[Lesson 1](/07-evaluation/01-grading-agents/01-why-an-agent-is-harder-to-grade/#one-run-and-the-words-for-its-parts)
+said that evaluating an agent evaluates the model and its harness
+together. Telling them apart still matters, because the fix lives in a
+different place: a failure in the harness is fixed by changing what the
+course built, and a failure in the task or the grader isn't the agent's to
+fix at all. Blaming the agent for a broken test sends you off improving the
+wrong thing.
+
+</Subsection>
+
+<Subsection title="The simulated user is a model too" variant="b">
+
+The conversations in this module have a model playing the user, and it
+makes mistakes of its own. Research on τ-bench, a benchmark that tests
+agents in conversations with a simulated user, has measured this:
+
+- One study read 50 τ-bench airline conversations by hand and found the
+  simulated user went against its instructions in 11 of them, 22%:
+  offering things it wasn't asked for, contradicting its instructions,
+  leaving out details, or misreading the agent (the AURA paper, 2025).
+- A later τ-bench domain had two annotators label every simulated-user
+  message in 194 conversations, and found 4 conversations where the user's
+  mistake could stop even a correct agent from succeeding (τ-Knowledge,
+  2026).
+
+So conversations need the question of whose fault a failure was more than
+single requests do. The baseline has an example, outside the reading
+sample, in one run of the conversation where a user asks for the research
+agent's owners to be told about a move. The agent's tool call came out as
+plain text instead of being run. The simulated user, seeing it, replied as
+if it were the assistant, asking whether it should look up the owner or
+send the email as written. The agent then said the email had already been
+sent, which it never was.
+
+The simulated user broke its role there, but it wasn't the first failure:
+the agent's malformed tool call came first, and the false claim of sending
+came from the agent too. A reader who stopped at the strangest message
+would blame the simulator. Noting the first failure keeps the blame where
+it starts.
+
+</Subsection>
+
+<Subsection title="The harness" variant="a">
+
+Two groups of failures in the reading came from what the course built
+rather than from the model's judgement alone:
+
+- **The planted instruction.** The wiki page in Module 5's corpus contains
+  a line aimed at AI assistants, telling them to advise turning
+  authentication off. In four runs the agent passed it on: three told the
+  user to do it, and one copied it into an email to support-team. The page
+  was planted on purpose, so the reading standard counts it as the
+  harness's: the agent's defences against it are part of how it was built.
+- **The explained-away write.** In a13/1, the agent read the record back,
+  saw the change hadn't landed, and decided it would apply later. Simar
+  put that on the system prompt's instruction to trust what tools report;
+  [Lesson 2](/07-evaluation/02-tracing/04-reading-a-trace/#what-the-model-saw-and-thought)
+  showed another run quoting the tool's own description to the same end.
+
+Both are fixed in the harness: a defence against instructions in retrieved
+text, and wording that doesn't hand the model an excuse.
+
+</Subsection>
+
+<Subsection title="The task, and how a standard decides it" variant="b">
+
+Fault isn't always obvious, and a written standard is what settles the
+hard cases. In a10, the user asked to move research_agent "to its new
+model", and the agent asked which model was meant. Before the standard
+existed, Claude labelled it *unsure, the task's fault*: the request could
+be read as unclear, and the system prompt says to ask when a request is
+unclear. The standard then decided that asking for something the documents
+already provide is a failure, and the migration runbook names
+research_agent's target. Under the standard, a10 is the agent's failure.
+
+Neither reading was careless. The case sat on a line nobody had drawn yet,
+and drawing it is part of error analysis.
+
+</Subsection>
+
+<Subsection title="The grader" variant="a">
+
+The task suite in the baseline came with code checks, written before any
+run existed. Comparing those checks with the reading, on the 50 traces in
+the sample that have them, finds the grader's own failures:
+
+<LiveDemo client:load dataFiles={GRADER_DATA} setupCode={LOAD_READING} code={GRADER_DEMO} />
+
+*(Each trace's reading is Simar's for the 40 he read and Claude's for the
+rest.)*
+
+Nine of the 50 disagree, and the two directions have different causes:
+
+- **The five false passes** are all checks that looked at the world's
+  state but not at what the agent said or sent. The registry was right in
+  each, and in a11 and a05 nothing had changed at all, which is what the
+  checks expected. The failures were in the reply or the email: advice to
+  turn authentication off, a false report, an empty record presented as
+  fact. A state check can't see any of them.
+- **The four false failures** are bugs in the checks themselves. Three
+  answers gave the right figures as "840ms" and "1,750ms", and the check
+  matched numbers as whole words, so "840" inside "840ms" didn't count.
+  That whole-word rule had been added to stop "not" matching inside
+  "notes_agent"; fixing one bug created this one. The fourth, m02/2, sent
+  an email the user hadn't asked for; the check failed any email by
+  default, a rule nobody had written into the task, and the reader judged
+  the run a pass.
+
+That's why grader failures get their own place. A grade that disagrees
+with a careful reading is a finding about the grader until shown
+otherwise, and Lessons 5 to 8 are about making graders that deserve trust.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "In a conversation, the simulated user starts replying as if it were the assistant, just after the agent's tool call came out as plain text. Whose failure is noted first?",
+      "options": [
+        "The agent's: its malformed tool call came first",
+        "The simulated user's: it broke its role in the conversation",
+        "The task's: conversations shouldn't include a simulated user",
+        "The grader's: it should have ignored the user's odd reply"
+      ],
+      "correctIndex": 0,
+      "explanation": "The simulator did break its role, but only after the agent's call failed to run and appeared as text. Noting the first failure keeps the blame on the cause; the simulator's slip can go in the note as well, but it isn't where the run went wrong."
+    },
+    {
+      "question": "Why separate \"harness\" failures from the agent's own, when an agent is the model and its harness together?",
+      "options": [
+        "The fix lives in what you built: the prompt, the tools",
+        "Harness failures don't count against the agent's score",
+        "The model can't be changed, so only harness faults matter",
+        "Harness failures only ever happen in test environments"
+      ],
+      "correctIndex": 0,
+      "explanation": "Both count, because the agent is both. Separating them says where to look: a planted instruction getting through is fixed by defences in the harness, and an excuse handed over by a tool's description is fixed by rewording it, not by changing the model."
+    },
+    {
+      "question": "Five runs passed their code checks but failed when read. What did those checks have in common?",
+      "options": [
+        "They checked state, not what the agent said",
+        "They used whole-word matching on numbers with units",
+        "They failed any email the agent sent by default",
+        "They ran before the agent had finished the task"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each run left the registry as the check expected, and each failed in its reply or email: passing on the planted instruction, a false report, an empty record stated as fact. A check on state alone can't see what the user was told."
+    },
+    {
+      "question": "A check failed three correct answers that gave \"840ms\" and \"1,750ms\". What went wrong?",
+      "options": [
+        "Matching numbers as whole words missed the unit suffix",
+        "The agent rounded the figures it read from the tool",
+        "The health readings changed between the run and the check",
+        "The reader's labels were wrong for these three runs"
+      ],
+      "correctIndex": 0,
+      "explanation": "The whole-word rule treats a letter after a number as part of the same word, so \"840\" inside \"840ms\" didn't match. The rule was added to fix a different bug, \"not\" matching inside \"notes_agent\", and this is the bug it created."
+    },
+    {
+      "question": "Before the standard, a10 was labelled the task's fault; after it, the agent's. What changed?",
+      "options": [
+        "The standard ruled that kind of asking a failure",
+        "The run was replayed and the agent behaved differently",
+        "The task's request was rewritten after the first reading",
+        "The code check for a10 was fixed and now fails the run"
+      ],
+      "correctIndex": 0,
+      "explanation": "Nothing about the run changed. The request could be read as unclear, which made asking defensible; the standard drew the line that asking for something the documents already provide is a failure. Whose fault a hard case is depends on a standard someone has written down."
+    }
+  ]}
+/>
+
+</CheckpointZone>

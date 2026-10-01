@@ -519,6 +519,11 @@ and `categories.json`, all small; `traces.json`, 2 MB, listed only by the
 demos that read it) and `LOAD_READING` (`load_reading(name)`; shown
 verbatim in concept 1, kept identical by the copy check), the setup of
 every demo in the lesson.
+`reading/code-grades.json` (10 KB) is the provisional code checks
+(`scripts/eval/grading.py` with each task's `expect.checks`, as in
+`main_report.py`) applied to the sample's 50 registry and conversation
+traces, written by `scripts/eval/reading_code_grades.py` (`--check` fails
+if it's out of date); concept 3 compares it with the readings.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or

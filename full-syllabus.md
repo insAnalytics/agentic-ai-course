@@ -6596,8 +6596,19 @@ kept as `TOOL_SPECS_PILOT`).
    notes beside outlined traces; q07's rewrite and the two q30 notes; four
    passes with Claude's "how" notes), the later two taking the first
    demo's `traces`/`labels`/`outline` as hidden setup sliced from it; all
-   three match the mockup exactly; 5 quiz cards. No callbacks. Not yet
-   drafted: the remaining concepts and the bookends.
+   three match the mockup exactly; 5 quiz cards. No callbacks.
+   Concept 3 (whose failure is it?) is built: the reading standard's six
+   places a failure comes from, simulated-user errors (AURA, τ-Knowledge)
+   and a baseline conversation where the simulator broke role after the
+   agent's malformed call, the harness's planted instruction and a13/1,
+   a10 decided by the standard, and a demo comparing the code checks with
+   the readings (41 of 50 agree, 5 false passes, 4 false failures) over
+   the new `code-grades.json` (from `scripts/eval/reading_code_grades.py`;
+   output matched the mockup's copy, and the demo matches the mockup
+   exactly); 5 quiz cards. Callbacks: Lesson 1 concept 1's
+   `#one-run-and-the-words-for-its-parts` and Lesson 2 concept 4's
+   `#what-the-model-saw-and-thought` (anchors verified). Not yet drafted:
+   the remaining concepts and the bookends.
 
 ### Old-plan outline (where it was Module 4)
 
