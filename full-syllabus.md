@@ -6772,7 +6772,21 @@ spot check and the m02 task gap) is in
    through), not this one. The repeated `load_suite` block is dropped. 5
    quiz cards. Callbacks: Module 6 Lesson 6 concept 4's
    `#what-happened-in-this-module-s-runs` and
-   `#deciding-what-the-answer-is-after-pushback` (anchors verified). No
+   `#deciding-what-the-answer-is-after-pushback` (anchors verified).
+   Concept 5 (holding tasks out, and tuning to the suite) is built: dev
+   and held-out tasks and why, the decisions made so far (all on dev), the
+   baseline's dev and held-out halves of the registry tasks and
+   conversations (`suite/baseline-grades.json`, written by
+   `scripts/eval/baseline_grades.py`, `--check`, run paths now written with
+   forward slashes, otherwise identical to the zip's copy; dev 89%, 77% to
+   98%; held-out 100%, with why that's not a measurement), and fixing a
+   measurement vs tuning to the suite. One read-only demo, matching the
+   mockup exactly in Pyodide 0.26.4. Corrected from the mockup: the
+   suite's held-out tasks are one per failure category (9 of 29), not "a
+   third at a time within each category"; and the rule of three's 3/n is
+   given with the exact bound for 8 tasks (31%). 5 quiz cards. Callbacks:
+   Lesson 3 concept 4's `#how-sure-can-we-be`, Module 6 Lesson 4 concept
+   2's `#zero-errors-isn-t-a-zero-error-rate` (anchors verified). No
    bookends yet.
 
 ### Old-plan outline (where it was Module 4)

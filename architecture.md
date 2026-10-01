@@ -555,7 +555,10 @@ gave q29's threshold, and Claude's reading of each q39 run), written by
 Lesson 6 concept 4's reference `after_pushback` (with `answer_key` and
 `in_sources`) as a demo's hidden setup: the page holds a copy as
 `AFTER_PUSHBACK`, and `check-copies.mjs`'s `CONTAINED` list checks every
-definition in it is still in Module 6's `REFERENCE`.
+definition in it is still in Module 6's `REFERENCE`. Concept 5 adds `suite/baseline-grades.json` (8 KB:
+every registry task and conversation in the main pool with its kind, split
+and current checks' result on every trial of both baseline batches),
+written by `scripts/eval/baseline_grades.py` (`--check`).
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
