@@ -594,7 +594,9 @@ the first single pattern missed; the citation sets differ on 6 of the
 from 6 to 9, keeping the first checks as `checks_v1` and the version 2
 ones as `checks_before_v3`; `suite_grades.py` grades with
 `checks_before_v3`, so `grades-2a.json`'s trial results, and Lesson 4's
-pages, are unchanged.
+pages, are unchanged. Concept 4 adds no data: its mutation demo takes
+`CONTAINS` as setup, and its pytest runs are recorded output in
+`TerminalGroup`s, as in Module 0's pytest pages.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or

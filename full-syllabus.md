@@ -6923,8 +6923,32 @@ torch 2.13.0+cu130, `torchaudio` removed,
    cards. Callbacks: Lesson 1 concept 2's
    `#when-the-path-is-the-right-thing-to-check`, Module 3 Lesson 2's intro,
    Lesson 4 concept 5's `#tuning-to-the-suite`, Module 6 Lesson 4 concept
-   1's page (anchors verified). Concepts 4 onward and the bookends are not
-   drafted yet.
+   1's page (anchors verified).
+   Concept 4 (testing the graders themselves) is built, no exercise: the
+   module's grader bugs and how they were found, what a grader's tests
+   check (runs that must pass, must fail, every misgrade; the self-test
+   counts 29/13/3 and 29/6 checked against `main_selftest.py`), a pytest
+   file for the matcher with two recorded runs in `TerminalGroup`s (run
+   with pytest 9.1.1, `--tb=no`, against `CONTAINS` and against the
+   whole-word matcher: 7 passed; 2 failed, the two real misgrades; the
+   page's file is byte-identical to the one run), mutation testing
+   (DeMillo, Lipton and Sayward; mutmut, PIT) with a live demo on
+   `CONTAINS` (matches the mockup in Pyodide 0.26.4 apart from the
+   corrected label), and keeping old grader versions. Corrected from the
+   mockup: of the six pytest cases only "840ms" (a03) and "1,750ms" (m03)
+   are real misgrades; the substring matcher never shipped (as concept 2
+   found), and "8400ms" and "203%" are guard cases, so the cases are "the
+   six known cases" (`KNOWN_CASES`, `test_known_cases`) with per-case
+   comments saying which is which, and the bug list, the mutation prose,
+   Q1's explanation and Q3 say so; the citation-list bug never changed a
+   recorded verdict, so the "found by a misgraded run" claim covers the
+   first four bugs only; Module 0 never uses the term "regression test",
+   so the text calls it that and links Module 0's parametrized tests; the
+   second pytest output shows `--tb=no`, which is what produces the
+   mockup's short form. 5 quiz cards. Callbacks: Lesson 1 concept 5's
+   `#where-evaluation-starts`, Module 0's parametrized-tests page, Module
+   6 Lesson 8's pinning page (anchors verified). Concepts 5 onward and the
+   bookends are not drafted yet.
 
 ### Old-plan outline (where it was Module 4)
 
