@@ -93,6 +93,17 @@ const PAIRS = [
       ),
     ],
   },
+  {
+    what: "LOAD_SUITE (Module 7 Lesson 5 concept 1)",
+    a: ["src/lib/evalData.ts", () => rawConstant("src/lib/evalData.ts", "LOAD_SUITE")],
+    b: [
+      "the page's setup block",
+      () => pageFence(
+        "src/content/modules/07-evaluation/05-code-graders/01-checking-the-end-state.mdx",
+        "import json\nfrom pathlib import Path\n\nSUITE =",
+      ),
+    ],
+  },
   // the pilot's modules, served to the browser for Module 7 Lesson 2 concept 5's replays
   ...[
     ...["eval_client", "registry_world", "harness"].map((name) => `scripts/eval/${name}.py`),

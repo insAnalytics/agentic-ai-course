@@ -445,3 +445,33 @@ export const TRIAGE = String.raw`def triage(tasks: list[dict], trials: dict[str,
             labels[task["id"]] = "mixed"
     return labels
 `;
+
+/**
+ * Module 7 Lesson 5 concept 1's state_diff: the exercise's reference, shown
+ * there as the correct answer by using this constant (with the starter's
+ * example call after it). The demo after the exercise appends it to LOAD_SUITE.
+ */
+export const STATE_DIFF = String.raw`def state_diff(initial: dict, final: dict, changes: dict) -> list[str]:
+    """Every way the final registry differs from the initial one with the expected changes applied, sorted.
+
+    initial and final map agent id -> {field: value}; changes maps agent id -> the fields that should have changed.
+    Each difference is one line: "agent: missing", "agent: not expected", or
+    "agent.field: expected 'x', got 'y'" (a field that's absent shows as None).
+    """
+    unknown = changes.keys() - initial.keys()
+    if unknown:
+        raise ValueError(f"changes name agents that aren't in the initial registry: {sorted(unknown)}")
+    expected = {agent: {**fields, **changes.get(agent, {})} for agent, fields in initial.items()}
+    problems = []
+    for agent in sorted(expected.keys() | final.keys()):
+        if agent not in final:
+            problems.append(f"{agent}: missing")
+        elif agent not in expected:
+            problems.append(f"{agent}: not expected")
+        else:
+            for field in sorted(expected[agent].keys() | final[agent].keys()):
+                want, got = expected[agent].get(field), final[agent].get(field)
+                if want != got:
+                    problems.append(f"{agent}.{field}: expected {want!r}, got {got!r}")
+    return problems
+`;

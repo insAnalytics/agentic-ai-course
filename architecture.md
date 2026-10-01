@@ -563,12 +563,21 @@ Lesson 4's recap sandbox (`MultiFileGradedExercise`, no `setupCode`:
 `lib.py` reads `/data/eval/suite` itself) has a read-only `lib.py` with
 `load_suite` and `triage`; `check-copies.mjs`'s `CONTAINED` list checks
 that `LOAD_SUITE`'s `load_suite` and `TRIAGE` appear in it byte for byte.
+Lesson 5 (code graders) reuses `LOAD_SUITE`, shown again verbatim in
+concept 1 (a second copy-check pair). Concept 1 adds
+`suite/end-states.json` (7 KB: the registry as every trial starts it, and
+five baseline-a trials' requests, faults, expected registry changes and
+outbox, final states and first 140 characters of the last answer), written
+by `scripts/eval/end_states.py` (`--check`), and `STATE_DIFF`
+(`state_diff(initial, final, changes)`, the exercise's reference; the demo
+after the exercise appends it to `LOAD_SUITE`). The exercise needs no
+setup or data: its hidden tests build their own registries.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
 code block has drifted: currently the pilot's `tasks.json` against
 `scripts/eval/tasks/pilot.json`, `LOAD_PILOT`, `LOAD_READING` and `LOAD_SUITE`
-against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
+(twice: Lessons 4 and 5) against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
 the demos that show them, the replay exercise's static provided block
 against its constant, and each `public/data/eval/code/*.py` against its
 source. A second list, `CONTAINED`, checks that code a page shows appears

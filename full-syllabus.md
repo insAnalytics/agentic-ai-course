@@ -6494,6 +6494,24 @@ suite-2a-a 72% -> 74% (s29 2 -> 5). The simulator audit (with the
 spot check and the m02 task gap) is in
 `public/data/eval/reading/simulator-audit.json`.
 
+**Runs, phase 2b (Lesson 5's summarizer test): done (2026-10-01).**
+`scripts/eval/README-phase2b.md`, `scripts/eval/run_summarizer_test.py`:
+Module 4's promised summary test on the 20 longest dev traces of the
+baseline (at most two per task), each cut after its last tool round and
+summarised by the 4B (agent settings, thinking on) under Module 4's
+`SUMMARY_INSTRUCTIONS` ("careful") and "Summarize the conversation above
+briefly." ("plain"), 3 samples each; 49 code-graded probes (which agent,
+model the registry reported, error code, search count) answered from the
+summary alone. In `public/data/eval/summarizer/summarizer-test.json`: 120
+summaries, all finishing with "stop"; careful 74/147 right, plain 67/147
+(task 24/24 both; tool fact 33/51 vs 31/51; error 8/12 vs 5/12; search
+count 9/60 vs 7/60); median summary about 1,270 vs 800 characters.
+Environment: Colab, RTX PRO 6000 Blackwell Server Edition, vLLM 0.30.0,
+torch 2.13.0+cu130, `torchaudio` removed,
+`VLLM_USE_FLASHINFER_SAMPLER=0`, the 4B served alone with
+`--gpu-memory-utilization 0.85`, `/data/rag` linked to `public/data/rag`
+(Module 5's library reads its corpus there on import). 50.2 s wall.
+
 2. **Tracing an Agent Run** (`02-tracing`, title provisional) —
    **Locked.** Concept 1 (from a list of events to a tree of spans) is
    built: the course's four separate records (Module 2's tracing hook,
@@ -6822,6 +6840,35 @@ spot check and the m02 task gap) is in
    s06 and s09 invented a citation, not every run) and Q4 (m02's persona
    chains its conditions; others have simple triggers), as in concepts 1
    and 3.
+
+5. **Code Graders** (`05-code-graders`, title provisional) — **Building.**
+   Concept 1 (checking the end state) is built: Module 2's goal-state check
+   run after the run, τ-bench's end-state grading (Yao et al., ICLR 2025),
+   the registry and outbox as the two parts of the end state, a graded
+   `state_diff(initial, final, changes)` exercise (the mockup's hidden tests
+   split into 6, each rebuilding its own registries), and a demo of the
+   check on five baseline-a runs (a02, a22 as expected; a19's and m04's
+   unasked-for changes; a14's lost write, where the registry is right and
+   the failure is a false report), from the new
+   `public/data/eval/suite/end-states.json` (written by
+   `scripts/eval/end_states.py`, `--check`, identical to the zip's copy).
+   `LOAD_SUITE` is shown again and copy-checked. Verified in real Pyodide
+   0.26.4: the reference passes all 6 tests and prints the mockup's line,
+   the starter fails all 6, and eight wrong versions each fail the test
+   aimed at them (only named agents compared, unsorted, expected fields
+   only, str for repr, no ValueError, mutating `initial`, missing/extra
+   agents ignored, diffing against `initial`); the demo matches the mockup
+   exactly. Corrected from the mockup after checking the τ-bench paper:
+   its reward also requires the replies to contain the information the
+   user needed, so the prose says end-state comparison is its main check
+   alongside that; Q1's distractor "cheaper than running a model as a
+   judge" replaced (the paper does call its rule-based reward fast to
+   compute); the exercise explanation says a19's agent moved an agent it
+   should have asked about, not "the wrong agent". 5 quiz cards.
+   Callbacks: Module 2 Lesson 6 concept 4's
+   `#a-deterministic-check-on-real-state`, Lesson 1 concept 1's
+   `#the-reply-isn-t-the-outcome` (anchors verified). Concepts 2 onward
+   and the bookends are not drafted yet.
 
 ### Old-plan outline (where it was Module 4)
 

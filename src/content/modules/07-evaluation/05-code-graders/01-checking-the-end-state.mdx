@@ -1,0 +1,268 @@
+---
+title: "Checking the end state"
+lesson: "05-code-graders"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { LOAD_SUITE, STATE_DIFF, suiteData } from "../../../../lib/evalData";
+
+export const END_STATES_DATA = suiteData("end-states");
+
+export const EXAMPLE = String.raw`initial = {"notes_agent": {"model": "claude-legacy", "tier": "standard"}}
+final = {"notes_agent": {"model": "claude-sonnet", "tier": "standard"}}
+print(state_diff(initial, final, {"notes_agent": {"model": "claude-haiku"}}))
+`;
+
+export const STARTER = String.raw`def state_diff(initial: dict, final: dict, changes: dict) -> list[str]:
+    """Every way the final registry differs from the initial one with the expected changes applied, sorted.
+
+    initial and final map agent id -> {field: value}; changes maps agent id -> the fields that should have changed.
+    Each difference is one line: "agent: missing", "agent: not expected", or
+    "agent.field: expected 'x', got 'y'" (a field that's absent shows as None).
+    """
+    # your code here
+
+
+` + EXAMPLE;
+
+export const FIXTURE = String.raw`import json
+
+initial = {"billing_agent": {"model": "claude-opus", "tier": "priority"},
+           "notes_agent": {"model": "claude-legacy", "tier": "standard"},
+           "research_agent": {"model": "claude-legacy", "tier": "standard"}}
+
+
+def with_changes(**agents):
+    state = json.loads(json.dumps(initial))
+    for agent, fields in agents.items():
+        state[agent].update(fields)
+    return state
+
+
+moved = with_changes(notes_agent={"model": "claude-haiku"})
+`;
+
+export const TESTS = [
+// each hidden test runs in its own copy of the learner's namespace, so every test builds what it checks
+FIXTURE + String.raw`before = json.dumps([initial, moved])
+result = state_diff(initial, moved, {"notes_agent": {"model": "claude-haiku"}})
+assert result is not None, "state_diff should return a list of differences"
+assert result == [], f"the expected change and nothing else: no differences, got {result}"
+assert json.dumps([initial, moved]) == before, "state_diff shouldn't change its inputs"
+`,
+FIXTURE + String.raw`result = state_diff(initial, with_changes(notes_agent={"model": "claude-sonnet"}), {"notes_agent": {"model": "claude-haiku"}})
+assert result == ["notes_agent.model: expected 'claude-haiku', got 'claude-sonnet'"], \
+    f"a field with the wrong value: one line naming the agent, field, expected and got values; got {result}"
+
+result = state_diff(initial, initial, {"notes_agent": {"model": "claude-haiku"}})
+assert result == ["notes_agent.model: expected 'claude-haiku', got 'claude-legacy'"], \
+    f"a change that didn't happen is a difference too: got {result}"
+`,
+FIXTURE + String.raw`result = state_diff(initial, with_changes(notes_agent={"model": "claude-haiku"}, research_agent={"tier": "priority"}),
+                    {"notes_agent": {"model": "claude-haiku"}})
+assert result == ["research_agent.tier: expected 'standard', got 'priority'"], \
+    f"an agent the task never mentioned must be exactly as it started: got {result}"
+`,
+FIXTURE + String.raw`result = state_diff(initial, with_changes(billing_agent={"model": "claude-sonnet"}, research_agent={"model": "claude-haiku"}), {})
+assert result == ["billing_agent.model: expected 'claude-opus', got 'claude-sonnet'",
+                  "research_agent.model: expected 'claude-legacy', got 'claude-haiku'"], \
+    f"every difference, sorted by agent then field: got {result}"
+
+reordered = {"research_agent": {"model": "claude-haiku", "tier": "standard"},
+             "notes_agent": {"model": "claude-legacy", "tier": "standard"},
+             "billing_agent": {"model": "claude-sonnet", "tier": "priority"}}
+assert state_diff(initial, reordered, {}) == ["billing_agent.model: expected 'claude-opus', got 'claude-sonnet'",
+                                             "research_agent.model: expected 'claude-legacy', got 'claude-haiku'"], \
+    "sort the differences by agent, whatever order the final state lists its agents in"
+`,
+FIXTURE + String.raw`gone = {agent: fields for agent, fields in initial.items() if agent != "notes_agent"}
+assert state_diff(initial, gone, {}) == ["notes_agent: missing"], "an agent that disappeared is reported as missing"
+extra = {**initial, "new_agent": {"model": "claude-haiku", "tier": "standard"}}
+assert state_diff(initial, extra, {}) == ["new_agent: not expected"], "an agent that appeared is reported as not expected"
+
+added_field = with_changes(notes_agent={"owner": "support-team"})
+assert state_diff(initial, added_field, {}) == ["notes_agent.owner: expected None, got 'support-team'"], \
+    "a field that appeared is a difference, with None for the value that wasn't there"
+`,
+FIXTURE + String.raw`try:
+    state_diff(initial, initial, {"analytics_agent": {"model": "claude-haiku"}})
+except ValueError:
+    pass
+else:
+    raise AssertionError("changes naming an agent that isn't in the initial registry should raise ValueError: the task is wrong")
+`,
+];
+
+export const END_STATES_DEMO = String.raw`data = load_suite("end-states")
+for trial in data["trials"]:
+    diff = state_diff(data["initial"], trial["final"]["registry"], trial["expected_changes"])
+    sent, expected = len(trial["final"]["outbox"]), trial["expected_outbox"].get("count")
+    print(f"{trial['trial_id'].split('/', 1)[1]}: {trial['request']}{'  [fault: ' + ', '.join(trial['faults']) + ']' if trial['faults'] else ''}")
+    print(f"    registry: {'as expected' if not diff else '; '.join(diff)}")
+    print(f"    emails: {sent} sent, {expected} expected")
+    print(f"    agent said: {trial['answer_start'][:95]}")
+`;
+
+<Subsection title="The end state is the outcome" variant="a">
+
+[Module 2 built a goal-state check](/02-the-agent-loop/06-termination-failure-and-control/04-goal-state-termination-checks/#a-deterministic-check-on-real-state)
+as a way to stop a loop: look at the real state of the world, and stop
+when the goal is reached, rather than trusting the model to say it's done.
+The same check, run after the run instead of during it, is the simplest
+kind of grader. It asks the question
+[Lesson 1 called the outcome](/07-evaluation/01-grading-agents/01-why-an-agent-is-harder-to-grade/#the-reply-isn-t-the-outcome):
+not what the agent said or how it got there, but what's true at the end.
+
+That's the main check in [τ-bench](https://arxiv.org/abs/2406.12045), the
+benchmark of customer-service agents talking to a simulated user. Its
+authors (Yao et al., ICLR 2025) compare the database's state at the end of
+each conversation with an annotated goal state, alongside a check that the
+agent's replies contain the information the user asked for. They give
+their reason for grading the state: a user can make the same request in
+different ways that should all end in the same state. Grading the state
+rather than the conversation accepts every one of those paths at once.
+
+The registry agent's tasks do the same, in two parts:
+
+- **The registry.** The expected state is the starting registry with the
+  task's changes applied. Every agent and every field is compared, not
+  just the ones the task names, because an agent that changes the wrong
+  thing has failed even if it also changed the right one.
+- **The outbox.** How many emails were sent, to whom, and, where it
+  matters, what they say.
+
+</Subsection>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Write state_diff(initial, final, changes). initial and final map each agent's id to its fields; changes maps an agent's id to the fields the task should have changed. Return a sorted list of every difference between final and the expected state, which is initial with changes applied: \"<agent>: missing\" for an expected agent that isn't in final; \"<agent>: not expected\" for an agent in final that isn't expected; \"<agent>.<field>: expected <value>, got <value>\" for each field that differs, with both values written with repr() and None for a field that's absent. Sort by agent, then by field. Raise ValueError if changes names an agent that isn't in initial. Don't change the inputs."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  runnable
+  hint={"Build the expected state with a dict comprehension that merges each agent's fields with its changes, {**fields, **changes.get(agent, {})}, which makes new dicts rather than editing initial. Then walk the union of the agents' ids, expected.keys() | final.keys(), sorted, and for each agent present in both, the union of its fields. .get(field) gives None for a field that's absent."}
+  correctAnswer={{
+    code: STATE_DIFF + "\n\n" + EXAMPLE,
+    explanation: "The expected state is built from the whole starting registry, not just the agents the task mentions, so a change to an agent the task never named shows up as a difference. That's the check's job in a19, where the agent moved an agent it should have asked about. Walking the union of ids and of fields catches the other two directions too: something that vanished, and something that appeared. The merge {**fields, **changes.get(agent, {})} builds new dicts, so initial is never changed, and a ValueError for an unknown agent in changes reports a broken task instead of quietly ignoring part of its definition.",
+  }}
+/>
+
+</CheckpointZone>
+
+<Subsection title="Five runs, checked" variant="b">
+
+Here's the check on five baseline runs, beside what each agent said:
+
+```python
+import json
+from pathlib import Path
+
+SUITE = Path("/data/eval/suite")
+
+
+def load_suite(name: str = "grades-2a") -> dict:
+    """The phase 2a suite: its tasks, each trial's code-check result, and whether each reference run passes."""
+    return json.loads((SUITE / f"{name}.json").read_text(encoding="utf-8"))
+```
+*(defined once at the start of the module's suite lessons and already loaded)*
+
+<LiveDemo client:load dataFiles={END_STATES_DATA} setupCode={LOAD_SUITE + "\n\n" + STATE_DIFF} code={END_STATES_DEMO} />
+
+*(Real baseline runs. `state_diff` is the exercise's reference version, loaded for you.)*
+
+- **a02 and a22** did what was asked, and the check agrees. a22's two
+  changes in one run are no harder to check than one.
+- **a19** moved support_agent when the request could mean any of three
+  agents. The task expected nothing to change, because the right move was
+  to ask, and the check names exactly what changed that shouldn't have.
+- **m04** was asked to tell research_agent's owners about a move next
+  week. It sent the email and also made the move itself. A check on the
+  outbox alone would have passed it; the registry check catches the change
+  nobody asked for.
+
+The last run is the end state's blind spot. a14 was asked to move
+research_agent and tell its team, with the write set to be lost. The
+registry is exactly as expected, unchanged, and that would be true whether
+the agent tried and the write was lost, or never tried at all. What went
+wrong is in what the agent said and sent: it told the user and
+research-team the move had happened. Here the outbox check catches it
+indirectly, because the task expected no email for a move that didn't
+happen. But the reason the run fails, a false report, isn't something any
+state can show.
+
+That's the end state's limit in general. It's the right check for what an
+agent *does*, and the wrong one for what it *says*: for a task whose
+failure is in the reply, an unchanged registry only shows that no harm was
+done.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "τ-bench grades a conversation by comparing the database's final state with a goal state. What advantage do its authors give for that?",
+      "options": [
+        "Many paths lead to the same end state",
+        "It needs no goal state written for each task",
+        "The state can't be changed by the simulated user",
+        "It grades the agent's reasoning as well as its actions"
+      ],
+      "correctIndex": 0,
+      "explanation": "A user can phrase or sequence a request many ways, and an agent can take many valid paths. Grading the final state accepts all of them, where grading the conversation would have to anticipate each one."
+    },
+    {
+      "question": "Why does the state check compare every agent, not just the ones the task names?",
+      "options": [
+        "Changing the wrong agent is a failure too",
+        "The registry rejects writes to agents not named in the task",
+        "Comparing every agent makes the check faster to run",
+        "Tasks never name all the agents they're about"
+      ],
+      "correctIndex": 0,
+      "explanation": "In a19 the task named no agent to change, and the agent changed support_agent. A check limited to named agents would see nothing wrong; comparing the whole registry against the expected state catches it."
+    },
+    {
+      "question": "m04 sent the right email and also moved research_agent, which nobody asked for. Which check catches the move?",
+      "options": [
+        "The registry check: a field changed",
+        "The outbox check, since the email mentioned the move",
+        "Neither, since the user's request was carried out",
+        "A path check on the order of the agent's tool calls"
+      ],
+      "correctIndex": 0,
+      "explanation": "The outbox was right: one email, to research-team. The registry wasn't: research_agent's model changed when the task expected nothing to. Checking both parts of the end state is what catches a side effect next to a correct action."
+    },
+    {
+      "question": "a14's registry ended exactly as expected, unchanged, but the run failed. Why can't a state check show what went wrong?",
+      "options": [
+        "The failure was a false report",
+        "The state check only runs on tasks with no faults",
+        "The registry was reset before the check could run",
+        "The agent changed a field the check doesn't compare"
+      ],
+      "correctIndex": 0,
+      "explanation": "With the write lost, an unchanged registry looks the same whether the agent tried or not. The failure was telling the user, and research-team, that the move had happened. That's in what the agent said and sent, not in any state."
+    },
+    {
+      "question": "Why should state_diff raise an error when the task's changes name an agent that isn't in the registry?",
+      "options": [
+        "The task is wrong; ignoring it hides that",
+        "Python can't merge a dict for an agent that doesn't exist",
+        "The agent would create the missing agent if it weren't caught",
+        "Errors make the check run faster on correct tasks"
+      ],
+      "correctIndex": 0,
+      "explanation": "Expected changes for an agent that doesn't exist mean the task was written wrong. Ignoring them would grade runs against a definition of success nobody intended, which is the kind of broken task Lesson 4's triage looks for."
+    }
+  ]}
+/>
+
+</CheckpointZone>
