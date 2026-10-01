@@ -104,6 +104,17 @@ const PAIRS = [
       ),
     ],
   })),
+  {
+    what: "LOAD_SUMMARIZER (Module 7 Lesson 5 concept 5)",
+    a: ["the LOAD_SUMMARIZER constant", () => rawConstant("src/content/modules/07-evaluation/05-code-graders/05-a-component-test-the-summarizer.mdx", "LOAD_SUMMARIZER")],
+    b: [
+      "the page's setup block",
+      () => pageFence(
+        "src/content/modules/07-evaluation/05-code-graders/05-a-component-test-the-summarizer.mdx",
+        "import json\nfrom pathlib import Path\n\nSUMMARIZER =",
+      ),
+    ],
+  },
   // the pilot's modules, served to the browser for Module 7 Lesson 2 concept 5's replays
   ...[
     ...["eval_client", "registry_world", "harness"].map((name) => `scripts/eval/${name}.py`),

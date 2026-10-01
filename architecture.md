@@ -596,7 +596,13 @@ ones as `checks_before_v3`; `suite_grades.py` grades with
 `checks_before_v3`, so `grades-2a.json`'s trial results, and Lesson 4's
 pages, are unchanged. Concept 4 adds no data: its mutation demo takes
 `CONTAINS` as setup, and its pytest runs are recorded output in
-`TerminalGroup`s, as in Module 0's pytest pages.
+`TerminalGroup`s, as in Module 0's pytest pages. Concept 5 mounts
+`public/data/eval/summarizer/` (`summarizer-test.json`, 0.9 MB, the phase
+2b summaries and first-round probes; `summary-probes.json`, 52 KB, the
+phase 2c probes and answers) with its own page-local `LOAD_SUMMARIZER`
+(shown verbatim, copy-checked); the third and fourth demos' hidden setup
+is `LOAD_SUMMARIZER` plus the second demo up to its grading (`mentions`,
+`correct`, `probes` with a17/0's added phrasings).
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or

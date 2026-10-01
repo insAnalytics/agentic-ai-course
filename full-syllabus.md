@@ -6947,7 +6947,28 @@ torch 2.13.0+cu130, `torchaudio` removed,
    second pytest output shows `--tb=no`, which is what produces the
    mockup's short form. 5 quiz cards. Callbacks: Lesson 1 concept 5's
    `#where-evaluation-starts`, Module 0's parametrized-tests page, Module
-   6 Lesson 8's pinning page (anchors verified). Concepts 5 onward and the
+   6 Lesson 8's pinning page (anchors verified).
+   Concept 5 (a component test: the summarizer) is built, no exercise:
+   Module 4's promised test as a component test (QAGS, Wang et al., ACL
+   2020), the phase 2b first round (script-written probes; by kind, and
+   m05/3's stale probe, every answer right and marked wrong), what was
+   wrong with those probes, the phase 2c second round (careful 152/180,
+   plain 133/180 with a17/0's three added phrasings, +10.6%, 95% interval
+   +2.8% to +17.2% from resampling traces; careful better on 13 of 20),
+   the cheaper check of looking for the fact in the summary text (158 vs
+   142 of 180), what careful summaries lose (failure details), and when to
+   rerun. Four read-only demos on `public/data/eval/summarizer/`, each
+   matching the mockup exactly in Pyodide 0.26.4 (a fresh interpreter
+   each). Checked against the runs: the 4 stale probes (m05/2, m05/3,
+   m01/2, m02/4) and the 3 ambiguous error probes (q37/1, m03/3, a17/0,
+   each also hitting a non-REG error); m05/3's sequence. Corrected from
+   the mockup: "careful came out 2.9 points ahead, interval 2 behind to 8
+   ahead" couldn't be reproduced exactly; removing those seven probes with
+   the page's own resampling gives +3.2% (-2.1% to +8.5%), which the page
+   now states, naming what was removed (same conclusion). 5 quiz cards.
+   Callbacks: Module 4 Lesson 5 concept 3's `#testing-a-summary-by-asking-it-questions`,
+   Lesson 1 concept 3's page, Lesson 4 concept 1's page (anchors
+   verified); Lesson 9 is plain prose. Concepts 6 onward (if any) and the
    bookends are not drafted yet.
 
 ### Old-plan outline (where it was Module 4)
