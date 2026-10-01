@@ -359,3 +359,31 @@ def load_reading(name: str) -> dict:
     """One of the reading files: "sample", "labels-simar", "labels-simar-v2", "labels-claude", "categories"."""
     return json.loads((READING / f"{name}.json").read_text(encoding="utf-8"))
 `;
+
+/**
+ * Module 7 Lesson 3 concept 4's tally: the exercise's reference, shown there
+ * as the correct answer by using this constant (with the starter's example
+ * call after it). Demos after the exercise append it to LOAD_READING.
+ */
+export const TALLY = String.raw`from collections import defaultdict
+
+
+def tally(assignments: dict[str, str], read: list[str]) -> list[dict]:
+    """Count each failure category by runs and by tasks, and its share of everything read.
+
+    assignments: trial id -> category, for every trace that failed.
+    read: every trial id that was read, failed or not.
+    Returns one dict per category: {"category", "runs", "tasks", "share"}, most runs first, then most tasks,
+    then by name. A trial id looks like "baseline-a/a14/3": the task is the middle part.
+    """
+    unread = set(assignments) - set(read)
+    if unread:
+        raise ValueError(f"categories given for traces that weren't read: {sorted(unread)}")
+    runs, tasks = defaultdict(int), defaultdict(set)
+    for trial_id, category in assignments.items():
+        runs[category] += 1
+        tasks[category].add(trial_id.split("/")[1])
+    rows = [{"category": category, "runs": runs[category], "tasks": len(tasks[category]),
+             "share": round(runs[category] / len(read), 3)} for category in runs]
+    return sorted(rows, key=lambda row: (-row["runs"], -row["tasks"], row["category"]))
+`;

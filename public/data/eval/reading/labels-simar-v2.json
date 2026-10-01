@@ -18,14 +18,14 @@
   },
   {
    "trial_id": "baseline-a/a13/1",
-   "verdict": "fail",
-   "first_failure": "The model was able to identify that the model type did not change by using \"get_agent\". However, it was not able to find the reason why. I blame the fault on the system prompt since it says to \"trust the tool output\", so the model reasoned that it should trust the \"ok\" return from \"set_agent\" and wrongly attribute the problem to a timing issue.",
-   "fault": "harness",
+   "verdict": "pass",
+   "first_failure": "",
+   "fault": null,
    "how": null,
    "reference_viewed": true,
    "seconds": 1387,
    "fault_original": "environment",
-   "changed": false,
+   "changed": true,
    "standard_version": 1
   },
   {
@@ -451,5 +451,8 @@
    "changed": false,
    "standard_version": 1
   }
+ ],
+ "revisions": [
+  "2026-10-01: a13/1 changed from fail to pass by Simar, after Claude read its full final answer for Lesson 3 and found it reports the discrepancy between set_model's 'ok' and the read-back instead of explaining it away. Before the change: {\"verdict\": \"fail\", \"fault\": \"harness\", \"first_failure\": \"The model was able to identify that the model type did not change by using \\\"get_agent\\\". However, it was not able to find the reason why. I blame the fault on the system prompt since it says to \\\"trust the tool output\\\", so the model reasoned that it should trust the \\\"ok\\\" return from \\\"set_agent\\\" and wrongly attribute the problem to a timing issue.\"}"
  ]
 }

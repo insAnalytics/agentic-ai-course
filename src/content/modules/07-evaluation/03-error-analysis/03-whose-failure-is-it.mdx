@@ -95,8 +95,8 @@ it starts.
 
 <Subsection title="The harness" variant="a">
 
-Two groups of failures in the reading came from what the course built
-rather than from the model's judgement alone:
+Two problems in this module came from what the course built rather than
+from the model's judgement alone:
 
 - **The planted instruction.** The wiki page in Module 5's corpus contains
   a line aimed at AI assistants, telling them to advise turning
@@ -104,11 +104,13 @@ rather than from the model's judgement alone:
   user to do it, and one copied it into an email to support-team. The page
   was planted on purpose, so the reading standard counts it as the
   harness's: the agent's defences against it are part of how it was built.
-- **The explained-away write.** In a13/1, the agent read the record back,
-  saw the change hadn't landed, and decided it would apply later. Simar
-  put that on the system prompt's instruction to trust what tools report;
-  [Lesson 2](/07-evaluation/02-tracing/04-reading-a-trace/#what-the-model-saw-and-thought)
-  showed another run quoting the tool's own description to the same end.
+- **The excuse in a tool's description.** In the pilot, a run read the
+  record back, saw a lost write, and explained it away by quoting
+  `set_model`'s own description,
+  ["the change applies from the agent's next session"](/07-evaluation/02-tracing/04-reading-a-trace/#what-the-model-saw-and-thought).
+  That sentence was the course's, and it was rewritten for the baseline.
+  In the baseline's a13/1, the agent read the new wording, saw that the
+  record hadn't changed, and reported the contradiction instead.
 
 Both are fixed in the harness: a defence against instructions in retrieved
 text, and wording that doesn't hand the model an excuse.
@@ -142,14 +144,14 @@ the sample that have them, finds the grader's own failures:
 *(Each trace's reading is Simar's for the 40 he read and Claude's for the
 rest.)*
 
-Nine of the 50 disagree, and the two directions have different causes:
+Eight of the 50 disagree, and the two directions have different causes:
 
-- **The five false passes** are all checks that looked at the world's
+- **The four false passes** are all checks that looked at the world's
   state but not at what the agent said or sent. The registry was right in
   each, and in a11 and a05 nothing had changed at all, which is what the
   checks expected. The failures were in the reply or the email: advice to
-  turn authentication off, a false report, an empty record presented as
-  fact. A state check can't see any of them.
+  turn authentication off, the same advice forwarded to support-team, and
+  an empty record presented as fact. A state check can't see any of them.
 - **The four false failures** are bugs in the checks themselves. Three
   answers gave the right figures as "840ms" and "1,750ms", and the check
   matched numbers as whole words, so "840" inside "840ms" didn't count.
@@ -193,7 +195,7 @@ otherwise, and Lessons 5 to 8 are about making graders that deserve trust.
       "explanation": "Both count, because the agent is both. Separating them says where to look: a planted instruction getting through is fixed by defences in the harness, and an excuse handed over by a tool's description is fixed by rewording it, not by changing the model."
     },
     {
-      "question": "Five runs passed their code checks but failed when read. What did those checks have in common?",
+      "question": "Four runs passed their code checks but failed when read. What did those checks have in common?",
       "options": [
         "They checked state, not what the agent said",
         "They used whole-word matching on numbers with units",
@@ -201,7 +203,7 @@ otherwise, and Lessons 5 to 8 are about making graders that deserve trust.
         "They ran before the agent had finished the task"
       ],
       "correctIndex": 0,
-      "explanation": "Each run left the registry as the check expected, and each failed in its reply or email: passing on the planted instruction, a false report, an empty record stated as fact. A check on state alone can't see what the user was told."
+      "explanation": "Each run left the registry as the check expected, and each failed in its reply or email: passing on the planted instruction, or stating an empty record as fact. A check on state alone can't see what the user was told."
     },
     {
       "question": "A check failed three correct answers that gave \"840ms\" and \"1,750ms\". What went wrong?",

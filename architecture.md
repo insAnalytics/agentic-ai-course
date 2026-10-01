@@ -524,6 +524,10 @@ every demo in the lesson.
 `main_report.py`) applied to the sample's 50 registry and conversation
 traces, written by `scripts/eval/reading_code_grades.py` (`--check` fails
 if it's out of date); concept 3 compares it with the readings.
+Concept 4 adds `TALLY` (`tally(assignments, read)`: each category's runs,
+distinct tasks and share of everything read, sorted by runs, tasks, name;
+the exercise's reference, shown as the correct answer via the constant
+itself). Demos after the exercise append it to `LOAD_READING`.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or

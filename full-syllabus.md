@@ -6607,8 +6607,30 @@ kept as `TOOL_SPECS_PILOT`).
    output matched the mockup's copy, and the demo matches the mockup
    exactly); 5 quiz cards. Callbacks: Lesson 1 concept 1's
    `#one-run-and-the-words-for-its-parts` and Lesson 2 concept 4's
-   `#what-the-model-saw-and-thought` (anchors verified). Not yet drafted:
-   the remaining concepts and the bookends.
+   `#what-the-model-saw-and-thought` (anchors verified). After a data
+   update (a13/1 re-labelled a pass in `labels-simar-v2.json`, so 23 of 100
+   traces fail and *trusts the tool's "ok"* holds only the two a14 runs),
+   the demo reads 42 agree / 4 false passes / 4 false failures, and the
+   harness subsection now uses the pilot's excuse in `set_model`'s
+   description (a13/1 reported the contradiction); concept 1's cost
+   paragraph was reworded to match.
+   Concept 4 (grouping and counting) is built: axial coding's rules
+   (first failure, a model drafts and a person decides, merging and
+   splitting as decisions about fixes); a graded `tally(assignments, read)`
+   exercise (hidden tests split into 4 self-contained scenarios; new shared
+   `TALLY`); demos counting the 11 categories, a task-level bootstrap
+   interval for the top five, and each category against Module 6's map
+   (6 fit, 3 partly, 2 new), the later two with the first demo's
+   definitions as hidden setup; 5 quiz cards. Verified in real Pyodide
+   0.26.4 through the site's test harness: the reference passes all 4
+   tests with the mockup's Run output, the starter fails, and nine wrong
+   versions each fail (tasks counted as runs, share of failures, no
+   rounding, sort by runs only, no tasks tiebreak, ascending runs, whole
+   trial id as the task, no ValueError, mutated input). All three demos
+   match the mockup exactly. The mockup's "4 of the 24 failures" became 23
+   to match the updated data. Callback: Module 6 Lesson 1's
+   `#how-sure-can-we-be-of-these-numbers` (anchor verified). Not yet
+   drafted: the remaining concepts and the bookends.
 
 ### Old-plan outline (where it was Module 4)
 

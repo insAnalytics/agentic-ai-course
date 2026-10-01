@@ -115,7 +115,7 @@ fail: 9 traces, median 279 seconds
 ```
 *(runs live, shows output — read-only demo snippet, not graded; times from Simar's first reading, before the standard described in the next concepts)*
 
-Most runs that worked took under a minute to confirm. The ones that failed took about five times as long, because finding the first failure means following the run step by step, and the hardest one, a write that silently didn't land and an agent that explained the evidence away, took 23 minutes. Two hours for 40 traces makes a sample of 100 about a day's work for one person. That's the cost of the first round; once the categories exist, later rounds only need to read enough new runs to see whether anything new has appeared.
+Most runs that worked took under a minute to confirm. The ones that failed took about five times as long, because finding the first failure means following the run step by step, and the hardest one, a write that silently didn't land, which had to be followed to the agent's last line before it could be judged, took 23 minutes. Two hours for 40 traces makes a sample of 100 about a day's work for one person. That's the cost of the first round; once the categories exist, later rounds only need to read enough new runs to see whether anything new has appeared.
 
 ---
 
