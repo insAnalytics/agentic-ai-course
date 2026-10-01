@@ -502,6 +502,15 @@ then `/data/eval/code` on `sys.path` and the pilot's `ReplayClient`,
 `_plain`, imported unchanged). In Pyodide 0.26.4 the first Run takes about
 6-8 s (package downloads; networkx pulls in matplotlib), and replaying all
 30 4B runs then takes about a second; all 30 reproduce exactly.
+Lesson 2's recap sandbox reuses that setup: `MultiFileGradedExercise`
+gained an optional `setupCode` prop (run in Pyodide's globals after the data
+files are written and before grading, like `LiveDemo`'s; a setup error is
+shown as the grading error), and the recap passes `REPLAY_SETUP` with
+`replayData("4b-think")`. Its read-only `lib.py` repeats the lesson's
+shared code; `check-copies.mjs` checks every definition from `TRACER`,
+`TRACED_CHECKS`, `INSTRUMENT_WRAPPERS` (bar `config_hash`), `SUMMARIZE` and
+`LOAD_PILOT` appears in it byte for byte (`CONTAINED` entries can target a
+page constant as well as a file).
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or

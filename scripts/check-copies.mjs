@@ -90,6 +90,15 @@ const CONTAINED = [
   })),
   { what: "the replay exercise's reference ReplayClient", text: rawConstant(REPLAY_PAGE, "REFERENCE").trim(),
     file: "scripts/eval/eval_client.py" },
+  // Lesson 2's recap lib.py: every definition from the lesson's shared code, byte for byte (imports are
+  // gathered at its top, and config_hash isn't needed there)
+  ...["TRACER", "TRACED_CHECKS", "INSTRUMENT_WRAPPERS", "SUMMARIZE", "LOAD_PILOT"].flatMap((name) =>
+    rawConstant("src/lib/evalData.ts", name).split("\n\n\n").map((piece) => piece.trim())
+      .filter((piece) => piece && !/^(import|from) /.test(piece) && !piece.startsWith("def config_hash"))
+      .map((piece) => ({
+        what: `${name}'s ${piece.split("\n")[0].slice(0, 40)}`, text: piece,
+        constant: ["src/content/modules/07-evaluation/02-tracing/06-recap-practice.mdx", "LIB_PY"],
+      }))),
 ];
 
 let failed = false;
@@ -99,9 +108,10 @@ for (const { what, a, b } of PAIRS) {
     failed = true;
   }
 }
-for (const { what, text, file } of CONTAINED) {
-  if (!read(file).includes(text)) {
-    console.error(`check-copies: ${what} is no longer in ${file} as written; change both together.`);
+for (const { what, text, file, constant } of CONTAINED) {
+  const where = file ?? `${constant[0]}'s ${constant[1]}`;
+  if (!(file ? read(file) : rawConstant(...constant)).includes(text)) {
+    console.error(`check-copies: ${what} is no longer in ${where} as written; change both together.`);
     failed = true;
   }
 }

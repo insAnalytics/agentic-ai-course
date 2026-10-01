@@ -1,0 +1,26 @@
+---
+title: "Intro"
+lesson: "02-tracing"
+order: 0
+---
+import LearningOutcomes from "../../../../components/lesson/LearningOutcomes.astro";
+import WhyItMatters from "../../../../components/lesson/WhyItMatters.astro";
+
+<LearningOutcomes
+  outcomes={[
+    "Record an agent run as a tree of spans, with a tracer whose spans nest, time themselves and record failures, and instrument an agent by wrapping its client, tools and checks without changing its loop",
+    "Name spans and attributes by OpenTelemetry's GenAI conventions, add the course's own records (the context manifest, check verdicts, configuration) under the course's own prefix, and decide when to capture content",
+    "Query a trace by its attributes to find where a failure started and where the tokens went, and replay a recorded run to check that a change meant to leave the model's input alone really does"
+  ]}
+/>
+
+<WhyItMatters>
+  Every lesson after this one reads runs: to find out how the agent fails,
+  to grade it, to check the graders, and to compare one version of the agent
+  with another. A run that wasn't recorded can't be evaluated, and a run
+  recorded as a flat list of events can't answer the questions that matter:
+  which step led to which, what failed first, what the model saw when it
+  went wrong. This lesson builds the recording the rest of the module
+  depends on, in the format the industry's tools share, and the replay that
+  lets real runs be rerun in the browser.
+</WhyItMatters>

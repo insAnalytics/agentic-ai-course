@@ -6441,7 +6441,7 @@ architecture.md §3.1).
    `reply_matters`, mutating the trial, returning a list).
 
 2. **Tracing an Agent Run** (`02-tracing`, title provisional) —
-   **Building.** Concept 1 (from a list of events to a tree of spans) is
+   **Locked.** Concept 1 (from a list of events to a tree of spans) is
    built: the course's four separate records (Module 2's tracing hook,
    Module 4's manifest, Module 6's check records and `record_run`), the
    pilot's tool log and model calls for `4b-think/p08/0` side by side,
@@ -6531,7 +6531,27 @@ architecture.md §3.1).
    left as dicts, new tool-call ids, length ignored, usage swapped,
    always tool_use). The demos were also run in headless Chromium against
    the built site (data files and CDN packages loading for real). No
-   callbacks in this concept. Bookends not yet drafted.
+   callbacks in this concept.
+   Bookends are built: intro (3 outcomes, why it matters) and recap with an
+   8-question comprehensive quiz and a multi-file sandbox (`lib.py`
+   read-only: the lesson's tracer, `traced_checks`, `TracedChat`,
+   `instrument`, `summarize` and pilot loaders, plus imports of the pilot's
+   own `ReplayClient`, `Task`, `MAX_STEPS`, `tool_errors`, `fresh_world`,
+   `Checks` and `run_checked_agent`; entry `replay_trace.py`, where the
+   learner writes `trace_replay`: a root span with the run's model,
+   conversation id and config hash, the pilot's `after_tool=tool_errors`
+   checks, and the chat spans' totals on the root). Hidden setup is
+   concept 5's `REPLAY_SETUP` through `MultiFileGradedExercise`'s new
+   `setupCode` prop. The task's "Click Run" became "Submit also runs the
+   file", since this component has only Submit. Verified in real Pyodide
+   0.26.4 the way the component runs it: the reference passes with the
+   mockup's Run output, the starter fails, and seven wrong versions each
+   fail with their intended message (no checks, which diverges at call 2;
+   a second tracer; no root totals; a swallowed divergence; no
+   simulated-user guard; no conversation id; the loop outside the root).
+   Also run in headless Chromium against the built site: the starter fails
+   with its message, and the reference, typed into the editor, passes and
+   prints the expected summary.
 
 ### Old-plan outline (where it was Module 4)
 

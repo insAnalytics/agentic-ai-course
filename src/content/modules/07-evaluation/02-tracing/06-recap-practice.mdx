@@ -1,0 +1,430 @@
+---
+title: "Recap & Practice"
+lesson: "02-tracing"
+order: 6
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REPLAY_SETUP, replayData } from "../../../../lib/evalData";
+
+export const SANDBOX_DATA = replayData("4b-think");
+
+export const LIB_PY = String.raw`"""Code from this lesson's concepts, and the pilot's own replay and world. Read-only."""
+
+import dataclasses
+import json
+import secrets
+import time
+from collections import Counter
+from contextlib import contextmanager
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from eval_client import ReplayClient, ReplayDiverged
+from harness import MAX_STEPS, Task, tool_errors
+from m6loop import Checks, run_checked_agent
+from registry_world import fresh_world
+
+
+@dataclass
+class Span:
+    """One timed step of a run: what it was, which step it sits inside, and how it ended."""
+    name: str
+    trace_id: str
+    span_id: str
+    parent_id: str | None
+    start_ns: int
+    end_ns: int | None = None
+    attributes: dict = field(default_factory=dict)
+    status: str = "UNSET"
+
+
+class Tracer:
+    """Records one run as a tree of spans."""
+
+    def __init__(self, clock=time.time_ns):
+        self.clock = clock
+        self.trace_id = secrets.token_hex(16)
+        # every span, in the order it started
+        self.spans: list[Span] = []
+        # the spans that are open right now, innermost last
+        self._open: list[Span] = []
+
+    def _new_id(self) -> str:
+        return secrets.token_hex(8)
+
+    @contextmanager
+    def span(self, name: str, attributes: dict | None = None):
+        """Open a span for the code inside the with block, nested inside whichever span is open."""
+        span = Span(name=name, trace_id=self.trace_id, span_id=self._new_id(),
+                    parent_id=self._open[-1].span_id if self._open else None,
+                    start_ns=self.clock(), attributes=dict(attributes or {}))
+        self.spans.append(span)
+        self._open.append(span)
+        try:
+            yield span
+        except Exception as error:
+            span.status = "ERROR"
+            span.attributes["error.type"] = type(error).__name__
+            raise
+        finally:
+            span.end_ns = self.clock()
+            self._open.pop()
+
+
+POINTS = ("before_model", "before_tool", "after_tool", "before_answer")
+# what Module 6's loop does when a check at each point gives a reason
+ACTIONS = {"before_model": "stopped the run", "before_tool": "returned to the model as an error",
+           "after_tool": "returned to the model as an error", "before_answer": "withheld the answer"}
+
+
+def traced_checks(checks: Checks, tracer: Tracer) -> Checks:
+    """The same checks, each call recorded as a span: where it ran, on what, and what it decided."""
+    def wrap(point, check):
+        def run(*args):
+            attributes = {"registry_agent.check.point": point}
+            if point in ("before_tool", "after_tool"):
+                call = args[0]
+                attributes |= {"gen_ai.tool.name": call.name, "gen_ai.tool.call.id": call.id}
+            with tracer.span(f"check {point}", attributes) as span:
+                reason = check(*args)
+                span.attributes["registry_agent.check.verdict"] = "blocked" if reason else "passed"
+                if reason:
+                    span.attributes["registry_agent.check.reason"] = reason
+                    span.attributes["registry_agent.check.action"] = ACTIONS[point]
+                return reason
+        return run
+    return Checks(**{point: wrap(point, getattr(checks, point)) for point in POINTS})
+
+
+class TracedChat:
+    """A client for Module 6's loop, with each model call as a chat span named and described by the conventions."""
+
+    def __init__(self, client, tracer: Tracer, model: str, provider: str):
+        self.client, self.tracer, self.model, self.provider = client, tracer, model, provider
+
+    def create(self, messages: list):
+        attributes = {"gen_ai.operation.name": "chat", "gen_ai.provider.name": self.provider,
+                      "gen_ai.request.model": self.model}
+        with self.tracer.span(f"chat {self.model}", attributes) as span:
+            response = self.client.create(messages=messages)
+            # a real client reports these; the course's scripted client doesn't, so they're added only when present
+            if usage := getattr(response, "usage", None):
+                span.attributes["gen_ai.usage.input_tokens"] = usage["input_tokens"]
+                span.attributes["gen_ai.usage.output_tokens"] = usage["output_tokens"]
+            if answered := getattr(response, "model", None):
+                span.attributes["gen_ai.response.model"] = answered
+            span.attributes["registry_agent.tool_calls"] = [b.name for b in response.content if b.type == "tool_use"]
+            return response
+
+
+def instrument(client, tools: dict, checks: Checks, tracer: Tracer, model: str, provider: str):
+    """The agent's client, tools and checks, each recording spans; Module 6's loop runs them unchanged."""
+    # before_tool always runs just before its tool, so it can tell the tool's span which call it belongs to
+    current = {}
+
+    def remember(check):
+        def run(call, messages):
+            current["call"] = call
+            return check(call, messages)
+        return run
+
+    def wrap_tool(name, function):
+        def call(**arguments):
+            attributes = {"gen_ai.operation.name": "execute_tool", "gen_ai.tool.name": name,
+                          "gen_ai.tool.call.id": current["call"].id, "gen_ai.tool.type": "function"}
+            with tracer.span(f"execute_tool {name}", attributes) as span:
+                output = function(**arguments)
+                if str(output).startswith("Error:"):
+                    span.status = "ERROR"
+                    span.attributes["error.type"] = "tool_error"
+                return output
+        return call
+
+    traced = traced_checks(dataclasses.replace(checks, before_tool=remember(checks.before_tool)), tracer)
+    return (TracedChat(client, tracer, model, provider),
+            {name: wrap_tool(name, function) for name, function in tools.items()}, traced)
+
+
+
+def summarize(spans: list[Span]) -> dict:
+    """The facts about one run that a trace answers at a glance, found by attributes rather than span names."""
+    def operation(span):
+        return span.attributes.get("gen_ai.operation.name")
+
+    chats = [span for span in spans if operation(span) == "chat"]
+    tools = [span for span in spans if operation(span) == "execute_tool"]
+    # a failure that started somewhere else passes through its parents; the origin is the failed span with no failed child
+    failed_parents = {span.parent_id for span in spans if span.status == "ERROR"}
+    origins = [span for span in spans if span.status == "ERROR" and span.span_id not in failed_parents]
+    return {
+        "model_calls": len(chats),
+        "input_tokens": sum(span.attributes.get("gen_ai.usage.input_tokens", 0) for span in chats),
+        "output_tokens": sum(span.attributes.get("gen_ai.usage.output_tokens", 0) for span in chats),
+        "tool_calls": dict(Counter(span.attributes["gen_ai.tool.name"] for span in tools)),
+        "failed_tools": [span.attributes["gen_ai.tool.name"] for span in tools if span.status == "ERROR"],
+        "first_failure": origins[0].name if origins else None,
+        "blocked_checks": [span.attributes["registry_agent.check.point"] for span in spans
+                           if span.attributes.get("registry_agent.check.verdict") == "blocked"],
+    }
+
+
+PILOT = Path("/data/eval/pilot")
+
+
+def load_pilot(setup: str) -> dict:
+    """One pilot run file: "4b-think" (the agent this module evaluates), "4b-nothink" or "9b-think"."""
+    return json.loads((PILOT / f"{setup}.json").read_text(encoding="utf-8"))
+
+
+def load_tasks() -> dict[str, dict]:
+    """The pilot's ten tasks by id: the request, and what each run was checked for."""
+    return {task["id"]: task for task in json.loads((PILOT / "tasks.json").read_text(encoding="utf-8"))["tasks"]}
+`;
+
+export const REPLAY_TRACE_STARTER = String.raw`from lib import (MAX_STEPS, Checks, ReplayClient, Task, Tracer, fresh_world, instrument, load_pilot, load_tasks,
+                 run_checked_agent, summarize, tool_errors)
+
+
+def trace_replay(run: dict, trial: dict, task: Task, directory: str) -> list:
+    """Replay one recorded pilot run with the real tools, traced the way the module's main runs are."""
+    # your code here
+
+
+if __name__ == "__main__":
+    run = load_pilot("4b-think")
+    tasks = load_tasks()
+    trial = next(t for t in run["trials"] if t["trial_id"] == "4b-think/p07/0")
+    spans = trace_replay(run, trial, Task(**tasks["p07"]), "/tmp")
+    for key, value in (summarize(spans) if spans else {}).items():
+        print(f"{key}: {value}")
+`;
+
+export const REPLAY_TRACE_REFERENCE = String.raw`from lib import (MAX_STEPS, Checks, ReplayClient, Task, Tracer, fresh_world, instrument, load_pilot, load_tasks,
+                 run_checked_agent, summarize, tool_errors)
+
+
+def trace_replay(run: dict, trial: dict, task: Task, directory: str) -> list:
+    """Replay one recorded pilot run with the real tools, traced the way the module's main runs are."""
+    if task.user is not None:
+        raise ValueError(f"{task.id} has a simulated user; this replays single-request tasks only")
+    tracer = Tracer()
+    root_attributes = {"gen_ai.operation.name": "invoke_agent", "gen_ai.agent.name": "registry_agent",
+                       "gen_ai.request.model": run["model"], "gen_ai.conversation.id": trial["trial_id"],
+                       "registry_agent.config_hash": run["config_hash"]}
+    with tracer.span("invoke_agent registry_agent", root_attributes) as root:
+        world = fresh_world(task, directory)
+        client, tools, checks = instrument(ReplayClient(trial["calls"], run["model"]), world.tools(),
+                                           Checks(after_tool=tool_errors), tracer, model=run["model"], provider="vllm")
+        messages = [{"role": "user", "content": task.request}]
+        run_checked_agent(client, messages, tools, checks, max_steps=MAX_STEPS)
+        totals = summarize(tracer.spans)
+        root.attributes["gen_ai.usage.input_tokens"] = totals["input_tokens"]
+        root.attributes["gen_ai.usage.output_tokens"] = totals["output_tokens"]
+    return tracer.spans
+
+
+if __name__ == "__main__":
+    run = load_pilot("4b-think")
+    tasks = load_tasks()
+    trial = next(t for t in run["trials"] if t["trial_id"] == "4b-think/p07/0")
+    spans = trace_replay(run, trial, Task(**tasks["p07"]), "/tmp")
+    for key, value in (summarize(spans) if spans else {}).items():
+        print(f"{key}: {value}")
+`;
+
+export const HIDDEN_TESTS = String.raw`import copy
+import json
+
+from lib import ReplayDiverged, Task, load_pilot, load_tasks, summarize
+from replay_trace import trace_replay
+
+run = load_pilot("4b-think")
+tasks = {task_id: Task(**task) for task_id, task in load_tasks().items()}
+trials = {trial["trial_id"]: trial for trial in run["trials"]}
+
+trial = trials["4b-think/p07/0"]
+frozen = json.dumps(trial, sort_keys=True)
+try:
+    spans = trace_replay(run, trial, tasks["p07"], "/tmp")
+except ReplayDiverged as error:
+    raise AssertionError(f"the replay diverged ({error}): the pilot ran with Checks(after_tool=tool_errors), "
+                         "and without that check the loop sends the model different requests")
+assert isinstance(spans, list) and spans, "trace_replay should return the run's spans"
+assert json.dumps(trial, sort_keys=True) == frozen, "replaying shouldn't change the recording"
+
+root = spans[0]
+assert root.name == "invoke_agent registry_agent" and root.parent_id is None, \
+    "the first span is the root: invoke_agent registry_agent, with no parent"
+by_id = {span.span_id: span for span in spans}
+for span in spans[1:]:
+    ancestor = span
+    while ancestor.parent_id is not None:
+        ancestor = by_id[ancestor.parent_id]
+    assert ancestor is root, f"every span should sit inside the root span: {span.name} doesn't"
+expected_root = {"gen_ai.operation.name": "invoke_agent", "gen_ai.agent.name": "registry_agent",
+                 "gen_ai.request.model": "Qwen/Qwen3.5-4B", "gen_ai.conversation.id": "4b-think/p07/0",
+                 "registry_agent.config_hash": run["config_hash"]}
+missing = {key: value for key, value in expected_root.items() if root.attributes.get(key) != value}
+assert not missing, f"the root span is missing or has the wrong value for: {missing}"
+
+summary = summarize(spans)
+recorded_in = sum(call["prompt_tokens"] for call in trial["calls"])
+recorded_out = sum(call["completion_tokens"] for call in trial["calls"])
+assert summary["model_calls"] == 3, f"the run made 3 model calls: got {summary['model_calls']}"
+assert (summary["input_tokens"], summary["output_tokens"]) == (recorded_in, recorded_out), \
+    "the chat spans should carry the recorded token counts, which the replay client reports as usage"
+assert (root.attributes.get("gen_ai.usage.input_tokens"), root.attributes.get("gen_ai.usage.output_tokens")) == \
+    (recorded_in, recorded_out), "the root span carries the run's totals: the sums over its chat spans"
+assert summary["failed_tools"] == ["set_model"] and summary["first_failure"] == "execute_tool set_model", \
+    f"the registry refused set_model, so that's where the run's failure starts: got {summary}"
+assert summary["blocked_checks"] == ["after_tool"], \
+    ("the pilot ran with Checks(after_tool=tool_errors), which turned the REG-1007 result into an error; "
+     f"its check span should show the block: got {summary['blocked_checks']}")
+tool_ids = [span.attributes["gen_ai.tool.call.id"] for span in spans if span.attributes.get("gen_ai.operation.name") == "execute_tool"]
+recorded_ids = [block["id"] for call in trial["calls"] for block in call["content"] if block["type"] == "tool_use"]
+assert tool_ids == recorded_ids, f"the tool spans carry the recorded call ids: expected {recorded_ids}, got {tool_ids}"
+
+for trial_id, task_id in (("4b-think/p08/1", "p08"), ("4b-think/p01/1", "p01"), ("4b-think/p06/0", "p06")):
+    spans = trace_replay(run, trials[trial_id], tasks[task_id], "/tmp")
+    summary = summarize(spans)
+    assert summary["model_calls"] == len(trials[trial_id]["calls"]), f"{trial_id}: replay every recorded model call"
+    assert summary["first_failure"] is None, f"{trial_id}: nothing failed in this run, but got {summary['first_failure']!r}"
+
+changed = Task(**{**load_tasks()["p07"], "request": "Move research_agent to claude-sonnet."})
+try:
+    trace_replay(run, trials["4b-think/p07/0"], changed, "/tmp")
+except ReplayDiverged:
+    pass
+else:
+    raise AssertionError("replaying a run against a different request must raise ReplayDiverged, not hide it")
+
+try:
+    trace_replay(run, trials["4b-think/p10/0"], tasks["p10"], "/tmp")
+except ValueError:
+    pass
+else:
+    raise AssertionError("a task with a simulated user should raise ValueError")
+`;
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "What does a span record that an event in a flat list of events doesn't?",
+      "options": [
+        "Its parent, the step it happened inside, plus its own timing",
+        "The full text of every message the model was sent at that step",
+        "A copy of the whole trace, so it can be read on its own",
+        "The id of the next span, so the steps form a linked list"
+      ],
+      "correctIndex": 0,
+      "explanation": "The parent id is what turns a run's spans into a tree, so a trace can show which step happened inside which, and each span's start and end give its timing. Content is optional, and spans point to their parents, not to the next step."
+    },
+    {
+      "question": "The registry agent's model is served from the course's own vLLM server, and no well-known gen_ai.provider.name value fits. What do the conventions allow?",
+      "options": [
+        "A custom value, since no well-known one fits",
+        "The value openai, since vLLM's API copies OpenAI's",
+        "No value: the attribute is left off for local models",
+        "The model's own name, such as Qwen/Qwen3.5-4B"
+      ],
+      "correctIndex": 0,
+      "explanation": "The conventions require a well-known value when one applies and allow a custom one otherwise. Borrowing openai would be wrong: the provider name says whose conventions the span follows, not whose HTTP API the server imitates, and the model's name belongs in gen_ai.request.model."
+    },
+    {
+      "question": "Why does each tool span carry gen_ai.tool.call.id?",
+      "options": [
+        "To match a tool span to the call that asked for it",
+        "To let the registry refuse calls it has already carried out",
+        "To sort the tool spans by how long each of them took",
+        "To mark which tool calls returned an error to the model"
+      ],
+      "correctIndex": 0,
+      "explanation": "The model's reply names each tool call by id, and the result goes back under the same id. Carrying it on the tool span links the span to the exact request and result, which matters as soon as a model asks for several tools at once."
+    },
+    {
+      "question": "A tool raises an exception, and the tracer marks both the tool span and the root span ERROR. Where did the run's failure start?",
+      "options": [
+        "The tool span, the failed span with no failed child",
+        "The root span, because it was the first one to start",
+        "The last span to end, because that's where it surfaced",
+        "Every failed span equally, since they share one cause"
+      ],
+      "correctIndex": 0,
+      "explanation": "An exception marks every span it passes through on its way out, so the root's ERROR is a consequence. The origin is the failed span with no failed span beneath it."
+    },
+    {
+      "question": "Which of these changes can't be checked by replaying recorded runs?",
+      "options": [
+        "A new system prompt, which changes what the model sees",
+        "A refactor of the tracer that leaves every request alone",
+        "A new grader that reads the recorded runs' final answers",
+        "Rewritten tool internals that still give identical results"
+      ],
+      "correctIndex": 0,
+      "explanation": "A replay can only answer requests it has a recording for. A new system prompt changes every request, and nothing recorded says what the model would do with it, so it needs new runs. The other three leave the model's input untouched, or don't involve the model at all."
+    },
+    {
+      "question": "Why is capturing message content a deliberate decision rather than a default?",
+      "options": [
+        "It shows what the agent saw, and may hold personal data",
+        "It's required by the conventions on every model call span",
+        "It makes traces smaller, because content gets compressed",
+        "It's needed to count tokens, which aren't recorded otherwise"
+      ],
+      "correctIndex": 0,
+      "explanation": "Content is what explains a run, as p08's reasoning quoting the tool description showed, but it also stores whatever users typed and tools returned, and it multiplies a trace's size. The conventions make it opt-in for both reasons; token counts are separate attributes."
+    },
+    {
+      "question": "A check blocks a tool result and turns it into an error for the model. What status does its span get?",
+      "options": [
+        "UNSET, with the block in its verdict",
+        "ERROR, because the check found a real problem",
+        "OK, because the check ran and did its job",
+        "The status of the tool call it was checking"
+      ],
+      "correctIndex": 0,
+      "explanation": "Status says whether the step itself failed, and a check that blocks has worked. The block goes in the verdict attribute, where it can be counted; ERROR is kept for a check that crashes."
+    },
+    {
+      "question": "A p08 run's trace has no failed spans, yet the run told the user a lost write had worked. What explains it?",
+      "options": [
+        "Statuses show steps ran, not that it was right",
+        "The trace must have been recorded without its checks",
+        "p08's lost write should have raised an exception",
+        "A clean trace means the grader was wrong to fail it"
+      ],
+      "correctIndex": 0,
+      "explanation": "Every step did what it was asked and reported success, including the write that was silently lost. Whether the run's result was right is a question about content: what the read-back returned and what the agent told the user."
+    }
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<MultiFileGradedExercise
+  client:load
+  task={"lib.py holds this lesson's code, read-only: Span, Tracer, traced_checks, TracedChat, instrument and summarize, plus the pilot's own ReplayClient, ReplayDiverged, Task, MAX_STEPS, tool_errors and fresh_world, Module 6's Checks and run_checked_agent, and load_pilot and load_tasks. In replay_trace.py (the entry file), write trace_replay(run, trial, task, directory). It replays one recorded pilot run with the real tools, traced exactly as the module's main runs are, and returns the tracer's spans: If task.user isn't None, raise ValueError: this replays single-request tasks only. Make one Tracer, and open a root span named invoke_agent registry_agent with these attributes: gen_ai.operation.name \"invoke_agent\", gen_ai.agent.name \"registry_agent\", gen_ai.request.model the run's \"model\", gen_ai.conversation.id the trial's \"trial_id\", and registry_agent.config_hash the run's \"config_hash\". Inside the root span: build the trial's world with fresh_world(task, directory), and instrument a ReplayClient for the trial's recorded calls, the world's tools(), and Checks(after_tool=tool_errors) (the checks the pilot ran with), using the same tracer, the run's model and provider \"vllm\". Then run Module 6's loop on the task's request, with max_steps=MAX_STEPS. Still inside the root span, set its gen_ai.usage.input_tokens and gen_ai.usage.output_tokens to the run's totals over its chat spans. If the replay diverges, let ReplayDiverged propagate. Submit also runs the file, which replays and summarizes the 4B's p07 run, the refused change."}
+  entry="replay_trace.py"
+  files={[
+    { name: "lib.py", readOnly: true, code: LIB_PY },
+    { name: "replay_trace.py", code: REPLAY_TRACE_STARTER },
+  ]}
+  hiddenTests={HIDDEN_TESTS}
+  dataFiles={SANDBOX_DATA}
+  setupCode={REPLAY_SETUP}
+  hint={"instrument returns three things: the traced client, the traced tools and the traced checks, and all three must share the root's tracer, or their spans end up in a different trace. Open the root with with tracer.span(..., attributes) as root: and do everything else inside that block, including setting the totals, which summarize(tracer.spans) already computes from the chat spans. Don't catch exceptions: a divergence is information the caller needs."}
+  correctFiles={[
+    { name: "lib.py", readOnly: true, code: LIB_PY },
+    { name: "replay_trace.py", code: REPLAY_TRACE_REFERENCE },
+  ]}
+  explanation={"The function puts the whole lesson in one place. The tracer and its nesting come from the first concept: everything happens inside the root span, so every span the wrappers open has the root as an ancestor. The names and attributes are the conventions', with the course's own registry_agent. attributes alongside, and the instrumentation wraps the client, tools and checks while Module 6's loop runs unchanged. The replay client answers the model's turns from the recording while the tools run for real, and because it reports the recorded usage, the chat spans carry real token counts, so summarize can total them for the root. The checks matter more than they look. The pilot ran with tool_errors, which turned the registry's REG-1007 refusal into an error result. Replay without it and the loop sends that result back as an ordinary one, the next request no longer matches the recording, and the replay stops. That's the replay doing its job: the harness changed, so the recorded run no longer applies."}
+/>
+
+</CheckpointZone>

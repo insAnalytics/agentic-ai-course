@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from "react";
 import {
   loadPyodideOnce,
+  runCapturingOutput,
   runMultiFileAgainstHiddenTests,
   type PyodideInterface,
   type SandboxFile,
@@ -24,6 +25,14 @@ interface MultiFileGradedExerciseProps {
    * before grading, fetched on the first Submit. Same as LiveDemo's prop.
    */
   dataFiles?: string[];
+  /**
+   * Optional hidden code run in Pyodide's globals before grading, after the
+   * data files are written: for packages to load (from its imports) and
+   * module paths the sandbox's files need, such as the pilot's own modules
+   * served as course data. Same as LiveDemo's prop. First needed by Module 7
+   * Lesson 2's comprehensive sandbox.
+   */
+  setupCode?: string;
 }
 
 type Reveal = "none" | "hint" | "answer";
@@ -37,6 +46,7 @@ export default function MultiFileGradedExercise({
   correctFiles,
   explanation,
   dataFiles,
+  setupCode,
 }: MultiFileGradedExerciseProps) {
   const instanceId = useId().replace(/[^a-zA-Z0-9]/g, "");
   const [files, setFiles] = useState(initialFiles);
@@ -77,6 +87,14 @@ export default function MultiFileGradedExercise({
         await writeCourseData(pyodide, dataFiles);
       } catch (err) {
         setOutcome({ entryOutput: "", entryError: null, error: String(err), results: [false] });
+        setStatus("ready");
+        return;
+      }
+    }
+    if (setupCode) {
+      const { error } = await runCapturingOutput(pyodide, setupCode);
+      if (error) {
+        setOutcome({ entryOutput: "", entryError: null, error, results: [false] });
         setStatus("ready");
         return;
       }
