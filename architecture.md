@@ -564,7 +564,7 @@ Lesson 4's recap sandbox (`MultiFileGradedExercise`, no `setupCode`:
 `load_suite` and `triage`; `check-copies.mjs`'s `CONTAINED` list checks
 that `LOAD_SUITE`'s `load_suite` and `TRIAGE` appear in it byte for byte.
 Lesson 5 (code graders) reuses `LOAD_SUITE`, shown again verbatim in
-concepts 1 and 2 (a copy-check pair each). Concept 1 adds
+concepts 1 to 3 (a copy-check pair each). Concept 1 adds
 `suite/end-states.json` (7 KB: the registry as every trial starts it, and
 five baseline-a trials' requests, faults, expected registry changes and
 outbox, final states and first 140 characters of the last answer), written
@@ -580,12 +580,27 @@ written by `scripts/eval/reply_answers.py` (`--check`), and `CONTAINS`
 `grading.py`'s `contains` version 2; the starter takes its `normalize`
 from it). The second demo's hidden setup is `LOAD_SUITE`, `CONTAINS` and
 the first demo's `contains_v0`/`contains_v1` without its printing.
+Concept 3 adds `suite/path-facts.json` (29 KB: the vendor-citation runs of
+s06, s07 and s09 with their answers and the source ids their tools
+returned, and the tool-call count and step-limit stop of every dev run of
+a question no document answers), written by `scripts/eval/path_facts.py`
+(`--check`), and `CITED_IDS` (`SOURCE_ID`, `cited_ids`,
+`unsupported_citations`, the exercise's reference; the demo after the
+exercise appends it to `LOAD_SUITE`). `grading.py`'s `cites_only_retrieved`
+now calls the same `cited_ids` (it reads comma lists in brackets, which
+the first single pattern missed; the citation sets differ on 6 of the
+1,105 recorded baseline and suite runs, the verdicts on none).
+`tasks/suite-2a.json` version 3 raises s24's and s25's `max_tool_calls`
+from 6 to 9, keeping the first checks as `checks_v1` and the version 2
+ones as `checks_before_v3`; `suite_grades.py` grades with
+`checks_before_v3`, so `grades-2a.json`'s trial results, and Lesson 4's
+pages, are unchanged.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
 code block has drifted: currently the pilot's `tasks.json` against
 `scripts/eval/tasks/pilot.json`, `LOAD_PILOT`, `LOAD_READING` and `LOAD_SUITE`
-(Lesson 4 concept 1, Lesson 5 concepts 1 and 2) against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
+(Lesson 4 concept 1, Lesson 5 concepts 1 to 3) against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
 the demos that show them, the replay exercise's static provided block
 against its constant, and each `public/data/eval/code/*.py` against its
 source. A second list, `CONTAINED`, checks that code a page shows appears

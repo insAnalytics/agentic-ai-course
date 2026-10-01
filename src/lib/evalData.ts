@@ -501,3 +501,32 @@ def contains(text: str, phrase: str) -> bool:
         end = r"(?!\w)" if re.match(r"\w", phrase[-1]) else ""
     return re.search(start + re.escape(phrase) + end, text) is not None
 `;
+
+/**
+ * Module 7 Lesson 5 concept 3's SOURCE_ID, cited_ids and
+ * unsupported_citations: the exercise's reference (grading.py's cited_ids
+ * is the same function), shown there as the correct answer by using this
+ * constant (with the starter's example call after it). The demo after the
+ * exercise appends it to LOAD_SUITE.
+ */
+export const CITED_IDS = String.raw`import re
+
+SOURCE_ID = r"[\w./-]+:\d+"
+
+
+def cited_ids(answer: str) -> set[str]:
+    """Every source id the answer cites: inside square brackets, one or more separated by commas, or alone in
+    parentheses, which includes the target of a markdown link, "[text](id)"."""
+    ids = set()
+    for inside in re.findall(r"\[([^\[\]]+)\]", answer):
+        for part in inside.split(","):
+            if re.fullmatch(SOURCE_ID, part.strip()):
+                ids.add(part.strip())
+    ids |= set(re.findall(rf"\(({SOURCE_ID})\)", answer))
+    return ids
+
+
+def unsupported_citations(answer: str, retrieved: list[str]) -> list[str]:
+    """The ids the answer cites that no tool returned in the run, sorted."""
+    return sorted(cited_ids(answer) - set(retrieved))
+`;

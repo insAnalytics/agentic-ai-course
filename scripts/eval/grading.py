@@ -50,6 +50,23 @@ def initial_registry(directory) -> dict:
     return RegistryWorld(f"{directory}/initial.db").registry
 
 
+SOURCE_ID = r"[\w./-]+:\d+"
+
+
+def cited_ids(answer: str) -> set[str]:
+    """Every source id the answer cites: inside square brackets, one or more separated by commas, or alone in
+    parentheses, which includes the target of a markdown link, "[text](id)". (Module 7, Lesson 5's citation
+    exercise; it reads lists in brackets, which the first version missed, and gives the same verdict on every
+    recorded run.)"""
+    ids = set()
+    for inside in re.findall(r"\[([^\[\]]+)\]", answer):
+        for part in inside.split(","):
+            if re.fullmatch(SOURCE_ID, part.strip()):
+                ids.add(part.strip())
+    ids |= set(re.findall(rf"\(({SOURCE_ID})\)", answer))
+    return ids
+
+
 def grade(task, record: dict, initial: dict, version: int = 2) -> tuple[bool, list[str]]:
     """Whether the trial passed its task's checks, and the reason for each check that failed.
     `version` is the phrase matcher's version (see contains)."""
@@ -100,7 +117,7 @@ def grade(task, record: dict, initial: dict, version: int = 2) -> tuple[bool, li
         retrieved = set()
         for entry in record["tool_log"]:
             retrieved |= set(re.findall(r'<source id="([^"]+)"', entry["output"]))
-        cited = set(re.findall(r"[\[(]([\w./-]+:\d+)[\])]", record["answers"][-1]))
+        cited = cited_ids(record["answers"][-1])
         if cited - retrieved:
             failures.append(f"cites {sorted(cited - retrieved)}, which no tool returned")
     if "max_tool_calls" in checks and len(record["tool_log"]) > checks["max_tool_calls"]:

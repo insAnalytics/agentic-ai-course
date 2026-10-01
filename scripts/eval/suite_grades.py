@@ -1,7 +1,8 @@
 """
 Write public/data/eval/suite/grades-2a.json for Lesson 4's pages: for each phase 2a suite task, its code-check
 result on every trial of suite-2a-a.json, and whether its hand-written reference run passes its own checks.
-Grading needs the registry world, which is heavy for a browser page, so it's done here.
+Grading needs the registry world, which is heavy for a browser page, so it's done here. These are the grades Lesson 4
+shows: the checks of task file version 2.
 
     python scripts/eval/suite_grades.py            # writes the file
     python scripts/eval/suite_grades.py --check    # fails if it's out of date
@@ -26,6 +27,12 @@ RUN = ROOT / "public" / "data" / "eval" / "main" / "suite-2a-a.json"
 OUT = ROOT / "public" / "data" / "eval" / "suite" / "grades-2a.json"
 
 
+def checks_for(task) -> dict:
+    """The checks Lesson 4 graded the suite with: task file version 2. A task changed later keeps those as
+    checks_before_v3 (Lesson 5 shows the change)."""
+    return task.expect.get("checks_before_v3", task.expect["checks"])
+
+
 def build() -> dict:
     tasks = load_tasks(HERE / "tasks" / "suite-2a.json")
     run = json.loads(RUN.read_text(encoding="utf-8"))
@@ -34,12 +41,12 @@ def build() -> dict:
     trials = {}
     for record in run["trials"]:
         task = next(t for t in tasks if t.id == record["task_id"])
-        passed, _ = grade(dataclasses.replace(task, checks=task.expect["checks"]), record, initial)
+        passed, _ = grade(dataclasses.replace(task, checks=checks_for(task)), record, initial)
         trials.setdefault(task.id, []).append(passed)
     references = {}
     for task in tasks:
         record = run_scripted(task, task.reference, directory)
-        references[task.id], _ = grade(dataclasses.replace(task, checks=task.expect["checks"]), record, initial)
+        references[task.id], _ = grade(dataclasses.replace(task, checks=checks_for(task)), record, initial)
     return {"version": 1, "run": RUN.relative_to(ROOT).as_posix(), "grader": "scripts/eval/grading.py, matcher version 2",
             "tasks": [{"id": t.id, "kind": t.kind, "category": t.source.rsplit(" ", 1)[-1], "split": t.split,
                        "request": t.request, "expect": t.expect} for t in tasks],

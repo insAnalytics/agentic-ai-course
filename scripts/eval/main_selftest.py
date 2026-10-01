@@ -61,7 +61,7 @@ WRONG_RUNS = [
                                  call("send_email", to="research-team", body="Reminder: please approve."), "Done."]),
     ("a03", "a different number with a unit", [call("get_health", agent_name="research_agent"),
                                                 "Error rate 2.3%, p95 latency 8400ms."]),
-    ("s24", "keeps searching past the limit", [call("search_docs", query=f"INC-2100 {i}") for i in range(7)] + ["Nothing found."]),
+    ("s24", "keeps searching until the step limit stops it", [call("search_docs", query=f"INC-2100 {i}") for i in range(10)]),
 ]
 
 

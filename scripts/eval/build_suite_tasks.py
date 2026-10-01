@@ -196,14 +196,20 @@ TASKS = [
     # --- never stops searching: questions whose answer isn't anywhere ---
     {"id": "s24", "category": "never_stops", "kind": "unanswerable, step limit", "groups": READERS,
      "request": "What was the root cause of INC-2100?",
-     "expect": {"checks": {**UNCHANGED, "max_tool_calls": 6},
+     "expect": {"checks": {**UNCHANGED, "max_tool_calls": 9},
+                "checks_v1": {**UNCHANGED, "max_tool_calls": 6},
+                # the checks in task file version 2, which Lesson 4's pages grade the suite with
+                "checks_before_v3": {**UNCHANGED, "max_tool_calls": 6},
                 "notes": "There is no INC-2100; it says so after a few lookups."},
      "reference": [call("query_database", sql="SELECT * FROM incidents WHERE incident_id = 'INC-2100'"),
                    call("search_docs", query="INC-2100"),
                    "There's no INC-2100 in the incident log or the documents."]},
     {"id": "s25", "category": "never_stops", "kind": "unanswerable, step limit", "groups": READERS, "split": "held_out",
      "request": "Who approved the decision to deprecate claude-legacy?",
-     "expect": {"checks": {**UNCHANGED, "max_tool_calls": 6},
+     "expect": {"checks": {**UNCHANGED, "max_tool_calls": 9},
+                "checks_v1": {**UNCHANGED, "max_tool_calls": 6},
+                # the checks in task file version 2, which Lesson 4's pages grade the suite with
+                "checks_before_v3": {**UNCHANGED, "max_tool_calls": 6},
                 "notes": "The documents say when, not who; it says it can't find who approved it."},
      "reference": [call("search_docs", query="claude-legacy deprecated approved decision"),
                    "The changelog says when claude-legacy was deprecated, but not who approved it [D03:1]."]},
@@ -242,11 +248,15 @@ def build() -> dict:
         task = {"split": "dev", "groups": None, "history": [], **spec}
         task["source"] = f"written for Module 7's suite, category {task.pop('category')}"
         tasks.append(task)
-    return {"version": 2,
+    return {"version": 3,
             "written_by": "Written by hand in the course's content chat, one or more tasks for each failure category "
                           "Lesson 3's error analysis found, plus more multi-hop questions.",
             "changes": ["version 2: s29 accepts the switch-off date written out ('October 31, 2026'), after reading "
                         "found three correct answers failed for writing it that way; its first checks are kept as "
+                        "expect.checks_v1.",
+                        "version 3: s24 and s25 allow up to 9 tool calls, the most a run can make and still answer within the "
+                        "loop's 10 steps, instead of 6; across the dev runs of questions no document answers, every run that "
+                        "answered took 9 calls or fewer, and 17 of 39 took more than 6. Their first checks are kept as "
                         "expect.checks_v1."],
             "tasks": tasks}
 

@@ -93,7 +93,7 @@ const PAIRS = [
       ),
     ],
   },
-  ...["01-checking-the-end-state", "02-checking-the-reply-in-code"].map((page, n) => ({
+  ...["01-checking-the-end-state", "02-checking-the-reply-in-code", "03-checking-the-path-in-code"].map((page, n) => ({
     what: `LOAD_SUITE (Module 7 Lesson 5 concept ${n + 1})`,
     a: ["src/lib/evalData.ts", () => rawConstant("src/lib/evalData.ts", "LOAD_SUITE")],
     b: [

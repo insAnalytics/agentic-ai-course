@@ -6890,7 +6890,41 @@ torch 2.13.0+cu130, `torchaudio` removed,
    version; the 13-runs bullet says the latency's unit was what failed
    (the error rates passed either way). 5 quiz cards. Callback: Lesson 3
    concept 3's `#the-grader` (anchor verified); Lesson 6 is plain prose.
-   Concepts 3 onward and the bookends are not drafted yet.
+   Concept 3 (checking the path in code) is built: the four kinds of path
+   check the registry tasks use (`must_call_after`, `must_not_call` counting
+   refused attempts, `max_tool_calls`, schema-valid arguments); s24's limit
+   of 6 measured against the 55 dev runs of questions no document answers
+   (`suite/path-facts.json`, written by `scripts/eval/path_facts.py`,
+   `--check`, identical to the zip's copy apart from line endings: 16
+   stopped at the step limit, 17 of the 39 that answered took more than 6
+   calls, none more than 9), and the fix (task file v3: s24 and s25 allow 9,
+   first checks kept); a graded `cited_ids` / `unsupported_citations`
+   exercise (the mockup's tests split into 4); and the check on the 15
+   vendor-documentation runs (13 of the 14 that answered cite an id no tool
+   returned, nearly all D07 sections). The zip's script changes went in
+   with it: `grading.py`'s citation check uses `cited_ids` (verified: the
+   citation sets differ on 6 of the 1,105 baseline and suite runs, no
+   verdict changes; 58 of the 475 citing dev runs cite an unreturned id, 64
+   of those 91 ids D07 sections, as the page says), `build_suite_tasks.py`
+   and `tasks/suite-2a.json` v3, `suite_grades.py` grading Lesson 4 with
+   the v2 checks (`--check` passes, `grades-2a.json`'s trial results
+   unchanged), and `main_selftest.py`'s s24 wrong run now searching to the
+   step limit; every `--check` and both self-tests pass. Verified in real
+   Pyodide 0.26.4: the reference passes all 4 tests, the starter fails all
+   4, and seven wrong versions fail (the grader's first single pattern,
+   brackets only, parentheses only, no comma split, returning a list,
+   reverse-sorted, ignoring `retrieved`); one, `re.search` for
+   `re.fullmatch`, passes, since it differs only on text around an id in
+   brackets, whose right reading is debatable. Both demos match the mockup
+   exactly. Corrected from the mockup: Q2's explanation says runs that
+   answered took up to 9 calls, not runs that "answered correctly" (the
+   data records answering, not correctness). Lesson 4 concept 1's "Lesson
+   5 comes back to it" now links to `#a-limit-nobody-measured`. 5 quiz
+   cards. Callbacks: Lesson 1 concept 2's
+   `#when-the-path-is-the-right-thing-to-check`, Module 3 Lesson 2's intro,
+   Lesson 4 concept 5's `#tuning-to-the-suite`, Module 6 Lesson 4 concept
+   1's page (anchors verified). Concepts 4 onward and the bookends are not
+   drafted yet.
 
 ### Old-plan outline (where it was Module 4)
 
