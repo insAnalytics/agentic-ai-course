@@ -6629,8 +6629,20 @@ kept as `TOOL_SPECS_PILOT`).
    trial id as the task, no ValueError, mutated input). All three demos
    match the mockup exactly. The mockup's "4 of the 24 failures" became 23
    to match the updated data. Callback: Module 6 Lesson 1's
-   `#how-sure-can-we-be-of-these-numbers` (anchor verified). Not yet
-   drafted: the remaining concepts and the bookends.
+   `#how-sure-can-we-be-of-these-numbers` (anchor verified).
+   Concept 5 (how, not only whether) is built: the verdict versus the
+   route, a13/1's verdict changed by reading its final answer rather than
+   its reasoning, two read-only demos over `traces.json` (the reasoning
+   just before the decisive step in a19/0, a14/4 and a05/3; 18 writing
+   runs, 4 reading the record back, 11 of the 14 that didn't still
+   passing), and Chen et al. 2025 on unfaithful reasoning; both demos match
+   the mockup exactly (the first demo's docstring has backticks, so its
+   constant is joined around them; checked byte for byte against the
+   mockup); 5 quiz cards. Callbacks: Module 6 Lesson 7's
+   `#checking-the-goal-not-just-the-check` (twice, anchor verified), its
+   reading-the-result-back concept page, and Module 6 Lesson 6's intro
+   (lesson-level). Not yet drafted: any remaining concepts and the
+   bookends.
 
 ### Old-plan outline (where it was Module 4)
 

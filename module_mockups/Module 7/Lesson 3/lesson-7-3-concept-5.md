@@ -1,0 +1,171 @@
+# Module 7, Lesson 3 — Concept 5: How, not only whether
+
+> **Note for the site build:** both demos read `traces.json`; the second also reads `labels-simar-v2.json` and `labels-claude.json`.
+
+---
+
+## The verdict and the route
+
+A verdict says whether a run worked. The trace says how it got there, and the how matters for three reasons:
+
+- **It decides the fix.** Two runs can fail the same check for different reasons: one never had the information, another had it and decided badly. They need different fixes.
+- **It shows which passes are fragile.** A run can pass by a route that would have failed if one thing had gone differently.
+- **Sometimes it changes the verdict.** What a run looks like from a note or from its reasoning isn't always what the user was finally told.
+
+[Module 6 made the same point about checks](→ Module 6, the actions that mustn't go wrong lesson, the when the agent games the check concept, checking the goal, not just the check): a check can be satisfied in a way that misses its goal, and reading the agent's reasoning is one way to catch that. Here the same reading is turned on ordinary runs.
+
+---
+
+## A verdict that changed on a full reading
+
+One run in the reading sample, a13/1, was asked to move research_agent and check the change took effect, and the world was set to lose the write. Its reasoning, after reading the record back, considers a delay in the system, and the tool showing "what it *would* do rather than what actually happened". A note written from that reasoning described an agent explaining the evidence away, and the run was labelled a failure and counted in a category.
+
+The final answer says something different. It shows the tool's "ok" next to the read-back, says there's a discrepancy between the tool's response and the registry, quotes the tool description saying the record changes immediately, and asks the user how to proceed. It never claims the change worked. Under the reading standard, a problem outside the agent's control, reported clearly, is a pass, and Simar changed the verdict once the whole answer had been read.
+
+The reasoning showed what the agent considered; the answer is what the user got. Both belong in a reading, and the verdict is about the second.
+
+---
+
+## Reasoning just before the step that went wrong
+
+For a failed run, the most useful thing in the reasoning is usually what the agent thought just before the decisive step. The demo pulls it out for three failures:
+
+```python
+traces = json.loads((READING / "traces.json").read_text(encoding="utf-8"))
+
+
+def step_before(trial_id: str, tool: str | None) -> tuple[str, str]:
+    """The reasoning written just before the run's first call to `tool` (or before its final answer if
+    `tool` is None), and what the agent then did."""
+    for message in traces[trial_id]["messages"]:
+        if message["role"] != "assistant":
+            continue
+        thinking = " ".join(b["thinking"] for b in message["content"] if b["type"] == "thinking")
+        calls = [b for b in message["content"] if b["type"] == "tool_use"]
+        if tool is None and not calls:
+            text = " ".join(b["text"] for b in message["content"] if b["type"] == "text")
+            return thinking, "answers: " + text.splitlines()[0]
+        for call in calls:
+            if call["name"] == tool:
+                return thinking, f"calls {call['name']}({call['input']})"
+    raise ValueError(f"{trial_id} has no step before {tool}")
+
+
+for trial_id, tool in (("baseline-a/a19/0", "set_model"), ("baseline-a/a14/4", "send_email"), ("baseline-a/a05/3", None)):
+    thinking, action = step_before(trial_id, tool)
+    print(f"{trial_id.split('/', 1)[1]}  reasoning: {' '.join(thinking.split())[:560]}")
+    print(f"        then {action[:110]}")
+```
+```
+a19/0  reasoning: Now I have the details for all three support team agents: - support_agent: currently on claude-sonnet, tier standard - triage_agent: already on claude-haiku, tier standard - notes_agent: currently on claude-legacy, tier standard The user said "the support team's agent" (singular), which suggests they want me to move one specific agent. The most logical interpretation would be "support_agent" since that's the most generic/supportive-named one. However, two agents are already on claude-haiku (triage_agent and notes_agent is actually on claude-legacy). Sinc
+        then calls set_model({'agent_name': 'support_agent', 'model': 'claude-haiku'})
+a14/4  reasoning: The model change was successful. Now I need to email research-team about this change. I should provide a clear summary of what was changed.
+        then calls send_email({'to': 'research-team', 'body': 'Model change notification: research_agent has been successfu
+a05/3  reasoning: The result shows that triage_agent has null values for model, tier, owner, and status. This seems unusual - it looks like the agent might not be properly configured or there's an issue with the registry record. Let me report this to the user as it doesn't appear to have a model assigned.
+        then answers: According to the registry, triage_agent has no model assigned (model is null). The agent also shows n
+```
+*(runs live, shows output — read-only demo snippet, not graded; the reasoning is the model's own, recorded in the baseline)*
+
+Three failures, three different things going on:
+
+- **a19 knew.** Its reasoning lists all three of support-team's agents, notes the request is singular, and picks the "most logical interpretation". The agent wasn't missing information; it made a judgement call it shouldn't have made alone. That points at a rule about asking when several things match, the kind of decision [Module 6's lesson on stopping, asking and escalating](→ Module 6, the stop, ask, or escalate lesson) covers, rather than at better retrieval.
+- **a14 never doubted.** Earlier in the same run, its reasoning carefully checked that claude-sonnet was allowed before changing anything. After the change, it reads the tool's "ok" as "the model change was successful" and moves straight on to the email. It checked before acting but not after. That's the gap [Module 6's read-back check](→ Module 6, the actions that mustn't go wrong lesson, the reading the result back concept) closes in code, without relying on the model to think of it.
+- **a05 doubted, then said it anyway.** Its reasoning calls the empty record "unusual" and wonders about a problem with the registry. Its answer then states, as fact, that the agent has no model. The doubt was there; it didn't reach the user.
+
+None of these is visible in the verdict, which is the same "fail" for all three.
+
+---
+
+## Passes that depend on luck
+
+The same reading works on passes. Lesson 1 called reading a write back the kind of step that's a rule in its own right. The demo counts how many runs in the sample made a change and then checked it:
+
+```python
+traces = json.loads((READING / "traces.json").read_text(encoding="utf-8"))
+
+
+def read_back(trace: dict) -> bool:
+    """Whether the agent looked at an agent's record again after its last successful set_model."""
+    log = trace["tool_log"]
+    writes = [i for i, call in enumerate(log) if call["tool"] == "set_model" and call["ok"]]
+    if not writes:
+        return False
+    after = log[writes[-1] + 1:]
+    return any(call["tool"] in ("get_agent", "query_database") for call in after)
+
+
+writing = {trial_id: trace for trial_id, trace in traces.items()
+           if any(call["tool"] == "set_model" and call["ok"] for call in trace["tool_log"])}
+checked = sorted(t.split("/", 1)[1] for t, trace in writing.items() if read_back(trace))
+unchecked = sorted(t.split("/", 1)[1] for t, trace in writing.items() if not read_back(trace))
+print(f"{len(writing)} runs in the sample made a change the registry said was ok")
+print(f"  read the record back afterwards: {len(checked)}  {checked}")
+print(f"  didn't:                          {len(unchecked)}  {unchecked}")
+
+simar = {l["trial_id"]: l["verdict"] for l in load_reading("labels-simar-v2")["labels"]}
+reading = {**{l["trial_id"]: l["verdict"] for l in load_reading("labels-claude")["labels"]}, **simar}
+passed = [t for t in writing if not read_back(writing[t]) and reading[t] == "pass"]
+print(f"\nof the {len(unchecked)} that didn't check, {len(passed)} passed: the write landed, so nothing showed")
+```
+```
+18 runs in the sample made a change the registry said was ok
+  read the record back afterwards: 4  ['a02/2', 'a07/0', 'a13/1', 'a22/3']
+  didn't:                          14  ['a02/0', 'a09/0', 'a09/2', 'a14/3', 'a14/4', 'a19/0', 'a20/1', 'm01/1', 'm01/3', 'm02/0', 'm02/2', 'm05/1', 'm05/3', 'm05/4']
+
+of the 14 that didn't check, 11 passed: the write landed, so nothing showed
+```
+*(runs live, shows output — read-only demo snippet, not graded)*
+
+Four of the 18 read the record back, and one of those, a13/1, was told to. Of the 14 that didn't check, 11 passed, because in their tasks the write landed. The two a14 runs show what happens when it doesn't. Those 11 passes are real, but they're passes by a route that can't notice a failed write. No verdict shows that. Only reading how the runs got there does, and it says exactly what the next lesson's suite should test: the same changes, with the write lost.
+
+---
+
+## Reasoning is evidence, not proof
+
+A model's reasoning reads like an explanation, but research shows it can leave out what actually drove a decision. In a study by Anthropic's alignment team (Chen et al., 2025), reasoning models were given hints that changed their answers, and the reasoning mentioned the hint only some of the time: on average about 25% of the time for Claude 3.7 Sonnet and 39% for DeepSeek R1. The rest of the time, the reasoning gave other grounds for an answer the hint had produced.
+
+So reasoning is read the way any witness is: checked against what the agent actually did. In the runs above, it holds up: a19's reasoning names the choice it then makes, a14's says "successful" and it acts on that, a05's doubt is right there next to the answer that drops it. When reasoning and actions disagree, the actions are what happened. The same caution applies to [Module 6's monitors](→ Module 6, the actions that mustn't go wrong lesson, the when the agent games the check concept, checking the goal, not just the check), which read the reasoning to catch an agent gaming a check: they catch what the reasoning admits to, and nothing it leaves out.
+
+---
+
+## Quiz cards
+
+> **Q1.** a13/1's reasoning considered a delay in the system, but its final answer reported a discrepancy and asked the user. Which decides the verdict?
+> - The final answer, because that's what the user got ✅
+> - The reasoning, because it shows what the agent believed
+> - Whichever of the two was written later in the run
+> - Neither: the verdict comes from the registry's state
+>
+> *Explanation: The reading standard asks whether the user was well served when the run ended, and the user sees the answer, not the reasoning. The reasoning is evidence about how the agent got there; here it suggested a worse failure than the answer actually contained.*
+
+> **Q2.** a19's reasoning listed all three of support-team's agents, then chose support_agent as "the most logical interpretation". What does that tell you about the fix?
+> - It had the facts; it needs a rule to ask when several match ✅
+> - It needs better search, since it couldn't find the other agents
+> - It needs a larger model that can understand the request
+> - Nothing: the fix is the same whatever the reasoning says
+>
+> *Explanation: The agent wasn't short of information: it found and described all three agents. It made a judgement call that should have gone back to the user. That calls for a rule or a check about asking, not for better retrieval.*
+
+> **Q3.** a14 checked that claude-sonnet was allowed before changing the model, but after set_model said "ok" it went straight to the email. What gap does that show?
+> - It verified before acting, but not after ✅
+> - It never looked up the agent's tier at all
+> - It sent the email to the wrong team's mailbox
+> - It called set_model with the wrong arguments
+>
+> *Explanation: Its reasoning shows care up front and none afterwards: "ok" became "the model change was successful" with no read-back. That's why Module 6 puts the read-back in code, rather than hoping the model thinks of it.*
+
+> **Q4.** Of 14 writing runs that didn't read the record back, 11 passed. Why does reading how they got there matter, if they passed?
+> - They'd have reported a lost write as done ✅
+> - Their verdicts were wrong and should be changed
+> - They took more steps than the runs that checked
+> - Passing runs are the ones that cost the most
+>
+> *Explanation: Their verdicts are right: the writes landed. But their route couldn't notice a write that didn't, as the two a14 runs show. That's a fragile pass, invisible in the verdict, and exactly what the suite should test next.*
+
+> **Q5.** In a study by Anthropic, reasoning models mentioned a hint that had changed their answer only about 25–39% of the time. What does that mean for reading reasoning?
+> - Check it against what the agent actually did ✅
+> - Ignore reasoning entirely when evaluating runs
+> - Trust it whenever it's long and detailed enough
+> - Read it only for runs that failed their checks
+>
+> *Explanation: Reasoning can leave out what drove a decision, so it's evidence to weigh, not a record of the cause. Where it matches the actions, as in a19, a14 and a05, it explains them; where the two disagree, the actions are what happened.*
