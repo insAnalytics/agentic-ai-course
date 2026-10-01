@@ -6738,8 +6738,22 @@ spot check and the m02 task gap) is in
    `#passes-that-depend-on-luck`, Module 5 Lesson 11 concept 6's
    `#a-trigger-can-sit-higher-than-a-refusal`, Lesson 1 concept 3's
    `#the-parts-can-pass-while-the-whole-fails`, Lesson 1 concept 4's
-   `#capability-suites-and-regression-suites` (anchors verified). No
-   bookends yet.
+   `#capability-suites-and-regression-suites` (anchors verified).
+   Concept 3 (conversations, and checking the simulated user) is built:
+   the simulated user's three parts (opening request, persona, shared
+   rules) and what it sees (`user_view`: replies only), the τ-bench
+   studies from Lesson 3, the simulator audit of the 60 dev conversations
+   (`reading/simulator-audit.json`: 52 error-free, 8 benign, 0 critical; 7
+   of the 8 from m02), m02's persona and the two critical labels changed to
+   benign after the spot check, and the m02 check fix (allow one email to
+   research-team) over a persona change. Two read-only demos on
+   `LOAD_SUITE`, the second taking the first's `conversations` as hidden
+   setup; both match the mockup exactly in Pyodide 0.26.4. Corrected from
+   the mockup: m02 isn't the only persona with conditions (m01, m04, m05
+   and m06 each have a simple trigger); it's the only one that chains
+   them, and the text and Q2 say so. 5 quiz cards. Callbacks: Lesson 3
+   concept 3's `#the-simulated-user-is-a-model-too`, Lesson 3 concept 2's
+   `#what-a-useful-note-looks-like` (anchors verified). No bookends yet.
 
 ### Old-plan outline (where it was Module 4)
 

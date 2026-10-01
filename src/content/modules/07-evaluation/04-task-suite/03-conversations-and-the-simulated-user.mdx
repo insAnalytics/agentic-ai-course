@@ -1,0 +1,226 @@
+---
+title: "Conversations, and checking the simulated user"
+lesson: "04-task-suite"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { LOAD_SUITE, readingData } from "../../../../lib/evalData";
+
+export const AUDIT_DATA = readingData("simulator-audit");
+
+export const AUDIT_DEMO = String.raw`from collections import Counter
+
+audit = json.loads(Path("/data/eval/reading/simulator-audit.json").read_text(encoding="utf-8"))
+conversations = audit["conversations"]
+labels = Counter(c["label"] for c in conversations)
+print(f"{len(conversations)} conversations read: " + ", ".join(f"{labels[k]} {k}" for k in ("error_free", "benign", "critical")))
+
+flagged = Counter(c["task_id"] for c in conversations if c["label"] != "error_free")
+runs = Counter(c["task_id"] for c in conversations)
+for task_id in sorted(runs):
+    print(f"  {task_id}: {flagged[task_id]} of {runs[task_id]} went against the persona")
+`;
+
+export const AUDIT_SETUP = LOAD_SUITE + "\n\n" + AUDIT_DEMO.slice(0, AUDIT_DEMO.indexOf("labels = "));
+
+export const M02_DEMO = String.raw`for c in conversations:
+    if c["task_id"] == "m02" and c["label"] != "error_free":
+        print(f"{c['trial_id'].removeprefix('baseline-')}: {c['note']}")
+`;
+
+<Subsection title="Tasks that take more than one message" variant="a">
+
+Most of the suite's tasks are a single request. Some of what an agent has
+to get right only shows up in a conversation: asking which agent the user
+means and then acting on the answer, changing course when the user changes
+their mind, or holding a refusal when the user pushes back. Testing those
+needs someone to play the user.
+
+The module's conversations use a **simulated user**: a second model, from
+a different family than the agent, given a persona and the rules of the
+role. A task with a simulated user has three parts:
+
+- **The opening request**, written into the task, as for any other task.
+- **The persona**: what this user wants, what they know, and what they
+  don't. For m01, the user owns notes_agent but calls it "my agent" until
+  asked, wants it moved to whatever the migration runbook recommends, and
+  doesn't remember which model that is.
+- **The rules** every simulated user shares: write only the user's next
+  message, give information only when asked, never invent facts outside
+  the persona, and reply with a stop marker when the request is done or
+  refused.
+
+The loop runs the agent until it answers, shows the simulated user only
+what a real user would see, the agent's replies without its tool calls or
+reasoning, and passes the user's reply back as the next message, until the
+user stops.
+
+</Subsection>
+
+<Subsection title="The simulated user makes mistakes too" variant="b">
+
+[Lesson 3](/07-evaluation/03-error-analysis/03-whose-failure-is-it/#the-simulated-user-is-a-model-too)
+brought in two studies of simulated users on τ-bench. One found the
+simulated user going against its instructions in 22% of 50 airline
+conversations, by offering things it wasn't asked for, contradicting its
+instructions, leaving out details, or misreading the agent. The other
+found 4 of 194 conversations where the user's mistake could stop even a
+correct agent from succeeding. A conversational task's result depends on
+two models, and only one of them is being evaluated.
+
+So the module's own simulated user was checked the same way. Claude read
+every simulated-user turn in the 60 conversations of the baseline's
+development tasks, against each persona, and labelled each conversation
+with the second study's scheme:
+
+- **error-free**
+- **benign**: it went against its instructions, but a correct agent could
+  still succeed
+- **critical**: it could stop even a correct agent from succeeding
+
+<LiveDemo client:load dataFiles={AUDIT_DATA} setupCode={LOAD_SUITE} code={AUDIT_DEMO} />
+
+*(The labels are a model's reading (Claude's), spot-checked by a second
+model's reading, not by a person.)*
+
+Eight conversations had a problem, none critical, and seven of the eight
+came from one task.
+
+</Subsection>
+
+<Subsection title="A persona that's hard to follow" variant="a">
+
+That task is m02. Every persona says what the user wants and knows, and
+several add a simple trigger: confirm a change if asked, or ask a follow-up
+once the first answer arrives. m02's is the only one that chains its
+conditions: the user wants the best model there is, and if told it isn't
+allowed, should ask what the best allowed model is, and then, if offered a
+move to it, say yes. It scripts how the conversation should go. Here's
+what the simulated user did instead:
+
+<LiveDemo client:load dataFiles={AUDIT_DATA} setupCode={AUDIT_SETUP} code={M02_DEMO} />
+
+Two patterns run through these:
+
+- **The conditions got skipped or reordered.** Told claude-opus needs
+  another tier, the user asked for the tier change instead of asking what
+  was allowed.
+- **The persona didn't cover what happened.** It said nothing about
+  emails, so when the agent offered to email the budget holder, the user
+  improvised and said yes.
+
+Two of these were first labelled critical, as if the user had invented the
+email requests. The spot-check found the agent had offered the email first
+in both, and the transcripts confirmed it, so they're benign. That's the
+same distinction
+[Lesson 3 drew for the agent](/07-evaluation/03-error-analysis/02-one-note-per-trace/#what-a-useful-note-looks-like):
+note where a problem started, not where it became visible.
+
+Two lessons for writing personas come out of this, from one task's ten
+runs rather than a study:
+
+- **Say what the user wants and knows, rather than scripting the
+  conversation.** A chain of conditional steps is what this simulated user
+  dropped.
+- **Cover what the agent is likely to offer.** A persona silent on
+  something the agent might reasonably propose leaves the simulator to
+  improvise, and its improvisation becomes part of the result.
+
+</Subsection>
+
+<Subsection title="Fixing the task, not the persona" variant="b">
+
+The emails also exposed a problem in m02's checks: they failed any email by
+default. Three conversations ended with the user accepting an email the
+agent had offered, which is reasonable behaviour on both sides. Moving to
+the priority tier needs the budget holder's sign-off, and offering to ask
+for it is what a good assistant does. Two ways to fix it were weighed:
+
+- **Change the persona** so the user refuses emails. That would hide the
+  check's mistake, and it would change what the simulated user says, so
+  the recorded conversations would no longer match their task and m02
+  would have to be run again.
+- **Change the check** to allow at most one email, to research-team. That
+  puts the fix where the fault was, and it can be applied straight away to
+  the conversations already recorded.
+
+The check changed, and the original was kept beside it. Regraded, two m02
+runs flipped to passes, both of which had moved the agent to claude-sonnet
+and failed only on the email; one still failed, because it never moved the
+agent. One limit remains: a code check can't tell an email the agent
+offered and the user accepted from one the agent sent unasked. In one m02
+run the agent emailed without being asked; it fails anyway, because it
+never moved the agent, but the email itself is something only reading
+catches.
+
+When a task fails good behaviour, the task is what needs fixing.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "What does the simulated user see of the agent's work, before writing its next message?",
+      "options": [
+        "Only the agent's replies, as a real user would",
+        "Every tool call and result, so it can check the agent",
+        "The agent's reasoning, so it knows what the agent meant",
+        "The task's checks, so it knows what success looks like"
+      ],
+      "correctIndex": 0,
+      "explanation": "The simulated user stands in for a person using the agent, who sees replies, not tool calls or reasoning. Showing it more would let it react to things a real user never could, and its replies would stop resembling a user's."
+    },
+    {
+      "question": "Seven of the eight problems with the simulated user came from one persona. What set that persona apart?",
+      "options": [
+        "It chained conditional steps for the user",
+        "It was the only persona written for the research team",
+        "It asked the simulated user to push back on refusals",
+        "It was the longest persona of the six that were read"
+      ],
+      "correctIndex": 0,
+      "explanation": "m02's persona told the user what to do if refused, and then what to say if offered a move. The simulated user skipped or reordered those steps, and improvised where the persona was silent. The other personas said what the user wanted and knew, with at most a single simple trigger."
+    },
+    {
+      "question": "Two conversations were first labelled critical, then changed to benign. Why?",
+      "options": [
+        "The agent had offered the email first",
+        "A second reading decided emails don't matter to the task",
+        "The task's check was changed, which changed the labels",
+        "Critical labels are only for runs that end in an error"
+      ],
+      "correctIndex": 0,
+      "explanation": "In both, the agent asked whether to send an email, and the simulated user said yes. A correct agent that didn't offer one couldn't have been steered into it, so the user's slip couldn't stop a correct agent from succeeding. Noting where the problem started decides the label."
+    },
+    {
+      "question": "m02's checks failed any email, and three runs ended with an email the agent offered and the user accepted. Why change the check rather than the persona?",
+      "options": [
+        "The check was at fault, and runs can be regraded",
+        "Personas can't be changed once a task has been run",
+        "Emails should never be checked in a conversational task",
+        "Changing the persona would make the agent's job harder"
+      ],
+      "correctIndex": 0,
+      "explanation": "Offering to email the budget holder is good behaviour, so a check that fails it is wrong. Fixing the check corrects that and applies to the conversations already recorded; changing the persona would hide the mistake and need the task to be run again."
+    },
+    {
+      "question": "Under m02's new check, what can't code tell apart?",
+      "options": [
+        "An accepted email from one sent unasked",
+        "An email to research-team from one to finance-team",
+        "A run with one email from a run with two of them",
+        "A run that moved the agent from one that didn't"
+      ],
+      "correctIndex": 0,
+      "explanation": "The check sees how many emails were sent and to whom, and the registry's final state. Whether the user agreed to the email is in the conversation, which only reading, or a grader that reads it, can judge."
+    }
+  ]}
+/>
+
+</CheckpointZone>
