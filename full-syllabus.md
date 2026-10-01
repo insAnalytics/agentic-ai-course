@@ -6352,7 +6352,32 @@ to later modules by name, so each module's plan has to include them:
 
 ---
 
-## Module 7 — Evaluation & Observability (outline from the old plan, where it was Module 4)
+## Module 7 — Evaluation & Observability
+
+Folder `07-evaluation` (module title and description provisional). Data:
+`public/data/eval/pilot/` (the pilot's recorded runs of the registry agent,
+per `scripts/eval/README-eval.md`; loaded from Lesson 1 concept 1 on, see
+architecture.md §3.1).
+
+1. **Why Agents Are Hard to Grade** (`01-grading-agents`, title
+   provisional) — **Building.** Concept 1 (why an agent is harder to grade
+   than an answer) is built: the registry agent and the pilot (static
+   `LOAD_PILOT` setup block), one recorded run (`4b-think/p06/0`) with
+   Anthropic's eval terms (task, trial, transcript, outcome, grader, suite,
+   harness), the paths demo (7 of 10 tasks took more than one path), the
+   reply-isn't-the-outcome demo (p08's lost write, all three replies claim
+   success), why tasks get several trials, 5 quiz cards. All three demos
+   reproduce the mockup's output exactly against the committed run files.
+   Callbacks to Module 6 Lesson 10 (concept page, and
+   `#a-suite-of-scenarios-some-fine-some-not`), Module 6 Lesson 7's
+   `#a-reply-isn-t-proof`, Module 6 Lesson 3's where-a-check-can-sit,
+   Module 6 Lesson 1's concepts 2 and 3, Module 5 Lesson 11's
+   when-the-answer-is-in-a-table and Lesson 14's
+   retrieval-in-the-context-step (anchors verified in the built HTML).
+   Forward mentions of later concepts and Lessons 2, 4 and 6 are plain
+   prose until those exist. Further concepts and bookends not yet drafted.
+
+### Old-plan outline (where it was Module 4)
 
 *Rough outline — deliberately sequenced before Modules 5 and 6 ("you
 cannot debug an agent you cannot measure"). Not yet broken into lessons.*

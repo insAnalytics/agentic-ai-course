@@ -417,7 +417,29 @@ files are large), `LOAD_RUNS` (`load_run`, `load_questions`; shown verbatim
 in Module 6 Lesson 1 concept 2) and `SUCCESSES` (per-question right counts,
 for demos that use it without defining it), and from concept 4 `BY_WORDING` (`by_wording`, `rate`). Lesson 2 adds `EVALUATOR_LOOP_COST` (Module 2's evaluator-optimizer loop plus a `usage` counter over recording clients) and `LOAD_RUN_ONLY`, appended after `REACT_FAKE_CLIENT + RECORDING_CLIENT + COUNT_TOKENS`. Lesson 3 adds `CHECKED_AGENT` (`Checks` with four hook points and `run_checked_agent`), appended after `REACT_FAKE_CLIENT + RECORDING_CLIENT`. Lesson 4 adds `verificationData(...runs)` (set V plus the named runs, without set E) and `LOAD_VERIFICATION` (`load_run`, `load_set`, and `split_claims` identical to `claims.py`). Lesson 5 adds `LOAD_VOTING` (`load_run`, `load_set`, and set E's `extract_answer`, `normalize` and `as_number`, identical to `scripts/reliability/grading.py`), used with `reliabilityData(...)`. Lesson 6 adds `LOAD_UNSURE` (`LOAD_VOTING` plus `is_correct`, identical to `grading.py`). Lesson 10 adds `SCENARIO_SUITE` (`World`, `Scenario`, the sixteen scripted `SCENARIOS`, `blocks`, `withheld` and `run_scenario`), appended after `REACT_FAKE_CLIENT + CHECKED_AGENT` with no run data; concept 1 shows a header comment, `CHECKED_AGENT` and `SCENARIO_SUITE` verbatim as one block. Concept 2 adds `CHECK_LAYERS` (the eight layers, `LAYERS` and `checks_from`), appended after `SCENARIO_SUITE` and shown verbatim there; it was generated from the mockup's bytes, since its regexes carry 21 backslashes.
 
-**Loading rule (every Module 5 and Module 6 page):** fetch these files at runtime, on the
+Module 7 (Evaluation & Observability) uses `public/data/eval/`, recorded
+offline per `scripts/eval/README-eval.md` (real Qwen3.5 runs of the registry
+agent on a Colab G4 with vLLM; every request, raw reply, tool call and result,
+and the final registry state, so each trial replays exactly):
+
+- `pilot/<setup>.json` (250-600 KB each) — the pilot, 10 tasks x 3 trials:
+  `4b-think` (the registry agent: Qwen3.5-4B, thinking on), `4b-nothink` and
+  `9b-think`. A trial id is `<setup>/<task>/<trial>`.
+- `pilot/tasks.json` — browser copy of the pilot's tasks; the source of truth
+  is `scripts/eval/tasks/pilot.json`, and the two must stay byte-identical.
+
+Shared setup is in `src/lib/evalData.ts`: `pilotData(...setups)` builds a
+demo's `dataFiles` list (`tasks.json` plus only the named runs) and
+`LOAD_PILOT` (`load_pilot`, `load_tasks`; shown verbatim in Module 7 Lesson
+1 concept 1, keep the two byte-identical).
+
+**Build-time copy check:** `scripts/check-copies.mjs` runs first in
+`npm run build` and fails the build if a deliberately duplicated file or
+code block has drifted: currently the pilot's `tasks.json` against
+`scripts/eval/tasks/pilot.json`, and `LOAD_PILOT` against the page's static
+setup block. Add any new must-stay-identical pair to its `PAIRS` list.
+
+**Loading rule (every Module 5, 6 and 7 page):** fetch these files at runtime, on the
 learner's first Run click, and let the browser cache them — never `import`
 them into page or component code, which would inline megabytes into the JS
 bundle. Build the URL from `import.meta.env.BASE_URL` so it works under the
