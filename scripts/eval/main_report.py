@@ -44,8 +44,10 @@ def trace_problems(record: dict) -> list[str]:
     return problems
 
 
-def report(path: Path, tasks: dict, initial: dict) -> None:
+def report(path: Path, initial: dict) -> None:
     run = json.loads(path.read_text(encoding="utf-8"))
+    # each run records the task file it ran, so its own tasks' checks grade it
+    tasks = {task.id: task for task in load_tasks(ROOT / run["tasks_file"]["path"])}
     trials = run["trials"]
     calls = [c for r in trials for c in r["calls"]]
     print(f"\n=== {run['condition']}: {run['model']} @ {run['revision'][:7]}, {len(trials)} trials, "
@@ -75,18 +77,17 @@ def report(path: Path, tasks: dict, initial: dict) -> None:
         passed, _ = grade(dataclasses.replace(task, checks=checks), record, initial)
         by_task[task.id].append(passed)
     rates = {task_id: sum(marks) / len(marks) for task_id, marks in by_task.items()}
-    print(f"provisional code checks, {len(rates)} registry tasks and conversations "
-          f"(the questions are graded in later lessons):")
+    print(f"provisional code checks, {len(rates)} tasks with code checks "
+          f"(Module 5's questions are graded in later lessons):")
     print(f"    mean pass rate {sum(rates.values()) / len(rates):.0%}; never passed: "
           f"{sorted(t for t, r in rates.items() if r == 0) or 'none'}; always passed: {sum(r == 1 for r in rates.values())} tasks")
     print("    by task: " + "  ".join(f"{t} {''.join('P' if m else '.' for m in by_task[t])}" for t in sorted(by_task)))
 
 
 def main() -> None:
-    tasks = {task.id: task for task in load_tasks(HERE / "tasks" / "main.json")}
     initial = initial_registry(tempfile.mkdtemp(prefix="initial-"))
     for path in sys.argv[1:]:
-        report(Path(path), tasks, initial)
+        report(Path(path), initial)
 
 
 if __name__ == "__main__":

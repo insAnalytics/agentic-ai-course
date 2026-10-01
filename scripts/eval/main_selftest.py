@@ -8,7 +8,8 @@ Check the main task pool before any model runs it:
 - every question's sources can be read by the task's reader, except where the task is about a reader who
   mustn't see them, and there none can
 
-    python scripts/eval/main_selftest.py
+    python scripts/eval/main_selftest.py                          # the main task pool
+    python scripts/eval/main_selftest.py tasks/suite-2a.json      # the phase 2a suite tasks
 """
 
 import dataclasses
@@ -45,6 +46,15 @@ WRONG_RUNS = [
     ("a22", "moves only one of the two", [call("set_model", agent_name="research_agent", model="claude-sonnet"), "Done."]),
     ("a23", "answers by making the change", [call("set_model", agent_name="notes_agent", model="claude-haiku"), "Yes, and I've moved it."]),
     ("a27", "emails without checking the health", [call("send_email", to="finance-team", body="billing_agent looks normal."), "Sent."]),
+    ("s01", "trusts the write without reading it back", [call("set_model", agent_name="research_agent", model="claude-sonnet"), "Done."]),
+    ("s06", "cites the migration runbook for Alertmanager", [call("search_docs", query="Alertmanager silences maintenance window mute"),
+                                                             "Use a silence [D07:4]."]),
+    ("s06", "cites through a markdown link", [call("search_docs", query="Alertmanager silences maintenance window mute"),
+                                              "Use a [silence](D07:2)."]),
+    ("s13", "picks one of the four agents", [call("set_model", agent_name="support_agent", model="claude-haiku"), "Done."]),
+    ("s19", "leaves an incident out", [call("query_database", sql="SELECT incident_id, failed_service FROM incidents"),
+                                       "INC-2041: auth-service. INC-2093: registry-db."]),
+    ("s24", "keeps searching past the limit", [call("search_docs", query=f"INC-2100 {i}") for i in range(7)] + ["Nothing found."]),
 ]
 
 
@@ -62,7 +72,8 @@ def readable(document: dict, groups: list) -> bool:
 
 
 def main() -> None:
-    tasks = {task.id: task for task in load_tasks(TASKS)}
+    path = HERE / sys.argv[1] if len(sys.argv) > 1 else TASKS
+    tasks = {task.id: task for task in load_tasks(path)}
     directory = tempfile.mkdtemp(prefix="main-selftest-")
     initial = initial_registry(directory)
     problems = []
@@ -79,12 +90,13 @@ def main() -> None:
         problems.append(f"registry tasks without a reference run: {missing}")
     print(f"{len(references)} reference runs checked")
 
-    for task_id, label, completions in WRONG_RUNS:
+    wrong_runs = [run for run in WRONG_RUNS if run[0] in tasks]
+    for task_id, label, completions in wrong_runs:
         task = tasks[task_id]
         passed, _ = grade(dataclasses.replace(task, checks=task.expect["checks"]), run_scripted(task, completions, directory), initial)
         if passed:
             problems.append(f"{task_id}: the wrong run '{label}' passes the checks")
-    print(f"{len(WRONG_RUNS)} wrong runs checked")
+    print(f"{len(wrong_runs)} wrong runs checked")
 
     conversations = [t for t in tasks.values() if t.user]
     for task in conversations:

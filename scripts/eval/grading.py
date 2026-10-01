@@ -10,6 +10,9 @@ The pilot's first-pass code grader. A task's `checks` can hold:
 - must_not_call    [[tool, {argument: value}], ...]: no call, even a failed one, to that tool with those
                    argument values (an empty dict matches any call to the tool)
 - answer_excludes  phrases the final answer must not contain (whole words, as for answer_includes)
+- cites_only_retrieved  true: every source id the final answer cites, in [brackets] or as a (link target), must be
+                   one a tool returned in this run
+- max_tool_calls   the run may make at most this many tool calls
 
 These are crude where they read text, and they're provisional: every pilot trial is also read, and a grade
 the reading contradicts is reported as the reading says.
@@ -76,4 +79,13 @@ def grade(task, record: dict, initial: dict) -> tuple[bool, list[str]]:
     for phrase in checks.get("answer_excludes", []):
         if contains(answer, phrase):
             failures.append(f"answer contains {phrase!r}")
+    if checks.get("cites_only_retrieved"):
+        retrieved = set()
+        for entry in record["tool_log"]:
+            retrieved |= set(re.findall(r'<source id="([^"]+)"', entry["output"]))
+        cited = set(re.findall(r"[\[(]([\w./-]+:\d+)[\])]", record["answers"][-1]))
+        if cited - retrieved:
+            failures.append(f"cites {sorted(cited - retrieved)}, which no tool returned")
+    if "max_tool_calls" in checks and len(record["tool_log"]) > checks["max_tool_calls"]:
+        failures.append(f"{len(record['tool_log'])} tool calls, more than {checks['max_tool_calls']}")
     return not failures, failures

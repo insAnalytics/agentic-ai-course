@@ -10,6 +10,9 @@ settings and different seeds, so Lesson 10 can measure how much two runs of the 
     python scripts/eval/run_main.py --batch a
     python scripts/eval/run_main.py --batch b
 
+    # phase 2a: the new suite tasks, same agent and settings
+    python scripts/eval/run_main.py --batch a --tasks-file tasks/suite-2a.json --name suite-2a
+
 Writes public/data/eval/main/baseline-<batch>.json (or .dry-run.json). Every trial is saved as the pilot's
 were (every raw completion, seed, tool call and the world's final state, so it can be replayed exactly) plus
 its trace: the spans from tracing.py, with real timings.
@@ -43,7 +46,6 @@ from tracing import Tracer, instrument, summarize  # noqa: E402
 
 ROOT = HERE.parents[1]
 OUT = ROOT / "public" / "data" / "eval" / "main"
-TASKS = HERE / "tasks" / "main.json"
 MODEL = "4b"
 THINKING = True
 TRIALS = 5
@@ -89,7 +91,7 @@ def environment(args, vllm_version: str) -> dict:
 
 def run_batch(batch: str, args) -> dict:
     repo, revision = MODELS[MODEL]
-    condition = f"baseline-{batch}"
+    condition = f"{args.name}-{batch}"
     template = ChatTemplate.qwen35()
     template_check = None
     if args.dry_run:
@@ -105,7 +107,8 @@ def run_batch(batch: str, args) -> dict:
             sys.exit("our template rendering differs from transformers'; see run_pilot.check_template")
         backend = VLLMBackend(args.agent_url, repo, tokenizer)
 
-    tasks = load_tasks(TASKS)
+    tasks_path = HERE / args.tasks_file
+    tasks = load_tasks(tasks_path)
     if args.tasks:
         tasks = [t for t in tasks if t.id in args.tasks.split(",")]
     workdir = tempfile.mkdtemp(prefix="registry-world-")
@@ -153,7 +156,7 @@ def run_batch(batch: str, args) -> dict:
         "template_sha": template.sha, "template_matches_transformers": template_check,
         "user": None if args.dry_run else {"model": USER_MODEL, "sampling": USER_SAMPLING,
                                             "template_kwargs": USER_TEMPLATE_KWARGS, "max_tokens": USER_MAX_TOKENS},
-        "tasks_file": {"path": str(TASKS.relative_to(ROOT)), "version": json.loads(TASKS.read_text(encoding="utf-8"))["version"]},
+        "tasks_file": {"path": str(tasks_path.relative_to(ROOT)), "version": json.loads(tasks_path.read_text(encoding="utf-8"))["version"]},
         "setup": {"agent_server": server, "gpus": gpu_names(), "python": platform.python_version(),
                   "workers": args.workers},
         "environment": environment(args, server["version"]),
@@ -181,6 +184,8 @@ def main() -> None:
     parser.add_argument("--user-url", default="http://localhost:8001")
     parser.add_argument("--workers", type=int, default=48)
     parser.add_argument("--tasks", help="comma-separated task ids, for a quick check")
+    parser.add_argument("--tasks-file", default="tasks/main.json", help="the task file, relative to scripts/eval")
+    parser.add_argument("--name", default="baseline", help="the run's name; files are <name>-<batch>.json")
     # recorded in the run's "environment" field; see README-main.md for the values the baseline used
     parser.add_argument("--env-var", action="append", default=[], metavar="NAME=VALUE",
                         help="an environment variable set for the servers (repeatable)")
