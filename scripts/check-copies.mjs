@@ -176,6 +176,14 @@ const CONTAINED = [
         what: `${name}'s ${piece.split("\n")[0].slice(0, 40)}`, text: piece,
         constant: ["src/content/modules/07-evaluation/04-task-suite/07-recap-practice.mdx", "LIB_PY"],
       }))),
+  // Lesson 5's recap lib.py: the matcher, the end-state check and the citation check, byte for byte
+  ...["CONTAINS", "STATE_DIFF", "CITED_IDS"].flatMap((name) =>
+    rawConstant("src/lib/evalData.ts", name).split("\n\n\n").map((piece) => piece.trim())
+      .filter((piece) => piece && !/^(import|from) /.test(piece))
+      .map((piece) => ({
+        what: `${name}'s ${piece.split("\n")[0].slice(0, 40)}`, text: piece,
+        constant: ["src/content/modules/07-evaluation/05-code-graders/06-recap-practice.mdx", "LIB_PY"],
+      }))),
 ];
 
 let failed = false;

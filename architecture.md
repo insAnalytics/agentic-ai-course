@@ -603,6 +603,15 @@ phase 2c probes and answers) with its own page-local `LOAD_SUMMARIZER`
 (shown verbatim, copy-checked); the third and fourth demos' hidden setup
 is `LOAD_SUMMARIZER` plus the second demo up to its grading (`mentions`,
 `correct`, `probes` with a17/0's added phrasings).
+Lesson 5's recap sandbox (`MultiFileGradedExercise`, no `setupCode`:
+`lib.py` reads `/data/eval/suite` itself) reads `suite/grader-cases.json`
+(25 KB: ten real baseline and suite runs, each with its answer, tool log,
+retrieved source ids, final state and task checks, plus the initial
+registry), written by `scripts/eval/grader_cases.py` (`--check`). Its
+read-only `lib.py` holds `load_cases` and the lesson's `normalize`,
+`contains`, `state_diff`, `cited_ids` and `unsupported_citations`;
+`check-copies.mjs`'s `CONTAINED` list checks that `CONTAINS`,
+`STATE_DIFF` and `CITED_IDS` appear in it byte for byte.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or

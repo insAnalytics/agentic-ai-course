@@ -6841,7 +6841,7 @@ torch 2.13.0+cu130, `torchaudio` removed,
    chains its conditions; others have simple triggers), as in concepts 1
    and 3.
 
-5. **Code Graders** (`05-code-graders`, title provisional) — **Building.**
+5. **Code Graders** (`05-code-graders`, title provisional) — **Locked.**
    Concept 1 (checking the end state) is built: Module 2's goal-state check
    run after the run, τ-bench's end-state grading (Yao et al., ICLR 2025),
    the registry and outbox as the two parts of the end state, a graded
@@ -6968,8 +6968,34 @@ torch 2.13.0+cu130, `torchaudio` removed,
    now states, naming what was removed (same conclusion). 5 quiz cards.
    Callbacks: Module 4 Lesson 5 concept 3's `#testing-a-summary-by-asking-it-questions`,
    Lesson 1 concept 3's page, Lesson 4 concept 1's page (anchors
-   verified); Lesson 9 is plain prose. Concepts 6 onward (if any) and the
-   bookends are not drafted yet.
+   verified); Lesson 9 is plain prose.
+   Bookends are built: intro (`00-intro.mdx`) with three outcomes and why
+   it matters; Recap & Practice (`06-recap-practice.mdx`) with an
+   8-question comprehensive quiz and a multi-file sandbox (`lib.py`
+   read-only: `load_cases` plus the lesson's `normalize`, `contains`,
+   `state_diff`, `cited_ids` and `unsupported_citations`, checked against
+   `CONTAINS`, `STATE_DIFF` and `CITED_IDS` by `check-copies.mjs`; entry
+   `task_grader.py`, where the learner writes `grade(run, checks,
+   initial)` covering registry, outbox, `must_call_after`,
+   `must_not_call`, `answer_includes`, `cites_only_retrieved` and
+   `max_tool_calls`). Reads `suite/grader-cases.json` (ten real runs with
+   their checks, written by `scripts/eval/grader_cases.py`, `--check`,
+   identical to the zip's copy apart from line endings). The reference
+   agrees with `grading.py` on all 515 recorded runs with code checks, as
+   the explanation says (checked). Verified in real Pyodide 0.26.4 the way
+   `MultiFileGradedExercise` runs it: the reference passes and its Run
+   output matches the mockup, the starter fails, and fourteen wrong
+   versions each fail with their intended message (registry always
+   compared or summarised in one line, no outbox default, `max_count`
+   ignoring the team, body phrases unchecked, failed or out-of-order
+   read-backs counted, failed forbidden calls skipped or matched on exact
+   input, one line for all missing phrases, a substring matcher, citations
+   ignored, the step limit tested for truth or with `>=`). Added to the
+   mockup's hidden tests: a run exactly at its step limit passes (the
+   `>=` version passed every original test). Corrected from the mockup:
+   Q5 says runs that answered, not "correct answers", took up to 9 calls
+   (as in concept 3); `lib.py`'s curly-apostrophe escape restored to
+   `\u2019` so it matches `CONTAINS`.
 
 ### Old-plan outline (where it was Module 4)
 
