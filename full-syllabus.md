@@ -6405,8 +6405,23 @@ architecture.md §3.1).
    pytest-basics concept page, Module 5 Lesson 2's metrics page, Module 4
    Lesson 5's `#testing-a-summary-by-asking-it-questions` and Module 5
    Lesson 11's `#measured` (anchors verified in the built HTML). Mentions
-   of Lessons 2 and 3 are plain prose. Further concepts and bookends not
-   yet drafted.
+   of Lessons 2 and 3 are plain prose.
+   Concept 4 (offline and online) is built, quiz-only, no demo: Google's
+   three evaluation kinds, Anthropic's six methods and the Swiss cheese
+   model (linked to Module 6 Lesson 10's layering-the-checks page),
+   capability vs regression suites, how online and offline feed each
+   other, 5 quiz cards. Its "70–87%" is the pilot's pass rate after
+   reading (21/30 to 26/30, from `grades.json`); the raw code grades are
+   70–83%.
+   Concept 5 (the loop) is built: Husain/Shankar, OpenAI and Anthropic on
+   reading before grading, the six-step loop, a demo of code grades vs
+   grades after reading from the new `public/data/eval/pilot/grades.json`
+   (written by `scripts/eval/pilot_grades.py`, rerun here: identical to
+   the content chat's copy apart from line endings), the 19 changes (9 p08
+   false passes, 7 p07 and 3 p02 false failures), how the module's lessons
+   follow the loop, 5 quiz cards. Demo output matches the mockup exactly.
+   Callback to Module 6 Lesson 4's false-premise page. Bookends not yet
+   drafted.
 
 ### Old-plan outline (where it was Module 4)
 

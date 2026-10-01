@@ -427,6 +427,13 @@ and the final registry state, so each trial replays exactly):
   `9b-think`. A trial id is `<setup>/<task>/<trial>`.
 - `pilot/tasks.json` — browser copy of the pilot's tasks; the source of truth
   is `scripts/eval/tasks/pilot.json`, and the two must stay byte-identical.
+- `pilot/grades.json` (13 KB) — every pilot trial's provisional code grade
+  (`scripts/eval/grading.py`) and its grade after reading, written by
+  `scripts/eval/pilot_grades.py`. The 19 changes by reading are listed in
+  that script's `OVERRIDES`, each confirmed by the author reading the trial.
+  On Windows the script writes CRLF; the committed file is LF (identical
+  content). Pages quote "after reading" figures from this file, never the
+  raw code grades `pilot_report.py` prints.
 
 Shared setup is in `src/lib/evalData.ts`: `pilotData(...setups)` builds a
 demo's `dataFiles` list (`tasks.json` plus only the named runs) and
