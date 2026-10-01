@@ -260,3 +260,33 @@ def config_hash(system: str, tools: list) -> str:
  * scripts/eval/build_course_libs.py builds course/m7trace.py from it.
  */
 export const INSTRUMENT = TRACED_CHECKS + "\n\n" + INSTRUMENT_WRAPPERS;
+
+/**
+ * Module 7 Lesson 2 concept 4's summarize: the exercise's reference, shown
+ * there as the correct answer by using this constant. Demos after it append
+ * it after LOAD_PILOT + TRACER + TRACE_FROM_RECORDING.
+ */
+export const SUMMARIZE = String.raw`from collections import Counter
+
+
+def summarize(spans: list[Span]) -> dict:
+    """The facts about one run that a trace answers at a glance, found by attributes rather than span names."""
+    def operation(span):
+        return span.attributes.get("gen_ai.operation.name")
+
+    chats = [span for span in spans if operation(span) == "chat"]
+    tools = [span for span in spans if operation(span) == "execute_tool"]
+    # a failure that started somewhere else passes through its parents; the origin is the failed span with no failed child
+    failed_parents = {span.parent_id for span in spans if span.status == "ERROR"}
+    origins = [span for span in spans if span.status == "ERROR" and span.span_id not in failed_parents]
+    return {
+        "model_calls": len(chats),
+        "input_tokens": sum(span.attributes.get("gen_ai.usage.input_tokens", 0) for span in chats),
+        "output_tokens": sum(span.attributes.get("gen_ai.usage.output_tokens", 0) for span in chats),
+        "tool_calls": dict(Counter(span.attributes["gen_ai.tool.name"] for span in tools)),
+        "failed_tools": [span.attributes["gen_ai.tool.name"] for span in tools if span.status == "ERROR"],
+        "first_failure": origins[0].name if origins else None,
+        "blocked_checks": [span.attributes["registry_agent.check.point"] for span in spans
+                           if span.attributes.get("registry_agent.check.verdict") == "blocked"],
+    }
+`;

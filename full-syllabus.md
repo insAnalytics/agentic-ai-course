@@ -6496,8 +6496,27 @@ architecture.md §3.1).
    every verdict "blocked"). Callbacks: Module 4 Lesson 12's
    seeing-inside-each-request and measuring-the-before-and-after, Module 6
    Lesson 3's what-a-failed-check-does and Lesson 8's pinning page, Module
-   2 Lesson 11's `#the-fix-by-hand-a-tracing-hook`. Further concepts and
-   bookends not yet drafted.
+   2 Lesson 11's `#the-fix-by-hand-a-tracing-hook`.
+   Concept 4 (reading a trace) is built: the questions a trace answers,
+   queries by attribute not span name, the double-counted `invoke_agent`
+   usage; a graded `summarize(spans)` exercise (hidden tests split into 4
+   self-contained scenarios); demos summarizing p07/0 and p08/1 (p08 looks
+   clean), input tokens growing over p02/1 (11 sent per token generated),
+   and p08/1's content showing the model quoting `set_model`'s
+   description; the new `TraceViewer` component over all 90 pilot traces
+   (data built by `scripts/eval/build_pilot_traces.py` from the page code);
+   5 quiz cards. New shared `SUMMARIZE`. Verified in real Pyodide 0.26.4:
+   all three demos match the mockup exactly; the reference passes all 4
+   tests, the starter fails, and eight wrong versions each fail (chat found
+   by span name, tokens over every span, usage read without a default, the
+   first ERROR span as the failure, the last origin, failed tools from
+   every span, every check listed, tool counts as a set). The viewer was
+   driven in headless Chromium against the built site: initial trace,
+   span details with thinking/text blocks, a tool result, the p07
+   suggestion with its ERROR badge, switching setup, collapsing, no page
+   errors. Callbacks: concept 2's `#the-spans-this-agent-produces` (anchor
+   verified) and Module 4 Lesson 1's intro (lesson-level link). Further
+   concepts and bookends not yet drafted.
 
 ### Old-plan outline (where it was Module 4)
 

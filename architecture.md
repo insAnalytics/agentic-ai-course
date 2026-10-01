@@ -427,6 +427,13 @@ and the final registry state, so each trial replays exactly):
   `9b-think`. A trial id is `<setup>/<task>/<trial>`.
 - `pilot/tasks.json` — browser copy of the pilot's tasks; the source of truth
   is `scripts/eval/tasks/pilot.json`, and the two must stay byte-identical.
+- `pilot/traces/<setup>.json` (160-320 KB each, 778 KB in all) — every
+  pilot trial as spans, content captured, for Lesson 2 concept 4's
+  `TraceViewer`. Built by `scripts/eval/build_pilot_traces.py`, which runs
+  the page code itself (`TRACER` + `TRACE_FROM_RECORDING` read from
+  `evalData.ts`) with `secrets` swapped for a counter in that namespace so
+  the span ids, and so the files, are reproducible; `--check` fails if they
+  drift. Rebuild them whenever either constant changes.
 - `pilot/grades.json` (13 KB) — every pilot trial's provisional code grade
   (`scripts/eval/grading.py`) and its grade after reading, written by
   `scripts/eval/pilot_grades.py`. The 19 changes by reading are listed in
@@ -466,6 +473,18 @@ lesson's seeing-inside-each-request page and appends `TRACER`; its
 exercise loads the fake client, `COUNT_TOKENS`, `CHECKED_AGENT` and
 `TRACER` as `namespaceSetup`, since the learner's function uses `Checks`
 and `Tracer` as globals.
+Concept 4 adds `SUMMARIZE` (`summarize(spans)`, found by
+`gen_ai.operation.name`, never span names; the exercise's reference, shown
+as its answer via the constant), and the page's demos run
+`LOAD_PILOT + TRACER + TRACE_FROM_RECORDING + SUMMARIZE`. It also adds the
+first non-Pyodide component for this module, `TraceViewer.tsx`
+(`client:visible`): pick a setup, task and trial (with suggested trial
+ids), a collapsible span tree with `ERROR` badges and token counts, a
+details panel listing every attribute with content attributes rendered as
+thinking/text/tool-call blocks, the request above and the final answer
+below. It fetches one setup's traces file when that setup is first shown
+(memoized, failures retried), like `courseData.ts`, and never imports the
+data into the bundle.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
