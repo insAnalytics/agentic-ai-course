@@ -6716,7 +6716,30 @@ spot check and the m02 task gap) is in
    both moves, the fifth hit the step limit. Callbacks: Lesson 1's
    `#one-run-and-the-words-for-its-parts`, Lesson 1 concept 5's
    `#the-pilot-went-round-once`, Lesson 3 concept 3's `#the-grader`
-   (anchors verified). No bookends yet.
+   (anchors verified).
+   Concept 2 (where tasks come from) is built: Anthropic's 20 to 50 tasks
+   from real failures and its sources, the suite's three (Module 5's
+   labelled questions, edge cases written in advance, Lesson 3's real
+   failures), a02 and its lost-write twin s01 (none of the 12 code-passed
+   lost-write runs told the user the truth; the nearest, an s04 run, saw
+   the old model and explained it away, a sentence added after reading
+   the runs), Module 5's open q29/q39 questions answered from the baseline
+   (q29: 7 runs searched again and all gave the threshold, 3 stopped and
+   none did; q39: 7 of 10 rightly declined), and capability vs regression
+   by category, with why the 100% categories can't graduate yet. New data
+   `public/data/eval/suite/multihop-baseline.json` (written by
+   `scripts/eval/multihop_facts.py`, `--check`; its run paths now written
+   with forward slashes on Windows, otherwise identical to the zip's copy).
+   Two read-only demos, both matching the mockup exactly in Pyodide 0.26.4;
+   the mockup's repeated `load_suite` block replaced by a link to concept
+   1's. 5 quiz cards. Callbacks: Module 6 Lesson 10's
+   `#a-suite-of-scenarios-some-fine-some-not`, Lesson 3 concept 4's
+   `#the-baseline-s-categories`, Lesson 3 concept 5's
+   `#passes-that-depend-on-luck`, Module 5 Lesson 11 concept 6's
+   `#a-trigger-can-sit-higher-than-a-refusal`, Lesson 1 concept 3's
+   `#the-parts-can-pass-while-the-whole-fails`, Lesson 1 concept 4's
+   `#capability-suites-and-regression-suites` (anchors verified). No
+   bookends yet.
 
 ### Old-plan outline (where it was Module 4)
 

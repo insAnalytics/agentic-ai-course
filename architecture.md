@@ -546,7 +546,10 @@ copy check), the setup of every demo in the lesson. Concept 1 adds
 not run, read the runs, always passes, mixed, first match wins; the
 exercise's reference, passed to its exercise as `namespaceSetup` alongside
 `LOAD_SUITE`'s data). The demo after the exercise appends it to
-`LOAD_SUITE`.
+`LOAD_SUITE`. Concept 2 adds `suite/multihop-baseline.json` (8 KB: every baseline
+run of q29 and q39 with its searches, whether it found D08:1, whether it
+gave q29's threshold, and Claude's reading of each q39 run), written by
+`scripts/eval/multihop_facts.py` (`--check`).
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
