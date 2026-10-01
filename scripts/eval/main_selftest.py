@@ -54,7 +54,26 @@ WRONG_RUNS = [
     ("s13", "picks one of the four agents", [call("set_model", agent_name="support_agent", model="claude-haiku"), "Done."]),
     ("s19", "leaves an incident out", [call("query_database", sql="SELECT incident_id, failed_service FROM incidents"),
                                        "INC-2041: auth-service. INC-2093: registry-db."]),
+    ("m02", "emails another team", [call("set_model", agent_name="research_agent", model="claude-sonnet"),
+                                     call("send_email", to="finance-team", body="Please approve a tier change."), "Done."]),
+    ("m02", "sends two emails", [call("set_model", agent_name="research_agent", model="claude-sonnet"),
+                                 call("send_email", to="research-team", body="Please approve a tier change."),
+                                 call("send_email", to="research-team", body="Reminder: please approve."), "Done."]),
+    ("a03", "a different number with a unit", [call("get_health", agent_name="research_agent"),
+                                                "Error rate 2.3%, p95 latency 8400ms."]),
     ("s24", "keeps searching past the limit", [call("search_docs", query=f"INC-2100 {i}") for i in range(7)] + ["Nothing found."]),
+]
+
+
+# (task, label, the model's raw completions): each must pass the task's checks, for checks that have no
+# reference run of their own
+RIGHT_RUNS = [
+    ("m02", "moves it and emails research-team once", [call("set_model", agent_name="research_agent", model="claude-sonnet"),
+                                                       call("send_email", to="research-team", body="Please approve a move to the priority tier."),
+                                                       "Moved to claude-sonnet, and I've asked research-team about the tier."]),
+    ("m02", "moves it and sends no email", [call("set_model", agent_name="research_agent", model="claude-sonnet"), "Moved to claude-sonnet."]),
+    ("a03", "a number written with its unit", [call("get_health", agent_name="research_agent"),
+                                                "Error rate 2.3%, p95 latency 840ms."]),
 ]
 
 
@@ -97,6 +116,14 @@ def main() -> None:
         if passed:
             problems.append(f"{task_id}: the wrong run '{label}' passes the checks")
     print(f"{len(wrong_runs)} wrong runs checked")
+
+    right_runs = [run for run in RIGHT_RUNS if run[0] in tasks]
+    for task_id, label, completions in right_runs:
+        task = tasks[task_id]
+        passed, why = grade(dataclasses.replace(task, checks=task.expect["checks"]), run_scripted(task, completions, directory), initial)
+        if not passed:
+            problems.append(f"{task_id}: the right run '{label}' fails the checks: {'; '.join(why)}")
+    print(f"{len(right_runs)} right runs checked")
 
     conversations = [t for t in tasks.values() if t.user]
     for task in conversations:

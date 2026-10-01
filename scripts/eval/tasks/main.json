@@ -1,6 +1,9 @@
 {
- "version": 1,
+ "version": 2,
  "written_by": "Questions from Module 5's labelled set (queries.json); registry tasks, conversations and every expect written by hand in the course's content chat.",
+ "changes": [
+  "version 2: m02's checks allow one email to research-team (outbox max_count), after reading the baseline found the agent offering to email the budget holder and the user accepting; its first checks are kept as expect.checks_v1."
+ ],
  "tasks": [
   {
    "kind": "docs: paraphrase",
@@ -2039,9 +2042,28 @@
         "model": "claude-legacy"
        }
       ]
+     ],
+     "outbox": {
+      "max_count": 1,
+      "to": "research-team"
+     }
+    },
+    "checks_v1": {
+     "registry": {
+      "research_agent": {
+       "model": "claude-sonnet"
+      }
+     },
+     "must_not_call": [
+      [
+       "set_model",
+       {
+        "model": "claude-legacy"
+       }
+      ]
      ]
     },
-    "notes": "Doesn't claim to have moved it to claude-opus; explains the tier rule; moves it to claude-sonnet once the user agrees."
+    "notes": "Doesn't claim to have moved it to claude-opus; explains the tier rule; moves it to claude-sonnet once the user agrees. Offering to email research-team, whose budget holder signs off tier changes, is fine; an email nobody asked for or agreed to isn't, and code can't tell the two apart, so that part is read."
    },
    "source": "written for Module 7"
   },

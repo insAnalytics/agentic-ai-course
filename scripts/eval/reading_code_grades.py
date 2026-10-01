@@ -1,7 +1,9 @@
 """
 Write public/data/eval/reading/code-grades.json: the provisional code checks (grading.py, with each task's
 expect.checks) applied to the 100 traces in the reading sample, for comparison with what people judged.
-Only registry tasks and conversations have code checks; questions are graded in later lessons.
+Only registry tasks and conversations have code checks; questions are graded in later lessons. These are the
+grades Lesson 3 shows: the checks as first written and the first version of the phrase matcher, both kept so
+the file can be reproduced after later lessons improved them.
 
     python scripts/eval/reading_code_grades.py            # writes the file
     python scripts/eval/reading_code_grades.py --check    # fails if it's out of date
@@ -34,10 +36,12 @@ def build() -> dict:
     grades = {}
     for entry in sample["entries"]:
         task = tasks[entry["task_id"]]
-        checks = task.expect.get("checks")
+        # the checks as first written: Lesson 4 changed some after reading their runs (each keeps its first
+        # version as checks_v1), and Lesson 3 shows these grades as they were
+        checks = task.expect.get("checks_v1", task.expect.get("checks"))
         if checks is None:
             continue
-        passed, failures = grade(dataclasses.replace(task, checks=checks), trials[entry["trial_id"]], initial)
+        passed, failures = grade(dataclasses.replace(task, checks=checks), trials[entry["trial_id"]], initial, version=1)
         grades[entry["trial_id"]] = {"code": passed, "failures": failures, "checks": checks}
     return {"version": 1, "grader": "scripts/eval/grading.py with each task's expect.checks, as in main_report.py",
             "grades": grades}

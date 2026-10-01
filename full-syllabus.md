@@ -6481,6 +6481,19 @@ environment as phase 1 (vLLM 0.30.0, torch 2.13.0+cu130, RTX PRO 6000
 Blackwell, `torchaudio` removed, `VLLM_USE_FLASHINFER_SAMPLER=0`, servers
 started one after the other).
 
+**Check fixes after reading (2026-10-01), Lesson 4's "task fixed after
+reading its runs" examples.** `grading.py`'s phrase matcher v2 lets a
+number carry its unit ("840" matches "840ms", not "8400"); v1 is kept, and
+`pilot_grades.py` and `reading_code_grades.py` pin it, so the pilot's and
+Lesson 3's recorded grades are unchanged. m02 allows one email to
+research-team (`outbox.max_count`; tasks/main.json v2), and s29 accepts the
+date written out (suite-2a.json v2); each keeps its first checks as
+`expect.checks_v1`. Regraded: baseline-a 86% -> 91% (a03 0/5 -> 5/5, so it
+is no longer never-passed; m03 1 -> 5; m02 3 -> 4), baseline-b 88% -> 91%,
+suite-2a-a 72% -> 74% (s29 2 -> 5). The simulator audit (with the
+spot check and the m02 task gap) is in
+`public/data/eval/reading/simulator-audit.json`.
+
 2. **Tracing an Agent Run** (`02-tracing`, title provisional) —
    **Locked.** Concept 1 (from a list of events to a tree of spans) is
    built: the course's four separate records (Module 2's tracing hook,

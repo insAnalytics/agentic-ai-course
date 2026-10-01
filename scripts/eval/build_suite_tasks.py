@@ -228,7 +228,8 @@ TASKS = [
                    "INC-2093 affected support_agent, on claude-sonnet, and triage_agent, on claude-haiku."]},
     {"id": "s29", "category": "multi_hop", "kind": "multi-hop: agent -> model -> switch-off date",
      "request": "When is the model that notes_agent runs on switched off?",
-     "expect": {"checks": {**UNCHANGED, "answer_includes": ["2026-10-31"]}},
+     "expect": {"checks": {**UNCHANGED, "answer_includes": [["2026-10-31", "October 31, 2026", "31 October 2026"]]},
+                "checks_v1": {**UNCHANGED, "answer_includes": ["2026-10-31"]}},
      "reference": [call("get_agent", agent_name="notes_agent"),
                    call("search_docs", query="claude-legacy switched off date"),
                    "notes_agent runs on claude-legacy, which is switched off on 2026-10-31 [D07:0]."]},
@@ -241,9 +242,12 @@ def build() -> dict:
         task = {"split": "dev", "groups": None, "history": [], **spec}
         task["source"] = f"written for Module 7's suite, category {task.pop('category')}"
         tasks.append(task)
-    return {"version": 1,
+    return {"version": 2,
             "written_by": "Written by hand in the course's content chat, one or more tasks for each failure category "
                           "Lesson 3's error analysis found, plus more multi-hop questions.",
+            "changes": ["version 2: s29 accepts the switch-off date written out ('October 31, 2026'), after reading "
+                        "found three correct answers failed for writing it that way; its first checks are kept as "
+                        "expect.checks_v1."],
             "tasks": tasks}
 
 

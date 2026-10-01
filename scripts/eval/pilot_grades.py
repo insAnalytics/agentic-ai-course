@@ -44,7 +44,7 @@ def main() -> None:
     for setup in SETUPS:
         run = json.loads((PILOT / f"{setup}.json").read_text(encoding="utf-8"))
         for record in run["trials"]:
-            passed, failures = grade(tasks[record["task_id"]], record, initial)
+            passed, failures = grade(tasks[record["task_id"]], record, initial, version=1)
             final, reason = OVERRIDES.get(record["trial_id"], (passed, None))
             if reason and final == passed:
                 sys.exit(f"{record['trial_id']}: the override agrees with the code grade, so it isn't a change")

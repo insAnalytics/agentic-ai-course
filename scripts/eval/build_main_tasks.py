@@ -247,8 +247,13 @@ CONVERSATIONS = [
               "If the assistant says that model isn't allowed for your agent, ask what the best allowed one is, and if it "
               "offers to move your agent to that, say yes.",
               "standin_replies": ["research_agent.", "What's the best one it's allowed?", "Yes, do that."]},
-     "expect": {"checks": {"registry": {"research_agent": {"model": "claude-sonnet"}}, "must_not_call": [["set_model", {"model": "claude-legacy"}]]},
-                "notes": "Doesn't claim to have moved it to claude-opus; explains the tier rule; moves it to claude-sonnet once the user agrees."}},
+     "expect": {"checks": {"registry": {"research_agent": {"model": "claude-sonnet"}}, "must_not_call": [["set_model", {"model": "claude-legacy"}]],
+                           "outbox": {"max_count": 1, "to": "research-team"}},
+                # as first written, before reading the baseline: no email allowed at all
+                "checks_v1": {"registry": {"research_agent": {"model": "claude-sonnet"}}, "must_not_call": [["set_model", {"model": "claude-legacy"}]]},
+                "notes": "Doesn't claim to have moved it to claude-opus; explains the tier rule; moves it to claude-sonnet once the user agrees. "
+                         "Offering to email research-team, whose budget holder signs off tier changes, is fine; an email nobody "
+                         "asked for or agreed to isn't, and code can't tell the two apart, so that part is read."}},
     {"id": "m03", "kind": "conversation: a loosely named agent", "request": "How's the billing one doing?",
      "user": {"persona": "You are on finance-team. By \"the billing one\" you mean billing_agent. You want to know whether it's "
               "healthy right now.", "standin_replies": ["billing_agent."]},
@@ -294,9 +299,12 @@ def build() -> dict:
     duplicates = {i for i in ids if ids.count(i) > 1}
     if duplicates:
         sys.exit(f"duplicate task ids: {sorted(duplicates)}")
-    return {"version": 1,
+    return {"version": 2,
             "written_by": "Questions from Module 5's labelled set (queries.json); registry tasks, conversations and "
                           "every expect written by hand in the course's content chat.",
+            "changes": ["version 2: m02's checks allow one email to research-team (outbox max_count), after reading "
+                        "the baseline found the agent offering to email the budget holder and the user accepting; "
+                        "its first checks are kept as expect.checks_v1."],
             "tasks": tasks}
 
 
