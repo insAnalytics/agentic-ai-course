@@ -6786,8 +6786,24 @@ spot check and the m02 task gap) is in
    third at a time within each category"; and the rule of three's 3/n is
    given with the exact bound for 8 tasks (31%). 5 quiz cards. Callbacks:
    Lesson 3 concept 4's `#how-sure-can-we-be`, Module 6 Lesson 4 concept
-   2's `#zero-errors-isn-t-a-zero-error-rate` (anchors verified). No
-   bookends yet.
+   2's `#zero-errors-isn-t-a-zero-error-rate` (anchors verified).
+   Concept 6 (reading public benchmarks critically) is built: a public
+   score as someone else's suite, Module 1's open hallucination question,
+   five questions to ask of a score (SimpleQA vs FACTS Grounding; GSM1k
+   contamination, 13% in the first preprint, 8% published; FACTS's 860
+   public and 859 private examples; SimpleQA Verified; Kapoor et al.'s "AI
+   Agents That Matter", TMLR 2025; how sure a difference is), and the
+   pilot read as a three-setup leaderboard with task-resampled intervals
+   (`eval/pilot/grades.json`). Every citation checked against the papers
+   (arXiv PDFs; TMLR via OpenReview) and all hold. One read-only demo,
+   matching the mockup exactly in Pyodide 0.26.4; the pilot's first code
+   grades (83% and 80%) checked against `grades.json`. One correction: Q4's
+   explanation said each interval spans about 40 points; they span 33 to
+   60. 5 quiz cards. Callbacks: Module 1 Lesson 4 concept 4's
+   `#what-this-concept-does-and-doesn-t-cover`, this lesson's concept 1
+   `#the-benchmarks-get-it-wrong-too`, Lesson 1's
+   `#one-run-and-the-words-for-its-parts` (anchors verified). No bookends
+   yet.
 
 ### Old-plan outline (where it was Module 4)
 
