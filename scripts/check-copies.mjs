@@ -115,6 +115,18 @@ const CONTAINED = [
         what: `${name}'s ${piece.split("\n")[0].slice(0, 40)}`, text: piece,
         constant: ["src/content/modules/07-evaluation/02-tracing/06-recap-practice.mdx", "LIB_PY"],
       }))),
+  // Lesson 3's recap lib.py: the lesson's loader and tally, and the task_bootstrap and read_back its demos define
+  ...[
+    ...["LOAD_READING", "TALLY"].map((name) => [name, rawConstant("src/lib/evalData.ts", name)]),
+    ...[["04-grouping-and-counting", "BOOTSTRAP_DEMO", "def task_bootstrap"], ["05-how-not-only-whether", "READ_BACK_DEMO", "def read_back"]]
+      .map(([page, name, start]) => [name, rawConstant(`src/content/modules/07-evaluation/03-error-analysis/${page}.mdx`, name)
+        .split("\n\n\n").find((piece) => piece.startsWith(start))]),
+  ].flatMap(([name, code]) => code.split("\n\n\n").map((piece) => piece.trim())
+    .filter((piece) => piece && !/^(import|from) /.test(piece))
+    .map((piece) => ({
+      what: `${name}'s ${piece.split("\n")[0].slice(0, 40)}`, text: piece,
+      constant: ["src/content/modules/07-evaluation/03-error-analysis/06-recap-practice.mdx", "LIB_PY"],
+    }))),
 ];
 
 let failed = false;

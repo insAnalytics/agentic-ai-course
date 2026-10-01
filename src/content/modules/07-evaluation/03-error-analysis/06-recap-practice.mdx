@@ -1,0 +1,346 @@
+---
+title: "Recap & Practice"
+lesson: "03-error-analysis"
+order: 6
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { readingData } from "../../../../lib/evalData";
+
+export const SANDBOX_DATA = readingData("sample", "labels-simar", "labels-simar-v2", "labels-claude", "traces");
+
+export const LIB_PY = String.raw`"""Code from this lesson's concepts. Read-only."""
+
+import json
+import random
+from collections import defaultdict
+from pathlib import Path
+
+READING = Path("/data/eval/reading")
+
+
+def load_reading(name: str) -> dict:
+    """One of the reading files: "sample", "labels-simar", "labels-simar-v2", "labels-claude", "categories"."""
+    return json.loads((READING / f"{name}.json").read_text(encoding="utf-8"))
+
+
+def load_traces() -> dict:
+    """The 100 traces in the reading sample, by trial id."""
+    return json.loads((READING / "traces.json").read_text(encoding="utf-8"))
+
+
+def tally(assignments: dict[str, str], read: list[str]) -> list[dict]:
+    """Count each failure category by runs and by tasks, and its share of everything read.
+
+    assignments: trial id -> category, for every trace that failed.
+    read: every trial id that was read, failed or not.
+    Returns one dict per category: {"category", "runs", "tasks", "share"}, most runs first, then most tasks,
+    then by name. A trial id looks like "baseline-a/a14/3": the task is the middle part.
+    """
+    unread = set(assignments) - set(read)
+    if unread:
+        raise ValueError(f"categories given for traces that weren't read: {sorted(unread)}")
+    runs, tasks = defaultdict(int), defaultdict(set)
+    for trial_id, category in assignments.items():
+        runs[category] += 1
+        tasks[category].add(trial_id.split("/")[1])
+    rows = [{"category": category, "runs": runs[category], "tasks": len(tasks[category]),
+             "share": round(runs[category] / len(read), 3)} for category in runs]
+    return sorted(rows, key=lambda row: (-row["runs"], -row["tasks"], row["category"]))
+
+
+def task_bootstrap(read: list[str], assignments: dict[str, str], category: str,
+                   repeats: int = 2000, seed: int = 0) -> tuple[float, float]:
+    """A 95% interval for a category's share of the traces read, resampling whole tasks."""
+    by_task = defaultdict(list)
+    for trial_id in read:
+        by_task[trial_id.split("/")[1]].append(assignments.get(trial_id) == category)
+    tasks = list(by_task.values())
+    rng = random.Random(seed)
+    shares = []
+    for _ in range(repeats):
+        picked = rng.choices(tasks, k=len(tasks))
+        shares.append(sum(map(sum, picked)) / sum(map(len, picked)))
+    shares.sort()
+    return shares[int(0.025 * repeats)], shares[int(0.975 * repeats) - 1]
+
+
+def read_back(trace: dict) -> bool:
+    """Whether the agent looked at an agent's record again after its last successful set_model."""
+    log = trace["tool_log"]
+    writes = [i for i, call in enumerate(log) if call["tool"] == "set_model" and call["ok"]]
+    if not writes:
+        return False
+    after = log[writes[-1] + 1:]
+    return any(call["tool"] in ("get_agent", "query_database") for call in after)
+`;
+
+export const ERROR_REPORT_STARTER = String.raw`from lib import load_reading, load_traces, read_back
+
+
+def primary_labels(entries: list[dict], labels_by_reader: dict[str, dict], primary: str) -> dict[str, dict]:
+    """One label per trace: the primary reader's where they read it, otherwise its other reader's."""
+    # your code here
+
+
+def agreement(first: dict[str, dict], second: dict[str, dict]) -> tuple[int, int]:
+    """How many traces both readers labelled with the same verdict, out of the traces both labelled."""
+    # your code here
+
+
+def fragile_passes(traces: dict[str, dict], labels: dict[str, dict]) -> list[str]:
+    """Passing runs that made a change the registry said was ok and never read the record back, sorted."""
+    # your code here
+
+
+def labels_by_trial(name: str) -> dict[str, dict]:
+    return {label["trial_id"]: label for label in load_reading(name)["labels"]}
+
+
+if __name__ == "__main__":
+    simar, simar_v1, claude = labels_by_trial("labels-simar-v2"), labels_by_trial("labels-simar"), labels_by_trial("labels-claude")
+    labels = primary_labels(load_reading("sample")["entries"], {"simar": simar, "claude": claude}, "simar")
+    if labels:
+        agree, both = agreement(simar_v1, claude)
+        print(f"{sum(l['verdict'] == 'fail' for l in labels.values())} of {len(labels)} traces failed")
+        print(f"agreement before the standard: {agree} of {both}")
+        agree, both = agreement(simar, claude)
+        print(f"agreement after the re-review:  {agree} of {both}")
+        print("fragile passes:", fragile_passes(load_traces(), labels))
+`;
+
+export const ERROR_REPORT_REFERENCE = String.raw`from lib import load_reading, load_traces, read_back
+
+
+def primary_labels(entries: list[dict], labels_by_reader: dict[str, dict], primary: str) -> dict[str, dict]:
+    """One label per trace: the primary reader's where they read it, otherwise its other reader's."""
+    chosen = {}
+    for entry in entries:
+        trial_id = entry["trial_id"]
+        readers = [primary] if primary in entry["readers"] else entry["readers"]
+        label = next((labels_by_reader[r][trial_id] for r in readers if trial_id in labels_by_reader.get(r, {})), None)
+        if label is None:
+            raise ValueError(f"no label for {trial_id} from {readers}")
+        chosen[trial_id] = label
+    return chosen
+
+
+def agreement(first: dict[str, dict], second: dict[str, dict]) -> tuple[int, int]:
+    """How many traces both readers labelled with the same verdict, out of the traces both labelled."""
+    both = first.keys() & second.keys()
+    return sum(first[t]["verdict"] == second[t]["verdict"] for t in both), len(both)
+
+
+def fragile_passes(traces: dict[str, dict], labels: dict[str, dict]) -> list[str]:
+    """Passing runs that made a change the registry said was ok and never read the record back, sorted."""
+    return sorted(trial_id for trial_id, trace in traces.items()
+                  if labels[trial_id]["verdict"] == "pass"
+                  and any(call["tool"] == "set_model" and call["ok"] for call in trace["tool_log"])
+                  and not read_back(trace))
+
+
+def labels_by_trial(name: str) -> dict[str, dict]:
+    return {label["trial_id"]: label for label in load_reading(name)["labels"]}
+
+
+if __name__ == "__main__":
+    simar, simar_v1, claude = labels_by_trial("labels-simar-v2"), labels_by_trial("labels-simar"), labels_by_trial("labels-claude")
+    labels = primary_labels(load_reading("sample")["entries"], {"simar": simar, "claude": claude}, "simar")
+    if labels:
+        agree, both = agreement(simar_v1, claude)
+        print(f"{sum(l['verdict'] == 'fail' for l in labels.values())} of {len(labels)} traces failed")
+        print(f"agreement before the standard: {agree} of {both}")
+        agree, both = agreement(simar, claude)
+        print(f"agreement after the re-review:  {agree} of {both}")
+        print("fragile passes:", fragile_passes(load_traces(), labels))
+`;
+
+export const HIDDEN_TESTS = String.raw`from lib import load_reading, load_traces
+from error_report import agreement, fragile_passes, labels_by_trial, primary_labels
+
+entries = load_reading("sample")["entries"]
+simar, simar_v1, claude = labels_by_trial("labels-simar-v2"), labels_by_trial("labels-simar"), labels_by_trial("labels-claude")
+
+
+def label(verdict):
+    return {"verdict": verdict, "first_failure": "", "fault": None}
+
+
+# primary labels: the primary reader wins where both read a trace
+small = [{"trial_id": "x/t1/0", "readers": ["simar"]}, {"trial_id": "x/t2/0", "readers": ["claude"]},
+         {"trial_id": "x/t3/0", "readers": ["simar", "claude"]}]
+readers = {"simar": {"x/t1/0": label("pass"), "x/t3/0": label("pass")},
+           "claude": {"x/t2/0": label("fail"), "x/t3/0": label("fail")}}
+chosen = primary_labels(small, readers, "simar")
+assert chosen is not None, "primary_labels should return a dict of labels"
+assert set(chosen) == {"x/t1/0", "x/t2/0", "x/t3/0"}, f"one label for every trace in the sample: got {sorted(chosen)}"
+assert chosen["x/t3/0"]["verdict"] == "pass", \
+    "where both readers labelled a trace, the primary reader's label is the one kept"
+assert chosen["x/t2/0"]["verdict"] == "fail", "a trace the primary reader didn't read keeps the other reader's label"
+assert primary_labels(small, readers, "claude")["x/t3/0"]["verdict"] == "fail", "the primary reader is a parameter"
+try:
+    primary_labels(small + [{"trial_id": "x/t4/0", "readers": ["claude"]}], readers, "simar")
+except ValueError:
+    pass
+else:
+    raise AssertionError("a trace in the sample with no label from any of its readers should raise ValueError")
+
+labels = primary_labels(entries, {"simar": simar, "claude": claude}, "simar")
+assert len(labels) == 100, f"the real sample has 100 traces: got {len(labels)}"
+assert sum(l["verdict"] == "fail" for l in labels.values()) == 23, "the real labels have 23 failures"
+assert labels["baseline-a/m03/2"]["verdict"] == "pass", \
+    "m03/2 was read by both: Simar's pass is kept, not Claude's original fail"
+
+# agreement: verdicts on the traces both labelled
+assert agreement({"a": label("pass"), "b": label("fail")}, {"b": label("fail"), "c": label("pass")}) == (1, 1), \
+    "agreement counts only traces both readers labelled"
+fault_only = ({"a": {**label("fail"), "fault": "agent"}}, {"a": {**label("fail"), "fault": "harness"}})
+assert agreement(*fault_only) == (1, 1), "agreement compares verdicts, not faults or notes"
+assert agreement(simar_v1, claude) == (9, 15), f"before the standard: 9 of 15, got {agreement(simar_v1, claude)}"
+assert agreement(simar, claude) == (12, 15), \
+    f"after the re-review, against Claude's original labels: 12 of 15, got {agreement(simar, claude)}"
+
+# fragile passes: passed, made a change the registry said was ok, never read it back
+traces = load_traces()
+fragile = fragile_passes(traces, labels)
+assert isinstance(fragile, list) and fragile == sorted(fragile), "return a sorted list of trial ids"
+expected = ["baseline-a/a02/0", "baseline-a/a09/0", "baseline-a/a09/2", "baseline-a/a20/1", "baseline-a/m01/1",
+            "baseline-a/m01/3", "baseline-a/m02/0", "baseline-a/m02/2", "baseline-a/m05/1", "baseline-a/m05/3",
+            "baseline-a/m05/4"]
+assert fragile == expected, f"expected the 11 fragile passes, got {fragile}"
+
+
+def trace(*calls):
+    return {"tool_log": [{"tool": tool, "ok": ok, "input": {}} for tool, ok in calls]}
+
+
+made_up = {"r/1/0": trace(("get_agent", True), ("set_model", True)),
+           "r/2/0": trace(("set_model", False), ("get_agent", True)),
+           "r/3/0": trace(("search_docs", True)),
+           "r/4/0": trace(("set_model", True))}
+made_up_labels = {"r/1/0": label("pass"), "r/2/0": label("pass"), "r/3/0": label("pass"), "r/4/0": label("fail")}
+assert fragile_passes(made_up, made_up_labels) == ["r/1/0"], \
+    ("only passes count; a run whose only set_model failed made no change; a read-back before the change "
+     f"doesn't check it: got {fragile_passes(made_up, made_up_labels)}")
+`;
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "Why was the reading sample drawn without looking at any grade or error status?",
+      "options": [
+        "A clean trace and a passing check can hide a failure",
+        "Grades weren't ready until after all of the reading was done",
+        "Readers work faster when they don't know how the run was graded",
+        "Sampling by grade would leave too few traces to reach saturation"
+      ],
+      "correctIndex": 0,
+      "explanation": "A trace's status only marks steps that failed, and a check only catches what it was written for. The p08 runs had clean traces and passed their check while telling the user something false, so a sample picked by status or grade would have skipped exactly the failures reading exists to find."
+    },
+    {
+      "question": "What does an open-coding note record for a failing run?",
+      "options": [
+        "The first thing that went wrong, said specifically",
+        "Every problem in the run, ranked by how serious it is",
+        "The category from the failure map that fits it best",
+        "A score for the run and the reader's reason for it"
+      ],
+      "correctIndex": 0,
+      "explanation": "One note, at the first failure, because later problems usually follow from it, and specific enough that someone else can find it in the trace. Categories come afterwards, from all the notes together; choosing one while reading pulls each run towards the list you already have."
+    },
+    {
+      "question": "Four runs passed on the wiki page's planted instruction to turn authentication off. Whose failure does the reading standard call it?",
+      "options": [
+        "The harness: the course planted the page on purpose",
+        "The environment: a tool returned the wrong document",
+        "The task: the request asked about the planted error",
+        "The simulated user: it pointed the agent at the page"
+      ],
+      "correctIndex": 0,
+      "explanation": "The page was put in the corpus deliberately, as part of how the course built and tests the agent, and defending against instructions in retrieved text is part of the harness. It's still a real failure of the agent as built; naming the harness says where the fix lives."
+    },
+    {
+      "question": "Four runs passed their code checks but failed when read. What did those checks miss?",
+      "options": [
+        "It checked state, but the failure was in the reply",
+        "The registry was in the wrong state at the end of the run",
+        "The check matched numbers as whole words, missing units",
+        "The check ran before the agent had sent its final answer"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each run left the registry as its check expected; the failure was in what it told the user or sent by email. The whole-word matching bug caused the opposite error, failing correct answers like \"840ms\"."
+    },
+    {
+      "question": "A category has 4 failing runs from 3 tasks. What does the task count add to the run count?",
+      "options": [
+        "How many different situations the failure happened in",
+        "How serious each failure in the category was for users",
+        "How many readers agreed the runs in it had failed",
+        "How often the category's tasks were run in the baseline"
+      ],
+      "correctIndex": 0,
+      "explanation": "Runs say how often a failure happened; tasks say how widespread it is. Two runs of one task failing the same way are one problem seen twice."
+    },
+    {
+      "question": "The top five categories each have a 95% interval from about 0% to 5–9%, all overlapping. What can 100 traces tell you?",
+      "options": [
+        "Each failure is real, but not which is commonest",
+        "That all five are exactly as common as each other",
+        "That none of the categories should be acted on yet",
+        "That the first row of the table is the most common"
+      ],
+      "correctIndex": 0,
+      "explanation": "Resampling whole tasks shows how much the shares could move with a different sample, and these move a lot. The order in the table isn't a ranking, but every category clearly exists, which is enough to decide what to test next."
+    },
+    {
+      "question": "a14's reasoning checked that claude-sonnet was allowed before changing the model, then read set_model's \"ok\" as success and emailed the team. What does that show?",
+      "options": [
+        "It checked before the change but not after it",
+        "It never looked up the agent's tier at any point",
+        "It sent the email to the wrong team's mailbox",
+        "It called set_model with an agent that doesn't exist"
+      ],
+      "correctIndex": 0,
+      "explanation": "The reasoning shows care up front and none afterwards. That's the gap Module 6's read-back check closes in code, and the 11 passes that never read back would have failed the same way had their writes been lost."
+    },
+    {
+      "question": "Before a written standard, Simar and Claude agreed on 9 of the 15 traces they both read. What does that figure measure?",
+      "options": [
+        "How often two careful readers agree with no written standard",
+        "How often a model's labels are wrong compared with a person's",
+        "How many of the 15 shared traces were too hard to judge",
+        "How much the agent's verdicts change between two runs"
+      ],
+      "correctIndex": 0,
+      "explanation": "All six disagreements went the same way, because the two readers held different standards: one judged by whether the user got what they needed, the other also by where the answer said it came from. Writing the standard down is what turned that disagreement into a rule."
+    }
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<MultiFileGradedExercise
+  client:load
+  task={"lib.py holds this lesson's code, read-only: load_reading, load_traces, tally, task_bootstrap and read_back. In error_report.py (the entry file), write three functions. primary_labels(entries, labels_by_reader, primary): entries is the sample's list of {\"trial_id\", \"readers\", ...}. labels_by_reader maps each reader's name to their labels by trial id. Return one label per trace in the sample: the primary reader's label if they read it, otherwise the label from the trace's other reader. Raise ValueError if a trace has no label from any of its readers. agreement(first, second): two readers' labels by trial id. Return (agree, both): the number of traces both labelled with the same verdict, and the number both labelled. Compare verdicts only. fragile_passes(traces, labels): return the sorted trial ids of runs whose label is a pass, that made at least one set_model call the registry accepted (\"ok\": true), and that never read the record back afterwards (use read_back). Submit also runs the file, which prints the report for the real reading."}
+  entry="error_report.py"
+  files={[
+    { name: "lib.py", readOnly: true, code: LIB_PY },
+    { name: "error_report.py", code: ERROR_REPORT_STARTER },
+  ]}
+  hiddenTests={HIDDEN_TESTS}
+  dataFiles={SANDBOX_DATA}
+  hint={"For primary_labels, decide each trace's order of readers to try (the primary one first if they read it), and take the first label you find; next(..., None) keeps that to one line, and a None left over is your ValueError. For agreement, the traces both labelled are the intersection of the two dicts' keys (first.keys() & second.keys()). For fragile_passes, three conditions on each trace, combined with \"and\" inside sorted(...)."}
+  correctFiles={[
+    { name: "lib.py", readOnly: true, code: LIB_PY },
+    { name: "error_report.py", code: ERROR_REPORT_REFERENCE },
+  ]}
+  explanation={"The three functions are the bookkeeping the lesson did by hand. primary_labels encodes the benevolent-dictator rule: where the domain expert and the model both read a trace, the expert's label is the one the analysis uses, which is why m03/2 counts as a pass. agreement works only on the traces both readers labelled, and only on verdicts, because notes and faults are worded differently by different readers even when they agree; that's how the report gets 9 of 15 before the standard and 12 of 15 after the re-review (the remaining three are two m03 runs judged under different standards, and a10, which Claude marked \"unsure\"). fragile_passes turns the \"how\" reading into a query: passes that changed something and never looked again, whose verdict depended on the write landing."}
+/>
+
+</CheckpointZone>

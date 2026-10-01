@@ -528,6 +528,12 @@ Concept 4 adds `TALLY` (`tally(assignments, read)`: each category's runs,
 distinct tasks and share of everything read, sorted by runs, tasks, name;
 the exercise's reference, shown as the correct answer via the constant
 itself). Demos after the exercise append it to `LOAD_READING`.
+Lesson 3's recap sandbox (`MultiFileGradedExercise`, no `setupCode`:
+`lib.py` reads `/data/eval/reading` itself) has a read-only `lib.py` with
+`load_reading`, `load_traces`, `tally`, `task_bootstrap` and `read_back`;
+`check-copies.mjs`'s `CONTAINED` list checks that `LOAD_READING`'s
+`load_reading`, `TALLY`, and the `task_bootstrap` and `read_back` defined
+in concepts 4 and 5's demos appear in it byte for byte.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or

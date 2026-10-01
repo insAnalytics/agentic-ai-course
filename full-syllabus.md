@@ -6577,7 +6577,7 @@ kept as `TOOL_SPECS_PILOT`).
    prints the expected summary.
 
 3. **Error Analysis** (`03-error-analysis`, title provisional) —
-   **Building.** Data: `public/data/eval/reading/` (the 100-trace reading
+   **Locked.** Data: `public/data/eval/reading/` (the 100-trace reading
    sample of `baseline-a`, the readers' labels, the categories; see
    `scripts/eval/README-labeller.md`). Concept 1 (from a fixed map to this
    agent's own failures) is built: Module 6's map run the other way round,
@@ -6641,8 +6641,22 @@ kept as `TOOL_SPECS_PILOT`).
    mockup); 5 quiz cards. Callbacks: Module 6 Lesson 7's
    `#checking-the-goal-not-just-the-check` (twice, anchor verified), its
    reading-the-result-back concept page, and Module 6 Lesson 6's intro
-   (lesson-level). Not yet drafted: any remaining concepts and the
-   bookends.
+   (lesson-level).
+   Bookends are built: intro (3 outcomes, why it matters) and recap with an
+   8-question comprehensive quiz and a multi-file sandbox (`lib.py`
+   read-only: `load_reading`, `load_traces`, `tally`, `task_bootstrap`,
+   `read_back`, checked against the lesson's code by `check-copies.mjs`;
+   entry `error_report.py`, where the learner writes `primary_labels`,
+   `agreement` and `fragile_passes`). The task's "Click Run" became
+   "Submit also runs the file", as in Lesson 2's recap. Constants were
+   generated from the mockup's bytes (checked identical). Verified in real
+   Pyodide 0.26.4 the way the component runs it: the reference passes
+   with the mockup's Run output (23 of 100 failed, 9 of 15 and 12 of 15
+   agreement, 11 fragile passes), the starter fails, and nine wrong
+   versions each fail with their intended message (the other reader
+   preferred, the primary ignored, unlabelled traces skipped, agreement
+   over the union, whole labels compared, any set_model counted, verdict
+   ignored, unsorted, any get_agent as a read-back).
 
 ### Old-plan outline (where it was Module 4)
 
