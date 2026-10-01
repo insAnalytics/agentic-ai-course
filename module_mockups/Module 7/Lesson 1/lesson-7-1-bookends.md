@@ -1,0 +1,358 @@
+# What to Evaluate in an Agent
+
+> **Note for the site build:** the comprehensive sandbox reads all three pilot run files (`4b-think.json`, `4b-nothink.json`, `9b-think.json`) from `/data/eval/pilot`, for both Run and the hidden tests. `lib.py` is read-only; `grader.py` is the entry file, and the hidden tests import from both.
+
+> **You'll be able to**
+> - Describe an agent run in evaluation terms (task, trial, transcript, outcome) and grade its end state, its reply and its path as separate checks
+> - Match a run's tool path against a reference in exact, in-order and any-order modes, and say when checking the path is right (a required step, a forbidden action, a limit) and when it rejects valid runs
+> - Tell an end-to-end eval from a component eval and an offline eval from online monitoring, and explain why reading runs comes before writing graders
+
+**Why it matters**
+Modules 2–6 built an agent that loops, calls tools, manages its context, retrieves documents and checks its own steps. None of that says how good the agent is, or whether the next change makes it better or worse. That takes measurement, and an agent is harder to measure than a single answer: it takes different paths to the same goal, its mistakes hide in the middle of a run, and its own report of what it did can be wrong. This lesson sets out what to grade and in what order to work, using real runs of the registry agent, and the rest of the module builds each piece.
+
+---
+
+## Comprehensive quiz
+
+*(end of lesson, conceptual — spans all five concepts, mixed order)*
+
+> **Q1.** A grader for "Move notes_agent to claude-haiku" requires the exact tool sequence get_agent > set_model. What goes wrong?
+> - A run that reads the record back after the change fails ✅
+> - A run that skips a step the task requires still passes
+> - A run that calls the right tools wrongly is still caught
+> - A run with a wrong reply is caught by its extra calls
+>
+> *Explanation: Exact matching allows nothing extra, so a run that reads the record back, which is good practice, fails even though notes_agent ended on claude-haiku. It also can't catch a wrong reply: a run can follow the expected path exactly and still tell the user something false, as every p08 run did.*
+
+> **Q2.** The task is "Tell the owner of research_agent that it must move off claude-legacy before 2026-10-31." What is the outcome of a trial?
+> - The research-team mailbox's contents when the run ends ✅
+> - The agent's last reply, which says the email was sent
+> - The send_email result, which reports the message as sent
+> - The trial's full transcript, from the request to the reply
+>
+> *Explanation: The outcome is the state of the world at the end of the trial: here, whether a message with the deadline is in the right mailbox. The reply and the tool's result are both claims about that state, and the transcript is the record of the trial, not its outcome.*
+
+> **Q3.** Why read a sample of the runs a grader passed, not just the ones it failed?
+> - A wrong run can pass, and only reading a pass shows it ✅
+> - Passing runs are more common, so they matter more
+> - Failures are already understood, so they need no reading
+> - Reading passes is how you find the slowest runs
+>
+> *Explanation: A false pass gives no signal: the number looks good and nothing points at it. In the pilot, all nine p08 runs passed the code check while telling the user a lost write had worked, and they were found only because passing runs were read too.*
+
+> **Q4.** A retrieval eval shows the search tool returns the right section for every labelled query, yet the agent still answers multi-hop questions wrongly. Where should you look first?
+> - The decision after the first search: whether to search again ✅
+> - The search tool, since its results must be what's at fault
+> - The labelled queries, since some of them must be mislabelled
+> - The documents, since the one the agent needed must be missing
+>
+> *Explanation: A component that passes its own eval can still sit inside an agent that fails, because the failure lives between the pieces. On p01, every search that named the alert found the right section; every failing run had simply stopped after one search.*
+
+> **Q5.** A new capability suite passes 30% of its tasks. What does that say?
+> - Nothing: a capability suite should start low ✅
+> - The suite is broken, since most tasks should pass
+> - The agent should be rolled back to its last version
+> - The suite should become a regression suite right away
+>
+> *Explanation: A capability suite is made of tasks the agent struggles with, so it gives a team something to climb. It's a regression suite that should pass nearly every time; a capability task moves into one only once the agent passes it reliably.*
+
+> **Q6.** A task must never change research_agent. How is that best checked?
+> - As a check on the log for that call and argument ✅
+> - As an exact path match against a reference path
+> - As an any-order path match with the call left out
+> - As a check that the final reply never names the agent
+>
+> *Explanation: A forbidden action is a rule about one call with one argument, so it's checked directly against the log: any set_model with agent_name research_agent fails the run, even a failed attempt. Path matching compares tool names in order and has no way to say "never this call with this argument".*
+
+> **Q7.** Why does this module run each task several times instead of once?
+> - One run is a single sample of both path and outcome ✅
+> - Every extra run raises the agent's chance of success
+> - The first run on each task is discarded as a warm-up
+> - A task's path can only be read across several runs
+>
+> *Explanation: A real model varies from run to run, in the steps it takes as well as its answers, so one run can't tell you how often the agent succeeds. More runs don't change the agent; they make the measurement trustworthy, and Module 6's pass^k turns them into a measure of dependability.*
+
+> **Q8.** A check passes a decline only if it contains a phrase like "doesn't say". A run replies "the engineer's name isn't documented anywhere in the incident report". What kind of grading error is this?
+> - A false failure: it measured the wording, not the answer ✅
+> - A false pass: the decline should have named an engineer
+> - No error: a decline must use the wording the check expects
+> - A false failure caused by how the agent worded its searches
+>
+> *Explanation: The run declined correctly and the check failed it for using other words, as three p02 runs were in the pilot. A check built on exact wording measures the wording. Lesson 6's model graders are one way to grade meaning instead.*
+
+---
+
+## Comprehensive sandbox
+
+*(graded — grade the pilot's action tasks in code, and send to reading what code can't check)*
+
+**Task shown to learner:**
+
+`lib.py` holds this lesson's code, read-only: `INITIAL_REGISTRY` (the registry as every trial starts it), `load_pilot`, `tool_path`, `trajectory_matches`, and `call_matches(call, tool, args)`, which is true when a logged call is to that tool and has those argument values (it may have others too).
+
+In `grader.py` (the entry file), `SPECS` describes what four of the pilot's action tasks require. Write `grade_action(trial, spec)`, returning a pair `(verdict, reasons)`:
+
+- **The end state.** Every agent's record in `trial["final_state"]["registry"]` must equal its record in `INITIAL_REGISTRY` with `spec["registry"]`'s changes applied. An agent the spec doesn't mention must be exactly as it started.
+- **Required calls.** Each `(tool, args)` pair in `spec["must_call"]` needs a successful call in the log (`"ok": True`) that matches it, in the order the pairs are listed. Other calls may come in between.
+- **Forbidden calls.** No call in the log may match any pair in `spec["must_not_call"]`, even a call that failed: an attempt counts.
+- **The verdict.** If any check fails, return `("fail", reasons)`, with one reason string per failure, listing every failure, not just the first. If every check passes, return `("read", [])` when `spec["reply_matters"]` is true, because the reply still has to be read by someone, and `("pass", [])` when it isn't.
+
+Don't change the trial you're given. Click Run to grade every p06, p07, p08 and p10 run in the pilot.
+
+**Tab: `lib.py`** (read-only)
+```python
+"""Code from this lesson's concepts. Read-only."""
+
+import json
+from collections import Counter
+from pathlib import Path
+
+PILOT = Path("/data/eval/pilot")
+
+# the registry as every trial starts it
+INITIAL_REGISTRY = {
+    "billing_agent": {"model": "claude-opus", "tier": "priority", "owner": "finance-team", "status": "active"},
+    "notes_agent": {"model": "claude-legacy", "tier": "standard", "owner": "support-team", "status": "active"},
+    "research_agent": {"model": "claude-legacy", "tier": "standard", "owner": "research-team", "status": "active"},
+    "support_agent": {"model": "claude-sonnet", "tier": "standard", "owner": "support-team", "status": "active"},
+    "triage_agent": {"model": "claude-haiku", "tier": "standard", "owner": "support-team", "status": "active"},
+}
+
+
+def load_pilot(setup: str) -> dict:
+    """One pilot run file: "4b-think" (the agent this module evaluates), "4b-nothink" or "9b-think"."""
+    return json.loads((PILOT / f"{setup}.json").read_text(encoding="utf-8"))
+
+
+def tool_path(trial: dict) -> list[str]:
+    """The tools a trial called, in order."""
+    return [call["tool"] for call in trial["tool_log"]]
+
+
+def trajectory_matches(actual: list[str], expected: list[str], mode: str) -> bool:
+    """Whether a path of tool names matches a reference path: "exact", "in_order" or "any_order"."""
+    match mode:
+        case "exact":
+            return actual == expected
+        case "in_order":
+            remaining = iter(actual)
+            return all(tool in remaining for tool in expected)
+        case "any_order":
+            return Counter(expected) <= Counter(actual)
+        case _:
+            raise ValueError(f"unknown mode: {mode!r}")
+
+
+def call_matches(call: dict, tool: str, args: dict) -> bool:
+    """Whether a logged call is to this tool with these argument values (it may have other arguments too)."""
+    return call["tool"] == tool and all(call["input"].get(name) == value for name, value in args.items())
+```
+
+**Tab: `grader.py`** (starter, entry file)
+```python
+from lib import INITIAL_REGISTRY, call_matches, load_pilot
+
+# what each action task requires, written from the task's request
+SPECS = {
+    "p06": {"registry": {"notes_agent": {"model": "claude-haiku"}},
+            "must_call": [],
+            "must_not_call": [("send_email", {})],
+            "reply_matters": False},
+    "p07": {"registry": {},
+            "must_call": [],
+            "must_not_call": [("send_email", {})],
+            "reply_matters": True},
+    "p08": {"registry": {},
+            "must_call": [("set_model", {"agent_name": "research_agent", "model": "claude-sonnet"}),
+                          ("get_agent", {"agent_name": "research_agent"})],
+            "must_not_call": [],
+            "reply_matters": True},
+    "p10": {"registry": {"notes_agent": {"model": "claude-haiku"}},
+            "must_call": [],
+            "must_not_call": [("set_model", {"agent_name": "research_agent"})],
+            "reply_matters": False},
+}
+
+
+def grade_action(trial: dict, spec: dict) -> tuple[str, list[str]]:
+    """Grade an action task in code, and say when the reply still has to be read.
+
+    Returns ("fail", reasons) if any check fails, listing every failure; otherwise ("read", [])
+    if spec["reply_matters"], else ("pass", []).
+    - end state: each agent's record must equal INITIAL_REGISTRY with spec["registry"]'s changes applied
+    - spec["must_call"]: (tool, args) pairs that must each have a successful call, in this order
+    - spec["must_not_call"]: (tool, args) pairs that must never be called, even if the call failed
+    """
+    # your code here
+
+
+if __name__ == "__main__":
+    for setup in ("4b-think", "4b-nothink", "9b-think"):
+        verdicts = {}
+        for trial in load_pilot(setup)["trials"]:
+            if trial["task_id"] in SPECS:
+                verdict = grade_action(trial, SPECS[trial["task_id"]])
+                verdicts.setdefault(trial["task_id"], []).append(verdict[0] if verdict else None)
+        print(setup, verdicts)
+```
+
+**Hidden tests:**
+```python
+import copy
+
+from grader import SPECS, grade_action
+from lib import INITIAL_REGISTRY, load_pilot
+
+
+def make_trial(log, changes=None):
+    """A made-up trial: log is [(tool, input, ok), ...]; changes are applied to the starting registry."""
+    registry = {agent: dict(fields) for agent, fields in INITIAL_REGISTRY.items()}
+    for agent, fields in (changes or {}).items():
+        registry[agent].update(fields)
+    return {"tool_log": [{"tool": tool, "input": args, "ok": ok} for tool, args, ok in log],
+            "final_state": {"registry": registry, "outbox": []}}
+
+
+R, N = "research_agent", "notes_agent"
+SET_R = ("set_model", {"agent_name": R, "model": "claude-sonnet"}, True)
+GET_R = ("get_agent", {"agent_name": R}, True)
+
+# the real pilot runs
+expected = {"p06": "pass", "p07": "read", "p08": "read", "p10": "pass"}
+for setup in ("4b-think", "4b-nothink", "9b-think"):
+    for trial in load_pilot(setup)["trials"]:
+        if trial["task_id"] in SPECS:
+            result = grade_action(trial, SPECS[trial["task_id"]])
+            assert result == (expected[trial["task_id"]], []), \
+                f"{trial['trial_id']}: expected ({expected[trial['task_id']]!r}, []), got {result!r}"
+
+# the end state
+moved = make_trial([("set_model", {"agent_name": N, "model": "claude-haiku"}, True)], {N: {"model": "claude-haiku"}})
+assert grade_action(moved, SPECS["p06"]) == ("pass", []), "p06: the right change and nothing else should pass"
+verdict, reasons = grade_action(make_trial([]), SPECS["p06"])
+assert verdict == "fail" and any(N in reason for reason in reasons), \
+    "p06: notes_agent still on claude-legacy should fail, with a reason naming notes_agent"
+extra = make_trial([], {N: {"model": "claude-haiku"}, R: {"model": "claude-haiku"}})
+verdict, reasons = grade_action(extra, SPECS["p06"])
+assert verdict == "fail" and any(R in reason for reason in reasons), \
+    "p06: changing research_agent as well should fail, with a reason naming research_agent: every agent not in the spec must be as it started"
+
+# required calls: successful, in order, with the right arguments
+assert grade_action(make_trial([GET_R, SET_R]), SPECS["p08"])[0] == "fail", \
+    "p08: a read-back before the write, and none after it, should fail: required calls must come in order"
+failed_write = ("set_model", {"agent_name": R, "model": "claude-sonnet"}, False)
+assert grade_action(make_trial([failed_write, GET_R]), SPECS["p08"])[0] == "fail", \
+    "p08: a required call that failed doesn't count as made"
+wrong_agent = ("get_agent", {"agent_name": N}, True)
+assert grade_action(make_trial([SET_R, wrong_agent]), SPECS["p08"])[0] == "fail", \
+    "p08: reading back a different agent doesn't meet the requirement"
+search = ("search_docs", {"query": "model change"}, True)
+assert grade_action(make_trial([search, SET_R, search, GET_R]), SPECS["p08"]) == ("read", []), \
+    "p08: extra calls between the required ones are fine; with the checks passed, the reply still needs reading"
+
+# forbidden calls count even when they fail
+failed_email = ("send_email", {"to": "research-team", "body": "done"}, False)
+verdict, reasons = grade_action(make_trial([failed_email]), SPECS["p07"])
+assert verdict == "fail", "p07: a forbidden send_email counts even though the call failed"
+moved_other = make_trial([("set_model", {"agent_name": R, "model": "claude-sonnet"}, False),
+                          ("set_model", {"agent_name": N, "model": "claude-haiku"}, True)], {N: {"model": "claude-haiku"}})
+assert grade_action(moved_other, SPECS["p10"])[0] == "fail", "p10: even a failed attempt to change research_agent should fail"
+
+# every reason, and "fail" beats "read"
+both = make_trial([failed_email], {R: {"model": "claude-haiku"}})
+verdict, reasons = grade_action(both, SPECS["p07"])
+assert verdict == "fail", "p07: when the checks fail, the verdict is \"fail\", not \"read\""
+assert len(reasons) == 2, f"list every failure, not just the first: expected 2 reasons, got {reasons!r}"
+
+# returns a pair, and doesn't change the trial
+trial = make_trial([search, SET_R, GET_R])
+before = copy.deepcopy(trial)
+result = grade_action(trial, SPECS["p08"])
+assert isinstance(result, tuple) and len(result) == 2 and isinstance(result[1], list), \
+    "return a pair: (verdict, list of reasons)"
+assert trial == before, "grading shouldn't change the trial it grades"
+```
+
+**Hint (shown on request):** Build the expected record for each agent from `INITIAL_REGISTRY` with the spec's changes merged on top (`{**fields, **changes}`), and compare field by field, so a change to an agent the spec doesn't mention is caught too. For the required calls, use the same trick as the path-matching exercise: one iterator over the successful calls, shared by every search, so each required call is looked for after the previous one. For the forbidden calls, look through the whole log, failed calls included. Collect reasons in a list and decide the verdict only at the end.
+
+**Reference solution:**
+
+**Tab: `grader.py`**
+```python
+from lib import INITIAL_REGISTRY, call_matches, load_pilot
+
+# what each action task requires, written from the task's request
+SPECS = {
+    "p06": {"registry": {"notes_agent": {"model": "claude-haiku"}},
+            "must_call": [],
+            "must_not_call": [("send_email", {})],
+            "reply_matters": False},
+    "p07": {"registry": {},
+            "must_call": [],
+            "must_not_call": [("send_email", {})],
+            "reply_matters": True},
+    "p08": {"registry": {},
+            "must_call": [("set_model", {"agent_name": "research_agent", "model": "claude-sonnet"}),
+                          ("get_agent", {"agent_name": "research_agent"})],
+            "must_not_call": [],
+            "reply_matters": True},
+    "p10": {"registry": {"notes_agent": {"model": "claude-haiku"}},
+            "must_call": [],
+            "must_not_call": [("set_model", {"agent_name": "research_agent"})],
+            "reply_matters": False},
+}
+
+
+def grade_action(trial: dict, spec: dict) -> tuple[str, list[str]]:
+    """Grade an action task in code, and say when the reply still has to be read.
+
+    Returns ("fail", reasons) if any check fails, listing every failure; otherwise ("read", [])
+    if spec["reply_matters"], else ("pass", []).
+    - end state: each agent's record must equal INITIAL_REGISTRY with spec["registry"]'s changes applied
+    - spec["must_call"]: (tool, args) pairs that must each have a successful call, in this order
+    - spec["must_not_call"]: (tool, args) pairs that must never be called, even if the call failed
+    """
+    reasons = []
+    registry = trial["final_state"]["registry"]
+    for agent, fields in INITIAL_REGISTRY.items():
+        expected = {**fields, **spec["registry"].get(agent, {})}
+        for field, value in expected.items():
+            if registry[agent][field] != value:
+                reasons.append(f"{agent}.{field} is {registry[agent][field]!r}, expected {value!r}")
+
+    # one iterator for all the required calls, so each is looked for after the previous one
+    succeeded = iter(call for call in trial["tool_log"] if call["ok"])
+    for tool, args in spec["must_call"]:
+        if not any(call_matches(call, tool, args) for call in succeeded):
+            reasons.append(f"no successful {tool} with {args}, in the required order")
+
+    for tool, args in spec["must_not_call"]:
+        if any(call_matches(call, tool, args) for call in trial["tool_log"]):
+            reasons.append(f"called {tool} with {args}, which this task forbids")
+
+    if reasons:
+        return "fail", reasons
+    return ("read" if spec["reply_matters"] else "pass"), []
+
+
+if __name__ == "__main__":
+    for setup in ("4b-think", "4b-nothink", "9b-think"):
+        verdicts = {}
+        for trial in load_pilot(setup)["trials"]:
+            if trial["task_id"] in SPECS:
+                verdict = grade_action(trial, SPECS[trial["task_id"]])
+                verdicts.setdefault(trial["task_id"], []).append(verdict[0] if verdict else None)
+        print(setup, verdicts)
+```
+```
+4b-think {'p06': ['pass', 'pass', 'pass'], 'p07': ['read', 'read', 'read'], 'p08': ['read', 'read', 'read'], 'p10': ['pass', 'pass', 'pass']}
+4b-nothink {'p06': ['pass', 'pass', 'pass'], 'p07': ['read', 'read', 'read'], 'p08': ['read', 'read', 'read'], 'p10': ['pass', 'pass', 'pass']}
+9b-think {'p06': ['pass', 'pass', 'pass'], 'p07': ['read', 'read', 'read'], 'p08': ['read', 'read', 'read'], 'p10': ['pass', 'pass', 'pass']}
+```
+
+**Explanation:** The function is three checks and a decision, each one an idea from this lesson:
+
+- **The end state is checked for every agent, not just the ones the task names.** The expected record is the starting record with the spec's changes on top, so an agent the run had no business touching is checked too. That's the outcome, not what the reply says about it.
+- **Required calls use the in-order trick from the path exercise, with arguments.** One iterator over the successful calls is shared by every search, so each required call has to come after the previous one, and a failed call never counts as made. This is a path check, but only for steps that are rules in their own right: p08 asked for the change to be checked, so a read-back of research_agent after the write is required.
+- **Forbidden calls look at every call, failed ones included.** A forbidden attempt is the problem, whether or not the registry refused it.
+- **"read" is the honest verdict when code has done all it can.** On real runs, every p07 and p08 run comes back "read": the state and the required steps are right, but whether the reply refused for the right reason, or reported the lost write, is something only reading (or Lesson 6's model graders) can judge. That's exactly where the pilot's code check went wrong: it graded p08's replies by their wording and passed nine runs that misled the user.

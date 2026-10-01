@@ -6360,7 +6360,7 @@ per `scripts/eval/README-eval.md`; loaded from Lesson 1 concept 1 on, see
 architecture.md §3.1).
 
 1. **Why Agents Are Hard to Grade** (`01-grading-agents`, title
-   provisional) — **Building.** Concept 1 (why an agent is harder to grade
+   provisional) — **Locked.** Concept 1 (why an agent is harder to grade
    than an answer) is built: the registry agent and the pilot (static
    `LOAD_PILOT` setup block), one recorded run (`4b-think/p06/0`) with
    Anthropic's eval terms (task, trial, transcript, outcome, grader, suite,
@@ -6420,8 +6420,25 @@ architecture.md §3.1).
    the content chat's copy apart from line endings), the 19 changes (9 p08
    false passes, 7 p07 and 3 p02 false failures), how the module's lessons
    follow the loop, 5 quiz cards. Demo output matches the mockup exactly.
-   Callback to Module 6 Lesson 4's false-premise page. Bookends not yet
-   drafted.
+   Callback to Module 6 Lesson 4's false-premise page.
+   Bookends are built: intro (3 outcomes, why it matters) and recap with an
+   8-question comprehensive quiz and a multi-file sandbox (`lib.py`
+   read-only: `INITIAL_REGISTRY`, checked against `grading.py`'s
+   `initial_registry`, plus `load_pilot`, `tool_path`, `trajectory_matches`
+   and `call_matches`; entry `grader.py`, where the learner writes
+   `grade_action(trial, spec)` against four action-task `SPECS`: end state
+   for every agent, required calls successful and in order with arguments,
+   forbidden calls even when they failed, every reason listed, and "read"
+   when the reply still matters). Reads all three pilot run files. Task,
+   hint and explanation flattened to one paragraph each (props are plain
+   text). Verified in real Pyodide 0.26.4 the way `MultiFileGradedExercise`
+   runs it: the reference passes and its Run output matches the mockup
+   (every p06/p10 run "pass", every p07/p08 run "read", in all three
+   setups), the starter fails, and nine wrong versions each fail with
+   their intended message (only the named agents checked, required calls
+   in any order, failed or tool-only required calls counted, failed
+   forbidden calls skipped, stopping at the first failure, ignoring
+   `reply_matters`, mutating the trial, returning a list).
 
 ### Old-plan outline (where it was Module 4)
 
