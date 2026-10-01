@@ -6375,7 +6375,25 @@ architecture.md §3.1).
    when-the-answer-is-in-a-table and Lesson 14's
    retrieval-in-the-context-step (anchors verified in the built HTML).
    Forward mentions of later concepts and Lessons 2, 4 and 6 are plain
-   prose until those exist. Further concepts and bookends not yet drafted.
+   prose until those exist.
+   Concept 2 (grading the outcome and grading the path) is built: the
+   three checks (end state, final reply, path) and how LangSmith, OpenAI
+   trace grading, Google ADK and Anthropic's guide name them; ADK's exact /
+   in-order / any-order modes (the 26-searches-24-wordings figure checked
+   against `4b-think.json`); a graded `trajectory_matches` exercise (the
+   mockup's hidden tests split into 5 per-group tests, each redefining
+   `G, S, D, Q`); a demo of all three modes on the 4B's p06/p07/p08 runs
+   (each mode wrong on 4 of 9), with the reference function, minus its
+   example printout, loaded as hidden setup after `LOAD_PILOT`; when the
+   path is the right thing to check; 5 quiz cards. Verified in real
+   Pyodide 0.26.4 with the site's `TEST_HARNESS`: the reference passes all
+   5 tests and prints the mockup's output, the starter fails, and nine
+   wrong versions each fail the test aimed at them (sets for any-order,
+   in-order ignoring order or reusing a call, exact ignoring order or as a
+   prefix, unknown mode returning False, mutating `actual`); the demo
+   matches the mockup exactly. Callbacks to Module 6 Lesson 7's
+   reading-the-result-back and Lesson 10's layering-the-checks (page links,
+   no subsection named). Further concepts and bookends not yet drafted.
 
 ### Old-plan outline (where it was Module 4)
 

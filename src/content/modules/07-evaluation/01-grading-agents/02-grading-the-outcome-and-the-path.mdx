@@ -1,0 +1,348 @@
+---
+title: "Grading the outcome and grading the path"
+lesson: "01-grading-agents"
+order: 2
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { LOAD_PILOT, pilotData } from "../../../../lib/evalData";
+
+export const THINK_DATA = pilotData("4b-think");
+
+export const STARTER = String.raw`def trajectory_matches(actual: list[str], expected: list[str], mode: str) -> bool:
+    """Whether the tools a trial called (actual) match a reference path (expected).
+
+    mode "exact":     the same tools, in the same order, with nothing extra
+    mode "in_order":  every expected tool appears in order; extra calls in between are allowed
+    mode "any_order": every expected tool appears, in any order; extra calls are allowed
+    Each expected call needs a call of its own: two expected get_agent calls need two in actual.
+    Any other mode raises ValueError.
+    """
+    # your code here
+
+
+path = ["get_agent", "set_model", "get_agent"]
+for mode in ("exact", "in_order", "any_order"):
+    print(mode, trajectory_matches(path, ["get_agent", "set_model"], mode))
+`;
+
+export const REFERENCE = String.raw`from collections import Counter
+
+
+def trajectory_matches(actual: list[str], expected: list[str], mode: str) -> bool:
+    """Whether the tools a trial called (actual) match a reference path (expected).
+
+    mode "exact":     the same tools, in the same order, with nothing extra
+    mode "in_order":  every expected tool appears in order; extra calls in between are allowed
+    mode "any_order": every expected tool appears, in any order; extra calls are allowed
+    Each expected call needs a call of its own: two expected get_agent calls need two in actual.
+    Any other mode raises ValueError.
+    """
+    match mode:
+        case "exact":
+            return actual == expected
+        case "in_order":
+            # "in" on an iterator consumes it up to the match, so each expected tool is looked for after the last one
+            remaining = iter(actual)
+            return all(tool in remaining for tool in expected)
+        case "any_order":
+            return Counter(expected) <= Counter(actual)
+        case _:
+            raise ValueError(f"unknown mode: {mode!r}")
+
+
+path = ["get_agent", "set_model", "get_agent"]
+for mode in ("exact", "in_order", "any_order"):
+    print(mode, trajectory_matches(path, ["get_agent", "set_model"], mode))
+`;
+
+export const PATH_CHECK_SETUP =
+  // the exercise's reference trajectory_matches, without its example printout, loaded before the demo
+  LOAD_PILOT + "\n\n" + REFERENCE.slice(0, REFERENCE.indexOf("\n\n\npath = ")) + "\n";
+
+export const TESTS = [
+// each hidden test runs in its own copy of the learner's namespace, so every test defines the names it uses
+String.raw`G, S, D, Q = "get_agent", "set_model", "search_docs", "query_database"
+
+actual = [G, S, G]
+before = list(actual)
+assert trajectory_matches(actual, [G, S, G], "exact") is True, "exact: an identical path should match"
+assert actual == before, "the function shouldn't change the lists it's given"
+assert trajectory_matches([G, S, G], [G, S], "exact") is False, "exact: an extra call at the end should not match"
+assert trajectory_matches([S, G], [G, S], "exact") is False, "exact: the same tools in a different order should not match"
+assert trajectory_matches([], [], "exact") is True, "exact: two empty paths match"
+`,
+String.raw`G, S, D, Q = "get_agent", "set_model", "search_docs", "query_database"
+
+assert trajectory_matches([G, D, S, G], [G, S], "in_order") is True, "in_order: extra calls in between are allowed"
+assert trajectory_matches([S, G], [G, S], "in_order") is False, "in_order: the expected tools must appear in the expected order"
+assert trajectory_matches([G, S], [G, G], "in_order") is False, "in_order: two expected get_agent calls need two actual ones"
+assert trajectory_matches([G, S, G], [G, G], "in_order") is True, "in_order: two expected get_agent calls can match the first and third call"
+assert trajectory_matches([G], [G, S], "in_order") is False, "in_order: a missing expected tool should not match"
+assert trajectory_matches([G, D], [], "in_order") is True, "in_order: an empty reference is matched by any path"
+`,
+String.raw`G, S, D, Q = "get_agent", "set_model", "search_docs", "query_database"
+
+assert trajectory_matches([S, D, G], [G, S], "any_order") is True, "any_order: order and extra calls don't matter"
+assert trajectory_matches([G, D], [G, G], "any_order") is False, "any_order: two expected get_agent calls need two actual ones"
+assert trajectory_matches([G, D, Q], [G, S], "any_order") is False, "any_order: a missing expected tool should not match"
+assert trajectory_matches([G, D], [], "any_order") is True, "any_order: an empty reference is matched by any path"
+`,
+String.raw`G, S, D, Q = "get_agent", "set_model", "search_docs", "query_database"
+
+for mode in ("in_order", "any_order"):
+    actual = [G, D, S, G]
+    trajectory_matches(actual, [G, S], mode)
+    assert actual == [G, D, S, G], f"{mode}: the function shouldn't change the lists it's given"
+`,
+String.raw`G, S, D, Q = "get_agent", "set_model", "search_docs", "query_database"
+
+try:
+    trajectory_matches([G], [G], "fuzzy")
+except ValueError:
+    pass
+else:
+    raise AssertionError("an unknown mode should raise ValueError")
+`,
+];
+
+export const PILOT_PATHS_DEMO = String.raw`# a reference path for each action task, as someone writing the eval might first expect
+REFERENCE_PATHS = {
+    "p06": ["get_agent", "set_model"],
+    "p07": ["get_agent", "set_model"],
+    "p08": ["get_agent", "set_model", "get_agent"],
+}
+# whether each task's runs did the job, from reading every run (all three runs agree on each of these tasks)
+DID_THE_JOB = {"p06": True, "p07": True, "p08": False}
+MODES = ("exact", "in_order", "any_order")
+
+run = load_pilot("4b-think")
+wrong = dict.fromkeys(MODES, 0)
+for trial in run["trials"]:
+    task_id = trial["task_id"]
+    if task_id not in REFERENCE_PATHS:
+        continue
+    actual = [call["tool"] for call in trial["tool_log"]]
+    verdicts = {mode: trajectory_matches(actual, REFERENCE_PATHS[task_id], mode) for mode in MODES}
+    for mode, passed in verdicts.items():
+        wrong[mode] += passed != DID_THE_JOB[task_id]
+    marks = "  ".join(f"{mode} {'pass' if passed else 'FAIL'}" for mode, passed in verdicts.items())
+    print(f"{trial['trial_id']}  did the job: {'yes' if DID_THE_JOB[task_id] else 'NO '}  {marks}")
+    print(f"    {' > '.join(actual)}")
+
+print("\nverdicts that disagree with the reading, out of 9:", wrong)
+`;
+
+<Subsection title="Two things a grader can look at" variant="a">
+
+Anthropic's guide says each grader looks at one of two things: the
+transcript or the outcome. For the registry agent, that comes to three
+checks worth separating, because the last concept showed they can disagree:
+
+- **The end state.** What the world looks like when the run is over: the
+  registry's records, and the outbox. A grader checks it in code, against
+  what the task should have changed and what it shouldn't.
+- **The final reply.** What the user was told. It's part of the result, not
+  just commentary on it. In task p08, the end state was what a lost write
+  leaves behind, and every reply told the user the opposite. A refusal is
+  only useful if the reply says why.
+- **The path.** Which tools the agent called, in what order, with what
+  arguments. This comes from the transcript.
+
+The industry's evaluation tools grade all of these, under slightly
+different names:
+
+- **LangSmith** describes three kinds of agent evaluation: the final
+  response, a single step (such as whether the agent picked the right
+  tool), and the trajectory, meaning whether the agent took the expected
+  path of tool calls.
+- **OpenAI's trace grading** scores a run's whole trace, and lists
+  questions such as whether the agent picked the right tool.
+- **Google's Agent Development Kit (ADK)** has a built-in metric,
+  `tool_trajectory_avg_score`, that compares the tools an agent called with
+  a list of expected calls, arguments included, in one of three match
+  modes: `EXACT`, `IN_ORDER` and `ANY_ORDER`.
+- **Anthropic's guide** gives example eval definitions that mix all three:
+  a `state_check` on the database, `tool_calls` that must be made, and a
+  rubric for the reply.
+
+The single-step kind is the subject of the next concept. This one is about
+the outcome and the path, and what goes wrong when you lean on the path.
+
+</Subsection>
+
+<Subsection title="Matching a path against a reference" variant="b">
+
+A path check needs a **reference path**: the calls the person writing the
+eval expects. ADK's three modes differ in how strictly a run has to follow
+it:
+
+- **Exact**: the same calls, in the same order, with nothing extra.
+- **In order**: every expected call appears in the expected order; extra
+  calls in between are allowed.
+- **Any order**: every expected call appears, in any order; extra calls are
+  allowed.
+
+In the last two, each expected call needs a call of its own: a reference
+with two `get_agent` calls isn't met by a run that made one.
+
+ADK compares each call's arguments as well as its name. That works when the
+arguments are predictable, like an agent's id. It fails on free text: across
+the 4B's pilot runs, 26 searches used 24 different wordings, so an
+exact-argument check on `search_docs` would fail almost every run that
+searched. The exercise below compares tool names only, which is enough to
+see how the modes behave. A check that cares about one argument, such as
+which agent was changed, is better written as its own check on the log, and
+the end of this page comes back to that.
+
+</Subsection>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Write trajectory_matches(actual, expected, mode). actual is the list of tool names a trial called, in order; expected is a reference path. Return True or False depending on the mode. \"exact\": the same tools, in the same order, with nothing extra. \"in_order\": every expected tool appears in the expected order; extra calls in between are allowed. \"any_order\": every expected tool appears, in any order; extra calls are allowed. In both of the last two modes, each expected call needs a call of its own. Raise ValueError for any other mode. Don't change the lists you're given."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  runnable
+  hint={"\"Exact\" is plain list equality. For \"any order\", count each tool on both sides: collections.Counter supports <=, which is true when every count on the left is at most the matching count on the right. For \"in order\", walk through actual once, looking for each expected tool after the place where you found the previous one, and never go back. An iterator does this neatly: tool in iterator consumes the iterator up to and including the match."}
+  correctAnswer={{
+    code: REFERENCE,
+    explanation: "Each mode is one idiomatic line once it's framed right. \"Exact\" is list equality, so order and length both count. \"Any order\" is a question about counts, not positions: the run must contain at least as many of each tool as the reference, which is what Counter(expected) <= Counter(actual) asks (a set would get this wrong, because it can't see that two get_agent calls are needed). \"In order\" is a subsequence test. Sharing one iterator across the all(...) means each search starts where the previous one stopped, so the order is enforced and a call can't be used twice; searching the whole list each time would ignore the order. None of this changes the caller's lists, which matters because a grader shouldn't edit the transcript it's grading.",
+  }}
+/>
+
+</CheckpointZone>
+
+<Subsection title="Path checks on the pilot" variant="a">
+
+Now the three modes on real runs. The demo takes the 4B's three action
+tasks, gives each one the reference path someone writing the eval might
+first write down, and compares every mode's verdict with whether the run
+actually did the job, which comes from reading every run.
+
+<LiveDemo client:load dataFiles={THINK_DATA} setupCode={PATH_CHECK_SETUP} code={PILOT_PATHS_DEMO} />
+
+*(Real runs of the registry agent, recorded offline. `trajectory_matches`
+is the exercise's reference version, already loaded for you.)*
+
+Every mode is wrong on 4 of the 9 runs, in two different ways:
+
+- **It fails runs that did the job.** Exact match fails a run for reading
+  the record back (p06/1) and for looking up the rules after the refusal
+  (p07/2). Loosening the mode fixes those two, which is what ADK's own
+  evaluation guide suggests when extra calls cause failures. It doesn't fix
+  p07/1, which looked up the rules first and never tried the change at all.
+  That's a different valid route, not an extra step, and no mode accepts a
+  route the reference didn't foresee.
+- **It passes runs that didn't.** Every p08 run made the reference's calls,
+  read-back included, and then told the user something false. In-order and
+  any-order matching pass all three. Exact matching fails two of them, but
+  only because those runs made extra calls, not because it noticed anything
+  wrong. It passes the third.
+
+This is the brittleness Anthropic's guide warns about. Its advice, from
+experience across many teams, is that checking for a specific sequence of
+tool calls is too rigid, because agents regularly find valid approaches the
+eval's author didn't anticipate, so it's usually better to grade what the
+agent produced than the path it took. The pilot shows the other half too: a
+run can follow the expected path exactly and still get the result wrong.
+
+</Subsection>
+
+<Subsection title="When the path is the right thing to check" variant="b">
+
+Grading the path isn't always wrong. Anthropic's own example eval for a
+support agent requires a `verify_identity` call and a `process_refund` call
+for no more than 100. Neither is a guess about how the agent will probably
+succeed: each is a rule the agent must follow whatever route it takes.
+That's the line to draw:
+
+- **Required steps that are rules.** Verifying identity before a refund.
+  Reading back a write that matters, which
+  [Module 6 made a check in code](/06-reliability/07-safe-actions/02-reading-the-result-back/).
+- **Forbidden actions.** A call that must never happen in a given task,
+  such as changing an agent the user didn't name.
+  [Module 6's intent check](/06-reliability/10-layered-checks/02-layering-the-checks/)
+  blocks this while the agent runs; a grader checks the same thing
+  afterwards. These checks usually care about one argument, so they're
+  written against the log ("no `set_model` on any agent but
+  `notes_agent`"), not as a reference path.
+- **Limits.** A cap on turns or tool calls, like the 10-turn limit in
+  Anthropic's example.
+
+Even a required step only proves the call was made, not that the agent used
+what came back. Every p08 run read the record back, saw the old model, and
+explained it away. So a path check sits beside the outcome checks rather
+than replacing them. For the registry agent, that means checking the end
+state, the reply, and only the steps that are rules in their own right.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "The reference path for \"Move notes_agent to claude-haiku\" is get_agent > set_model. A run calls get_agent > set_model > get_agent and leaves notes_agent on claude-haiku. Which check wrongly fails it?",
+      "options": [
+        "An exact path match",
+        "An in-order path match",
+        "An any-order path match",
+        "A state check on the registry"
+      ],
+      "correctIndex": 0,
+      "explanation": "Exact matching allows nothing extra, so the read-back call fails it, even though the run did the job. In-order and any-order matching allow extra calls, and the state check sees notes_agent on claude-haiku, so all three pass it correctly."
+    },
+    {
+      "question": "Every p08 run read the record back after the change, so an in-order check against get_agent > set_model > get_agent passed all three. Why didn't that make them correct?",
+      "options": [
+        "It shows the call was made, not what the agent made of the result",
+        "In-order is too lenient; an exact match would have failed all three runs",
+        "The read-back came too late in the run to count as verification",
+        "The registry was wrong after the fault, so no check could pass them"
+      ],
+      "correctIndex": 0,
+      "explanation": "All three runs saw the old model in the read-back and told the user the change had worked. A path check can see that the call happened; only the reply shows what the agent concluded from it. An exact match did fail two of the runs, but only because of extra calls; it passed the third."
+    },
+    {
+      "question": "When is checking the path the right thing to do?",
+      "options": [
+        "When the step is a rule in itself, like reading back a key write",
+        "When the task has one obviously correct answer to compare against",
+        "When the outcome is hard to check, so the path can stand in for it",
+        "When the agent is new and how it tends to work isn't known yet"
+      ],
+      "correctIndex": 0,
+      "explanation": "A path check fits when the step is required whatever route the agent takes: verifying identity before a refund, reading back an important write, never touching an agent nobody asked about. Using the path as a stand-in for a hard-to-check outcome is exactly what failed on p08, where the expected path was followed and the result was still wrong."
+    },
+    {
+      "question": "One p07 run looked up the tier rules first and never tried the forbidden change. It did the job. Which path checks pass it, against the reference get_agent > set_model?",
+      "options": [
+        "None of the three modes",
+        "Only the any-order match",
+        "In-order and any-order, but not exact",
+        "All three, since the extra call is harmless"
+      ],
+      "correctIndex": 0,
+      "explanation": "The run never called set_model, so every mode is missing an expected call. Loosening the mode only tolerates extra calls; it can't accept a route the reference didn't foresee. That's why Anthropic's guide recommends grading what the agent produced rather than the path it took."
+    },
+    {
+      "question": "In p08, the registry ended up exactly as a lost write leaves it: research_agent still on claude-legacy. Why isn't a check on the end state alone enough to grade these runs?",
+      "options": [
+        "The reply told the user the opposite of what the state shows",
+        "A state check can't read the registry after a fault was injected",
+        "The fault changed the registry back after the run had finished",
+        "State checks only work on tasks that are meant to change something"
+      ],
+      "correctIndex": 0,
+      "explanation": "The state was what the fault made it, so a state check has nothing to object to. The failure is in what the user was told: that the change succeeded. The reply is part of the outcome, so a complete grade checks both the state and the reply."
+    }
+  ]}
+/>
+
+</CheckpointZone>
