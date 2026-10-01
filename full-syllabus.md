@@ -6515,8 +6515,23 @@ architecture.md §3.1).
    span details with thinking/text blocks, a tool result, the p07
    suggestion with its ERROR badge, switching setup, collapsing, no page
    errors. Callbacks: concept 2's `#the-spans-this-agent-produces` (anchor
-   verified) and Module 4 Lesson 1's intro (lesson-level link). Further
-   concepts and bookends not yet drafted.
+   verified) and Module 4 Lesson 1's intro (lesson-level link).
+   Concept 5 (replaying a recorded run) is built: record and replay, with
+   VCR.py's cassettes and strict mode as the model; the pilot's provided
+   replay code shown (byte-identical to `eval_client.py`, checked by
+   `check-copies.mjs`); a graded `ReplayClient.create` exercise (hidden
+   tests split into 6 self-contained scenarios); demos replaying
+   `4b-think/p07/0` and all 30 4B runs in the browser with the pilot's own
+   modules served from `public/data/eval/code/`, and a harmless-looking
+   `get_agent` reformat diverging at call 1; what replay can and can't
+   check; 5 quiz cards. Verified in real Pyodide 0.26.4: all three demos
+   match the mockup exactly (30 of 30 replayed); the reference passes all
+   6 tests, the starter fails, and nine wrong versions each fail (playback
+   with no hash check, no bounds check, advancing before checking, blocks
+   left as dicts, new tool-call ids, length ignored, usage swapped,
+   always tool_use). The demos were also run in headless Chromium against
+   the built site (data files and CDN packages loading for real). No
+   callbacks in this concept. Bookends not yet drafted.
 
 ### Old-plan outline (where it was Module 4)
 

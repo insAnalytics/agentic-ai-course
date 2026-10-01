@@ -62,6 +62,34 @@ const PAIRS = [
       },
     ],
   },
+  {
+    what: "the replay exercise's provided code (Module 7 Lesson 2 concept 5)",
+    a: ["the PROVIDED constant", () => rawConstant("src/content/modules/07-evaluation/02-tracing/05-replaying-a-recorded-run.mdx", "PROVIDED")],
+    b: [
+      "the page's static block",
+      () => pageFence("src/content/modules/07-evaluation/02-tracing/05-replaying-a-recorded-run.mdx",
+        "import hashlib\nimport json\n\n\ndef request_hash"),
+    ],
+  },
+  // the pilot's modules, served to the browser for Module 7 Lesson 2 concept 5's replays
+  ...[
+    ...["eval_client", "registry_world", "harness"].map((name) => `scripts/eval/${name}.py`),
+    ...["tokens", "fake", "m4", "m5", "m6loop"].map((name) => `scripts/eval/course/${name}.py`),
+  ].map((source) => {
+    const copy = `public/data/eval/code/${source.split("/").pop()}`;
+    return { what: `the pilot's ${source.split("/").pop()} (Module 7)`, a: [source, () => read(source)], b: [copy, () => read(copy)] };
+  }),
+];
+
+// code a page shows that must appear, byte for byte, inside a file the offline scripts run
+const REPLAY_PAGE = "src/content/modules/07-evaluation/02-tracing/05-replaying-a-recorded-run.mdx";
+const CONTAINED = [
+  // the provided code is shown as one block of the separate pieces eval_client.py defines
+  ...rawConstant(REPLAY_PAGE, "PROVIDED").split("\n\n\n").map((piece, i) => ({
+    what: `the replay exercise's provided code, piece ${i + 1}`, text: piece.trim(), file: "scripts/eval/eval_client.py",
+  })),
+  { what: "the replay exercise's reference ReplayClient", text: rawConstant(REPLAY_PAGE, "REFERENCE").trim(),
+    file: "scripts/eval/eval_client.py" },
 ];
 
 let failed = false;
@@ -71,5 +99,11 @@ for (const { what, a, b } of PAIRS) {
     failed = true;
   }
 }
+for (const { what, text, file } of CONTAINED) {
+  if (!read(file).includes(text)) {
+    console.error(`check-copies: ${what} is no longer in ${file} as written; change both together.`);
+    failed = true;
+  }
+}
 if (failed) process.exit(1);
-console.log(`check-copies: ${PAIRS.length} pairs identical`);
+console.log(`check-copies: ${PAIRS.length} pairs identical, ${CONTAINED.length} blocks found in their sources`);

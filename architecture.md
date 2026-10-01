@@ -434,6 +434,14 @@ and the final registry state, so each trial replays exactly):
   `evalData.ts`) with `secrets` swapped for a counter in that namespace so
   the span ids, and so the files, are reproducible; `--check` fails if they
   drift. Rebuild them whenever either constant changes.
+- `code/*.py` (~150 KB) — the pilot's own Python modules, served so the
+  browser can replay recorded runs with the real loop, tools and world:
+  byte-identical copies of `scripts/eval/{eval_client,registry_world,harness}.py`
+  and `scripts/eval/course/{tokens,fake,m4,m5,m6loop}.py`. After changing any
+  of those, copy it here too; `check-copies.mjs` fails the build otherwise.
+  Replays also read `rag/documents.json` and `rag/chunk-contexts.json` (the
+  only Module 5 files the registry world opens, found with an audit hook
+  over all 30 4B replays).
 - `pilot/grades.json` (13 KB) — every pilot trial's provisional code grade
   (`scripts/eval/grading.py`) and its grade after reading, written by
   `scripts/eval/pilot_grades.py`. The 19 changes by reading are listed in
@@ -485,13 +493,27 @@ thinking/text/tool-call blocks, the request above and the final answer
 below. It fetches one setup's traces file when that setup is first shown
 (memoized, failures retried), like `courseData.ts`, and never imports the
 data into the bundle.
+Concept 5 (replaying a recorded run) adds `PILOT_CODE`, `replayData(...setups)`
+(the pilot data, the two Module 5 files and the eight modules) and
+`REPLAY_SETUP` (`LOAD_PILOT`, then explicit `import jinja2, networkx, numpy,
+pydantic, sqlite3` so Pyodide loads those packages from the setup's imports,
+then `/data/eval/code` on `sys.path` and the pilot's `ReplayClient`,
+`ReplayDiverged`, `ReplayUser`, `Task`, `run_trial`, `RegistryWorld` and
+`_plain`, imported unchanged). In Pyodide 0.26.4 the first Run takes about
+6-8 s (package downloads; networkx pulls in matplotlib), and replaying all
+30 4B runs then takes about a second; all 30 reproduce exactly.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
 code block has drifted: currently the pilot's `tasks.json` against
 `scripts/eval/tasks/pilot.json`, `LOAD_PILOT` against the page's static
-setup block, and `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
-the demos that show them. Add any new must-stay-identical pair to its `PAIRS` list.
+setup block, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
+the demos that show them, the replay exercise's static provided block
+against its constant, and each `public/data/eval/code/*.py` against its
+source. A second list, `CONTAINED`, checks that code a page shows appears
+byte for byte inside the file the offline scripts run: concept 5's
+provided code (piece by piece) and reference `ReplayClient`, inside
+`scripts/eval/eval_client.py`. Add any new must-stay-identical pair to its `PAIRS` list.
 
 **Loading rule (every Module 5, 6 and 7 page):** fetch these files at runtime, on the
 learner's first Run click, and let the browser cache them — never `import`

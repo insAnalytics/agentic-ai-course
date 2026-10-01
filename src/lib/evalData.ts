@@ -290,3 +290,46 @@ def summarize(spans: list[Span]) -> dict:
                            if span.attributes.get("registry_agent.check.verdict") == "blocked"],
     }
 `;
+
+/**
+ * The pilot's own Python modules, served unchanged as course data under
+ * public/data/eval/code/ (copies of scripts/eval/{eval_client,registry_world,harness}.py
+ * and scripts/eval/course/{tokens,fake,m4,m5,m6loop}.py; scripts/check-copies.mjs
+ * checks each copy is byte-identical). Module 7 Lesson 2 concept 5 replays
+ * recorded runs with them.
+ */
+export const PILOT_CODE = ["tokens", "fake", "m4", "m5", "m6loop", "eval_client", "registry_world", "harness"];
+
+/**
+ * A replay demo's dataFiles: the pilot's tasks and the named runs, the two
+ * Module 5 files the registry world reads, and the pilot's modules.
+ */
+export function replayData(...setups: string[]): string[] {
+  return [...pilotData(...setups), "rag/documents.json", "rag/chunk-contexts.json",
+          ...PILOT_CODE.map((name) => `eval/code/${name}.py`)];
+}
+
+/**
+ * Module 7 Lesson 2 concept 5's hidden setup for replaying pilot runs:
+ * LOAD_PILOT, then the pilot's modules imported from /data/eval/code (the
+ * explicit package imports make Pyodide load numpy, networkx, pydantic,
+ * jinja2 and sqlite3 first).
+ */
+export const REPLAY_SETUP = LOAD_PILOT + "\n\n" + String.raw`# the pilot's own code, served with the course data and imported unchanged
+import sys
+
+# packages the pilot's modules import, loaded into Pyodide here
+import jinja2
+import networkx
+import numpy
+import pydantic
+import sqlite3
+
+if "/data/eval/code" not in sys.path:
+    sys.path.insert(0, "/data/eval/code")
+
+from eval_client import ReplayClient, ReplayDiverged, ReplayUser
+from harness import Task, run_trial
+from registry_world import RegistryWorld
+from tokens import _plain
+`;

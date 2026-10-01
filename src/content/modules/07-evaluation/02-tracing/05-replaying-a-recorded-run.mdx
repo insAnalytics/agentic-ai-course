@@ -1,0 +1,637 @@
+---
+title: "Replaying a recorded run"
+lesson: "02-tracing"
+order: 5
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { REACT_FAKE_CLIENT, COUNT_TOKENS } from "../../../../lib/fakeClient";
+import { CHECKED_AGENT } from "../../../../lib/reliabilityData";
+import { REPLAY_SETUP, replayData } from "../../../../lib/evalData";
+
+export const REPLAY_DATA = replayData("4b-think");
+
+export const PROVIDED = String.raw`import hashlib
+import json
+
+
+def request_hash(messages: list) -> str:
+    """A short hash of exactly what the model was sent, the same whatever order a dict's keys are in."""
+    text = json.dumps(_plain(messages), sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+
+class ModelResponse(FakeResponse):
+    """The fake client's response, plus what a real API also returns: token usage, the model that
+    answered, and why it stopped."""
+
+    def __init__(self, content: list, usage: dict, model: str, stop_reason: str):
+        super().__init__(content)
+        self.usage = usage
+        self.model = model
+        self.stop_reason = stop_reason
+
+
+def block_from_dict(block: dict):
+    if block["type"] == "thinking":
+        return ThinkingBlock(block["thinking"])
+    if block["type"] == "text":
+        return TextBlock(block["text"])
+    tool_use = ToolUseBlock(block["name"], block["input"])
+    tool_use.id = block["id"]
+    return tool_use
+
+
+class ReplayDiverged(Exception):
+    """The replayed loop sent a request the recording never answered, so it isn't the recorded run."""
+`;
+
+export const EXERCISE_SETUP =
+  // loaded into the exercise's namespace: the fake client, _plain, Module 6's loop, then the provided code
+  REACT_FAKE_CLIENT + COUNT_TOKENS + CHECKED_AGENT + "\n\n" + PROVIDED;
+
+export const STARTER = String.raw`class ReplayClient:
+    """Answers each request with the recorded response, after checking the request matches the one the
+    recording answered. Tools still run for real; only the model's turns are replayed."""
+
+    def __init__(self, calls: list, model: str):
+        self.calls, self.model, self.n = calls, model, 0
+
+    def create(self, messages: list) -> ModelResponse:
+        """The next recorded response, if this request is the one the recording answered at this point."""
+        # your code here
+`;
+
+export const REFERENCE = String.raw`class ReplayClient:
+    """Answers each request with the recorded response, after checking the request matches the one the
+    recording answered. Tools still run for real; only the model's turns are replayed."""
+
+    def __init__(self, calls: list, model: str):
+        self.calls, self.model, self.n = calls, model, 0
+
+    def create(self, messages: list) -> ModelResponse:
+        if self.n >= len(self.calls):
+            raise ReplayDiverged(f"call {self.n} wasn't in the recording ({len(self.calls)} calls)")
+        call = self.calls[self.n]
+        if (got := request_hash(messages)) != call["request_hash"]:
+            raise ReplayDiverged(f"call {self.n}: request {got} isn't the recorded {call['request_hash']}")
+        self.n += 1
+        stop = "max_tokens" if call["finish_reason"] == "length" else (
+            "tool_use" if any(b["type"] == "tool_use" for b in call["content"]) else "end_turn")
+        return ModelResponse([block_from_dict(b) for b in call["content"]],
+                             {"input_tokens": call["prompt_tokens"], "output_tokens": call["completion_tokens"]},
+                             self.model, stop)
+`;
+
+export const TESTS = [
+// each hidden test runs in its own copy of the learner's namespace, so every test records its own run
+String.raw`class Recorder:
+    """Records a run the way the pilot did: each request's hash, and the reply, as plain data."""
+    def __init__(self, client):
+        self.client, self.calls = client, []
+
+    def create(self, messages):
+        request = request_hash(messages)
+        response = self.client.create(messages=messages)
+        self.calls.append({"request_hash": request, "content": _plain(response.content),
+                           "prompt_tokens": 100 * (len(self.calls) + 1), "completion_tokens": 7, "finish_reason": "stop"})
+        return response
+
+
+def script():
+    return FakeLLMClient(scripted_responses=[
+        [ThinkingBlock("Look it up."), ToolUseBlock("get_agent", {"agent_name": "notes_agent"})],
+        [ToolUseBlock("set_model", {"agent_name": "notes_agent", "model": "claude-haiku"})],
+        [TextBlock("Moved notes_agent to claude-haiku.")],
+    ])
+
+
+def tools(note="ok"):
+    return {"get_agent": lambda agent_name: '{"model": "claude-legacy"}',
+            "set_model": lambda agent_name, model: '{"status": "' + note + '"}'}
+
+
+def start():
+    return [{"role": "user", "content": "Move notes_agent to claude-haiku."}]
+
+
+recorder = Recorder(script())
+recorded_messages = start()
+recorded_answer = run_checked_agent(recorder, recorded_messages, tools(), Checks())
+recording = recorder.calls
+frozen = json.dumps(recording, sort_keys=True)
+
+replay = ReplayClient(recording, "qwen")
+messages = start()
+response = replay.create(messages)
+assert response is not None, "create should return a ModelResponse"
+assert isinstance(response, ModelResponse), "create should return a ModelResponse"
+assert all(not isinstance(b, dict) for b in response.content), \
+    "the recording stores blocks as plain dicts: rebuild each one with block_from_dict, as the loop expects block objects"
+assert [b.type for b in response.content] == ["thinking", "tool_use"], "return the recorded blocks, in order"
+assert response.content[1].id == recording[0]["content"][1]["id"], \
+    "a replayed tool call must keep its recorded id, or the results the loop sends back won't match the recording"
+assert response.usage == {"input_tokens": 100, "output_tokens": 7}, "usage comes from the recorded token counts"
+assert (response.model, response.stop_reason) == ("qwen", "tool_use"), \
+    "the model is the replay's model, and the stop reason is \"tool_use\" when the reply calls a tool"
+assert replay.n == 1, "after answering, the replay should be at the next recorded call"
+`,
+String.raw`class Recorder:
+    """Records a run the way the pilot did: each request's hash, and the reply, as plain data."""
+    def __init__(self, client):
+        self.client, self.calls = client, []
+
+    def create(self, messages):
+        request = request_hash(messages)
+        response = self.client.create(messages=messages)
+        self.calls.append({"request_hash": request, "content": _plain(response.content),
+                           "prompt_tokens": 100 * (len(self.calls) + 1), "completion_tokens": 7, "finish_reason": "stop"})
+        return response
+
+
+def script():
+    return FakeLLMClient(scripted_responses=[
+        [ThinkingBlock("Look it up."), ToolUseBlock("get_agent", {"agent_name": "notes_agent"})],
+        [ToolUseBlock("set_model", {"agent_name": "notes_agent", "model": "claude-haiku"})],
+        [TextBlock("Moved notes_agent to claude-haiku.")],
+    ])
+
+
+def tools(note="ok"):
+    return {"get_agent": lambda agent_name: '{"model": "claude-legacy"}',
+            "set_model": lambda agent_name, model: '{"status": "' + note + '"}'}
+
+
+def start():
+    return [{"role": "user", "content": "Move notes_agent to claude-haiku."}]
+
+
+recorder = Recorder(script())
+recorded_messages = start()
+recorded_answer = run_checked_agent(recorder, recorded_messages, tools(), Checks())
+recording = recorder.calls
+frozen = json.dumps(recording, sort_keys=True)
+
+replay = ReplayClient(recording, "qwen")
+messages = start()
+answer = run_checked_agent(replay, messages, tools(), Checks())
+assert (answer, _plain(messages)) == (recorded_answer, _plain(recorded_messages)), \
+    "replaying the same run should reproduce its answer and every message exactly"
+assert replay.n == 3, "a full replay uses every recorded call"
+assert json.dumps(recording, sort_keys=True) == frozen, "replaying shouldn't change the recording"
+`,
+String.raw`class Recorder:
+    """Records a run the way the pilot did: each request's hash, and the reply, as plain data."""
+    def __init__(self, client):
+        self.client, self.calls = client, []
+
+    def create(self, messages):
+        request = request_hash(messages)
+        response = self.client.create(messages=messages)
+        self.calls.append({"request_hash": request, "content": _plain(response.content),
+                           "prompt_tokens": 100 * (len(self.calls) + 1), "completion_tokens": 7, "finish_reason": "stop"})
+        return response
+
+
+def script():
+    return FakeLLMClient(scripted_responses=[
+        [ThinkingBlock("Look it up."), ToolUseBlock("get_agent", {"agent_name": "notes_agent"})],
+        [ToolUseBlock("set_model", {"agent_name": "notes_agent", "model": "claude-haiku"})],
+        [TextBlock("Moved notes_agent to claude-haiku.")],
+    ])
+
+
+def tools(note="ok"):
+    return {"get_agent": lambda agent_name: '{"model": "claude-legacy"}',
+            "set_model": lambda agent_name, model: '{"status": "' + note + '"}'}
+
+
+def start():
+    return [{"role": "user", "content": "Move notes_agent to claude-haiku."}]
+
+
+recorder = Recorder(script())
+recorded_messages = start()
+recorded_answer = run_checked_agent(recorder, recorded_messages, tools(), Checks())
+recording = recorder.calls
+frozen = json.dumps(recording, sort_keys=True)
+
+replay = ReplayClient(recording, "qwen")
+messages = [{"role": "user", "content": "Move notes_agent to claude-sonnet."}]
+try:
+    run_checked_agent(replay, messages, tools(), Checks())
+except ReplayDiverged as error:
+    assert "call 0" in str(error), f"say which call diverged: expected 'call 0' in {str(error)!r}"
+else:
+    raise AssertionError("a different request must raise ReplayDiverged: the recording never answered it")
+`,
+String.raw`class Recorder:
+    """Records a run the way the pilot did: each request's hash, and the reply, as plain data."""
+    def __init__(self, client):
+        self.client, self.calls = client, []
+
+    def create(self, messages):
+        request = request_hash(messages)
+        response = self.client.create(messages=messages)
+        self.calls.append({"request_hash": request, "content": _plain(response.content),
+                           "prompt_tokens": 100 * (len(self.calls) + 1), "completion_tokens": 7, "finish_reason": "stop"})
+        return response
+
+
+def script():
+    return FakeLLMClient(scripted_responses=[
+        [ThinkingBlock("Look it up."), ToolUseBlock("get_agent", {"agent_name": "notes_agent"})],
+        [ToolUseBlock("set_model", {"agent_name": "notes_agent", "model": "claude-haiku"})],
+        [TextBlock("Moved notes_agent to claude-haiku.")],
+    ])
+
+
+def tools(note="ok"):
+    return {"get_agent": lambda agent_name: '{"model": "claude-legacy"}',
+            "set_model": lambda agent_name, model: '{"status": "' + note + '"}'}
+
+
+def start():
+    return [{"role": "user", "content": "Move notes_agent to claude-haiku."}]
+
+
+recorder = Recorder(script())
+recorded_messages = start()
+recorded_answer = run_checked_agent(recorder, recorded_messages, tools(), Checks())
+recording = recorder.calls
+frozen = json.dumps(recording, sort_keys=True)
+
+replay = ReplayClient(recording, "qwen")
+try:
+    run_checked_agent(replay, start(), tools(note="queued"), Checks())
+except ReplayDiverged as error:
+    assert "call 2" in str(error), \
+        f"a changed tool result first reaches the model on the call after it: expected 'call 2' in {str(error)!r}"
+else:
+    raise AssertionError("a tool that returns something different must make the replay diverge")
+assert replay.n == 2, "a diverged request isn't answered, so the replay stays at that call"
+`,
+String.raw`class Recorder:
+    """Records a run the way the pilot did: each request's hash, and the reply, as plain data."""
+    def __init__(self, client):
+        self.client, self.calls = client, []
+
+    def create(self, messages):
+        request = request_hash(messages)
+        response = self.client.create(messages=messages)
+        self.calls.append({"request_hash": request, "content": _plain(response.content),
+                           "prompt_tokens": 100 * (len(self.calls) + 1), "completion_tokens": 7, "finish_reason": "stop"})
+        return response
+
+
+def script():
+    return FakeLLMClient(scripted_responses=[
+        [ThinkingBlock("Look it up."), ToolUseBlock("get_agent", {"agent_name": "notes_agent"})],
+        [ToolUseBlock("set_model", {"agent_name": "notes_agent", "model": "claude-haiku"})],
+        [TextBlock("Moved notes_agent to claude-haiku.")],
+    ])
+
+
+def tools(note="ok"):
+    return {"get_agent": lambda agent_name: '{"model": "claude-legacy"}',
+            "set_model": lambda agent_name, model: '{"status": "' + note + '"}'}
+
+
+def start():
+    return [{"role": "user", "content": "Move notes_agent to claude-haiku."}]
+
+
+recorder = Recorder(script())
+recorded_messages = start()
+recorded_answer = run_checked_agent(recorder, recorded_messages, tools(), Checks())
+recording = recorder.calls
+frozen = json.dumps(recording, sort_keys=True)
+
+replay = ReplayClient(recording[:2], "qwen")
+try:
+    run_checked_agent(replay, start(), tools(), Checks())
+except ReplayDiverged as error:
+    assert "call 2" in str(error), f"say which call was missing: expected 'call 2' in {str(error)!r}"
+except IndexError:
+    raise AssertionError("asking for more calls than were recorded should raise ReplayDiverged, not IndexError")
+else:
+    raise AssertionError("a run that needs more calls than were recorded must raise ReplayDiverged")
+`,
+String.raw`class Recorder:
+    """Records a run the way the pilot did: each request's hash, and the reply, as plain data."""
+    def __init__(self, client):
+        self.client, self.calls = client, []
+
+    def create(self, messages):
+        request = request_hash(messages)
+        response = self.client.create(messages=messages)
+        self.calls.append({"request_hash": request, "content": _plain(response.content),
+                           "prompt_tokens": 100 * (len(self.calls) + 1), "completion_tokens": 7, "finish_reason": "stop"})
+        return response
+
+
+def script():
+    return FakeLLMClient(scripted_responses=[
+        [ThinkingBlock("Look it up."), ToolUseBlock("get_agent", {"agent_name": "notes_agent"})],
+        [ToolUseBlock("set_model", {"agent_name": "notes_agent", "model": "claude-haiku"})],
+        [TextBlock("Moved notes_agent to claude-haiku.")],
+    ])
+
+
+def tools(note="ok"):
+    return {"get_agent": lambda agent_name: '{"model": "claude-legacy"}',
+            "set_model": lambda agent_name, model: '{"status": "' + note + '"}'}
+
+
+def start():
+    return [{"role": "user", "content": "Move notes_agent to claude-haiku."}]
+
+
+recorder = Recorder(script())
+recorded_messages = start()
+recorded_answer = run_checked_agent(recorder, recorded_messages, tools(), Checks())
+recording = recorder.calls
+frozen = json.dumps(recording, sort_keys=True)
+
+cut_off = [dict(recording[0], finish_reason="length")]
+assert ReplayClient(cut_off, "qwen").create(start()).stop_reason == "max_tokens", \
+    "a recorded finish_reason of \"length\" means the reply was cut off: stop_reason \"max_tokens\""
+answers = Recorder(FakeLLMClient(scripted_responses=[[TextBlock("It's on claude-legacy.")]]))
+answers.create(start())
+assert ReplayClient(answers.calls, "qwen").create(start()).stop_reason == "end_turn", \
+    "a reply with no tool calls stops with \"end_turn\""
+`,
+];
+
+export const ONE_REPLAY_DEMO = String.raw`run = load_pilot("4b-think")
+tasks = load_tasks()
+trial = next(t for t in run["trials"] if t["trial_id"] == "4b-think/p07/0")
+
+replay = ReplayClient(trial["calls"], run["model"])
+outcome = run_trial(Task(**tasks["p07"]), replay, None, "/tmp")
+
+print(f"model calls replayed: {replay.n} of {len(trial['calls'])}")
+print("tools called, for real:", [(entry["tool"], entry["ok"]) for entry in outcome["tool_log"]])
+print("tool log, answer and registry match the recording:",
+      outcome["tool_log"] == trial["tool_log"], outcome["answers"] == trial["answers"],
+      outcome["final_state"] == trial["final_state"])
+print("\nanswer:", outcome["answers"][-1].splitlines()[0].strip())
+`;
+
+export const ALL_REPLAYS_DEMO = String.raw`run = load_pilot("4b-think")
+tasks = load_tasks()
+exact = 0
+for trial in run["trials"]:
+    task = Task(**tasks[trial["task_id"]])
+    user = ReplayUser(trial["user_calls"]) if task.user else None
+    outcome = run_trial(task, ReplayClient(trial["calls"], run["model"]), user, "/tmp")
+    exact += (outcome["answers"], outcome["tool_log"], outcome["final_state"]) == \
+             (trial["answers"], trial["tool_log"], trial["final_state"])
+print(f"{exact} of {len(run['trials'])} runs replayed exactly")
+`;
+
+export const DIVERGE_DEMO = String.raw`original = RegistryWorld.get_agent
+
+
+def get_agent_pretty(self, agent_name: str) -> str:
+    """The same record, laid out more readably."""
+    return json.dumps(json.loads(original(self, agent_name)), indent=2)
+
+
+run = load_pilot("4b-think")
+tasks = load_tasks()
+trial = next(t for t in run["trials"] if t["trial_id"] == "4b-think/p07/0")
+
+RegistryWorld.get_agent = get_agent_pretty
+try:
+    replay = ReplayClient(trial["calls"], run["model"])
+    run_trial(Task(**tasks["p07"]), replay, None, "/tmp")
+except ReplayDiverged as error:
+    print("the replay stopped:", error)
+finally:
+    RegistryWorld.get_agent = original
+`;
+
+<Subsection title="Record once, replay as often as you like" variant="a">
+
+The pilot's runs needed a GPU and a model; the browser has neither. They
+can still be run here, because every model reply was recorded. **Record and
+replay** is an established testing technique for exactly this: run against
+the real service once, save every request and response, and from then on
+answer requests from the recording.
+
+VCR.py, a widely used Python library for testing code that makes HTTP
+requests, is a well-known example. It saves a test's HTTP traffic to a file
+it calls a cassette and replays it on later runs, which its documentation
+says makes tests fast, able to run offline, and completely deterministic.
+One of its settings matters most here: in its strictest mode, a request
+that isn't on the cassette raises an error instead of reaching the real
+service, so the test can't quietly do something new.
+
+This course's replay works the same way, at the level of the agent's loop
+rather than HTTP:
+
+- **The model's turns are replayed.** Each request the loop makes is
+  answered with the recorded reply. So are the simulated user's replies,
+  where a task has one.
+- **Everything else runs for real.** The tools run against a fresh registry
+  world, the checks run, and the loop is Module 6's, unchanged.
+- **Every request is checked.** The recording holds a hash of each request
+  the model was sent. Before answering, the replay hashes the request it's
+  been given, and if the two differ it stops with `ReplayDiverged`, just as
+  VCR.py's strict mode does.
+
+If a replay finishes without diverging, the browser has re-run the recorded
+run: the same requests, the same tool calls and results, the same answers.
+
+</Subsection>
+
+<Subsection title="The replay client" variant="b">
+
+The exercise builds the replay's client. It works with this code, already
+loaded, which is the pilot's own (from its `eval_client.py`):
+
+```python
+import hashlib
+import json
+
+
+def request_hash(messages: list) -> str:
+    """A short hash of exactly what the model was sent, the same whatever order a dict's keys are in."""
+    text = json.dumps(_plain(messages), sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+
+class ModelResponse(FakeResponse):
+    """The fake client's response, plus what a real API also returns: token usage, the model that
+    answered, and why it stopped."""
+
+    def __init__(self, content: list, usage: dict, model: str, stop_reason: str):
+        super().__init__(content)
+        self.usage = usage
+        self.model = model
+        self.stop_reason = stop_reason
+
+
+def block_from_dict(block: dict):
+    if block["type"] == "thinking":
+        return ThinkingBlock(block["thinking"])
+    if block["type"] == "text":
+        return TextBlock(block["text"])
+    tool_use = ToolUseBlock(block["name"], block["input"])
+    tool_use.id = block["id"]
+    return tool_use
+
+
+class ReplayDiverged(Exception):
+    """The replayed loop sent a request the recording never answered, so it isn't the recorded run."""
+```
+
+</Subsection>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Write ReplayClient.create(messages). The client holds calls, the recording's model calls in order (each a dict with \"request_hash\", \"content\", \"prompt_tokens\", \"completion_tokens\" and \"finish_reason\"), and n, the index of the next one to use. If there's no recorded call at index n, raise ReplayDiverged with a message that includes call <n>. If request_hash(messages) isn't the recorded call's \"request_hash\", raise ReplayDiverged with a message that includes call <n>, and don't move on to the next call. Otherwise move n on by one, and return a ModelResponse with: the recorded content, each block rebuilt with block_from_dict; usage {\"input_tokens\": prompt_tokens, \"output_tokens\": completion_tokens}; the client's model; a stop reason of \"max_tokens\" if the recorded finish_reason is \"length\", otherwise \"tool_use\" if the content has a tool call, otherwise \"end_turn\". The fake client's blocks, run_checked_agent, Checks and _plain are loaded."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  namespaceSetup={EXERCISE_SETUP}
+  hint={"Check the bounds first, so a run that asks for too many calls gets a clear ReplayDiverged rather than an IndexError. Then compare hashes, and only after the check passes increment self.n, so the error message names the call that failed and a refused request isn't consumed. block_from_dict restores each tool call's recorded id, which matters: the loop sends results back under that id, and a new id would change the next request."}
+  correctAnswer={{
+    code: REFERENCE,
+    explanation: "The hash check is what makes this a replay rather than a playback. Answering every request with the next recorded reply, whatever was asked, would \"work\" on any run, including one where the loop, a tool or the task had changed, and would quietly produce a run that never happened. Checking first and advancing after means a divergence is reported at the exact call where the run stopped matching, and that call stays unanswered. Rebuilding blocks with block_from_dict keeps each tool call's recorded id, so the tool results the loop sends back, and therefore the next request, match the recording byte for byte.",
+  }}
+/>
+
+</CheckpointZone>
+
+<Subsection title="A pilot run, replayed" variant="a">
+
+Here's the 4B's refused change from p07, replayed in your browser, with the
+registry, the search index and the tools all real:
+
+<LiveDemo client:load dataFiles={REPLAY_DATA} setupCode={REPLAY_SETUP} code={ONE_REPLAY_DEMO} />
+
+*(The model's replies are a real model's, replayed from the pilot's
+recording; the tools run for real. The pilot's own modules, `ReplayClient`
+included, are loaded for you. The first Run downloads them with Module 5's
+documents and loads several Python packages, so it takes a few seconds.)*
+
+Every request the loop made matched its recorded hash, the tools returned
+what they returned on the GPU machine, and the run ended with the same
+answer and the same registry. The same holds across all of the 4B's pilot
+runs, including p10's, where the simulated user's replies are replayed too:
+
+<LiveDemo client:load dataFiles={REPLAY_DATA} setupCode={REPLAY_SETUP} code={ALL_REPLAYS_DEMO} />
+
+*(Replays 30 runs, so allow a few seconds.)*
+
+This is also a check on the course itself: the loop, tools and world in
+your browser are the code that ran the pilot.
+
+</Subsection>
+
+<Subsection title="What a replay can't do" variant="b">
+
+A replay only works while every request matches the recording. Here's a
+change that looks harmless: `get_agent` returns the same record, just laid
+out more readably.
+
+<LiveDemo client:load dataFiles={REPLAY_DATA} setupCode={REPLAY_SETUP} code={DIVERGE_DEMO} />
+
+The replay stops at call 1, the first request that includes `get_agent`'s
+result. The new layout means the model would have seen different text, and
+the recording can't say what it would have done with it. It might have made
+the same choices, or not. That's not a flaw in the replay; it's the
+boundary of what a recording can tell you. VCR.py's documentation says the
+same about its cassettes: when the service you're testing against changes,
+delete the recording and record again.
+
+So replay is for changes that shouldn't alter what the model sees, and for
+everything that only reads a run:
+
+- **Deterministic demos and tests.** Every page in this module runs the
+  pilot's runs this way, with no model.
+- **Debugging.** A recorded run can be replayed step by step, with the real
+  tools, as often as you need.
+- **Checking a change that's meant to change nothing.** A refactor of a
+  tool's internals, or new tracing, should replay cleanly. If it diverges,
+  it changed what the model sees.
+- **Grading old runs with new graders.** A grader reads the recording; it
+  doesn't need the model at all.
+
+A change that does alter what the model sees, such as a new prompt, a
+tool's output format, or a different model, can only be evaluated by
+running the model again, many times, and comparing with the runs before.
+That's regression testing, and it's Lesson 10.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "In this course's replay, what is replayed from the recording, and what runs for real?",
+      "options": [
+        "The model's and user's turns are replayed; tools run for real",
+        "Everything is replayed, including every tool result the run got",
+        "Only the final answer is replayed; every step before it is rerun live",
+        "The tools are replayed; the model is called again for every step"
+      ],
+      "correctIndex": 0,
+      "explanation": "Only the parts that need the model, the agent's turns and the simulated user's, come from the recording. The tools, world, checks and loop run for real, which is what lets a replay confirm that the browser's code is the code that produced the run."
+    },
+    {
+      "question": "Why does the replay client check each request's hash before answering?",
+      "options": [
+        "So it never answers a request it has no recording of",
+        "To make the replay run faster than the original run did",
+        "To compress each recorded reply before returning it",
+        "So that tokens can be counted for the replayed calls"
+      ],
+      "correctIndex": 0,
+      "explanation": "Without the check, the client would hand out the next recorded reply whatever it was asked, producing a run that never happened. With it, any difference in what the model would have been sent stops the replay at that exact call, as VCR.py's strict mode stops an unrecorded HTTP request."
+    },
+    {
+      "question": "A teammate changes get_agent to lay out its JSON more readably, and replays now diverge at call 1. What should they conclude?",
+      "options": [
+        "The model sees different text, so it needs a real rerun",
+        "The replay client has a bug, since the record's content is the same",
+        "The change is safe, because only the record's layout was changed",
+        "The recording is corrupt and should be replaced from a backup copy"
+      ],
+      "correctIndex": 0,
+      "explanation": "To the model, a different layout is different input, and nobody can know from the recording what it would have done with it. Replay can only vouch for changes that leave every request identical; anything else has to be evaluated by running the model again."
+    },
+    {
+      "question": "Which of these can be checked by replaying the pilot's recordings, with no model?",
+      "options": [
+        "That a refactor of the tracer leaves every request unchanged",
+        "That a new system prompt makes the agent refuse more accurately",
+        "That moving to the 9B model reduces the number of failed runs",
+        "That a reworded tool description stops p08's wrong explanation"
+      ],
+      "correctIndex": 0,
+      "explanation": "Replaying works when the change shouldn't alter anything the model sees, and a refactor of the tracing code is meant to be exactly that. The other three all change the model's input or the model itself, so they need new runs."
+    },
+    {
+      "question": "Why does block_from_dict restore each tool call's recorded id instead of making a new one?",
+      "options": [
+        "Results go back under it, so a new id changes the next request",
+        "Tool call ids are checked by the registry before any tool will run",
+        "The tracer can only open a tool span for a call that has an id",
+        "New ids would make the replay pick its recorded calls out of order"
+      ],
+      "correctIndex": 0,
+      "explanation": "Module 6's loop sends each tool result back tagged with its call's id, and that message is part of the next request. A fresh id would change that request's hash, and the replay would diverge at the very next call, even though nothing meaningful had changed."
+    }
+  ]}
+/>
+
+</CheckpointZone>
