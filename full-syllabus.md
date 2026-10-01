@@ -6440,6 +6440,30 @@ architecture.md §3.1).
    forbidden calls skipped, stopping at the first failure, ignoring
    `reply_matters`, mutating the trial, returning a list).
 
+2. **Tracing an Agent Run** (`02-tracing`, title provisional) —
+   **Building.** Concept 1 (from a list of events to a tree of spans) is
+   built: the course's four separate records (Module 2's tracing hook,
+   Module 4's manifest, Module 6's check records and `record_run`), the
+   pilot's tool log and model calls for `4b-think/p08/0` side by side,
+   OpenTelemetry's spans and traces (name, ids, parent, times, attributes,
+   status with `UNSET` as the default), a graded `Tracer.span` exercise
+   (a `@contextmanager` over a stack of open spans; the mockup's hidden
+   tests split into 5 self-contained tests), a scripted run traced as a
+   tree by wrapping the client and tools, and a crash marking both the
+   tool span and the run `ERROR`; 5 quiz cards. New shared constants in
+   `evalData.ts`: `TRACING_SETUP` and `TRACER`. Verified in real Pyodide
+   0.26.4: all three demos reproduce the mockup's output exactly with the
+   page's own setup strings; the reference passes all 5 tests, the starter
+   fails, and eight wrong versions each fail the test aimed at them
+   (outermost parent, swallowed exception, no `finally`, attributes not
+   copied, status `OK` on success, error message as `error.type`, a trace
+   id per span, the clock read twice). Callbacks: Module 2 Lesson 11's
+   `#the-fix-by-hand-a-tracing-hook` (anchor verified), Module 4 Lesson
+   12's seeing-inside-each-request, Module 6 Lesson 3's
+   what-a-failed-check-does and Lesson 8's pinning page, Module 2 Lesson
+   6's tool-errors-as-observations (page links). Further concepts and
+   bookends not yet drafted.
+
 ### Old-plan outline (where it was Module 4)
 
 *Rough outline — deliberately sequenced before Modules 5 and 6 ("you
@@ -6536,6 +6560,11 @@ bullet.
     loop, bound with an immediately called lambda
     (`(lambda real: lambda **kwargs: ...)(tools[name])`), used to wrap each
     tool in Lesson 10's fault injection.
+- **Module 0 gap list, addition from Module 7 Lesson 2 (2026-10-01).**
+  Copy across to `course-improvement-backlog.md`: `contextvars`, mentioned
+  in the tracing lesson as how real tracers (OpenTelemetry's Python SDK)
+  track the current span across threads and async tasks. Genuinely
+  complicated; a candidate for Module 0's async lesson.
 - **Module 6 source claims:** resolved by the 2026-09-30 citation audit
   (see Module 6's "Citation audit" note and `citation-audit/module-6.md`).
   Left open: Zhu et al.'s review status (labelled a preprint).

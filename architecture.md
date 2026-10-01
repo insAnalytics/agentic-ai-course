@@ -438,7 +438,15 @@ and the final registry state, so each trial replays exactly):
 Shared setup is in `src/lib/evalData.ts`: `pilotData(...setups)` builds a
 demo's `dataFiles` list (`tasks.json` plus only the named runs) and
 `LOAD_PILOT` (`load_pilot`, `load_tasks`; shown verbatim in Module 7 Lesson
-1 concept 1, keep the two byte-identical).
+1 concept 1, keep the two byte-identical). Lesson 2 (tracing) adds
+`TRACING_SETUP` (`LOAD_PILOT` + `REACT_FAKE_CLIENT` + Module 6's
+`CHECKED_AGENT`, the start of every demo in the lesson) and `TRACER`
+(`Span` and a stack-based `Tracer` whose `span()` is a
+`@contextmanager`: the concept 1 exercise's reference, which the page shows
+as the correct answer by using the constant itself, so the two can't
+drift). Demos after that exercise append `TRACER` to `TRACING_SETUP`; a
+demo that reuses an earlier demo's helpers gets them as hidden setup by
+slicing the earlier demo's constant up to its run.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
