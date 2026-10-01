@@ -6393,7 +6393,20 @@ architecture.md §3.1).
    prefix, unknown mode returning False, mutating `actual`); the demo
    matches the mockup exactly. Callbacks to Module 6 Lesson 7's
    reading-the-result-back and Lesson 10's layering-the-checks (page links,
-   no subsection named). Further concepts and bookends not yet drafted.
+   no subsection named).
+   Concept 3 (grading one piece on its own) is built: single-step /
+   component evals (unit tests for code; Module 5's retrieval metrics,
+   Module 4's summary probes and one frozen loop decision for model
+   steps), a demo of every p01 search across all three pilot setups (every
+   search naming the alert found `D08:1`; the five failing runs all stopped
+   after one search), using the two kinds together, 5 quiz cards. The demo
+   reproduces the mockup's output exactly, and the D08 threshold quoted in
+   the prose was checked against `documents.json`. Callbacks: Module 0's
+   pytest-basics concept page, Module 5 Lesson 2's metrics page, Module 4
+   Lesson 5's `#testing-a-summary-by-asking-it-questions` and Module 5
+   Lesson 11's `#measured` (anchors verified in the built HTML). Mentions
+   of Lessons 2 and 3 are plain prose. Further concepts and bookends not
+   yet drafted.
 
 ### Old-plan outline (where it was Module 4)
 
