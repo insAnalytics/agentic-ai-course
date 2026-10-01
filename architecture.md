@@ -549,7 +549,13 @@ exercise's reference, passed to its exercise as `namespaceSetup` alongside
 `LOAD_SUITE`. Concept 2 adds `suite/multihop-baseline.json` (8 KB: every baseline
 run of q29 and q39 with its searches, whether it found D08:1, whether it
 gave q29's threshold, and Claude's reading of each q39 run), written by
-`scripts/eval/multihop_facts.py` (`--check`).
+`scripts/eval/multihop_facts.py` (`--check`). Concept 4 reads Module 6's
+`reliability/runs/pushback.json` and the phase 2a
+`reliability/runs/pushback-control.json` (516 KB), and runs Module 6
+Lesson 6 concept 4's reference `after_pushback` (with `answer_key` and
+`in_sources`) as a demo's hidden setup: the page holds a copy as
+`AFTER_PUSHBACK`, and `check-copies.mjs`'s `CONTAINED` list checks every
+definition in it is still in Module 6's `REFERENCE`.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or

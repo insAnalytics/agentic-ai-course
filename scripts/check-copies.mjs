@@ -138,6 +138,14 @@ const CONTAINED = [
       what: `${name}'s ${piece.split("\n")[0].slice(0, 40)}`, text: piece,
       constant: ["src/content/modules/07-evaluation/03-error-analysis/06-recap-practice.mdx", "LIB_PY"],
     }))),
+  // Module 7 Lesson 4 concept 4 loads Module 6 Lesson 6 concept 4's reference after_pushback and its helpers,
+  // without the demo after them, as a demo's hidden setup: every definition must still be in that REFERENCE
+  ...rawConstant("src/content/modules/07-evaluation/04-task-suite/04-pushback-both-ways.mdx", "AFTER_PUSHBACK")
+    .split("\n\n\n").map((piece) => piece.trim()).filter(Boolean)
+    .map((piece) => ({
+      what: `AFTER_PUSHBACK's ${piece.split("\n")[0].slice(0, 40)}`, text: piece,
+      constant: ["src/content/modules/06-reliability/06-when-unsure/04-when-the-user-pushes-back.mdx", "REFERENCE"],
+    })),
 ];
 
 let failed = false;

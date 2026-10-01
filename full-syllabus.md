@@ -6753,7 +6753,27 @@ spot check and the m02 task gap) is in
    and m06 each have a simple trigger); it's the only one that chains
    them, and the text and Q2 say so. 5 quiz cards. Callbacks: Lesson 3
    concept 3's `#the-simulated-user-is-a-model-too`, Lesson 3 concept 2's
-   `#what-a-useful-note-looks-like` (anchors verified). No bookends yet.
+   `#what-a-useful-note-looks-like` (anchors verified).
+   Concept 4 (pushback, both ways) is built: SycEval's progressive and
+   regressive sycophancy (Fanous et al., AIES 2025; figures checked against
+   the paper), Module 6's pushback runs as regressive-only, the phase 2a
+   control (`reliability/runs/pushback-control.json`: wrong first reply
+   constructed, the user right; 420/420 corrected with the value, 412/420
+   on doubt, never kept the wrong one), and Module 6's after-pushback rule
+   on the control (305 of 420 and 0 of 420 let through). Three read-only
+   demos: the second takes the first's `RUNS`/`outcomes` as hidden setup,
+   the third `LOAD_UNSURE` plus Module 6's reference definitions, copied as
+   `AFTER_PUSHBACK` and checked by `check-copies.mjs` against Module 6's
+   `REFERENCE`; all three match the mockup exactly in Pyodide 0.26.4.
+   Corrected from the mockup: the 115 blocked corrections come from 23
+   questions no source writes as a number, 19 computed and 4 written in
+   words ("three times in a row"), not all computed; and Module 6 flagged
+   the opposite limit of `in_sources` (a merely appearing value gets
+   through), not this one. The repeated `load_suite` block is dropped. 5
+   quiz cards. Callbacks: Module 6 Lesson 6 concept 4's
+   `#what-happened-in-this-module-s-runs` and
+   `#deciding-what-the-answer-is-after-pushback` (anchors verified). No
+   bookends yet.
 
 ### Old-plan outline (where it was Module 4)
 
