@@ -6576,6 +6576,21 @@ kept as `TOOL_SPECS_PILOT`).
    with its message, and the reference, typed into the editor, passes and
    prints the expected summary.
 
+3. **Error Analysis** (`03-error-analysis`, title provisional) —
+   **Building.** Data: `public/data/eval/reading/` (the 100-trace reading
+   sample of `baseline-a`, the readers' labels, the categories; see
+   `scripts/eval/README-labeller.md`). Concept 1 (from a fixed map to this
+   agent's own failures) is built: Module 6's map run the other way round,
+   Husain and Shankar's open and axial coding, theoretical saturation,
+   MAST as the research precedent, how the sample was drawn (batch a, dev
+   tasks only, every task once, blind to grades) and what reading costs;
+   new shared `readingData` and `LOAD_READING` (shown verbatim, checked by
+   `check-copies.mjs`); two read-only demos (the sample's spread, Simar's
+   reading times), both matching the mockup exactly; 5 quiz cards.
+   Callbacks: Module 6 Lesson 1's `#using-the-map-on-a-failed-run` and
+   Lesson 2 concept 4's `#two-runs-summarized` (anchors verified). Not yet
+   drafted: the remaining concepts and the bookends.
+
 ### Old-plan outline (where it was Module 4)
 
 *Rough outline — deliberately sequenced before Modules 5 and 6 ("you

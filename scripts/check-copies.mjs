@@ -71,6 +71,17 @@ const PAIRS = [
         "import hashlib\nimport json\n\n\ndef request_hash"),
     ],
   },
+  {
+    what: "LOAD_READING (Module 7 Lesson 3 concept 1)",
+    a: ["src/lib/evalData.ts", () => rawConstant("src/lib/evalData.ts", "LOAD_READING")],
+    b: [
+      "the page's setup block",
+      () => pageFence(
+        "src/content/modules/07-evaluation/03-error-analysis/01-from-a-fixed-map.mdx",
+        "import json\nfrom pathlib import Path\n\nREADING =",
+      ),
+    ],
+  },
   // the pilot's modules, served to the browser for Module 7 Lesson 2 concept 5's replays
   ...[
     ...["eval_client", "registry_world", "harness"].map((name) => `scripts/eval/${name}.py`),

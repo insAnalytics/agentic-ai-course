@@ -513,12 +513,18 @@ shared code; `check-copies.mjs` checks every definition from `TRACER`,
 `TRACED_CHECKS`, `INSTRUMENT_WRAPPERS` (bar `config_hash`), `SUMMARIZE` and
 `LOAD_PILOT` appears in it byte for byte (`CONTAINED` entries can target a
 page constant as well as a file).
+Lesson 3 (error analysis) adds `readingData(...names)` (files under
+`public/data/eval/reading/`: `sample.json`, the readers' `labels-*.json`
+and `categories.json`, all small; `traces.json`, 2 MB, listed only by the
+demos that read it) and `LOAD_READING` (`load_reading(name)`; shown
+verbatim in concept 1, kept identical by the copy check), the setup of
+every demo in the lesson.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
 code block has drifted: currently the pilot's `tasks.json` against
-`scripts/eval/tasks/pilot.json`, `LOAD_PILOT` against the page's static
-setup block, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
+`scripts/eval/tasks/pilot.json`, `LOAD_PILOT` and `LOAD_READING` against
+the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
 the demos that show them, the replay exercise's static provided block
 against its constant, and each `public/data/eval/code/*.py` against its
 source. A second list, `CONTAINED`, checks that code a page shows appears

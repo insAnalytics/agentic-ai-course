@@ -334,3 +334,28 @@ from harness import Task, run_trial
 from registry_world import RegistryWorld
 from tokens import _plain
 `;
+
+/**
+ * Module 7 Lesson 3's reading files under public/data/eval/reading/: the
+ * sample, each reader's labels and the categories (all small). traces.json
+ * (2 MB) is listed only by the demos that read it.
+ */
+export function readingData(...names: string[]): string[] {
+  return names.map((name) => `eval/reading/${name}.json`);
+}
+
+/**
+ * Module 7 Lesson 3's shared setup, introduced in concept 1 and shown there
+ * verbatim (keep the two byte-identical: scripts/check-copies.mjs checks it).
+ * Every demo in the lesson starts from it.
+ */
+export const LOAD_READING = String.raw`import json
+from pathlib import Path
+
+READING = Path("/data/eval/reading")
+
+
+def load_reading(name: str) -> dict:
+    """One of the reading files: "sample", "labels-simar", "labels-simar-v2", "labels-claude", "categories"."""
+    return json.loads((READING / f"{name}.json").read_text(encoding="utf-8"))
+`;
