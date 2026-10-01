@@ -52,6 +52,14 @@ python scripts/eval/run_main.py --batch a
 python scripts/eval/run_main.py --batch b
 ```
 
+Anything changed on the machine to get vLLM running goes on the command line too, so the run file's
+`environment` field records it. The baseline needed:
+
+```bash
+python scripts/eval/run_main.py --batch a --env-var VLLM_USE_FLASHINFER_SAMPLER=0 --package-removed torchaudio \
+  --environment-notes "torchaudio (CUDA 12.8 build) broke vLLM's import with the CUDA 13.0 PyTorch; ..."
+```
+
 Each batch is 96 tasks x 5 trials = 480 trials, with 48 running at once. From the pilot's cost (about 0.8
 GPU-seconds per trial) expect roughly 15-30 GPU-minutes for both batches, plus loading the models. Each file
 should be around 10 MB.

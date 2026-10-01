@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reading the runs</title>
+<!--
+  Module 7, Lesson 3: the labelling page (see ../README-labeller.md). Run from the repo root:
+      python -m http.server
+  then open http://localhost:8000/scripts/eval/labeller/
+  It loads only the reading sample's two files, and never shows a trial's grade, batch or trial number.
+-->
+<style>
+  :root {
+    --bg: #fbfaf7; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6a66; --line: #e2dfd8;
+    --accent: #2f5d8a; --accent-ink: #ffffff; --soft: #f1efe9; --error: #b3261e; --error-soft: #fbe9e7;
+    --user: #eef3f8; --sim: #f4eefa; --ok: #2e7d32; --warn: #a15c00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161615; --panel: #1f1f1d; --ink: #ecebe6; --muted: #a3a29c; --line: #34332f;
+      --accent: #7fb0e0; --accent-ink: #10202f; --soft: #262624; --error: #f28b82; --error-soft: #3a1f1d;
+      --user: #1e2a36; --sim: #2a2236; --ok: #81c995; --warn: #f0b35a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { position: sticky; top: 0; z-index: 2; background: var(--panel); border-bottom: 1px solid var(--line);
+           display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 10px 16px; }
+  header h1 { font-size: 16px; margin: 0 8px 0 0; }
+  header .spacer { flex: 1; }
+  main { max-width: 900px; margin: 0 auto; padding: 16px; }
+  button, select { font: inherit; color: inherit; background: var(--soft); border: 1px solid var(--line);
+                   border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  a { color: var(--accent); }
+  .muted { color: var(--muted); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin: 12px 0; }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; }
+  .title { font-size: 19px; font-weight: 600; margin: 0; }
+  .title code { font-size: 18px; }
+  .meta { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font-size: 12px; background: var(--soft); border: 1px solid var(--line); border-radius: 99px; padding: 1px 9px; }
+  .chip.fault { color: var(--warn); border-color: currentColor; }
+  .text { white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre { margin: 6px 0 0; padding: 8px 10px; background: var(--soft); border-radius: 6px; white-space: pre-wrap;
+        overflow-wrap: anywhere; font: 13px/1.45 ui-monospace, "Cascadia Mono", Consolas, monospace; max-height: 22em; overflow: auto; }
+  .turn { border-left: 3px solid var(--line); padding: 6px 0 6px 12px; margin: 10px 0; }
+  .turn.user { border-color: var(--accent); background: var(--user); border-radius: 0 6px 6px 0; padding-right: 10px; }
+  .turn.sim { border-color: #8a5cc2; background: var(--sim); border-radius: 0 6px 6px 0; padding-right: 10px; }
+  .turn.tool-result.is-error { border-color: var(--error); }
+  .who { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; border-radius: 4px;
+           padding: 0 6px; margin-left: 6px; vertical-align: 1px; }
+  .badge.error { background: var(--error-soft); color: var(--error); border: 1px solid var(--error); }
+  details > summary { cursor: pointer; color: var(--muted); }
+  details.reasoning { margin: 4px 0; }
+  details.reasoning[open] > summary { margin-bottom: 4px; }
+  .call { margin-top: 6px; }
+  .call .name { font-family: ui-monospace, Consolas, monospace; font-weight: 600; }
+  .change { font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+  .guide blockquote { margin: 0; }
+  .guide li { margin: 6px 0; }
+  form label.opt { display: inline-flex; align-items: center; gap: 4px; margin-right: 14px; cursor: pointer; }
+  form .field { margin: 10px 0; }
+  form .field > .lbl { font-weight: 600; display: block; margin-bottom: 4px; }
+  form .req { color: var(--error); font-weight: 400; font-size: 12px; }
+  textarea { width: 100%; min-height: 4.5em; font: inherit; color: inherit; background: var(--bg);
+             border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; resize: vertical; }
+  .status { font-size: 13px; }
+  .status.done { color: var(--ok); }
+  .status.todo { color: var(--warn); }
+  .nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #loading { padding: 40px 0; text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Reading the runs</h1>
+  <label>Reader <select id="reader"><option value="">choose…</option><option value="simar">simar</option><option value="claude">claude</option></select></label>
+  <span id="progress" class="muted"></span>
+  <span class="spacer"></span>
+  <a href="#" id="guide-link">How to read</a>
+  <button id="export" disabled>Export</button>
+  <button id="import" disabled>Import</button>
+  <input type="file" id="import-file" accept=".json,application/json" hidden>
+</header>
+<main>
+  <div id="loading" class="muted">Loading the sample…</div>
+  <section id="guide" class="card guide" hidden>
+    <h2>How to read</h2>
+    <blockquote>
+      <p>Read each run as the person who asked would, and note the first thing that went wrong.</p>
+      <ul>
+        <li><strong>Pass or fail?</strong> Would the person who asked be satisfied, and is the world (the registry, the emails) as it
+          should be? A run that ends right but told the user something false fails. Read passes as carefully as
+          failures: a pass can hide a wrong step.</li>
+        <li><strong>The first failure.</strong> Write down the earliest point where the run went wrong, in your own words, specific
+          enough that someone else could find it: "moved support_agent without asking which of support-team's three
+          agents was meant", not "bad action". Later problems usually follow from the first; one note per run is
+          enough.</li>
+        <li><strong>Don't sort yet.</strong> Don't try to fit notes into categories while reading. Grouping comes afterwards, from
+          all the notes together.</li>
+        <li><strong>Whose fault?</strong> Usually the agent's. It's the task's if the request was ambiguous or its expected outcome
+          was wrong; the simulated user's if it broke its instructions (invented facts, forgot to answer, started
+          acting as the assistant); the environment's if a tool or the world misbehaved in a way the task didn't
+          intend. Pick "unclear" rather than guess.</li>
+        <li><strong>How it got there.</strong> If the reasoning shows why the agent did something, or that a pass was luck, say so
+          in "how". Reasoning is evidence, not proof: check it against what the agent actually did.</li>
+        <li><strong>The reference</strong> is there if you need it, but form your own view first.</li>
+      </ul>
+    </blockquote>
+  </section>
+  <div id="trace"></div>
+</main>
+
+<script>
+"use strict";
+const DATA = "/public/data/eval/reading/";
+const VERDICTS = ["pass", "fail", "unsure"];
+const FAULTS = ["agent", "task", "simulated_user", "environment", "unclear"];
+const FAULT_NAMES = {agent: "agent", task: "task", simulated_user: "simulated user", environment: "environment", unclear: "unclear"};
+const DEFAULT_GROUPS = ["all-staff", "finance", "oncall", "security"];
+const FAULT_TEXT = {lose_writes: "the write is lost", empty_agent: "the record comes back empty",
+                    health_timeout: "the health service times out"};
+
+let sample, traces, reader = null, index = 0, labels = {};
+let shownAt = null;   // when the current trace's on-screen time started counting; null while hidden
+
+// ---------- storage (every read and write guarded: the page still works without it) ----------
+const store = {
+  get(key) { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } },
+  set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* not saved */ } },
+};
+const labelsKey = () => `labeller:v${sample.version}:${reader}:labels`;
+const indexKey = () => `labeller:v${sample.version}:${reader}:index`;
+function save() { store.set(labelsKey(), labels); store.set(indexKey(), index); }
+
+// ---------- small DOM helper: text is always set as text, never parsed as HTML ----------
+function el(tag, attrs, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k === "class") node.className = v;
+    else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
+    else node.setAttribute(k, v === true ? "" : v);
+  }
+  for (const child of children.flat()) {
+    if (child == null || child === false) continue;
+    node.append(child instanceof Node ? child : document.createTextNode(String(child)));
+  }
+  return node;
+}
+const pretty = (value) => typeof value === "string" ? value : JSON.stringify(value, null, 2);
+function prettyOutput(text) {
+  // tool results are often JSON in a string; indent them so they're readable
+  try { const parsed = JSON.parse(text); if (parsed && typeof parsed === "object") return JSON.stringify(parsed, null, 2); } catch {}
+  return text;
+}
+const words = (text) => (text.trim().match(/\S+/g) || []).length;
+
+// ---------- time on screen ----------
+function flushTime() {
+  if (shownAt == null || !reader) return;
+  const id = currentId();
+  const now = performance.now();
+  const label = labelFor(id);
+  label.seconds = (label.seconds || 0) + (now - shownAt) / 1000;
+  shownAt = now;
+  save();
+}
+function startTime() { shownAt = document.visibilityState === "visible" ? performance.now() : null; }
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") { flushTime(); shownAt = null; } else startTime();
+});
+window.addEventListener("pagehide", flushTime);
+setInterval(() => { if (shownAt != null) flushTime(); }, 5000);
+
+// ---------- labels ----------
+const order = () => sample.order[reader];
+const currentId = () => order()[index];
+function labelFor(id) {
+  return labels[id] ||= {verdict: null, first_failure: "", fault: null, how: "", reference_viewed: false, seconds: 0};
+}
+function missing(label) {
+  if (!label || !label.verdict) return ["verdict"];
+  if (label.verdict === "pass") return [];
+  const out = [];
+  if (!(label.first_failure || "").trim()) out.push("the first failure");
+  if (!label.fault) out.push("whose fault");
+  return out;
+}
+const isDone = (id) => missing(labels[id]).length === 0;
+
+function exportFile() {
+  flushTime();
+  const out = {reader, sample_version: sample.version, labels: order().filter((id) => labels[id]).map((id) => {
+    const l = labels[id];
+    return {trial_id: id, verdict: l.verdict,
+            first_failure: (l.first_failure || "").trim() || null,
+            fault: l.fault || null,
+            how: (l.how || "").trim() || null,
+            reference_viewed: !!l.reference_viewed, seconds: Math.round(l.seconds || 0)};
+  })};
+  const blob = new Blob([JSON.stringify(out, null, 1) + "\n"], {type: "application/json"});
+  const a = el("a", {href: URL.createObjectURL(blob), download: `labels-${reader}.json`});
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+async function importFile(file) {
+  let data;
+  try { data = JSON.parse(await file.text()); } catch { alert("That file isn't JSON."); return; }
+  if (!data || !Array.isArray(data.labels) || !sample.order[data.reader]) { alert("That isn't a labels file from this page."); return; }
+  if (data.sample_version !== sample.version) { alert(`That file is for sample version ${data.sample_version}; this sample is version ${sample.version}.`); return; }
+  const known = new Set(sample.order[data.reader]);
+  const unknown = data.labels.filter((l) => !known.has(l.trial_id));
+  if (unknown.length) { alert(`${unknown.length} of its labels are for traces not in ${data.reader}'s list (first: ${unknown[0].trial_id}).`); return; }
+  if (reader) flushTime();
+  const existing = store.get(`labeller:v${sample.version}:${data.reader}:labels`) || {};
+  const overwritten = data.labels.filter((l) => existing[l.trial_id] && existing[l.trial_id].verdict).length;
+  if (overwritten && !confirm(`Importing replaces ${overwritten} label(s) already saved in this browser for ${data.reader}. Go ahead?`)) return;
+  for (const l of data.labels) {
+    existing[l.trial_id] = {verdict: VERDICTS.includes(l.verdict) ? l.verdict : null,
+                            first_failure: l.first_failure || "", fault: FAULTS.includes(l.fault) ? l.fault : null,
+                            how: l.how || "", reference_viewed: !!l.reference_viewed, seconds: Number(l.seconds) || 0};
+  }
+  store.set(`labeller:v${sample.version}:${data.reader}:labels`, existing);
+  // resume at the first trace without a complete label
+  const firstOpen = sample.order[data.reader].findIndex((id) => missing(existing[id]).length);
+  store.set(`labeller:v${sample.version}:${data.reader}:index`, firstOpen === -1 ? 0 : firstOpen);
+  shownAt = null;
+  chooseReader(data.reader);
+}
+
+// ---------- rendering ----------
+function taskTitle(task) {
+  return el("p", {class: "title"}, el("code", {}, task.id), " · ", task.kind);
+}
+
+function renderRun(trace) {
+  const task = trace.task;
+  const toolNames = {};
+  const items = [];
+  // messages: the earlier turns, then the request, then the run itself
+  for (const message of trace.messages.slice(task.history.length + 1)) {
+    if (message.role === "user" && typeof message.content === "string") {
+      items.push(el("div", {class: "turn sim"}, el("div", {class: "who"}, "Simulated user"),
+                    el("div", {class: "text"}, message.content)));
+      continue;
+    }
+    const blocks = typeof message.content === "string" ? [{type: "text", text: message.content}] : message.content;
+    if (message.role === "assistant") {
+      const parts = [];
+      for (const block of blocks) {
+        if (block.type === "thinking") {
+          parts.push(el("details", {class: "reasoning"},
+                        el("summary", {}, `Reasoning (${words(block.thinking)} words)`),
+                        el("div", {class: "text muted"}, block.thinking)));
+        } else if (block.type === "text") {
+          parts.push(el("div", {class: "text"}, block.text));
+        } else if (block.type === "tool_use") {
+          toolNames[block.id] = block.name;
+          parts.push(el("div", {class: "call"}, "→ calls ", el("span", {class: "name"}, block.name),
+                        el("pre", {}, pretty(block.input))));
+        }
+      }
+      items.push(el("div", {class: "turn"}, el("div", {class: "who"}, "Agent"), parts));
+    } else {
+      for (const block of blocks) {
+        if (block.type !== "tool_result") continue;
+        const content = Array.isArray(block.content) ? block.content.map((c) => c.text ?? pretty(c)).join("\n") : String(block.content);
+        items.push(el("div", {class: `turn tool-result${block.is_error ? " is-error" : ""}`},
+                      el("div", {class: "who"}, `Result of ${toolNames[block.tool_use_id] || "a tool call"}`,
+                         block.is_error ? el("span", {class: "badge error"}, "error") : null),
+                      el("pre", {}, prettyOutput(content))));
+      }
+    }
+  }
+  return items;
+}
+
+function renderChanges(changes) {
+  const rows = [];
+  for (const [agent, fields] of Object.entries(changes.registry)) {
+    for (const [field, [before, after]] of Object.entries(fields)) {
+      rows.push(el("div", {class: "change"}, `${agent}.${field}: `, pretty(before), " → ", pretty(after)));
+    }
+  }
+  for (const email of changes.outbox) {
+    rows.push(el("div", {class: "turn"}, el("div", {class: "who"}, "Email sent"),
+                 el("div", {}, el("strong", {}, "To: "), email.to),
+                 el("div", {class: "text"}, email.body)));
+  }
+  return rows.length ? rows : [el("p", {class: "muted"}, "Nothing changed: no registry field changed and no email was sent.")];
+}
+
+function renderReference(trace, id) {
+  const box = el("div", {});
+  const show = () => {
+    const label = labelFor(id);
+    label.reference_viewed = true; save();
+    const ref = trace.task.reference;
+    box.replaceChildren(
+      el("div", {class: "field"}, el("strong", {}, "Reference answer: "),
+         ref.answer == null ? el("span", {class: "muted"}, "none (the task has no fixed answer)") : el("span", {class: "text"}, ref.answer)),
+      el("div", {class: "field"}, el("strong", {}, "Notes: "),
+         ref.notes == null ? el("span", {class: "muted"}, "none") : el("span", {class: "text"}, ref.notes)),
+      el("p", {class: "muted"}, "Recorded: you viewed the reference for this trace."));
+  };
+  if (labelFor(id).reference_viewed) show();
+  else box.append(el("button", {onclick: show}, "Show reference"),
+                  el("span", {class: "muted"}, "  Form your own view first; viewing it is recorded."));
+  return box;
+}
+
+function renderForm(id) {
+  const label = labelFor(id);
+  const status = el("span", {class: "status"});
+  const reqNote = el("span", {class: "req"});
+  const faultReq = el("span", {class: "req"});
+  const update = () => {
+    const gaps = missing(label);
+    status.className = `status ${gaps.length ? "todo" : "done"}`;
+    status.textContent = gaps.length ? `Still needed: ${gaps.join(", ")}` : "Labelled";
+    const needed = label.verdict && label.verdict !== "pass";
+    reqNote.textContent = needed ? " required" : " for fail and unsure";
+    faultReq.textContent = needed ? " required" : " for fail and unsure";
+    renderProgress();
+    save();
+  };
+  const radios = (name, values, names, key) => values.map((value) =>
+    el("label", {class: "opt"},
+       el("input", {type: "radio", name, value, checked: label[key] === value,
+                    onchange: () => { label[key] = value; update(); }}),
+       names ? names[value] : value));
+  const text = (key, placeholder) => {
+    const area = el("textarea", {placeholder, oninput: () => { label[key] = area.value; update(); }});
+    area.value = label[key] || "";
+    return area;
+  };
+  const form = el("form", {class: "card", onsubmit: (e) => e.preventDefault()},
+    el("h2", {}, "Your label"),
+    el("div", {class: "field"}, el("span", {class: "lbl"}, "Verdict ", el("span", {class: "req"}, "required")),
+       radios("verdict", VERDICTS, null, "verdict")),
+    el("div", {class: "field"}, el("span", {class: "lbl"}, "The first thing that went wrong", reqNote),
+       text("first_failure", "Specific enough that someone else could find it")),
+    el("div", {class: "field"}, el("span", {class: "lbl"}, "Whose fault", faultReq),
+       radios("fault", FAULTS, FAULT_NAMES, "fault"),
+       el("button", {type: "button", onclick: () => { label.fault = null; form.querySelectorAll("input[name=fault]").forEach((r) => r.checked = false); update(); }}, "clear")),
+    el("div", {class: "field"}, el("span", {class: "lbl"}, "How it got there ", el("span", {class: "req muted"}, "optional")),
+       text("how", "From its reasoning or its steps; including a pass that got there by luck or for the wrong reason")),
+    el("div", {class: "nav"},
+       el("button", {type: "button", disabled: index === 0, onclick: () => go(index - 1)}, "← Previous"),
+       el("button", {type: "button", class: "primary", disabled: index === order().length - 1, onclick: () => go(index + 1)}, "Next →"),
+       status));
+  update();
+  return form;
+}
+
+function renderTrace() {
+  const id = currentId();
+  const trace = traces[id];
+  const task = trace.task;
+  const groups = task.groups && [...task.groups].sort().join() !== DEFAULT_GROUPS.join() ? task.groups : null;
+  const view = document.getElementById("trace");
+  document.getElementById("guide").hidden = index !== 0;
+
+  const head = el("div", {class: "card"}, taskTitle(task),
+    el("div", {class: "meta"},
+       task.faults.map((f) => el("span", {class: "chip fault"}, `injected fault: ${FAULT_TEXT[f] || f}`)),
+       groups && el("span", {class: "chip"}, `reader groups: ${groups.join(", ")}`)));
+
+  const request = el("div", {class: "card"}, el("h2", {}, task.history.length ? "The conversation so far, then the request" : "The request"),
+    task.history.map((m) => el("div", {class: `turn ${m.role === "user" ? "user" : ""}`},
+                               el("div", {class: "who"}, m.role === "user" ? "User" : "Agent"),
+                               el("div", {class: "text"}, typeof m.content === "string" ? m.content : pretty(m.content)))),
+    el("div", {class: "turn user"}, el("div", {class: "who"}, "User"), el("div", {class: "text"}, task.request)));
+
+  const persona = task.persona && el("details", {class: "card"},
+    el("summary", {}, "What the simulated user was told"), el("p", {class: "text"}, task.persona));
+
+  const answer = trace.answers.length ? trace.answers[trace.answers.length - 1] : null;
+  view.replaceChildren(
+    head, request, persona || "",
+    el("div", {class: "card"}, el("h2", {}, "The run"),
+       el("div", {class: "nav"},
+          el("button", {type: "button", onclick: () => view.querySelectorAll("details.reasoning").forEach((d) => d.open = true)}, "Expand all reasoning"),
+          el("button", {type: "button", onclick: () => view.querySelectorAll("details.reasoning").forEach((d) => d.open = false)}, "Collapse all")),
+       renderRun(trace)),
+    el("div", {class: "card"}, el("h2", {}, "The final answer"),
+       answer == null ? el("p", {class: "muted"}, "The agent gave no answer.") : el("div", {class: "text"}, answer)),
+    el("div", {class: "card"}, el("h2", {}, "What changed in the world"), renderChanges(trace.changes)),
+    el("div", {class: "card"}, el("h2", {}, "Reference"), renderReference(trace, id)),
+    renderForm(id));
+}
+
+function renderProgress() {
+  const done = order().filter(isDone).length;
+  document.getElementById("progress").textContent = `${index + 1} of ${order().length} · ${done} labelled`;
+}
+
+function go(next) {
+  flushTime();
+  index = Math.max(0, Math.min(order().length - 1, next));
+  save();
+  renderTrace();
+  renderProgress();
+  window.scrollTo(0, 0);
+  startTime();
+}
+
+function chooseReader(name) {
+  if (reader) flushTime();
+  reader = name || null;
+  document.getElementById("reader").value = reader || "";
+  document.getElementById("export").disabled = !reader;
+  store.set("labeller:reader", reader);
+  if (!reader) {
+    shownAt = null;
+    document.getElementById("trace").replaceChildren(el("p", {class: "muted"}, "Choose a reader to start."));
+    document.getElementById("progress").textContent = "";
+    document.getElementById("guide").hidden = false;
+    return;
+  }
+  labels = store.get(labelsKey()) || {};
+  const saved = store.get(indexKey());
+  index = Number.isInteger(saved) && saved >= 0 && saved < order().length ? saved : 0;
+  renderTrace();
+  renderProgress();
+  startTime();
+}
+
+document.getElementById("reader").addEventListener("change", (e) => chooseReader(e.target.value));
+document.getElementById("export").addEventListener("click", exportFile);
+document.getElementById("import").addEventListener("click", () => document.getElementById("import-file").click());
+document.getElementById("import-file").addEventListener("change", (e) => {
+  const file = e.target.files[0]; e.target.value = "";
+  if (file) importFile(file);
+});
+document.getElementById("guide-link").addEventListener("click", (e) => {
+  e.preventDefault();
+  const guide = document.getElementById("guide");
+  guide.hidden = false; guide.scrollIntoView({behavior: "smooth"});
+});
+
+(async () => {
+  try {
+    [sample, traces] = await Promise.all(["sample.json", "traces.json"].map(async (name) => {
+      const response = await fetch(DATA + name);
+      if (!response.ok) throw new Error(`${DATA + name}: ${response.status}`);
+      return response.json();
+    }));
+  } catch (error) {
+    document.getElementById("loading").textContent =
+      `Couldn't load the sample (${error.message}). Run "python -m http.server" from the repo root and open /scripts/eval/labeller/.`;
+    return;
+  }
+  document.getElementById("loading").remove();
+  document.getElementById("import").disabled = false;
+  chooseReader(store.get("labeller:reader") || "");
+})();
+</script>
+</body>
+</html>

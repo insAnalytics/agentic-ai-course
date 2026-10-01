@@ -80,6 +80,13 @@ def traced_trial(task, model, user, directory, tracer: Tracer, root_attributes: 
     return outcome
 
 
+def environment(args, vllm_version: str) -> dict:
+    """What was changed on the machine to get the servers running, from the command line, so a run records it."""
+    env_vars = dict(pair.split("=", 1) for pair in args.env_var)
+    return {"vllm": vllm_version, "env_vars": env_vars,
+            "packages_removed": args.package_removed, "notes": args.environment_notes}
+
+
 def run_batch(batch: str, args) -> dict:
     repo, revision = MODELS[MODEL]
     condition = f"baseline-{batch}"
@@ -138,6 +145,7 @@ def run_batch(batch: str, args) -> dict:
         records = list(pool.map(lambda job: one_trial(*job), jobs))
     wall = time.monotonic() - started
 
+    server = backend.server_info()
     run = {
         "condition": condition, "dry_run": args.dry_run, "model": repo, "revision": revision, "thinking": THINKING,
         "sampling": SAMPLING[THINKING], "max_tokens": MAX_TOKENS[THINKING], "trials_per_task": args.trials,
@@ -146,8 +154,9 @@ def run_batch(batch: str, args) -> dict:
         "user": None if args.dry_run else {"model": USER_MODEL, "sampling": USER_SAMPLING,
                                             "template_kwargs": USER_TEMPLATE_KWARGS, "max_tokens": USER_MAX_TOKENS},
         "tasks_file": {"path": str(TASKS.relative_to(ROOT)), "version": json.loads(TASKS.read_text(encoding="utf-8"))["version"]},
-        "setup": {"agent_server": backend.server_info(), "gpus": gpu_names(), "python": platform.python_version(),
+        "setup": {"agent_server": server, "gpus": gpu_names(), "python": platform.python_version(),
                   "workers": args.workers},
+        "environment": environment(args, server["version"]),
         "timing": {"wall_seconds": round(wall, 3), "trials": len(records),
                    "generated_tokens": sum(c["completion_tokens"] for r in records for c in r["calls"]),
                    "prompt_tokens": sum(c["prompt_tokens"] for r in records for c in r["calls"]),
@@ -172,7 +181,15 @@ def main() -> None:
     parser.add_argument("--user-url", default="http://localhost:8001")
     parser.add_argument("--workers", type=int, default=48)
     parser.add_argument("--tasks", help="comma-separated task ids, for a quick check")
+    # recorded in the run's "environment" field; see README-main.md for the values the baseline used
+    parser.add_argument("--env-var", action="append", default=[], metavar="NAME=VALUE",
+                        help="an environment variable set for the servers (repeatable)")
+    parser.add_argument("--package-removed", action="append", default=[], metavar="PACKAGE",
+                        help="a package uninstalled to make vLLM work (repeatable)")
+    parser.add_argument("--environment-notes", default=None, help="why, in a sentence or two")
     args = parser.parse_args()
+    if bad := [pair for pair in args.env_var if "=" not in pair]:
+        parser.error(f"--env-var takes NAME=VALUE, not {bad[0]!r}")
     if not Path("/data/rag/documents.json").exists():
         sys.exit("Module 5's data must be at /data/rag, as in the browser: ln -s \"$PWD/public/data/rag\" /data/rag")
     if args.batch == "all" and not args.dry_run:
