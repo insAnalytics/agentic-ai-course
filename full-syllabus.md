@@ -6440,21 +6440,28 @@ architecture.md §3.1).
    forbidden calls skipped, stopping at the first failure, ignoring
    `reply_matters`, mutating the trial, returning a list).
 
-**Main runs, phase 1 (baseline): scripts ready, not yet run (2026-10-01).**
-`scripts/eval/README-main.md`: the registry agent on the full 96-task pool
-(`tasks/main.json`: Module 5's 57 questions as 59 tasks, plus 37 registry
-tasks and conversations), two batches of 5 trials, traced as they run with
-`scripts/eval/tracing.py` (the lesson's tracing code, kept identical by
-`check-copies.mjs`). `set_model`'s description no longer says a change
-"applies from the agent's next session" (the pilot's wording is kept as
-`TOOL_SPECS_PILOT`). All pre-GPU checks pass: `build_main_tasks --check`,
-`main_selftest`, `grader_selftest`, all 90 pilot recordings replaying
-exactly with the changed code, and a 2-trial dry run whose 384 traced
-trials replay exactly without tracing. The site's served copies of
-`eval_client.py`, `registry_world.py` and `harness.py` were refreshed, and
-Lesson 2's replay demos and recap sandbox re-verified in Pyodide with them.
-Results (`public/data/eval/main/baseline-{a,b}.json`) come back after the
-Colab runs.
+**Main runs, phase 1 (baseline): done (2026-10-01).**
+`scripts/eval/README-main.md`: the registry agent (Qwen3.5-4B @ `851bf6e`,
+thinking on) on the full 96-task pool (`tasks/main.json`: Module 5's 57
+questions as 59 tasks, plus 37 registry tasks and conversations), two
+batches x 5 trials, traced as they ran with `scripts/eval/tracing.py` (the
+lesson's tracing code, kept identical by `check-copies.mjs`). Results in
+`public/data/eval/main/baseline-{a,b}.json` (13.5 MB each): 480 trials
+each, 0 raised, every trial replaying exactly (checked on Colab and again
+locally). Provisional code checks on the 37 registry tasks and
+conversations: mean pass rate 86% (a) and 88% (b); never passed a03, a10,
+a14 (a) and a14 (b); 13 and 21 trials stopped at the step limit; 1 format
+problem in 3,544 calls. The questions are graded in later lessons, and the
+content chat reads the never-passed tasks before trusting them.
+Environment: Colab, NVIDIA RTX PRO 6000 Blackwell Server Edition (compute
+capability 12.0, 97,887 MiB), vLLM 0.30.0. Changes from the README's
+setup: `torchaudio` uninstalled (its CUDA 12.8 build clashed with the CUDA
+13.0 PyTorch vLLM installed); `VLLM_USE_FLASHINFER_SAMPLER=0` on both
+servers (FlashInfer's sampler rejected the card in its GPU check); the two
+servers started one after the other, since starting them together made one
+fail its memory profiling. `set_model`'s description no longer says a
+change "applies from the agent's next session" (the pilot's wording is
+kept as `TOOL_SPECS_PILOT`).
 
 2. **Tracing an Agent Run** (`02-tracing`, title provisional) —
    **Locked.** Concept 1 (from a list of events to a tree of spans) is
