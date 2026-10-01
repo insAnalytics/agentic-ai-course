@@ -559,6 +559,10 @@ definition in it is still in Module 6's `REFERENCE`. Concept 5 adds `suite/basel
 every registry task and conversation in the main pool with its kind, split
 and current checks' result on every trial of both baseline batches),
 written by `scripts/eval/baseline_grades.py` (`--check`).
+Lesson 4's recap sandbox (`MultiFileGradedExercise`, no `setupCode`:
+`lib.py` reads `/data/eval/suite` itself) has a read-only `lib.py` with
+`load_suite` and `triage`; `check-copies.mjs`'s `CONTAINED` list checks
+that `LOAD_SUITE`'s `load_suite` and `TRIAGE` appear in it byte for byte.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or

@@ -146,6 +146,14 @@ const CONTAINED = [
       what: `AFTER_PUSHBACK's ${piece.split("\n")[0].slice(0, 40)}`, text: piece,
       constant: ["src/content/modules/06-reliability/06-when-unsure/04-when-the-user-pushes-back.mdx", "REFERENCE"],
     })),
+  // Lesson 4's recap lib.py: the lesson's loader and the first concept's triage, byte for byte
+  ...["LOAD_SUITE", "TRIAGE"].flatMap((name) =>
+    rawConstant("src/lib/evalData.ts", name).split("\n\n\n").map((piece) => piece.trim())
+      .filter((piece) => piece && !/^(import|from) /.test(piece))
+      .map((piece) => ({
+        what: `${name}'s ${piece.split("\n")[0].slice(0, 40)}`, text: piece,
+        constant: ["src/content/modules/07-evaluation/04-task-suite/07-recap-practice.mdx", "LIB_PY"],
+      }))),
 ];
 
 let failed = false;

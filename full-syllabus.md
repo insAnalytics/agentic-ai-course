@@ -6690,7 +6690,7 @@ spot check and the m02 task gap) is in
    ignored, unsorted, any get_agent as a read-back).
 
 4. **Building a Task Suite** (`04-task-suite`, title provisional) —
-   **Building.** Data: `public/data/eval/suite/grades-2a.json` (each phase
+   **Locked.** Data: `public/data/eval/suite/grades-2a.json` (each phase
    2a suite task, its code-check result on every trial of `suite-2a-a`, and
    whether its reference run passes; written by
    `scripts/eval/suite_grades.py`, `--check`). Concept 1 (what makes a good
@@ -6802,8 +6802,26 @@ spot check and the m02 task gap) is in
    60. 5 quiz cards. Callbacks: Module 1 Lesson 4 concept 4's
    `#what-this-concept-does-and-doesn-t-cover`, this lesson's concept 1
    `#the-benchmarks-get-it-wrong-too`, Lesson 1's
-   `#one-run-and-the-words-for-its-parts` (anchors verified). No bookends
-   yet.
+   `#one-run-and-the-words-for-its-parts` (anchors verified).
+   Bookends are built: intro (`00-intro.mdx`) with three outcomes and why
+   it matters; Recap & Practice (`07-recap-practice.mdx`) with an
+   8-question comprehensive quiz and a multi-file sandbox (`lib.py`
+   read-only: `load_suite` and `triage`, checked against `LOAD_SUITE` and
+   `TRIAGE` by `check-copies.mjs`; entry `suite_health.py`, where the
+   learner writes `can_catch(checks)`, `placement(tasks, trials,
+   reference_passes)` and `uncovered_categories(tasks)`). Reads
+   `suite/grades-2a.json`. Verified in real Pyodide 0.26.4 the way
+   `MultiFileGradedExercise` runs it: the reference passes and its Run
+   output matches the mockup (3 read the runs, 8 capability, 12
+   regression, 6 needing a reply grader, no category uncovered), the
+   starter runs and fails, and nine wrong versions each fail with their
+   intended message (step limit read with get, any outbox counted, registry
+   key presence counted, no can_catch, read-the-runs sent to fix, unsorted
+   or duplicated categories, mutated inputs, answer_excludes ignored).
+   Corrected from the mockup: Q3's explanation (nine of the ten runs of
+   s06 and s09 invented a citation, not every run) and Q4 (m02's persona
+   chains its conditions; others have simple triggers), as in concepts 1
+   and 3.
 
 ### Old-plan outline (where it was Module 4)
 
