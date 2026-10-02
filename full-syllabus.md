@@ -7443,8 +7443,8 @@ torch 2.13.0+cu130, `torchaudio` removed,
    "Their" for "this module's judges".
 
 9. **Ablations** (`09-ablations`, title provisional) — **Building.**
-   Concepts 1 to 3 are built; concepts 4 and 5 (the mockup's setup note
-   says concepts 3 to 5 share `LOAD_ABLATIONS`) and the bookends aren't
+   Concepts 1 to 4 are built; concept 5 (the mockup's setup note says
+   concepts 3 to 5 share `LOAD_ABLATIONS`) and the bookends aren't
    drafted yet. Concept 1 (one piece on and off): what an ablation holds fixed (tasks,
    budget, graders), Miller's "Adding Error Bars to Evals" (arXiv
    2411.00640, linked) on paired differences and clustering, the
@@ -7488,6 +7488,20 @@ torch 2.13.0+cu130, `torchaudio` removed,
    `#what-even-a-careful-summary-loses`), Module 4 Lesson 5 concept 3's
    `#don-t-make-the-summary-carry-what-code-can-derive` (anchors
    verified).
+   Concept 4 (Module 6's layers on real runs) is built: what Module 6's
+   scripted suite measured, the port's four mechanical changes (support
+   judge Gemma 4 26B-A4B, per `README-phase5.md`), layers minus baseline
+   by group (all -29.8%, -37.0% to -22.7%; questions -45.9%; planted and
+   broken result +33.3%), the layers' objections (376 of 625 answers
+   withheld: support judge 197, grounding 132, missing-part check 47; 49
+   stopped), the content chat's reading of sampled objections, what it
+   says about checks, 5 quiz cards, no exercise. Both demos reproduce the
+   mockup's output exactly; also checked against the data: 41 intent-check
+   objections in development runs, planted 0/30 to 10/30, broken result
+   15/15 with the layers. The reading's per-sample counts (10 of 10, about
+   8 of 10) come from the content chat and aren't in the data. Callback:
+   Module 6 Lesson 10 concept 3 (page). "Lesson 10" (comparing versions)
+   stays plain prose until it exists.
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092
