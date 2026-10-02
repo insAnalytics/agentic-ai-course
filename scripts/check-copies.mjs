@@ -314,6 +314,16 @@ const CONTAINED = [
       what: `${name}'s ${piece.split("\n")[0].slice(0, 40)}`, text: piece,
       constant: ["src/content/modules/07-evaluation/06-model-graders/06-recap-practice.mdx", "LIB_PY"],
     }))),
+  // Lesson 8's recap lib.py: Module 6's two signals and this lesson's references, byte for byte (read from the
+  // page source, since lib.py's normalize holds a backtick that rawConstant can't parse)
+  ...["ANSWER_PROBABILITY", "VERDICT_PROBABILITY", "CALIBRATION", "TEMPERATURE_SCALING"].flatMap((name) =>
+    rawConstant("src/lib/evalData.ts", name).split("\n\n\n")
+      .map((piece) => piece.split("\n").filter((line) => !/^(import|from) /.test(line)).join("\n").trim())
+      .filter(Boolean)
+      .map((piece) => ({
+        what: `${name}'s ${piece.split("\n")[0].slice(0, 40)}`, text: piece,
+        file: "src/content/modules/07-evaluation/08-calibration/05-recap-practice.mdx",
+      }))),
   // Lesson 7's recap lib.py: concept 4's reference rogan_gladen, byte for byte
   {
     what: "Lesson 7 concept 4's rogan_gladen",

@@ -7317,9 +7317,8 @@ torch 2.13.0+cu130, `torchaudio` removed,
    stays `07-measuring-judges` so existing links (including Module 6's set
    F note) keep working.
 
-8. **Calibration** (`08-calibration`, title provisional) — **Building:**
-   concepts 1 to 4 drafted and built; later concepts and bookends not
-   yet drafted.
+8. **Calibration** (`08-calibration`, title provisional) — **Locked.**
+   Concepts 1 to 4 and bookends built.
    Concept 1 (ranking isn't calibration) is built: AUROC against
    calibration, the 2B's answer-line probability beside the same scores
    squared (AUROC 0.525 both; mean confidence 90.7% vs 85.2%; accuracy
@@ -7417,6 +7416,31 @@ torch 2.13.0+cu130, `torchaudio` removed,
    `#a-judge-s-pass-rate-is-biased`, concept 2's
    `#where-each-signal-is-wrong`, concept 3's
    `#where-miscalibration-comes-from` (anchors verified).
+   Bookends are built: the intro (three outcomes, why it matters), the
+   comprehensive quiz (8 cards across the four concepts), and the
+   comprehensive sandbox, a two-file `MultiFileGradedExercise` (`lib.py`
+   read-only: Module 6's loaders and grading, its two signals,
+   `load_signals` as concept 2 built them, and this lesson's calibration
+   and temperature functions; `calibrate.py` the entry file) where the
+   learner writes `calibration_report(rows, threshold)`: fit a temperature
+   on even positions, report raw / scaled / constant ECE and Brier on odd
+   positions, and check the scaled scores' predicted errors above a
+   threshold. `lib.py`'s copies of `ANSWER_PROBABILITY`,
+   `VERDICT_PROBABILITY`, `CALIBRATION` and `TEMPERATURE_SCALING` are
+   copy-checked byte for byte against the page source (its `normalize`
+   holds a backtick, written as `${"`"}` as in `reliabilityData.ts`). The
+   page was generated from the mockup's code blocks and round-trips to
+   them exactly. In Pyodide 0.26.4 with the multi-file harness, the
+   reference's Run prints the mockup's output exactly (answer-line
+   temperature 1.75, 469 accepted at 0.9, 23.7 predicted vs 29 actual;
+   agreement 0.5, 155, 1.2 vs 2; verdicts 1.0, 147, 1.5 vs 0), it passes
+   the hidden tests, and the starter and eight wrong versions (fit on all
+   rows, halves swapped, constant from test, strict threshold, accepting
+   or predicting from raw scores, mutating the rows, unscaled "scaled")
+   each fail. Changed from the mockup: "Module 6 measured only the first"
+   is now "compared its signals on the first" (its first answer-line demo
+   did show probability bands against accuracy); Q8's correct option says
+   "Their" for "this module's judges".
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092

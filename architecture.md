@@ -679,6 +679,11 @@ set V judge runs. Concept 1's exercise reference is `CALIBRATION`
 (shown in concept 2, loaded hidden after it), and `TEMPERATURE_SCALING`
 is concept 3's exercise reference (`scale`, `log_loss`,
 `fit_temperature`).
+The recap's sandbox `lib.py` holds copies of `ANSWER_PROBABILITY`,
+`VERDICT_PROBABILITY`, `CALIBRATION` and `TEMPERATURE_SCALING`,
+copy-checked against the page source rather than the `LIB_PY` constant,
+because `lib.py`'s `normalize` contains a backtick (written `${"`"}`)
+that the check's `rawConstant` parser can't read past.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
