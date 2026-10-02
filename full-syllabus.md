@@ -7443,8 +7443,9 @@ torch 2.13.0+cu130, `torchaudio` removed,
    "Their" for "this module's judges".
 
 9. **Ablations** (`09-ablations`, title provisional) — **Building.**
-   Concepts 1 and 2 are built; later concepts (if any) and the bookends
-   aren't drafted yet. Concept 1 (one piece on and off): what an ablation holds fixed (tasks,
+   Concepts 1 to 3 are built; concepts 4 and 5 (the mockup's setup note
+   says concepts 3 to 5 share `LOAD_ABLATIONS`) and the bookends aren't
+   drafted yet. Concept 1 (one piece on and off): what an ablation holds fixed (tasks,
    budget, graders), Miller's "Adding Error Bars to Evals" (arXiv
    2411.00640, linked) on paired differences and clustering, the
    baseline's two 5-trial batches each with its own task-resampled
@@ -7472,6 +7473,21 @@ torch 2.13.0+cu130, `torchaudio` removed,
    Lesson 1 concept 3's `#estimating-pass-k-from-runs-you-already-have`
    and `#average-per-task-never-the-average-to-the-power-k` (anchors
    verified); "Lessons 4 to 6" stays plain prose.
+   Concept 3 (compaction on and off) is built: Module 4's second promised
+   test, why compaction was forced after three rounds (baseline runs
+   average 3.66 model calls, checked), the new `LOAD_ABLATIONS` setup over
+   `public/data/eval/ablations/results.json` (from the zip's
+   `scripts/eval/ablation_results.py`, rerun here: identical to the zip's
+   copy apart from line endings, `--check` passes), compaction minus
+   baseline by group (all tasks -3.8%, -7.7% to +0.0%; questions -5.9%,
+   -12.1% to -0.3%), the step-limit story (19 vs 60 stopped, every one of
+   the 60 compacted, checked; 35 repeated calls; 156 compacted runs, 52%
+   passed), what it means for the agent, 5 quiz cards, no exercise. Both
+   demos reproduce the mockup's output exactly. Callbacks: Module 4
+   Lesson 5 concept 2 (page), Lesson 5 concept 5 (page and
+   `#what-even-a-careful-summary-loses`), Module 4 Lesson 5 concept 3's
+   `#don-t-make-the-summary-carry-what-code-can-derive` (anchors
+   verified).
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092

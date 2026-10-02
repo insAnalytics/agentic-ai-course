@@ -697,12 +697,26 @@ Concept 2's exercise reference is `SUITE_PASS_HAT_K` (Module 6's
 `task_pass_hat_k` and `suite_pass_hat_k`, with `import random`), loaded
 hidden by both demos after it; its second demo mounts only Module 6's
 `reliability/runs/wordings.smaller.json` (no `set-e.json`).
+Concept 3 adds `public/data/eval/ablations/results.json` (218 KB),
+mounted at `/data/eval/ablations` via `ABLATIONS_DATA`, written by
+`scripts/eval/ablation_results.py` (`--check` fails if it's out of date;
+grading needs the registry world and the phase 5 judge files, so it's
+precomputed): for `baseline` (`baseline-a` + `suite-2a-a`) and each phase
+5 variant (`layers`, `compaction`, `no-labels`), every task's trials, each
+a row with `pass` (reached an answer, passed its code checks, passed
+every revised Gemma judge that graded it), `stopped`, `repeated_calls`,
+`cited`, plus `compacted` (compaction runs) or `objections`/`withheld`/
+`withheld_by` (layers runs); and each task's `split` and `group`
+(question, other, lost write, planted, broken result). `LOAD_ABLATIONS`
+(`results`, `passes(condition, group)`) is shown verbatim on concept 3,
+copy-checked, and is the setup of every demo from concept 3 on; concept
+3's first demo appends `PAIRED_DIFFERENCE`.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
 code block has drifted: currently the pilot's `tasks.json` against
 `scripts/eval/tasks/pilot.json`, `LOAD_PILOT`, `LOAD_READING` and `LOAD_SUITE`
-(Lesson 4 concept 1, Lesson 5 concepts 1 to 3, Lesson 9 concept 1) `LOAD_JUDGES` (Lesson 6 concepts 1 to 5) and `LOAD_JUDGE_LABELS` (Lesson 7 concepts 1 to 5) against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
+(Lesson 4 concept 1, Lesson 5 concepts 1 to 3, Lesson 9 concept 1), `LOAD_ABLATIONS` (Lesson 9 concept 3) `LOAD_JUDGES` (Lesson 6 concepts 1 to 5) and `LOAD_JUDGE_LABELS` (Lesson 7 concepts 1 to 5) against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
 the demos that show them, the replay exercise's static provided block
 against its constant, and each `public/data/eval/code/*.py` against its
 source. A second list, `CONTAINED`, checks that code a page shows appears

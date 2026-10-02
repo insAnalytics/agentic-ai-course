@@ -803,3 +803,24 @@ def suite_pass_hat_k(per_task: dict[str, list[bool]], k: int, repeats: int = 200
     means = sorted(sum(rng.choices(values, k=len(values))) / len(values) for _ in range(repeats))
     return sum(values) / len(values), means[int(0.025 * repeats)], means[int(0.975 * repeats) - 1]
 `;
+
+/** Module 7 Lesson 9's ablation results (written by scripts/eval/ablation_results.py), mounted at /data/eval/ablations. */
+export const ABLATIONS_DATA = ["eval/ablations/results.json"];
+
+/**
+ * Module 7 Lesson 9's shared setup from concept 3 on, introduced there and
+ * shown verbatim (keep the two byte-identical: scripts/check-copies.mjs
+ * checks it). Concepts 3 to 5 start every demo from it.
+ */
+export const LOAD_ABLATIONS = String.raw`import json
+from pathlib import Path
+
+ABLATIONS = Path("/data/eval/ablations")
+results = json.loads((ABLATIONS / "results.json").read_text(encoding="utf-8"))
+
+
+def passes(condition: str, group: str | None = None) -> dict[str, list[bool]]:
+    """Each task's trial results under one condition, optionally only the tasks in one group."""
+    return {task: [row["pass"] for row in rows] for task, rows in results["conditions"][condition].items()
+            if group is None or results["tasks"][task]["group"] == group}
+`;
