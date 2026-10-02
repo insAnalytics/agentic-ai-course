@@ -520,7 +520,20 @@ let judgeFile = null, judgeOrder = [], judgeItems = {}, judgeIndex = 0, judgeSta
 const judgeRelabel = () => JUDGE_MODE === "judges-relabel";
 const judgeKey = () => `judges:v${judgeFile.version}:${judgeRelabel() ? "relabel" : "first"}`;
 const saveJudges = () => store.set(judgeKey(), {...judgeState, index: judgeIndex});
-const judgeLabelled = () => judgeOrder.filter((id) => judgeState.labels[id] && judgeState.labels[id].verdict).length;
+const newJudgeLabel = () => ({verdict: null, reference_disputed: false, note: "", labelled_at: null});
+// what an item still needs: a verdict, and a note whenever the reference is disputed
+function judgeGaps(id) {
+  const l = judgeState.labels[id];
+  const gaps = [];
+  if (!l || !l.verdict) gaps.push("a verdict");
+  if (l && l.reference_disputed && !(l.note || "").trim()) gaps.push("a note on what's wrong with the reference");
+  return gaps;
+}
+const judgeLabelled = () => judgeOrder.filter((id) => judgeGaps(id).length === 0).length;
+function updateFinished() {
+  judgeState.finished = judgeLabelled() === judgeOrder.length ? (judgeState.finished || new Date().toISOString()) : null;
+  if (!judgeRelabel()) store.set(FIRST_FINISHED_KEY, judgeState.finished);
+}
 
 // a shuffle seeded by a string, so the relabel order is the same on every machine: cyrb53-style hashing of the
 // seed into a mulberry32 generator, then Fisher-Yates
@@ -545,14 +558,12 @@ function seededShuffle(list, seed) {
 
 function setJudgeVerdict(verdict) {
   const id = judgeOrder[judgeIndex];
-  const label = judgeState.labels[id] ||= {verdict: null, note: "", labelled_at: null};
+  const label = judgeState.labels[id] ||= newJudgeLabel();
   // a key or button always sets the verdict, never clears it, so pressing a key twice can't lose a label
   label.verdict = verdict;
   label.labelled_at = new Date().toISOString();
   if (!judgeState.started) judgeState.started = label.labelled_at;
-  const done = judgeLabelled() === judgeOrder.length;
-  judgeState.finished = done ? (judgeState.finished || new Date().toISOString()) : null;
-  if (!judgeRelabel()) store.set(FIRST_FINISHED_KEY, judgeState.finished);
+  updateFinished();
   saveJudges();
   renderJudgeItem();
 }
@@ -567,13 +578,40 @@ function goJudge(next) {
 function renderJudgeItem() {
   const id = judgeOrder[judgeIndex];
   const item = judgeItems[id];
-  const label = judgeState.labels[id] || {verdict: null, note: ""};
-  document.getElementById("progress").textContent = `${judgeIndex + 1} of ${judgeOrder.length} · ${judgeLabelled()} labelled`;
-  const note = el("textarea", {placeholder: "Optional: useful wherever the rubric didn't settle the case", oninput: () => {
-    const l = judgeState.labels[id] ||= {verdict: null, note: "", labelled_at: null};
-    l.note = note.value; saveJudges();
+  const label = judgeState.labels[id] || newJudgeLabel();
+  const status = el("span", {class: "status"});
+  const finished = el("span", {class: "status done"});
+  const noteReq = el("span", {class: "req"});
+  const note = el("textarea", {oninput: () => {
+    (judgeState.labels[id] ||= newJudgeLabel()).note = note.value;
+    refresh();
   }});
   note.value = label.note || "";
+  // updates everything that depends on the label without rebuilding the note box, so typing keeps its focus
+  const refresh = () => {
+    const l = judgeState.labels[id] || newJudgeLabel();
+    updateFinished();
+    saveJudges();
+    const gaps = judgeGaps(id);
+    status.className = `status ${gaps.length ? "todo" : "done"}`;
+    status.textContent = gaps.length ? `Still needed: ${gaps.join(" and ")}` : "Labelled";
+    finished.textContent = judgeState.finished ? ` · all ${judgeOrder.length} labelled: export when you're ready` : "";
+    noteReq.textContent = l.reference_disputed ? "required: what's wrong with the reference, and what the right answer is" : "optional";
+    noteReq.className = l.reference_disputed ? "req" : "req muted";
+    note.placeholder = l.reference_disputed ? "What's wrong with the reference, and what the right answer is"
+                                            : "Optional: useful wherever the rubric didn't settle the case";
+    document.getElementById("progress").textContent = `${judgeIndex + 1} of ${judgeOrder.length} · ${judgeLabelled()} labelled`;
+  };
+  // correctness items only: the reference can be disputed, separately from the verdict
+  const dispute = item.kind === "correctness" && el("div", {class: "field"},
+    el("label", {class: "opt"},
+       el("input", {type: "checkbox", checked: !!label.reference_disputed, onchange: (e) => {
+         (judgeState.labels[id] ||= newJudgeLabel()).reference_disputed = e.target.checked;
+         refresh();
+       }}),
+       "I think the reference answer is wrong"),
+    el("div", {class: "fault-help muted"},
+       "Separate from the verdict, which still says whether the answer matches the reference as written."));
   document.getElementById("trace").replaceChildren(
     el("div", {class: "card"}, el("p", {class: "title"}, KIND_NAMES[item.kind] || item.kind)),
     el("div", {class: "card"}, el("h2", {}, "The rubric"), el("pre", {class: "rubric"}, item.rubric)),
@@ -582,20 +620,23 @@ function renderJudgeItem() {
        el("div", {class: "verdicts"}, JUDGE_VERDICTS.map((v) =>
          el("button", {type: "button", class: label.verdict === v ? "chosen" : null, onclick: () => setJudgeVerdict(v)},
             v.toUpperCase(), el("kbd", {}, v[0])))),
-       el("div", {class: "field"}, el("span", {class: "lbl"}, "Note ", el("span", {class: "req muted"}, "optional")), note),
+       dispute || "",
+       el("div", {class: "field"}, el("span", {class: "lbl"}, "Note ", noteReq), note),
        el("div", {class: "nav"},
           el("button", {type: "button", disabled: judgeIndex === 0, onclick: () => goJudge(judgeIndex - 1)}, "← Previous", el("kbd", {}, "←")),
           el("button", {type: "button", class: "primary", disabled: judgeIndex === judgeOrder.length - 1,
                         onclick: () => goJudge(judgeIndex + 1)}, "Next →", el("kbd", {}, "→")),
-          el("span", {class: `status ${label.verdict ? "done" : "todo"}`}, label.verdict ? "Labelled" : "Not labelled yet"),
-          judgeState.finished ? el("span", {class: "status done"}, ` · all ${judgeOrder.length} labelled: export when you're ready`) : null)));
+          status, finished)));
+  refresh();
 }
 
 function exportJudges() {
   const out = {labeller: "simar", started: judgeState.started || null, finished: judgeState.finished || null,
                labels: judgeOrder.filter((id) => judgeState.labels[id] && judgeState.labels[id].verdict).map((id) => {
                  const l = judgeState.labels[id];
-                 return {item_id: id, verdict: l.verdict, note: (l.note || "").trim() || null, labelled_at: l.labelled_at};
+                 return {item_id: id, verdict: l.verdict,
+                         reference_disputed: judgeItems[id].kind === "correctness" && !!l.reference_disputed,
+                         note: (l.note || "").trim() || null, labelled_at: l.labelled_at};
                })};
   const blob = new Blob([JSON.stringify(out, null, 1) + "\n"], {type: "application/json"});
   const a = el("a", {href: URL.createObjectURL(blob), download: judgeRelabel() ? "labels-judges-simar-relabel.json" : "labels-judges-simar.json"});
@@ -613,13 +654,14 @@ async function importJudges(file) {
   const overwritten = data.labels.filter((l) => judgeState.labels[l.item_id] && judgeState.labels[l.item_id].verdict).length;
   if (overwritten && !confirm(`Importing replaces ${overwritten} label(s) already saved in this browser. Go ahead?`)) return;
   for (const l of data.labels) {
-    judgeState.labels[l.item_id] = {verdict: JUDGE_VERDICTS.includes(l.verdict) ? l.verdict : null, note: l.note || "",
+    judgeState.labels[l.item_id] = {verdict: JUDGE_VERDICTS.includes(l.verdict) ? l.verdict : null,
+                                    reference_disputed: !!l.reference_disputed, note: l.note || "",
                                     labelled_at: l.labelled_at || null};
   }
   judgeState.started = judgeState.started || data.started || null;
   judgeState.finished = judgeLabelled() === judgeOrder.length ? (data.finished || new Date().toISOString()) : null;
   if (!judgeRelabel()) store.set(FIRST_FINISHED_KEY, judgeState.finished);
-  const firstOpen = judgeOrder.findIndex((id) => !(judgeState.labels[id] && judgeState.labels[id].verdict));
+  const firstOpen = judgeOrder.findIndex((id) => judgeGaps(id).length > 0);
   judgeIndex = firstOpen === -1 ? 0 : firstOpen;
   saveJudges();
   renderJudgeItem();

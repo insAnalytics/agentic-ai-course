@@ -7166,7 +7166,10 @@ item's id, stratum or split), PASS/FAIL/UNCLEAR with `p`/`f`/`u` and
 arrow keys, saved as it goes, exporting `labels-judges-simar.json` /
 `labels-judges-simar-relabel.json`; the relabel order is a shuffle
 seeded with "relabel", and it warns if the first labelling finished
-less than three weeks ago. Tested end to end in headless Chrome. Open
+less than three weeks ago. Correctness items have an "I think the reference answer
+ is wrong" checkbox, separate from the verdict, which makes the note
+required and exports as `reference_disputed`. Tested end to end in
+headless Chrome. Open
 question for the content chat: 15 of the 100 items are runs whose
 judge verdicts Lesson 6's pages already discuss (all 9 broken-result
 items are the a05/s22 runs of concept 1, plus b/a13/1, four v10-true and
