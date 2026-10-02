@@ -1,7 +1,7 @@
 # Module 7, Lesson 11 — Concept 2: Is this a real change?
 
 > **Note for the site build:**
-> - `scripts/eval/monitoring_traffic.py` now writes four files: concept 1's two, plus `traffic-baseline-b.json` (2.4 MB) and `traffic-compaction-a.json` (2.7 MB). Use `m7-l11-c2-site-build.zip`, which replaces concept 1's zip: rerun the script, check all four outputs are identical to the copies in the zip, run `--check`, and commit.
+> - `scripts/eval/monitoring_traffic.py` now writes four files: concept 1's two, plus `traffic-baseline-b.json` (2.4 MB) and `traffic-compaction-a.json` (2.7 MB). Concept 3 extends it again, so use concept 3's zip, `m7-l11-c3-site-build.zip`, which replaces the earlier ones.
 > - Each page should load only the traffic files it reads, so make concept 1's `TRAFFIC_DATA` a function, `trafficData(...conditions)`, like `pilotData` (concept 1's pages: `"baseline-a", "layers-a"`; this page: `"baseline-a", "baseline-b", "compaction-a"`).
 > - This page's setup is `LOAD_TRAFFIC` + `DASHBOARD` + the setup block shown below (`run_facts`, `before`, `after`, `deploy`, `stream`); add the shown block to `evalData.ts` as `DEPLOY_STREAM`, byte-identical to the page. The three demos run independently on that setup. The last takes about a second in CPython.
 

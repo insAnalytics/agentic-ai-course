@@ -1003,3 +1003,36 @@ def stream(seed: int) -> list[tuple[bool, int]]:
     rng = random.Random(seed)
     return rng.sample(before, len(before)) + rng.sample(after, len(after))
 `;
+
+/** Module 7 Lesson 11 concept 3's judged question runs (written by scripts/eval/monitoring_traffic.py), mounted at /data/eval/monitoring. */
+export const RELEVANCE_DATA = ["eval/monitoring/relevance-judged.json"];
+
+/**
+ * Module 7 Lesson 11 concept 3's setup block, shown verbatim on that page (keep the two byte-identical:
+ * scripts/check-copies.mjs checks it). Its demos and exercise run on LOAD_TRAFFIC + this, with RELEVANCE_DATA.
+ */
+export const JUDGED_SAMPLE = String.raw`from math import sqrt
+
+judged = json.loads((MONITORING / "relevance-judged.json").read_text(encoding="utf-8"))["runs"]
+
+
+def wilson(failures: float, n: int, z: float = 1.96) -> tuple[float, float]:
+    """The Wilson score interval for a failure rate seen as ${"`"}failures${"`"} out of ${"`"}n${"`"}. Unlike the rate plus or minus
+    z standard errors, it stays between 0 and 1, and it still gives an upper bound when nothing failed."""
+    p = failures / n
+    centre = (p + z * z / (2 * n)) / (1 + z * z / n)
+    half = z / (1 + z * z / n) * sqrt(p * (1 - p) / n + z * z / (4 * n * n))
+    return max(0.0, centre - half), min(1.0, centre + half)
+`;
+
+/** Module 7 Lesson 11 concept 3's exercise reference, without its example printout; needs JUDGED_SAMPLE's wilson. */
+export const RUNS_TO_JUDGE = String.raw`def runs_to_judge(expected_rate: float, half_width: float, z: float = 1.96) -> int:
+    """The fewest judged runs whose Wilson interval, at the expected failure rate, is no wider than half_width on
+    either side of its middle. half_width must be positive."""
+    n = 1
+    while True:
+        low, high = wilson(expected_rate * n, n, z)
+        if (high - low) / 2 <= half_width:
+            return n
+        n += 1
+`;

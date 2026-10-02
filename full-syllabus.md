@@ -7678,7 +7678,7 @@ torch 2.13.0+cu130, `torchaudio` removed,
    flags taken as confirmed, gate arguments swapped) each fail. Lesson 10
    is now fully Locked.
 11. **Monitoring in Production** (`11-monitoring`, title provisional) —
-   **Building.** Concepts 1 and 2 drafted and built; concepts 3 on and
+   **Building.** Concepts 1 to 3 drafted and built; concepts 4 on and
    bookends not yet. Concept 1 (what to watch on every run): no answer key in
    production (Lesson 1), Anthropic's guide on monitoring after launch,
    simulated traffic (the baseline's batch a, 385 development runs, in
@@ -7739,6 +7739,41 @@ torch 2.13.0+cu130, `torchaudio` removed,
    Callbacks: concept 1 (page), Lesson 9 concept 3 (page and
    `#why-it-cost-that`), Lesson 10 concept 2 (page and
    `#measuring-the-noise-first`) (anchors verified).
+   Concepts 1 and 2's mockups were later revised only in their build
+   notes (pointing at the c3 zip); no page change.
+   Concept 3 (judges on a sample): graders that need no answer key,
+   evaluators vs checks, sampling on LangSmith (0.1 example, checked),
+   Langfuse (filter plus sampling rate, checked) and Anthropic's guide
+   ("sample transcripts to read weekly", checked); code first, then the
+   judge (480 question runs, 26 unanswered and failed in code, 1 judge
+   failure of 454: q16, both checked; 426 judge tokens per run, 4.5%);
+   the new `JUDGED_SAMPLE` setup over `relevance-judged.json` (from the
+   c3 zip's `monitoring_traffic.py`; all five outputs identical to the
+   zip's copies apart from line endings, `--check` passes); samples of
+   25 to 454 runs with Wilson intervals; rule of three; a graded
+   `runs_to_judge` exercise (the mockup's hidden tests split into 3
+   self-contained tests, each with the `half_width_at` helper);
+   stratified sampling; the judge's own errors; 6 quiz cards. The page's
+   code was generated from the mockup's and matches it byte for byte;
+   in Pyodide 0.26.4 both demos reproduce the mockup's output exactly,
+   the reference passes all 3 tests, and the starter and six wrong
+   versions (start at 0, rounded failures, z not passed, full width,
+   float result, the normal formula) each fail (`<` for `<=` gives the
+   same answers here, so it isn't caught). Corrected from the mockup:
+   (1) Langfuse's "5% in its example" isn't in its docs (neither the
+   LLM-as-a-judge page nor its online-evaluation page gives one), so the
+   page says "a sampling rate, a percentage of matching traces, to
+   manage cost"; (2) "failed two of the four a person failed... it
+   misses about half" is true only with Lesson 7's no-answer code check
+   first: both of those were no-answer runs failed in code, and the
+   judge passed both answered runs a person failed (q25/0 and q25/4),
+   so the page now says that and "it misses most of the irrelevant
+   answers it actually sees" (Q6, about the pipeline's 2 of 4, is
+   unchanged). Callbacks: concepts 1 (`#a-day-of-traffic`) and 2
+   (pages), Lesson 6 concepts 1 (page) and 4 (`#relevance-separately`),
+   Lesson 7 concepts 3 and 4, Lesson 8 concept 4 (pages), Module 5
+   Lesson 15 concept 5's `#a-system-that-keeps-running` (anchors
+   verified).
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092

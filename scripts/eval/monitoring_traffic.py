@@ -12,6 +12,10 @@ What changes from the recording:
   counted from the tool log. The runs recorded the results only as content; a production tracer would record the
   count as an attribute, and this is that attribute.
 
+It also writes public/data/eval/monitoring/relevance-judged.json: every development question run of the baseline's
+two batches, with whether the run ended with an answer (its last model call asked for no tools, read from its trace)
+and the revised Gemma relevance judge's verdict and tokens on it, from judges/gemma-v2.json.
+
     python scripts/eval/monitoring_traffic.py            # writes the files
     python scripts/eval/monitoring_traffic.py --check    # fails if any is out of date
 """
@@ -25,6 +29,7 @@ ROOT = Path(__file__).resolve().parents[2]
 MAIN = ROOT / "public" / "data" / "eval" / "main"
 OUT = ROOT / "public" / "data" / "eval" / "monitoring"
 TASKS = ROOT / "scripts" / "eval" / "tasks" / "main.json"
+JUDGE = ROOT / "public" / "data" / "eval" / "judges" / "gemma-v2.json"
 CONDITIONS = ("baseline-a", "baseline-b", "layers-a", "compaction-a")
 DROPPED = {"registry_agent.check.reason"}
 
@@ -52,6 +57,24 @@ def build(condition: str, dev: set[str]) -> dict:
             "runs": [compact(trial) for trial in trials]}
 
 
+def answered(trial: dict) -> bool:
+    chats = [span for span in trial["trace"] if span["attributes"].get("gen_ai.operation.name") == "chat"]
+    return not chats[-1]["attributes"].get("registry_agent.tool_calls")
+
+
+def build_relevance(dev: set[str]) -> dict:
+    judge = json.loads(JUDGE.read_text(encoding="utf-8"))
+    trials = {}
+    for condition in ("baseline-a", "baseline-b"):
+        run = json.loads((MAIN / f"{condition}.json").read_text(encoding="utf-8"))
+        trials |= {trial["trial_id"]: trial for trial in run["trials"]}
+    rows = [{"trial_id": item["trial_id"], "answered": answered(trials[item["trial_id"]]), "judge": item["decision"],
+             "judge_tokens": item["prompt_tokens"] + item["completion_tokens"]}
+            for item in judge["results"] if item["kind"] == "relevance" and item["task_id"] in dev]
+    rows.sort(key=lambda row: row["trial_id"])
+    return {"version": 1, "judge": judge["model"], "rubrics_version": judge["rubrics_version"], "runs": rows}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
@@ -69,6 +92,14 @@ def main() -> None:
         OUT.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
         print(f"wrote {path.relative_to(ROOT)}: {len(json.loads(text)['runs'])} runs, {len(text) / 1e6:.1f} MB")
+    path = OUT / "relevance-judged.json"
+    text = json.dumps(build_relevance(dev), ensure_ascii=False, indent=1) + "\n"
+    if args.check:
+        if not path.exists() or path.read_text(encoding="utf-8") != text:
+            stale.append(path.name)
+    else:
+        path.write_text(text, encoding="utf-8")
+        print(f"wrote {path.relative_to(ROOT)}: {len(json.loads(text)['runs'])} runs")
     if stale:
         sys.exit(f"out of date: {', '.join(stale)}")
 

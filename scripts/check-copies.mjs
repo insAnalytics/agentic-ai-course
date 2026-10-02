@@ -27,7 +27,8 @@ function escapedConstant(path, name) {
 
 /** The body of the first ```python fence on a page that starts with `firstLine`. */
 function pageFence(path, firstLine) {
-  const fences = [...read(path).matchAll(/```python\n([^`]*)```/g)].map((m) => m[1]);
+  // up to the closing fence line, so a block may contain backticks of its own (in a docstring, say)
+  const fences = [...read(path).replace(/\r/g, "").matchAll(/```python\n([\s\S]*?\n)```/g)].map((m) => m[1]);
   const fence = fences.find((body) => body.startsWith(firstLine));
   if (fence === undefined) throw new Error(`no python block starting "${firstLine}" in ${path}`);
   return fence;
@@ -177,6 +178,17 @@ const PAIRS = [
       () => pageFence(
         "src/content/modules/07-evaluation/11-monitoring/02-is-this-a-real-change.mdx",
         "import random\n\n\ndef run_facts",
+      ),
+    ],
+  },
+  {
+    what: "JUDGED_SAMPLE (Module 7 Lesson 11 concept 3)",
+    a: ["src/lib/evalData.ts", () => escapedConstant("src/lib/evalData.ts", "JUDGED_SAMPLE").replaceAll('${"`"}', "`") + "\n"],
+    b: [
+      "the page's setup block",
+      () => pageFence(
+        "src/content/modules/07-evaluation/11-monitoring/03-judges-on-a-sample.mdx",
+        "from math import sqrt\n\njudged =",
       ),
     ],
   },

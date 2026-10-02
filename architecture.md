@@ -806,6 +806,16 @@ batches shuffled with a seed, then the compacting agent's runs), the last
 shown verbatim on the page and copy-checked; it mounts
 `trafficData("baseline-a", "baseline-b", "compaction-a")`. Its 300-stream
 burn-rate demo takes about 1.2 s in Pyodide.
+Concept 3 adds `public/data/eval/monitoring/relevance-judged.json`
+(52 KB, from the same script): every development question run of the
+baseline's two batches, with `answered` (from its trace) and the revised
+Gemma relevance judge's verdict and tokens. Mounted via `RELEVANCE_DATA`
+(no traffic files). Its setup is `LOAD_TRAFFIC` + `JUDGED_SAMPLE`
+(`judged`, `wilson`), shown and copy-checked; the exercise passes the
+same as `namespaceSetup`, and its reference is `RUNS_TO_JUDGE`.
+`JUDGED_SAMPLE` contains backticks, so its copy check reads it with
+`escapedConstant` and undoes the escapes; `pageFence` now reads up to
+the closing fence line rather than stopping at any backtick.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or

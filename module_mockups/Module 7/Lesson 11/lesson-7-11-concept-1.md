@@ -1,7 +1,7 @@
 # Module 7, Lesson 11 — Concept 1: What to watch on every run
 
 > **Note for the site build:**
-> - New script `scripts/eval/monitoring_traffic.py`. Concept 2 extends it to four files, so use concept 2's zip, `m7-l11-c2-site-build.zip`, which replaces this concept's. This page reads two of the files: `public/data/eval/monitoring/traffic-baseline-a.json` (2.4 MB) and `traffic-layers-a.json` (2.5 MB). Each holds one recorded run's 385 development-task runs, as the spans each run's tracer recorded, in start order. The script drops `registry_agent.check.reason` and adds `registry_agent.search.results` to each `search_docs` span; its docstring says why.
+> - New script `scripts/eval/monitoring_traffic.py`. Concepts 2 and 3 extend it, so use concept 3's zip, `m7-l11-c3-site-build.zip`, which replaces the earlier ones. This page reads two of the files: `public/data/eval/monitoring/traffic-baseline-a.json` (2.4 MB) and `traffic-layers-a.json` (2.5 MB). Each holds one recorded run's 385 development-task runs, as the spans each run's tracer recorded, in start order. The script drops `registry_agent.check.reason` and adds `registry_agent.search.results` to each `search_docs` span; its docstring says why.
 > - New exports in `evalData.ts`:
 >   - `trafficData(...conditions)`: the named traffic files, mounted at `/data/eval/monitoring`, like `pilotData`. This page uses `trafficData("baseline-a", "layers-a")`.
 >   - `LOAD_TRAFFIC`: `TRACER` + `SUMMARIZE` + the setup block shown on this page (`load_traffic` and `percentile`), byte-identical to the page. It is the setup for every demo and exercise in this lesson.
