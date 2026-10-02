@@ -7898,7 +7898,7 @@ torch 2.13.0+cu130, `torchaudio` removed,
    Locked.
 12. **The Evaluation Report** (`12-evaluation-report`, title provisional:
    the folder and title were chosen at conversion, since no mockup names
-   the lesson yet) — **Building.** Concepts 1 and 2 drafted and built; the
+   the lesson yet) — **Building.** Concepts 1 to 3 drafted and built; the
    concept says the rest of the lesson builds the registry agent's report
    section by section (headline numbers with uncertainty, held-out
    results and their history, trust in each grader, decisions, limits and
@@ -7938,6 +7938,22 @@ torch 2.13.0+cu130, `torchaudio` removed,
    mockup's tests as one block and against the split. No corrections.
    Callbacks: Lesson 9 concepts 1 (`#why-pairing-matters`) and 2
    (`#pass-k-for-a-whole-suite`) (anchors verified).
+   Concept 3 (the held-out results, and their history): the baseline's
+   held-out score (85.7%, 75.3% to 96.2%, against dev 73.6%; per group),
+   two explanations (easier tasks, citing Module 5's held-out questions;
+   chance, about 1.8 standard errors), the contact log (Module 5,
+   Lessons 4, 5, 9 and 10; aggregate vs per-task contact, 14 tasks seen
+   alone) with a sensitivity check (without h08 85.2%; never seen alone
+   92.9%), what the leaks could and couldn't have done, folding the set
+   into dev and holding out a fresh one, 5 quiz cards, no exercise. The
+   page records, as the mockup does, that Lessons 9 and 10's comparisons
+   should have used dev tasks only, flagged for the course's final
+   review. No new data: both demos run on `LOAD_SETTINGS` +
+   `LOAD_ABLATIONS` + `HEADLINE`. Both were taken from the mockup byte
+   for byte and reproduce its output exactly, in Pyodide 0.26.4 too. No
+   corrections. Callbacks: Lesson 4 concept 5's
+   `#two-kinds-of-task-in-one-suite`, Module 5 Lesson 15 concept 3 (page
+   and `#reading-it`) (anchors verified).
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092

@@ -852,7 +852,8 @@ Module 7 Lesson 12 (`12-evaluation-report`) adds no data so far: concept
 and `ABLATIONS_DATA`. Concept 2 uses the same, plus `from math import
 sqrt` for its exercise; its reference is `HEADLINE` (kept in evalData.ts
 for later pages), loaded hidden with `SUITE_PASS_HAT_K` by the demo after
-the exercise.
+the exercise. Concept 3's two demos run on `LOAD_SETTINGS` +
+`LOAD_ABLATIONS` + `HEADLINE`, with the same data.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or

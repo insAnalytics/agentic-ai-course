@@ -1,0 +1,217 @@
+---
+title: "The held-out results, and their history"
+lesson: "12-evaluation-report"
+order: 3
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { ABLATIONS_DATA, HEADLINE, LOAD_ABLATIONS, LOAD_SETTINGS, SETTINGS_DATA } from "../../../../lib/evalData";
+
+export const DATA = [...SETTINGS_DATA, ...ABLATIONS_DATA];
+
+export const SETUP = LOAD_SETTINGS + "\n\n" + LOAD_ABLATIONS + "\n\n" + HEADLINE;
+
+export const HELD_OUT_DEMO = String.raw`held_out = {task: runs for task, runs in passes("baseline").items() if results["tasks"][task]["split"] == "held_out"}
+dev = {task: runs for task, runs in passes("baseline").items() if results["tasks"][task]["split"] == "dev"}
+
+print(f"{'baseline':<22}{'tasks':>6}{'trials':>8}{'pass rate':>11}   {'95% interval, clustered by task'}")
+for name, per_task in (("dev", dev), ("held-out", held_out)):
+    h = headline(per_task)
+    print(f"{name:<22}{h['tasks']:>6}{h['trials']:>8}{h['rate']:>11.1%}   {h['interval'][0]:.1%} to {h['interval'][1]:.1%}")
+print()
+for group in ("question", "other", "lost write", "planted", "broken result"):
+    for name, per_task in (("dev", dev), ("held-out", held_out)):
+        part = {task: runs for task, runs in per_task.items() if results["tasks"][task]["group"] == group}
+        h = headline(part)
+        shown = f"{h['interval'][0]:.1%} to {h['interval'][1]:.1%}" if h["interval"] else "counts only"
+        print(f"{group + ', ' + name:<22}{h['tasks']:>6}{h['trials']:>8}{h['rate']:>11.1%}   {shown}")
+`;
+
+export const CONTACTS_DEMO = String.raw`contacts = [
+    ("Module 5", "h01-h11", "the same questions tested Module 5's retrieval pipeline once: a different system"),
+    ("Lesson 4", "s04 s08 s12 s15 s18 s21 s23 s25 s28", "each task's pass pattern on its first run, shown in triage"),
+    ("Lesson 5", "s25", "step limit raised from 6 to 9, copied from its dev twin without reading its runs"),
+    ("Lesson 9", "all 28", "inside every on-and-off comparison over 125 tasks"),
+    ("Lesson 9", "h08", "one answer from the layered run seen while reading"),
+    ("Lesson 10", "all 28", "inside every gate over 125 tasks"),
+    ("Lesson 10", "h04 h07 h09 h10 s25", "named as flagged tasks under the layers, compaction or layers v2"),
+]
+for where, tasks, what in contacts:
+    print(f"{where:<10} {tasks:<38} {what}")
+
+held_out = {task: runs for task, runs in passes("baseline").items() if results["tasks"][task]["split"] == "held_out"}
+# a task counts as seen if anything about it alone, a result, a pattern or an answer, has been shown or read
+seen = {"s04", "s08", "s12", "s15", "s18", "s21", "s23", "s25", "s28", "h04", "h07", "h08", "h09", "h10"}
+print()
+for name, kept in (("all held-out tasks", held_out),
+                   ("without h08", {t: r for t, r in held_out.items() if t != "h08"}),
+                   ("only tasks never seen alone", {t: r for t, r in held_out.items() if t not in seen})):
+    h = headline(kept)
+    print(f"{name:<28} {h['tasks']:>2} tasks  {h['rate']:.1%}  ({h['interval'][0]:.1%} to {h['interval'][1]:.1%})")
+`;
+
+<Subsection title="Opening the held-out set" variant="a">
+
+[Lesson 4](/07-evaluation/04-task-suite/05-holding-tasks-out/#two-kinds-of-task-in-one-suite)
+kept 28 tasks back so that, at the end of the module, there'd be a
+measurement on tasks no decision was made on. This is that measurement,
+for the baseline agent, with the same graders and the same headline
+method as the dev results:
+
+<LiveDemo client:load dataFiles={DATA} setupCode={SETUP} code={HELD_OUT_DEMO} />
+
+*(`headline` is the previous concept's reference, loaded for you.)*
+
+The held-out tasks pass more often than the dev tasks: 85.7% against
+73.6%, and higher in both of the large groups. Two explanations fit, and
+the report should give both rather than pick one:
+
+- **The held-out tasks are easier.** Lesson 4 already said so of the
+  registry tasks, which were picked by hand and lean towards things the
+  agent does well. The 11 held-out questions were Module 5's held-out
+  questions, and
+  [Module 5's finished pipeline](/05-rag-systems/15-a-new-corpus/03-one-honest-number/)
+  also did better on them than on its main set: 9 of 10 answerable ones
+  in the top five, against 36 of 43.
+- **Chance.** The two intervals overlap. A rough comparison of the two
+  rates, using each one's clustered standard error, puts the difference
+  at about 1.8 standard errors: suggestive, not conclusive.
+
+What the result does rule out is the failure a held-out set exists to
+catch. If the work on the dev tasks had made the agent fit them and fail
+elsewhere, the held-out tasks would score lower. They don't.
+
+</Subsection>
+
+<Subsection title="Every contact, disclosed" variant="b">
+
+Lesson 4 promised a set of tasks no decision was made on. That promise
+wasn't kept in full, and the report says exactly how. Leaks like these
+are the usual way held-out sets go wrong: not someone tuning on the
+answers, but the held-out tasks quietly riding along in comparisons and
+dashboards. The contact log, and what the held-out score looks like with
+the most-seen tasks left out:
+
+<LiveDemo client:load dataFiles={DATA} setupCode={SETUP} code={CONTACTS_DEMO} />
+
+*(The contact log was compiled from the module's pages and its working
+notes.)*
+
+The log has two kinds of entry, and they matter differently:
+
+- **Aggregate contact.** In Lessons 9 and 10, every comparison and gate
+  ran over all 125 tasks, so held-out results sat inside every number
+  that decided which changes ship. Those comparisons should have used dev
+  tasks only. That's a fault in the method, and it's recorded for the
+  course's final review.
+- **Per-task contact.** Fourteen held-out tasks had something about them
+  alone shown or read: a triage pattern, a step-limit fix, an answer, or
+  a name on a flagged list.
+
+What the leaks could have done is narrower than it looks:
+
+- **The baseline's held-out score isn't inflated by any of them.** The
+  baseline's prompt and configuration were fixed before it first ran,
+  before any of these contacts. The only changes made since were to
+  graders, and those were made from dev tasks: s25's new step limit was
+  copied from its dev twin without reading s25's runs, which is the
+  legitimate kind of fix Lesson 4 described.
+- **The decisions on changes are where the risk is.** Prompt v2 and FP8
+  were judged to ship by a gate that could see held-out results. A
+  held-out score for those changes would be slightly optimistic, which is
+  one reason this report evaluates the baseline and treats the changes as
+  approved candidates.
+- **The sensitivity check agrees.** Without h08, the rate barely moves.
+  On the 14 tasks never seen alone it's higher, not lower, so if the
+  contact did anything, it didn't flatter the agent.
+
+</Subsection>
+
+<Subsection title="After the report: the set is spent" variant="a">
+
+Once these numbers are written into a report, the held-out set has done
+its job. Every future decision would be made in full knowledge of how the
+agent does on it, so it can't be held out from the next round.
+[Module 5 ended in the same place](/05-rag-systems/15-a-new-corpus/03-one-honest-number/#reading-it)
+and the answer is the same:
+
+- **Fold the old held-out tasks into the dev set.** Their runs can now be
+  read, their failures named and their checks fixed, like any other dev
+  task.
+- **Hold out a fresh set** for the next report, chosen within each
+  category, as Lesson 4 did for the newer suite tasks, so it covers what
+  the dev set covers.
+- **Keep the contact log as you go.** The log above had to be
+  reconstructed from the module's pages after the fact. Recording each
+  time held-out results are shown, at the moment it happens, is cheaper
+  and more complete, and so is the habit it builds: filter to dev tasks
+  first, every time.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "The held-out tasks pass 85.7% of trials and the dev tasks 73.6%. What should the report conclude?",
+      "options": [
+        "It may be easier, or chance; either way, no sign of overfitting",
+        "The agent performs better on new tasks than on the ones it was developed on",
+        "The dev tasks' graders are too strict, so the dev number should be raised",
+        "The held-out result is the true pass rate, and the dev number should be dropped"
+      ],
+      "correctIndex": 0,
+      "explanation": "Overfitting to the dev tasks would show as a lower held-out score; this one is higher. Lesson 4 noted the registry held-out tasks lean easy, and the difference is only about 1.8 standard errors, so neither explanation can be ruled out. Both numbers stay in the report."
+    },
+    {
+      "question": "In Lessons 9 and 10, comparisons ran over all 125 tasks. What should they have done?",
+      "options": [
+        "Compared conditions on the dev tasks only",
+        "Weighted the held-out tasks less than the dev tasks",
+        "Reported the held-out tasks' results separately",
+        "Run the held-out tasks with more trials each"
+      ],
+      "correctIndex": 0,
+      "explanation": "A held-out task is only held out if nothing is decided while looking at it. Reporting held-out results separately still puts them in front of whoever decides. Weighting or extra trials don't change what was seen."
+    },
+    {
+      "question": "Why doesn't the contact with the held-out set inflate the baseline's held-out score?",
+      "options": [
+        "The baseline's configuration was fixed before any contact",
+        "The contacts only involved a handful of the twenty-eight held-out tasks",
+        "The held-out tasks were graded by different judges from the dev tasks",
+        "Seeing a task's results can't change how an agent performs on it"
+      ],
+      "correctIndex": 0,
+      "explanation": "The leak matters where a decision could have been shaped by held-out results. The baseline's prompt and settings were set before it ever ran, and later fixes were to graders, made from dev tasks. The decisions to ship changes are where the held-out set could have had influence."
+    },
+    {
+      "question": "s25's step limit was raised to match its dev twin, s24, without reading s25's runs. Is that a leak?",
+      "options": [
+        "No: it's a fix to the measurement, applied by rule without looking",
+        "Yes: any change to a held-out task's check spends that task",
+        "Yes: the dev twin's runs reveal what the held-out task's runs did",
+        "No: step limits are about cost, so they don't affect a task's grade"
+      ],
+      "correctIndex": 0,
+      "explanation": "Lesson 4 drew the line: fixing a check that fails good behaviour corrects the measurement, and applying the same fix to a held-out task without reading it doesn't tune anything to that task. The step limit does change grades, which is why it's in the contact log."
+    },
+    {
+      "question": "The report is written. What happens to the held-out set now?",
+      "options": [
+        "It joins dev; a fresh set is held out for next time",
+        "It stays held out, since its runs have never been read",
+        "It's deleted, since its results have now been published",
+        "It's rerun with more trials, to narrow its interval"
+      ],
+      "correctIndex": 0,
+      "explanation": "Once the numbers are known, every later decision is made knowing them, so the set can no longer be held out. Folding it into dev puts its tasks to work, and a fresh held-out set, chosen within each category, serves the next report."
+    }
+  ]}
+/>
+
+</CheckpointZone>
