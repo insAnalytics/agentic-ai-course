@@ -6997,7 +6997,7 @@ torch 2.13.0+cu130, `torchaudio` removed,
    (as in concept 3); `lib.py`'s curly-apostrophe escape restored to
    `\u2019` so it matches `CONTAINS`.
 
-6. **Model Graders** (`06-model-graders`, title provisional) — **Building.**
+6. **Model Graders** (`06-model-graders`, title provisional) — **Locked.**
    Concept 1 (from a check in the loop to a grader afterwards) is built, no
    exercise: Module 6's in-loop judges against a grader after the run (sees
    more, isn't in a hurry, its mistakes change what you believe), what
@@ -7119,7 +7119,27 @@ torch 2.13.0+cu130, `torchaudio` removed,
    `#when-the-question-itself-is-wrong`, `#what-the-replies-actually-say`
    and `#what-this-means-for-a-real-agent`, and concept 2's
    `#what-a-rubric-has-to-do` (anchors verified); Lesson 7 is plain
-   prose. Concepts 6 onward and the bookends are not drafted yet.
+   prose. Concept 5 is the last concept.
+   Bookends are built: the intro (outcomes, why it matters), an 8-card
+   comprehensive quiz, and a `MultiFileGradedExercise`: `grade_run(run)`
+   and `report(grades)` in `question_grader.py` over a read-only `lib.py`
+   (`load_question_runs`, concept 2's reference `parse_verdict` and
+   `summarize`, Lesson 5's `cited_ids` and `unsupported_citations`, all
+   checked by `check-copies.mjs`'s `CONTAINED` list), on the new
+   `public/data/eval/judges/question-runs.json` (96 runs: the first two
+   of every dev question in baseline-a, with Gemma's correctness and
+   relevance replies), written by the new
+   `scripts/eval/question_runs.py` (`--check`; identical to the zip's
+   copy apart from line endings). In Pyodide 0.26.4 the reference's Run
+   prints the mockup's output exactly (68 pass, 28 fail, 0 undecided;
+   12 correctness fails, 12 unsupported citations, 4 no answer), passes
+   the hidden tests, and seven wrong versions (the starter, judges before
+   code, undecided before fail, UNCLEAR as fail, rate over all runs, no
+   citation check, correctness judge only) each fail. Corrected from the
+   mockup: Q3's "split on 9 of 20 runs" counted held-out runs, now "6 of
+   the 15 dev runs" as in concept 1; Q4 asked what "the standard" hadn't
+   decided, now "the rubric", matching concept 2's correction; Q6's
+   options reworded so they don't say "it" of two judges.
 
 **Runs, phase 3 (Lesson 6's judges): done (2026-10-02).**
 `scripts/eval/README-phase3.md`, `scripts/eval/judges.py`,

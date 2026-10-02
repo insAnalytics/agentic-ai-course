@@ -626,7 +626,12 @@ concepts 1 to 5, copy-checked) in `evalData.ts`. Since concept 4,
 after" note). Concept 2 adds
 `judges/reply-judges.json` (170 KB, written by the same script): both
 judges' full replies on the three reply-failure kinds, with the agent's
-answer each judged, dev tasks only (held-out answers stay unread).
+answer each judged, dev tasks only (held-out answers stay unread). The
+recap's sandbox loads `judges/question-runs.json` (160 KB, written by
+`scripts/eval/question_runs.py`, `--check`): 96 question runs with their
+answers, retrieved ids, `no_answer` and Gemma's correctness and
+relevance replies; its `lib.py` is copy-checked (`CONTAINED`) against
+concept 2's reference and `CITED_IDS`.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or

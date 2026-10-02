@@ -239,6 +239,17 @@ const CONTAINED = [
         what: `${name}'s ${piece.split("\n")[0].slice(0, 40)}`, text: piece,
         constant: ["src/content/modules/07-evaluation/05-code-graders/06-recap-practice.mdx", "LIB_PY"],
       }))),
+  // Lesson 6's recap lib.py: concept 2's reference parse_verdict and summarize, and Lesson 5's citation check
+  ...[
+    ["concept 2's SOLUTION", rawConstant("src/content/modules/07-evaluation/06-model-graders/02-writing-a-rubric.mdx", "SOLUTION")],
+    ["CITED_IDS", rawConstant("src/lib/evalData.ts", "CITED_IDS")],
+  ].flatMap(([name, code]) => code.split("\n\n\n")
+    .map((piece) => piece.split("\n").filter((line) => !/^(import|from) /.test(line)).join("\n").trim())
+    .filter(Boolean)
+    .map((piece) => ({
+      what: `${name}'s ${piece.split("\n")[0].slice(0, 40)}`, text: piece,
+      constant: ["src/content/modules/07-evaluation/06-model-graders/06-recap-practice.mdx", "LIB_PY"],
+    }))),
 ];
 
 let failed = false;
