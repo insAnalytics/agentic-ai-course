@@ -27,7 +27,7 @@ import re
 from harness import Checks
 from m4 import SUMMARY_INSTRUCTIONS, compact, split_rounds
 
-VARIANTS = ("none", "layers", "compaction", "no-labels")
+VARIANTS = ("none", "layers", "compaction", "no-labels", "layers-v2")
 COMPACT_AFTER = 3
 NUMBER = re.compile(r"(?<![\w.])\d+(?:,\d{3})*(?:\.\d+)?%?")
 CITATION = re.compile(r"\[[^\]]*?[\w./-]+:\d+[^\]]*\]|\([\w./-]+:\d+\)")
@@ -86,9 +86,28 @@ def user_text(messages: list) -> str:
     return " ".join(m["content"] for m in messages if m["role"] == "user" and isinstance(m["content"], str))
 
 
-def layered_checks(world, messages: list, judge, cost: dict, log: list) -> Checks:
+# Lesson 10's layers v2: three fixes for the false alarms Lesson 9 read, everything else as version 1
+IDENTIFIER = re.compile(r"\b[A-Za-z][A-Za-z_]*-\d+\b|\bv\d+(?:\.\d+)*\b")
+LIST_MARKER = re.compile(r"(?m)^\s*(?:\d+[.)]|#+\s*\d+[.)]?)\s|\b[Ss]tep \d+\b")
+
+
+def claim_sentences(answer: str) -> list[str]:
+    """v2: sentences that make a claim, one per line or sentence, without headings, list lead-ins or markdown."""
+    claims = []
+    for line in answer.splitlines():
+        line = re.sub(r"[*`_]", "", line).strip().lstrip("-• ").strip()
+        if not line or line.startswith("#") or line.endswith(":"):
+            continue
+        claims += [s.strip() for s in re.split(r"(?<=[.!?])\s+", line) if s.strip()]
+    return claims
+
+
+def layered_checks(world, messages: list, judge, cost: dict, log: list, version: int = 1) -> Checks:
     """All eight layers at their points. Each point runs every code layer and logs every objection; the first
-    objection decides, and the support judge runs only when no code layer objected."""
+    objection decides, and the support judge runs only when no code layer objected. Version 2 changes three layers:
+    the intent check also accepts names found by a tool this session, grounding ignores list numbering, step numbers,
+    identifiers like INC-2041 or v2.4, small counts and unit conversions, and the support judge is given one claim per
+    sentence, without headings or list lead-ins."""
     touched = set()
 
     def result_check(call, output):
@@ -98,7 +117,8 @@ def layered_checks(world, messages: list, judge, cost: dict, log: list) -> Check
     def intent_check(call, messages_so_far):
         argument = {"set_model": "agent_name", "send_email": "to"}.get(call.name)
         request = user_text(messages_so_far).lower()
-        if argument and str(call.input.get(argument, "")).lower() not in request:
+        known_names = request + (" " + successful_results(messages_so_far).lower() if version == 2 else "")
+        if argument and str(call.input.get(argument, "")).lower() not in known_names:
             return f"ask the user: {argument} {call.input.get(argument)!r} wasn't in the request"
         if call.name == "set_model":
             known = (request + " " + successful_results(messages_so_far)).lower()
@@ -130,9 +150,16 @@ def layered_checks(world, messages: list, judge, cost: dict, log: list) -> Check
     def grounding(answer):
         evidence = successful_results(messages)
         known = [float(n.rstrip("%").replace(",", "")) for n in NUMBER.findall(evidence)]
-        for figure in NUMBER.findall(re.sub(r"\d{4}-\d{2}-\d{2}", " ", CITATION.sub(" ", answer))):
+        text = re.sub(r"\d{4}-\d{2}-\d{2}", " ", CITATION.sub(" ", answer))
+        if version == 2:
+            text = LIST_MARKER.sub(" ", IDENTIFIER.sub(" ", text))
+        for figure in NUMBER.findall(text):
             value = float(figure.rstrip("%").replace(",", ""))
+            if version == 2 and not figure.endswith("%") and value == int(value) and value <= 10:
+                continue
             wanted = [value, value / 100] if figure.endswith("%") else [value]
+            if version == 2:
+                wanted += [value * 1000, value / 1000]
             if not any(abs(w - k) < 1e-9 for w in wanted for k in known):
                 return f"{figure} appears in no tool result"
         return None
@@ -153,7 +180,8 @@ def layered_checks(world, messages: list, judge, cost: dict, log: list) -> Check
 
     def support_judge(answer):
         sources = dict(SOURCE.findall(successful_results(messages)))
-        for sentence in re.split(r"(?<=[.!?])\s+", answer):
+        sentences = claim_sentences(answer) if version == 2 else re.split(r"(?<=[.!?])\s+", answer)
+        for sentence in sentences:
             for cited in re.findall(r"\[([\w./-]+:\d+)\]", sentence):
                 claim = CITATION.sub("", sentence).strip()
                 if cited not in sources:
@@ -228,8 +256,9 @@ def variant_parts(variant: str, judge=None, record: dict | None = None):
         return client
 
     def layered(world, messages):
-        return layered_checks(world, messages, judge, record["layer_cost"], record["layer_log"])
+        return layered_checks(world, messages, judge, record["layer_cost"], record["layer_log"],
+                              version=2 if variant == "layers-v2" else 1)
 
-    if variant == "layers":
+    if variant in ("layers", "layers-v2"):
         record.update(layer_log=[], layer_cost={"approvals": 0, "extra_reads": 0, "judge_calls": 0})
-    return change_tools, change_client, (layered if variant == "layers" else None)
+    return change_tools, change_client, (layered if variant in ("layers", "layers-v2") else None)

@@ -41,7 +41,7 @@ sys.path[:0] = [str(HERE), str(HERE / "course")]
 from backends import StandInBackend, StandInUserBackend, VLLMBackend, VLLMChatBackend  # noqa: E402
 from ablations import VARIANTS, SupportJudge, variant_parts  # noqa: E402
 from eval_client import STOP_USER, ChatTemplate, ModelClient, SimulatedUser, seed_for  # noqa: E402
-from harness import SYSTEM_V1, config_hash, load_tasks, run_trial  # noqa: E402
+from harness import SYSTEMS, config_hash, load_tasks, run_trial  # noqa: E402
 from registry_world import TOOL_SPECS, ToolBox  # noqa: E402
 from run_pilot import (MAX_TOKENS, MODELS, SAMPLING, USER_MAX_TOKENS, USER_MODEL, USER_SAMPLING,  # noqa: E402
                        USER_TEMPLATE_KWARGS, check_template, gpu_names)
@@ -129,11 +129,12 @@ def run_batch(batch: str, args) -> dict:
     if args.tasks:
         tasks = [t for t in tasks if t.id in args.tasks.split(",")]
     workdir = tempfile.mkdtemp(prefix="registry-world-")
-    hash_ = config_hash(SYSTEM_V1, TOOL_SPECS)
+    system = SYSTEMS[args.system]
+    hash_ = config_hash(system, TOOL_SPECS)
 
     def one_trial(task, trial):
         seed = seed_for("main", condition, task.id, trial)
-        model = ModelClient(backend, template, SYSTEM_V1, TOOL_SPECS, THINKING, SAMPLING[THINKING],
+        model = ModelClient(backend, template, system, TOOL_SPECS, THINKING, SAMPLING[THINKING],
                             MAX_TOKENS[THINKING], seed)
         tracer = Tracer()
         user = None
@@ -149,7 +150,7 @@ def run_batch(batch: str, args) -> dict:
         started = time.monotonic()
         record = {"trial_id": trial_id, "task_id": task.id, "trial": trial, "seed": seed}
         variant_record, judge = {}, None
-        if args.variant == "layers":
+        if args.variant in ("layers", "layers-v2"):
             judge_backend = StandInJudgeBackend() if args.dry_run else VLLMChatBackend(args.user_url, USER_MODEL,
                                                                                         USER_TEMPLATE_KWARGS)
             judge = SupportJudge(judge_backend, seed)
@@ -179,7 +180,8 @@ def run_batch(batch: str, args) -> dict:
         "condition": condition, "variant": args.variant, "dry_run": args.dry_run, "model": repo, "revision": revision,
         "thinking": THINKING,
         "sampling": SAMPLING[THINKING], "max_tokens": MAX_TOKENS[THINKING], "trials_per_task": args.trials,
-        "system": SYSTEM_V1, "tools": TOOL_SPECS, "config_hash": hash_,
+        "system": system, "system_version": args.system, "tools": TOOL_SPECS, "config_hash": hash_,
+        "serving": {"quantization": args.quantization},
         "template_sha": template.sha, "template_matches_transformers": template_check,
         "user": None if args.dry_run else {"model": USER_MODEL, "sampling": USER_SAMPLING,
                                             "template_kwargs": USER_TEMPLATE_KWARGS, "max_tokens": USER_MAX_TOKENS},
@@ -214,6 +216,9 @@ def main() -> None:
     parser.add_argument("--tasks-file", default="tasks/main.json", help="the task file, relative to scripts/eval")
     parser.add_argument("--name", default="baseline", help="the run's name; files are <name>-<batch>.json")
     parser.add_argument("--variant", default="none", choices=VARIANTS, help="Lesson 9's ablation: what to change")
+    parser.add_argument("--system", default="v1", choices=("v1", "v2"), help="the system prompt version (Lesson 10)")
+    parser.add_argument("--quantization", default=None,
+                        help="how the agent server was started, if not as pinned (Lesson 10's serving change: fp8)")
     # recorded in the run's "environment" field; see README-main.md for the values the baseline used
     parser.add_argument("--env-var", action="append", default=[], metavar="NAME=VALUE",
                         help="an environment variable set for the servers (repeatable)")

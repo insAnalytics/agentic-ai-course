@@ -17,7 +17,7 @@ sys.path[:0] = [str(HERE), str(HERE / "course")]
 
 from ablations import ReplaySupportJudge, variant_parts  # noqa: E402
 from eval_client import ReplayClient, ReplayDiverged, ReplayUser  # noqa: E402
-from harness import SYSTEM_V1, config_hash, load_tasks, run_trial  # noqa: E402
+from harness import SYSTEMS, config_hash, load_tasks, run_trial  # noqa: E402
 from registry_world import TOOL_SPECS, TOOL_SPECS_PILOT  # noqa: E402
 from tokens import _plain  # noqa: E402
 
@@ -58,7 +58,7 @@ def main() -> None:
     for path in sys.argv[1:]:
         run = json.loads(Path(path).read_text(encoding="utf-8"))
         # a replay never renders the prompt, so check the system prompt and tools separately, by hash
-        known = run["system"] == SYSTEM_V1 and run["tools"] in (TOOL_SPECS, TOOL_SPECS_PILOT)
+        known = run["system"] in SYSTEMS.values() and run["tools"] in (TOOL_SPECS, TOOL_SPECS_PILOT)
         if not known or run["config_hash"] != config_hash(run["system"], run["tools"]):
             print(f"{Path(path).name}: recorded with a system prompt or tool set this code doesn't have ({run['config_hash']})")
             failed += 1

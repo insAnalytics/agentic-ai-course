@@ -103,6 +103,34 @@ def main() -> None:
     if judge.calls:
         problems.append("layers: the judge ran although grounding had objected")
 
+    # layers v2: the three fixed layers stop the false alarms Lesson 9 read, and still catch real problems
+    v2_cases = [
+        ("a03", "list numbers, an incident id and a version", [call("get_health", agent_name="research_agent"),
+         "Two steps:\n1. Check the panel.\n2. Compare with INC-2041 and v2.4 notes."], "layers-v2", []),
+        ("a03", "the same answer under version 1", [call("get_health", agent_name="research_agent"),
+         "Two steps:\n1. Check the panel.\n2. Compare with INC-2041 and v2.4 notes."], "layers", ["grounding"]),
+        ("a03", "an invented figure, still caught", [call("get_health", agent_name="research_agent"),
+         "Its error rate is 9.9%."], "layers-v2", ["grounding"]),
+        ("a09", "an agent found by lookup", [call("get_agent", agent_name="research_agent"),
+         call("set_model", agent_name="research_agent", model="claude-sonnet"), "Moved it; the record shows claude-sonnet."],
+         "layers-v2", []),
+        ("a09", "the same lookup under version 1", [call("get_agent", agent_name="research_agent"),
+         call("set_model", agent_name="research_agent", model="claude-sonnet"), "Moved it."],
+         "layers", ["intent check", "missing-part check"]),
+        ("a09", "an agent never looked up, still caught", [call("set_model", agent_name="support_agent", model="claude-sonnet"),
+         "Moved it."], "layers-v2", ["intent check", "missing-part check"]),
+    ]
+    for task_id, label, completions, variant, expected in v2_cases:
+        outcome, record, judge = run(tasks[task_id], completions, variant, directory)
+        if layers_seen(record) != expected:
+            problems.append(f"{variant}, {label}: objections from {layers_seen(record)}, expected {expected}")
+    _, record, judge = run(tasks["q01"], [call("search_docs", query="registry key read write"),
+                                          "## Keys\nHere are the details:\n- **Keys** come in two kinds [D02:0]."],
+                           "layers-v2", directory)
+    if [claim for _, claim in judge.calls] != ["Keys come in two kinds ."] and \
+            [claim for _, claim in judge.calls] != ["Keys come in two kinds."]:
+        problems.append(f"layers-v2: the judge was given {[c for _, c in judge.calls]}, not the one claim")
+
     # compaction: a run with five tool rounds is compacted once it passes three
     long_run = [call("search_docs", query=f"registry key {n}") for n in range(5)] + \
         ["SUMMARY: searched for key details.", "Done searching.", ]
@@ -124,7 +152,7 @@ def main() -> None:
 
     for problem in problems:
         print("BAD", problem)
-    print(f"{len(cases) + 3} cases checked")
+    print(f"{len(cases) + len(v2_cases) + 4} cases checked")
     print("all checks pass" if not problems else f"{len(problems)} problems")
     sys.exit(1 if problems else 0)
 
