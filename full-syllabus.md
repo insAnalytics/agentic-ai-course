@@ -7678,9 +7678,9 @@ torch 2.13.0+cu130, `torchaudio` removed,
    flags taken as confirmed, gate arguments swapped) each fail. Lesson 10
    is now fully Locked.
 11. **Monitoring in Production** (`11-monitoring`, title provisional) —
-   **Building.** Concepts 1 to 5 drafted and built; concepts 6 on (the
-   mockup says the rest of the lesson covers putting a change in front
-   of real users) and bookends not yet. Concept 1 (what to watch on every run): no answer key in
+   **Building.** Concepts 1 to 6 drafted and built; concept 7 (concept
+   6 points to it for splitting traffic by conversation or user and for
+   checking a canary repeatedly) and bookends not yet. Concept 1 (what to watch on every run): no answer key in
    production (Lesson 1), Anthropic's guide on monitoring after launch,
    simulated traffic (the baseline's batch a, 385 development runs, in
    start order), the SRE book's four golden signals for an agent plus
@@ -7828,6 +7828,27 @@ torch 2.13.0+cu130, `torchaudio` removed,
    Lesson 9 concept 1 and Lesson 10 concept 2 (pages), concepts 3
    (`#the-judge-s-own-errors`) and 4 (page and `#categories-first`)
    (anchors verified).
+   Concept 6 (releasing a change: shadow runs and canaries): the SRE
+   Workbook's canarying chapter (traffic teeing and shared state, the 20%
+   x 5% = 1% arithmetic, few user-facing metrics, per-version breakdowns,
+   stages, before/after confounded by time, feature flags), shadow agents
+   with recording or sandboxed writing tools, a canary-size simulation
+   (2,000 runs, 300 canaries per row, one-sided two-proportion z-test:
+   harmless 5%, 5%/10%/25% canaries 80%/96%/100%, 6/12/29 extra failures
+   against 117 for everyone), before/after vs canary/control under the
+   email shift (74% vs 2% false blame), rollback and compensation, 6 quiz
+   cards, no exercise. Setup `LOAD_TRAFFIC` + the new `CANARY`
+   (`ended_without_answer`, `live`, `candidate`, `worse`, shown and
+   copy-checked), with `trafficData("baseline-a", "baseline-b",
+   "compaction-a")` and `QUESTION_DATA`. The page's code is the mockup's
+   byte for byte; both demos reproduce its output exactly in CPython and
+   Pyodide 0.26.4 (about 3 s each there, including loading the traffic).
+   No corrections. Callbacks: Lesson 10 concepts 1 and 2, this lesson's
+   concepts 1 to 4 (pages; concept 4 also `#a-shift-arrives`), Module 6
+   Lesson 7 concepts 1 and 3 and Lesson 8 concept 4 (pages), Lesson 6
+   concept 3's `#a-pair-shown-in-both-orders`, Lesson 9 concept 1's
+   `#why-pairing-matters`, Lesson 2 concepts 3 and 5 (pages) (anchors
+   verified).
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092

@@ -204,6 +204,17 @@ const PAIRS = [
     ],
   },
   {
+    what: "CANARY (Module 7 Lesson 11 concept 6)",
+    a: ["src/lib/evalData.ts", () => rawConstant("src/lib/evalData.ts", "CANARY")],
+    b: [
+      "the page's setup block",
+      () => pageFence(
+        "src/content/modules/07-evaluation/11-monitoring/06-releasing-a-change.mdx",
+        "import random\nfrom math import sqrt\n\n\ndef ended_without_answer",
+      ),
+    ],
+  },
+  {
     what: "LOAD_SUMMARIZER (Module 7 Lesson 5 concept 5)",
     a: ["the LOAD_SUMMARIZER constant", () => rawConstant("src/content/modules/07-evaluation/05-code-graders/05-a-component-test-the-summarizer.mdx", "LOAD_SUMMARIZER")],
     b: [

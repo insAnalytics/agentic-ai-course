@@ -1077,3 +1077,28 @@ def psi(reference: dict[str, int], current: dict[str, int], floor: float = 0.000
         index += (actual - expected) * log(actual / expected)
     return index
 `;
+
+/**
+ * Module 7 Lesson 11 concept 6's setup block, shown verbatim on that page (keep the two byte-identical:
+ * scripts/check-copies.mjs checks it). Its demos run on LOAD_TRAFFIC + this, with
+ * trafficData("baseline-a", "baseline-b", "compaction-a") and QUESTION_DATA.
+ */
+export const CANARY = String.raw`import random
+from math import sqrt
+
+
+def ended_without_answer(spans: list[Span]) -> bool:
+    chats = [span for span in spans if span.attributes.get("gen_ai.operation.name") == "chat"]
+    return bool(chats[-1].attributes.get("registry_agent.tool_calls"))
+
+
+live = [ended_without_answer(spans) for spans in load_traffic("baseline-a") + load_traffic("baseline-b")]
+candidate = [ended_without_answer(spans) for spans in load_traffic("compaction-a")]
+
+
+def worse(canary: list[bool], control: list[bool], z: float = 1.645) -> bool:
+    """A one-sided two-proportion z-test: does the canary fail clearly more often than the control?"""
+    pooled = (sum(canary) + sum(control)) / (len(canary) + len(control))
+    spread = sqrt(pooled * (1 - pooled) * (1 / len(canary) + 1 / len(control)))
+    return spread > 0 and (sum(canary) / len(canary) - sum(control) / len(control)) / spread > z
+`;

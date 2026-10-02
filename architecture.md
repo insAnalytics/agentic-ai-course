@@ -827,6 +827,12 @@ backticks); the exercise passes the same as `namespaceSetup`, and its
 reference is `PSI`, loaded hidden by the three demos after it (the second
 and third also load the first's `SHIFT_BASE`). The 41-kinds PSI-noise
 demo takes about 2.2 s in Pyodide.
+Concept 6 adds no data: its setup is `LOAD_TRAFFIC` + `CANARY`
+(`ended_without_answer`, `live`, `candidate`, `worse`), shown and
+copy-checked, with `trafficData("baseline-a", "baseline-b",
+"compaction-a")` and `QUESTION_DATA` (its before/after demo reads
+`question-mix.json` itself). Each of its two demos takes about 3 s in
+Pyodide, most of it loading the three traffic files.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
