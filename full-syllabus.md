@@ -7442,6 +7442,24 @@ torch 2.13.0+cu130, `torchaudio` removed,
    did show probability bands against accuracy); Q8's correct option says
    "Their" for "this module's judges".
 
+9. **Ablations** (`09-ablations`, title provisional) — **Building.**
+   Concept 1 (one piece on and off) is built; concepts 2 onward (the
+   mockup names clustering by task group as the next) and the bookends
+   aren't drafted yet. Concept 1: what an ablation holds fixed (tasks,
+   budget, graders), Miller's "Adding Error Bars to Evals" (arXiv
+   2411.00640, linked) on paired differences and clustering, the
+   baseline's two 5-trial batches each with its own task-resampled
+   interval (91.4% (82.7% to 98.4%) and 90.8% (82.7% to 97.8%)), a graded
+   `paired_difference` exercise (the mockup's hidden tests split into 6
+   self-contained tests), the batches paired (-0.5%, -2.2% to +1.1%; 3 of
+   37 tasks moved: a10, m03, m04), 5 quiz cards. Both demos and the
+   exercise's example reproduce the mockup's output exactly against
+   `baseline-grades.json`; the reference passes every test, and the
+   starter and six wrong versions (pooled trials, unsorted tasks, the
+   global `random`, no `ValueError`, A minus B, wrong resample size) each
+   fail. No callbacks. Setup: `LOAD_SUITE` shown and copy-checked; the
+   phase 5 ablation runs aren't used yet.
+
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092
 items with rubrics version 2 (false-report, planted and premise rubrics

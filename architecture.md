@@ -685,11 +685,20 @@ copy-checked against the page source rather than the `LIB_PY` constant,
 because `lib.py`'s `normalize` contains a backtick (written `${"`"}`)
 that the check's `rawConstant` parser can't read past.
 
+Module 7 Lesson 9 (ablations) starts from Lesson 4's `LOAD_SUITE` with
+`baseline-grades.json` mounted (`suiteData("baseline-grades")`), shown
+verbatim on concept 1 and copy-checked. Concept 1 splits each task's 10
+baseline trials into batches a and b (the page's `BATCHES`, loaded
+hidden by the demo after the exercise), and its exercise reference is
+`PAIRED_DIFFERENCE` in `evalData.ts` (`pass_rate`, `paired_difference`:
+B minus A per shared task, sorted, with a task-resampled interval from
+one `random.Random(seed)`).
+
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
 code block has drifted: currently the pilot's `tasks.json` against
 `scripts/eval/tasks/pilot.json`, `LOAD_PILOT`, `LOAD_READING` and `LOAD_SUITE`
-(Lesson 4 concept 1, Lesson 5 concepts 1 to 3) `LOAD_JUDGES` (Lesson 6 concepts 1 to 5) and `LOAD_JUDGE_LABELS` (Lesson 7 concepts 1 to 5) against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
+(Lesson 4 concept 1, Lesson 5 concepts 1 to 3, Lesson 9 concept 1) `LOAD_JUDGES` (Lesson 6 concepts 1 to 5) and `LOAD_JUDGE_LABELS` (Lesson 7 concepts 1 to 5) against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
 the demos that show them, the replay exercise's static provided block
 against its constant, and each `public/data/eval/code/*.py` against its
 source. A second list, `CONTAINED`, checks that code a page shows appears

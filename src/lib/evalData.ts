@@ -750,3 +750,29 @@ def fit_temperature(rows: list[tuple[float, bool]], grid: list[float]) -> float:
     """The temperature from the grid whose scaled confidences have the lowest log loss on these rows."""
     return min(grid, key=lambda t: log_loss([(scale(p, t), correct) for p, correct in rows]))
 `;
+
+/**
+ * Module 7 Lesson 9 concept 1's pass_rate and paired_difference: the
+ * exercise's reference, shown there as the correct answer by using this
+ * constant (with the starter's example after it), and loaded hidden by the
+ * demo after it.
+ */
+export const PAIRED_DIFFERENCE = String.raw`import random
+
+
+def pass_rate(results: list[bool]) -> float:
+    return sum(results) / len(results)
+
+
+def paired_difference(a: dict[str, list[bool]], b: dict[str, list[bool]], repeats: int = 2000,
+                      seed: int = 0) -> tuple[float, float, float]:
+    """B minus A: the mean over tasks of each task's pass-rate difference, with a 95% interval from resampling
+    tasks. Only tasks both conditions ran are compared."""
+    tasks = sorted(a.keys() & b.keys())
+    if not tasks:
+        raise ValueError("the two conditions share no tasks")
+    differences = [pass_rate(b[t]) - pass_rate(a[t]) for t in tasks]
+    rng = random.Random(seed)
+    means = sorted(sum(rng.choices(differences, k=len(differences))) / len(differences) for _ in range(repeats))
+    return sum(differences) / len(differences), means[int(0.025 * repeats)], means[int(0.975 * repeats) - 1]
+`;
