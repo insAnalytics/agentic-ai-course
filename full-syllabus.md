@@ -7055,7 +7055,24 @@ torch 2.13.0+cu130, `torchaudio` removed,
    `#the-task-and-how-a-standard-decides-it`, concept 4's
    `#from-notes-to-categories`, concept 5's
    `#a-verdict-that-changed-on-a-full-reading` (anchors verified).
-   Concepts 3 onward and the bookends are not drafted yet.
+   Concept 3 (pass/fail, scores and pairs) is built: Zheng et al.'s three
+   formats (checked against the paper, now linked), a demo of both
+   judges' 1-5 scores beside their pass/fail verdicts on the 96 first-run
+   dev answers (ends match; the middle disagrees), a graded exercise
+   (`winner` undoes the shown order; `consistency` counts consistent,
+   flipped and one-tie pairs and the first-shown rate over non-tie
+   decisions; the mockup's hidden tests split into six self-contained
+   tests, the last on Qwen's real pairs via `namespaceSetup={LOAD_JUDGES}`
+   and `digest.json`), and a demo of both judges' pairs (Gemma 43/0/5,
+   55%; Qwen 27/16/5, 56%). Both demos match the mockup exactly in
+   Pyodide 0.26.4; the reference passes every test, and five wrong
+   versions each fail. Checked against the data: 29 of Gemma's 43
+   consistent pairs are tie/tie and 63 of its 96 decisions ties; Qwen's
+   16 flips are 11 first-slot-twice and 5 second-slot-twice. No
+   corrections to the mockup. 5 quiz cards. Callbacks: Module 6 Lesson 4
+   concept 2's `#judges-have-habits`, concept 2's
+   `#what-a-rubric-has-to-do` (anchors verified); Lesson 10 is plain
+   prose. Concepts 4 onward and the bookends are not drafted yet.
 
 **Runs, phase 3 (Lesson 6's judges): done (2026-10-02).**
 `scripts/eval/README-phase3.md`, `scripts/eval/judges.py`,
