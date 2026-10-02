@@ -7443,9 +7443,7 @@ torch 2.13.0+cu130, `torchaudio` removed,
    "Their" for "this module's judges".
 
 9. **Ablations** (`09-ablations`, title provisional) — **Building.**
-   Concepts 1 to 4 are built; concept 5 (the mockup's setup note says
-   concepts 3 to 5 share `LOAD_ABLATIONS`) and the bookends aren't
-   drafted yet. Concept 1 (one piece on and off): what an ablation holds fixed (tasks,
+   Concepts 1 to 5 are built; the bookends aren't drafted yet. Concept 1 (one piece on and off): what an ablation holds fixed (tasks,
    budget, graders), Miller's "Adding Error Bars to Evals" (arXiv
    2411.00640, linked) on paired differences and clustering, the
    baseline's two 5-trial batches each with its own task-resampled
@@ -7502,6 +7500,21 @@ torch 2.13.0+cu130, `torchaudio` removed,
    8 of 10) come from the content chat and aren't in the data. Callback:
    Module 6 Lesson 10 concept 3 (page). "Lesson 10" (comparing versions)
    stays plain prose until it exists.
+   Concept 5 (a piece that doesn't earn its place) is built: Module 4's
+   open question, the date/type labels ablation (no labels minus baseline
+   +3.0%, +0.5% to +5.9%), why that isn't evidence the labels hurt (noise
+   floor from concept 1, linked to `#the-same-two-batches-paired`;
+   eighteen intervals), the development tasks that moved most (s06 0/5 to
+   4/5), the narrow conclusion, how to report a null result, 5 quiz cards,
+   no exercise. Both demos reproduce the mockup's output exactly. Checked
+   against the data: cited share 51.0% vs 51.5%; the two `docs: conflict`
+   tasks (q35, q36) 5/5 and 2/5 in both conditions; s06 is the suite's
+   "docs: vendor, citation checked" task; a label is about 35 characters
+   (`m5.py`'s `format_source`). Corrected from the mockup: "at least two
+   of those four passes cited nothing" is "three" (s06's no-labels runs:
+   4 passed, 2 cited, 3 passed without citing), in the prose and Q2.
+   Callbacks: Module 4 Lesson 12 concept 4 and Lesson 11 concept 2
+   (pages; anchors verified).
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092
