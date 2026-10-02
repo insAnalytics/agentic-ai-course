@@ -7142,7 +7142,7 @@ torch 2.13.0+cu130, `torchaudio` removed,
    options reworded so they don't say "it" of two judges.
 
 7. **Measuring Judges** (`07-measuring-judges`, title provisional) —
-   **Building:** concepts 1 to 4 drafted and built (concept 2's
+   **Building:** concepts 1 to 5 drafted and built (concept 2's
    relabel section is a placeholder until the relabel, due from
    2026-10-23); later concepts and bookends not yet drafted.
    Concept 1 (a judge is a measurement) is built: why a judge is checked
@@ -7261,6 +7261,35 @@ torch 2.13.0+cu130, `torchaudio` removed,
    intervals), and "warns that the interval is wide when the test set is
    small" is now Husain's own figure, below about 60 labelled examples
    (linked). Added the lesson's setup block, copy-checked.
+   Concept 5 (set F, graded) is built: the marker against the revised
+   judge on all 1,600 set F replies (false premises 37.1% vs 100.0%, true
+   92.6% vs 94.6%), why labels drawn within strata need weighting, a graded
+   `stratified_rate` exercise, Simar's 20 premise labels weighted by
+   stratum (false 100.0% over 99.9% of replies, true 95.5% over 99.4%), the
+   premise judge against the labels (revised: dev TPR 11/12, test TPR 4/4,
+   TNR 2/3), and how set F is graded in the end (by reading, with a judge
+   that agrees; the marker retired). 5 quiz cards. Data: `measure.json`
+   gains `premise_strata` and `premise_judged`, from the updated
+   `judge_measure_data.py` (identical to the zip's copy apart from line
+   endings; concepts 3 and 4's demos unchanged). In Pyodide 0.26.4 all
+   three demos are byte-identical to the mockup's code and print its
+   output exactly, and the reference prints (0.6, 1.0); it passes the 4
+   hidden tests and the starter and eight wrong versions each fail. Added
+   a case to the task and tests: labels for strata not in `sizes` are
+   ignored (looping over `labels`, which the hint warns against, passed
+   every test, and would raise KeyError on the page's own demo, whose
+   labels span both premises). Corrected from the mockup: Module 6 made
+   no promise to grade set F here (as concept 5 of Lesson 6 already
+   corrected; it advised a checked judge or reading), so "The promise" is
+   now "What Module 6 left open", the title "Set F, kept" is "Set F,
+   graded", and Q5 asks how set F is graded; "3 of 5 labels pass" in the
+   explanation and Q3 is 2 of 5 (the test's own plain share is 2/5); "the
+   judge agrees with Simar on every pass it was tested on" is now "all
+   four test passes, 11 of the 12 development passes". Added the lesson's
+   setup block, copy-checked. Callbacks: Module 6 Lesson 4 concept 5's
+   `#an-experiment-and-what-its-counts-say`,
+   `#what-this-means-for-a-real-agent` and `#what-the-replies-actually-say`,
+   Lesson 6 concept 5's `#the-marker-against-the-judge` (anchors verified).
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092

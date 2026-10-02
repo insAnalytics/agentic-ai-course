@@ -1,0 +1,296 @@
+---
+title: "Set F, graded"
+lesson: "07-measuring-judges"
+order: 5
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { LOAD_JUDGE_LABELS, judgeLabelsData } from "../../../../lib/evalData";
+
+export const MEASURE_DATA = judgeLabelsData("measure");
+
+export const SET_F_SETUP = String.raw`data = json.loads((JUDGE_LABELS / "measure.json").read_text(encoding="utf-8"))
+strata, judged = data["premise_strata"], data["premise_judged"]["gemma_v2"]
+`;
+
+export const TWO_MEASURES_DEMO = SET_F_SETUP + String.raw`for premise, good in (("false", "handled the false assumption"), ("true", "left the true assumption alone")):
+    total = sum(n for s, n in strata.items() if s.startswith(premise))
+    marker_good = sum(n for s, n in strata.items() if s.startswith(premise) and (" rejected " in s) == (premise == "false"))
+    print(f"{premise}-premise replies ({total}), share that {good}:")
+    print(f"  the marker line:   {marker_good / total:.1%}")
+    print(f"  the revised judge: {judged[premise]['pass'] / total:.1%}")
+`;
+
+export const EXAMPLE = String.raw`print(stratified_rate({"common": 90, "rare": 10}, {"common": ["pass", "pass", "fail"], "rare": ["fail", "fail"]}))
+`;
+
+export const STARTER = String.raw`def stratified_rate(sizes: dict[str, int], labels: dict[str, list[str]]) -> tuple[float | None, float]:
+    """The pass rate over the whole population, from labels drawn within strata: each labelled stratum's pass share,
+    weighted by its size. Returns the estimate over the strata that have usable labels, and the share of the
+    population those strata cover. Labels other than "pass" and "fail" are ignored."""
+    # your code here
+
+
+` + EXAMPLE;
+
+export const STRATIFIED_RATE = String.raw`def stratified_rate(sizes: dict[str, int], labels: dict[str, list[str]]) -> tuple[float | None, float]:
+    """The pass rate over the whole population, from labels drawn within strata: each labelled stratum's pass share,
+    weighted by its size. Returns the estimate over the strata that have usable labels, and the share of the
+    population those strata cover. Labels other than "pass" and "fail" are ignored."""
+    weighted, covered = 0.0, 0
+    for stratum, size in sizes.items():
+        usable = [label for label in labels.get(stratum, []) if label in ("pass", "fail")]
+        if usable:
+            weighted += size * usable.count("pass") / len(usable)
+            covered += size
+    total = sum(sizes.values())
+    return (weighted / covered if covered else None), (covered / total if total else 0.0)
+`;
+
+export const TESTS = [
+// each hidden test runs in its own copy of the learner's namespace, so every test builds what it checks
+String.raw`result = stratified_rate({"common": 90, "rare": 10}, {"common": ["pass", "pass", "fail"], "rare": ["fail", "fail"]})
+assert result is not None, "stratified_rate should return (estimate, covered share)"
+estimate, covered = result
+assert abs(estimate - (90 * 2 / 3 + 10 * 0) / 100) < 1e-9, \
+    f"weight each stratum's pass share by its size: (90 x 2/3 + 10 x 0) / 100 = 0.6, got {estimate}"
+assert covered == 1.0, f"both strata have labels, so they cover everything: got {covered}"
+naive = 2 / 5
+assert abs(estimate - naive) > 0.1, "the weighted estimate differs from the plain share of labels that passed"
+`,
+String.raw`estimate, covered = stratified_rate({"a": 50, "b": 30, "c": 20}, {"a": ["pass"], "b": ["fail", "pass"]})
+assert abs(estimate - (50 * 1 + 30 * 0.5) / 80) < 1e-9, f"strata without labels are left out of the estimate: got {estimate}"
+assert abs(covered - 0.8) < 1e-9, f"and the covered share says how much they left out: 80 of 100, got {covered}"
+try:
+    other = stratified_rate({"a": 10}, {"a": ["pass"], "elsewhere": ["fail"]})
+except KeyError as error:
+    raise AssertionError(f"labels for a stratum that isn't in sizes are ignored, not looked up: KeyError {error}") from error
+assert other == (1.0, 1.0), f"labels for a stratum that isn't in sizes don't count: got {other}"
+`,
+String.raw`estimate, covered = stratified_rate({"a": 10, "b": 10}, {"a": ["pass", "unclear"], "b": ["unclear"]})
+assert estimate == 1.0 and covered == 0.5, \
+    f"UNCLEAR labels are ignored, and a stratum with only UNCLEAR counts as unlabelled: got {(estimate, covered)}"
+`,
+String.raw`assert stratified_rate({"a": 10}, {}) == (None, 0.0), "with no usable labels at all, there's no estimate"
+assert stratified_rate({}, {}) == (None, 0.0), "an empty population"
+`,
+];
+
+export const LABELS_DEMO = String.raw`labels = {}
+for row in data["rows"]:
+    if row["kind"] == "premise":
+        labels.setdefault(row["stratum"], []).append(row["label"])
+for premise in ("false", "true"):
+    sizes = {s: n for s, n in strata.items() if s.startswith(premise)}
+    estimate, covered = stratified_rate(sizes, labels)
+    print(f"{premise}-premise: from Simar's labels, {estimate:.1%} handled correctly, over {covered:.1%} of the replies")
+    for stratum, size in sorted(sizes.items(), key=lambda kv: -kv[1]):
+        print(f"  {stratum:<22} {size:>4} replies, labels {labels.get(stratum, [])}")
+`;
+
+export const TRUST_DEMO = String.raw`rows = data["rows"]
+
+
+def rates(rows: list[dict], key: str) -> str:
+    usable = [r for r in rows if r["label"] in ("pass", "fail") and not r["excluded"]]
+    passes = [r for r in usable if r["label"] == "pass"]
+    fails = [r for r in usable if r["label"] == "fail"]
+    return (f"TPR {sum(r[key] == 'pass' for r in passes)}/{len(passes)}  "
+            f"TNR {sum(r[key] == 'fail' for r in fails)}/{len(fails)}")
+
+
+for split in ("dev", "test"):
+    premise_rows = [r for r in rows if r["kind"] == "premise" and r["split"] == split]
+    print(f"{split:<5} phase 3 rubric {rates(premise_rows, 'gemma_v1')}   revised {rates(premise_rows, 'gemma_v2')}")
+`;
+
+<Subsection title="What Module 6 left open" variant="a">
+
+[Module 6 asked the 4B questions built on a false assumption](/06-reliability/04-verifying-claims/05-questions-with-a-false-premise/#an-experiment-and-what-its-counts-say),
+and graded the replies by the `PREMISE: FALSE` line they ended with.
+Reading them showed the line measured something else, and Module 6's
+advice for a measure like that was
+[to grade it with a judge you've checked](/06-reliability/04-verifying-claims/05-questions-with-a-false-premise/#what-this-means-for-a-real-agent),
+or by reading.
+[Lesson 6](/07-evaluation/06-model-graders/05-grading-set-f/#the-marker-against-the-judge)
+graded all 1,600 with a judge and showed where that judge couldn't yet be
+trusted. This concept finishes the job, with Simar's labels.
+
+Here are the two automatic measures side by side, the marker and the
+revised judge:
+
+```python
+import json
+from pathlib import Path
+
+JUDGE_LABELS = Path("/data/eval/judge-labels")
+
+
+def load_vs_reading() -> list[dict]:
+    """The 50 question runs Lesson 3's reading labelled, with the reading's verdict, both judges' correctness
+    verdicts, and whether every citation was to a source a tool returned."""
+    return json.loads((JUDGE_LABELS / "vs-reading.json").read_text(encoding="utf-8"))["rows"]
+```
+*(defined once at the start of this lesson and already loaded)*
+
+<LiveDemo client:load dataFiles={MEASURE_DATA} setupCode={LOAD_JUDGE_LABELS} code={TWO_MEASURES_DEMO} />
+
+*(Gemma 4 31B with the revised premise rubric.)*
+
+On false premises they couldn't disagree more: the marker says the model
+handled about a third, the judge says all of them. On true premises
+they're close. Either could be wrong, and the labels decide.
+
+</Subsection>
+
+<Subsection title="From labels to a rate" variant="b">
+
+Simar labelled 20 premise replies, and they weren't drawn at random: they
+were chosen within strata, by premise, by the marker's outcome and by the
+judge's first verdict, so that rare kinds of reply were labelled as well
+as common ones. That means the plain share of labels that passed would be
+wrong as an estimate for all 1,600. A stratum of 5 replies has as many
+labels as one of 501.
+
+The fix is to weight: work out the pass share within each labelled
+stratum, multiply it by how many replies the stratum holds, and add up.
+That's a stratified estimate, the same idea surveys use when they sample
+some groups more heavily than others.
+
+</Subsection>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Write stratified_rate(sizes, labels). sizes maps each stratum to how many items it holds; labels maps a stratum to the labels given to items drawn from it. Ignore labels other than \"pass\" and \"fail\", and labels for strata that aren't in sizes. Return a tuple: first, the estimate: each stratum's pass share among its usable labels, weighted by its size, summed, and divided by the total size of the strata that have usable labels, or None if none do; second, the covered share: the total size of those strata, as a share of all items (0.0 if there are none)."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  runnable
+  hint={"Loop over sizes, not labels: every stratum counts towards the total, but only the ones with usable labels count towards the estimate and the covered share."}
+  correctAnswer={{
+    code: STRATIFIED_RATE + "\n\n" + EXAMPLE,
+    explanation: "In the example, 2 of 5 labels pass, but the common stratum is nine times the size of the rare one, so the population's pass rate is 60%, not 40%. Leaving unlabelled strata out of the estimate, and reporting how much of the population they are, is honest about what the labels can't speak for; filling them in with a guess would hide it. The example prints (0.6, 1.0).",
+  }}
+/>
+
+</CheckpointZone>
+
+<Subsection title="What the labels say" variant="a">
+
+<LiveDemo client:load dataFiles={MEASURE_DATA} setupCode={LOAD_JUDGE_LABELS + "\n\n" + STRATIFIED_RATE + "\n\n" + SET_F_SETUP} code={LABELS_DEMO} />
+
+*(Simar's labels after re-review; UNCLEAR labels are ignored.
+`stratified_rate` is the exercise's reference version, and `data` and
+`strata` are the first demo's, all loaded for you.)*
+
+- **False premises: handled every time.** Every label, in every stratum,
+  is a pass, including the 501 replies the marker counted as going along
+  with the assumption. They correct it by answering from what the sources
+  actually say. The marker's 37% was measuring whether the model wrote a
+  line, not whether it was fooled.
+- **True premises: left alone about 95% of the time.** The failures sit
+  where you'd expect, among replies the marker or the judge had flagged,
+  and the labels split there. Some replies do reject a true assumption;
+  some only used the marker to say something else.
+- **The biggest stratum has the fewest labels.** The 690 true-premise
+  replies the marker and the judge both passed carry one label between
+  them. The estimate leans on that stratum being as clean as it looks,
+  which the judge agrees with but the labels can barely test.
+
+</Subsection>
+
+<Subsection title="How far the judge can now be trusted" variant="b">
+
+<LiveDemo client:load dataFiles={MEASURE_DATA} setupCode={LOAD_JUDGE_LABELS + "\n\n" + SET_F_SETUP} code={TRUST_DEMO} />
+
+*(`data` is the first demo's, loaded for you.)*
+
+On the premise question, the revised judge agrees with Simar on all four
+test passes, 11 of the 12 development passes, and two of the three test
+failures. The development set had no failures left after re-review.
+That's enough to say the judge and the labels tell the same story about
+false premises, and not enough to put a tight number on how often the
+judge misses a wrongly rejected true premise: three test failures can't.
+
+So set F's replies are graded this way:
+
+- **By reading,** for the rates themselves: Simar's labels, weighted by
+  stratum, put false-premise handling at essentially 100% and true-premise
+  handling at about 95%.
+- **By a judge validated as far as its labels go,** which agrees with that
+  picture. Its remaining uncertainty is stated rather than hidden.
+- **The marker's numbers are retired.** On false premises they understated
+  the model by almost two-thirds.
+  [Module 6's own reading](/06-reliability/04-verifying-claims/05-questions-with-a-false-premise/#what-the-replies-actually-say)
+  had pointed that way; the labels confirm it.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "On false-premise replies, the marker said 37% were handled and the judge said 100%. What did the labels show?",
+      "options": [
+        "Every labelled reply was handled",
+        "About a third were handled, as the marker said",
+        "Half were handled, between the two measures",
+        "None of the replies could be labelled"
+      ],
+      "correctIndex": 0,
+      "explanation": "Every one of Simar's labels on false-premise replies is a pass, in every stratum, including the replies the marker counted as accepting the assumption. The marker measured whether the line was written."
+    },
+    {
+      "question": "Why can't the plain share of passing labels stand for all 1,600 replies?",
+      "options": [
+        "The labels were drawn unevenly across strata",
+        "Some labels were UNCLEAR and had to be dropped",
+        "Labels are always stricter than the replies deserve",
+        "The replies were labelled in a random order"
+      ],
+      "correctIndex": 0,
+      "explanation": "A 5-reply stratum had as many labels as a 501-reply one. Weighting each stratum's pass share by its size corrects for that."
+    },
+    {
+      "question": "In stratified_rate's example, 2 of 5 labels pass. Why is the estimate 60%, not 40%?",
+      "options": [
+        "The larger stratum passes more often",
+        "UNCLEAR labels were counted as passes",
+        "The covered share was below 100%",
+        "Each stratum counts equally in the estimate"
+      ],
+      "correctIndex": 0,
+      "explanation": "The common stratum, 90 items, passes 2 of 3 labels; the rare one, 10 items, passes none. Weighted by size, that's 60% of the population."
+    },
+    {
+      "question": "The 690 true-premise replies both the marker and the judge passed have one label. What does that mean for the 95% estimate?",
+      "options": [
+        "It leans on a barely tested stratum",
+        "It's exact, since that stratum is the largest",
+        "It should leave that stratum out entirely",
+        "It's too low, since one label can't fail"
+      ],
+      "correctIndex": 0,
+      "explanation": "The estimate weights that stratum by its size, using a single label's verdict. The judge agrees it's clean, but the labels can hardly confirm it."
+    },
+    {
+      "question": "How are set F's replies graded in the end?",
+      "options": [
+        "By reading, with a judge that agrees",
+        "The marker's numbers, corrected for the judge's errors",
+        "The judge alone, now validated on all its strata",
+        "Module 6's reading of 30 replies, scaled up to 1,600"
+      ],
+      "correctIndex": 0,
+      "explanation": "The rates come from Simar's labels, weighted by stratum. The judge tells the same story where its labels can check it, and its remaining uncertainty is stated."
+    }
+  ]}
+/>
+
+</CheckpointZone>

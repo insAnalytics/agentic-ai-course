@@ -4,7 +4,8 @@ stratum, Simar's label (first pass and after re-review), both judges' verdicts w
 the revised ones (version 2), whether the run ended without an answer, and whether its reference changed after
 labelling in a way that could change the label (q19, whose reference Simar disputed: those items are left out of
 the measurement; q40-allowed's change only removed a description of the other kind of reader, so its labels stand);
-and how each judge decided on every dev run of each kind, for correcting pass rates.
+how each judge decided on every dev run of each kind, for correcting pass rates; and, for set F, how many replies
+fall in each labelling stratum and how each judge decided by premise.
 
     python scripts/eval/judge_measure_data.py            # writes the file
     python scripts/eval/judge_measure_data.py --check    # fails if it's out of date
@@ -57,7 +58,23 @@ def build() -> dict:
                     kind = counts.setdefault(r["kind"], {"pass": 0, "fail": 0, "other": 0})
                     kind[r["decision"] if r["decision"] in ("pass", "fail") else "other"] += 1
             population[f"{judge}_v{version}"] = counts
-    return {"version": 1, "rows": rows, "population": population}
+    # set F: how many of the 1,600 premise replies fall in each labelling stratum (premise, the marker's outcome,
+    # Gemma's phase 3 verdict), and how the revised judges decided, by premise (Lesson 7, concept 5)
+    premise_strata, premise_judged = {}, {}
+    for r in json.loads((JUDGES / "gemma.json").read_text(encoding="utf-8"))["results"]:
+        if r["kind"] == "premise":
+            key = f"{r['premise']} {r['marker_outcome']} {r['decision']}"
+            premise_strata[key] = premise_strata.get(key, 0) + 1
+    for judge in ("gemma", "qwen9b"):
+        for version, suffix in ((1, ""), (2, "-v2")):
+            counts = {}
+            for r in json.loads((JUDGES / f"{judge}{suffix}.json").read_text(encoding="utf-8"))["results"]:
+                if r["kind"] == "premise":
+                    side = counts.setdefault(r["premise"], {"pass": 0, "fail": 0, "other": 0})
+                    side[r["decision"] if r["decision"] in ("pass", "fail") else "other"] += 1
+            premise_judged[f"{judge}_v{version}"] = counts
+    return {"version": 1, "rows": rows, "population": population,
+            "premise_strata": dict(sorted(premise_strata.items())), "premise_judged": premise_judged}
 
 
 def main() -> None:
