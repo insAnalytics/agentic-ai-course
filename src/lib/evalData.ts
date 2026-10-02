@@ -824,3 +824,35 @@ def passes(condition: str, group: str | None = None) -> dict[str, list[bool]]:
     return {task: [row["pass"] for row in rows] for task, rows in results["conditions"][condition].items()
             if group is None or results["tasks"][task]["group"] == group}
 `;
+
+/** Module 7 Lesson 10's recorded settings of every main run (written by scripts/eval/run_settings.py), mounted at /data/eval/main. */
+export const SETTINGS_DATA = ["eval/main/settings.json"];
+
+/**
+ * Module 7 Lesson 10's shared setup, introduced in concept 1 and shown
+ * verbatim (keep the two byte-identical: scripts/check-copies.mjs checks
+ * it). The lesson's demos start from it.
+ */
+export const LOAD_SETTINGS = String.raw`import json
+from pathlib import Path
+
+settings = json.loads(Path("/data/eval/main/settings.json").read_text(encoding="utf-8"))["runs"]
+`;
+
+/** Module 7 Lesson 10 concept 1's exercise reference, also loaded (unshown) for the demo after it. */
+export const WHAT_CHANGED = String.raw`def what_changed(a: dict, b: dict, ignore: tuple = (), prefix: str = "") -> dict:
+    """Every setting that differs between two runs' recorded settings, as {dotted.key: (a's value, b's value)}.
+    Nested settings are compared key by key; a key one side lacks counts as None there. Keys in ${"`"}ignore${"`"} (dotted)
+    are skipped."""
+    changes = {}
+    for key in sorted(a.keys() | b.keys()):
+        name = f"{prefix}{key}"
+        if name in ignore:
+            continue
+        left, right = a.get(key), b.get(key)
+        if isinstance(left, dict) and isinstance(right, dict):
+            changes.update(what_changed(left, right, ignore, f"{name}."))
+        elif left != right:
+            changes[name] = (left, right)
+    return changes
+`;

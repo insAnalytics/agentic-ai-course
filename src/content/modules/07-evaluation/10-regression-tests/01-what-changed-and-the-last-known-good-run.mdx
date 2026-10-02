@@ -1,0 +1,229 @@
+---
+title: "What changed, and the last known-good run"
+lesson: "10-regression-tests"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { LOAD_SETTINGS, SETTINGS_DATA, WHAT_CHANGED } from "../../../../lib/evalData";
+
+export const HASH_DEMO = String.raw`for name, run in settings.items():
+    print(f"{name:<19} config hash {run['config_hash']}   variant {run['variant']:<11} tasks {run['tasks_file']['path']}")
+`;
+
+export const EXAMPLE = String.raw`print(what_changed({"model": "m", "sampling": {"temperature": 0.7, "top_p": 0.8}},
+                   {"model": "m", "sampling": {"temperature": 0.6, "top_p": 0.8}, "variant": "layers"}))
+`;
+
+export const STARTER = String.raw`def what_changed(a: dict, b: dict, ignore: tuple = (), prefix: str = "") -> dict:
+    """Every setting that differs between two runs' recorded settings, as {dotted.key: (a's value, b's value)}.
+    Nested settings are compared key by key; a key one side lacks counts as None there. Keys in ${"`"}ignore${"`"} (dotted)
+    are skipped."""
+    # your code here
+
+
+` + EXAMPLE;
+
+export const SHARED = String.raw`a = {"model": "q", "revision": "r1", "sampling": {"temperature": 0.7, "top_p": 0.8}, "serving": {"quantization": None},
+     "tasks_file": {"path": "tasks/main.json", "version": 2}, "gpus": ["A"]}
+b = {"model": "q", "revision": "r1", "sampling": {"temperature": 0.7, "top_p": 0.8}, "serving": {"quantization": "fp8"},
+     "tasks_file": {"path": "tasks/main.json", "version": 3}, "gpus": ["B"], "variant": "layers"}
+`;
+
+export const TESTS = [
+// each hidden test runs in its own copy of the learner's namespace, so every test builds what it checks
+SHARED + String.raw`got = what_changed(a, b)
+assert got is not None, "what_changed should return a dict"
+assert got == {"serving.quantization": (None, "fp8"), "tasks_file.version": (2, 3), "gpus": (["A"], ["B"]),
+               "variant": (None, "layers")}, f"nested keys are dotted, missing keys are None on that side: got {got}"
+`,
+SHARED + String.raw`assert what_changed(a, a) == {}, "a run compared with itself has no changes"
+`,
+SHARED + String.raw`got = what_changed(a, b, ignore=("gpus", "tasks_file.version"))
+assert got == {"serving.quantization": (None, "fp8"), "variant": (None, "layers")}, \
+    f"ignored keys, top-level or dotted, are skipped: got {got}"
+`,
+String.raw`deep = what_changed({"x": {"y": {"z": 1}}}, {"x": {"y": {"z": 2}}})
+assert deep == {"x.y.z": (1, 2)}, f"nesting goes all the way down: got {deep}"
+`,
+String.raw`mixed = what_changed({"s": {"t": 1}}, {"s": "off"})
+assert mixed == {"s": ({"t": 1}, "off")}, f"a dict on one side and a value on the other is one change: got {mixed}"
+`,
+String.raw`assert list(what_changed({"b": 1, "a": 1}, {"b": 2, "a": 2})) == ["a", "b"], "changes come in sorted key order"
+`,
+];
+
+export const CHANGES_DEMO = String.raw`for a, b in (("baseline-a", "baseline-b"), ("baseline-a", "layers-a"), ("baseline-a", "suite-2a-a")):
+    print(f"{a} -> {b}:")
+    for key, (before, after) in what_changed(settings[a], settings[b]).items():
+        print(f"  {key}: {before!r} -> {after!r}")
+`;
+
+<Subsection title="Why a suite gets run again" variant="a">
+
+[Module 6 pinned the agent's model and prompt versions](/06-reliability/08-graceful-degradation/04-pinning-model-and-prompt-versions/#what-a-model-name-actually-pins),
+and was clear about the limit: a fixed model ID pins the weights, not
+everything around them. Anthropic's own
+[postmortem of September 2025](https://www.anthropic.com/engineering/a-postmortem-of-three-recent-issues)
+described infrastructure bugs that degraded some responses while the
+model IDs stayed the same. Pinning tells you what you asked for; only
+re-running an evaluation tells you what you got. That's a **regression
+test**: run the suite again whenever something the agent depends on
+changes, and compare with the last run you trusted.
+
+Things that should trigger a rerun, all of them changes this module could
+make:
+
+- **The prompt:** any edit to the system prompt or a tool description.
+- **The model:** a new pinned version, or the same version served
+  differently, such as quantized or on a new inference engine.
+- **The tools:** a new tool, a changed argument, a different error
+  message.
+- **Retrieval:** the corpus, the chunking, the search settings.
+- **The checks around the agent:** like Module 6's layers.
+- **The suite itself:** new tasks, changed checks, a revised judge rubric.
+
+The comparison needs a **last known-good run**: a run whose results
+someone has read and accepted, recorded with every setting that produced
+it. A new run is compared against that one, not against memory or a
+number in a slide.
+
+</Subsection>
+
+<Subsection title="A fingerprint that misses things" variant="b">
+
+Every run in this module records a config hash:
+[Module 6's fingerprint](/06-reliability/08-graceful-degradation/04-pinning-model-and-prompt-versions/#record-what-actually-answered)
+of the system prompt and the tool definitions. Here it is for every main
+run so far:
+
+```python
+import json
+from pathlib import Path
+
+settings = json.loads(Path("/data/eval/main/settings.json").read_text(encoding="utf-8"))["runs"]
+```
+*(defined once here and already loaded for every demo in this lesson)*
+
+<LiveDemo client:load dataFiles={SETTINGS_DATA} setupCode={LOAD_SETTINGS} code={HASH_DEMO} />
+
+Every run has the same hash except the two prompt-v2 runs, whose system
+prompt gained two lines. That includes the runs where Module 6's layers
+withheld six answers in ten, and the fp8 runs, where the same model was
+served quantized. The hash covers what it was built to cover, the prompt
+and the tools, and nothing else: not the checks around the loop, not how
+the model is served, not which task file graded it. A regression test
+needs the full list of settings, compared one by one.
+
+</Subsection>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Write what_changed(a, b, ignore=(), prefix=\"\"). a and b are two runs' recorded settings, as nested dicts. Return {\"dotted.key\": (a's value, b's value)} for every setting that differs, in sorted key order. When both values are dicts, compare them key by key, naming nested keys with dots (\"serving.quantization\"). A key only one side has counts as None on the other. Keys in ignore, written dotted, are skipped."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  runnable
+  hint={"Recurse with the dotted prefix so far. a.keys() | b.keys() covers keys from either side, and dict.get gives None for a missing one."}
+  correctAnswer={{
+    code: WHAT_CHANGED + "\n\n" + EXAMPLE,
+    explanation: "Comparing nested settings key by key is what makes the result readable: \"sampling.temperature changed from 0.7 to 0.6\" says exactly what moved, where comparing whole dicts would only say \"sampling changed\". Treating a missing key as None matters because runs recorded at different times have different fields; this module's own runs gained a variant, a system version and a serving record as the lessons needed them. ignore is for settings that can't affect results, such as which GPU a run used, and should be used sparingly: anything left out of the comparison is something a regression could hide behind. The example prints {'sampling.temperature': (0.7, 0.6), 'variant': (None, 'layers')}.",
+  }}
+/>
+
+</CheckpointZone>
+
+<Subsection title="What changed between this module's runs" variant="a">
+
+<LiveDemo client:load dataFiles={SETTINGS_DATA} setupCode={LOAD_SETTINGS + "\n\n" + WHAT_CHANGED} code={CHANGES_DEMO} />
+
+*(`what_changed` is the exercise's reference version, loaded for you.)*
+
+- **Batches a and b differ in nothing.** That's what made them the noise
+  floor in Lesson 9.
+- **The baseline and the suite** differ only in their task file.
+- **Between the baseline and the layers run, two things changed, not
+  one.** The variant, which was the point, and the task file's version,
+  from 1 to 3: checks were fixed and references rewritten between phase 1
+  and phase 5. A comparison that graded each run with the checks of its
+  own day would mix the two changes.
+
+Lesson 9's comparisons were fair because every run, old and new, was
+graded again with the current checks and judges before comparing. That's
+a rule for every regression test: **grade the known-good run and the new
+run with the same graders**, re-grading the old one if the graders have
+changed. This module can do that cheaply because every run is recorded in
+full and [replays exactly](/07-evaluation/02-tracing/05-replaying-a-recorded-run/):
+the agent's turns come from the recording, so re-grading costs no model
+calls.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "Runs with and without Module 6's layers share one config hash. What does that show?",
+      "options": [
+        "It covers only prompt and tools",
+        "None of the runs changed anything",
+        "The hash is computed incorrectly",
+        "The runs all used the same task file"
+      ],
+      "correctIndex": 0,
+      "explanation": "The hash fingerprints the system prompt and tool definitions. The layers, the serving setup and the task file all sit outside it, so runs that behaved very differently share one hash."
+    },
+    {
+      "question": "What makes a run a \"last known-good run\"?",
+      "options": [
+        "Its results were read and accepted",
+        "It's the most recent run on record",
+        "It has the highest pass rate so far",
+        "Its config hash matches the new run's"
+      ],
+      "correctIndex": 0,
+      "explanation": "The reference for a regression test is a run someone has read and trusted, recorded with every setting that produced it, so a new run can be compared setting by setting."
+    },
+    {
+      "question": "Why does what_changed treat a key one run lacks as None, rather than skipping it?",
+      "options": [
+        "Newer runs record fields older ones didn't",
+        "Missing keys always mean the setting was off",
+        "Skipping would make the result unsorted",
+        "None is the default value of every setting"
+      ],
+      "correctIndex": 0,
+      "explanation": "Runs recorded at different times have different fields. Showing a missing key as a change keeps a new setting from being silently left out of the comparison."
+    },
+    {
+      "question": "Between the baseline and the layers run, the task file's version also changed. Why didn't that spoil Lesson 9's comparison?",
+      "options": [
+        "Both were regraded the same way",
+        "The task file change made no difference",
+        "The layers run used the old task file",
+        "Version numbers aren't part of the settings"
+      ],
+      "correctIndex": 0,
+      "explanation": "Grading each run with the checks of its own day would mix the two changes. Regrading the known-good run with the current graders leaves the variant as the only difference."
+    },
+    {
+      "question": "The agent's server starts quantizing the same pinned model. Why should that trigger a rerun?",
+      "options": [
+        "An ID pins weights, not serving",
+        "Quantization always lowers the pass rate",
+        "A new model ID is issued for quantized models",
+        "The config hash changes when serving changes"
+      ],
+      "correctIndex": 0,
+      "explanation": "Module 6 noted responses can change while model IDs stay the same. Only re-running the suite shows whether a serving change moved the results; this module's hash didn't change for the fp8 runs."
+    }
+  ]}
+/>
+
+</CheckpointZone>

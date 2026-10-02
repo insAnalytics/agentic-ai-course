@@ -721,11 +721,26 @@ repeats; deliberately not copies of `LOAD_ABLATIONS` or
 file, where the learner writes `verdict` and a Bonferroni-corrected
 `ablation_report`.
 
+Module 7 Lesson 10 (`10-regression-tests`) adds
+`public/data/eval/main/settings.json` (12 KB), mounted at
+`/data/eval/main` via `SETTINGS_DATA`, written by
+`scripts/eval/run_settings.py` (`--check` fails if it's out of date;
+rerun it whenever a main run is added): every main run's recorded
+settings without its trials (model, revision, sampling, config hash,
+template, `variant`, `system_version`, `serving`, `tasks_file`, vLLM
+version, GPUs, user model), with pre-field runs given the values the code
+used then (variant `none`, system `v1`, no quantization). `LOAD_SETTINGS`
+(`settings`, run name to settings) is shown verbatim on concept 1,
+copy-checked, and is the lesson's demo setup. Concept 1's exercise
+reference is `WHAT_CHANGED` (`what_changed(a, b, ignore, prefix)`:
+dotted keys, a missing key as `None`, sorted), loaded hidden by the demo
+after it.
+
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
 code block has drifted: currently the pilot's `tasks.json` against
 `scripts/eval/tasks/pilot.json`, `LOAD_PILOT`, `LOAD_READING` and `LOAD_SUITE`
-(Lesson 4 concept 1, Lesson 5 concepts 1 to 3, Lesson 9 concept 1), `LOAD_ABLATIONS` (Lesson 9 concept 3) `LOAD_JUDGES` (Lesson 6 concepts 1 to 5) and `LOAD_JUDGE_LABELS` (Lesson 7 concepts 1 to 5) against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
+(Lesson 4 concept 1, Lesson 5 concepts 1 to 3, Lesson 9 concept 1), `LOAD_ABLATIONS` (Lesson 9 concept 3), `LOAD_SETTINGS` (Lesson 10 concept 1), `LOAD_JUDGES` (Lesson 6 concepts 1 to 5) and `LOAD_JUDGE_LABELS` (Lesson 7 concepts 1 to 5) against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
 the demos that show them, the replay exercise's static provided block
 against its constant, and each `public/data/eval/code/*.py` against its
 source. A second list, `CONTAINED`, checks that code a page shows appears

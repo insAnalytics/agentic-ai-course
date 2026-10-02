@@ -7533,6 +7533,35 @@ torch 2.13.0+cu130, `torchaudio` removed,
    (touching zero counts as helps, no correction, alpha / 18 hardcoded,
    per-condition correction, A and B swapped, groups outer loop, `None`
    as the all-tasks label, verdicts swapped) each fail.
+10. **Regression Tests** (`10-regression-tests`, title provisional) —
+   **Building.** Concept 1 drafted and built; concepts 2 on and bookends
+   not yet. Concept 1 (what changed, and the last known-good run): why a
+   suite gets rerun (Module 6's pinning limit, Anthropic's September 2025
+   postmortem, linked), what should trigger a rerun, the last known-good
+   run; every main run's config hash from the new `LOAD_SETTINGS` over
+   `public/data/eval/main/settings.json` (from the zip's
+   `scripts/eval/run_settings.py`, run here after phase 6: the zip's nine
+   runs identical, plus the six phase 6 runs, so the first demo shows 15
+   rows, not the mockup's 9); a graded `what_changed` exercise (the
+   mockup's hidden tests split into 6 self-contained tests); what changed
+   between baseline-a and baseline-b (nothing), layers-a (task file
+   version 1 to 3, variant) and suite-2a-a (task file path); grade both
+   runs with the same graders; 5 quiz cards. The second demo and the
+   example reproduce the mockup's output exactly; the reference passes
+   every test, and the starter and six wrong versions (no recursion,
+   skipping one-sided keys, ignore matched on the bare key, unsorted, no
+   dot in the prefix, one level only) each fail. Corrected from the
+   mockup: "every run has the same hash" is no longer true once phase 6
+   is in (prompt-v2's runs are `62debdb77f78`), so the prose says every
+   run but prompt-v2's, naming the fp8 runs as ones it misses; Q1's stem
+   is now "runs with and without Module 6's layers share one config
+   hash", and Q5's explanation says the hash didn't change for fp8.
+   Also checked: prompt-v2-a vs baseline-a differs in config hash, system
+   version and task file version; fp8-a in quantization and task file
+   version; layers-v2-a vs layers-a only in variant. Callbacks: Module 6
+   Lesson 8 concept 4's `#what-a-model-name-actually-pins` and
+   `#record-what-actually-answered` (anchors verified), Module 7 Lesson 2
+   concept 5 (page).
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092
