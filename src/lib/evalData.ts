@@ -869,3 +869,25 @@ export const GATE = String.raw`def gate(known_good: dict, new: dict, tolerance: 
     return {"passed": not suite_regressed and not flagged, "difference": (mean, low, high),
             "suite_regressed": suite_regressed, "flagged": flagged}
 `;
+
+/** Module 7 Lesson 10 concept 3's one-sided Fisher test, shown in its first demo and loaded (unshown) for its second. */
+export const FISHER_DROP = String.raw`from math import comb
+
+
+def fisher_drop(before: list[bool], after: list[bool]) -> float:
+    """One-sided Fisher exact test: the chance of ${"`"}after${"`"} having this few passes or fewer, if both runs had the same
+    underlying pass rate, given how many passes there were in total."""
+    a, b = sum(before), sum(after)
+    total, n1, n2 = a + b, len(before), len(after)
+    return sum(comb(n2, k) * comb(n1, total - k) for k in range(max(0, total - n1), b + 1)) / comb(n1 + n2, total)
+`;
+
+/** Module 7 Lesson 10 concept 3's exercise reference, also loaded (unshown) for the demo after it. */
+export const BENJAMINI_HOCHBERG = String.raw`def benjamini_hochberg(p_values: dict[str, float], q: float = 0.05) -> list[str]:
+    """The tests to flag while keeping the expected share of false flags at or below q: sort the p-values, find the
+    largest rank k with p(k) <= k / m * q, and flag the k smallest. Returned sorted by name."""
+    ranked = sorted(p_values.items(), key=lambda item: (item[1], item[0]))
+    m = len(ranked)
+    cutoff = max((k for k, (_, p) in enumerate(ranked, start=1) if p <= k / m * q), default=0)
+    return sorted(name for name, _ in ranked[:cutoff])
+`;

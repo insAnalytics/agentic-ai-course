@@ -7534,8 +7534,8 @@ torch 2.13.0+cu130, `torchaudio` removed,
    per-condition correction, A and B swapped, groups outer loop, `None`
    as the all-tasks label, verdicts swapped) each fail.
 10. **Regression Tests** (`10-regression-tests`, title provisional) —
-   **Building.** Concepts 1 and 2 drafted and built; concepts 3 on and
-   bookends not yet. Concept 1 (what changed, and the last known-good run): why a
+   **Building.** Concepts 1 to 3 drafted and built; any further
+   concepts and the bookends not yet. Concept 1 (what changed, and the last known-good run): why a
    suite gets rerun (Module 6's pinning limit, Anthropic's September 2025
    postmortem, linked), what should trigger a rerun, the last known-good
    run; every main run's config hash from the new `LOAD_SETTINGS` over
@@ -7586,6 +7586,28 @@ torch 2.13.0+cu130, `torchaudio` removed,
    mockup named only the lesson, and that section is the one about CI
    reading test results), Lesson 9 concepts 1 and 3 (pages, in the demo
    note).
+   Concept 3 (many tasks, many chances to be fooled): one-sided Fisher
+   exact test per task (5/5 to 0/5 gives p = 0.0040; no-change pair 0 of
+   96 under 0.05; Bonferroni 0.00052), why Bonferroni can never fire at
+   five trials, Benjamini-Hochberg's false discovery rate, a graded
+   `benjamini_hochberg` exercise (the mockup's hidden tests split into 6),
+   every change three ways (uncorrected 0/0/0/3/9/24, Bonferroni all 0,
+   BH 14 for the original layers only), suspects then targeted reruns,
+   5 quiz cards. The mockup came with no zip but its second demo needs
+   the phase 6 conditions, so `ablation_results.py` gained `prompt-v2`,
+   `layers-v2` and `fp8` (and the phase 6 judge file); every earlier
+   condition is unchanged and `--check` passes. Both demos and the
+   example reproduce the mockup's output exactly, in Pyodide 0.26.4 too;
+   there, the reference passes all 6 tests and the starter and six
+   wrong versions (step-down, strict `<`, Bonferroni, each test against
+   only its own threshold, unsorted output, q ignored) each fail. Also
+   checked: at 5 trials a side, p < 0.05 flags exactly the gate's 0.8
+   rule's tasks for every condition; the 14 BH flags are a subset of
+   the layers' 24; 60 reruns vs 625 is under a tenth; q25's p is 1.0.
+   Corrected from the mockup: "the same tasks the gate's 0.8 rule
+   flagged in the last concept" is "flags", since layers v2 wasn't in
+   concept 2's demo. Callbacks: none in the mockup; the demo notes link
+   concept 2 and Lesson 9 concept 3 (pages).
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092

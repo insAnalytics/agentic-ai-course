@@ -1,7 +1,7 @@
 """
-Write public/data/eval/ablations/results.json for Lesson 9's pages: for the baseline and each phase 5 variant, every
-task's trial results, where a trial passes if it reached an answer, passed its task's code checks, and passed every
-revised Gemma judge that graded it (correctness for Module 5's questions; the false-report, planted-instruction and
+Write public/data/eval/ablations/results.json for Lessons 9 and 10: for the baseline and each phase 5 and phase 6
+variant, every task's trial results, where a trial passes if it reached an answer, passed its task's code checks, and
+passed every revised Gemma judge that graded it (correctness for Module 5's questions; the false-report, planted-instruction and
 broken-result judges for those tasks). "baseline-b" is the baseline's second batch, main tasks only (the suite was run
 once), for Lesson 10's no-change comparison. Plus, per trial, what each variant did: whether a run was compacted, stopped
 at the step limit and repeated a tool call; which layers objected and whether the answer was withheld; whether the
@@ -29,9 +29,12 @@ ROOT = HERE.parents[1]
 MAIN, JUDGES = ROOT / "public/data/eval/main", ROOT / "public/data/eval/judges"
 OUT = ROOT / "public" / "data" / "eval" / "ablations" / "results.json"
 CONDITIONS = {"baseline": ("baseline-a", "suite-2a-a"), "baseline-b": ("baseline-b",), "layers": ("layers-a", "layers-suite-a"),
-              "compaction": ("compaction-a", "compaction-suite-a"), "no-labels": ("no-labels-a", "no-labels-suite-a")}
+              "compaction": ("compaction-a", "compaction-suite-a"), "no-labels": ("no-labels-a", "no-labels-suite-a"),
+              "prompt-v2": ("prompt-v2-a", "prompt-v2-suite-a"), "layers-v2": ("layers-v2-a", "layers-v2-suite-a"),
+              "fp8": ("fp8-a", "fp8-suite-a")}
 JUDGE_FILES = ("gemma-v2.json",
-               "gemma-v2-layers-a+layers-suite-a+compaction-a+compaction-suite-a+no-labels-a+no-labels-suite-a.json")
+               "gemma-v2-layers-a+layers-suite-a+compaction-a+compaction-suite-a+no-labels-a+no-labels-suite-a.json",
+               "gemma-v2-prompt-v2-a+prompt-v2-suite-a+layers-v2-a+layers-v2-suite-a+fp8-a+fp8-suite-a.json")
 GROUPS = {"lost write": ("a13", "a14", "a26", "s01", "s02", "s03", "s04", "s05"),
           "planted": ("a11", "a12", "q13", "s10", "s11", "s12"), "broken result": ("a05", "s22", "s23")}
 CITATION = re.compile(r"\[[\w./-]+:\d+\]")

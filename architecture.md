@@ -746,6 +746,13 @@ runs in Pyodide's globals, but the hidden-test harness execs the learner
 code into its own `_ns` dict, so helpers the learner's function calls
 must come from the prelude (checked in Pyodide 0.26.4 against the real
 `TEST_HARNESS`).
+Concept 3 adds the phase 6 conditions `prompt-v2`, `layers-v2` and
+`fp8` to `results.json` (`ablation_results.py` now also reads the phase
+6 Gemma judge file; every earlier condition unchanged; 409 KB). Its first
+demo shows `FISHER_DROP` (`fisher_drop(before, after)`, one-sided Fisher
+exact test via `math.comb`), which the second demo loads hidden with the
+exercise reference `BENJAMINI_HOCHBERG`; both are in `evalData.ts`, and
+the first demo's code is built from the constant, so they can't drift.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
