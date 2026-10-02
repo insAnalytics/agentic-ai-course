@@ -15,6 +15,16 @@ function rawConstant(path, name) {
   return match[1];
 }
 
+/**
+ * Like rawConstant, for a constant whose code contains backticks (written ${"`"} inside String.raw): its source
+ * text up to the closing backtick on a line of its own, escapes left as written on both sides of a comparison.
+ */
+function escapedConstant(path, name) {
+  const match = read(path).replace(/\r/g, "").match(new RegExp(`export const ${name} = String\\.raw\`([\\s\\S]*?)\\n\`;`));
+  if (!match) throw new Error(`${name} not found in ${path}`);
+  return match[1];
+}
+
 /** The body of the first ```python fence on a page that starts with `firstLine`. */
 function pageFence(path, firstLine) {
   const fences = [...read(path).matchAll(/```python\n([^`]*)```/g)].map((m) => m[1]);
@@ -291,6 +301,14 @@ const PAIRS = [
 // code a page shows that must appear, byte for byte, inside a file the offline scripts run
 const REPLAY_PAGE = "src/content/modules/07-evaluation/02-tracing/05-replaying-a-recorded-run.mdx";
 const CONTAINED = [
+  // Lesson 10's recap lib.py: every function the lesson's concepts define, byte for byte (imports gathered at its top)
+  ...["WHAT_CHANGED", "PAIRED_DIFFERENCE", "GATE", "FISHER_DROP", "BENJAMINI_HOCHBERG"].flatMap((name) =>
+    escapedConstant("src/lib/evalData.ts", name).split("\n\n\n").map((piece) => piece.trim())
+      .filter((piece) => piece && !/^(import|from) /.test(piece))
+      .map((piece) => ({
+        what: `${name}'s ${piece.split("\n")[0].slice(0, 40)}`, text: piece,
+        escaped: ["src/content/modules/07-evaluation/10-regression-tests/06-recap-practice.mdx", "LIB_PY"],
+      }))),
   // the provided code is shown as one block of the separate pieces eval_client.py defines
   ...rawConstant(REPLAY_PAGE, "PROVIDED").split("\n\n\n").map((piece, i) => ({
     what: `the replay exercise's provided code, piece ${i + 1}`, text: piece.trim(), file: "scripts/eval/eval_client.py",
@@ -383,9 +401,10 @@ for (const { what, a, b } of PAIRS) {
     failed = true;
   }
 }
-for (const { what, text, file, constant } of CONTAINED) {
-  const where = file ?? `${constant[0]}'s ${constant[1]}`;
-  if (!(file ? read(file) : rawConstant(...constant)).includes(text)) {
+for (const { what, text, file, constant, escaped } of CONTAINED) {
+  const where = file ?? `${(constant ?? escaped)[0]}'s ${(constant ?? escaped)[1]}`;
+  const haystack = file ? read(file) : constant ? rawConstant(...constant) : escapedConstant(...escaped);
+  if (!haystack.includes(text)) {
     console.error(`check-copies: ${what} is no longer in ${where} as written; change both together.`);
     failed = true;
   }

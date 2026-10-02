@@ -7533,9 +7533,8 @@ torch 2.13.0+cu130, `torchaudio` removed,
    (touching zero counts as helps, no correction, alpha / 18 hardcoded,
    per-condition correction, A and B swapped, groups outer loop, `None`
    as the all-tasks label, verdicts swapped) each fail.
-10. **Regression Tests** (`10-regression-tests`, title provisional) —
-   **Building.** Concepts 1 to 5 drafted and built; any further
-   concepts and the bookends not yet. Concept 1 (what changed, and the last known-good run): why a
+10. **Regression Testing** (`10-regression-tests`) — **Locked.**
+   Concepts 1 to 5 and bookends built. Concept 1 (what changed, and the last known-good run): why a
    suite gets rerun (Module 6's pinning limit, Anthropic's September 2025
    postmortem, linked), what should trigger a rerun, the last known-good
    run; every main run's config hash from the new `LOAD_SETTINGS` over
@@ -7654,6 +7653,26 @@ torch 2.13.0+cu130, `torchaudio` removed,
    the tier demo's 4.3. Callbacks: Module 0 Lesson 10 (its intro page;
    the mockup named only the lesson), Lesson 4 concept 5's
    `#tuning-to-the-suite` (anchor verified), concepts 2 and 3 (pages).
+   Bookends are built: the intro (three outcomes, why it matters; the
+   lesson title is now the bookends' "Regression Testing"), the
+   comprehensive quiz (8 cards across the five concepts), and the
+   comprehensive sandbox, a two-file `MultiFileGradedExercise` (`lib.py`
+   read-only, `check.py` the entry file) where the learner writes
+   `regression_check(known_good, new, known_good_runs, new_runs)`: the
+   merged settings changes (task-file version ignored), the gate,
+   Benjamini-Hochberg-confirmed Fisher drops, and a stop/look/ship
+   decision. The page's code was generated from the mockup's code blocks
+   and round-trips to them exactly; lib.py's seven functions are
+   byte-identical to the lesson's constants (copy-checked). In Pyodide
+   0.26.4 with the real multi-file harness, the reference's Run prints
+   the mockup's 8 lines exactly (fp8 ship, prompt-v2 ship, compaction
+   look, layers-v2 stop), it passes the hidden tests (also on a second
+   submission after the tests mutate `lib`), and the starter and nine
+   wrong versions (first run pair only, task-file version not ignored,
+   confirmed tasks ignored, suite regression ignored, look checked
+   before stop, flags never look, Fisher arguments swapped, the gate's
+   flags taken as confirmed, gate arguments swapped) each fail. Lesson 10
+   is now fully Locked.
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092

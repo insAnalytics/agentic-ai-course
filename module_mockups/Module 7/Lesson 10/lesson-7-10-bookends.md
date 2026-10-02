@@ -1,0 +1,303 @@
+# Regression Testing
+
+> **Note for the site build:** the comprehensive sandbox has two files: `lib.py` (read-only: the data, `passes`, and this lesson's `what_changed`, `gate`, `fisher_drop` and `benjamini_hochberg`, with Lesson 9's `pass_rate` and `paired_difference`) and `check.py` (the entry file). It reads `/data/eval/main/settings.json` and `/data/eval/ablations/results.json`, for Run and the hidden tests.
+
+> **You'll be able to**
+> - Decide when a suite should run again, and compare a new run with the last known-good one setting by setting, regrading both with the same graders
+> - Build a gate whose thresholds come from measured noise, and test tasks one by one without being fooled by how many tests you ran
+> - Read what a pass and a failure actually say about a change, and run the suite in tiers so it's affordable on every change
+
+**Why it matters**
+Everything around an agent keeps moving: prompts get edited, models get re-served, checks get fixed. Only a rerun shows what each change did. Here, an FP8 server passed unnoticed by the config hash and unharmed; a two-line prompt edit fixed one failure and left another; and a fix to Module 6's layers improved two layers while shipping two bugs in a third, caught by exactly the run this lesson builds.
+
+---
+
+## Comprehensive quiz
+
+*(end of lesson, conceptual — spans all five concepts, mixed order)*
+
+> **Q1.** The FP8 run had the same config hash as the baseline. Why?
+> - It ignores serving ✅
+> - It changes with every trial
+> - It includes the task file
+> - It was computed incorrectly
+>
+> *Explanation: The hash fingerprints the prompt and tool definitions. How the model is served sits outside it, so a change Module 6 warned about passed under an identical hash.*
+
+> **Q2.** What makes a run the last known-good run?
+> - Read and accepted ✅
+> - The latest on record
+> - The highest scoring
+> - The one with the same hash
+>
+> *Explanation: It's a run someone has read and trusted, recorded with every setting, so a new run can be compared with it setting by setting.*
+
+> **Q3.** The task file changed between the baseline and a new run. What keeps the comparison fair?
+> - Regrade both the same way ✅
+> - Rerun only the new one
+> - Skip the task file
+> - Compare their raw pass rates
+>
+> *Explanation: Grading each run with the checks of its own day mixes two changes. Regrading the known-good run with today's graders leaves the change under test as the only difference.*
+
+> **Q4.** What happens to a gate that fails when nothing has changed?
+> - It gets ignored ✅
+> - It uses more compute
+> - It hides real drops
+> - It needs more tasks
+>
+> *Explanation: A flaky gate gets rerun until it passes and then ignored, and an ignored gate catches nothing. Thresholds set from measured noise keep it honest.*
+
+> **Q5.** Can Bonferroni confirm a single task's drop with five trials per task across 125 tasks?
+> - It can't, with five trials ✅
+> - It needs ten tasks at least
+> - It only works on gains
+> - It can, at 0.004 or below
+>
+> *Explanation: The strongest possible drop gives p = 0.004, and Bonferroni's threshold for 125 tests is 0.0004. No five-trial comparison can reach it.*
+
+> **Q6.** Benjamini–Hochberg confirmed 14 tasks for the original layers and none for compaction. Why the difference?
+> - Many tasks fell together ✅
+> - It ran more trials
+> - Its p-values were all 0.004
+> - The tasks were held out
+>
+> *Explanation: The thresholds climb with rank, so many small p-values together clear them. Compaction's three drops were isolated.*
+
+> **Q7.** Prompt v2 passed the gate. Why was that not the end of reading it?
+> - One target stayed broken ✅
+> - It made the suite fail
+> - It changed the config hash
+> - It needed a new judge
+>
+> *Explanation: Passing means nothing got worse. Its read-back line fixed the lost writes; its document-type line left the vendor citations failing, which only the target tasks showed.*
+
+> **Q8.** Only a judge's rubric changed. What has to run again?
+> - Only the judge runs again ✅
+> - The whole suite runs again
+> - Only the agent runs again
+> - Nothing at all runs again
+>
+> *Explanation: The agent didn't change, so its recorded runs still stand. Only the new rubric needs applying to them, which costs judge calls but no agent calls.*
+
+---
+
+## Comprehensive sandbox
+
+*(graded — a regression check: what changed, the gate, confirmed task regressions, and a decision)*
+
+**Task shown to learner:**
+
+`lib.py` holds the recorded settings (`recorded`), the regraded results (`passes(condition)`), and this lesson's functions, read-only. In `check.py` (the entry file), write `regression_check(known_good, new, known_good_runs, new_runs)`. `known_good` and `new` are condition names in the results; the two run lists name each condition's run files, in matching pairs. Return a dict with:
+
+- **`"changed"`:** `what_changed` on every pair of runs' recorded settings, merged, ignoring `"tasks_file.version"` (every run is regraded with today's checks).
+- **`"gate"`:** concept 2's `gate(known_good passes, new passes)`.
+- **`"confirmed"`:** the tasks `benjamini_hochberg` flags from a one-sided `fisher_drop` p-value per shared task.
+- **`"decision"`:** `"stop"` if the suite regressed or any task is confirmed; otherwise `"look"` if the gate flagged any task; otherwise `"ship"`.
+
+Click Run to check four changes against the baseline.
+
+**Tab: `lib.py`** (read-only)
+```python
+"""This lesson's code, and the data. Read-only."""
+
+import json
+import random
+from math import comb
+from pathlib import Path
+
+recorded = json.loads(Path("/data/eval/main/settings.json").read_text(encoding="utf-8"))
+results = json.loads(Path("/data/eval/ablations/results.json").read_text(encoding="utf-8"))
+
+
+def passes(condition: str) -> dict[str, list[bool]]:
+    """Each task's trial results under one condition."""
+    return {task: [row["pass"] for row in rows] for task, rows in results["conditions"][condition].items()}
+
+
+def what_changed(a: dict, b: dict, ignore: tuple = (), prefix: str = "") -> dict:
+    """Every setting that differs between two runs' recorded settings, as {dotted.key: (a's value, b's value)}.
+    Nested settings are compared key by key; a key one side lacks counts as None there. Keys in `ignore` (dotted)
+    are skipped."""
+    changes = {}
+    for key in sorted(a.keys() | b.keys()):
+        name = f"{prefix}{key}"
+        if name in ignore:
+            continue
+        left, right = a.get(key), b.get(key)
+        if isinstance(left, dict) and isinstance(right, dict):
+            changes.update(what_changed(left, right, ignore, f"{name}."))
+        elif left != right:
+            changes[name] = (left, right)
+    return changes
+
+
+def pass_rate(results: list[bool]) -> float:
+    return sum(results) / len(results)
+
+
+def paired_difference(a: dict[str, list[bool]], b: dict[str, list[bool]], repeats: int = 2000,
+                      seed: int = 0) -> tuple[float, float, float]:
+    """B minus A: the mean over tasks of each task's pass-rate difference, with a 95% interval from resampling
+    tasks. Only tasks both conditions ran are compared."""
+    tasks = sorted(a.keys() & b.keys())
+    if not tasks:
+        raise ValueError("the two conditions share no tasks")
+    differences = [pass_rate(b[t]) - pass_rate(a[t]) for t in tasks]
+    rng = random.Random(seed)
+    means = sorted(sum(rng.choices(differences, k=len(differences))) / len(differences) for _ in range(repeats))
+    return sum(differences) / len(differences), means[int(0.025 * repeats)], means[int(0.975 * repeats) - 1]
+
+
+def gate(known_good: dict, new: dict, tolerance: float = 0.02, task_drop: float = 0.8) -> dict:
+    """Pass or fail a new run against the last known-good one. The suite regresses if its paired difference is
+    clearly below zero (the whole interval under 0) and by more than `tolerance`; a task is flagged if its pass rate
+    fell by `task_drop` or more. The run passes only if neither happens."""
+    mean, low, high = paired_difference(known_good, new)
+    shared = sorted(known_good.keys() & new.keys())
+    flagged = [t for t in shared if pass_rate(known_good[t]) - pass_rate(new[t]) >= task_drop]
+    suite_regressed = high < 0 and mean <= -tolerance
+    return {"passed": not suite_regressed and not flagged, "difference": (mean, low, high),
+            "suite_regressed": suite_regressed, "flagged": flagged}
+
+
+def fisher_drop(before: list[bool], after: list[bool]) -> float:
+    """One-sided Fisher exact test: the chance of `after` having this few passes or fewer, if both runs had the same
+    underlying pass rate, given how many passes there were in total."""
+    a, b = sum(before), sum(after)
+    total, n1, n2 = a + b, len(before), len(after)
+    return sum(comb(n2, k) * comb(n1, total - k) for k in range(max(0, total - n1), b + 1)) / comb(n1 + n2, total)
+
+
+def benjamini_hochberg(p_values: dict[str, float], q: float = 0.05) -> list[str]:
+    """The tests to flag while keeping the expected share of false flags at or below q: sort the p-values, find the
+    largest rank k with p(k) <= k / m * q, and flag the k smallest. Returned sorted by name."""
+    ranked = sorted(p_values.items(), key=lambda item: (item[1], item[0]))
+    m = len(ranked)
+    cutoff = max((k for k, (_, p) in enumerate(ranked, start=1) if p <= k / m * q), default=0)
+    return sorted(name for name, _ in ranked[:cutoff])
+```
+
+**Tab: `check.py`** (starter, entry file)
+```python
+from lib import benjamini_hochberg, fisher_drop, gate, passes, recorded, what_changed
+
+
+def regression_check(known_good: str, new: str, known_good_runs: list[str], new_runs: list[str]) -> dict:
+    """A new condition against the last known-good one: what changed in the recorded settings, the gate's result,
+    the flagged tasks that survive Benjamini-Hochberg on one-sided Fisher tests, and a decision."""
+    # your code here
+
+
+if __name__ == "__main__":
+    known = ["baseline-a", "suite-2a-a"]
+    for condition, runs in (("fp8", ["fp8-a", "fp8-suite-a"]), ("prompt-v2", ["prompt-v2-a", "prompt-v2-suite-a"]),
+                            ("compaction", ["compaction-a", "compaction-suite-a"]),
+                            ("layers-v2", ["layers-v2-a", "layers-v2-suite-a"])):
+        report = regression_check("baseline", condition, known, runs)
+        if report is None:
+            print(f"{condition}: not written yet")
+            continue
+        mean, low, high = report["gate"]["difference"]
+        print(f"{condition:<11} {report['decision']:<5} changed: {', '.join(sorted(report['changed'])) or 'nothing recorded'}")
+        print(f"            suite {mean:+.1%} ({low:+.1%} to {high:+.1%}), flagged {report['gate']['flagged']}, "
+              f"confirmed {report['confirmed']}")
+```
+
+**Hidden tests:**
+```python
+import copy
+
+import lib
+from check import regression_check
+
+report = regression_check("baseline", "baseline-b", ["baseline-a"], ["baseline-b"])
+assert report is not None, "regression_check should return a dict"
+assert report["changed"] == {} and report["decision"] == "ship", \
+    f"the baseline's two batches: nothing changed, ship: got {report['changed']}, {report['decision']}"
+assert report["gate"] == lib.gate(lib.passes("baseline"), lib.passes("baseline-b")), "the gate is concept 2's gate(known_good, new)"
+
+report = regression_check("baseline", "prompt-v2", ["baseline-a", "suite-2a-a"], ["prompt-v2-a", "prompt-v2-suite-a"])
+assert set(report["changed"]) == {"config_hash", "system_version"} and report["decision"] == "ship", \
+    f"the prompt change: its settings changed, and it ships: got {sorted(report['changed'])}, {report['decision']}"
+assert "tasks_file.version" not in report["changed"], "the task file's version is ignored: every run is regraded"
+
+report = regression_check("baseline", "compaction", ["baseline-a"], ["compaction-a"])
+assert report["decision"] == "look" and report["confirmed"] == [], \
+    f"compaction: tasks flagged, none confirmed, so look: got {report['decision']}, {report['confirmed']}"
+
+report = regression_check("baseline", "layers-v2", ["baseline-a"], ["layers-v2-a"])
+assert report["decision"] == "stop", "layers v2: the suite regressed, so stop, even with no task confirmed"
+
+old = lib.passes("baseline")
+broken = sorted(t for t, r in old.items() if all(r))[:12]
+failing = sorted(t for t, r in old.items() if not any(r))
+fake = copy.deepcopy(lib.results["conditions"]["baseline"])
+for t in broken:
+    for row in fake[t]:
+        row["pass"] = False
+for t in failing:
+    for row in fake[t]:
+        row["pass"] = True
+lib.results["conditions"]["fake"] = fake
+lib.recorded["runs"]["fake-a"] = dict(lib.recorded["runs"]["baseline-a"])
+lib.recorded["runs"]["fake-b"] = dict(lib.recorded["runs"]["suite-2a-a"], variant="fake")
+report = regression_check("baseline", "fake", ["baseline-a", "suite-2a-a"], ["fake-a", "fake-b"])
+assert not report["gate"]["suite_regressed"], "the made-up condition gains overall"
+assert report["confirmed"] == broken and report["decision"] == "stop", \
+    (f"twelve tasks falling from 5/5 to 0/5 are confirmed by Benjamini-Hochberg, so stop, even though the suite "
+     f"rose: got {report['confirmed']}, {report['decision']}")
+assert report["changed"] == {"variant": (None, "fake")} or report["changed"] == {"variant": ("none", "fake")}, \
+    f"changes are collected from every pair of runs, not just the first: got {report['changed']}"
+```
+
+**Hint (shown on request):** Collect the settings changes in a loop over `zip(known_good_runs, new_runs)`. Decide in order: anything that means stop, then anything that means look, then ship.
+
+**Reference solution:**
+
+**Tab: `check.py`**
+```python
+from lib import benjamini_hochberg, fisher_drop, gate, passes, recorded, what_changed
+
+
+def regression_check(known_good: str, new: str, known_good_runs: list[str], new_runs: list[str]) -> dict:
+    """A new condition against the last known-good one: what changed in the recorded settings, the gate's result,
+    the flagged tasks that survive Benjamini-Hochberg on one-sided Fisher tests, and a decision."""
+    changed = {}
+    for before, after in zip(known_good_runs, new_runs):
+        changed.update(what_changed(recorded["runs"][before], recorded["runs"][after], ignore=("tasks_file.version",)))
+    old, fresh = passes(known_good), passes(new)
+    result = gate(old, fresh)
+    confirmed = benjamini_hochberg({t: fisher_drop(old[t], fresh[t]) for t in sorted(old.keys() & fresh.keys())})
+    if result["suite_regressed"] or confirmed:
+        decision = "stop"
+    elif result["flagged"]:
+        decision = "look"
+    else:
+        decision = "ship"
+    return {"changed": changed, "gate": result, "confirmed": confirmed, "decision": decision}
+
+
+if __name__ == "__main__":
+    known = ["baseline-a", "suite-2a-a"]
+    for condition, runs in (("fp8", ["fp8-a", "fp8-suite-a"]), ("prompt-v2", ["prompt-v2-a", "prompt-v2-suite-a"]),
+                            ("compaction", ["compaction-a", "compaction-suite-a"]),
+                            ("layers-v2", ["layers-v2-a", "layers-v2-suite-a"])):
+        report = regression_check("baseline", condition, known, runs)
+        mean, low, high = report["gate"]["difference"]
+        print(f"{condition:<11} {report['decision']:<5} changed: {', '.join(sorted(report['changed'])) or 'nothing recorded'}")
+        print(f"            suite {mean:+.1%} ({low:+.1%} to {high:+.1%}), flagged {report['gate']['flagged']}, "
+              f"confirmed {report['confirmed']}")
+```
+```
+fp8         ship  changed: serving.quantization
+            suite +2.2% (-1.0% to +5.3%), flagged [], confirmed []
+prompt-v2   ship  changed: config_hash, system_version
+            suite +4.2% (+0.6% to +7.8%), flagged [], confirmed []
+compaction  look  changed: variant
+            suite -3.8% (-7.7% to +0.0%), flagged ['h07', 'h09', 's25'], confirmed []
+layers-v2   stop  changed: variant
+            suite -16.3% (-22.4% to -10.4%), flagged ['h10', 'q09', 'q22', 'q32', 'q37', 'q41-allowed', 'q42', 'q44', 'q45'], confirmed []
+```
+
+**Explanation:** The decision has three outcomes because the evidence does. A suite that clearly regressed, or a task drop that survives correction for the number of tests, is enough to stop a change. Tasks flagged by the gate's threshold but not confirmed are suspects: they send someone to read the runs, or to rerun those tasks with more trials, before deciding. Everything else ships. On this module's changes, FP8 and prompt v2 ship, compaction is worth a look, and layers v2 stops, as the lesson's reading found. The tests also make up a condition where twelve tasks collapse while the suite as a whole improves, because a gate that looked only at the suite would ship it.

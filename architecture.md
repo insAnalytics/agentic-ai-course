@@ -769,6 +769,18 @@ which is unchanged: `costs` (each main run's `wall_seconds`, `trials`,
 `LOAD_COSTS` (`recorded`, the whole file, and `results`) is shown
 verbatim on concept 5, copy-checked, and mounts both `SETTINGS_DATA` and
 `ABLATIONS_DATA`. No exercise.
+The recap's sandbox is a two-file `MultiFileGradedExercise` over both
+data files: a read-only `lib.py` (`recorded`, `results`, `passes`, and
+the lesson's `what_changed`, `pass_rate`, `paired_difference`, `gate`,
+`fisher_drop`, `benjamini_hochberg`, each byte-identical to its
+`evalData.ts` constant, which `check-copies.mjs` checks) and `check.py`,
+the entry file, where the learner writes `regression_check`. Its hidden
+tests add a made-up condition to `lib.results` and `lib.recorded` at
+test time; that works because the entry file and the tests share the
+cached `lib` module, and every submission re-imports it fresh
+(`prepareMultiFileRun` pops it from `sys.modules`). `check-copies.mjs`
+gained `escapedConstant` for constants containing `${"`"}` escapes,
+which `rawConstant` can't read.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
@@ -778,7 +790,7 @@ code block has drifted: currently the pilot's `tasks.json` against
 the demos that show them, the replay exercise's static provided block
 against its constant, and each `public/data/eval/code/*.py` against its
 source. A second list, `CONTAINED`, checks that code a page shows appears
-byte for byte inside the file the offline scripts run: concept 5's
+byte for byte inside the file the offline scripts run: Lesson 10's recap `lib.py` against the lesson's function constants; concept 5's
 provided code (piece by piece) and reference `ReplayClient`, inside
 `scripts/eval/eval_client.py`. Add any new must-stay-identical pair to its `PAIRS` list.
 
