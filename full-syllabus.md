@@ -7561,6 +7561,30 @@ the six runs with the revised rubrics (2,025 items, 0 undecided) in
 Same revisions and environment as the baseline. Not yet compared with the
 baseline: that's Lesson 9's job.
 
+**Runs, phase 6 (Lesson 10's three changes): done (2026-10-02).**
+`scripts/eval/README-phase6.md`, `harness.py` (`SYSTEM_V2`),
+`ablations.py` (layers version 2): three changes to the registry agent,
+each over the main pool and the suite at 5 trials per task (1,875 trials):
+`prompt-v2` (two lines added to the system prompt: what each result type
+means, and read the record back after `set_model`), `layers-v2` (Module
+6's layers with three fixes for Lesson 9's false alarms: intent accepts
+names a tool found, grounding ignores list/step numbers, identifiers,
+small counts and unit conversions, the support judge gets one claim per
+sentence) and `fp8` (the same pinned 4B quantized to FP8 on load,
+`--quantization fp8`; vLLM picked `CutlassFP8ScaledMMLinearKernel`). In
+`public/data/eval/main/{prompt-v2,layers-v2,fp8}-a.json` and
+`*-suite-a.json`: 0 raised, 0 format problems, 0 cut off, every trial
+replays exactly; step-limit stops 20/6, 24/19, 14/7 (main/suite). The
+`layers-v2` runs made 367 support-judge calls; 365 replies are a bare
+`VERDICT:` line, but 2 (both in `layers-v2-a/q18/3`) asked for the claim:
+v2's `claim_sentences` kept a list line that was only a citation, so the
+judge got an empty claim, and the reply (no "NOT SUPPORTED") counted as
+supported. Gemma 4 31B judged the six runs with the revised rubrics
+(2,025 items, 0 undecided) in
+`public/data/eval/judges/gemma-v2-prompt-v2-a+...+fp8-suite-a.json`. Same
+revisions and environment as the baseline. Not yet compared with the
+baseline: that's Lesson 10's job.
+
 **Runs, phase 3 (Lesson 6's judges): done (2026-10-02).**
 `scripts/eval/README-phase3.md`, `scripts/eval/judges.py`,
 `scripts/eval/run_judges.py`: Gemma 4 31B (`google/gemma-4-31B-it`, the
