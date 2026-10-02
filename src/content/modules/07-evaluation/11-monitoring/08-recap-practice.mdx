@@ -1,0 +1,436 @@
+---
+title: "Recap & Practice"
+lesson: "11-monitoring"
+order: 8
+---
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import MultiFileGradedExercise from "../../../../components/lesson/MultiFileGradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { QUESTION_DATA, RELEVANCE_DATA, trafficData } from "../../../../lib/evalData";
+
+export const DATA = [...trafficData("baseline-a", "baseline-b", "compaction-a"), ...QUESTION_DATA, ...RELEVANCE_DATA];
+
+export const LIB_PY = String.raw`"""This lesson's code, and the recorded data it reads. Read-only."""
+
+import json
+from collections import Counter
+from dataclasses import dataclass, field
+from math import ceil, log, sqrt
+from pathlib import Path
+from statistics import mean
+
+MONITORING = Path("/data/eval/monitoring")
+
+
+@dataclass
+class Span:
+    """One timed step of a run: what it was, which step it sits inside, and how it ended."""
+    name: str
+    trace_id: str
+    span_id: str
+    parent_id: str | None
+    start_ns: int
+    end_ns: int | None = None
+    attributes: dict = field(default_factory=dict)
+    status: str = "UNSET"
+
+
+def load_traffic(condition: str) -> list[list[Span]]:
+    """One recorded run's development runs, each as the spans it recorded, in the order the runs started."""
+    data = json.loads((MONITORING / f"traffic-{condition}.json").read_text(encoding="utf-8"))
+    return [[Span(trace_id=run["trace_id"], **span) for span in run["spans"]] for run in data["runs"]]
+
+
+def load_categories() -> dict[str, str]:
+    """Each development task's request category, standing in for what a request classifier would assign."""
+    runs = json.loads((MONITORING / "question-mix.json").read_text(encoding="utf-8"))["runs"]
+    return {run["trial_id"].split("/")[1]: run["category"] for run in runs}
+
+
+def load_relevance(batch: str) -> list[str]:
+    """The relevance verdicts on one baseline batch's question runs, code first: "fail" for a run with no answer."""
+    runs = json.loads((MONITORING / "relevance-judged.json").read_text(encoding="utf-8"))["runs"]
+    return [run["judge"] if run["answered"] else "fail" for run in runs if run["trial_id"].startswith(f"{batch}/")]
+
+
+def percentile(values: list[float], p: float) -> float:
+    """The nearest-rank percentile: the smallest value with at least p% of the values at or below it."""
+    ordered = sorted(values)
+    return ordered[ceil(p / 100 * len(ordered)) - 1]
+
+
+def summarize(spans: list[Span]) -> dict:
+    """The facts about one run that a trace answers at a glance, found by attributes rather than span names."""
+    def operation(span):
+        return span.attributes.get("gen_ai.operation.name")
+
+    chats = [span for span in spans if operation(span) == "chat"]
+    tools = [span for span in spans if operation(span) == "execute_tool"]
+    # a failure that started somewhere else passes through its parents; the origin is the failed span with no failed child
+    failed_parents = {span.parent_id for span in spans if span.status == "ERROR"}
+    origins = [span for span in spans if span.status == "ERROR" and span.span_id not in failed_parents]
+    return {
+        "model_calls": len(chats),
+        "input_tokens": sum(span.attributes.get("gen_ai.usage.input_tokens", 0) for span in chats),
+        "output_tokens": sum(span.attributes.get("gen_ai.usage.output_tokens", 0) for span in chats),
+        "tool_calls": dict(Counter(span.attributes["gen_ai.tool.name"] for span in tools)),
+        "failed_tools": [span.attributes["gen_ai.tool.name"] for span in tools if span.status == "ERROR"],
+        "first_failure": origins[0].name if origins else None,
+        "blocked_checks": [span.attributes["registry_agent.check.point"] for span in spans
+                           if span.attributes.get("registry_agent.check.verdict") == "blocked"],
+    }
+
+
+def dashboard(runs: list[list[Span]]) -> dict:
+    """The numbers a monitoring dashboard shows for a batch of runs, each run given as its spans in start order."""
+    def operation(span):
+        return span.attributes.get("gen_ai.operation.name")
+
+    def no_answer(spans):
+        chats = [span for span in spans if operation(span) == "chat"]
+        return bool(chats) and bool(chats[-1].attributes.get("registry_agent.tool_calls"))
+
+    def withheld(spans):
+        return any(span.attributes.get("registry_agent.check.point") == "before_answer"
+                   and span.attributes.get("registry_agent.check.verdict") == "blocked" for span in spans)
+
+    def share(count, total):
+        return count / total if total else 0.0
+
+    facts = [summarize(spans) for spans in runs]
+    roots = [next(span for span in spans if span.parent_id is None) for spans in runs]
+    seconds = [(root.end_ns - root.start_ns) / 1e9 for root in roots]
+    tokens = [f["input_tokens"] + f["output_tokens"] for f in facts]
+    tools = [span for spans in runs for span in spans if operation(span) == "execute_tool"]
+    searches = [span for span in tools if span.attributes["gen_ai.tool.name"] == "search_docs"]
+    return {
+        "runs": len(runs),
+        "p50_seconds": percentile(seconds, 50),
+        "p95_seconds": percentile(seconds, 95),
+        "mean_tokens": mean(tokens),
+        "p95_tokens": percentile(tokens, 95),
+        "tool_error_rate": share(sum(span.status == "ERROR" for span in tools), len(tools)),
+        "empty_search_rate": share(sum(span.attributes["registry_agent.search.results"] == 0 for span in searches),
+                                   len(searches)),
+        "no_answer_rate": share(sum(map(no_answer, runs)), len(runs)),
+        "withheld_rate": share(sum(map(withheld, runs)), len(runs)),
+    }
+
+
+def wilson(failures: float, n: int, z: float = 1.96) -> tuple[float, float]:
+    """The Wilson score interval for a failure rate seen as ${"`"}failures${"`"} out of ${"`"}n${"`"}. Unlike the rate plus or minus
+    z standard errors, it stays between 0 and 1, and it still gives an upper bound when nothing failed."""
+    p = failures / n
+    centre = (p + z * z / (2 * n)) / (1 + z * z / n)
+    half = z / (1 + z * z / n) * sqrt(p * (1 - p) / n + z * z / (4 * n * n))
+    return max(0.0, centre - half), min(1.0, centre + half)
+
+
+def runs_to_judge(expected_rate: float, half_width: float, z: float = 1.96) -> int:
+    """The fewest judged runs whose Wilson interval, at the expected failure rate, is no wider than half_width on
+    either side of its middle. half_width must be positive."""
+    n = 1
+    while True:
+        low, high = wilson(expected_rate * n, n, z)
+        if (high - low) / 2 <= half_width:
+            return n
+        n += 1
+
+
+def psi(reference: dict[str, int], current: dict[str, int], floor: float = 0.0001) -> float:
+    """The population stability index between two counts of categories. Each count becomes a share of its own total;
+    a category missing from either side gets the share ${"`"}floor${"`"}, so the logarithm stays finite."""
+    expected_total, actual_total = sum(reference.values()), sum(current.values())
+    index = 0.0
+    for name in reference.keys() | current.keys():
+        expected = reference.get(name, 0) / expected_total or floor
+        actual = current.get(name, 0) / actual_total or floor
+        index += (actual - expected) * log(actual / expected)
+    return index
+`;
+
+export const MONITOR_STARTER = String.raw`from collections import Counter
+
+from lib import Span, dashboard, load_categories, load_relevance, load_traffic, psi, runs_to_judge, wilson
+
+
+def daily_report(reference: list[list[Span]], today: list[list[Span]], category_of: dict[str, str],
+                 verdicts: list[str], slo: float = 0.95, psi_limit: float = 0.1, half_width: float = 0.02) -> dict:
+    """One day's monitoring report for the agent: today's dashboard, how fast runs without an answer spend the error
+    budget, how far the mix of requests has moved from the reference period, and what the judged sample says."""
+    # your code here
+
+
+if __name__ == "__main__":
+    reference, category_of = load_traffic("baseline-a"), load_categories()
+    batch_b = load_traffic("baseline-b")
+    # a day when requests to email agent owners are four times as common: each email run counted four times
+    emails = [spans for spans in batch_b if category_of[spans[0].attributes["registry_agent.task"]] == "email"]
+    days = {
+        "same agent, another day": (batch_b, load_relevance("baseline-b")),
+        "the compacting agent": (load_traffic("compaction-a"), []),
+        "same agent, more emails": (batch_b + emails * 3, []),
+    }
+    for name, (today, verdicts) in days.items():
+        report = daily_report(reference, today, category_of, verdicts)
+        if report is None:
+            print(f"{name}: no report yet")
+            continue
+        print(f"{name}: burn rate {report['burn_rate']:.2f}, PSI {report['mix_psi']:.3f}, alerts {report['alerts']}")
+        if report["judged"]:
+            judged = report["judged"]
+            low, high = judged["interval"]
+            print(f"    judged {judged['failures']} failures in {judged['runs']} runs ({low:.1%} to {high:.1%}); "
+                  f"{judged['needed']} runs needed for ±2 points")
+`;
+
+export const MONITOR_REFERENCE = String.raw`from collections import Counter
+
+from lib import Span, dashboard, load_categories, load_relevance, load_traffic, psi, runs_to_judge, wilson
+
+
+def daily_report(reference: list[list[Span]], today: list[list[Span]], category_of: dict[str, str],
+                 verdicts: list[str], slo: float = 0.95, psi_limit: float = 0.1, half_width: float = 0.02) -> dict:
+    """One day's monitoring report for the agent: today's dashboard, how fast runs without an answer spend the error
+    budget, how far the mix of requests has moved from the reference period, and what the judged sample says."""
+    def categories(runs):
+        roots = (next(span for span in spans if span.parent_id is None) for spans in runs)
+        return Counter(category_of[root.attributes["registry_agent.task"]] for root in roots)
+
+    board = dashboard(today)
+    burn_rate = board["no_answer_rate"] / (1 - slo)
+    mix_psi = psi(categories(reference), categories(today))
+    judged = None
+    if verdicts:
+        failures = verdicts.count("fail")
+        judged = {"failures": failures, "runs": len(verdicts), "interval": wilson(failures, len(verdicts)),
+                  "needed": runs_to_judge(failures / len(verdicts), half_width)}
+    alerts = []
+    if burn_rate > 1:
+        alerts.append("no answers over budget")
+    if mix_psi > psi_limit:
+        alerts.append("request mix shifted")
+    if judged and judged["runs"] < judged["needed"]:
+        alerts.append("judge sample too small")
+    return {"dashboard": board, "burn_rate": burn_rate, "mix_psi": mix_psi, "judged": judged, "alerts": alerts}
+
+
+if __name__ == "__main__":
+    reference, category_of = load_traffic("baseline-a"), load_categories()
+    batch_b = load_traffic("baseline-b")
+    # a day when requests to email agent owners are four times as common: each email run counted four times
+    emails = [spans for spans in batch_b if category_of[spans[0].attributes["registry_agent.task"]] == "email"]
+    days = {
+        "same agent, another day": (batch_b, load_relevance("baseline-b")),
+        "the compacting agent": (load_traffic("compaction-a"), []),
+        "same agent, more emails": (batch_b + emails * 3, []),
+    }
+    for name, (today, verdicts) in days.items():
+        report = daily_report(reference, today, category_of, verdicts)
+        if report is None:
+            print(f"{name}: no report yet")
+            continue
+        print(f"{name}: burn rate {report['burn_rate']:.2f}, PSI {report['mix_psi']:.3f}, alerts {report['alerts']}")
+        if report["judged"]:
+            judged = report["judged"]
+            low, high = judged["interval"]
+            print(f"    judged {judged['failures']} failures in {judged['runs']} runs ({low:.1%} to {high:.1%}); "
+                  f"{judged['needed']} runs needed for ±2 points")
+`;
+
+export const HIDDEN_TESTS = String.raw`import itertools
+from math import isclose
+
+from lib import Span, dashboard, psi, runs_to_judge, wilson
+from monitor import daily_report
+
+_ids = itertools.count()
+
+
+def make_run(task: str, answered: bool = True, seconds: float = 2.0) -> list[Span]:
+    """A short run of ${"`"}task${"`"}: one search, then an answer, or a last model call that still asked for a tool."""
+    root = Span(name="invoke_agent registry_agent", trace_id="t", span_id=f"s{next(_ids)}", parent_id=None,
+                start_ns=0, end_ns=round(seconds * 1e9),
+                attributes={"gen_ai.operation.name": "invoke_agent", "registry_agent.task": task})
+    steps = [({"gen_ai.operation.name": "chat", "gen_ai.usage.input_tokens": 1000, "gen_ai.usage.output_tokens": 100,
+               "registry_agent.tool_calls": ["search_docs"]}, "chat"),
+             ({"gen_ai.operation.name": "execute_tool", "gen_ai.tool.name": "search_docs",
+               "registry_agent.search.results": 5}, "execute_tool search_docs"),
+             ({"gen_ai.operation.name": "chat", "gen_ai.usage.input_tokens": 2000, "gen_ai.usage.output_tokens": 200,
+               "registry_agent.tool_calls": [] if answered else ["search_docs"]}, "chat")]
+    spans = [root]
+    for n, (attributes, name) in enumerate(steps, start=1):
+        spans.append(Span(name=name, trace_id="t", span_id=f"s{next(_ids)}", parent_id=root.span_id,
+                          start_ns=n, end_ns=n + 1, attributes=attributes))
+    return spans
+
+
+category_of = {"q1": "docs question", "q2": "docs question", "e1": "email", "a1": "model change"}
+reference = [make_run("q1")] * 6 + [make_run("e1")] * 2 + [make_run("a1")] * 2
+today = [make_run("q1")] * 5 + [make_run("q2", answered=False)] + [make_run("e1")] * 2 + [make_run("a1")] * 2
+
+try:
+    report = daily_report(reference, today, category_of, ["pass"] * 9 + ["fail"])
+except ZeroDivisionError as error:
+    raise AssertionError(f"daily_report crashed: {error!r}")
+assert isinstance(report, dict), f"daily_report should return a dict: got {report!r}"
+assert report["dashboard"] == dashboard(today), "the dashboard is today's runs, through lib's dashboard"
+assert isclose(report["burn_rate"], 2.0), \
+    f"1 of today's 10 runs ended without an answer, against a budget of 5%: burn rate 0.1 / 0.05 = 2.0, got {report['burn_rate']}"
+assert isclose(report["mix_psi"], 0.0, abs_tol=1e-12), \
+    f"each run's category comes from its root span's registry_agent.task: q1 and q2 are both docs questions, so the mix is unchanged, got {report['mix_psi']}"
+judged = report["judged"]
+assert judged["failures"] == 1 and judged["runs"] == 10, f"one 'fail' in ten verdicts: got {judged}"
+assert judged["interval"] == wilson(1, 10), "the interval is lib's wilson(failures, runs)"
+assert judged["needed"] == runs_to_judge(0.1, 0.02), "needed is runs_to_judge(failures / runs, half_width)"
+assert report["alerts"] == ["no answers over budget", "judge sample too small"], \
+    f"burn rate over 1 and fewer judged runs than needed: got {report['alerts']}"
+
+report = daily_report(reference, today, category_of, ["pass"] * 9 + ["fail"], slo=0.80, half_width=0.2)
+assert isclose(report["burn_rate"], 0.5), f"slo is a parameter: with a 20% budget the burn rate is 0.5, got {report['burn_rate']}"
+assert report["judged"]["needed"] == runs_to_judge(0.1, 0.2), "half_width is a parameter"
+assert report["alerts"] == [], \
+    f"a burn rate of 0.5 is within budget, and 10 judged runs are enough for ±0.2: got {report['alerts']}"
+
+shifted = [make_run("q1")] * 2 + [make_run("e1")] * 6 + [make_run("a1")] * 2
+try:
+    report = daily_report(reference, shifted, category_of, [])
+except ZeroDivisionError:
+    raise AssertionError("with no judged runs, judged is None and there is nothing to divide")
+expected = psi({"docs question": 6, "email": 2, "model change": 2}, {"docs question": 2, "email": 6, "model change": 2})
+assert isclose(report["mix_psi"], expected), f"the PSI between the two days' categories: expected {expected:.4f}, got {report['mix_psi']}"
+assert report["judged"] is None, "with no judged runs, judged is None"
+assert report["alerts"] == ["request mix shifted"], f"the mix moved past psi_limit 0.1: got {report['alerts']}"
+assert daily_report(reference, shifted, category_of, [], psi_limit=1.0)["alerts"] == [], "psi_limit is a parameter"
+
+report = daily_report(reference, shifted + [make_run("q2", answered=False)] * 2, category_of, ["fail"] * 3)
+assert report["alerts"] == ["no answers over budget", "request mix shifted", "judge sample too small"], \
+    f"all three alerts, in the order listed: got {report['alerts']}"
+
+from lib import load_categories, load_relevance, load_traffic
+
+report = daily_report(load_traffic("baseline-a"), load_traffic("baseline-b"), load_categories(), load_relevance("baseline-b"))
+assert isclose(report["burn_rate"], 17 / 385 / 0.05), f"the recorded traffic: 17 of 385 runs ended without an answer, got {report['burn_rate']}"
+assert report["judged"]["failures"] == 15 and report["judged"]["runs"] == 240, f"the recorded verdicts: got {report['judged']}"
+assert report["alerts"] == ["judge sample too small"], f"the recorded traffic: got {report['alerts']}"
+`;
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "A team judges a random sample of 100 answered runs and finds no relevance failures. What can it fairly report?",
+      "options": [
+        "That the failure rate is probably under about 3%",
+        "That the agent's answers are all relevant to their questions",
+        "That the failure rate is about 1%, one in a hundred runs",
+        "Nothing at all, since no failures means no interval"
+      ],
+      "correctIndex": 0,
+      "explanation": "By the rule of three, no failures in n runs leaves rates up to about 3/n plausible, here 3%, and the Wilson interval gives 0% to 3.7%. Zero failures is real evidence, just weak evidence, and the Wilson interval exists to describe it."
+    },
+    {
+      "question": "The dashboard shows mean tokens per run of about 9,400 and a p95 of about 33,600. Which number sets the token bill?",
+      "options": [
+        "The mean: the bill is the mean times the runs",
+        "The p95, since the costliest runs are the ones that matter",
+        "The median, since it's what a typical run actually costs",
+        "None, since tokens per run vary too much to predict cost"
+      ],
+      "correctIndex": 0,
+      "explanation": "The total cost is the sum over runs, which is the mean times the count. The p95 and the median describe what runs are like, which is what to watch for problems. OpenTelemetry's conventions draw the same line: counters for cost, histograms for percentiles."
+    },
+    {
+      "question": "A two-window burn-rate rule with 120 and 10 runs caught a regression quickly but fired on most streams where nothing changed. What's the usual fix?",
+      "options": [
+        "Longer windows: slower alerts, but fewer false ones",
+        "A shorter long window, so that the rule reacts even sooner",
+        "Paging on every short window that crosses the error budget",
+        "Removing the short window and keeping only the long one"
+      ],
+      "correctIndex": 0,
+      "explanation": "Longer windows hold more runs, so chance moves their rates less; with 480 and 40 runs, false alarms fell to 9 streams in 300 at the cost of about 100 runs' delay. The short window isn't the problem: it's what lets the alert stop soon after the failures do."
+    },
+    {
+      "question": "With nothing changed, PSI over 6 categories exceeds 0.1 in more than one window in twenty when windows hold 100 requests. How should the alert threshold be set?",
+      "options": [
+        "From PSI's spread in quiet windows of that size",
+        "At 0.1, the threshold the credit-scoring industry uses",
+        "At 0.25, so that only large shifts ever cause an alert",
+        "At 0, so that any change in the mix is noticed at once"
+      ],
+      "correctIndex": 0,
+      "explanation": "What PSI shows by chance depends on the window and the number of categories, so a fixed rule of thumb is too sensitive for small windows and too lax for large ones. Measuring PSI in a quiet period, at the window size you'll use, gives a threshold with a known false-alarm rate."
+    },
+    {
+      "question": "Users have reported the same failure 40 times this week, in different words. What should the suite gain?",
+      "options": [
+        "One task for the failure, its count kept for priority",
+        "Forty tasks, one built from each of the separate reports",
+        "Nothing, until the failure appears in an offline run too",
+        "A task for each distinct wording the users happened to use"
+      ],
+      "correctIndex": 0,
+      "explanation": "Grouping reports by what went wrong, then writing one task per group, keeps one problem from looking like forty. The count says how much fixing it matters. Waiting for the suite to reproduce it on its own defeats the point of learning from use."
+    },
+    {
+      "question": "Why does a shadow copy of an agent need different tools from the live one?",
+      "options": [
+        "Its writes would change the real world, so they're sandboxed",
+        "Its reads would be slower, so they're served from recorded results",
+        "Its tools would leak the shadow's answers to the users",
+        "Its tool calls would be counted twice on the dashboard"
+      ],
+      "correctIndex": 0,
+      "explanation": "Hiding a shadow's answers doesn't hide its actions: a shadow that calls the real set_model is a second agent changing the registry. Reads can pass through; writes must only be recorded, or go to a sandboxed copy, which means the comparison is exact only up to the shadow's first write."
+    },
+    {
+      "question": "A change ships to everyone, and this week's pass rate is lower than last week's. Why is that weak evidence against the change?",
+      "options": [
+        "Anything else that changed this week moves it too",
+        "One week of runs is too few to measure a pass rate at all",
+        "Pass rates always fall in the week after any change ships",
+        "The comparison needs the same users in both of the weeks"
+      ],
+      "correctIndex": 0,
+      "explanation": "Time brings its own changes, such as a shift in what people ask, and a before/after comparison can't separate them from the change. In the lesson's simulation, a change that did nothing was blamed in about three weeks out of four, while a canary compared with a control at the same time stayed quiet."
+    },
+    {
+      "question": "An A/B test randomises users, and each user sends about 10 runs. Why can't each arm be analysed as a set of independent runs?",
+      "options": [
+        "A user's runs are alike, so separate counting overstates evidence",
+        "Users send different numbers of runs, so the arms can't be compared",
+        "Runs from the same user have to be graded by the same judge",
+        "Each user's first run is always unrepresentative of the rest"
+      ],
+      "correctIndex": 0,
+      "explanation": "The unit randomised is the unit to analyse. In the lesson's A/A test, per-run analysis called 44% of identical splits significant, against 5% per user. The design effect, 1 + (m − 1) × icc, says how many more users that correlation costs."
+    }
+  ]}
+/>
+
+</CheckpointZone>
+
+<CheckpointZone>
+
+<MultiFileGradedExercise
+  client:load
+  task={"lib.py holds the recorded data's loaders and this lesson's functions, read-only. In monitor.py (the entry file), write daily_report(reference, today, category_of, verdicts, slo=0.95, psi_limit=0.1, half_width=0.02). reference and today are lists of runs, each a list of Spans; category_of maps a task id to a request category; verdicts is today's judged sample, a list of \"pass\" and \"fail\", possibly empty. Return a dict with: \"dashboard\": dashboard(today). \"burn_rate\": today's no_answer_rate divided by the error budget, 1 - slo. \"mix_psi\": psi between the reference's and today's counts of categories. A run's category is category_of of the registry_agent.task on its root span, the span with no parent. \"judged\": None if verdicts is empty. Otherwise a dict with \"failures\" (the number of \"fail\"), \"runs\", \"interval\" (wilson(failures, runs)) and \"needed\" (runs_to_judge(failures / runs, half_width)). \"alerts\": a list, in this order, of each that applies: \"no answers over budget\" if the burn rate is above 1; \"request mix shifted\" if mix_psi is above psi_limit; \"judge sample too small\" if there are fewer judged runs than needed. Click Run to see three simulated days against the baseline's batch a."}
+  entry="monitor.py"
+  files={[
+    { name: "lib.py", readOnly: true, code: LIB_PY },
+    { name: "monitor.py", code: MONITOR_STARTER },
+  ]}
+  hiddenTests={HIDDEN_TESTS}
+  dataFiles={DATA}
+  hint={"Build a Counter of categories for each list of runs from their root spans, then pass both to psi. Count failures with verdicts.count(\"fail\"), and only compute the judged part when there are verdicts. Check the three alerts in the listed order, appending each that applies."}
+  correctFiles={[
+    { name: "lib.py", readOnly: true, code: LIB_PY },
+    { name: "monitor.py", code: MONITOR_REFERENCE },
+  ]}
+  explanation={"The report puts each of the lesson's tools in its place. The dashboard comes from today's traces alone. The burn rate turns runs without an answer into a statement about the error budget the team agreed: the compacting agent spends it nearly twice as fast as allowed, while another day of the same agent stays inside it. PSI compares what was asked rather than how it went, so the day with four times as many emails is flagged even though its burn rate is fine. The judged sample is reported with its interval, and the report says when the sample is too small for the precision asked of it: 240 judged runs at a 6% failure rate give an interval of about 4% to 10%, and pinning it to within 2 points would take 572. The tests check each piece's denominator and source, the order of the alerts, and that a day with no judged runs reports none rather than dividing by zero. Run prints, for the same agent on another day, a burn rate of 0.88 and the judge-sample alert (15 failures in 240 runs, 3.8% to 10.1%, 572 runs needed); for the compacting agent, 1.92 and the error-budget alert; and for the day with more emails, 0.76, a PSI of 0.177 and the mix alert."}
+/>
+
+</CheckpointZone>

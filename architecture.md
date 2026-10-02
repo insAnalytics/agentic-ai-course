@@ -838,6 +838,14 @@ Concept 7 adds no data: its setup is `LOAD_TRAFFIC` + `AB_USERS`
 copy-checked, with `QUESTION_DATA`; the exercise passes the same as
 `namespaceSetup`, and its reference is `USERS_PER_ARM`, loaded hidden by
 the cost demo after it. The A/A demo takes about 0.6 s in Pyodide.
+The recap's sandbox is a two-file `MultiFileGradedExercise` over
+`trafficData("baseline-a", "baseline-b", "compaction-a")`,
+`QUESTION_DATA` and `RELEVANCE_DATA`: a read-only `lib.py` (`Span`, the
+loaders, `percentile`, `summarize`, and the references for `dashboard`,
+`wilson`, `runs_to_judge` and `psi`, each copy-checked byte for byte
+against its constant via `CONTAINED`, plus two loaders of its own,
+`load_categories` and `load_relevance`) and `monitor.py`, the entry
+file. Run takes about 0.3 s in Pyodide, the hidden tests about 0.1 s.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or

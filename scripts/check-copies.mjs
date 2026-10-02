@@ -453,6 +453,17 @@ const CONTAINED = [
         what: `${name}'s ${piece.split("\n")[0].slice(0, 40)}`, text: piece,
         file: "src/content/modules/07-evaluation/08-calibration/05-recap-practice.mdx",
       }))),
+  // Lesson 11's recap lib.py: Span, the lesson's loader and percentile, Lesson 2's summarize, and the references for
+  // dashboard, wilson, runs_to_judge and psi, byte for byte (imports gathered at its top; the rest of TRACER and
+  // JUDGED_SAMPLE's judged aren't needed there)
+  ...["TRACER", "SUMMARIZE", "TRAFFIC_SETUP", "DASHBOARD", "JUDGED_SAMPLE", "RUNS_TO_JUDGE", "PSI"].flatMap((name) =>
+    escapedConstant("src/lib/evalData.ts", name).split("\n\n\n")
+      .map((piece) => piece.split("\n").filter((line) => !/^(import|from) /.test(line)).join("\n").trim())
+      .filter((piece) => piece && (name !== "TRACER" || piece.startsWith("@dataclass")) && !piece.startsWith("judged ="))
+      .map((piece) => ({
+        what: `${name}'s ${piece.split("\n")[0].slice(0, 40)}`, text: piece,
+        escaped: ["src/content/modules/07-evaluation/11-monitoring/08-recap-practice.mdx", "LIB_PY"],
+      }))),
   // Lesson 7's recap lib.py: concept 4's reference rogan_gladen, byte for byte
   {
     what: "Lesson 7 concept 4's rogan_gladen",

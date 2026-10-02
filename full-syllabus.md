@@ -7677,9 +7677,9 @@ torch 2.13.0+cu130, `torchaudio` removed,
    before stop, flags never look, Fisher arguments swapped, the gate's
    flags taken as confirmed, gate arguments swapped) each fail. Lesson 10
    is now fully Locked.
-11. **Monitoring in Production** (`11-monitoring`, title provisional) —
-   **Building.** Concepts 1 to 7 drafted and built; bookends (and any
-   further concept, if the drafting process adds one) not yet. Concept 1 (what to watch on every run): no answer key in
+11. **Monitoring in Production** (`11-monitoring`, title confirmed by the
+   bookends mockup) — **Locked.** All seven concepts and the bookends
+   built. Concept 1 (what to watch on every run): no answer key in
    production (Lesson 1), Anthropic's guide on monitoring after launch,
    simulated traffic (the baseline's batch a, 385 development runs, in
    start order), the SRE book's four golden signals for an agent plus
@@ -7874,6 +7874,28 @@ torch 2.13.0+cu130, `torchaudio` removed,
    (`#the-same-two-batches-paired`) and 2
    (`#when-items-aren-t-independent`), Lesson 10 concept 3 (page)
    (anchors verified).
+   Bookends: intro (`00-intro`, 3 outcomes and why-it-matters) and recap
+   (`08-recap-practice`): an 8-question comprehensive quiz and a two-file
+   comprehensive sandbox, `lib.py` (read-only: `Span`, `load_traffic`,
+   `load_categories`, `load_relevance`, `percentile`, `summarize`,
+   `dashboard`, `wilson`, `runs_to_judge`, `psi`; every piece the lesson
+   already defines is copy-checked byte for byte against its constant)
+   and `monitor.py`, where the learner writes `daily_report` (dashboard,
+   burn rate against 1 - slo, PSI of root-span categories, the judged
+   sample's Wilson interval and runs needed, three alerts in order). Data:
+   `trafficData("baseline-a", "baseline-b", "compaction-a")`,
+   `QUESTION_DATA`, `RELEVANCE_DATA`. In Pyodide 0.26.4 with the real
+   multi-file harness, the reference's Run prints the mockup's 4 lines
+   exactly (another day 0.88 with the judge-sample alert, 15 of 240, 572
+   needed; compacting agent 1.92 over budget; more emails PSI 0.177),
+   it passes the hidden tests (also on a second submission), and the
+   starter fails. In CPython, twelve wrong versions (burn rate over slo,
+   category not from the root span, PSI over task ids, `{}` or a crash
+   with no verdicts, half_width ignored, needed from the count, a lower
+   burn threshold, alerts reordered, psi_limit ignored, the reference's
+   dashboard, passes counted as failures) each fail; swapping psi's
+   arguments passes, since PSI is symmetric. Lesson 11 is now fully
+   Locked.
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092
