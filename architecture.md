@@ -648,12 +648,18 @@ Concept 2 reads `items.json`, `labels-judges-simar.json` (the first pass,
 never changed) and `labels-judges-simar-v2.json` (the same labels with
 two development-split re-reviews, the first verdicts kept in its
 `revisions` list) through the same setup.
+Concept 3 adds `judge-labels/measure.json` (35 KB, written by
+`scripts/eval/judge_measure_data.py`, `--check`): each labelled item
+with its kind, split and stratum, Simar's first and revised labels, both
+judges' verdicts under rubrics version 1 (phase 3) and 2 (phase 4),
+`no_answer`, and `excluded` (q19's correctness items, whose reference
+changed after labelling).
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
 code block has drifted: currently the pilot's `tasks.json` against
 `scripts/eval/tasks/pilot.json`, `LOAD_PILOT`, `LOAD_READING` and `LOAD_SUITE`
-(Lesson 4 concept 1, Lesson 5 concepts 1 to 3) `LOAD_JUDGES` (Lesson 6 concepts 1 to 5) and `LOAD_JUDGE_LABELS` (Lesson 7 concepts 1 and 2) against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
+(Lesson 4 concept 1, Lesson 5 concepts 1 to 3) `LOAD_JUDGES` (Lesson 6 concepts 1 to 5) and `LOAD_JUDGE_LABELS` (Lesson 7 concepts 1 to 3) against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
 the demos that show them, the replay exercise's static provided block
 against its constant, and each `public/data/eval/code/*.py` against its
 source. A second list, `CONTAINED`, checks that code a page shows appears

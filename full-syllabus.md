@@ -7142,7 +7142,7 @@ torch 2.13.0+cu130, `torchaudio` removed,
    options reworded so they don't say "it" of two judges.
 
 7. **Measuring Judges** (`07-measuring-judges`, title provisional) —
-   **Building:** concepts 1 and 2 drafted and built (concept 2's
+   **Building:** concepts 1 to 3 drafted and built (concept 2's
    relabel section is a placeholder until the relabel, due from
    2026-10-23); later concepts and bookends not yet drafted.
    Concept 1 (a judge is a measurement) is built: why a judge is checked
@@ -7207,6 +7207,39 @@ torch 2.13.0+cu130, `torchaudio` removed,
    `#from-notes-to-categories`, Lesson 6 concept 2's
    `#from-the-reading-standard-to-a-rubric`, Lesson 4 concept 3's
    `#fixing-the-task-not-the-persona` (anchors verified).
+   Concept 3 (development and test sets, for a judge) is built: Husain
+   and Shankar's train/dev/test split for judge labels (10-20 / 40-45 /
+   40-45%, test once, never in the prompt, 30-50 of each label per set;
+   checked against the source), a graded `assign_splits` exercise, the
+   development-set rubric changes, both judges under both rubric versions
+   on dev and test (Gemma dev TPR 28/37 to 34/37, test TNR 16/22 to
+   14/22), Gemma's test results by kind, the two failures the loosened
+   rubrics let through, and what to do with such a result. 5 quiz cards.
+   Data: the new `public/data/eval/judge-labels/measure.json` from the new
+   `scripts/eval/judge_measure_data.py` (`--check`; identical to the zip's
+   copy apart from line endings, the zip's LF copy committed). In Pyodide
+   0.26.4 both demos and the reference's example print the mockup's output
+   exactly; the reference passes the 5 hidden tests (the mockup's asserts
+   split by group, each rebuilding its items) and the starter and eight
+   wrong versions each fail. Added a test pinning the exact split for one
+   seed, since nothing in the mockup's tests checked "one generator for the
+   whole call" (a new `Random(seed)` per group passed). Corrected from the
+   mockup: the four left-out test items are q19's three (reference changed;
+   only two were disputed) and one UNCLEAR, not "three with a disputed
+   reference"; the premise miss is explained by the new "saying the
+   sources don't answer isn't rejecting" line (the reply used `PREMISE:
+   FALSE` to say the sources don't confirm what dashboards show), not "a
+   reply's other mistakes don't count"; the premise rubric change is
+   described in the rubric's words (it doesn't mention the marker); the
+   remaining correctness/relevance misses are four, not three; the
+   relevance no-answer check is noted as applied to both versions; the
+   structural fix is described as extending Lesson 6's check to every
+   reply judge; the exercise is introduced as "that kind of split" (the
+   real script samples per stratum quota, then alternates). Added the
+   lesson's setup block before the first demo, copy-checked, as on
+   concepts 1 and 2. Callbacks: Lesson 4 concept 5's `#tuning-to-the-suite`,
+   Lesson 6 concept 4's `#relevance-separately`, concept 2's
+   `#people-drift-too` (anchors verified).
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092
