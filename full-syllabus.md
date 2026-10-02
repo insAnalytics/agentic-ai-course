@@ -7095,7 +7095,31 @@ torch 2.13.0+cu130, `torchaudio` removed,
    concept 5's `#a-system-that-keeps-running`, Lesson 11 concept 5's
    `#what-two-recent-papers-found`, Module 6 Lesson 4 concept 1's
    `#the-support-check` (anchors verified); Lessons 7 and 11 are plain
-   prose. Concepts 5 onward and the bookends are not drafted yet.
+   prose.
+   Concept 5 (grading set F's premise replies) is built, no exercise:
+   Module 6's set F and its marker, the premise judge's rubric, a demo of
+   Gemma's verdicts by the marker's outcome on all 1,600 replies, and a
+   demo of both judges on Module 6's 30 hand-labelled replies (every C, I
+   and W passed). Both demos match the mockup exactly in Pyodide 0.26.4.
+   Corrected from the mockup after reading every disputed reply with
+   Gemma's reasoning: Module 6 made no promise that Module 7 would grade
+   set F (it advised grading such a measure with a checked judge), so
+   the page says that instead; the one false-premise reply Gemma fails
+   (v05-false check_first 3) is the judge's mistake; of the 25
+   true-premise "rejections" it passes, 13 use the marker for "no", 6
+   for "the sources don't answer", and 3 are cut-off replies
+   (`finished: False`) the judge passes too (the mockup's "one is the
+   judge misreading the assumption" isn't borne out); of the 46
+   "answered" replies it fails, about 18 reject the premise in words and
+   about 20 by answering as if it were false, nine of them v10 (a single
+   MON-2002 as one failed poll, not "two") and ten v38 (dashboards blank
+   during maintenance), and about 8 are judge drift. The W replies'
+   corrections and the "2026-10-31" example (v23) were checked. 5 quiz
+   cards. Callbacks: Module 6 Lesson 4 concept 5's
+   `#when-the-question-itself-is-wrong`, `#what-the-replies-actually-say`
+   and `#what-this-means-for-a-real-agent`, and concept 2's
+   `#what-a-rubric-has-to-do` (anchors verified); Lesson 7 is plain
+   prose. Concepts 6 onward and the bookends are not drafted yet.
 
 **Runs, phase 3 (Lesson 6's judges): done (2026-10-02).**
 `scripts/eval/README-phase3.md`, `scripts/eval/judges.py`,

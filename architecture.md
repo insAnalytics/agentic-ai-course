@@ -620,7 +620,7 @@ every decision from both runs without the replies, and for each
 reply-failure item whether the task's code checks passed the same run),
 written by `scripts/eval/judge_digest.py` (`--check`), with
 `judgesData(...)` and `LOAD_JUDGES` (`load_digest`, shown verbatim on
-concepts 1 to 4, copy-checked) in `evalData.ts`. Since concept 4,
+concepts 1 to 5, copy-checked) in `evalData.ts`. Since concept 4,
 `digest.json`'s correctness and relevance rows also carry the question's
 `question_kind` and `no_answer` (the run ended on the harness's "stopped
 after" note). Concept 2 adds
@@ -632,7 +632,7 @@ answer each judged, dev tasks only (held-out answers stay unread).
 `npm run build` and fails the build if a deliberately duplicated file or
 code block has drifted: currently the pilot's `tasks.json` against
 `scripts/eval/tasks/pilot.json`, `LOAD_PILOT`, `LOAD_READING` and `LOAD_SUITE`
-(Lesson 4 concept 1, Lesson 5 concepts 1 to 3) and `LOAD_JUDGES` (Lesson 6 concepts 1 to 4) against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
+(Lesson 4 concept 1, Lesson 5 concepts 1 to 3) and `LOAD_JUDGES` (Lesson 6 concepts 1 to 5) against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
 the demos that show them, the replay exercise's static provided block
 against its constant, and each `public/data/eval/code/*.py` against its
 source. A second list, `CONTAINED`, checks that code a page shows appears
