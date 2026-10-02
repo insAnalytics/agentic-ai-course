@@ -7443,9 +7443,8 @@ torch 2.13.0+cu130, `torchaudio` removed,
    "Their" for "this module's judges".
 
 9. **Ablations** (`09-ablations`, title provisional) — **Building.**
-   Concept 1 (one piece on and off) is built; concepts 2 onward (the
-   mockup names clustering by task group as the next) and the bookends
-   aren't drafted yet. Concept 1: what an ablation holds fixed (tasks,
+   Concepts 1 and 2 are built; later concepts (if any) and the bookends
+   aren't drafted yet. Concept 1 (one piece on and off): what an ablation holds fixed (tasks,
    budget, graders), Miller's "Adding Error Bars to Evals" (arXiv
    2411.00640, linked) on paired differences and clustering, the
    baseline's two 5-trial batches each with its own task-resampled
@@ -7459,6 +7458,20 @@ torch 2.13.0+cu130, `torchaudio` removed,
    global `random`, no `ValueError`, A minus B, wrong resample size) each
    fail. No callbacks. Setup: `LOAD_SUITE` shown and copy-checked; the
    phase 5 ablation runs aren't used yet.
+   Concept 2 (suite-wide reliability, and items that aren't independent)
+   is built: suite pass^k from Module 6's per-task estimate, a graded
+   `suite_pass_hat_k` exercise (the mockup's hidden tests split into 5),
+   the baseline's pass^1/2/5/10 (91.1%, 88.9%, 86.0%, 83.8%, intervals
+   widening), Miller's clustering (his "over 3X" checked against the
+   paper's Table 4: DROP 3.05), the 2B's wordings accuracy (91.3%) with a
+   naive (4.5 points wide) and question-clustered (6.3) interval, the
+   suite's own clusters, 5 quiz cards. All demos reproduce the mockup's
+   output exactly; the reference passes every test, and the starter and
+   six wrong versions (rate to the power k, pooled trials, no check,
+   unsorted, global `random`, `>=` check) each fail. Callbacks: Module 6
+   Lesson 1 concept 3's `#estimating-pass-k-from-runs-you-already-have`
+   and `#average-per-task-never-the-average-to-the-power-k` (anchors
+   verified); "Lessons 4 to 6" stays plain prose.
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092

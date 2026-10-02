@@ -693,6 +693,10 @@ hidden by the demo after the exercise), and its exercise reference is
 `PAIRED_DIFFERENCE` in `evalData.ts` (`pass_rate`, `paired_difference`:
 B minus A per shared task, sorted, with a task-resampled interval from
 one `random.Random(seed)`).
+Concept 2's exercise reference is `SUITE_PASS_HAT_K` (Module 6's
+`task_pass_hat_k` and `suite_pass_hat_k`, with `import random`), loaded
+hidden by both demos after it; its second demo mounts only Module 6's
+`reliability/runs/wordings.smaller.json` (no `set-e.json`).
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or

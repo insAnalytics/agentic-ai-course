@@ -776,3 +776,30 @@ def paired_difference(a: dict[str, list[bool]], b: dict[str, list[bool]], repeat
     means = sorted(sum(rng.choices(differences, k=len(differences))) / len(differences) for _ in range(repeats))
     return sum(differences) / len(differences), means[int(0.025 * repeats)], means[int(0.975 * repeats) - 1]
 `;
+
+/**
+ * Module 7 Lesson 9 concept 2's task_pass_hat_k and suite_pass_hat_k: the
+ * exercise's reference, shown there as the correct answer by using this
+ * constant (with the starter's example after it), and loaded hidden by both
+ * demos after it.
+ */
+export const SUITE_PASS_HAT_K = String.raw`import random
+from math import comb
+
+
+def task_pass_hat_k(successes: int, runs: int, k: int) -> float:
+    """Module 6's estimate of one task's pass^k: the chance that k trials drawn from its runs all pass."""
+    return comb(successes, k) / comb(runs, k)
+
+
+def suite_pass_hat_k(per_task: dict[str, list[bool]], k: int, repeats: int = 2000,
+                     seed: int = 0) -> tuple[float, float, float]:
+    """pass^k averaged over tasks, with a 95% interval from resampling tasks (sorted, one seeded generator).
+    Every task needs at least k trials."""
+    if any(k > len(results) for results in per_task.values()):
+        raise ValueError(f"pass^{k} needs at least {k} trials of every task")
+    values = [task_pass_hat_k(sum(per_task[t]), len(per_task[t]), k) for t in sorted(per_task)]
+    rng = random.Random(seed)
+    means = sorted(sum(rng.choices(values, k=len(values))) / len(values) for _ in range(repeats))
+    return sum(values) / len(values), means[int(0.025 * repeats)], means[int(0.975 * repeats) - 1]
+`;
