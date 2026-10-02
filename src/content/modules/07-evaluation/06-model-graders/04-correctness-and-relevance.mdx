@@ -1,0 +1,294 @@
+---
+title: "Is the answer right? Correctness and relevance"
+lesson: "06-model-graders"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import GradedExercise from "../../../../components/lesson/GradedExercise";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { LOAD_JUDGES, judgesData } from "../../../../lib/evalData";
+
+export const DIGEST_DATA = judgesData("digest");
+
+export const EXAMPLE = String.raw`reference = {"error rate above 5%", "for 15 minutes", "pages on-call"}
+answer = {"error rate above 5%", "for 15 minutes", "opens a ticket"}
+print(answer_correctness(answer, reference, similarity=0.9))
+`;
+
+export const STARTER = String.raw`def factual_correctness(answer_facts: set[str], reference_facts: set[str]) -> float:
+    """RAGAS's factual part: true positives over true positives plus half the false positives and false negatives."""
+    # your code here
+
+
+def answer_correctness(answer_facts: set[str], reference_facts: set[str], similarity: float, weight: float = 0.75) -> float:
+    """RAGAS's answer correctness: the factual part and the answers' similarity, weighted (0.75 and 0.25 by default)."""
+    # your code here
+
+
+` + EXAMPLE;
+
+export const SOLUTION = String.raw`def factual_correctness(answer_facts: set[str], reference_facts: set[str]) -> float:
+    """RAGAS's factual part: true positives over true positives plus half the false positives and false negatives."""
+    tp = len(answer_facts & reference_facts)
+    fp = len(answer_facts - reference_facts)
+    fn = len(reference_facts - answer_facts)
+    return tp / (tp + 0.5 * (fp + fn)) if tp + fp + fn else 1.0
+
+
+def answer_correctness(answer_facts: set[str], reference_facts: set[str], similarity: float, weight: float = 0.75) -> float:
+    """RAGAS's answer correctness: the factual part and the answers' similarity, weighted (0.75 and 0.25 by default)."""
+    return weight * factual_correctness(answer_facts, reference_facts) + (1 - weight) * similarity
+`;
+
+export const REFERENCE = String.raw`reference = {"error rate above 5%", "for 15 minutes", "pages on-call"}
+`;
+
+export const TESTS = [
+// each hidden test runs in its own copy of the learner's namespace, so every test has its own data
+REFERENCE + String.raw`got = factual_correctness(reference, reference)
+assert got is not None, "factual_correctness should return a number"
+assert got == 1.0, f"an answer with exactly the reference's facts scores 1.0, got {got}"
+assert factual_correctness({"opens a ticket"}, reference) == 0.0, "no shared facts: 0.0"
+`,
+REFERENCE + String.raw`got = factual_correctness({"error rate above 5%", "for 15 minutes"}, reference)
+assert got is not None, "factual_correctness should return a number"
+assert abs(got - 2 / 2.5) < 1e-9, f"2 shared, 0 extra, 1 missing: 2 / (2 + 0.5 * 1) = 0.8, got {got}"
+got = factual_correctness({"error rate above 5%", "for 15 minutes", "pages on-call", "opens a ticket"}, reference)
+assert abs(got - 3 / 3.5) < 1e-9, f"an extra fact counts against the answer as much as a missing one: 3 / 3.5, got {got}"
+got = factual_correctness({"error rate above 5%", "for 15 minutes", "opens a ticket"}, reference)
+assert abs(got - 2 / 3) < 1e-9, f"2 shared, 1 extra, 1 missing: 2 / (2 + 0.5 * 2), got {got}"
+`,
+String.raw`assert factual_correctness(set(), set()) == 1.0, "nothing to state and nothing stated: nothing is wrong, so 1.0, not an error"
+`,
+REFERENCE + String.raw`got = answer_correctness({"error rate above 5%", "for 15 minutes", "opens a ticket"}, reference, similarity=0.9)
+assert got is not None, "answer_correctness should return a number"
+assert abs(got - (0.75 * 2 / 3 + 0.25 * 0.9)) < 1e-9, f"0.75 x factual + 0.25 x similarity by default, got {got}"
+got = answer_correctness({"error rate above 5%"}, reference, similarity=0.2, weight=0.5)
+assert abs(got - (0.5 * 0.5 + 0.5 * 0.2)) < 1e-9, f"the weight is a parameter: 0.5 x 0.5 + 0.5 x 0.2, got {got}"
+`,
+];
+
+export const CORRECTNESS_DEMO = String.raw`from collections import Counter
+
+judges = load_digest()
+verdicts = {judge: {r["trial_id"]: r["decision"] for r in run["results"] if r["kind"] == "correctness" and r["split"] == "dev"}
+            for judge, run in judges.items()}
+for judge, by_run in verdicts.items():
+    print(f"{judge:<7} correct on {sum(v == 'pass' for v in by_run.values())} of {len(by_run)} dev runs")
+both = Counter((verdicts["gemma"][t], verdicts["qwen9b"][t]) for t in verdicts["gemma"])
+print("Gemma, Qwen:", dict(both))
+`;
+
+export const RELEVANCE_DEMO = String.raw`relevance = {judge: [r for r in run["results"] if r["kind"] == "relevance" and r["split"] == "dev"]
+             for judge, run in judges.items()}
+for judge, rows in relevance.items():
+    no_answer = [r for r in rows if r["no_answer"]]
+    answered = [r for r in rows if not r["no_answer"]]
+    print(f"{judge:<7} runs with no answer: {sum(r['decision'] == 'pass' for r in no_answer)} of {len(no_answer)} passed as relevant; "
+          f"runs with an answer: {sum(r['decision'] == 'fail' for r in answered)} of {len(answered)} failed")
+`;
+
+export const RELEVANCE_SETUP = LOAD_JUDGES + "\njudges = load_digest()\n";
+
+<Subsection title="Measuring the answer itself" variant="a">
+
+Module 5 measured retrieval in detail: whether the right sections came
+back, and in what order. It left the answers themselves unmeasured, and
+[said where that would happen](/05-rag-systems/15-a-new-corpus/05-where-the-module-leaves-off/#a-system-that-keeps-running):
+whether an answer is correct, faithful to its sources, and answers what
+was asked, judged by a model and checked against people. When Module 5
+[reported an agent with keyword tools](/05-rag-systems/11-agentic-rag/05-keyword-tools-against-the-full-pipeline/#what-two-recent-papers-found)
+reaching 91.5% of a pipeline's "answer correctness", that was a RAGAS
+score, a number this course hadn't defined. This concept defines it, and
+then grades the registry agent's answers a different way.
+
+Faithfulness to the sources is covered already, in two places:
+[Module 6's support check](/06-reliability/04-verifying-claims/01-checking-each-claim/#the-support-check)
+judges whether a source supports a claim, and Lesson 5's citation check
+confirms that every cited source was actually returned. This concept is
+about the other two: is the answer right, and does it answer the
+question?
+
+</Subsection>
+
+<Subsection title="RAGAS answer correctness" variant="b">
+
+RAGAS is an open-source library for evaluating retrieval-augmented
+answers.
+[Its documentation](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/answer_correctness/)
+defines answer correctness in two parts:
+
+- **The factual part.** A model breaks both the answer and the reference
+  answer into short statements and sorts them: statements in both are true
+  positives (TP), statements only in the answer are false positives (FP),
+  and statements only in the reference are false negatives (FN). The score
+  is TP / (TP + ½ × (FP + FN)).
+- **The similarity part.** How close the two answers are in meaning,
+  measured with embeddings.
+
+The final score weights the two, 0.75 for the factual part and 0.25 for
+the similarity by default. The result is a number between 0 and 1, and
+the two model steps behind it, splitting text into statements and judging
+which match, each add their own errors.
+
+</Subsection>
+
+<CheckpointZone>
+
+<GradedExercise
+  client:load
+  task={"Suppose a model has already split the answer and the reference into statements, and matching statements are written identically, so each side is a set of strings. Write factual_correctness(answer_facts, reference_facts): TP / (TP + 0.5 × (FP + FN)), where TP is the statements in both sets, FP those only in the answer and FN those only in the reference. If both sets are empty, return 1.0: there was nothing to state, and nothing was stated wrongly. Then write answer_correctness(answer_facts, reference_facts, similarity, weight=0.75): weight times the factual part, plus 1 - weight times similarity."}
+  starterCode={STARTER}
+  hiddenTests={TESTS}
+  runnable
+  hint={"Set operations give the three counts directly: & for the statements in both, and - for each side's extras. Guard the division for the case where all three counts are zero."}
+  correctAnswer={{
+    code: SOLUTION + "\n\n" + EXAMPLE,
+    explanation: "The factual part is the F1 score in another form: TP / (TP + ½(FP + FN)) equals 2TP / (2TP + FP + FN). So an extra statement costs exactly as much as a missing one, which suits a definition of \"correct\" that means \"the same facts, no more and no fewer\". In the example, the answer has two of the reference's three facts and one of its own, so the factual part is 2 / 3, and the similarity lifts the total to 0.725. That's the weakness of a continuous score for a question with one right answer: an answer that sends the alert to the wrong place still scores 0.725, and a threshold has to be chosen somewhere to call it wrong.",
+  }}
+/>
+
+</CheckpointZone>
+
+<Subsection title="The answers, judged" variant="a">
+
+This module grades correctness with a pass/fail judge instead, comparing
+each answer with Module 5's reference answer:
+
+- **One decision, one model step.** No statement splitting and no
+  embeddings, so there's one judge to check against people instead of
+  two.
+- **The threshold is in the rubric, in words.** An answer passes if it
+  gives the reference's essential facts and contradicts nothing. Extra
+  correct detail is fine, which differs from RAGAS, where it counts
+  against the answer.
+- **Unanswerable questions have a right answer too.** When the reference
+  says the documents don't answer the question, the answer passes only if
+  it says so.
+
+Here are both judges on every dev run of Module 5's questions:
+
+```python
+import json
+from pathlib import Path
+
+JUDGES = Path("/data/eval/judges")
+
+
+def load_digest() -> dict:
+    """Every phase 3 judge decision, by judge: gemma (Gemma 4 31B) and qwen9b (Qwen3.5-9B)."""
+    return json.loads((JUDGES / "digest.json").read_text(encoding="utf-8"))["judges"]
+```
+*(defined once at the start of this lesson and already loaded)*
+
+<LiveDemo client:load dataFiles={DIGEST_DATA} setupCode={LOAD_JUDGES} code={CORRECTNESS_DEMO} />
+
+*(One of Qwen's replies was cut off before its verdict.)*
+
+The judges agree on 442 of the 480 runs. Where they differ, it's mostly
+Qwen failing what Gemma passed. Which of them is right on those runs, and
+how either compares with a person reading the same answers, is what
+Lesson 7 measures, using the labels from Lesson 3's reading and new ones
+for this purpose.
+
+</Subsection>
+
+<Subsection title="Relevance, separately" variant="b">
+
+Relevance asks a narrower question, whether the answer addresses the
+question that was asked, right or wrong. It needs no reference answer,
+which makes it the judge that can still run where there isn't one, such
+as on real traffic in Lesson 11. It's graded separately from correctness,
+as [Anthropic's guide](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)
+recommends for each dimension, so an answer that's wrong but on topic and
+one that's off topic don't look the same.
+
+<LiveDemo client:load dataFiles={DIGEST_DATA} setupCode={RELEVANCE_SETUP} code={RELEVANCE_DEMO} />
+
+*(`judges` is the first demo's.)*
+
+On runs with an answer, both judges pass almost everything, as they
+should: the agent rarely answers a different question. The difference is
+the runs with no answer, which the step limit stopped before the agent
+said anything. Their final reply is the harness's own note, "stopped after
+10 steps without an answer". Qwen fails all of them, which is right:
+nothing was said to the user. Gemma passes all but one, and its reasoning
+shows why: it reads the note as the assistant saying it couldn't find the
+answer, which the rubric allows. The rubric wasn't written with that case
+in mind, and a strong judge followed it to a wrong verdict.
+
+The correctness judges don't make the same mistake: both fail every run
+with no answer. For relevance, the fix doesn't need a better judge. A run
+with no answer can be detected in code, exactly, and failed before any
+judge sees it. That's the general shape of grading in this module: code
+decides what it can decide exactly, and the judge is asked only what needs
+reading.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "In RAGAS's answer correctness, what counts as a false positive?",
+      "options": [
+        "A statement in the answer but not the reference",
+        "A statement in the reference the answer left out",
+        "A statement both the answer and the reference make",
+        "A statement that the sources don't support"
+      ],
+      "correctIndex": 0,
+      "explanation": "True positives are in both, false positives only in the answer, false negatives only in the reference. Whether the sources support a statement is a different measure, faithfulness."
+    },
+    {
+      "question": "RAGAS's factual part is TP / (TP + ½ × (FP + FN)). What is that the same as?",
+      "options": [
+        "The F1 score",
+        "Precision alone",
+        "Recall alone",
+        "The share of statements matched"
+      ],
+      "correctIndex": 0,
+      "explanation": "Multiplying top and bottom by 2 gives 2TP / (2TP + FP + FN), the F1 score. An extra statement and a missing one cost the same."
+    },
+    {
+      "question": "Why does this module grade correctness with a pass/fail judge instead of RAGAS's score?",
+      "options": [
+        "One step to check; a threshold in words",
+        "RAGAS can't compare an answer with a reference",
+        "A pass/fail judge never disagrees with people",
+        "RAGAS scores can't be computed for short answers"
+      ],
+      "correctIndex": 0,
+      "explanation": "RAGAS needs a model to split statements and embeddings for similarity, and still needs a threshold to call an answer wrong. A pass/fail judge makes one decision, against a rubric that says in words what passing means, and that one decision is what gets checked against people."
+    },
+    {
+      "question": "Gemma passed 25 of the 26 runs with no answer as relevant. Why?",
+      "options": [
+        "It read the stop note as a reply",
+        "It was shown a different reply from Qwen",
+        "The no-answer runs had answered a different question",
+        "Its correctness verdicts were copied into relevance"
+      ],
+      "correctIndex": 0,
+      "explanation": "The rubric passes a reply that says it can't find the answer, and the stop note looks like one. A judge following its rubric can still reach a wrong verdict when a case wasn't anticipated."
+    },
+    {
+      "question": "What's the best fix for the relevance judge's no-answer problem?",
+      "options": [
+        "Fail runs with no answer in code first",
+        "Replace Gemma with Qwen as the main judge",
+        "Average the two judges' relevance verdicts",
+        "Remove the step limit from the agent's loop"
+      ],
+      "correctIndex": 0,
+      "explanation": "Whether a run ended without an answer is something code can tell exactly. Deciding it in code, and asking the judge only about runs that answered, removes the error without depending on any judge's reading."
+    }
+  ]}
+/>
+
+</CheckpointZone>

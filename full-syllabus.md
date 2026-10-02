@@ -7072,7 +7072,30 @@ torch 2.13.0+cu130, `torchaudio` removed,
    corrections to the mockup. 5 quiz cards. Callbacks: Module 6 Lesson 4
    concept 2's `#judges-have-habits`, concept 2's
    `#what-a-rubric-has-to-do` (anchors verified); Lesson 10 is plain
-   prose. Concepts 4 onward and the bookends are not drafted yet.
+   prose.
+   Concept 4 (is the answer right? correctness and relevance) is built:
+   Module 5's unmeasured answers and its RAGAS "answer correctness", the
+   RAGAS definition (checked against its docs and source: TP/FP/FN, the
+   F1 form, default weights [0.75, 0.25]), a graded exercise
+   (`factual_correctness` and `answer_correctness` on statement sets; the
+   mockup's hidden tests split into four self-contained tests), a demo of
+   both judges' correctness verdicts on the 480 dev question runs (Gemma
+   394, Qwen 376, agreeing on 442), and a relevance demo split by runs
+   with no answer (Gemma passes 25 of 26, Qwen 0). Uses the updated
+   `judge_digest.py`, which adds `question_kind` and `no_answer` to the
+   correctness and relevance rows of `digest.json` (both outputs
+   identical to the zip's copies apart from line endings; concepts 1 and
+   3's demos give the same output on the new file). Both demos match the
+   mockup exactly in Pyodide 0.26.4; the reference passes every test, and
+   five wrong versions each fail. Checked against the data: the 26
+   no-answer runs end on "stopped after 10 steps without an answer", both
+   correctness judges fail all 26, and Gemma's relevance reasoning reads
+   the note as the assistant saying it couldn't find the answer. No
+   corrections to the mockup. 5 quiz cards. Callbacks: Module 5 Lesson 15
+   concept 5's `#a-system-that-keeps-running`, Lesson 11 concept 5's
+   `#what-two-recent-papers-found`, Module 6 Lesson 4 concept 1's
+   `#the-support-check` (anchors verified); Lessons 7 and 11 are plain
+   prose. Concepts 5 onward and the bookends are not drafted yet.
 
 **Runs, phase 3 (Lesson 6's judges): done (2026-10-02).**
 `scripts/eval/README-phase3.md`, `scripts/eval/judges.py`,

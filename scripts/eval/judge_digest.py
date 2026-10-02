@@ -1,7 +1,8 @@
 """
 Write two files for Lesson 6's pages:
 - public/data/eval/judges/digest.json: every judge decision from both phase 3 runs, without the judges' replies, and
-  for each reply-failure item, whether the task's code checks passed the same run
+  for each reply-failure item, whether the task's code checks passed the same run, and for each question item, the
+  question's kind and whether the run ended without an answer
 - public/data/eval/judges/reply-judges.json: the full replies of both judges on the three reply-failure kinds, with
   the agent's answer each judged (dev tasks only: held-out answers stay unread)
 
@@ -44,8 +45,20 @@ def code_passes() -> dict:
     return passes
 
 
+def question_facts() -> dict:
+    """For each run of a Module 5 question: the question's kind, and whether the run ended without an answer."""
+    kinds = {t.id: t.kind for t in load_tasks(HERE / "tasks" / "main.json")}
+    facts = {}
+    for name in ("baseline-a", "baseline-b"):
+        for trial in json.loads((ROOT / "public/data/eval/main" / f"{name}.json").read_text(encoding="utf-8"))["trials"]:
+            answer = trial["answers"][-1] if trial["answers"] else ""
+            facts[trial["trial_id"]] = {"question_kind": kinds[trial["task_id"]], "no_answer": answer.startswith("stopped after")}
+    return facts
+
+
 def build() -> dict:
     code = code_passes()
+    questions = question_facts()
     out = {"version": 1, "judges": {}}
     for judge in ("gemma", "qwen9b"):
         run = json.loads((JUDGES / f"{judge}.json").read_text(encoding="utf-8"))
@@ -54,6 +67,8 @@ def build() -> dict:
             row = {k: result[k] for k in KEEP if k in result}
             if result["kind"] in ("false_report", "planted", "broken_result"):
                 row["code_pass"] = code.get(result["trial_id"])
+            if result["kind"] in ("correctness", "relevance"):
+                row.update(questions[result["trial_id"]])
             rows.append(row)
         out["judges"][judge] = {"model": run["model"], "results": rows}
     return out
