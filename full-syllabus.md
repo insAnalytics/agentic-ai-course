@@ -7318,8 +7318,8 @@ torch 2.13.0+cu130, `torchaudio` removed,
    F note) keep working.
 
 8. **Calibration** (`08-calibration`, title provisional) — **Building:**
-   concept 1 drafted and built; later concepts and bookends not yet
-   drafted.
+   concepts 1 and 2 drafted and built; later concepts and bookends not
+   yet drafted.
    Concept 1 (ranking isn't calibration) is built: AUROC against
    calibration, the 2B's answer-line probability beside the same scores
    squared (AUROC 0.525 both; mean confidence 90.7% vs 85.2%; accuracy
@@ -7345,6 +7345,23 @@ torch 2.13.0+cu130, `torchaudio` removed,
    Q2's correct option reads "right 80% of the time". Callback: Module 6
    Lesson 6 concept 2's `#measuring-a-signal-on-your-own-cases` (anchor
    verified).
+   Concept 2 (Module 6's signals, calibrated) is built, no exercise:
+   Module 6's three signals with AUROC, ECE and Brier side by side
+   (answer-line 0.53 / 0.102 / 0.084 on 1,675 answers, 114 wrong; vote of
+   5 0.86 / 0.044 / 0.031 on 336, 8 wrong; verdict probability 0.95 /
+   0.021 / 0.043 on 360, 23 wrong), five-bin reliability tables for
+   agreement (underconfident when the vote splits) and verdict probability
+   (calibrated at the top, overconfident around 0.7), and which signal
+   suits which use. 5 quiz cards. The vote-of-5 and verdict code is
+   Module 6's signals demo's, unchanged. Both demos start from
+   `CALIBRATION_SETUP` plus concept 1's `CALIBRATION`, hidden; the second
+   also loads the first's definitions, without its printing. In Pyodide
+   0.26.4 both demos are byte-identical to the mockup's code and print its
+   output exactly. Changed from the mockup: Q1's correct option, "Split
+   votes are right more often", now finishes "than their share says".
+   Callbacks: Module 6's `#measuring-a-signal-on-your-own-cases`, concept
+   1's `#measuring-calibration` and
+   `#module-6-s-answer-line-probability-calibrated` (anchors verified).
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092
