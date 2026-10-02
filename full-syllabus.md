@@ -7141,10 +7141,10 @@ torch 2.13.0+cu130, `torchaudio` removed,
    decided, now "the rubric", matching concept 2's correction; Q6's
    options reworded so they don't say "it" of two judges.
 
-7. **Measuring Judges** (`07-measuring-judges`, title provisional) —
-   **Building:** concepts 1 to 5 drafted and built (concept 2's
-   relabel section is a placeholder until the relabel, due from
-   2026-10-23); later concepts and bookends not yet drafted.
+7. **Checking the Graders** (`07-measuring-judges`, title provisional;
+   the slug keeps its first working name) — **Locked.** Concepts 1 to 5
+   and bookends built. One placeholder remains by design: concept 2's
+   relabel section, until the 30-item relabel (due from 2026-10-23).
    Concept 1 (a judge is a measurement) is built: why a judge is checked
    against a person (Anthropic's guide: calibrate model graders against
    human graders, one of the two things to reserve systematic human
@@ -7290,6 +7290,32 @@ torch 2.13.0+cu130, `torchaudio` removed,
    `#an-experiment-and-what-its-counts-say`,
    `#what-this-means-for-a-real-agent` and `#what-the-replies-actually-say`,
    Lesson 6 concept 5's `#the-marker-against-the-judge` (anchors verified).
+   Bookends are built: the intro (three outcomes, why it matters), the
+   comprehensive quiz (8 cards, spanning all five concepts), and the
+   comprehensive sandbox, a two-file `MultiFileGradedExercise`
+   (`lib.py` read-only with `load_measure`, concept 4's `rogan_gladen`,
+   copy-checked byte for byte, and `corrected_interval`; `judge_report.py`
+   the entry file) where the learner writes `validate(rows, population,
+   judge, kind)`, a judge question's test-set report: labelled count,
+   observed rate, TPR/TNR, the Rogan-Gladen correction with its interval,
+   or the reason it can't be made. In Pyodide 0.26.4 with the site's
+   multi-file harness, lib, starter and reference are byte-identical to the
+   mockup, the reference's Run prints the mockup's four lines exactly
+   (correctness 84.3% (47% to 100%); false report and planted: no labelled
+   passes; broken result 73.3% corrected to 46.7%), it passes the hidden
+   tests, and the starter and nine wrong versions (dev labels included,
+   excluded kept, "other" in the observed rate, raising on chance, no
+   interval, TPR 0 for None, reasons swapped, UNCLEAR as fail, mutating
+   the population) each fail. Added to the tests: the report's `kind`, and
+   `corrected`/`interval` None whenever there's a reason, both in the
+   task. Corrected from the mockup: the sandbox explanation said the agent
+   "failed every labelled run" of the false-report and planted questions,
+   but Simar passed 3 false-report runs in the development labels; it now
+   says every test-labelled run failed. Quiz Q1's options said "It" with
+   TPR, TNR and accuracy all in the question; they now say "Accuracy".
+   The lesson title is the mockup's "Checking the Graders"; the folder
+   stays `07-measuring-judges` so existing links (including Module 6's set
+   F note) keep working.
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092

@@ -305,6 +305,12 @@ const CONTAINED = [
       what: `${name}'s ${piece.split("\n")[0].slice(0, 40)}`, text: piece,
       constant: ["src/content/modules/07-evaluation/06-model-graders/06-recap-practice.mdx", "LIB_PY"],
     }))),
+  // Lesson 7's recap lib.py: concept 4's reference rogan_gladen, byte for byte
+  {
+    what: "Lesson 7 concept 4's rogan_gladen",
+    text: rawConstant("src/content/modules/07-evaluation/07-measuring-judges/04-correcting-a-pass-rate.mdx", "ROGAN_GLADEN").trim(),
+    constant: ["src/content/modules/07-evaluation/07-measuring-judges/06-recap-practice.mdx", "LIB_PY"],
+  },
 ];
 
 let failed = false;
