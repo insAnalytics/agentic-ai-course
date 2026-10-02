@@ -7898,7 +7898,7 @@ torch 2.13.0+cu130, `torchaudio` removed,
    Locked.
 12. **The Evaluation Report** (`12-evaluation-report`, title provisional:
    the folder and title were chosen at conversion, since no mockup names
-   the lesson yet) — **Building.** Concepts 1 to 4 drafted and built; the
+   the lesson yet) — **Building.** Concepts 1 to 5 drafted and built; the
    concept says the rest of the lesson builds the registry agent's report
    section by section (headline numbers with uncertainty, held-out
    results and their history, trust in each grader, decisions, limits and
@@ -7974,6 +7974,21 @@ torch 2.13.0+cu130, `torchaudio` removed,
    Lesson 7 concepts 1 (page) and 4 (`#the-correctness-judge-corrected`,
    `#when-the-correction-can-t-be-made`), Lesson 11 concept 5's
    `#labels-from-live-traffic` (anchors verified).
+   Concept 5 (decisions, limits, and what's next): Lessons 9 and 10's six
+   decisions recomputed on dev tasks only (fp8 +3.5%, prompt-v2 +4.9%,
+   compaction -1.2% across zero so its "look" came from held-out tasks,
+   layers-v2 -16.9%, layers -31.5%, no-labels +4.7%), nine limits, seven
+   next steps in order, 5 quiz cards, no exercise. This answers concept
+   3's note that those comparisons should have used dev tasks only; the
+   Lesson 9 and 10 pages themselves are unchanged. No new data: the demo
+   runs on `LOAD_SETTINGS` + `LOAD_ABLATIONS` + `PAIRED_DIFFERENCE`, taken
+   from the mockup byte for byte, and reproduces its output exactly, in
+   Pyodide 0.26.4 too (about 0.7 s). No corrections. Callbacks: concept
+   3's `#every-contact-disclosed`, Lesson 9 concepts 4
+   (`#what-the-layers-did`) and 5 (`#what-a-gain-is-made-of`), Lesson 10
+   concepts 1 (page) and 4 (page, `#reading-a-failure-the-layer-fix`,
+   `#reading-a-pass-the-prompt-change`), Lesson 4 concept 3, Lesson 7
+   concept 2 (pages), Lesson 11 (intro page) (anchors verified).
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092

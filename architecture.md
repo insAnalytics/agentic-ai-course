@@ -862,7 +862,8 @@ Gemma judge's verdict; the script asserts the breakdown reproduces every
 baseline pass in `ablations/results.json`. Mounted via `REPORT_DATA`,
 with `judgeLabelsData("measure")`. Its setup is `LOAD_SETTINGS` +
 `LOAD_ABLATIONS` + `REPORT_GRADES` (`REPORT`, `grades`, `measured`),
-shown and copy-checked.
+shown and copy-checked. Concept 5's demo runs on `LOAD_SETTINGS` +
+`LOAD_ABLATIONS` + `PAIRED_DIFFERENCE` (about 0.7 s in Pyodide).
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
