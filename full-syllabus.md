@@ -7898,7 +7898,7 @@ torch 2.13.0+cu130, `torchaudio` removed,
    Locked.
 12. **The Evaluation Report** (`12-evaluation-report`, title provisional:
    the folder and title were chosen at conversion, since no mockup names
-   the lesson yet) — **Building.** Concept 1 drafted and built; the
+   the lesson yet) — **Building.** Concepts 1 and 2 drafted and built; the
    concept says the rest of the lesson builds the registry agent's report
    section by section (headline numbers with uncertainty, held-out
    results and their history, trust in each grader, decisions, limits and
@@ -7916,6 +7916,28 @@ torch 2.13.0+cu130, `torchaudio` removed,
    reproduces its output exactly, in Pyodide 0.26.4 too. No corrections.
    Callbacks: Lesson 7 concept 1, Lesson 9 concept 3, Lesson 10 concept 1
    and Lesson 11 concept 1 (pages, verified in the build).
+   Concept 2 (headline numbers, with honest uncertainty): Miller's "Adding
+   Error Bars to Evals" and Anthropic's post (standard errors, clustering,
+   over three times the naive error on popular evals), the baseline's dev
+   trials (357 of 485, naive ±3.9%; 59 tasks 5/5, 16 0/5), a graded
+   `headline` exercise (rate over task means, clustered se with n - 1,
+   clipped interval withheld below `min_tasks`, naive se; the mockup's
+   hidden tests split at their blank lines into 5 tests, each with a
+   header that rebuilds `T`, `F`, `split` and `expected_se`), the headline
+   table (73.6%, 65.8% to 81.4% clustered; per group, counts only under
+   10 tasks; resampling 65.8% to 81.6%; pass^5 60.8%), 5 quiz cards. No
+   new data: `LOAD_SETTINGS` + `LOAD_ABLATIONS` (the exercise adds
+   `from math import sqrt`, which its task says is loaded); the reference
+   is the new `HEADLINE`, loaded hidden by the table demo with Lesson 9's
+   `SUITE_PASS_HAT_K`. The page's code is the mockup's byte for byte; in
+   Pyodide 0.26.4 with the real harness all three outputs match the
+   mockup, the reference passes 5/5 and the starter fails 5/5. In
+   CPython nine wrong versions (pooled rate, population variance, se over
+   trials, no clipping, no `min_tasks`, `>` for `>=`, a crash on one task,
+   z fixed, naive se from the task mean) each fail, both against the
+   mockup's tests as one block and against the split. No corrections.
+   Callbacks: Lesson 9 concepts 1 (`#why-pairing-matters`) and 2
+   (`#pass-k-for-a-whole-suite`) (anchors verified).
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092

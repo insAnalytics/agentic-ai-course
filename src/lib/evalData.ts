@@ -1132,3 +1132,24 @@ export const USERS_PER_ARM = String.raw`def users_per_arm(p_control: float, p_tr
     design_effect = 1 + (runs_per_user - 1) * icc
     return ceil(runs * design_effect / runs_per_user)
 `;
+
+/** Module 7 Lesson 12 concept 2's exercise reference, without its example printout. */
+export const HEADLINE = String.raw`from math import sqrt
+
+
+def headline(per_task: dict[str, list[bool]], z: float = 1.96, min_tasks: int = 10) -> dict:
+    """A pass rate the way a report should give it: the mean over tasks of each task's pass rate, its standard error
+    clustered by task, and the interval that gives, kept between 0 and 1. With fewer than min_tasks tasks the
+    interval is None: too few tasks for the normal approximation. The naive standard error, treating every trial
+    as independent, comes alongside for comparison."""
+    rates = [sum(results) / len(results) for results in per_task.values()]
+    tasks, trials = len(rates), sum(map(len, per_task.values()))
+    rate = sum(rates) / tasks
+    se = sqrt(sum((r - rate) ** 2 for r in rates) / (tasks - 1) / tasks) if tasks > 1 else None
+    interval = None
+    if tasks >= min_tasks:
+        interval = (max(0.0, rate - z * se), min(1.0, rate + z * se))
+    pooled = sum(map(sum, per_task.values())) / trials
+    return {"tasks": tasks, "trials": trials, "rate": rate, "se": se, "interval": interval,
+            "naive_se": sqrt(pooled * (1 - pooled) / trials)}
+`;
