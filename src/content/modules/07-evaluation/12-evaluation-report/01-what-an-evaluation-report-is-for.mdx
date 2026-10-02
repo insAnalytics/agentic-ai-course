@@ -1,0 +1,224 @@
+---
+title: "What an evaluation report is for"
+lesson: "12-evaluation-report"
+order: 1
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { ABLATIONS_DATA, LOAD_ABLATIONS, LOAD_SETTINGS, SETTINGS_DATA } from "../../../../lib/evalData";
+
+export const DATA = [...SETTINGS_DATA, ...ABLATIONS_DATA];
+
+export const SETUP = LOAD_SETTINGS + "\n\n" + LOAD_ABLATIONS;
+
+export const OUTLINE_DEMO = String.raw`from collections import Counter
+
+agent = settings["baseline-a"]
+print(f"agent:  {agent['model']} at revision {agent['revision'][:7]}, thinking {'on' if agent['thinking'] else 'off'}, "
+      f"temperature {agent['sampling']['temperature']}, top_p {agent['sampling']['top_p']}")
+print(f"        prompt and tools {agent['config_hash']}, prompt version {agent['system_version']}, "
+      f"{agent['trials_per_task']} trials per task")
+print(f"served: vLLM {agent['vllm']}, {agent['gpus'][0]}; simulated user {agent['user_model']}\n")
+
+tasks = results["tasks"]
+groups = Counter((info["split"], info["group"]) for info in tasks.values())
+print(f"tasks:  {len(tasks)}")
+for split in ("dev", "held_out"):
+    print(f"  {split:<9}" + ", ".join(f"{count} {group}" for (s, group), count in sorted(groups.items()) if s == split))
+print("\nconditions graded:")
+for condition, per_task in results["conditions"].items():
+    print(f"  {condition:<11} {len(per_task):>3} tasks, {sum(map(len, per_task.values())):>3} trials")
+`;
+
+<Subsection title="A report serves a decision" variant="a">
+
+Eleven lessons have produced a great many numbers about the registry
+agent. A report is not all of them. It's the subset someone needs to make
+a decision, with enough about each number to know how far to trust it.
+Three readers matter:
+
+- **Whoever decides** whether the agent is fit for its job, which changes
+  ship, and where effort goes next. They need the headline results, how
+  sure those results are, and what wasn't measured.
+- **Whoever maintains the agent.** They need the exact configuration that
+  was evaluated, so a later run can be compared with it, and the failures
+  to work on.
+- **Whoever evaluates it next.** They need to know how the suite was built
+  and graded, what each grader gets wrong, and which tasks have already
+  been seen, so the next round doesn't repeat this one's mistakes.
+
+[Anthropic's guide](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)
+says its teams don't take an eval score at face value until someone has
+read some of the transcripts behind it. A report should make that
+possible for its readers: every number names the runs it came from, so
+anyone can open them.
+
+</Subsection>
+
+<Subsection title="A shape that already exists" variant="b">
+
+Reports on machine-learning systems have a standard starting shape.
+[Mitchell et al. (2019)](https://arxiv.org/abs/1810.03993) proposed
+**model cards**: short documents that travel with a model and report its
+evaluation in nine sections. Each has a counterpart for an agent:
+
+- **Model details** → the agent's exact configuration: model and
+  revision, sampling settings, the hash of its prompt and tool
+  definitions, how it was served.
+- **Intended use** → what the agent is for and what it isn't. The
+  registry agent looks up agents, checks their health, answers questions
+  from the company's documents, changes models and emails owners; it
+  isn't for decisions its tools can't verify.
+- **Factors** → the groups results should be broken down by: here, the
+  kinds of task, from documentation questions to lost writes and planted
+  instructions.
+- **Metrics** → what counts as a pass, and the other numbers reported:
+  pass^k, runs without an answer, cost.
+- **Evaluation data** → the suite: where its tasks came from, and how dev
+  and held-out tasks were chosen.
+- **Training data** → for an agent built on a pretrained model, what the
+  agent was developed against: the dev tasks its prompt and checks were
+  shaped on.
+- **Quantitative analyses** → the results, overall and broken down by the
+  factors, rather than one number.
+- **Ethical considerations** → what could go wrong when the agent acts:
+  changes it makes to the registry, instructions planted in documents,
+  documents some users may not read.
+- **Caveats and recommendations** → the limits of the evaluation, and
+  what to do next.
+
+An agent needs three sections a model card doesn't have:
+
+- **The graders, and how often they're wrong.** A model card's metrics
+  are usually computed exactly. An agent's are often a judge's verdicts,
+  which
+  [Lesson 7 measured](/07-evaluation/07-measuring-judges/01-a-judge-is-a-measurement/).
+- **Decisions on changes.** The pieces that were switched on and off, and
+  the changes that were gated, with what was decided and why.
+- **How it's watched in use.** The dashboard, alerts and sampled judging
+  from
+  [Lesson 11](/07-evaluation/11-monitoring/01-what-to-watch-on-every-run/).
+
+</Subsection>
+
+<Subsection title="What's on hand" variant="a">
+
+The first two sections of the registry agent's report come straight from
+records the module already keeps.
+[Lesson 10's recorded settings](/07-evaluation/10-regression-tests/01-what-changed-and-the-last-known-good-run/)
+give the configuration, and
+[Lesson 9's regraded results](/07-evaluation/09-ablations/03-compaction-on-and-off/)
+give the suite and every condition graded on it:
+
+<LiveDemo client:load dataFiles={DATA} setupCode={SETUP} code={OUTLINE_DEMO} />
+
+*(`settings` and `results` are Lessons 10 and 9's, loaded for you.)*
+
+That's the evaluation in outline: one agent configuration, 125 tasks in
+five groups, split 97 dev and 28 held-out, and eight graded conditions.
+Two details matter for everything that follows:
+
+- **The baseline is the agent this report evaluates.** It has two batches
+  of runs, the reading of Lesson 3, people's labels and the judges
+  measured against them. The changes are reported against it.
+- **The second baseline batch covers only the 96 main tasks.** The 29
+  newer suite tasks were written after it ran, so any comparison of the
+  two batches uses the main tasks only.
+
+</Subsection>
+
+<Subsection title="Three kinds of statement" variant="b">
+
+Every sentence in an evaluation report is one of three kinds, and the
+report should make it obvious which:
+
+- **Measured.** A number, with how many tasks and trials it rests on, an
+  interval, and the graders that produced it. "The baseline passes 74% of
+  dev trials" is incomplete until it says over how many tasks, how sure,
+  and graded by what.
+- **Read.** Something a person saw reading runs: that grounding's
+  objections were mostly false alarms, say. It's evidence, but of a
+  different kind, and it should say how many runs were read, how they
+  were chosen, and by whom. Several of this module's readings were done
+  by one reader, sometimes the course's content chat, and the report
+  should say so.
+- **Not measured.** An assumption, or a question nobody has tested yet.
+  Saying so explicitly is part of the report, not a weakness in it: a
+  reader can't distinguish an untested risk from a tested one unless
+  they're told.
+
+The second and third kinds are where model cards' "caveats and
+recommendations" live, and where most of a report's honesty is. The rest
+of this lesson builds the registry agent's report section by section: the
+headline numbers with their uncertainty, the held-out results and their
+history, how far to trust each grader, and the decisions, limits and next
+steps.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "Who needs the exact model revision and prompt hash in an evaluation report?",
+      "options": [
+        "Whoever maintains the agent and compares a later run with this one",
+        "Nobody much, since the pass rate is what the report is really about",
+        "Only whoever chose the model, since they already know the version",
+        "The users, so they know which model is answering their questions"
+      ],
+      "correctIndex": 0,
+      "explanation": "A later run can only be compared with this one if the exact configuration is known; Lesson 10 showed how much a missing setting can hide. The pass rate means little without knowing what produced it."
+    },
+    {
+      "question": "Which section does an agent's report need that a model card doesn't have?",
+      "options": [
+        "The graders, and how often each of them is wrong",
+        "The intended uses, and the uses that are out of scope",
+        "The data the evaluation was carried out on",
+        "The results, broken down by the relevant factors"
+      ],
+      "correctIndex": 0,
+      "explanation": "A model card's metrics are usually exact computations. An agent's results often come from judges with measured error rates, so the report has to say what each grader gets wrong. The other three are standard model-card sections."
+    },
+    {
+      "question": "\"Grounding's objections were mostly false alarms\" comes from reading ten sampled objections. How should the report state it?",
+      "options": [
+        "As a reading: how many runs, how chosen, and who read them",
+        "As a measured rate of false alarms, rounded to the nearest ten percent",
+        "As a caveat, since anything that wasn't counted by a grader is uncertain",
+        "Not at all, since only numbers from graders belong in a report"
+      ],
+      "correctIndex": 0,
+      "explanation": "Reading is real evidence, but a different kind from a graded count. Stating the sample size, how it was drawn and who read it lets the reader judge its weight. Turning it into a precise-looking rate overstates it; leaving it out loses what the evaluation learned."
+    },
+    {
+      "question": "Why should every number in the report name the runs it came from?",
+      "options": [
+        "So readers can open them: scores need someone to read runs",
+        "So the report can be regenerated automatically whenever a run changes",
+        "So each run's cost can be added up when the report is written",
+        "So the runs can be deleted once the report has been published"
+      ],
+      "correctIndex": 0,
+      "explanation": "Anthropic's guide says its teams don't take an eval score at face value until someone has read transcripts behind it. A report that names its runs lets its readers do that. Regeneration and cost accounting are side benefits, not the reason."
+    },
+    {
+      "question": "Nobody has tested whether the agent handles requests in other languages. What belongs in the report?",
+      "options": [
+        "A plain statement that it wasn't tested",
+        "Nothing, since the suite didn't include any",
+        "An estimate based on the English results",
+        "A note that it probably works, given the model"
+      ],
+      "correctIndex": 0,
+      "explanation": "An untested question is one of the three kinds of statement, and saying it explicitly is what stops a reader from assuming it was covered. An estimate or a \"probably\" turns a gap into a claim nobody measured."
+    }
+  ]}
+/>
+
+</CheckpointZone>

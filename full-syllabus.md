@@ -7896,6 +7896,26 @@ torch 2.13.0+cu130, `torchaudio` removed,
    dashboard, passes counted as failures) each fail; swapping psi's
    arguments passes, since PSI is symmetric. Lesson 11 is now fully
    Locked.
+12. **The Evaluation Report** (`12-evaluation-report`, title provisional:
+   the folder and title were chosen at conversion, since no mockup names
+   the lesson yet) — **Building.** Concept 1 drafted and built; the
+   concept says the rest of the lesson builds the registry agent's report
+   section by section (headline numbers with uncertainty, held-out
+   results and their history, trust in each grader, decisions, limits and
+   next steps); those concepts and the bookends not yet. Concept 1 (what
+   an evaluation report is for): three readers, Anthropic's guide on
+   reading transcripts behind a score, Mitchell et al. 2019's nine
+   model-card sections mapped to an agent, three sections an agent adds
+   (graders and their errors, decisions on changes, monitoring), the
+   evaluation in outline from Lesson 10's settings and Lesson 9's results
+   (125 tasks, 97 dev and 28 held-out, eight conditions; baseline-b on
+   the 96 main tasks only), measured / read / not measured, 5 quiz cards,
+   no exercise. No new data or shared code: the demo runs on
+   `LOAD_SETTINGS` + `LOAD_ABLATIONS` with `SETTINGS_DATA` and
+   `ABLATIONS_DATA`. It was taken from the mockup byte for byte and
+   reproduces its output exactly, in Pyodide 0.26.4 too. No corrections.
+   Callbacks: Lesson 7 concept 1, Lesson 9 concept 3, Lesson 10 concept 1
+   and Lesson 11 concept 1 (pages, verified in the build).
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092

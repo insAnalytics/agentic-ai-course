@@ -847,6 +847,10 @@ against its constant via `CONTAINED`, plus two loaders of its own,
 `load_categories` and `load_relevance`) and `monitor.py`, the entry
 file. Run takes about 0.3 s in Pyodide, the hidden tests about 0.1 s.
 
+Module 7 Lesson 12 (`12-evaluation-report`) adds no data so far: concept
+1's demo runs on `LOAD_SETTINGS` + `LOAD_ABLATIONS` with `SETTINGS_DATA`
+and `ABLATIONS_DATA`.
+
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
 code block has drifted: currently the pilot's `tasks.json` against
