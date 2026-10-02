@@ -903,3 +903,72 @@ export const BENJAMINI_HOCHBERG = String.raw`def benjamini_hochberg(p_values: di
     cutoff = max((k for k, (_, p) in enumerate(ranked, start=1) if p <= k / m * q), default=0)
     return sorted(name for name, _ in ranked[:cutoff])
 `;
+
+/** Module 7 Lesson 11's simulated traffic (written by scripts/eval/monitoring_traffic.py), mounted at /data/eval/monitoring. */
+export const TRAFFIC_DATA = ["eval/monitoring/traffic-baseline-a.json", "eval/monitoring/traffic-layers-a.json"];
+
+/**
+ * Module 7 Lesson 11's setup block, shown verbatim on concept 1 (keep the two byte-identical:
+ * scripts/check-copies.mjs checks it). LOAD_TRAFFIC is it with Lesson 2's Span and summarize, the setup of
+ * every demo and exercise in the lesson.
+ */
+export const TRAFFIC_SETUP = String.raw`import json
+from math import ceil
+from pathlib import Path
+
+MONITORING = Path("/data/eval/monitoring")
+
+
+def load_traffic(condition: str) -> list[list[Span]]:
+    """One recorded run's development runs, each as the spans it recorded, in the order the runs started."""
+    data = json.loads((MONITORING / f"traffic-{condition}.json").read_text(encoding="utf-8"))
+    return [[Span(trace_id=run["trace_id"], **span) for span in run["spans"]] for run in data["runs"]]
+
+
+def percentile(values: list[float], p: float) -> float:
+    """The nearest-rank percentile: the smallest value with at least p% of the values at or below it."""
+    ordered = sorted(values)
+    return ordered[ceil(p / 100 * len(ordered)) - 1]
+`;
+
+export const LOAD_TRAFFIC = TRACER + "\n\n" + SUMMARIZE + "\n\n" + TRAFFIC_SETUP;
+
+/** Module 7 Lesson 11 concept 1's exercise reference, without its example printout; needs LOAD_TRAFFIC. */
+export const DASHBOARD = String.raw`from statistics import mean
+
+
+def dashboard(runs: list[list[Span]]) -> dict:
+    """The numbers a monitoring dashboard shows for a batch of runs, each run given as its spans in start order."""
+    def operation(span):
+        return span.attributes.get("gen_ai.operation.name")
+
+    def no_answer(spans):
+        chats = [span for span in spans if operation(span) == "chat"]
+        return bool(chats) and bool(chats[-1].attributes.get("registry_agent.tool_calls"))
+
+    def withheld(spans):
+        return any(span.attributes.get("registry_agent.check.point") == "before_answer"
+                   and span.attributes.get("registry_agent.check.verdict") == "blocked" for span in spans)
+
+    def share(count, total):
+        return count / total if total else 0.0
+
+    facts = [summarize(spans) for spans in runs]
+    roots = [next(span for span in spans if span.parent_id is None) for spans in runs]
+    seconds = [(root.end_ns - root.start_ns) / 1e9 for root in roots]
+    tokens = [f["input_tokens"] + f["output_tokens"] for f in facts]
+    tools = [span for spans in runs for span in spans if operation(span) == "execute_tool"]
+    searches = [span for span in tools if span.attributes["gen_ai.tool.name"] == "search_docs"]
+    return {
+        "runs": len(runs),
+        "p50_seconds": percentile(seconds, 50),
+        "p95_seconds": percentile(seconds, 95),
+        "mean_tokens": mean(tokens),
+        "p95_tokens": percentile(tokens, 95),
+        "tool_error_rate": share(sum(span.status == "ERROR" for span in tools), len(tools)),
+        "empty_search_rate": share(sum(span.attributes["registry_agent.search.results"] == 0 for span in searches),
+                                   len(searches)),
+        "no_answer_rate": share(sum(map(no_answer, runs)), len(runs)),
+        "withheld_rate": share(sum(map(withheld, runs)), len(runs)),
+    }
+`;

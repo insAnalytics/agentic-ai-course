@@ -782,6 +782,24 @@ cached `lib` module, and every submission re-imports it fresh
 gained `escapedConstant` for constants containing `${"`"}` escapes,
 which `rawConstant` can't read.
 
+Module 7 Lesson 11 (`11-monitoring`) adds
+`public/data/eval/monitoring/traffic-{baseline-a,layers-a}.json` (2.4 and
+2.5 MB), written by `scripts/eval/monitoring_traffic.py` (`--check` fails
+if out of date): each recorded run's 385 development-task runs as the
+spans its tracer recorded, in start order, minus
+`registry_agent.check.reason` and plus `registry_agent.search.results`
+on each `search_docs` span (the docstring says why). Mounted at
+`/data/eval/monitoring` via `TRAFFIC_DATA`. `TRAFFIC_SETUP`
+(`load_traffic`, nearest-rank `percentile`) is shown verbatim on concept
+1 and copy-checked; `LOAD_TRAFFIC` is `TRACER` + `SUMMARIZE` +
+`TRAFFIC_SETUP`, the setup of every demo and exercise in the lesson.
+Concept 1's exercise passes `LOAD_TRAFFIC` as `namespaceSetup` (the
+learner's `dashboard` calls `summarize` and `percentile`, and the hidden
+tests call `load_traffic` and build `Span`s), with `TRAFFIC_DATA` as its
+data; its reference is `DASHBOARD`, loaded hidden by the demo after it.
+The page's second and third demos load the first demo's data-building
+lines (`TRAFFIC_BASE`) hidden.
+
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
 code block has drifted: currently the pilot's `tasks.json` against

@@ -159,6 +159,17 @@ const PAIRS = [
     ],
   },
   {
+    what: "TRAFFIC_SETUP (Module 7 Lesson 11 concept 1)",
+    a: ["src/lib/evalData.ts", () => rawConstant("src/lib/evalData.ts", "TRAFFIC_SETUP")],
+    b: [
+      "the page's setup block",
+      () => pageFence(
+        "src/content/modules/07-evaluation/11-monitoring/01-what-to-watch-on-every-run.mdx",
+        "import json\nfrom math import ceil\nfrom pathlib import Path\n\nMONITORING =",
+      ),
+    ],
+  },
+  {
     what: "LOAD_SUMMARIZER (Module 7 Lesson 5 concept 5)",
     a: ["the LOAD_SUMMARIZER constant", () => rawConstant("src/content/modules/07-evaluation/05-code-graders/05-a-component-test-the-summarizer.mdx", "LOAD_SUMMARIZER")],
     b: [

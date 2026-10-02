@@ -7677,6 +7677,43 @@ torch 2.13.0+cu130, `torchaudio` removed,
    before stop, flags never look, Fisher arguments swapped, the gate's
    flags taken as confirmed, gate arguments swapped) each fail. Lesson 10
    is now fully Locked.
+11. **Monitoring in Production** (`11-monitoring`, title provisional) —
+   **Building.** Concept 1 drafted and built; concepts 2 on and bookends
+   not yet. Concept 1 (what to watch on every run): no answer key in
+   production (Lesson 1), Anthropic's guide on monitoring after launch,
+   simulated traffic (the baseline's batch a, 385 development runs, in
+   start order), the SRE book's four golden signals for an agent plus
+   cost, OpenTelemetry's GenAI metrics (names, instrument types, the
+   Development status and the counters-for-cost / histograms-for-
+   percentiles split all checked against the conventions repo's
+   `gen-ai-metrics.md` and `gen-ai-token-metrics.md`), the new
+   `LOAD_TRAFFIC` setup over `public/data/eval/monitoring/` (from the
+   zip's `scripts/eval/monitoring_traffic.py`; both outputs identical to
+   the zip's copies apart from line endings, `--check` passes), the
+   traffic table, the tail (38% of tokens in the costliest 10%; token
+   buckets by model calls), tool errors (41 of 1,039), errors that don't
+   raise, a graded `dashboard` exercise (the mockup's hidden tests split
+   into 8 self-contained tests, each with the helpers block, which also
+   holds their imports), the dashboard on baseline vs layers (withheld
+   0.0% vs 62.6%), 7 quiz cards. The page's code was generated from the
+   mockup's code blocks and matches them byte for byte. In Pyodide 0.26.4
+   all four demos reproduce the mockup's output exactly; the reference
+   passes all 8 tests, and the starter and nine wrong versions (root
+   span's tokens counted too, interpolated percentile, tool errors out of
+   runs, blocked checks counted as tool errors, empty searches out of all
+   tools, any chat asking for tools, any blocked check withholding,
+   withheld counted per check, no zero guard) each fail. Also checked:
+   the 41 tool errors are 20 structured registry errors (set_model 10,
+   get_agent 9, get_health 1), 7 health timeouts and 14 SQL errors
+   (unknown columns, two `sqlite_master` refusals); every failed tool
+   span's `error.type` is the generic `tool_error`; layers withheld 5 of
+   the first 10 runs and 31 of the first 50 (62%); 1 of 570 searches
+   empty; p95 model calls 9. Callbacks: Lesson 1 concept 4's
+   `#what-each-method-sees-and-what-it-misses`, Lesson 2 concepts 1, 2, 3
+   (pages) and 4 (page and `#where-the-tokens-go`), Module 5 Lesson 10
+   concept 3 (page), Module 5 Lesson 15 concept 5's
+   `#a-system-that-keeps-running`, Lesson 9 concept 4 (page and
+   `#what-the-layers-did`) (anchors verified).
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092
