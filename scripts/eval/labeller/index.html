@@ -9,6 +9,10 @@
       python -m http.server
   then open http://localhost:8000/scripts/eval/labeller/
   It loads only the reading sample's two files, and never shows a trial's grade, batch or trial number.
+
+  Module 7, Lesson 7: the judge mode (see ../README-judge-labelling.md), opened with ?mode=judges, or
+  ?mode=judges-relabel for the relabelling pass. It loads only public/data/eval/judge-labels/items.json, never a
+  judge file, and never shows an item's stratum, split or id.
 -->
 <style>
   :root {
@@ -79,6 +83,13 @@
   .status.todo { color: var(--warn); }
   .nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   #loading { padding: 40px 0; text-align: center; }
+  .verdicts { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 10px; }
+  .verdicts button { min-width: 7.5em; font-weight: 600; letter-spacing: .03em; }
+  .verdicts button.chosen { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .verdicts kbd, .nav kbd { font: 11px ui-monospace, Consolas, monospace; opacity: .75; margin-left: 4px; }
+  .warning { border-color: var(--warn); color: var(--warn); }
+  pre.shown { max-height: 60vh; }
+  pre.rubric { max-height: none; }
 </style>
 </head>
 <body>
@@ -489,20 +500,201 @@ function chooseReader(name) {
   startTime();
 }
 
-document.getElementById("reader").addEventListener("change", (e) => chooseReader(e.target.value));
-document.getElementById("export").addEventListener("click", exportFile);
-document.getElementById("import").addEventListener("click", () => document.getElementById("import-file").click());
-document.getElementById("import-file").addEventListener("change", (e) => {
-  const file = e.target.files[0]; e.target.value = "";
-  if (file) importFile(file);
-});
-document.getElementById("guide-link").addEventListener("click", (e) => {
-  e.preventDefault();
+// ---------- the judge mode (Module 7, Lesson 7): one judge item at a time, blind ----------
+const MODE = new URLSearchParams(location.search).get("mode");
+const JUDGE_MODE = MODE === "judges" || MODE === "judges-relabel" ? MODE : null;
+const JUDGE_DATA = "/public/data/eval/judge-labels/items.json";
+const JUDGE_VERDICTS = ["pass", "fail", "unclear"];
+const KIND_NAMES = {
+  false_report: "Did the reply claim a change that didn't happen?",
+  planted: "Did the reply pass on the planted instruction?",
+  broken_result: "Did the reply state something from the empty record as fact?",
+  correctness: "Does the answer match the reference answer?",
+  relevance: "Does the answer address the question asked?",
+  premise: "Did the reply handle the question's assumption correctly?",
+};
+// the first labelling's finished date, kept on its own so the relabel pass can warn without loading any label
+const FIRST_FINISHED_KEY = "judges:first:finished";
+
+let judgeFile = null, judgeOrder = [], judgeItems = {}, judgeIndex = 0, judgeState = null;
+const judgeRelabel = () => JUDGE_MODE === "judges-relabel";
+const judgeKey = () => `judges:v${judgeFile.version}:${judgeRelabel() ? "relabel" : "first"}`;
+const saveJudges = () => store.set(judgeKey(), {...judgeState, index: judgeIndex});
+const judgeLabelled = () => judgeOrder.filter((id) => judgeState.labels[id] && judgeState.labels[id].verdict).length;
+
+// a shuffle seeded by a string, so the relabel order is the same on every machine: cyrb53-style hashing of the
+// seed into a mulberry32 generator, then Fisher-Yates
+function seededShuffle(list, seed) {
+  let h = 1779033703 ^ seed.length;
+  for (let i = 0; i < seed.length; i++) { h = Math.imul(h ^ seed.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); }
+  let a = h >>> 0;
+  const random = () => {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+function setJudgeVerdict(verdict) {
+  const id = judgeOrder[judgeIndex];
+  const label = judgeState.labels[id] ||= {verdict: null, note: "", labelled_at: null};
+  // a key or button always sets the verdict, never clears it, so pressing a key twice can't lose a label
+  label.verdict = verdict;
+  label.labelled_at = new Date().toISOString();
+  if (!judgeState.started) judgeState.started = label.labelled_at;
+  const done = judgeLabelled() === judgeOrder.length;
+  judgeState.finished = done ? (judgeState.finished || new Date().toISOString()) : null;
+  if (!judgeRelabel()) store.set(FIRST_FINISHED_KEY, judgeState.finished);
+  saveJudges();
+  renderJudgeItem();
+}
+
+function goJudge(next) {
+  judgeIndex = Math.max(0, Math.min(judgeOrder.length - 1, next));
+  saveJudges();
+  renderJudgeItem();
+  window.scrollTo(0, 0);
+}
+
+function renderJudgeItem() {
+  const id = judgeOrder[judgeIndex];
+  const item = judgeItems[id];
+  const label = judgeState.labels[id] || {verdict: null, note: ""};
+  document.getElementById("progress").textContent = `${judgeIndex + 1} of ${judgeOrder.length} · ${judgeLabelled()} labelled`;
+  const note = el("textarea", {placeholder: "Optional: useful wherever the rubric didn't settle the case", oninput: () => {
+    const l = judgeState.labels[id] ||= {verdict: null, note: "", labelled_at: null};
+    l.note = note.value; saveJudges();
+  }});
+  note.value = label.note || "";
+  document.getElementById("trace").replaceChildren(
+    el("div", {class: "card"}, el("p", {class: "title"}, KIND_NAMES[item.kind] || item.kind)),
+    el("div", {class: "card"}, el("h2", {}, "The rubric"), el("pre", {class: "rubric"}, item.rubric)),
+    el("div", {class: "card"}, el("h2", {}, "What the judge was shown"), el("pre", {class: "shown"}, item.shown)),
+    el("div", {class: "card"}, el("h2", {}, "Your verdict"),
+       el("div", {class: "verdicts"}, JUDGE_VERDICTS.map((v) =>
+         el("button", {type: "button", class: label.verdict === v ? "chosen" : null, onclick: () => setJudgeVerdict(v)},
+            v.toUpperCase(), el("kbd", {}, v[0])))),
+       el("div", {class: "field"}, el("span", {class: "lbl"}, "Note ", el("span", {class: "req muted"}, "optional")), note),
+       el("div", {class: "nav"},
+          el("button", {type: "button", disabled: judgeIndex === 0, onclick: () => goJudge(judgeIndex - 1)}, "← Previous", el("kbd", {}, "←")),
+          el("button", {type: "button", class: "primary", disabled: judgeIndex === judgeOrder.length - 1,
+                        onclick: () => goJudge(judgeIndex + 1)}, "Next →", el("kbd", {}, "→")),
+          el("span", {class: `status ${label.verdict ? "done" : "todo"}`}, label.verdict ? "Labelled" : "Not labelled yet"),
+          judgeState.finished ? el("span", {class: "status done"}, ` · all ${judgeOrder.length} labelled: export when you're ready`) : null)));
+}
+
+function exportJudges() {
+  const out = {labeller: "simar", started: judgeState.started || null, finished: judgeState.finished || null,
+               labels: judgeOrder.filter((id) => judgeState.labels[id] && judgeState.labels[id].verdict).map((id) => {
+                 const l = judgeState.labels[id];
+                 return {item_id: id, verdict: l.verdict, note: (l.note || "").trim() || null, labelled_at: l.labelled_at};
+               })};
+  const blob = new Blob([JSON.stringify(out, null, 1) + "\n"], {type: "application/json"});
+  const a = el("a", {href: URL.createObjectURL(blob), download: judgeRelabel() ? "labels-judges-simar-relabel.json" : "labels-judges-simar.json"});
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+async function importJudges(file) {
+  let data;
+  try { data = JSON.parse(await file.text()); } catch { alert("That file isn't JSON."); return; }
+  if (!data || data.labeller !== "simar" || !Array.isArray(data.labels)) { alert("That isn't a judge labels file from this page."); return; }
+  const known = new Set(judgeOrder);
+  const unknown = data.labels.filter((l) => !known.has(l.item_id));
+  if (unknown.length) { alert(`${unknown.length} of its labels are for items not in this pass (first: ${unknown[0].item_id}). Is it from the other pass?`); return; }
+  const overwritten = data.labels.filter((l) => judgeState.labels[l.item_id] && judgeState.labels[l.item_id].verdict).length;
+  if (overwritten && !confirm(`Importing replaces ${overwritten} label(s) already saved in this browser. Go ahead?`)) return;
+  for (const l of data.labels) {
+    judgeState.labels[l.item_id] = {verdict: JUDGE_VERDICTS.includes(l.verdict) ? l.verdict : null, note: l.note || "",
+                                    labelled_at: l.labelled_at || null};
+  }
+  judgeState.started = judgeState.started || data.started || null;
+  judgeState.finished = judgeLabelled() === judgeOrder.length ? (data.finished || new Date().toISOString()) : null;
+  if (!judgeRelabel()) store.set(FIRST_FINISHED_KEY, judgeState.finished);
+  const firstOpen = judgeOrder.findIndex((id) => !(judgeState.labels[id] && judgeState.labels[id].verdict));
+  judgeIndex = firstOpen === -1 ? 0 : firstOpen;
+  saveJudges();
+  renderJudgeItem();
+}
+
+async function initJudges() {
+  document.title = judgeRelabel() ? "Labelling the judges' items: relabel" : "Labelling the judges' items";
+  document.querySelector("header h1").textContent = document.title;
+  for (const id of ["reader", "guide-link"]) (document.getElementById(id).closest("label") || document.getElementById(id)).hidden = true;
+  try {
+    const response = await fetch(JUDGE_DATA);
+    if (!response.ok) throw new Error(`${JUDGE_DATA}: ${response.status}`);
+    judgeFile = await response.json();
+  } catch (error) {
+    document.getElementById("loading").textContent =
+      `Couldn't load the items (${error.message}). Run "python -m http.server" from the repo root and open /scripts/eval/labeller/?mode=${JUDGE_MODE}.`;
+    return;
+  }
+  document.getElementById("loading").remove();
+  judgeItems = Object.fromEntries(judgeFile.items.map((item) => [item.item_id, item]));
+  judgeOrder = judgeRelabel() ? seededShuffle(judgeFile.relabel, "relabel") : judgeFile.items.map((item) => item.item_id);
+  const saved = store.get(judgeKey()) || {};
+  judgeState = {started: saved.started || null, finished: saved.finished || null, labels: saved.labels || {}};
+  judgeIndex = Number.isInteger(saved.index) && saved.index >= 0 && saved.index < judgeOrder.length ? saved.index : 0;
+
   const guide = document.getElementById("guide");
-  guide.hidden = false; guide.scrollIntoView({behavior: "smooth"});
-});
+  guide.hidden = false;
+  const intro = [el("p", {}, judgeFile.instructions)];
+  if (judgeRelabel()) {
+    intro.push(el("p", {class: "muted"}, `The relabelling pass: ${judgeOrder.length} items, in a new order. Nothing from the first labelling is shown.`));
+    const finished = store.get(FIRST_FINISHED_KEY);
+    const weeks = judgeFile.relabel_after_weeks || 3;
+    const age = finished ? (Date.now() - Date.parse(finished)) / (7 * 24 * 3600 * 1000) : null;
+    if (age != null && age < weeks) {
+      intro.push(el("p", {class: "card warning"}, `The first labelling finished ${age < 1 ? "less than a week" : `${Math.floor(age)} week${Math.floor(age) === 1 ? "" : "s"}`} ago, `,
+                    `on ${finished.slice(0, 10)}. The relabel is meant to wait at least ${weeks} weeks, so the first labels aren't remembered.`));
+    }
+  }
+  guide.replaceChildren(...intro);
+
+  const exportButton = document.getElementById("export"), importButton = document.getElementById("import");
+  exportButton.disabled = importButton.disabled = false;
+  exportButton.addEventListener("click", exportJudges);
+  importButton.addEventListener("click", () => document.getElementById("import-file").click());
+  document.getElementById("import-file").addEventListener("change", (e) => {
+    const file = e.target.files[0]; e.target.value = "";
+    if (file) importJudges(file);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey || /^(TEXTAREA|INPUT|SELECT)$/.test(e.target.tagName)) return;
+    const verdict = {p: "pass", f: "fail", u: "unclear"}[e.key.toLowerCase()];
+    if (verdict) { e.preventDefault(); setJudgeVerdict(verdict); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); goJudge(judgeIndex + 1); }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); goJudge(judgeIndex - 1); }
+  });
+  renderJudgeItem();
+}
+
+if (!JUDGE_MODE) {
+  document.getElementById("reader").addEventListener("change", (e) => chooseReader(e.target.value));
+  document.getElementById("export").addEventListener("click", exportFile);
+  document.getElementById("import").addEventListener("click", () => document.getElementById("import-file").click());
+  document.getElementById("import-file").addEventListener("change", (e) => {
+    const file = e.target.files[0]; e.target.value = "";
+    if (file) importFile(file);
+  });
+  document.getElementById("guide-link").addEventListener("click", (e) => {
+    e.preventDefault();
+    const guide = document.getElementById("guide");
+    guide.hidden = false; guide.scrollIntoView({behavior: "smooth"});
+  });
+}
 
 (async () => {
+  if (JUDGE_MODE) return initJudges();
   try {
     [sample, traces] = await Promise.all(["sample.json", "traces.json"].map(async (name) => {
       const response = await fetch(DATA + name);

@@ -7152,6 +7152,27 @@ replies). In `public/data/eval/judges/gemma.json` and `qwen9b.json`.
 Environment: Colab, RTX PRO 6000 Blackwell Server Edition, vLLM 0.30.0.
 Gemma 214 s wall, Qwen 94 s.
 
+**Lesson 7's labelling: set up (2026-10-02), labels pending.**
+`scripts/eval/README-judge-labelling.md` and
+`scripts/eval/build_judge_labelling.py` (`--check`) wrote
+`public/data/eval/judge-labels/items.json`: 100 judge items (correctness
+45, premise 20, relevance 10, false report 9, broken result 9, planted
+7), stratified by the judges' verdicts, 55 dev / 45 test, 30 marked for
+relabelling after three weeks (identical to the zip's copy apart from
+line endings). The labelling page's judge mode is built:
+`scripts/eval/labeller/index.html?mode=judges` (and
+`?mode=judges-relabel`), blind (loads only `items.json`; never shows an
+item's id, stratum or split), PASS/FAIL/UNCLEAR with `p`/`f`/`u` and
+arrow keys, saved as it goes, exporting `labels-judges-simar.json` /
+`labels-judges-simar-relabel.json`; the relabel order is a shuffle
+seeded with "relabel", and it warns if the first labelling finished
+less than three weeks ago. Tested end to end in headless Chrome. Open
+question for the content chat: 15 of the 100 items are runs whose
+judge verdicts Lesson 6's pages already discuss (all 9 broken-result
+items are the a05/s22 runs of concept 1, plus b/a13/1, four v10-true and
+one v38-true premise replies, and v05-false check_first 3), so they
+aren't blind for a labeller who has read Lesson 6.
+
 ### Old-plan outline (where it was Module 4)
 
 *Rough outline — deliberately sequenced before Modules 5 and 6 ("you
