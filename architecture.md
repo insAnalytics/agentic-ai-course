@@ -833,6 +833,11 @@ copy-checked, with `trafficData("baseline-a", "baseline-b",
 "compaction-a")` and `QUESTION_DATA` (its before/after demo reads
 `question-mix.json` itself). Each of its two demos takes about 3 s in
 Pyodide, most of it loading the three traffic files.
+Concept 7 adds no data: its setup is `LOAD_TRAFFIC` + `AB_USERS`
+(`mix_runs`, `user_runs`, `users`, plus `ceil` and `sqrt`), shown and
+copy-checked, with `QUESTION_DATA`; the exercise passes the same as
+`namespaceSetup`, and its reference is `USERS_PER_ARM`, loaded hidden by
+the cost demo after it. The A/A demo takes about 0.6 s in Pyodide.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or

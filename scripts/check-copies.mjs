@@ -215,6 +215,17 @@ const PAIRS = [
     ],
   },
   {
+    what: "AB_USERS (Module 7 Lesson 11 concept 7)",
+    a: ["src/lib/evalData.ts", () => rawConstant("src/lib/evalData.ts", "AB_USERS")],
+    b: [
+      "the page's setup block",
+      () => pageFence(
+        "src/content/modules/07-evaluation/11-monitoring/07-ab-tests.mdx",
+        "import random\nfrom collections import defaultdict\nfrom math import ceil, sqrt\n\nmix_runs =",
+      ),
+    ],
+  },
+  {
     what: "LOAD_SUMMARIZER (Module 7 Lesson 5 concept 5)",
     a: ["the LOAD_SUMMARIZER constant", () => rawConstant("src/content/modules/07-evaluation/05-code-graders/05-a-component-test-the-summarizer.mdx", "LOAD_SUMMARIZER")],
     b: [

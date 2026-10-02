@@ -7678,9 +7678,8 @@ torch 2.13.0+cu130, `torchaudio` removed,
    flags taken as confirmed, gate arguments swapped) each fail. Lesson 10
    is now fully Locked.
 11. **Monitoring in Production** (`11-monitoring`, title provisional) —
-   **Building.** Concepts 1 to 6 drafted and built; concept 7 (concept
-   6 points to it for splitting traffic by conversation or user and for
-   checking a canary repeatedly) and bookends not yet. Concept 1 (what to watch on every run): no answer key in
+   **Building.** Concepts 1 to 7 drafted and built; bookends (and any
+   further concept, if the drafting process adds one) not yet. Concept 1 (what to watch on every run): no answer key in
    production (Lesson 1), Anthropic's guide on monitoring after launch,
    simulated traffic (the baseline's batch a, 385 development runs, in
    start order), the SRE book's four golden signals for an agent plus
@@ -7849,6 +7848,32 @@ torch 2.13.0+cu130, `torchaudio` removed,
    concept 3's `#a-pair-shown-in-both-orders`, Lesson 9 concept 1's
    `#why-pairing-matters`, Lesson 2 concepts 3 and 5 (pages) (anchors
    verified).
+   Concept 7 (A/B tests: does the change help users?): Anthropic's guide
+   on A/B testing's strengths and limits, Kohavi, Henne and Sommerfield
+   2007 (random assignment, the OEC, 50/50 after ramp-up, 99/1 running
+   about 25 times longer, guardrails, speed), the unit of randomisation
+   (conversation, or user when the agent remembers), analysing by that
+   unit, an A/A demo on stand-in users (each of the 77 development tasks
+   as a user with ten runs: 44% "significant" per run vs 5% per user),
+   the sample-size formula and design effect, a graded `users_per_arm`
+   exercise (the mockup's hidden tests split at their blank lines into 4
+   self-contained tests), a cost table (measured icc 0.63; 30/168/651
+   users per arm at independent runs), fixing the analysis in advance and
+   Johari, Pekelis and Walsh on peeking, 6 quiz cards. Setup
+   `LOAD_TRAFFIC` + the new `AB_USERS` (shown and copy-checked) with
+   `QUESTION_DATA`; reference `USERS_PER_ARM`, loaded hidden by the cost
+   demo. The page's code is the mockup's byte for byte; in Pyodide 0.26.4
+   with the real test harness both demos and the example reproduce the
+   mockup's output exactly, the reference passes 4/4 and the starter
+   fails 4/4; rounding instead of ceil, truncating, squaring the z values
+   separately, one rate's variance only, the design effect ignored, a
+   float result and no ValueError each fail at least one test (rounding
+   up twice, which the hint advises against, passes). No corrections.
+   Callbacks: concept 6's `#canaries-a-small-share-of-real-users`,
+   Module 4 Lesson 8 (intro page), Lesson 9 concepts 1
+   (`#the-same-two-batches-paired`) and 2
+   (`#when-items-aren-t-independent`), Lesson 10 concept 3 (page)
+   (anchors verified).
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092

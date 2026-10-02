@@ -1,0 +1,271 @@
+# Module 7, Lesson 11 — Concept 7: A/B tests: does the change help users?
+
+> **Note for the site build:** no new data files. This page reads only `question-mix.json`. Its setup is `LOAD_TRAFFIC` + the setup block shown below (`mix_runs`, `user_runs`, `users`); add it to `evalData.ts` as `AB_USERS`, byte-identical to the page. The exercise uses the same setup. Add its reference `users_per_arm` as `USERS_PER_ARM`; the second demo comes after the exercise and needs it. Each demo runs independently, the first in about a third of a second in CPython.
+
+---
+
+## The question only users can answer
+
+Everything so far in this module measures the agent: whether its runs pass checks, what judges think of its answers, how often it stops without one. None of it says whether people are better off. Does the new prompt mean users finish what they came to do, ask again less, escalate less? Only users can answer that, and the way to ask them is a controlled experiment: an **A/B test**.
+
+[Anthropic's guide](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents) describes the trade. An A/B test measures actual user outcomes and controls for confounds, so it's the strongest evidence a change helps. It's also slow, taking days or weeks and enough traffic to reach a result, it only tests changes you've already built and deployed, and without reading transcripts it says little about why a number moved. The guide's advice is to use it to validate significant changes once there's enough traffic.
+
+The method is decades old on the web. [Kohavi, Henne and Sommerfield (2007)](https://cdn.elezea.com/pdf/GuideControlledExperiments.pdf), from Microsoft's experimentation team, set out its essentials:
+
+- **Random assignment** of users to the control or the treatment, so that the change is the only systematic difference between the two groups, and a difference in outcomes can be put down to it.
+- **An overall evaluation criterion (OEC)** agreed before the test starts: the one number, possibly a weighted mix, that decides it. Agreeing on it in advance stops a team from finding whichever metric happened to move.
+- **A 50/50 split** once the change is known to be safe. A small treatment share protects users, which is what [a canary](→ this lesson, the releasing a change: shadow runs and canaries concept, canaries: a small share of real users) is for, but it costs time: they estimate that a 99/1 split must run about 25 times longer than 50/50 for the same power. They recommend ramping up through small shares first, then running at 50%.
+
+A canary asks "is this broken?" with a small share of users, quickly. An A/B test asks "is this better?" with as many users in each arm as it takes.
+
+For an agent, the OEC should be something users experience: the share of conversations that reach their goal without the user asking again or being escalated, say. Alongside it go **guardrail metrics**, numbers that must not get worse even if the OEC improves: cost per run, latency, runs without an answer, checks firing. Kohavi and his colleagues give a reason to always include speed: a treatment can lose simply because it's slower.
+
+---
+
+## The unit of randomisation
+
+The first design decision is what gets randomised. On the web it's usually the user, and Kohavi and his colleagues insist that each user get a consistent experience for the whole test. For an agent, the smallest workable unit is the conversation: [the previous concept](→ this lesson, the releasing a change: shadow runs and canaries concept, canaries: a small share of real users) showed what happens when one conversation's turns land on different versions. If the agent remembers things between conversations, as [Module 4's memory](→ Module 4, the short-term and long-term memory lesson) does, the unit has to be the user, or memories written by one version get read by the other.
+
+The second decision follows from the first, and it's easy to get wrong: **analyse by the unit you randomised.** If users are randomised, a user's runs aren't independent of each other. Someone who asks hard questions asks hard questions in both halves of their week. Treating each run as an independent observation pretends to have more evidence than there is.
+
+This course has no users, so the demo below uses a stand-in: each of the 77 development tasks plays a "user" who sent the same request ten times, the ten recorded runs across the baseline's two batches. That's an extreme user, far more consistent than a real one, which makes the effect easy to see. The setup loads them:
+
+```python
+import random
+from collections import defaultdict
+from math import ceil, sqrt
+
+mix_runs = json.loads((MONITORING / "question-mix.json").read_text(encoding="utf-8"))["runs"]
+# a stand-in for users: each development task is one "user" who sends the same request ten times
+user_runs = defaultdict(list)
+for run in mix_runs:
+    user_runs[run["trial_id"].split("/")[1]].append(run["passed"])
+users = list(user_runs.values())
+```
+*(defined once here and already loaded for both demos and the exercise in this concept, with this lesson's `MONITORING` path)*
+
+Kohavi and his colleagues recommend running **A/A tests** continuously: split users into two groups that both get the same version, and check that the split matches what was planned and that about 5% of tests come out "significant", as they should when nothing differs. Here's an A/A test on the stand-in users, analysed both ways:
+
+```python
+def z_score(a: list[float], b: list[float]) -> float:
+    """The difference in means between two groups, in standard errors, with each group's own variance."""
+    def mean_var(xs):
+        mean = sum(xs) / len(xs)
+        return mean, sum((x - mean) ** 2 for x in xs) / (len(xs) - 1)
+    (mean_a, var_a), (mean_b, var_b) = mean_var(a), mean_var(b)
+    return (mean_b - mean_a) / sqrt(var_a / len(a) + var_b / len(b))
+
+
+rng = random.Random(0)
+per_run = per_user = 0
+for _ in range(2_000):
+    # an A/A test: split the users in two at random; both halves run the same agent
+    order = rng.sample(users, len(users))
+    arm_a, arm_b = order[: len(users) // 2], order[len(users) // 2:]
+    # analysed per run, as if every run were independent
+    per_run += abs(z_score([float(x) for user in arm_a for x in user], [float(x) for user in arm_b for x in user])) > 1.96
+    # analysed per user, the unit that was randomised
+    per_user += abs(z_score([sum(user) / len(user) for user in arm_a], [sum(user) / len(user) for user in arm_b])) > 1.96
+print(f"{len(users)} users, {len(mix_runs)} runs; 2,000 A/A splits of the users, nothing different between the arms")
+print(f"  analysed per run:  {per_run / 2000:.0%} of splits show a 'significant' difference")
+print(f"  analysed per user: {per_user / 2000:.0%}")
+```
+```
+77 users, 770 runs; 2,000 A/A splits of the users, nothing different between the arms
+  analysed per run:  44% of splits show a 'significant' difference
+  analysed per user: 5%
+```
+*(runs live, shows output — read-only demo snippet, not graded; simulated: each development task stands in for a user who sent its request ten times; both arms are the same agent)*
+
+Analysed per run, nearly half of the A/A tests find a "significant" difference between two identical arms. Analysed per user, the unit that was actually split, the rate is the 5% the test promises. It's the mistake [Lesson 9 warned about](→ Module 7, the does this piece help? ablations lesson, the suite-wide reliability, and items that aren't independent concept, when items aren't independent) for repeated runs of one task: the unit that was sampled is the unit to count. Real users are less consistent than these stand-ins, so the inflation is smaller in practice, but it doesn't go away, and an A/A test on real traffic is how to measure it.
+
+---
+
+## How many users
+
+The number of users a test needs follows from four things: the pass rate now, the change worth detecting, how sure the test should be, and how alike each user's runs are. For a pass rate, the standard formula for the runs needed in each arm is
+
+> runs = (z_α + z_power)² × (p₁(1 − p₁) + p₂(1 − p₂)) / (p₁ − p₂)²
+
+where z_α is 1.96 for a two-sided test at the 5% level, and z_power is 0.8416 for 80% power, the chance of detecting the change if it's real. When users send several runs each and those runs are alike, each run carries less information. The **design effect** says by how much: for m runs per user whose results correlate by an intraclass correlation ρ (icc), the runs needed grow by a factor of 1 + (m − 1) × ρ.
+
+---
+
+## Applied sandbox exercise
+*(graded — users needed per arm for an A/B test on a pass rate)*
+
+**Task shown to learner:**
+
+Write `users_per_arm(p_control, p_treatment, runs_per_user=1, icc=0.0, z_alpha=1.96, z_power=0.8416)`:
+
+- Compute the runs needed per arm with the formula above.
+- Multiply by the design effect, `1 + (runs_per_user - 1) * icc`.
+- Divide by `runs_per_user` to get users, and round **up** to a whole number with `ceil`, which is loaded.
+- If the two rates are equal, raise `ValueError`: no sample size detects a change of zero.
+
+**Starter code:**
+```python
+def users_per_arm(p_control: float, p_treatment: float, runs_per_user: int = 1, icc: float = 0.0,
+                  z_alpha: float = 1.96, z_power: float = 0.8416) -> int:
+    """..."""
+    # your code here
+
+
+print(users_per_arm(0.80, 0.76, runs_per_user=10, icc=0.05))
+```
+
+**Hidden tests:**
+```python
+n = users_per_arm(0.80, 0.76)
+assert isinstance(n, int), f"users_per_arm should return a whole number of users: got {n!r}"
+assert n == 1680, f"80% against 76%, one run per user: (1.96 + 0.8416)² × (0.8 × 0.2 + 0.76 × 0.24) / 0.04² = 1679.7, so 1680; got {n}"
+assert users_per_arm(0.76, 0.80) == 1680, "a rise and a fall of the same size need the same number of users"
+n = users_per_arm(0.80, 0.75)
+assert n == 1092, f"80% against 75% needs 1091.006 users, and a fraction of a user rounds up: expected 1092, got {n}"
+
+n = users_per_arm(0.80, 0.76, runs_per_user=10)
+assert n == 168, f"independent runs (icc 0), 10 per user: 1679.7 runs is 168 users, got {n}"
+n = users_per_arm(0.80, 0.76, runs_per_user=10, icc=0.05)
+assert n == 244, \
+    f"10 runs per user with icc 0.05: the design effect is 1 + (10 - 1) × 0.05 = 1.45, so 1679.7 × 1.45 / 10 → 244 users; got {n}"
+n = users_per_arm(0.80, 0.76, runs_per_user=10, icc=0.63)
+assert n == 1121, f"with icc 0.63, users' runs are so alike that 10 runs each are worth little more than 1: expected 1121, got {n}"
+
+n = users_per_arm(0.80, 0.76, z_alpha=2.576, z_power=1.2816)
+assert n == 3185, f"z_alpha and z_power are parameters: a 1% level with 90% power needs 3185 users, got {n}"
+
+try:
+    users_per_arm(0.8, 0.8)
+except ValueError:
+    pass
+except ZeroDivisionError:
+    raise AssertionError("equal pass rates should raise ValueError, not divide by zero")
+else:
+    raise AssertionError("equal pass rates should raise ValueError: no sample size detects a change of zero")
+```
+
+**Hint (shown on request):** Square the sum of the two z values, not each one separately. Both rates contribute a variance, p × (1 − p). Apply the design effect to the runs before dividing by the runs per user, and round up only once, at the end.
+
+**Reference solution:**
+```python
+def users_per_arm(p_control: float, p_treatment: float, runs_per_user: int = 1, icc: float = 0.0,
+                  z_alpha: float = 1.96, z_power: float = 0.8416) -> int:
+    """Users needed in each arm to detect a change in a pass rate from p_control to p_treatment, at a two-sided 5%
+    level with 80% power by default. Runs from one user are correlated by `icc`, which inflates the runs needed by
+    the design effect 1 + (runs_per_user - 1) * icc."""
+    if p_control == p_treatment:
+        raise ValueError("the two pass rates must differ: no sample size detects a change of zero")
+    variance = p_control * (1 - p_control) + p_treatment * (1 - p_treatment)
+    runs = (z_alpha + z_power) ** 2 * variance / (p_control - p_treatment) ** 2
+    design_effect = 1 + (runs_per_user - 1) * icc
+    return ceil(runs * design_effect / runs_per_user)
+
+
+print(users_per_arm(0.80, 0.76, runs_per_user=10, icc=0.05))
+```
+```
+244
+```
+
+**Explanation:** Detecting a fall from 80% to 76% takes about 1,680 runs per arm if every run is independent. If each user sends 10 runs and those runs correlate by 0.05, a modest amount, the design effect is 1.45, so the same test needs 244 users per arm rather than 168. The squared difference in the denominator is what makes small changes expensive: halving the change you want to detect roughly quadruples the users. The count rounds up, because 243.6 users can't be recruited and 243 would fall short.
+
+---
+
+## What that costs, for this agent
+
+Here are the users per arm for three sizes of change, with the stand-in users' measured correlation beside a more realistic one:
+
+```python
+def icc(groups: list[list[bool]]) -> float:
+    """The intraclass correlation of equal-sized groups: the one-way analysis-of-variance estimator."""
+    k, m = len(groups), len(groups[0])
+    grand = sum(map(sum, groups)) / (k * m)
+    means = [sum(group) / m for group in groups]
+    between = m * sum((mean - grand) ** 2 for mean in means) / (k - 1)
+    within = sum((x - mean) ** 2 for group, mean in zip(groups, means) for x in group) / (k * (m - 1))
+    return (between - within) / (between + (m - 1) * within)
+
+
+measured = icc(users)
+print(f"the stand-in users' runs: icc {measured:.2f}, design effect {1 + 9 * measured:.1f} at 10 runs each\n")
+print(f"{'change in pass rate':<20}{'independent runs':>17}{'icc 0.05':>10}{f'icc {measured:.2f}':>10}   (users per arm, 10 runs each)")
+for control, treatment in ((0.80, 0.70), (0.80, 0.76), (0.80, 0.78)):
+    sizes = [users_per_arm(control, treatment, 10, value) for value in (0.0, 0.05, measured)]
+    print(f"{control:.0%} to {treatment:.0%}{'':<10}" + "".join(f"{size:>{width},}" for size, width in zip(sizes, (17, 10, 10))))
+```
+```
+the stand-in users' runs: icc 0.63, design effect 6.6 at 10 runs each
+
+change in pass rate  independent runs  icc 0.05  icc 0.63   (users per arm, 10 runs each)
+80% to 70%                         30        43       193
+80% to 76%                        168       244     1,116
+80% to 78%                        651       944     4,323
+```
+*(runs live, shows output — read-only demo snippet, not graded; the 0.63 is the stand-in users' correlation, an extreme case; 0.05 is an illustrative value for real users, not a measured one)*
+
+- **Big changes are cheap to detect, small ones are not.** A drop from 80% to 70% shows up with a few dozen users per arm when runs are close to independent. A drop to 78% needs hundreds to thousands.
+- **The correlation matters as much as the change.** At the stand-in users' 0.63, ten runs from one user are worth little more than one, and the test needs over six times as many users as independent runs would suggest. The real figure for a product comes from an A/A test on its own traffic.
+- **Compare that with the suite.** [Lesson 9's paired comparison](→ Module 7, the does this piece help? ablations lesson, the one piece on and off concept, the same two batches, paired) narrowed a difference to about 3 points with 37 tasks, because each task was compared with itself. An A/B test can't pair: each user sees only one version. That's why the offline suite does most of the work of evaluating an agent, and an A/B test is kept for the questions only users can answer.
+
+---
+
+## Decide in advance, and look only at the end
+
+Two habits keep an A/B test honest, both of which the module has met before:
+
+- **Fix the sample size and the metrics before starting.** Kohavi and his colleagues warn that choosing what to compare after seeing the data raises the chance of a result that's significant by luck, the same problem as [Lesson 10's many tasks and many chances to be fooled](→ Module 7, the regression testing lesson, the many tasks, many chances to be fooled concept). One OEC, a short list of guardrails, and a sample size from the calculation above, all written down first.
+- **Don't stop the moment it looks significant.** A dashboard that updates every hour invites checking it every hour and stopping when the p-value dips below 0.05. [Johari, Pekelis and Walsh](https://arxiv.org/abs/1512.04922) show that repeated significance testing with stopping on the first "significant" result produces false positive rates far above the nominal 5%. Either wait for the planned sample size, or use a test designed for continuous monitoring, such as the always-valid p-values they developed, which the A/B testing company Optimizely deployed.
+
+The order of the module's tools, then, from cheapest to most expensive: the offline suite and its gate before anything ships, a shadow run on real requests, a canary on a few real users, and an A/B test when the question is whether users are better off and there's traffic enough to answer it. Most changes to an agent never need the last step.
+
+---
+
+## Quiz cards
+
+> **Q1.** What can an A/B test measure that the offline suite, a shadow run and a canary can't?
+> - Whether users are better off with the change than without ✅
+> - Whether the change breaks the agent on the requests it gets
+> - Whether the new version's answers are judged more relevant
+> - Whether the change raises the agent's cost per run in tokens
+>
+> *Explanation: User outcomes, such as finishing what they came to do, need users split between versions and followed. A canary catches breakage, a shadow run can judge both versions' answers to the same requests, and cost shows on any of them. Only a randomised comparison of users answers whether people are better off.*
+
+> **Q2.** Why does the registry agent's A/B test randomise by conversation, or by user, rather than by request?
+> - A conversation split across versions mixes them in one run ✅
+> - Requests are harder than users to count in a tracing system
+> - Randomising requests gives each arm fewer runs to compare
+> - Users are more likely to complain when versions change
+>
+> *Explanation: The second turn of a conversation depends on the first, so splitting turns between versions produces runs that belong to neither. If the agent remembers between conversations, even the conversation isn't enough: the user is the unit, so one version doesn't read memories the other wrote.*
+
+> **Q3.** In the A/A test, why did analysing per run find a "significant" difference in 44% of splits?
+> - Each user's runs are alike, so runs overstate the evidence ✅
+> - The two arms got different versions of the agent by mistake
+> - The per-run test uses a looser level of significance
+> - Some users had more runs than others in their arm
+>
+> *Explanation: Users were randomised, so users are the independent units. Counting ten alike runs as ten independent observations shrinks the standard error far below the real variation between groups of users, so differences that are pure chance look significant. Both arms ran the same agent, and every stand-in user had exactly ten runs.*
+
+> **Q4.** A team wants to detect a 2-point change instead of a 4-point one. Roughly how many more users does it need?
+> - About four times as many: the change is squared ✅
+> - About twice as many, since the change is half the size it was
+> - The same number, since the pass rates are almost unchanged
+> - About eight times as many, since both arms need doubling twice
+>
+> *Explanation: The difference appears squared in the denominator, so halving it multiplies the sample by about four: in the demo, 168 users per arm for 80% to 76% and 651 for 80% to 78%, at independent runs. The rates' variances barely change, so they don't offset it.*
+
+> **Q5.** An A/B test's p-value dips below 0.05 on day three of a planned two weeks. What should the team do?
+> - Keep going to the planned size, or use a sequential test ✅
+> - Stop and ship, since the result is already significant
+> - Restart the test, since an early result means a broken split
+> - Lower the level to 0.01, then stop as soon as it crosses that
+>
+> *Explanation: A test checked repeatedly and stopped at the first significant reading has a false positive rate far above its nominal level. Either the planned sample size is reached, or the test is one built for continuous monitoring, such as always-valid p-values. Tightening the level and still stopping early only reduces the problem.*
+
+> **Q6.** A new prompt raises task completion in an A/B test, but runs take 30% longer. What role does latency play?
+> - A guardrail: the change can't ship if it breaks one ✅
+> - None, since latency wasn't the agreed evaluation criterion
+> - It replaces task completion as the deciding number
+> - It cancels out the gain, so the result is a draw
+>
+> *Explanation: Guardrail metrics are agreed in advance as things that must not get worse, whatever the main metric does. Whether a 30% slowdown crosses the line was decided before the test; it doesn't become the deciding criterion, and it doesn't net out against the gain. Kohavi and colleagues note that a slower treatment can lose for that reason alone.*

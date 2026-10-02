@@ -1102,3 +1102,33 @@ def worse(canary: list[bool], control: list[bool], z: float = 1.645) -> bool:
     spread = sqrt(pooled * (1 - pooled) * (1 / len(canary) + 1 / len(control)))
     return spread > 0 and (sum(canary) / len(canary) - sum(control) / len(control)) / spread > z
 `;
+
+/**
+ * Module 7 Lesson 11 concept 7's setup block, shown verbatim on that page (keep the two byte-identical:
+ * scripts/check-copies.mjs checks it). Its demos and exercise run on LOAD_TRAFFIC + this, with QUESTION_DATA.
+ */
+export const AB_USERS = String.raw`import random
+from collections import defaultdict
+from math import ceil, sqrt
+
+mix_runs = json.loads((MONITORING / "question-mix.json").read_text(encoding="utf-8"))["runs"]
+# a stand-in for users: each development task is one "user" who sends the same request ten times
+user_runs = defaultdict(list)
+for run in mix_runs:
+    user_runs[run["trial_id"].split("/")[1]].append(run["passed"])
+users = list(user_runs.values())
+`;
+
+/** Module 7 Lesson 11 concept 7's exercise reference, without its example printout; needs AB_USERS's ceil. */
+export const USERS_PER_ARM = String.raw`def users_per_arm(p_control: float, p_treatment: float, runs_per_user: int = 1, icc: float = 0.0,
+                  z_alpha: float = 1.96, z_power: float = 0.8416) -> int:
+    """Users needed in each arm to detect a change in a pass rate from p_control to p_treatment, at a two-sided 5%
+    level with 80% power by default. Runs from one user are correlated by ${"`"}icc${"`"}, which inflates the runs needed by
+    the design effect 1 + (runs_per_user - 1) * icc."""
+    if p_control == p_treatment:
+        raise ValueError("the two pass rates must differ: no sample size detects a change of zero")
+    variance = p_control * (1 - p_control) + p_treatment * (1 - p_treatment)
+    runs = (z_alpha + z_power) ** 2 * variance / (p_control - p_treatment) ** 2
+    design_effect = 1 + (runs_per_user - 1) * icc
+    return ceil(runs * design_effect / runs_per_user)
+`;
