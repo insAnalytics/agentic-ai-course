@@ -1,0 +1,194 @@
+---
+title: "Calibration across a system"
+lesson: "08-calibration"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { CALIBRATION, CALIBRATION_DATA, CALIBRATION_SETUP, CALIBRATION_SIGNALS, judgeLabelsData } from "../../../../lib/evalData";
+
+export const MEASURE_DATA = judgeLabelsData("measure");
+
+export const THRESHOLD_DEMO = String.raw`verdicts = signals["verdict probability, judges"]
+print("accept verdicts at or above a threshold; send the rest for review")
+for threshold in (0.7, 0.8, 0.9, 0.95):
+    accepted = [(p, correct) for p, correct in verdicts if p >= threshold]
+    expected = sum(1 - p for p, _ in accepted)
+    actual = sum(not correct for _, correct in accepted)
+    print(f"  {threshold:.2f}: {len(accepted)} accepted, {len(verdicts) - len(accepted)} reviewed; "
+          f"errors among the accepted, expected from the scores {expected:.1f}, actual {actual}")
+`;
+
+export const JUDGES_DEMO = String.raw`import json
+from pathlib import Path
+
+rows = json.loads(Path("/data/eval/judge-labels/measure.json").read_text(encoding="utf-8"))["rows"]
+for judge in ("gemma", "qwen9b"):
+    pairs = [(r[f"{judge}_v2_p"], r[f"{judge}_v2"] == r["label"]) for r in rows
+             if r["label"] in ("pass", "fail") and r[f"{judge}_v2"] in ("pass", "fail") and f"{judge}_v2_p" in r]
+    wrong = [p for p, correct in pairs if not correct]
+    print(f"{judge}: {len(pairs)} labelled verdicts, {len(wrong)} disagree with Simar")
+    print(f"  mean probability of the verdict token: {sum(p for p, _ in pairs) / len(pairs):.3f}; "
+          f"lowest on a disagreement: {min(wrong):.3f}")
+    print(f"  ECE {ece(pairs):.3f}  Brier {brier(pairs):.3f}")
+`;
+
+<Subsection title="What a calibrated score buys" variant="a">
+
+[Module 6 ended its signals concept](/06-reliability/06-when-unsure/02-signals-the-agent-isnt-sure/#what-about-asking-the-model)
+by saying no confidence signal can be trusted until it's been measured on
+labelled cases from your own task, and that measuring how well confidence
+matches accuracy across a whole system is this module's subject. This
+concept takes that up.
+
+A calibrated score turns a threshold from a guess into a prediction. If
+every accepted case carries a calibrated probability p of being right, the
+number of errors among the accepted cases should be about the sum of
+(1 − p) over them. That's a number you can state before anyone checks, and
+then check. Here it is for Module 6's support judges, with a threshold
+that sends low-confidence verdicts for review:
+
+<LiveDemo client:load dataFiles={CALIBRATION_DATA} setupCode={CALIBRATION_SETUP + "\n\n" + CALIBRATION + "\n\n" + CALIBRATION_SIGNALS} code={THRESHOLD_DEMO} />
+
+*(Module 6's three support judges on its labelled pairs. `signals` is
+concept 2's, loaded for you.)*
+
+At every threshold, the scores predict the errors that get through to
+within one or two. That's what calibration across a system means in
+practice: the operator can choose a threshold by its predicted error count
+and review cost, and the prediction holds. It holds here because these
+verdict probabilities are close to calibrated where the thresholds sit,
+which
+[concept 2](/07-evaluation/08-calibration/02-module-6s-signals-calibrated/#where-each-signal-is-wrong)
+found; for the 2B's answer-line probability, the same arithmetic would
+mislead.
+
+</Subsection>
+
+<Subsection title="The judges that grade this module" variant="b">
+
+The phase 4 judges also recorded the probability of each verdict's first
+token, and Simar's labels say which verdicts were right, so the same check
+can be made on the module's own graders:
+
+<LiveDemo client:load dataFiles={MEASURE_DATA} setupCode={CALIBRATION} code={JUDGES_DEMO} />
+
+*(All 100 labelled items, both splits, since nothing is being fitted; the
+revised rubrics. `ece` and `brier` are concept 1's, loaded for you.)*
+
+Gemma gave every one of its verdicts a probability of 1.000, to three
+decimal places, including the 19 Simar disagrees with. Qwen is barely
+different. Their ECE is almost exactly their disagreement rate, which is
+what a signal that always says "certain" scores.
+
+The difference from Module 6's judges is in how they were asked. Module
+6's support judges answered with one line, the verdict and nothing else.
+This module's judges write their reasoning first and the verdict last, as
+[Lesson 6 recommended](/07-evaluation/06-model-graders/02-writing-a-rubric/#from-the-reading-standard-to-a-rubric).
+By the time a judge writes "Verdict:", it has argued itself to an answer,
+and the next token is a formality, exactly the effect
+[concept 3](/07-evaluation/08-calibration/03-fixing-miscalibration/#where-miscalibration-comes-from)
+described for answer lines after reasoning. The two sets of judges differ
+in more than this, so the course's data can't separate the causes, but the
+pattern is consistent with everything else measured here.
+
+So for these judges, the token probability carries no information, and no
+fitted map can create some: every verdict would map to the same number.
+The confidence that exists is the one Lesson 7 measured. For a judge whose
+verdicts agree with a person 80% of the time on its own question, "this
+verdict is right with about 80% probability" is the calibrated statement,
+and it's per judge question, not per verdict.
+
+</Subsection>
+
+<Subsection title="Calibrating a system, not a score" variant="a">
+
+Put together, calibration across a system comes down to a short list:
+
+- **Measure confidence against the outcome you care about,** at the level
+  decisions are made. A judge's verdict probability is about the judge's
+  verdict; what an operator needs is the chance the agent's run is right.
+  That comes from the judge's error rates and the
+  [Rogan–Gladen corrected pass rate](/07-evaluation/07-measuring-judges/04-correcting-a-pass-rate/#a-judge-s-pass-rate-is-biased)
+  θ together: for a run the judge passed, it's
+  TPR × θ / (TPR × θ + (1 − TNR) × (1 − θ)).
+- **Prefer signals that can vary.** A score written after reasoning, or a
+  judge that's certain every time, can't be calibrated into anything
+  useful. A verdict asked for directly, agreement across several samples
+  or several judges, or a measured per-question error rate can.
+- **Check the predicted error count against the actual one** whenever a
+  threshold is set, as the first demo did, and keep checking: a new model,
+  a new prompt or new kinds of traffic can each break a calibration that
+  held. Watching that over time is part of Lesson 11.
+- **Report calibration with its error counts.** A calibration that rests
+  on a handful of errors in the range where the threshold sits is a
+  hypothesis, not a measurement.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "Why does a calibrated confidence let you predict how many errors a threshold lets through?",
+      "options": [
+        "Errors add up to the sum of 1 − p",
+        "Calibrated scores never let any error through",
+        "A threshold removes every score below 0.5",
+        "The number of errors equals the number reviewed"
+      ],
+      "correctIndex": 0,
+      "explanation": "If a score of p means a p chance of being right, each accepted case contributes 1 − p expected errors. Summing them gives a prediction that can be checked, as the support judges' did at every threshold."
+    },
+    {
+      "question": "Gemma gave every verdict a probability of 1.000, including those Simar disagreed with. Why is its ECE about its disagreement rate?",
+      "options": [
+        "\"Certain\" is off by its error rate",
+        "ECE is defined as the disagreement rate",
+        "Gemma's verdicts were all wrong",
+        "The labels were given with the same probability"
+      ],
+      "correctIndex": 0,
+      "explanation": "With every score at 1, the only bin has a confidence of 1 and an accuracy of the agreement rate, so the gap is the disagreement rate. The score says nothing about which verdicts to doubt."
+    },
+    {
+      "question": "Module 6's judges answered with one line, and this module's reason first. Why might that change their verdict probabilities?",
+      "options": [
+        "After reasoning, the verdict is a formality",
+        "Reasoning makes judges agree less with people",
+        "One-line judges use a different tokenizer",
+        "Longer prompts lower every token's probability"
+      ],
+      "correctIndex": 0,
+      "explanation": "Once a judge has argued its way to an answer, writing it is nearly certain, whatever the reasoning was worth. A verdict asked for directly keeps some uncertainty in its probability."
+    },
+    {
+      "question": "For a judge whose verdict tokens are always 1.000, what's the calibrated confidence in one of its verdicts?",
+      "options": [
+        "Its measured agreement rate",
+        "The probability of its verdict token",
+        "The share of runs it passes",
+        "One minus its TPR on the test labels"
+      ],
+      "correctIndex": 0,
+      "explanation": "The token carries no information, so the confidence has to come from validation: how often the judge agrees with a person on that judge question, measured as in Lesson 7."
+    },
+    {
+      "question": "A threshold was chosen when its predicted error count matched the actual one. What should happen after that?",
+      "options": [
+        "Keep checking, as models and traffic change",
+        "Nothing, since the threshold is now calibrated",
+        "Lower the threshold until no errors get through",
+        "Replace the scores with the overall accuracy"
+      ],
+      "correctIndex": 0,
+      "explanation": "Calibration holds for the model, prompt and traffic it was measured on. Each can change, so the predicted and actual error counts need watching over time."
+    }
+  ]}
+/>
+
+</CheckpointZone>

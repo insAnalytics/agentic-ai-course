@@ -4,8 +4,9 @@ stratum, Simar's label (first pass and after re-review), both judges' verdicts w
 the revised ones (version 2), whether the run ended without an answer, and whether its reference changed after
 labelling in a way that could change the label (q19, whose reference Simar disputed: those items are left out of
 the measurement; q40-allowed's change only removed a description of the other kind of reader, so its labels stand);
-how each judge decided on every dev run of each kind, for correcting pass rates; and, for set F, how many replies
-fall in each labelling stratum and how each judge decided by premise.
+how each judge decided on every dev run of each kind, for correcting pass rates; for set F, how many replies fall
+in each labelling stratum and how each judge decided by premise; and, for the revised judges, the probability of
+each verdict's first token.
 
     python scripts/eval/judge_measure_data.py            # writes the file
     python scripts/eval/judge_measure_data.py --check    # fails if it's out of date
@@ -13,6 +14,7 @@ fall in each labelling stratum and how each judge decided by premise.
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -35,6 +37,9 @@ def build() -> dict:
             for r in json.loads((JUDGES / f"{judge}{suffix}.json").read_text(encoding="utf-8"))["results"]:
                 verdicts.setdefault(r["item_id"], {})[f"{judge}_v{version}"] = r["decision"]
                 verdicts[r["item_id"]]["trial_id"] = r.get("trial_id")
+                if r.get("decision_token"):
+                    # phase 4 recorded the probability of the verdict's first token (Lesson 8)
+                    verdicts[r["item_id"]][f"{judge}_v{version}_p"] = math.exp(r["decision_token"]["logprob"])
     no_answer = set()
     for name in ("baseline-a", "baseline-b", "suite-2a-a"):
         for trial in json.loads((ROOT / "public/data/eval/main" / f"{name}.json").read_text(encoding="utf-8"))["trials"]:

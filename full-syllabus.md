@@ -7318,7 +7318,7 @@ torch 2.13.0+cu130, `torchaudio` removed,
    F note) keep working.
 
 8. **Calibration** (`08-calibration`, title provisional) — **Building:**
-   concepts 1 to 3 drafted and built; later concepts and bookends not
+   concepts 1 to 4 drafted and built; later concepts and bookends not
    yet drafted.
    Concept 1 (ranking isn't calibration) is built: AUROC against
    calibration, the 2B's answer-line probability beside the same scores
@@ -7388,6 +7388,35 @@ torch 2.13.0+cu130, `torchaudio` removed,
    concept 2's `#where-each-signal-is-wrong`, Lesson 7 concept 3's
    `#tuning-a-judge-is-tuning-to-a-set` and concept 4's
    `#the-correctness-judge-corrected` (anchors verified).
+   Concept 4 (calibration across a system) is built, no exercise: a
+   calibrated score predicts the errors a threshold lets through
+   (Module 6's support judges: expected vs actual 11.6/11, 7.7/7, 3.7/2,
+   1.8/0 at 0.7 to 0.95), this module's revised judges' verdict-token
+   probabilities against Simar's labels (Gemma 1.000 on all 99, 19
+   disagreements, ECE 0.192; Qwen 0.994 mean, ECE 0.218), why (reasoning
+   before the verdict, where Module 6's judges answered one line,
+   `VERDICT: X`, confirmed in the runs), and a closing list for
+   calibrating a system. 5 quiz cards. Data: `measure.json` rows gain
+   `gemma_v2_p` / `qwen9b_v2_p` (verdict-token probabilities), from the
+   updated `judge_measure_data.py` (identical to the zip's copy apart from
+   line endings; every Lesson 7 demo and the recap sandbox give the same
+   output). In Pyodide 0.26.4 both demos are byte-identical to the
+   mockup's code and print its output exactly. Corrected from the mockup:
+   "the Rogan-Gladen correction in a single case" is now the predictive
+   value, TPR x theta / (TPR x theta + (1 - TNR)(1 - theta)) with theta
+   the Rogan-Gladen pass rate (Rogan-Gladen corrects a rate, not one
+   verdict); "a probability of 1.000" adds "to three decimal places"
+   (Gemma's lowest is 0.99974); "this concept keeps that promise" is
+   "takes that up" (Module 6 said calibration is Module 7's subject, in
+   its "What about asking the model?" section, which the link now
+   targets); Q1's "Σ(1 − p)" reads "the sum of 1 − p" and Q3's correct
+   option names the verdict. "Lesson 11" (monitoring) is plain prose
+   until it exists. Callbacks: Module 6's `#what-about-asking-the-model`,
+   Lesson 6 concept 2's `#from-the-reading-standard-to-a-rubric` (where
+   reasoning-first is), Lesson 7 concept 4's
+   `#a-judge-s-pass-rate-is-biased`, concept 2's
+   `#where-each-signal-is-wrong`, concept 3's
+   `#where-miscalibration-comes-from` (anchors verified).
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092

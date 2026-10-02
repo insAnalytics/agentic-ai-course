@@ -662,6 +662,9 @@ Since concept 5 it also has `premise_strata` (how many of set F's 1,600
 replies fall in each labelling stratum: premise, the marker's outcome,
 Gemma's phase 3 verdict) and `premise_judged` (each judge and version's
 premise verdicts, by true or false premise).
+Since Lesson 8 concept 4, each row also carries `gemma_v2_p` and
+`qwen9b_v2_p` where phase 4 recorded them: the probability of the
+revised judge's verdict token.
 
 Module 7 Lesson 8 (calibration) reuses Module 6's reliability data. Its
 hidden setup `CALIBRATION_SETUP` in `evalData.ts` is Module 6 Lesson 6
