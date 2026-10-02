@@ -203,6 +203,17 @@ const PAIRS = [
       ),
     ],
   },
+  {
+    what: "LOAD_JUDGE_LABELS (Module 7 Lesson 7 concept 4)",
+    a: ["src/lib/evalData.ts", () => rawConstant("src/lib/evalData.ts", "LOAD_JUDGE_LABELS")],
+    b: [
+      "the page's setup block",
+      () => pageFence(
+        "src/content/modules/07-evaluation/07-measuring-judges/04-correcting-a-pass-rate.mdx",
+        "import json\nfrom pathlib import Path\n\nJUDGE_LABELS =",
+      ),
+    ],
+  },
   // the pilot's modules, served to the browser for Module 7 Lesson 2 concept 5's replays
   ...[
     ...["eval_client", "registry_world", "harness"].map((name) => `scripts/eval/${name}.py`),

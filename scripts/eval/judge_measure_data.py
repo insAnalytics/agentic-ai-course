@@ -3,7 +3,8 @@ Write public/data/eval/judge-labels/measure.json for Lesson 7's pages: each labe
 stratum, Simar's label (first pass and after re-review), both judges' verdicts with the phase 3 rubrics (version 1) and
 the revised ones (version 2), whether the run ended without an answer, and whether its reference changed after
 labelling in a way that could change the label (q19, whose reference Simar disputed: those items are left out of
-the measurement; q40-allowed's change only removed a description of the other kind of reader, so its labels stand).
+the measurement; q40-allowed's change only removed a description of the other kind of reader, so its labels stand);
+and how each judge decided on every dev run of each kind, for correcting pass rates.
 
     python scripts/eval/judge_measure_data.py            # writes the file
     python scripts/eval/judge_measure_data.py --check    # fails if it's out of date
@@ -46,7 +47,17 @@ def build() -> dict:
                      "label_first": first[item["item_id"]]["verdict"], "label": revised[item["item_id"]]["verdict"],
                      "note": revised[item["item_id"]]["note"], **v, "no_answer": trial_id in no_answer,
                      "excluded": item["kind"] == "correctness" and any(f"/{t}/" in item["item_id"] for t in REFERENCE_DISPUTED)})
-    return {"version": 1, "rows": rows}
+    # how each judge decided on every dev run of each kind, for correcting pass rates (Lesson 7, concept 4)
+    population = {}
+    for judge in ("gemma", "qwen9b"):
+        for version, suffix in ((1, ""), (2, "-v2")):
+            counts = {}
+            for r in json.loads((JUDGES / f"{judge}{suffix}.json").read_text(encoding="utf-8"))["results"]:
+                if r["kind"] in ("correctness", "relevance", "false_report", "planted", "broken_result") and r["split"] == "dev":
+                    kind = counts.setdefault(r["kind"], {"pass": 0, "fail": 0, "other": 0})
+                    kind[r["decision"] if r["decision"] in ("pass", "fail") else "other"] += 1
+            population[f"{judge}_v{version}"] = counts
+    return {"version": 1, "rows": rows, "population": population}
 
 
 def main() -> None:

@@ -654,12 +654,16 @@ with its kind, split and stratum, Simar's first and revised labels, both
 judges' verdicts under rubrics version 1 (phase 3) and 2 (phase 4),
 `no_answer`, and `excluded` (q19's correctness items, whose reference
 changed after labelling).
+Since concept 4, `measure.json` also has a `population` section: for each
+judge and rubric version (`gemma_v1`, `gemma_v2`, `qwen9b_v1`,
+`qwen9b_v2`), its pass / fail / other counts on every dev run of each
+reply and question kind, for correcting pass rates.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
 code block has drifted: currently the pilot's `tasks.json` against
 `scripts/eval/tasks/pilot.json`, `LOAD_PILOT`, `LOAD_READING` and `LOAD_SUITE`
-(Lesson 4 concept 1, Lesson 5 concepts 1 to 3) `LOAD_JUDGES` (Lesson 6 concepts 1 to 5) and `LOAD_JUDGE_LABELS` (Lesson 7 concepts 1 to 3) against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
+(Lesson 4 concept 1, Lesson 5 concepts 1 to 3) `LOAD_JUDGES` (Lesson 6 concepts 1 to 5) and `LOAD_JUDGE_LABELS` (Lesson 7 concepts 1 to 4) against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
 the demos that show them, the replay exercise's static provided block
 against its constant, and each `public/data/eval/code/*.py` against its
 source. A second list, `CONTAINED`, checks that code a page shows appears

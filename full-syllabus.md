@@ -7142,7 +7142,7 @@ torch 2.13.0+cu130, `torchaudio` removed,
    options reworded so they don't say "it" of two judges.
 
 7. **Measuring Judges** (`07-measuring-judges`, title provisional) —
-   **Building:** concepts 1 to 3 drafted and built (concept 2's
+   **Building:** concepts 1 to 4 drafted and built (concept 2's
    relabel section is a placeholder until the relabel, due from
    2026-10-23); later concepts and bookends not yet drafted.
    Concept 1 (a judge is a measurement) is built: why a judge is checked
@@ -7240,6 +7240,27 @@ torch 2.13.0+cu130, `torchaudio` removed,
    concepts 1 and 2. Callbacks: Lesson 4 concept 5's `#tuning-to-the-suite`,
    Lesson 6 concept 4's `#relevance-separately`, concept 2's
    `#people-drift-too` (anchors verified).
+   Concept 4 (correcting a pass rate for the judge's errors) is built:
+   why a judge's pass rate is biased, the Rogan-Gladen estimator and its
+   derivation, a graded `rogan_gladen` exercise, the revised Gemma's
+   correctness pass rate on the 480 dev question runs corrected with its
+   test-set TPR/TNR (82.5% to 84.3%, bootstrap interval 47.5% to 100%), an
+   illustrative demo of how the interval narrows with more labels, and
+   when the correction can't be made (the planted judge has no passes
+   among its labels). 5 quiz cards. Data: `measure.json` gains a
+   `population` section (each judge's decisions on every dev run of each
+   kind), from the updated `judge_measure_data.py` (identical to the zip's
+   copy apart from line endings; concept 3's demos give the same output).
+   In Pyodide 0.26.4 both demos are byte-identical to the mockup's code
+   and print its output exactly, and the reference prints
+   0.7692307692307694; it passes the 5 hidden tests (the mockup's asserts
+   split by group) and the starter and eight wrong versions each fail (an
+   algebraically identical rearrangement passes, as it should). Changed
+   from the mockup: the estimator is attributed to Husain and Shankar's
+   `judgy` library (linked; its README gives the formula and bootstrap
+   intervals), and "warns that the interval is wide when the test set is
+   small" is now Husain's own figure, below about 60 labelled examples
+   (linked). Added the lesson's setup block, copy-checked.
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092
