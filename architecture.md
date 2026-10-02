@@ -711,6 +711,15 @@ every revised Gemma judge that graded it), `stopped`, `repeated_calls`,
 (`results`, `passes(condition, group)`) is shown verbatim on concept 3,
 copy-checked, and is the setup of every demo from concept 3 on; concept
 3's first demo appends `PAIRED_DIFFERENCE`.
+Concepts 4 and 5 use the same setup (their first demos also append
+`PAIRED_DIFFERENCE`). The recap's sandbox is a two-file
+`MultiFileGradedExercise` over `ABLATIONS_DATA`: a read-only `lib.py`
+(`load_results`, `passes(results, condition, group)`, `GROUPS`, and
+concept 1's `paired_difference` with an `alpha` parameter and 4,000
+repeats; deliberately not copies of `LOAD_ABLATIONS` or
+`PAIRED_DIFFERENCE`, so not copy-checked) and `report.py`, the entry
+file, where the learner writes `verdict` and a Bonferroni-corrected
+`ablation_report`.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or

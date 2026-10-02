@@ -7442,8 +7442,8 @@ torch 2.13.0+cu130, `torchaudio` removed,
    did show probability bands against accuracy); Q8's correct option says
    "Their" for "this module's judges".
 
-9. **Ablations** (`09-ablations`, title provisional) — **Building.**
-   Concepts 1 to 5 are built; the bookends aren't drafted yet. Concept 1 (one piece on and off): what an ablation holds fixed (tasks,
+9. **Does This Piece Help? Ablations** (`09-ablations`) — **Locked.**
+   Concepts 1 to 5 and bookends built. Concept 1 (one piece on and off): what an ablation holds fixed (tasks,
    budget, graders), Miller's "Adding Error Bars to Evals" (arXiv
    2411.00640, linked) on paired differences and clustering, the
    baseline's two 5-trial batches each with its own task-resampled
@@ -7515,6 +7515,24 @@ torch 2.13.0+cu130, `torchaudio` removed,
    4 passed, 2 cited, 3 passed without citing), in the prose and Q2.
    Callbacks: Module 4 Lesson 12 concept 4 and Lesson 11 concept 2
    (pages; anchors verified).
+   Concept 3 later gained a link to concept 5's `#the-result` (its
+   questions interval "taken on its own"), from the revised mockup.
+   Bookends are built: the intro (three outcomes, why it matters; the
+   lesson title is now the bookends' "Does This Piece Help? Ablations"),
+   the comprehensive quiz (8 cards across the five concepts), and the
+   comprehensive sandbox, a two-file `MultiFileGradedExercise` (`lib.py`
+   read-only, `report.py` the entry file) where the learner writes
+   `verdict(low, high)` and `ablation_report(results, conditions, alpha)`:
+   every condition against the baseline over all tasks and each group,
+   Bonferroni-corrected. The page was generated from the mockup's code
+   blocks and round-trips to them exactly. In Pyodide 0.26.4 with the
+   multi-file harness, the reference's Run prints the mockup's 18 rows
+   exactly (layers hurts overall, on questions and other, helps on broken
+   result; compaction and no-labels no measurable effect everywhere), it
+   passes the hidden tests, and the starter and eight wrong versions
+   (touching zero counts as helps, no correction, alpha / 18 hardcoded,
+   per-condition correction, A and B swapped, groups outer loop, `None`
+   as the all-tasks label, verdicts swapped) each fail.
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092

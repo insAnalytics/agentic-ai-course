@@ -47,7 +47,7 @@ broken result    3 tasks   compaction minus baseline -13.3% (-20.0% to +0.0%)
 ```
 *(runs live, shows output — read-only demo snippet, not graded; a trial passes if it reached an answer, passed its code checks, and passed every revised Gemma judge that graded it; `paired_difference` is concept 1's reference version)*
 
-Across the whole suite, compaction cost about four points, with an interval that just reaches zero. On Module 5's questions, the tasks most likely to need several searches, it cost about six, with an interval that stays below zero. The registry tasks barely moved; most of them finish within three rounds and were never compacted. The small groups at the bottom have intervals too wide to say anything.
+Across the whole suite, compaction cost about four points, with an interval that just reaches zero. On Module 5's questions, the tasks most likely to need several searches, it cost about six, with an interval that stays below zero, taken on its own; [concept 5](→ Module 7, the does this piece help? ablations lesson, the a piece that doesn't earn its place concept, the result) explains why one interval among many needs more care than that. The registry tasks barely moved; most of them finish within three rounds and were never compacted. The small groups at the bottom have intervals too wide to say anything.
 
 ---
 
