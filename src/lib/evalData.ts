@@ -1153,3 +1153,16 @@ def headline(per_task: dict[str, list[bool]], z: float = 1.96, min_tasks: int = 
     return {"tasks": tasks, "trials": trials, "rate": rate, "se": se, "interval": interval,
             "naive_se": sqrt(pooled * (1 - pooled) / trials)}
 `;
+
+/** Module 7 Lesson 12 concept 4's grader breakdown (written by scripts/eval/report_grades.py), mounted at /data/eval/report. */
+export const REPORT_DATA = ["eval/report/baseline-grades.json"];
+
+/**
+ * Module 7 Lesson 12 concept 4's setup block, shown verbatim on that page (keep the two byte-identical:
+ * scripts/check-copies.mjs checks it). Its demos run on LOAD_SETTINGS + LOAD_ABLATIONS + this, with REPORT_DATA and
+ * judgeLabelsData("measure").
+ */
+export const REPORT_GRADES = String.raw`REPORT = Path("/data/eval/report")
+grades = json.loads((REPORT / "baseline-grades.json").read_text(encoding="utf-8"))["trials"]
+measured = json.loads(Path("/data/eval/judge-labels/measure.json").read_text(encoding="utf-8"))
+`;

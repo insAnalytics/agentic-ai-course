@@ -854,6 +854,15 @@ sqrt` for its exercise; its reference is `HEADLINE` (kept in evalData.ts
 for later pages), loaded hidden with `SUITE_PASS_HAT_K` by the demo after
 the exercise. Concept 3's two demos run on `LOAD_SETTINGS` +
 `LOAD_ABLATIONS` + `HEADLINE`, with the same data.
+Concept 4 adds `public/data/eval/report/baseline-grades.json` (84 KB,
+written by `scripts/eval/report_grades.py`, which has a `--check` mode):
+for each of the baseline's 625 trials, whether it answered, its code-check
+result (null when there are no checks or no answer) and each revised
+Gemma judge's verdict; the script asserts the breakdown reproduces every
+baseline pass in `ablations/results.json`. Mounted via `REPORT_DATA`,
+with `judgeLabelsData("measure")`. Its setup is `LOAD_SETTINGS` +
+`LOAD_ABLATIONS` + `REPORT_GRADES` (`REPORT`, `grades`, `measured`),
+shown and copy-checked.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or

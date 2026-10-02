@@ -226,6 +226,17 @@ const PAIRS = [
     ],
   },
   {
+    what: "REPORT_GRADES (Module 7 Lesson 12 concept 4)",
+    a: ["src/lib/evalData.ts", () => rawConstant("src/lib/evalData.ts", "REPORT_GRADES")],
+    b: [
+      "the page's setup block",
+      () => pageFence(
+        "src/content/modules/07-evaluation/12-evaluation-report/04-how-far-to-trust-each-number.mdx",
+        "REPORT = Path(\"/data/eval/report\")\ngrades =",
+      ),
+    ],
+  },
+  {
     what: "LOAD_SUMMARIZER (Module 7 Lesson 5 concept 5)",
     a: ["the LOAD_SUMMARIZER constant", () => rawConstant("src/content/modules/07-evaluation/05-code-graders/05-a-component-test-the-summarizer.mdx", "LOAD_SUMMARIZER")],
     b: [

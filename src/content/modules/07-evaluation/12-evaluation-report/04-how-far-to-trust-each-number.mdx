@@ -1,0 +1,225 @@
+---
+title: "How far to trust each number"
+lesson: "12-evaluation-report"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import { ABLATIONS_DATA, LOAD_ABLATIONS, LOAD_SETTINGS, REPORT_DATA, REPORT_GRADES, SETTINGS_DATA, judgeLabelsData } from "../../../../lib/evalData";
+
+export const DATA = [...SETTINGS_DATA, ...ABLATIONS_DATA, ...REPORT_DATA, ...judgeLabelsData("measure")];
+
+export const SETUP = LOAD_SETTINGS + "\n\n" + LOAD_ABLATIONS + "\n\n" + REPORT_GRADES;
+
+export const DECIDED_DEMO = String.raw`from collections import Counter
+
+
+def decided_by(trial: dict) -> str:
+    """Which grader settled this trial: the first one, in the order the pass rule applies them, that failed it."""
+    if not trial["answered"]:
+        return "failed: no answer"
+    if trial["code"] is False:
+        return "failed: code checks"
+    if any(verdict != "pass" for verdict in trial["judges"].values()):
+        return "failed: a judge"
+    if trial["judges"]:
+        return "passed: code checks and judges" if trial["code"] else "passed: judges only"
+    return "passed: code checks only" if trial["code"] else "passed: reached an answer"
+
+
+for split in ("dev", "held_out"):
+    counts = Counter(decided_by(trial) for trial in grades if trial["split"] == split)
+    print(f"{split}: {counts.total()} trials")
+    for outcome, count in sorted(counts.items()):
+        print(f"  {outcome:<32} {count:>3}  ({count / counts.total():.0%})")
+`;
+
+export const JUDGES_DEMO = String.raw`def test_labels(kind: str) -> tuple[list[str], list[str]]:
+    """The revised Gemma judge's verdicts on Lesson 7's test labels for one kind: on runs people passed, and failed."""
+    rows = [row for row in measured["rows"] if row["kind"] == kind and row["split"] == "test" and not row["excluded"]]
+    return ([row["gemma_v2"] for row in rows if row["label"] == "pass"],
+            [row["gemma_v2"] for row in rows if row["label"] == "fail"])
+
+
+print(f"{'judge':<15}{'its verdicts on the baseline':>29}{'TPR':>8}{'TNR':>8}")
+for kind in ("correctness", "false_report", "planted", "broken_result"):
+    verdicts = [trial["judges"][kind] for trial in grades if kind in trial["judges"]]
+    on_passes, on_fails = test_labels(kind)
+    tpr = f"{on_passes.count('pass')}/{len(on_passes)}" if on_passes else "unknown"
+    tnr = f"{on_fails.count('fail')}/{len(on_fails)}" if on_fails else "unknown"
+    others = len(verdicts) - verdicts.count("pass") - verdicts.count("fail")
+    shown = f"{verdicts.count('pass')} pass, {verdicts.count('fail')} fail" + (f", {others} unclear" if others else "")
+    print(f"{kind:<15}{shown:>29}{tpr:>8}{tnr:>8}")
+`;
+
+<Subsection title="Every number has graders behind it" variant="a">
+
+"73.6% of dev trials pass" sounds like one measurement. It's several,
+stacked. A trial passes if the run reached an answer, passed its task's
+code checks, and passed every judge that graded it. Each of those graders
+has its own blind spots and error rates, so how far to trust the headline
+depends on how much of it each one decided.
+
+The setup loads, for each baseline trial, what each grader said:
+
+```python
+REPORT = Path("/data/eval/report")
+grades = json.loads((REPORT / "baseline-grades.json").read_text(encoding="utf-8"))["trials"]
+measured = json.loads(Path("/data/eval/judge-labels/measure.json").read_text(encoding="utf-8"))
+```
+*(defined once here and already loaded for both demos in this concept,
+with Lesson 9's `results` and its `json` and `Path` imports)*
+
+Here's which grader settled each trial, applying them in the order the
+pass rule does:
+
+<LiveDemo client:load dataFiles={DATA} setupCode={SETUP} code={DECIDED_DEMO} />
+
+*(The breakdown reproduces every baseline pass and fail in Lesson 9's
+results.)*
+
+On the dev tasks, 190 of the 357 passes rest on judges alone: they're
+Module 5's questions, which have no code check, so the correctness judge
+decides them. Another 12 passed both. And 69 of the 128 failures were a
+judge's verdict. More than half of the headline number, in both
+directions, is a model's opinion.
+
+None of this makes the number wrong. It says where its trust comes from:
+the code checks, which
+[Lesson 5 tested against real answers](/07-evaluation/05-code-graders/04-testing-the-graders/),
+and the judges, which
+[Lesson 7 measured against people](/07-evaluation/07-measuring-judges/01-a-judge-is-a-measurement/).
+The report should say how well each was measured.
+
+</Subsection>
+
+<Subsection title="Each judge, as measured" variant="b">
+
+Here are the four judges in the pass rule: what each said about the
+baseline, and its error rates on Lesson 7's test labels, the labels kept
+apart from the rubric's development:
+
+<LiveDemo client:load dataFiles={DATA} setupCode={SETUP} code={JUDGES_DEMO} />
+
+*(TPR is the share of runs people passed that the judge passed, TNR the
+share people failed that it failed; "unclear" verdicts count as failures
+in the pass rule.)*
+
+Each row says something different about the number it supports:
+
+- **Correctness decides the question group, and is the best measured.**
+  On 18 test labels it passed 11 of 12 good answers and failed 4 of 6 bad
+  ones. Missing a third of the wrong answers pushes the question group's
+  rate up, and failing an occasional good one pushes it down;
+  [Lesson 7's correction](/07-evaluation/07-measuring-judges/04-correcting-a-pass-rate/#the-correctness-judge-corrected)
+  found the two nearly cancel, 82.5% becoming 84.3%, but with an interval
+  from 47.5% to 100% on so few labels. The question group's rate is
+  plausible and not pinned down.
+- **The false-report judge decides the lost-write group, and only half of
+  it is measured.** All four of its test labels were failures, so how
+  often it passes a reply that deserved to pass is unknown. Its TNR, 2 of
+  4, says it misses failures too. The lost-write group's 13.3% could be
+  off in either direction.
+- **The planted-instruction judge failed all 30 baseline runs it saw, and
+  its TPR is unknown.** Every test label was a failure, so nothing shows
+  it can pass a reply at all. The planted group's 0% can't be told apart
+  from a judge that fails everything. As
+  [Lesson 7 said](/07-evaluation/07-measuring-judges/04-correcting-a-pass-rate/#when-the-correction-can-t-be-made),
+  the report gives the number with that gap stated, not corrected.
+- **The broken-result judge rests on four labels.** It got 3 of them
+  right. Four labels measure almost nothing.
+
+</Subsection>
+
+<Subsection title="What the report says" variant="a">
+
+For each result, the report names the graders that produced it and how
+far they were measured. In practice, three kinds of sentence:
+
+- **Measured, and correctable:** "Questions: 80.9% of dev trials pass
+  (71.9% to 89.8%), graded by a correctness judge whose error rates,
+  measured on 18 labels, roughly cancel; the correction's own interval is
+  wide."
+- **Measured on one side only:** "Lost writes: 4 of 30 dev trials pass,
+  graded by a false-report judge whose pass rate on good replies has
+  never been measured."
+- **Not checkable:** "Planted instructions: no dev trial passes. The
+  judge failed every reply it saw, and was never shown one a person
+  passed, so this may be the agent or the judge."
+
+The same table says where labelling effort would pay most. Not where the
+judges are worst, but where the most of the headline rests on the least
+measurement: the correctness judge, which decides 190 dev passes on 18
+labels, and the two judges with no labelled passes at all. A labelled
+sample of live runs, as
+[Lesson 11 recommended](/07-evaluation/11-monitoring/05-learning-from-use/#labels-from-live-traffic),
+is how those numbers get filled in.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "190 of the baseline's 357 dev passes were decided by judges alone. What does that tell the report's reader?",
+      "options": [
+        "How far the headline rests on how well those judges were measured",
+        "That the headline is wrong by the number of passes the judges gave",
+        "That the question tasks are easier than the tasks code checks grade",
+        "Nothing much, since the judges and the code checks were both tested"
+      ],
+      "correctIndex": 0,
+      "explanation": "A pass decided by a judge is only as good as the judge, and the judges' error rates were measured on few labels. The headline isn't wrong for that, but its trust depends on those measurements, which the report has to state."
+    },
+    {
+      "question": "The planted-instruction judge failed all 30 baseline runs, and every test label it saw was a failure. What can the report say about the planted group?",
+      "options": [
+        "That 0% may reflect the agent or a judge that fails everything",
+        "That the agent follows planted instructions in every run it makes",
+        "That the judge is perfect, since it agreed with all of its labels",
+        "That the group's 0% can be corrected with Rogan–Gladen"
+      ],
+      "correctIndex": 0,
+      "explanation": "Agreeing with three failure labels says nothing about whether the judge can pass a good reply: its TPR is unknown. Without it, the correction can't be made, and 0% can't be put down to the agent alone."
+    },
+    {
+      "question": "The correctness judge misses a third of wrong answers but fails a few good ones too. Why did Lesson 7's correction barely move its rate?",
+      "options": [
+        "Its two errors pull opposite ways and nearly cancel",
+        "The judge's errors were too rare to change anything at all",
+        "The correction only applies when the TNR is above 0.9",
+        "The question group is too small for a correction to matter"
+      ],
+      "correctIndex": 0,
+      "explanation": "Passing wrong answers inflates the rate and failing good ones deflates it. Here they nearly balance, so 82.5% became 84.3%. The correction's interval, 47.5% to 100%, is the real message: 18 labels don't pin it down."
+    },
+    {
+      "question": "Where would the next labelling effort improve the report most?",
+      "options": [
+        "Where most of the headline rests on the fewest labels",
+        "On the judge with the lowest measured TNR, whatever it decides",
+        "On the code checks, since they grade more trials than judges",
+        "Evenly across all four judges, to keep their measurements fair"
+      ],
+      "correctIndex": 0,
+      "explanation": "The correctness judge decides 190 dev passes on 18 labels, and two judges have never been shown a labelled pass. Labels there tighten the most important numbers. The code checks were already tested against real answers in Lesson 5."
+    },
+    {
+      "question": "Why does the report apply the graders in the pass rule's order when saying which one decided a trial?",
+      "options": [
+        "So each trial counts once, by the first grader to fail it",
+        "Because judges are only run after code checks have passed a trial",
+        "Because the order changes whether the trial passes or fails",
+        "So the code checks get credit for as many trials as possible"
+      ],
+      "correctIndex": 0,
+      "explanation": "A trial can fail several graders at once; attributing it to the first one in the rule's order gives every trial exactly one cause. The order doesn't change the outcome, since a trial passes only if all of them pass, and each judge graded its runs whether or not the code checks passed them."
+    }
+  ]}
+/>
+
+</CheckpointZone>

@@ -7898,7 +7898,7 @@ torch 2.13.0+cu130, `torchaudio` removed,
    Locked.
 12. **The Evaluation Report** (`12-evaluation-report`, title provisional:
    the folder and title were chosen at conversion, since no mockup names
-   the lesson yet) — **Building.** Concepts 1 to 3 drafted and built; the
+   the lesson yet) — **Building.** Concepts 1 to 4 drafted and built; the
    concept says the rest of the lesson builds the registry agent's report
    section by section (headline numbers with uncertainty, held-out
    results and their history, trust in each grader, decisions, limits and
@@ -7954,6 +7954,26 @@ torch 2.13.0+cu130, `torchaudio` removed,
    corrections. Callbacks: Lesson 4 concept 5's
    `#two-kinds-of-task-in-one-suite`, Module 5 Lesson 15 concept 3 (page
    and `#reading-it`) (anchors verified).
+   Concept 4 (how far to trust each number): which grader decided each
+   baseline trial (dev: 190 of 357 passes judges only, 69 of 128 failures
+   a judge), each revised Gemma judge's baseline verdicts against its TPR
+   and TNR on Lesson 7's test labels (correctness 11/12, 4/6;
+   false_report unknown, 2/4; planted unknown, 3/3; broken_result 2/2,
+   1/2), three kinds of sentence, where labelling would pay most, 5 quiz
+   cards, no exercise. New data from the zip's
+   `scripts/eval/report_grades.py`: `public/data/eval/report/
+   baseline-grades.json` (84 KB, 625 trials; the script asserts its
+   breakdown reproduces every baseline pass in `ablations/results.json`).
+   Rerun here, its output is identical to the zip's copy apart from the
+   final line ending (Windows writes CRLF; the zip's LF bytes are
+   committed), and `--check` passes. Setup `LOAD_SETTINGS` +
+   `LOAD_ABLATIONS` + the new `REPORT_GRADES` (shown and copy-checked),
+   with `REPORT_DATA` and `judgeLabelsData("measure")`. Both demos were
+   taken from the mockup byte for byte and reproduce its output exactly,
+   in Pyodide 0.26.4 too. No corrections. Callbacks: Lesson 5 concept 4,
+   Lesson 7 concepts 1 (page) and 4 (`#the-correctness-judge-corrected`,
+   `#when-the-correction-can-t-be-made`), Lesson 11 concept 5's
+   `#labels-from-live-traffic` (anchors verified).
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092
