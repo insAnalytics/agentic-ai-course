@@ -7678,8 +7678,9 @@ torch 2.13.0+cu130, `torchaudio` removed,
    flags taken as confirmed, gate arguments swapped) each fail. Lesson 10
    is now fully Locked.
 11. **Monitoring in Production** (`11-monitoring`, title provisional) —
-   **Building.** Concepts 1 to 4 drafted and built; concepts 5 on and
-   bookends not yet. Concept 1 (what to watch on every run): no answer key in
+   **Building.** Concepts 1 to 5 drafted and built; concepts 6 on (the
+   mockup says the rest of the lesson covers putting a change in front
+   of real users) and bookends not yet. Concept 1 (what to watch on every run): no answer key in
    production (Lesson 1), Anthropic's guide on monitoring after launch,
    simulated traffic (the baseline's batch a, 385 development runs, in
    start order), the SRE book's four golden signals for an agent plus
@@ -7802,6 +7803,31 @@ torch 2.13.0+cu130, `torchaudio` removed,
    (`#a-number-that-moves-every-hour`) and 3
    (`#spending-the-sample-where-failures-are`), Module 5 Lesson 15
    concept 3's `#reading-it` (anchors verified).
+   Concept 5 (learning from use): explicit and implicit feedback and
+   escalations (Anthropic's guide on user feedback: its six methods,
+   strengths and weaknesses, "triage feedback constantly", bug tracker
+   and support queue, prioritising by user impact, all checked; Ziegler
+   et al. 2022 on Copilot's acceptance rate vs persistence, checked
+   against the abstract), from a report to a task in six steps, grouping
+   then counting (29 runs without an answer from 8 requests, q40-denied
+   10 and q30 7), labels from live traffic, the loop closed, 6 quiz
+   cards, no exercise. No new data or shared code: the demo runs on
+   `LOAD_TRAFFIC` + `QUESTION_MIX` with `trafficData("baseline-a",
+   "baseline-b")` and `QUESTION_DATA`. The demo was taken from the mockup
+   byte for byte and reproduces its output exactly, in Pyodide 0.26.4
+   too (its f-string reuses double quotes inside braces, which needs
+   Python 3.12; Pyodide 0.26.4 is 3.12.1). No corrections. Callbacks:
+   Module 6 Lesson 6 concept 3's `#escalating-to-a-person`, Module 4
+   Lesson 10 concept 2 (page), Lesson 1 concepts 4
+   (`#capability-suites-and-regression-suites`) and 5 (`#the-loop`),
+   Lesson 2 concept 2 (`#what-the-conventions-leave-out-content`), Lesson
+   3 concept 2 (page), Lesson 4 concepts 1
+   (`#a-task-is-a-test-with-a-definition-of-success`), 2
+   (`#three-sources`, `#a-failure-becomes-tasks`) and 5
+   (`#a-held-out-set-has-to-look-like-the-dev-set`), Lesson 7 concept 4,
+   Lesson 9 concept 1 and Lesson 10 concept 2 (pages), concepts 3
+   (`#the-judge-s-own-errors`) and 4 (page and `#categories-first`)
+   (anchors verified).
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092
