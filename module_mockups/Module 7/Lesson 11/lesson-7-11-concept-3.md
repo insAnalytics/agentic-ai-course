@@ -1,7 +1,7 @@
 # Module 7, Lesson 11 — Concept 3: Judges on a sample
 
 > **Note for the site build:**
-> - `scripts/eval/monitoring_traffic.py` now also writes `public/data/eval/monitoring/relevance-judged.json` (52 KB): every development question run of the baseline's two batches, with whether it ended with an answer (from its trace) and the revised Gemma relevance judge's verdict and tokens on it. Use `m7-l11-c3-site-build.zip`, which replaces concept 2's: rerun the script, check all five outputs are identical to the copies in the zip, run `--check`, and commit.
+> - `scripts/eval/monitoring_traffic.py` now also writes `public/data/eval/monitoring/relevance-judged.json` (52 KB): every development question run of the baseline's two batches, with whether it ended with an answer (from its trace) and the revised Gemma relevance judge's verdict and tokens on it. Concept 4 extends it again, so use concept 4's zip, `m7-l11-c4-site-build.zip`, which replaces the earlier ones.
 > - This page reads only `relevance-judged.json`, no traffic files. Its setup is `LOAD_TRAFFIC` + the setup block shown below (`judged`, `wilson`); add the shown block to `evalData.ts` as `JUDGED_SAMPLE`, byte-identical to the page. The demos run independently on that setup.
 > - The exercise's setup is the same. Add its reference `runs_to_judge`, without the example printout, as `RUNS_TO_JUDGE` for later pages. The hidden tests take well under a second.
 

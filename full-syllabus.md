@@ -7678,7 +7678,7 @@ torch 2.13.0+cu130, `torchaudio` removed,
    flags taken as confirmed, gate arguments swapped) each fail. Lesson 10
    is now fully Locked.
 11. **Monitoring in Production** (`11-monitoring`, title provisional) —
-   **Building.** Concepts 1 to 3 drafted and built; concepts 4 on and
+   **Building.** Concepts 1 to 4 drafted and built; concepts 5 on and
    bookends not yet. Concept 1 (what to watch on every run): no answer key in
    production (Lesson 1), Anthropic's guide on monitoring after launch,
    simulated traffic (the baseline's batch a, 385 development runs, in
@@ -7774,6 +7774,34 @@ torch 2.13.0+cu130, `torchaudio` removed,
    Lesson 7 concepts 3 and 4, Lesson 8 concept 4 (pages), Module 5
    Lesson 15 concept 5's `#a-system-that-keeps-running` (anchors
    verified).
+   Concepts 1 to 3's mockups were later revised only in their build
+   notes (pointing at the c4 zip); no page change.
+   Concept 4 (when what people ask changes): the mix behind every
+   dashboard number, categories from a classifier or clustering (Clio,
+   arXiv 2412.13678: privacy-preserving, monitoring "unknown unknowns
+   during critical periods like launches of new capabilities", checked),
+   the new `QUESTION_MIX` setup over `question-mix.json` (from the c4
+   zip's `monitoring_traffic.py`; all six outputs identical to the zip's
+   copies apart from line endings, `--check` passes; 41 kinds in 6
+   categories, checked), the population stability index (Evidently's PSI
+   for numerical and categorical data, default threshold 0.1, checked;
+   Yurdakul and Naranjo 2020 on thresholds without statistical basis and
+   dependence on bins and both sample sizes, checked against the
+   abstract), a graded `psi` exercise (the mockup's hidden tests split
+   into 3 self-contained tests, each with the imports and `checked`
+   helper), a shift arriving (emails four times as common), how big a
+   PSI means something (quiet-period 95th percentiles by window size and
+   6 vs 41 bins), what to do about a shift (suite rates weighted by the
+   live mix: 80.4% to 76.3%; email rests on 40 runs of 4 tasks,
+   checked), 6 quiz cards. The page's code was generated from the
+   mockup's and matches it byte for byte; in Pyodide 0.26.4 all three
+   demos reproduce the mockup's output exactly, the reference passes all
+   3 tests, and the starter and five wrong versions (reference
+   categories only, no floor, KL one way, floor parameter ignored,
+   counts not shares) each fail. No corrections. Callbacks: concepts 2
+   (`#a-number-that-moves-every-hour`) and 3
+   (`#spending-the-sample-where-failures-are`), Module 5 Lesson 15
+   concept 3's `#reading-it` (anchors verified).
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092

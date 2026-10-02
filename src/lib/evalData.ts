@@ -1036,3 +1036,44 @@ export const RUNS_TO_JUDGE = String.raw`def runs_to_judge(expected_rate: float, 
             return n
         n += 1
 `;
+
+/** Module 7 Lesson 11 concept 4's request mix (written by scripts/eval/monitoring_traffic.py), mounted at /data/eval/monitoring. */
+export const QUESTION_DATA = ["eval/monitoring/question-mix.json"];
+
+/**
+ * Module 7 Lesson 11 concept 4's setup block, shown verbatim on that page (keep the two byte-identical:
+ * scripts/check-copies.mjs checks it). Its exercise and demos run on LOAD_TRAFFIC + this, with QUESTION_DATA.
+ */
+export const QUESTION_MIX = String.raw`import random
+from collections import Counter, defaultdict
+
+mix_runs = json.loads((MONITORING / "question-mix.json").read_text(encoding="utf-8"))["runs"]
+by_category = defaultdict(list)
+for run in mix_runs:
+    by_category[run["category"]].append(run)
+# the baseline's own mix of requests, as shares
+reference_mix = {name: len(runs) / len(mix_runs) for name, runs in sorted(by_category.items())}
+
+
+def arrivals(mix: dict[str, float], n: int, rng: random.Random) -> list[dict]:
+    """n simulated requests: each one's category drawn from ${"`"}mix${"`"}, then one recorded run of that category."""
+    names = list(mix)
+    picked = rng.choices(names, weights=[mix[name] for name in names], k=n)
+    return [rng.choice(by_category[name]) for name in picked]
+`;
+
+/** Module 7 Lesson 11 concept 4's exercise reference, without its example printout. */
+export const PSI = String.raw`from math import log
+
+
+def psi(reference: dict[str, int], current: dict[str, int], floor: float = 0.0001) -> float:
+    """The population stability index between two counts of categories. Each count becomes a share of its own total;
+    a category missing from either side gets the share ${"`"}floor${"`"}, so the logarithm stays finite."""
+    expected_total, actual_total = sum(reference.values()), sum(current.values())
+    index = 0.0
+    for name in reference.keys() | current.keys():
+        expected = reference.get(name, 0) / expected_total or floor
+        actual = current.get(name, 0) / actual_total or floor
+        index += (actual - expected) * log(actual / expected)
+    return index
+`;

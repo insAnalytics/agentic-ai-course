@@ -16,6 +16,10 @@ It also writes public/data/eval/monitoring/relevance-judged.json: every developm
 two batches, with whether the run ended with an answer (its last model call asked for no tools, read from its trace)
 and the revised Gemma relevance judge's verdict and tokens on it, from judges/gemma-v2.json.
 
+And public/data/eval/monitoring/question-mix.json: every development run of the baseline's two batches, with its
+task's kind, the kind's group (CATEGORY below: the coarse categories a request classifier would assign), and whether
+the run passed (code checks and revised judges, from ablations/results.json).
+
     python scripts/eval/monitoring_traffic.py            # writes the files
     python scripts/eval/monitoring_traffic.py --check    # fails if any is out of date
 """
@@ -30,6 +34,22 @@ MAIN = ROOT / "public" / "data" / "eval" / "main"
 OUT = ROOT / "public" / "data" / "eval" / "monitoring"
 TASKS = ROOT / "scripts" / "eval" / "tasks" / "main.json"
 JUDGE = ROOT / "public" / "data" / "eval" / "judges" / "gemma-v2.json"
+ABLATIONS = ROOT / "public" / "data" / "eval" / "ablations" / "results.json"
+
+
+def category(kind: str) -> str:
+    """A task kind's coarse category, checked in this order."""
+    if kind.startswith("docs"):
+        return "docs question"
+    if kind.startswith("conversation"):
+        return "conversation"
+    if kind.startswith("should not act"):
+        return "should not act"
+    if "email" in kind:
+        return "email"
+    if kind.startswith("action") or kind == "two actions":
+        return "model change"
+    return "lookup"
 CONDITIONS = ("baseline-a", "baseline-b", "layers-a", "compaction-a")
 DROPPED = {"registry_agent.check.reason"}
 
@@ -75,6 +95,20 @@ def build_relevance(dev: set[str]) -> dict:
     return {"version": 1, "judge": judge["model"], "rubrics_version": judge["rubrics_version"], "runs": rows}
 
 
+def build_mix() -> dict:
+    tasks = {task["id"]: task for task in json.loads(TASKS.read_text(encoding="utf-8"))["tasks"]}
+    results = json.loads(ABLATIONS.read_text(encoding="utf-8"))["conditions"]
+    runs = []
+    for condition, batch in (("baseline", "baseline-a"), ("baseline-b", "baseline-b")):
+        for task_id, trials in sorted(results[condition].items()):
+            task = tasks.get(task_id)
+            if task is None or task["split"] != "dev":
+                continue
+            runs += [{"trial_id": f"{batch}/{task_id}/{n}", "kind": task["kind"], "category": category(task["kind"]),
+                      "passed": trial["pass"]} for n, trial in enumerate(trials)]
+    return {"version": 1, "runs": runs}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
@@ -94,6 +128,14 @@ def main() -> None:
         print(f"wrote {path.relative_to(ROOT)}: {len(json.loads(text)['runs'])} runs, {len(text) / 1e6:.1f} MB")
     path = OUT / "relevance-judged.json"
     text = json.dumps(build_relevance(dev), ensure_ascii=False, indent=1) + "\n"
+    if args.check:
+        if not path.exists() or path.read_text(encoding="utf-8") != text:
+            stale.append(path.name)
+    else:
+        path.write_text(text, encoding="utf-8")
+        print(f"wrote {path.relative_to(ROOT)}: {len(json.loads(text)['runs'])} runs")
+    path = OUT / "question-mix.json"
+    text = json.dumps(build_mix(), ensure_ascii=False, separators=(",", ":")) + "\n"
     if args.check:
         if not path.exists() or path.read_text(encoding="utf-8") != text:
             stale.append(path.name)

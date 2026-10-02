@@ -816,6 +816,17 @@ same as `namespaceSetup`, and its reference is `RUNS_TO_JUDGE`.
 `JUDGED_SAMPLE` contains backticks, so its copy check reads it with
 `escapedConstant` and undoes the escapes; `pageFence` now reads up to
 the closing fence line rather than stopping at any backtick.
+Concept 4 adds `public/data/eval/monitoring/question-mix.json` (80 KB,
+from the same script): every development run of the baseline's two
+batches with its task's kind, the kind's category (the script's
+`category()`) and whether it passed (from `ablations/results.json`).
+Mounted via `QUESTION_DATA`. Its setup is `LOAD_TRAFFIC` +
+`QUESTION_MIX` (`mix_runs`, `by_category`, `reference_mix`, `arrivals`),
+shown and copy-checked the same way as `JUDGED_SAMPLE` (it contains
+backticks); the exercise passes the same as `namespaceSetup`, and its
+reference is `PSI`, loaded hidden by the three demos after it (the second
+and third also load the first's `SHIFT_BASE`). The 41-kinds PSI-noise
+demo takes about 2.2 s in Pyodide.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
