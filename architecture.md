@@ -864,6 +864,12 @@ with `judgeLabelsData("measure")`. Its setup is `LOAD_SETTINGS` +
 `LOAD_ABLATIONS` + `REPORT_GRADES` (`REPORT`, `grades`, `measured`),
 shown and copy-checked. Concept 5's demo runs on `LOAD_SETTINGS` +
 `LOAD_ABLATIONS` + `PAIRED_DIFFERENCE` (about 0.7 s in Pyodide).
+The recap's sandbox is a two-file `MultiFileGradedExercise` over
+`ABLATIONS_DATA`: a read-only `lib.py` (`results`, `SPLIT_NAMES`,
+`rate_line`, its own `passes(results, condition)`, and `pass_rate`,
+`paired_difference` and `headline`, those three copy-checked byte for
+byte against `PAIRED_DIFFERENCE` and `HEADLINE` via `CONTAINED`) and
+`report.py`, the entry file. Run takes about 0.3 s in Pyodide.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or

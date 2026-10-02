@@ -7896,13 +7896,9 @@ torch 2.13.0+cu130, `torchaudio` removed,
    dashboard, passes counted as failures) each fail; swapping psi's
    arguments passes, since PSI is symmetric. Lesson 11 is now fully
    Locked.
-12. **The Evaluation Report** (`12-evaluation-report`, title provisional:
-   the folder and title were chosen at conversion, since no mockup names
-   the lesson yet) — **Building.** Concepts 1 to 5 drafted and built; the
-   concept says the rest of the lesson builds the registry agent's report
-   section by section (headline numbers with uncertainty, held-out
-   results and their history, trust in each grader, decisions, limits and
-   next steps); those concepts and the bookends not yet. Concept 1 (what
+12. **Putting It Together: An Evaluation Report** (`12-evaluation-report`;
+   folder chosen at conversion, title confirmed by the bookends mockup) —
+   **Locked.** All five concepts and the bookends built. Concept 1 (what
    an evaluation report is for): three readers, Anthropic's guide on
    reading transcripts behind a score, Mitchell et al. 2019's nine
    model-card sections mapped to an agent, three sections an agent adds
@@ -7989,6 +7985,23 @@ torch 2.13.0+cu130, `torchaudio` removed,
    concepts 1 (page) and 4 (page, `#reading-a-failure-the-layer-fix`,
    `#reading-a-pass-the-prompt-change`), Lesson 4 concept 3, Lesson 7
    concept 2 (pages), Lesson 11 (intro page) (anchors verified).
+   Bookends: intro (`00-intro`, 3 outcomes and why-it-matters) and recap
+   (`06-recap-practice`): an 8-question comprehensive quiz and a two-file
+   comprehensive sandbox over `ABLATIONS_DATA`, `lib.py` (read-only:
+   `results`, `SPLIT_NAMES`, `rate_line`, `passes(results, condition)`,
+   and Lesson 9's `pass_rate` and `paired_difference` and concept 2's
+   `headline`, those three copy-checked byte for byte against their
+   constants) and `report.py`, where the learner writes
+   `evaluation_report` (headline per split and per group within a split,
+   changes on dev tasks both conditions ran, the report's lines in
+   order). The task's nested list of lines was joined into one sentence
+   for the task prop. In Pyodide 0.26.4 with the real multi-file harness,
+   the reference's Run prints the mockup's 18 lines exactly, it passes
+   the hidden tests (also on a second submission), and the starter fails.
+   In CPython seven wrong versions (changes over all tasks, dev tasks not
+   intersected, splits mixed, groups unsorted, groups across splits, the
+   raw split key as label, arguments swapped) each fail the right
+   assertion. Lesson 12 is now fully Locked.
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092
