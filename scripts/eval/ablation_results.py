@@ -2,7 +2,8 @@
 Write public/data/eval/ablations/results.json for Lesson 9's pages: for the baseline and each phase 5 variant, every
 task's trial results, where a trial passes if it reached an answer, passed its task's code checks, and passed every
 revised Gemma judge that graded it (correctness for Module 5's questions; the false-report, planted-instruction and
-broken-result judges for those tasks). Plus, per trial, what each variant did: whether a run was compacted, stopped
+broken-result judges for those tasks). "baseline-b" is the baseline's second batch, main tasks only (the suite was run
+once), for Lesson 10's no-change comparison. Plus, per trial, what each variant did: whether a run was compacted, stopped
 at the step limit and repeated a tool call; which layers objected and whether the answer was withheld; whether the
 answer cited a source.
 
@@ -27,7 +28,7 @@ from harness import load_tasks  # noqa: E402
 ROOT = HERE.parents[1]
 MAIN, JUDGES = ROOT / "public/data/eval/main", ROOT / "public/data/eval/judges"
 OUT = ROOT / "public" / "data" / "eval" / "ablations" / "results.json"
-CONDITIONS = {"baseline": ("baseline-a", "suite-2a-a"), "layers": ("layers-a", "layers-suite-a"),
+CONDITIONS = {"baseline": ("baseline-a", "suite-2a-a"), "baseline-b": ("baseline-b",), "layers": ("layers-a", "layers-suite-a"),
               "compaction": ("compaction-a", "compaction-suite-a"), "no-labels": ("no-labels-a", "no-labels-suite-a")}
 JUDGE_FILES = ("gemma-v2.json",
                "gemma-v2-layers-a+layers-suite-a+compaction-a+compaction-suite-a+no-labels-a+no-labels-suite-a.json")

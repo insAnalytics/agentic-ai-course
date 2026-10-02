@@ -856,3 +856,16 @@ export const WHAT_CHANGED = String.raw`def what_changed(a: dict, b: dict, ignore
             changes[name] = (left, right)
     return changes
 `;
+
+/** Module 7 Lesson 10 concept 2's exercise reference (needs PAIRED_DIFFERENCE), also loaded (unshown) for the demo after it. */
+export const GATE = String.raw`def gate(known_good: dict, new: dict, tolerance: float = 0.02, task_drop: float = 0.8) -> dict:
+    """Pass or fail a new run against the last known-good one. The suite regresses if its paired difference is
+    clearly below zero (the whole interval under 0) and by more than ${"`"}tolerance${"`"}; a task is flagged if its pass rate
+    fell by ${"`"}task_drop${"`"} or more. The run passes only if neither happens."""
+    mean, low, high = paired_difference(known_good, new)
+    shared = sorted(known_good.keys() & new.keys())
+    flagged = [t for t in shared if pass_rate(known_good[t]) - pass_rate(new[t]) >= task_drop]
+    suite_regressed = high < 0 and mean <= -tolerance
+    return {"passed": not suite_regressed and not flagged, "difference": (mean, low, high),
+            "suite_regressed": suite_regressed, "flagged": flagged}
+`;

@@ -735,6 +735,17 @@ copy-checked, and is the lesson's demo setup. Concept 1's exercise
 reference is `WHAT_CHANGED` (`what_changed(a, b, ignore, prefix)`:
 dotted keys, a missing key as `None`, sorted), loaded hidden by the demo
 after it.
+Concept 2 adds a `baseline-b` condition to `results.json` (the
+baseline's second batch, main pool only: 96 tasks; `ablation_results.py`
+updated from the zip, every other condition unchanged) and uses
+`LOAD_ABLATIONS` + `PAIRED_DIFFERENCE` as its demo setup. Its exercise
+reference is `GATE` (`gate(known_good, new, tolerance, task_drop)`),
+loaded hidden by the demo after it. The exercise passes
+`PAIRED_DIFFERENCE` as `namespaceSetup`, not `setupCode`: `setupCode`
+runs in Pyodide's globals, but the hidden-test harness execs the learner
+code into its own `_ns` dict, so helpers the learner's function calls
+must come from the prelude (checked in Pyodide 0.26.4 against the real
+`TEST_HARNESS`).
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or

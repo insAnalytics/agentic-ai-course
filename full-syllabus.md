@@ -7534,8 +7534,8 @@ torch 2.13.0+cu130, `torchaudio` removed,
    per-condition correction, A and B swapped, groups outer loop, `None`
    as the all-tasks label, verdicts swapped) each fail.
 10. **Regression Tests** (`10-regression-tests`, title provisional) —
-   **Building.** Concept 1 drafted and built; concepts 2 on and bookends
-   not yet. Concept 1 (what changed, and the last known-good run): why a
+   **Building.** Concepts 1 and 2 drafted and built; concepts 3 on and
+   bookends not yet. Concept 1 (what changed, and the last known-good run): why a
    suite gets rerun (Module 6's pinning limit, Anthropic's September 2025
    postmortem, linked), what should trigger a rerun, the last known-good
    run; every main run's config hash from the new `LOAD_SETTINGS` over
@@ -7562,6 +7562,30 @@ torch 2.13.0+cu130, `torchaudio` removed,
    Lesson 8 concept 4's `#what-a-model-name-actually-pins` and
    `#record-what-actually-answered` (anchors verified), Module 7 Lesson 2
    concept 5 (page).
+   Concept 2 (a gate that doesn't flake): a gate's two failure modes,
+   why flaking matters, the no-change pair measured (96 main tasks:
+   -5: 1, -3: 1, -2: 1, -1: 6, +0: 76, +1: 10, +3: 1; suite +0.6%,
+   -2.5% to +4.0%), q25's 0/5 then 5/5 (checked), thresholds from the
+   noise, a graded `gate` exercise (the mockup's hidden tests split into
+   7 self-contained tests; `PAIRED_DIFFERENCE` provided via
+   `namespaceSetup`), the gate on baseline-b, layers, compaction and
+   no-labels (PASS, FAIL with 24 flagged, FAIL with h07/h09/s25 flagged,
+   PASS), 5 quiz cards. `results.json` regenerated from the zip's updated
+   `ablation_results.py` (identical to the zip's copy apart from line
+   endings, `--check` passes; only `baseline-b` added, so Lesson 9's
+   demos are unchanged). Both demos and the example reproduce the
+   mockup's output exactly; in Pyodide 0.26.4 with the real test
+   harness, the reference passes all 7 tests, the starter fails all 7,
+   and four wrong versions (interval only, counts not rates, unsorted,
+   flags not failing the gate) each fail; in CPython four more
+   (tolerance only, strict `>`, low instead of high, new minus known)
+   also fail. Also checked: h09 is the +3 task (5/5 then 2/5); 125 tasks
+   in the baseline condition. q25's two answer styles come from the
+   content chat's reading, not the data. Callbacks: Module 0 Lesson 10
+   concept 9's `#beyond-reading-terminal-output` (anchor verified; the
+   mockup named only the lesson, and that section is the one about CI
+   reading test results), Lesson 9 concepts 1 and 3 (pages, in the demo
+   note).
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092
