@@ -1,6 +1,7 @@
 """
 Write public/data/eval/main/settings.json for Lesson 10: every main run's recorded settings, without its trials, so a
-page can compare two runs' settings without loading either run. Runs from before a field existed get the value the
+page can compare two runs' settings without loading either run; and, kept apart from the settings, what each run and
+each revised-judge pass cost in time and tokens. Runs from before a field existed get the value the
 code used then: variant "none", system version "v1", no serving change.
 
     python scripts/eval/run_settings.py            # writes the file
@@ -27,15 +28,23 @@ def settings(run: dict) -> dict:
             "gpus": run["setup"]["gpus"], "user_model": (run.get("user") or {}).get("model")}
 
 
+JUDGES = ROOT / "public" / "data" / "eval" / "judges"
+
+
 def build() -> dict:
-    runs = {}
+    runs, costs, judge_costs = {}, {}, {}
     for path in sorted(MAIN.glob("*.json")):
         if path.name == OUT.name or path.name.endswith(".dry-run.json"):
             continue
         run = json.loads(path.read_text(encoding="utf-8"))
         if "trials" in run and "config_hash" in run:
             runs[path.stem] = settings(run)
-    return {"version": 1, "runs": runs}
+            costs[path.stem] = {k: run["timing"][k] for k in ("wall_seconds", "trials", "generated_tokens", "prompt_tokens")}
+    # Lesson 10's cost figures: what each judging pass took
+    for path in sorted(JUDGES.glob("gemma-v2*.json")):
+        run = json.loads(path.read_text(encoding="utf-8"))
+        judge_costs[path.stem] = {**run["timing"], "items": len(run["results"])}
+    return {"version": 1, "runs": runs, "costs": costs, "judge_costs": judge_costs}
 
 
 def main() -> None:

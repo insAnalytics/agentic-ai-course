@@ -138,6 +138,17 @@ const PAIRS = [
     ],
   },
   {
+    what: "LOAD_COSTS (Module 7 Lesson 10 concept 5)",
+    a: ["src/lib/evalData.ts", () => rawConstant("src/lib/evalData.ts", "LOAD_COSTS")],
+    b: [
+      "the page's setup block",
+      () => pageFence(
+        "src/content/modules/07-evaluation/10-regression-tests/05-keeping-it-affordable.mdx",
+        "import json\nfrom pathlib import Path\n\nrecorded =",
+      ),
+    ],
+  },
+  {
     what: "LOAD_SUMMARIZER (Module 7 Lesson 5 concept 5)",
     a: ["the LOAD_SUMMARIZER constant", () => rawConstant("src/content/modules/07-evaluation/05-code-graders/05-a-component-test-the-summarizer.mdx", "LOAD_SUMMARIZER")],
     b: [

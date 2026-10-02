@@ -7534,7 +7534,7 @@ torch 2.13.0+cu130, `torchaudio` removed,
    per-condition correction, A and B swapped, groups outer loop, `None`
    as the all-tasks label, verdicts swapped) each fail.
 10. **Regression Tests** (`10-regression-tests`, title provisional) —
-   **Building.** Concepts 1 to 4 drafted and built; any further
+   **Building.** Concepts 1 to 5 drafted and built; any further
    concepts and the bookends not yet. Concept 1 (what changed, and the last known-good run): why a
    suite gets rerun (Module 6's pinning limit, Anthropic's September 2025
    postmortem, linked), what should trigger a rerun, the last known-good
@@ -7631,6 +7631,29 @@ torch 2.13.0+cu130, `torchaudio` removed,
    run readings, the attribution-sentence reading and the unit-test
    story come from the content chat, not the data. Callback: concept 2
    (page).
+   Concept 5 (keeping it affordable, and running it with every change):
+   tests vs a regression suite, Anthropic's "Demystifying evals for AI
+   agents" (linked) on capability and regression evals and what a
+   static set tracks for free, the new `LOAD_COSTS` setup, recorded costs
+   (baseline 480 trials in 161 s, about 8,500 + 700 tokens per trial;
+   compaction slower and longer, fp8 faster; judge passes 122 s, 127 s,
+   215 s), the tiers (every change 335 trials, about 1.9 GPU minutes;
+   release 625 trials and 675 judge items, about 4.3; confirming 60
+   trials, about 0.3), regrading when only graders change, keeping
+   always-passing tasks and held-out tasks, 5 quiz cards, no exercise.
+   `settings.json` regenerated from the zip's `run_settings.py`
+   (identical to the zip's copy apart from line endings, `--check`
+   passes; `runs` unchanged, so concepts 1 and 4 give the same output,
+   rechecked in Pyodide). Both demos reproduce the mockup's output
+   exactly, in Pyodide 0.26.4 too. Also checked: 67 non-question tasks,
+   all with code checks but q13; a full run is 5.8M tokens and 214 s;
+   regrading every condition (`ablation_results.py --check`) takes
+   2.2 s. Corrected from the mockup: "and a judging pass about two
+   more" now says judging one suite run takes well under a minute (each
+   pass in the table judged six runs, in about two minutes), matching
+   the tier demo's 4.3. Callbacks: Module 0 Lesson 10 (its intro page;
+   the mockup named only the lesson), Lesson 4 concept 5's
+   `#tuning-to-the-suite` (anchor verified), concepts 2 and 3 (pages).
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092

@@ -870,6 +870,18 @@ export const GATE = String.raw`def gate(known_good: dict, new: dict, tolerance: 
             "suite_regressed": suite_regressed, "flagged": flagged}
 `;
 
+/**
+ * Module 7 Lesson 10 concept 5's setup, shown verbatim on that page (keep
+ * the two byte-identical: scripts/check-copies.mjs checks it). Mount
+ * SETTINGS_DATA and ABLATIONS_DATA with it.
+ */
+export const LOAD_COSTS = String.raw`import json
+from pathlib import Path
+
+recorded = json.loads(Path("/data/eval/main/settings.json").read_text(encoding="utf-8"))
+results = json.loads(Path("/data/eval/ablations/results.json").read_text(encoding="utf-8"))
+`;
+
 /** Module 7 Lesson 10 concept 3's one-sided Fisher test, shown in its first demo and loaded (unshown) for its second. */
 export const FISHER_DROP = String.raw`from math import comb
 

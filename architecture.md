@@ -761,12 +761,20 @@ identical to the zip's copy) adds to every layers-run row
 other field unchanged; 503 KB. Its demos mount both `SETTINGS_DATA` and
 `ABLATIONS_DATA`, with `LOAD_SETTINGS`, `LOAD_ABLATIONS`, `WHAT_CHANGED`,
 `PAIRED_DIFFERENCE` and `GATE` as hidden setup. No exercise.
+Concept 5 (from the zip's updated `run_settings.py`, output identical
+to the zip's copy) adds two sections to `settings.json` beside `runs`,
+which is unchanged: `costs` (each main run's `wall_seconds`, `trials`,
+`prompt_tokens`, `generated_tokens`, from its `timing`) and
+`judge_costs` (each `gemma-v2*` judge file's timing and item count).
+`LOAD_COSTS` (`recorded`, the whole file, and `results`) is shown
+verbatim on concept 5, copy-checked, and mounts both `SETTINGS_DATA` and
+`ABLATIONS_DATA`. No exercise.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
 code block has drifted: currently the pilot's `tasks.json` against
 `scripts/eval/tasks/pilot.json`, `LOAD_PILOT`, `LOAD_READING` and `LOAD_SUITE`
-(Lesson 4 concept 1, Lesson 5 concepts 1 to 3, Lesson 9 concept 1), `LOAD_ABLATIONS` (Lesson 9 concept 3), `LOAD_SETTINGS` (Lesson 10 concept 1), `LOAD_JUDGES` (Lesson 6 concepts 1 to 5) and `LOAD_JUDGE_LABELS` (Lesson 7 concepts 1 to 5) against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
+(Lesson 4 concept 1, Lesson 5 concepts 1 to 3, Lesson 9 concept 1), `LOAD_ABLATIONS` (Lesson 9 concept 3), `LOAD_SETTINGS` (Lesson 10 concept 1), `LOAD_COSTS` (Lesson 10 concept 5), `LOAD_JUDGES` (Lesson 6 concepts 1 to 5) and `LOAD_JUDGE_LABELS` (Lesson 7 concepts 1 to 5) against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
 the demos that show them, the replay exercise's static provided block
 against its constant, and each `public/data/eval/code/*.py` against its
 source. A second list, `CONTAINED`, checks that code a page shows appears
