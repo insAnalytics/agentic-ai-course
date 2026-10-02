@@ -7142,8 +7142,9 @@ torch 2.13.0+cu130, `torchaudio` removed,
    options reworded so they don't say "it" of two judges.
 
 7. **Measuring Judges** (`07-measuring-judges`, title provisional) —
-   **Building:** concept 1 drafted and built; later concepts (the blind
-   judge labels) and bookends not yet drafted.
+   **Building:** concepts 1 and 2 drafted and built (concept 2's
+   relabel section is a placeholder until the relabel, due from
+   2026-10-23); later concepts and bookends not yet drafted.
    Concept 1 (a judge is a measurement) is built: why a judge is checked
    against a person (Anthropic's guide: calibrate model graders against
    human graders, one of the two things to reserve systematic human
@@ -7175,6 +7176,37 @@ torch 2.13.0+cu130, `torchaudio` removed,
    `#the-answers-judged`, Lesson 5 concept 3's
    `#a-check-across-the-path-and-the-reply` (anchors verified in the built
    HTML).
+   Concept 2 (labels from people) is built, no exercise: how the 100
+   judge labels were made (blind, the judge's question, stratified by the
+   judges' decisions, Lesson 3's sample left out, split in advance), a
+   demo of Simar's first pass (verdicts by kind, 11 notes, 2 reference
+   disputes, median 0.9 minutes an item), q19's disputed reference, criteria
+   drift (Shankar et al., UIST 2024, linked), a demo of the two re-reviewed
+   development labels from the new
+   `public/data/eval/judge-labels/labels-judges-simar-v2.json` (from the
+   zip; the first-pass file unchanged), the safeguards, and the 30-item
+   relabel with a placeholder paragraph for its result. 5 quiz cards. Both
+   demos match the mockup exactly in Pyodide 0.26.4. Corrected from the
+   mockup: it said b/a13/1 was passed in Lesson 3's re-review, but that
+   was baseline-a's a13/1 (Lesson 6 concept 2 says so, and the labelling
+   set excludes Lesson 3's sample); the bullet now says Lesson 3's
+   categories failed a run that explained the lost write away, while
+   Simar passed b/a13/1 here and the v2 false-report rubric records that.
+   Also: "agreed on 9 of 15" is 9 of the 14 both decided (as in concept
+   1); "the second is drift... the first a slip" had the order reversed
+   (v33-true is the drift, v03-false the slip); Anthropic's "mainly on
+   calibrating" is now its "reserve systematic human studies for
+   calibrating... or subjective outputs"; "a set F item takes several
+   minutes" is now "the slowest set F items took several minutes" (premise
+   median 82 s, max 387 s; relevance median 22 s); "alternating within
+   each kind" is "within each group" (the script alternates within
+   strata); Q3's correct option "It asked about the assumption only" is
+   now "The rubric asks about the assumption only". Callbacks: concept
+   1's `#measured-against-what` and
+   `#two-readers-before-and-after-a-standard`, Lesson 3's
+   `#from-notes-to-categories`, Lesson 6 concept 2's
+   `#from-the-reading-standard-to-a-rubric`, Lesson 4 concept 3's
+   `#fixing-the-task-not-the-persona` (anchors verified).
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092

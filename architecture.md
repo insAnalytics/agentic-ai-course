@@ -644,12 +644,16 @@ judges' correctness verdicts and whether every citation was to a source a
 tool returned. Its exercise's reference is `AGREEMENT_STATS` (TPR, TNR,
 accuracy, Cohen's kappa), appended to `LOAD_JUDGE_LABELS` by the demos
 after it.
+Concept 2 reads `items.json`, `labels-judges-simar.json` (the first pass,
+never changed) and `labels-judges-simar-v2.json` (the same labels with
+two development-split re-reviews, the first verdicts kept in its
+`revisions` list) through the same setup.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
 code block has drifted: currently the pilot's `tasks.json` against
 `scripts/eval/tasks/pilot.json`, `LOAD_PILOT`, `LOAD_READING` and `LOAD_SUITE`
-(Lesson 4 concept 1, Lesson 5 concepts 1 to 3) `LOAD_JUDGES` (Lesson 6 concepts 1 to 5) and `LOAD_JUDGE_LABELS` (Lesson 7 concept 1) against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
+(Lesson 4 concept 1, Lesson 5 concepts 1 to 3) `LOAD_JUDGES` (Lesson 6 concepts 1 to 5) and `LOAD_JUDGE_LABELS` (Lesson 7 concepts 1 and 2) against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
 the demos that show them, the replay exercise's static provided block
 against its constant, and each `public/data/eval/code/*.py` against its
 source. A second list, `CONTAINED`, checks that code a page shows appears
