@@ -191,7 +191,7 @@ This test takes 120 summaries and 360 short answers, about a minute of GPU time,
 - **The model changes,** whether the one writing the summaries or a new version of it.
 - **The compaction threshold changes,** which changes how much each summary has to cover.
 
-It answers whether the summary keeps what the task needs. It doesn't answer the question that ultimately matters, whether the agent still finishes its tasks as well after compaction. That needs whole tasks run with compaction and without, which is [Lesson 9](→ Module 7, the ablations lesson)'s subject.
+It answers whether the summary keeps what the task needs. It doesn't answer the question that ultimately matters, whether the agent still finishes its tasks as well after compaction. That needs whole tasks run with compaction and without, which is [Lesson 9](→ Module 7, the does this piece help? ablations lesson)'s subject.
 
 ---
 

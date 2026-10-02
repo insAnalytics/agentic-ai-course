@@ -6968,7 +6968,8 @@ torch 2.13.0+cu130, `torchaudio` removed,
    now states, naming what was removed (same conclusion). 5 quiz cards.
    Callbacks: Module 4 Lesson 5 concept 3's `#testing-a-summary-by-asking-it-questions`,
    Lesson 1 concept 3's page, Lesson 4 concept 1's page (anchors
-   verified); Lesson 9 is plain prose.
+   verified); Lesson 9 links to its intro page (added once it existed,
+   from the revised mockup's named callback).
    Bookends are built: intro (`00-intro.mdx`) with three outcomes and why
    it matters; Recap & Practice (`06-recap-practice.mdx`) with an
    8-question comprehensive quiz and a multi-file sandbox (`lib.py`
@@ -7071,8 +7072,11 @@ torch 2.13.0+cu130, `torchaudio` removed,
    16 flips are 11 first-slot-twice and 5 second-slot-twice. No
    corrections to the mockup. 5 quiz cards. Callbacks: Module 6 Lesson 4
    concept 2's `#judges-have-habits`, concept 2's
-   `#what-a-rubric-has-to-do` (anchors verified); Lesson 10 is plain
-   prose.
+   `#what-a-rubric-has-to-do` (anchors verified); Lesson 10 links to its
+   intro page (added once it existed). Open: the sentence it ends says
+   Lesson 10 compares versions with a pairwise judge whose "pairs are
+   always shown both ways", but Lesson 10 as built uses no pairwise
+   judge, so that clause is now inaccurate (left as authored).
    Concept 4 (is the answer right? correctness and relevance) is built:
    Module 5's unmeasured answers and its RAGAS "answer correctness", the
    RAGAS definition (checked against its docs and source: TP/FP/FN, the
@@ -7498,8 +7502,8 @@ torch 2.13.0+cu130, `torchaudio` removed,
    objections in development runs, planted 0/30 to 10/30, broken result
    15/15 with the layers. The reading's per-sample counts (10 of 10, about
    8 of 10) come from the content chat and aren't in the data. Callback:
-   Module 6 Lesson 10 concept 3 (page). "Lesson 10" (comparing versions)
-   stays plain prose until it exists.
+   Module 6 Lesson 10 concept 3 (page); Lesson 10 (comparing versions)
+   links to its intro page (added once it existed).
    Concept 5 (a piece that doesn't earn its place) is built: Module 4's
    open question, the date/type labels ablation (no labels minus baseline
    +3.0%, +0.5% to +5.9%), why that isn't evidence the labels hurt (noise

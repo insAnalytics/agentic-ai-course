@@ -200,7 +200,7 @@ qwen9b  48 pairs: 27 consistent, 16 flipped, 5 tie in one order only; the first-
 
 Both judges lean the same small amount towards the answer shown first, 55% and 56%, and that number alone would make them look alike. They aren't. Gemma never flips: in no pair does it choose different runs in the two orders. Most of its pairs keep their winner or tie both ways, and five are a tie in one order and a choice in the other. Qwen flips a third of its pairs, choosing whichever answer it saw first, or whichever it saw second, in both orders. Its preferences on those pairs say nothing about the answers.
 
-Gemma's consistency comes with a caveat. Most of its decisions are ties, because both batches mostly answered these questions correctly, and a tie is the honest verdict on two right answers. A pairwise judge is most useful exactly where it's hardest: two versions that differ a little, on tasks where both are partly right. That's the comparison [Lesson 10](→ Module 7, the comparing two versions lesson) makes, and why its pairs are always shown both ways.
+Gemma's consistency comes with a caveat. Most of its decisions are ties, because both batches mostly answered these questions correctly, and a tie is the honest verdict on two right answers. A pairwise judge is most useful exactly where it's hardest: two versions that differ a little, on tasks where both are partly right. That's the comparison [Lesson 10](→ Module 7, the regression testing lesson) makes, and why its pairs are always shown both ways.
 
 ---
 
