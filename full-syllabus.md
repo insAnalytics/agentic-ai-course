@@ -7452,6 +7452,23 @@ phase 3), recording the top-5 logprobs of each verdict's first token. In
 `qwen9b-v2.json` (4 cut off at 400 tokens). Same revisions and
 environment as phase 3; Gemma 215 s wall, Qwen 96 s.
 
+**Runs, phase 5 (Lesson 9's ablations): done (2026-10-02).**
+`scripts/eval/README-phase5.md`, `scripts/eval/ablations.py` (content
+decisions in its docstring), `ablation_selftest.py`: three variants of the
+registry agent, each over the main pool and the suite at 5 trials per task
+(1,875 trials): `layers` (Module 6's eight layered checks in the loop,
+support judge on the 26B), `compaction` (older rounds summarized after 3),
+`no-labels` (search results without date and type labels). In
+`public/data/eval/main/{layers,compaction,no-labels}-a.json` and
+`*-suite-a.json`: 0 raised, 0 format problems, 0 cut off, every trial
+replays exactly; step-limit stops 31/18, 49/11, 17/5 (main/suite). The
+`layers` runs made 305 support-judge calls, every reply a bare `VERDICT:`
+line (so the judge's 16-token limit cut nothing off). Gemma 4 31B judged
+the six runs with the revised rubrics (2,025 items, 0 undecided) in
+`public/data/eval/judges/gemma-v2-layers-a+...+no-labels-suite-a.json`.
+Same revisions and environment as the baseline. Not yet compared with the
+baseline: that's Lesson 9's job.
+
 **Runs, phase 3 (Lesson 6's judges): done (2026-10-02).**
 `scripts/eval/README-phase3.md`, `scripts/eval/judges.py`,
 `scripts/eval/run_judges.py`: Gemma 4 31B (`google/gemma-4-31B-it`, the
