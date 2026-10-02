@@ -60,14 +60,21 @@ class VLLMChatBackend:
         self.base_url, self.model_id = base_url.rstrip("/"), model_id
         self.chat_template_kwargs = chat_template_kwargs or {}
 
-    def chat(self, messages: list, sampling: dict, seed: int, max_tokens: int) -> dict:
+    def chat(self, messages: list, sampling: dict, seed: int, max_tokens: int, top_logprobs: int = 0) -> dict:
         body = {"model": self.model_id, "messages": messages, "max_tokens": max_tokens, "seed": seed, **sampling}
         if self.chat_template_kwargs:
             body["chat_template_kwargs"] = self.chat_template_kwargs
+        if top_logprobs:
+            body.update(logprobs=True, top_logprobs=top_logprobs)
         reply = post(f"{self.base_url}/v1/chat/completions", body)
         choice = reply["choices"][0]
-        return {"text": choice["message"]["content"] or "", "prompt_tokens": reply["usage"]["prompt_tokens"],
-                "completion_tokens": reply["usage"]["completion_tokens"], "finish_reason": choice["finish_reason"]}
+        out = {"text": choice["message"]["content"] or "", "prompt_tokens": reply["usage"]["prompt_tokens"],
+               "completion_tokens": reply["usage"]["completion_tokens"], "finish_reason": choice["finish_reason"]}
+        if top_logprobs:
+            out["logprobs"] = [{"token": t["token"], "logprob": t["logprob"],
+                                "top": [[a["token"], a["logprob"]] for a in t.get("top_logprobs", [])]}
+                               for t in (choice.get("logprobs") or {}).get("content") or []]
+        return out
 
     def server_info(self) -> dict:
         return {"version": get(f"{self.base_url}/version").get("version"),

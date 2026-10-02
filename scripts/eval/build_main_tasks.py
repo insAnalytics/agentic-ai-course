@@ -58,6 +58,16 @@ def question_tasks() -> list[dict]:
     return tasks
 
 
+# References changed after labelling found them wrong for the run being judged; the first is kept as answer_v1.
+REFERENCE_FIXES = {
+    # the reference described both kinds of reader; this task's reader is a security reader
+    "q40-allowed": "The key was found in debug logs, as the security postmortem SEC-014 records.",
+    # the question doesn't mention claude-legacy, so the documented procedure is the answer; the legacy point is extra
+    "q19": "Pause the agent (set its status to paused) while you fix the problem, and tell its users. The migration "
+           "runbook adds that you can't roll back to claude-legacy: the registry refuses it.",
+}
+
+
 # --- registry tasks, written by hand ---
 
 READERS = ["all-staff", "oncall", "security", "finance"]
@@ -295,16 +305,23 @@ def registry_tasks() -> list[dict]:
 
 def build() -> dict:
     tasks = question_tasks() + registry_tasks()
+    for task in tasks:
+        if task["id"] in REFERENCE_FIXES:
+            task["expect"]["answer_v1"] = task["expect"]["answer"]
+            task["expect"]["answer"] = REFERENCE_FIXES[task["id"]]
     ids = [task["id"] for task in tasks]
     duplicates = {i for i in ids if ids.count(i) > 1}
     if duplicates:
         sys.exit(f"duplicate task ids: {sorted(duplicates)}")
-    return {"version": 2,
+    return {"version": 3,
             "written_by": "Questions from Module 5's labelled set (queries.json); registry tasks, conversations and "
                           "every expect written by hand in the course's content chat.",
             "changes": ["version 2: m02's checks allow one email to research-team (outbox max_count), after reading "
                         "the baseline found the agent offering to email the budget holder and the user accepting; "
-                        "its first checks are kept as expect.checks_v1."],
+                        "its first checks are kept as expect.checks_v1.",
+                        "version 3: two reference answers changed after Lesson 7's labelling: q40-allowed's described "
+                        "both kinds of reader, and q19's required a point the question doesn't raise. The first "
+                        "references are kept as expect.answer_v1."],
             "tasks": tasks}
 
 

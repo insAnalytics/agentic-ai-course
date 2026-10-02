@@ -22,7 +22,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path[:0] = [str(HERE), str(HERE / "course")]
 
-from judges import FORMAT_VERDICT, RUBRICS, all_items  # noqa: E402
+from judges import FORMAT_VERDICT, RUBRICS_V1, all_items  # noqa: E402
 
 ROOT = HERE.parents[1]
 JUDGES = ROOT / "public" / "data" / "eval" / "judges"
@@ -64,7 +64,7 @@ def stratum(item: dict, verdicts: dict, no_answer: set) -> str | None:
 def material(item: dict) -> dict:
     """What the judge was shown, split into its rubric and the run, without the format line."""
     content = item["messages"][1]["content"]
-    rubric = RUBRICS[item["kind"]]
+    rubric = RUBRICS_V1[item["kind"]]
     shown = content[len(rubric):].removesuffix(FORMAT_VERDICT).strip()
     return {"rubric": rubric, "shown": shown}
 
@@ -82,7 +82,8 @@ def build() -> dict:
                 no_answer.add(trial["trial_id"])
     verdicts = decisions()
     pools = defaultdict(list)
-    for item in all_items():
+    # the items as phase 3's judges saw them: rubrics and references version 1
+    for item in all_items(version=1):
         if item["kind"] not in QUOTAS:
             continue
         if item["kind"] != "premise":
