@@ -672,6 +672,10 @@ exports aren't imported across pages). `CALIBRATION_DATA` mounts
 Module 6's set E runs for both models (`plain.smaller`, `plain`) and its
 set V judge runs. Concept 1's exercise reference is `CALIBRATION`
 (`calibration_table`, `ece`, `brier`), appended by the demos after it.
+`CALIBRATION_SIGNALS` builds Module 6's three signals as `signals`
+(shown in concept 2, loaded hidden after it), and `TEMPERATURE_SCALING`
+is concept 3's exercise reference (`scale`, `log_loss`,
+`fit_temperature`).
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or

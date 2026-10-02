@@ -7,53 +7,9 @@ import Subsection from "../../../../components/lesson/Subsection.astro";
 import LiveDemo from "../../../../components/lesson/LiveDemo";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
-import { CALIBRATION, CALIBRATION_DATA, CALIBRATION_SETUP } from "../../../../lib/evalData";
+import { CALIBRATION, CALIBRATION_DATA, CALIBRATION_SETUP, CALIBRATION_SIGNALS } from "../../../../lib/evalData";
 
-export const SIGNALS_DEFS = String.raw`from collections import Counter
-
-
-def auroc(rows: list[tuple[float, bool]]) -> float:
-    right = [score for score, correct in rows if correct]
-    wrong = [score for score, correct in rows if not correct]
-    return sum((r > w) + 0.5 * (r == w) for r in right for w in wrong) / (len(right) * len(wrong))
-
-
-def answer_key(question: dict, answer: str | None):
-    if answer is None:
-        return None
-    return as_number(answer) if question["type"] == "number" else normalize(answer) or None
-
-
-questions = {q["id"]: q for q in load_set("set-e")["questions"]}
-signals = {}
-pairs = [(answer_probability(s), s["correct"]) for r in load_run("plain.smaller")["results"] for s in r["samples"]]
-signals["answer-line probability, 2B"] = [(p, c) for p, c in pairs if p is not None]
-# Module 6's vote: each question's 20 samples as four votes of 5; confidence is the winner's share of the vote
-agreement = []
-for record in load_run("plain.smaller")["results"]:
-    question = questions[record["id"]]
-    for start in range(0, 20, 5):
-        votes = record["samples"][start:start + 5]
-        keys = [answer_key(question, s["answer"]) for s in votes]
-        counts = Counter(key for key in keys if key is not None)
-        if not counts:
-            agreement.append((0.0, False))
-            continue
-        winner, n = counts.most_common(1)[0]
-        agreement.append((n / 5, next(s["correct"] for s, key in zip(votes, keys) if key == winner)))
-signals["agreement in a vote of 5, 2B"] = agreement
-WANTED = {"supported": "SUPPORTED", "not_supported": "NOT SUPPORTED", "contradict": "CONTRADICT", "consistent": "CONSISTENT"}
-built = load_set("set-v")
-verdicts = []
-for run_name, key in (("support.small", "support_pairs"), ("statements.small", "statement_pairs"),
-                      ("statements.large", "statement_pairs")):
-    labels = {p["id"]: p["label"] for p in built[key]}
-    verdicts += [(verdict_probability(r["logprobs"]), r["verdict"] == WANTED[labels[r["id"]]])
-                 for r in load_run(run_name)["results"]]
-signals["verdict probability, judges"] = [(p, c) for p, c in verdicts if p is not None]
-`;
-
-export const SIGNALS_DEMO = SIGNALS_DEFS + String.raw`
+export const SIGNALS_DEMO = CALIBRATION_SIGNALS + String.raw`
 for name, rows in signals.items():
     print(f"{name:<30} {len(rows):>5} cases, {sum(not c for _, c in rows):>3} wrong   AUROC {auroc(rows):.2f}   "
           f"ECE {ece(rows):.3f}   Brier {brier(rows):.3f}")
@@ -101,7 +57,7 @@ trusted: 8 wrong answers behind the agreement row, 23 behind the verdicts.
 A single ECE hides where the miscalibration is. With five bins, each
 signal's reliability table:
 
-<LiveDemo client:load dataFiles={CALIBRATION_DATA} setupCode={CALIBRATION_SETUP + "\n\n" + CALIBRATION + "\n\n" + SIGNALS_DEFS} code={TABLES_DEMO} />
+<LiveDemo client:load dataFiles={CALIBRATION_DATA} setupCode={CALIBRATION_SETUP + "\n\n" + CALIBRATION + "\n\n" + CALIBRATION_SIGNALS} code={TABLES_DEMO} />
 
 *(`signals` is the previous demo's, loaded for you.)*
 

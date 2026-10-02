@@ -7318,7 +7318,7 @@ torch 2.13.0+cu130, `torchaudio` removed,
    F note) keep working.
 
 8. **Calibration** (`08-calibration`, title provisional) — **Building:**
-   concepts 1 and 2 drafted and built; later concepts and bookends not
+   concepts 1 to 3 drafted and built; later concepts and bookends not
    yet drafted.
    Concept 1 (ranking isn't calibration) is built: AUROC against
    calibration, the 2B's answer-line probability beside the same scores
@@ -7362,6 +7362,32 @@ torch 2.13.0+cu130, `torchaudio` removed,
    Callbacks: Module 6's `#measuring-a-signal-on-your-own-cases`, concept
    1's `#measuring-calibration` and
    `#module-6-s-answer-line-probability-calibrated` (anchors verified).
+   Concept 3 (why models are miscalibrated, and fixing it) is built: the
+   GPT-4 report's pre-trained vs post-trained MMLU calibration (ECE 0.007
+   vs 0.074, "post-training hurts calibration significantly"; checked
+   against the paper, linked, as is its Appendix B finding that RLHF
+   doesn't substantially change exam capability, 73.7% vs 74.0%, which Q1's
+   explanation relies on), reasoning before answering and scores that were
+   never probabilities, temperature and Platt scaling and histogram
+   binning, a graded `scale` / `log_loss` / `fit_temperature` exercise,
+   temperature scaling on Module 6's verdict and answer-line signals
+   fitted on even positions and tested on odd (almost no effect), and
+   binning against a constant (ECE gamed by the constant; calibration
+   can't add information). 5 quiz cards. Concept 2's signal-building code
+   moved to `CALIBRATION_SIGNALS` in `evalData.ts` (concept 2's demo is
+   it plus the print loop, still byte-identical to its mockup), and the
+   exercise's reference is `TEMPERATURE_SCALING` there. In Pyodide 0.26.4
+   both demos are byte-identical to the mockup's code and print its output
+   exactly, the reference prints 4.0, it passes the 4 hidden tests (the
+   mockup's asserts split by group) and the starter and eight wrong
+   versions each fail. Added to the tests: `log_loss` doesn't crash on a
+   confidence of exactly 0 or 1 (the task already says it clips). Changed
+   from the mockup: "Post-training rewards answers people prefer..." is
+   framed as "one likely reason", since the report doesn't say it.
+   Callbacks: Module 6's `#logprobs-on-an-answer-written-after-reasoning`,
+   concept 2's `#where-each-signal-is-wrong`, Lesson 7 concept 3's
+   `#tuning-a-judge-is-tuning-to-a-set` and concept 4's
+   `#the-correctness-judge-corrected` (anchors verified).
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092

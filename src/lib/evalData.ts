@@ -675,3 +675,78 @@ def brier(rows: list[tuple[float, bool]]) -> float:
     """The mean squared gap between each confidence and what happened (1 if right, 0 if wrong)."""
     return sum((confidence - correct) ** 2 for confidence, correct in rows) / len(rows)
 `;
+
+/**
+ * Module 7 Lesson 8 concept 2's first demo, up to its printing: Module 6's
+ * three confidence signals as (score, correct) rows in `signals`, shown
+ * there (its demo is this plus the print loop) and loaded hidden by the
+ * demos after it. The vote and verdict code is Module 6's signals demo's.
+ */
+export const CALIBRATION_SIGNALS = String.raw`from collections import Counter
+
+
+def auroc(rows: list[tuple[float, bool]]) -> float:
+    right = [score for score, correct in rows if correct]
+    wrong = [score for score, correct in rows if not correct]
+    return sum((r > w) + 0.5 * (r == w) for r in right for w in wrong) / (len(right) * len(wrong))
+
+
+def answer_key(question: dict, answer: str | None):
+    if answer is None:
+        return None
+    return as_number(answer) if question["type"] == "number" else normalize(answer) or None
+
+
+questions = {q["id"]: q for q in load_set("set-e")["questions"]}
+signals = {}
+pairs = [(answer_probability(s), s["correct"]) for r in load_run("plain.smaller")["results"] for s in r["samples"]]
+signals["answer-line probability, 2B"] = [(p, c) for p, c in pairs if p is not None]
+# Module 6's vote: each question's 20 samples as four votes of 5; confidence is the winner's share of the vote
+agreement = []
+for record in load_run("plain.smaller")["results"]:
+    question = questions[record["id"]]
+    for start in range(0, 20, 5):
+        votes = record["samples"][start:start + 5]
+        keys = [answer_key(question, s["answer"]) for s in votes]
+        counts = Counter(key for key in keys if key is not None)
+        if not counts:
+            agreement.append((0.0, False))
+            continue
+        winner, n = counts.most_common(1)[0]
+        agreement.append((n / 5, next(s["correct"] for s, key in zip(votes, keys) if key == winner)))
+signals["agreement in a vote of 5, 2B"] = agreement
+WANTED = {"supported": "SUPPORTED", "not_supported": "NOT SUPPORTED", "contradict": "CONTRADICT", "consistent": "CONSISTENT"}
+built = load_set("set-v")
+verdicts = []
+for run_name, key in (("support.small", "support_pairs"), ("statements.small", "statement_pairs"),
+                      ("statements.large", "statement_pairs")):
+    labels = {p["id"]: p["label"] for p in built[key]}
+    verdicts += [(verdict_probability(r["logprobs"]), r["verdict"] == WANTED[labels[r["id"]]])
+                 for r in load_run(run_name)["results"]]
+signals["verdict probability, judges"] = [(p, c) for p, c in verdicts if p is not None]
+`;
+
+/**
+ * Module 7 Lesson 8 concept 3's scale, log_loss and fit_temperature: the
+ * exercise's reference, shown there as the correct answer by using this
+ * constant (with the starter's example after it), and loaded hidden by the
+ * demo after it.
+ */
+export const TEMPERATURE_SCALING = String.raw`import math
+
+
+def scale(p: float, temperature: float) -> float:
+    """A confidence with its log-odds divided by the temperature: above 1 pulls it towards 0.5, below 1 pushes it out."""
+    p = min(max(p, 1e-6), 1 - 1e-6)
+    return 1 / (1 + math.exp(-math.log(p / (1 - p)) / temperature))
+
+
+def log_loss(rows: list[tuple[float, bool]]) -> float:
+    """How surprised the confidences were by what happened: the mean of -log(probability given to the outcome)."""
+    return -sum(math.log(p if correct else 1 - p) for p, correct in ((min(max(p, 1e-6), 1 - 1e-6), c) for p, c in rows)) / len(rows)
+
+
+def fit_temperature(rows: list[tuple[float, bool]], grid: list[float]) -> float:
+    """The temperature from the grid whose scaled confidences have the lowest log loss on these rows."""
+    return min(grid, key=lambda t: log_loss([(scale(p, t), correct) for p, correct in rows]))
+`;
