@@ -13,6 +13,9 @@ settings and different seeds, so Lesson 10 can measure how much two runs of the 
     # phase 2a: the new suite tasks, same agent and settings
     python scripts/eval/run_main.py --batch a --tasks-file tasks/suite-2a.json --name suite-2a
 
+    # phase 5: Lesson 9's ablations (see ablations.py); the same 5 trials per task as the baseline's batch a
+    python scripts/eval/run_main.py --batch a --variant layers --name layers
+
 Writes public/data/eval/main/baseline-<batch>.json (or .dry-run.json). Every trial is saved as the pilot's
 were (every raw completion, seed, tool call and the world's final state, so it can be replayed exactly) plus
 its trace: the spans from tracing.py, with real timings.
@@ -36,6 +39,7 @@ HERE = Path(__file__).resolve().parent
 sys.path[:0] = [str(HERE), str(HERE / "course")]
 
 from backends import StandInBackend, StandInUserBackend, VLLMBackend, VLLMChatBackend  # noqa: E402
+from ablations import VARIANTS, SupportJudge, variant_parts  # noqa: E402
 from eval_client import STOP_USER, ChatTemplate, ModelClient, SimulatedUser, seed_for  # noqa: E402
 from harness import SYSTEM_V1, config_hash, load_tasks, run_trial  # noqa: E402
 from registry_world import TOOL_SPECS, ToolBox  # noqa: E402
@@ -52,6 +56,15 @@ TRIALS = 5
 PROVIDER = "vllm"
 
 
+class StandInJudgeBackend:
+    """Not a model: a support verdict for dry runs, NOT SUPPORTED for about one claim in five."""
+    model_id = "stand-in judge"
+
+    def chat(self, messages, sampling, seed, max_tokens):
+        verdict = "VERDICT: NOT SUPPORTED" if seed % 5 == 0 else "VERDICT: SUPPORTED"
+        return {"text": verdict, "prompt_tokens": 0, "completion_tokens": 3, "finish_reason": "stop"}
+
+
 class TracedUser:
     """The simulated user, with each of its replies recorded as a span. Not a chat span: summarize() and the
     module's graders count only the agent's own model calls."""
@@ -66,16 +79,20 @@ class TracedUser:
             return reply
 
 
-def traced_trial(task, model, user, directory, tracer: Tracer, root_attributes: dict, model_id: str) -> dict:
-    """run_trial, with the client, tools and checks traced by Lesson 2's instrument() inside a root span."""
+def traced_trial(task, model, user, directory, tracer: Tracer, root_attributes: dict, model_id: str,
+                 variant: tuple | None = None) -> dict:
+    """run_trial, with the client, tools and checks traced by Lesson 2's instrument() inside a root span.
+    `variant` is Lesson 9's (change_tools, change_client, checks_factory) from ablations.variant_parts."""
+    change_tools, change_client, checks_factory = variant or ((lambda t: t), (lambda c: c), None)
+
     def wrap(client, tools, checks):
-        traced_client, traced_tools, traced_checks = instrument(client, tools, checks, tracer, model=model_id,
-                                                                provider=PROVIDER)
+        traced_client, traced_tools, traced_checks = instrument(client, change_tools(tools), checks, tracer,
+                                                                model=model_id, provider=PROVIDER)
         # keep the world's ToolBox behaviour: an unknown tool comes back as an error result, not a crash
-        return traced_client, ToolBox(traced_tools), traced_checks
+        return change_client(traced_client), ToolBox(traced_tools), traced_checks
 
     with tracer.span("invoke_agent registry_agent", root_attributes) as root:
-        outcome = run_trial(task, model, user, directory, checks=None, wrap=wrap)
+        outcome = run_trial(task, model, user, directory, checks=None, wrap=wrap, checks_factory=checks_factory)
         totals = summarize(tracer.spans)
         root.attributes["gen_ai.usage.input_tokens"] = totals["input_tokens"]
         root.attributes["gen_ai.usage.output_tokens"] = totals["output_tokens"]
@@ -131,12 +148,21 @@ def run_batch(batch: str, args) -> dict:
                            "registry_agent.config_hash": hash_, "registry_agent.task": task.id}
         started = time.monotonic()
         record = {"trial_id": trial_id, "task_id": task.id, "trial": trial, "seed": seed}
+        variant_record, judge = {}, None
+        if args.variant == "layers":
+            judge_backend = StandInJudgeBackend() if args.dry_run else VLLMChatBackend(args.user_url, USER_MODEL,
+                                                                                        USER_TEMPLATE_KWARGS)
+            judge = SupportJudge(judge_backend, seed)
+        parts = variant_parts(args.variant, judge, variant_record) if args.variant != "none" else None
         try:
-            outcome = traced_trial(task, model, user, workdir, tracer, root_attributes, repo)
+            outcome = traced_trial(task, model, user, workdir, tracer, root_attributes, repo, parts)
             record.update(answers=outcome["answers"], messages=_plain(outcome["messages"]),
                           tool_log=outcome["tool_log"], final_state=outcome["final_state"], error=None)
         except Exception:
             record.update(answers=[], messages=None, tool_log=[], final_state=None, error=traceback.format_exc())
+        record.update(variant_record)
+        if judge is not None:
+            record["judge_calls"] = judge.calls
         record.update(wall_s=round(time.monotonic() - started, 3), calls=model.calls,
                       user_calls=user.user.calls if user else [],
                       trace=[dataclasses.asdict(span) for span in tracer.spans])
@@ -150,7 +176,8 @@ def run_batch(batch: str, args) -> dict:
 
     server = backend.server_info()
     run = {
-        "condition": condition, "dry_run": args.dry_run, "model": repo, "revision": revision, "thinking": THINKING,
+        "condition": condition, "variant": args.variant, "dry_run": args.dry_run, "model": repo, "revision": revision,
+        "thinking": THINKING,
         "sampling": SAMPLING[THINKING], "max_tokens": MAX_TOKENS[THINKING], "trials_per_task": args.trials,
         "system": SYSTEM_V1, "tools": TOOL_SPECS, "config_hash": hash_,
         "template_sha": template.sha, "template_matches_transformers": template_check,
@@ -186,6 +213,7 @@ def main() -> None:
     parser.add_argument("--tasks", help="comma-separated task ids, for a quick check")
     parser.add_argument("--tasks-file", default="tasks/main.json", help="the task file, relative to scripts/eval")
     parser.add_argument("--name", default="baseline", help="the run's name; files are <name>-<batch>.json")
+    parser.add_argument("--variant", default="none", choices=VARIANTS, help="Lesson 9's ablation: what to change")
     # recorded in the run's "environment" field; see README-main.md for the values the baseline used
     parser.add_argument("--env-var", action="append", default=[], metavar="NAME=VALUE",
                         help="an environment variable set for the servers (repeatable)")

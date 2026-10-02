@@ -126,9 +126,9 @@ def load_tasks_raw() -> dict:
     return tasks
 
 
-def run_trials() -> list[dict]:
+def run_trials(names=("baseline-a", "baseline-b", "suite-2a-a")) -> list[dict]:
     trials = []
-    for name in ("baseline-a", "baseline-b", "suite-2a-a"):
+    for name in names:
         trials += json.loads((MAIN / f"{name}.json").read_text(encoding="utf-8"))["trials"]
     return trials
 
@@ -244,9 +244,15 @@ def premise_items(version: int = 2) -> list[dict]:
     return items
 
 
-def all_items(version: int = 2) -> list[dict]:
-    """Every item, with the rubrics and references of that version: 1 for phase 3, 2 after Lesson 7's revisions."""
-    tasks, trials = load_tasks_raw(), run_trials()
+def all_items(version: int = 2, runs: tuple | None = None) -> list[dict]:
+    """Every item, with the rubrics and references of that version: 1 for phase 3, 2 after Lesson 7's revisions.
+    With `runs` (run file names under public/data/eval/main), only those runs' reply and question items: Lesson 9's
+    ablations are judged exactly as the baseline was, and need no format or premise items."""
+    tasks = load_tasks_raw()
+    if runs:
+        trials = run_trials(runs)
+        return reply_items(tasks, trials, version) + question_items(tasks, trials, version)
+    trials = run_trials()
     return (reply_items(tasks, trials, version) + question_items(tasks, trials, version)
             + format_items(tasks, trials, version) + premise_items(version))
 

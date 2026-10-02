@@ -84,14 +84,16 @@ def main() -> None:
     parser.add_argument("--kinds", help="comma-separated item kinds, for a quick check")
     parser.add_argument("--check-items", help="a run file whose prompt hashes the rebuilt items must match")
     parser.add_argument("--rubrics", type=int, choices=(1, 2), default=2, help="the rubric and reference version")
+    parser.add_argument("--runs", help="comma-separated run names (Lesson 9's ablations); writes <judge>-v2-<runs>.json")
     args = parser.parse_args()
     if args.check_items:
         run = json.loads(Path(args.check_items).read_text(encoding="utf-8"))
-        items = all_items(version=run.get("rubrics_version", 1))
+        items = all_items(version=run.get("rubrics_version", 1), runs=tuple(run["runs"]) if run.get("runs") else None)
         hashes = {item["item_id"]: prompt_hash(item["messages"]) for item in items}
         stale = [r["item_id"] for r in run["results"] if hashes.get(r["item_id"]) != r["prompt_hash"]]
         sys.exit(f"{len(stale)} items no longer match, e.g. {stale[:3]}" if stale else print("every item matches") or 0)
-    items = all_items(version=args.rubrics)
+    runs = tuple(args.runs.split(",")) if args.runs else None
+    items = all_items(version=args.rubrics, runs=runs)
     top = 5 if args.rubrics == 2 else 0
     if args.kinds:
         items = [item for item in items if item["kind"] in args.kinds.split(",")]
@@ -113,7 +115,7 @@ def main() -> None:
         results = list(pool.map(one, items))
     wall = time.monotonic() - started
     run = {"judge": args.judge, "model": backend.model_id if args.dry_run else JUDGES[args.judge], "dry_run": args.dry_run,
-           "rubrics_version": args.rubrics,
+           "rubrics_version": args.rubrics, "runs": list(runs) if runs else None,
            "sampling": SAMPLING, "template_kwargs": TEMPLATE_KWARGS, "max_tokens": MAX_TOKENS,
            "setup": {"server": backend.server_info(), "gpus": gpu_names()},
            "timing": {"wall_seconds": round(wall, 3), "prompt_tokens": sum(r["prompt_tokens"] for r in results),
@@ -121,6 +123,8 @@ def main() -> None:
            "results": results}
     OUT.mkdir(parents=True, exist_ok=True)
     name = args.judge if args.rubrics == 1 else f"{args.judge}-v2"
+    if runs:
+        name += "-" + "+".join(runs)
     path = OUT / f"{name}{'.dry-run' if args.dry_run else ''}.json"
     path.write_text(json.dumps(run, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     unparsed = sum(r["decision"] is None for r in results)

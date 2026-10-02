@@ -73,13 +73,17 @@ def opening_messages(task: Task) -> list:
     return earlier + [{"role": "user", "content": task.request}]
 
 
-def run_trial(task: Task, model, user, directory, checks: Checks | None = None, wrap=None) -> dict:
+def run_trial(task: Task, model, user, directory, checks: Checks | None = None, wrap=None,
+              checks_factory=None) -> dict:
     """One trial of a task: a fresh world, Module 6's loop, and the simulated user if the task has one.
     `wrap(model, tools, checks)`, if given, returns the three to use instead, such as traced versions of them;
-    the loop itself never changes."""
+    `checks_factory(world, messages)`, if given, builds the checks from the world and the loop's own message list
+    (Lesson 9's layered checks need both). The loop itself never changes."""
     world = fresh_world(task, directory)
-    model, tools, checks = (wrap or (lambda *parts: parts))(model, world.tools(), checks or Checks(after_tool=tool_errors))
     messages = opening_messages(task)
+    if checks_factory is not None:
+        checks = checks_factory(world, messages)
+    model, tools, checks = (wrap or (lambda *parts: parts))(model, world.tools(), checks or Checks(after_tool=tool_errors))
     answers = []
     for _ in range(MAX_USER_TURNS + 1):
         answer = run_checked_agent(model, messages, tools, checks, max_steps=MAX_STEPS)
