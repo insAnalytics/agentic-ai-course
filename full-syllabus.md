@@ -7024,7 +7024,38 @@ torch 2.13.0+cu130, `torchaudio` removed,
    Callbacks: Module 6 Lesson 4 concept 1's `#the-support-check`, concept
    2's `#how-the-three-judges-did` and `#judges-have-habits`, Lesson 4
    concept 2's `#a-failure-becomes-tasks` (anchors verified); Lesson 7 is
-   plain prose. Concepts 2 onward and the bookends are not drafted yet.
+   plain prose.
+   Concept 2 (writing a rubric) is built: Anthropic's three pieces of
+   rubric advice and Husain and Shankar's pass/fail over scores (all
+   checked against the sources, now linked), the lost-write rubric from
+   `judges.py` and the reason for each part, a demo of both judges'
+   replies on baseline-b/a13/1 (Gemma FAIL, Qwen PASS) from the new
+   `judges/reply-judges.json` (written by the updated
+   `judge_digest.py`; both outputs identical to the zip's copies apart
+   from line endings), a graded exercise (`parse_verdict`, a last
+   start-of-line "Verdict:" regex; `summarize`, with the pass rate over
+   decided runs only; the mockup's hidden tests split into five
+   self-contained tests), and a summary demo of all three reply judges
+   (no UNCLEAR anywhere; broken result 11 against 5). Both demos match
+   the mockup exactly in Pyodide 0.26.4; the reference passes every test,
+   and five wrong versions (search anywhere, first match, no `\b`, rate
+   over all replies, rate 0 when undecided) each fail the test meant for
+   them. Corrected from the mockup: Lesson 3's re-review passed
+   baseline-a's a13/1, a different run that reported the discrepancy
+   without explaining it (both judges pass it too), not baseline-b's,
+   which no person has read and which explains the lost write away, the
+   behaviour Lesson 3's merge counts as a failure. The paragraph now says
+   the reply matches both the rubric's PASS example and its FAIL example,
+   the standard already decides it, and the rubric didn't carry that over;
+   Q3's answer is now "The reply fits both of the rubric's examples".
+   "Lesson 3's reading found runs that explained it away with exactly
+   that" is now the pilot's runs (where Lesson 3 concept 4 says they
+   were). 5 quiz cards. Callbacks: Lesson 3 concept 2's
+   `#notes-from-the-reading`, concept 3's
+   `#the-task-and-how-a-standard-decides-it`, concept 4's
+   `#from-notes-to-categories`, concept 5's
+   `#a-verdict-that-changed-on-a-full-reading` (anchors verified).
+   Concepts 3 onward and the bookends are not drafted yet.
 
 **Runs, phase 3 (Lesson 6's judges): done (2026-10-02).**
 `scripts/eval/README-phase3.md`, `scripts/eval/judges.py`,
