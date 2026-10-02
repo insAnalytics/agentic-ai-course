@@ -7141,6 +7141,51 @@ torch 2.13.0+cu130, `torchaudio` removed,
    decided, now "the rubric", matching concept 2's correction; Q6's
    options reworded so they don't say "it" of two judges.
 
+7. **Measuring Judges** (`07-measuring-judges`, title provisional) —
+   **Building:** concept 1 drafted and built; later concepts (the blind
+   judge labels) and bookends not yet drafted.
+   Concept 1 (a judge is a measurement) is built: why a judge is checked
+   against a person (Anthropic's guide: calibrate model graders against
+   human graders, one of the two things to reserve systematic human
+   grading for — the mockup said "the main thing", corrected), why the
+   comparison with Lesson 3's reading isn't fair to the correctness judge
+   (different questions), the do-nothing grader (70% accuracy, 0 of 15
+   failures caught), TPR, TNR and Cohen's kappa, a graded
+   `agreement_stats` exercise, both correctness judges against the
+   reading alone and with Lesson 5's citation check first (Gemma TNR 53%
+   to 87%), and Lesson 3's two readers before and after the standard
+   (kappa 0.19 to 0.70), 5 quiz cards. Data: the new
+   `public/data/eval/judge-labels/vs-reading.json` (written by
+   `scripts/eval/judge_vs_reading.py`, committed with the phase 4 scripts;
+   the zip's copies are byte-identical, `--check` passes) through the new
+   `LOAD_JUDGE_LABELS`. In Pyodide 0.26.4 all three demos and the
+   reference's example print the mockup's output exactly; the reference
+   passes the 5 hidden tests (the mockup's asserts split per group, each
+   rebuilding its pairs), and the starter and ten wrong versions each fail.
+   Added to the mockup's tests: an asymmetric case (TPR 5/8, TNR 1),
+   because the mockup's pairs have equal pass counts on both sides, so
+   dividing by the grader's passes or fails (precision, not TPR/TNR)
+   passed every test. Added to the prose: which side is "positive"
+   varies — the course follows Husain and Shankar's `judgy` library (pass
+   is positive, as its correction formula uses the pass rate), while
+   Husain's evals FAQ calls a failure positive, so its TPR is this
+   lesson's TNR. Callbacks: Lesson 6's recap (page; also as "Lesson 6's
+   combined grader"), Lesson 3's `#the-sample` and
+   `#the-task-and-how-a-standard-decides-it`, Lesson 6 concept 4's
+   `#the-answers-judged`, Lesson 5 concept 3's
+   `#a-check-across-the-path-and-the-reply` (anchors verified in the built
+   HTML).
+
+**Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
+`scripts/eval/README-phase4.md`: both judges again over the same 3,092
+items with rubrics version 2 (false-report, planted and premise rubrics
+revised from Lesson 7's development labels) and `tasks/main.json` version
+3 (new references for q19 and q40-allowed; 1,728 prompts differ from
+phase 3), recording the top-5 logprobs of each verdict's first token. In
+`public/data/eval/judges/gemma-v2.json` (0 undecided, 0 cut off) and
+`qwen9b-v2.json` (4 cut off at 400 tokens). Same revisions and
+environment as phase 3; Gemma 215 s wall, Qwen 96 s.
+
 **Runs, phase 3 (Lesson 6's judges): done (2026-10-02).**
 `scripts/eval/README-phase3.md`, `scripts/eval/judges.py`,
 `scripts/eval/run_judges.py`: Gemma 4 31B (`google/gemma-4-31B-it`, the

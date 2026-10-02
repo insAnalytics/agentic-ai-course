@@ -556,3 +556,54 @@ def load_digest() -> dict:
     """Every phase 3 judge decision, by judge: gemma (Gemma 4 31B) and qwen9b (Qwen3.5-9B)."""
     return json.loads((JUDGES / "digest.json").read_text(encoding="utf-8"))["judges"]
 `;
+
+/**
+ * Module 7 Lesson 7's judge-label files under public/data/eval/judge-labels/:
+ * vs-reading.json (written by scripts/eval/judge_vs_reading.py) to start with.
+ */
+export function judgeLabelsData(...names: string[]): string[] {
+  return names.map((name) => `eval/judge-labels/${name}.json`);
+}
+
+/**
+ * Module 7 Lesson 7's shared setup, introduced in concept 1 and shown there
+ * verbatim (keep the two byte-identical: scripts/check-copies.mjs checks it).
+ * Every demo in the lesson starts from it.
+ */
+export const LOAD_JUDGE_LABELS = String.raw`import json
+from pathlib import Path
+
+JUDGE_LABELS = Path("/data/eval/judge-labels")
+
+
+def load_vs_reading() -> list[dict]:
+    """The 50 question runs Lesson 3's reading labelled, with the reading's verdict, both judges' correctness
+    verdicts, and whether every citation was to a source a tool returned."""
+    return json.loads((JUDGE_LABELS / "vs-reading.json").read_text(encoding="utf-8"))["rows"]
+`;
+
+/**
+ * Module 7 Lesson 7 concept 1's agreement_stats: the exercise's reference,
+ * shown there as the correct answer by using this constant (with the
+ * starter's example call after it). Demos after the exercise append it to
+ * LOAD_JUDGE_LABELS.
+ */
+export const AGREEMENT_STATS = String.raw`def agreement_stats(pairs: list[tuple[str, str]]) -> dict:
+    """How a grader's verdicts compare with a person's. pairs are (person, grader), each "pass" or "fail"; pairs with
+    anything else are skipped and counted."""
+    usable = [(p, g) for p, g in pairs if p in ("pass", "fail") and g in ("pass", "fail")]
+    n = len(usable)
+    if not n:
+        return {"n": 0, "skipped": len(pairs), "tpr": None, "tnr": None, "accuracy": None, "kappa": None}
+    passes = [g for p, g in usable if p == "pass"]
+    fails = [g for p, g in usable if p == "fail"]
+    agreed = sum(p == g for p, g in usable) / n
+    person_pass = len(passes) / n
+    grader_pass = sum(g == "pass" for _, g in usable) / n
+    by_chance = person_pass * grader_pass + (1 - person_pass) * (1 - grader_pass)
+    return {"n": n, "skipped": len(pairs) - n,
+            "tpr": passes.count("pass") / len(passes) if passes else None,
+            "tnr": fails.count("fail") / len(fails) if fails else None,
+            "accuracy": agreed,
+            "kappa": (agreed - by_chance) / (1 - by_chance) if by_chance < 1 else None}
+`;

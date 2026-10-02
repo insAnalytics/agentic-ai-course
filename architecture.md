@@ -633,11 +633,23 @@ answers, retrieved ids, `no_answer` and Gemma's correctness and
 relevance replies; its `lib.py` is copy-checked (`CONTAINED`) against
 concept 2's reference and `CITED_IDS`.
 
+Module 7 Lesson 7 (measuring judges against people) mounts
+`public/data/eval/judge-labels/` at `/data/eval/judge-labels`, through
+`judgeLabelsData(...)` and `LOAD_JUDGE_LABELS` (`load_vs_reading`, shown
+verbatim on concept 1, copy-checked) in `evalData.ts`. Concept 1 adds
+`judge-labels/vs-reading.json` (8 KB, written by
+`scripts/eval/judge_vs_reading.py`, `--check`): the 50 question runs
+Lesson 3's reading labelled, with the reading's verdict, both phase 3
+judges' correctness verdicts and whether every citation was to a source a
+tool returned. Its exercise's reference is `AGREEMENT_STATS` (TPR, TNR,
+accuracy, Cohen's kappa), appended to `LOAD_JUDGE_LABELS` by the demos
+after it.
+
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
 code block has drifted: currently the pilot's `tasks.json` against
 `scripts/eval/tasks/pilot.json`, `LOAD_PILOT`, `LOAD_READING` and `LOAD_SUITE`
-(Lesson 4 concept 1, Lesson 5 concepts 1 to 3) and `LOAD_JUDGES` (Lesson 6 concepts 1 to 5) against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
+(Lesson 4 concept 1, Lesson 5 concepts 1 to 3) `LOAD_JUDGES` (Lesson 6 concepts 1 to 5) and `LOAD_JUDGE_LABELS` (Lesson 7 concept 1) against the pages' static setup blocks, `TRACE_FROM_RECORDING` and `INSTRUMENT_WRAPPERS` against
 the demos that show them, the replay exercise's static provided block
 against its constant, and each `public/data/eval/code/*.py` against its
 source. A second list, `CONTAINED`, checks that code a page shows appears
