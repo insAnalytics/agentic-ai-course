@@ -1,13 +1,13 @@
 # Module 7, Lesson 11 — Concept 1: What to watch on every run
 
 > **Note for the site build:**
-> - New script `scripts/eval/monitoring_traffic.py`, in `m7-l11-c1-site-build.zip` with the two files it wrote here. Rerun it, check that both outputs are identical to the copies in the zip, run it again with `--check`, and commit the script and both outputs: `public/data/eval/monitoring/traffic-baseline-a.json` (2.4 MB) and `traffic-layers-a.json` (2.5 MB). Each holds one recorded run's 385 development-task runs, as the spans each run's tracer recorded, in start order. The script drops `registry_agent.check.reason` and adds `registry_agent.search.results` to each `search_docs` span; its docstring says why.
+> - New script `scripts/eval/monitoring_traffic.py`. Concept 2 extends it to four files, so use concept 2's zip, `m7-l11-c2-site-build.zip`, which replaces this concept's. This page reads two of the files: `public/data/eval/monitoring/traffic-baseline-a.json` (2.4 MB) and `traffic-layers-a.json` (2.5 MB). Each holds one recorded run's 385 development-task runs, as the spans each run's tracer recorded, in start order. The script drops `registry_agent.check.reason` and adds `registry_agent.search.results` to each `search_docs` span; its docstring says why.
 > - New exports in `evalData.ts`:
->   - `TRAFFIC_DATA`: both files, mounted at `/data/eval/monitoring`.
+>   - `trafficData(...conditions)`: the named traffic files, mounted at `/data/eval/monitoring`, like `pilotData`. This page uses `trafficData("baseline-a", "layers-a")`.
 >   - `LOAD_TRAFFIC`: `TRACER` + `SUMMARIZE` + the setup block shown on this page (`load_traffic` and `percentile`), byte-identical to the page. It is the setup for every demo and exercise in this lesson.
 >   - `DASHBOARD`: the exercise's reference `dashboard`, without its example printout, for the last demo on this page and for later pages.
 > - The second and third demos continue from the first: put the first demo's code, minus its two `print` loops, into their hidden setup after `LOAD_TRAFFIC`.
-> - The exercise needs `TRAFFIC_DATA`; its hidden tests load both files.
+> - The exercise needs `trafficData("baseline-a", "layers-a")`; its hidden tests load both files.
 
 ---
 

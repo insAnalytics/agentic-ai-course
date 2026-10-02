@@ -170,6 +170,17 @@ const PAIRS = [
     ],
   },
   {
+    what: "DEPLOY_STREAM (Module 7 Lesson 11 concept 2)",
+    a: ["src/lib/evalData.ts", () => rawConstant("src/lib/evalData.ts", "DEPLOY_STREAM")],
+    b: [
+      "the page's setup block",
+      () => pageFence(
+        "src/content/modules/07-evaluation/11-monitoring/02-is-this-a-real-change.mdx",
+        "import random\n\n\ndef run_facts",
+      ),
+    ],
+  },
+  {
     what: "LOAD_SUMMARIZER (Module 7 Lesson 5 concept 5)",
     a: ["the LOAD_SUMMARIZER constant", () => rawConstant("src/content/modules/07-evaluation/05-code-graders/05-a-component-test-the-summarizer.mdx", "LOAD_SUMMARIZER")],
     b: [

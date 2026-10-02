@@ -7678,8 +7678,8 @@ torch 2.13.0+cu130, `torchaudio` removed,
    flags taken as confirmed, gate arguments swapped) each fail. Lesson 10
    is now fully Locked.
 11. **Monitoring in Production** (`11-monitoring`, title provisional) —
-   **Building.** Concept 1 drafted and built; concepts 2 on and bookends
-   not yet. Concept 1 (what to watch on every run): no answer key in
+   **Building.** Concepts 1 and 2 drafted and built; concepts 3 on and
+   bookends not yet. Concept 1 (what to watch on every run): no answer key in
    production (Lesson 1), Anthropic's guide on monitoring after launch,
    simulated traffic (the baseline's batch a, 385 development runs, in
    start order), the SRE book's four golden signals for an agent plus
@@ -7714,6 +7714,31 @@ torch 2.13.0+cu130, `torchaudio` removed,
    concept 3 (page), Module 5 Lesson 15 concept 5's
    `#a-system-that-keeps-running`, Lesson 9 concept 4 (page and
    `#what-the-layers-did`) (anchors verified).
+   Concept 1 was later revised from the updated mockup: `TRAFFIC_DATA`
+   became `trafficData(...conditions)`, and the page now mounts only
+   `trafficData("baseline-a", "layers-a")` (rechecked in Pyodide: all
+   demos and the exercise unchanged).
+   Concept 2 (is this a real change?): a simulated stream (the
+   baseline's two batches, 770 runs, shuffled per seed, then the
+   compacting agent's 385), windows of 55 runs, the binomial noise for a
+   rate (`likely_counts`), the SRE book on paging for symptoms, the SRE
+   Workbook's SLI/SLO/error budget/burn rate, its four criteria, six
+   designs, two-window rule and low-traffic warning (all checked against
+   the chapter: 1/12 short window, 14.4 over an hour pages, burn rate 1
+   over 3 days tickets, "10 requests per hour"), the two-window rule on
+   300 streams, what an alert doesn't tell you, 6 quiz cards, no
+   exercise. `monitoring_traffic.py` from the c2 zip now writes four
+   files (adds `traffic-baseline-b` and `traffic-compaction-a`); all four
+   identical to the zip's copies apart from line endings, `--check`
+   passes. New `DEPLOY_STREAM` setup, shown and copy-checked. All three
+   demos reproduce the mockup's output exactly, in Pyodide 0.26.4 too
+   (the burn-rate demo takes 1.2 s there). Also checked: four of the
+   seven post-change windows show 6 or 7; token windows 7,177 to 10,847
+   before and 8,649 to 12,272 after; batches differ by 4 tokens; +15%
+   for compaction; about 10 vs 4 runs without an answer in 100.
+   Callbacks: concept 1 (page), Lesson 9 concept 3 (page and
+   `#why-it-cost-that`), Lesson 10 concept 2 (page and
+   `#measuring-the-noise-first`) (anchors verified).
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092

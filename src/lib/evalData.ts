@@ -904,8 +904,13 @@ export const BENJAMINI_HOCHBERG = String.raw`def benjamini_hochberg(p_values: di
     return sorted(name for name, _ in ranked[:cutoff])
 `;
 
-/** Module 7 Lesson 11's simulated traffic (written by scripts/eval/monitoring_traffic.py), mounted at /data/eval/monitoring. */
-export const TRAFFIC_DATA = ["eval/monitoring/traffic-baseline-a.json", "eval/monitoring/traffic-layers-a.json"];
+/**
+ * Module 7 Lesson 11's simulated traffic (written by scripts/eval/monitoring_traffic.py), mounted at
+ * /data/eval/monitoring: only the named conditions' files, since each is a few MB.
+ */
+export function trafficData(...conditions: string[]): string[] {
+  return conditions.map((condition) => `eval/monitoring/traffic-${condition}.json`);
+}
 
 /**
  * Module 7 Lesson 11's setup block, shown verbatim on concept 1 (keep the two byte-identical:
@@ -971,4 +976,30 @@ def dashboard(runs: list[list[Span]]) -> dict:
         "no_answer_rate": share(sum(map(no_answer, runs)), len(runs)),
         "withheld_rate": share(sum(map(withheld, runs)), len(runs)),
     }
+`;
+
+/**
+ * Module 7 Lesson 11 concept 2's setup block, shown verbatim on that page (keep the two byte-identical:
+ * scripts/check-copies.mjs checks it). Its demos run on LOAD_TRAFFIC + DASHBOARD + this, with
+ * trafficData("baseline-a", "baseline-b", "compaction-a").
+ */
+export const DEPLOY_STREAM = String.raw`import random
+
+
+def run_facts(spans: list[Span]) -> tuple[bool, int]:
+    """What this concept watches in one run: whether it ended without an answer, and its tokens."""
+    facts = summarize(spans)
+    chats = [span for span in spans if span.attributes.get("gen_ai.operation.name") == "chat"]
+    return bool(chats[-1].attributes.get("registry_agent.tool_calls")), facts["input_tokens"] + facts["output_tokens"]
+
+
+before = [run_facts(spans) for spans in load_traffic("baseline-a") + load_traffic("baseline-b")]
+after = [run_facts(spans) for spans in load_traffic("compaction-a")]
+deploy = len(before)
+
+
+def stream(seed: int) -> list[tuple[bool, int]]:
+    """The baseline's 770 runs in a random order, then, once the change ships, the compacting agent's 385."""
+    rng = random.Random(seed)
+    return rng.sample(before, len(before)) + rng.sample(after, len(after))
 `;

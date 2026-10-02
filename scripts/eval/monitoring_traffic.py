@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parents[2]
 MAIN = ROOT / "public" / "data" / "eval" / "main"
 OUT = ROOT / "public" / "data" / "eval" / "monitoring"
 TASKS = ROOT / "scripts" / "eval" / "tasks" / "main.json"
-CONDITIONS = ("baseline-a", "layers-a")
+CONDITIONS = ("baseline-a", "baseline-b", "layers-a", "compaction-a")
 DROPPED = {"registry_agent.check.reason"}
 
 

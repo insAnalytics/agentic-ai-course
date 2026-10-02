@@ -8,7 +8,9 @@ import LiveDemo from "../../../../components/lesson/LiveDemo";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import GradedExercise from "../../../../components/lesson/GradedExercise";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
-import { DASHBOARD, LOAD_TRAFFIC, TRAFFIC_DATA } from "../../../../lib/evalData";
+import { DASHBOARD, LOAD_TRAFFIC, trafficData } from "../../../../lib/evalData";
+
+export const DATA = trafficData("baseline-a", "layers-a");
 
 export const TRAFFIC_BASE = String.raw`from statistics import mean
 
@@ -335,7 +337,7 @@ between two runs.
 
 Here is the traffic, three ways:
 
-<LiveDemo client:load dataFiles={TRAFFIC_DATA} setupCode={LOAD_TRAFFIC} code={TRAFFIC_DEMO} />
+<LiveDemo client:load dataFiles={DATA} setupCode={LOAD_TRAFFIC} code={TRAFFIC_DEMO} />
 
 *(Simulated traffic: the recorded runs of the baseline's batch a,
 development tasks only, read in the order they started.)*
@@ -351,7 +353,7 @@ up by a few long runs. One run in twenty used more than 33,000. The same
 holds for time: the median run took under 12 seconds, and one in twenty
 took more than 33.
 
-<LiveDemo client:load dataFiles={TRAFFIC_DATA} setupCode={LOAD_TRAFFIC + "\n\n" + TRAFFIC_BASE} code={TAIL_DEMO} />
+<LiveDemo client:load dataFiles={DATA} setupCode={LOAD_TRAFFIC + "\n\n" + TRAFFIC_BASE} code={TAIL_DEMO} />
 
 *(Simulated traffic, as above; `tokens` and `calls` come from the
 previous demo's `measures`, loaded for you.)*
@@ -385,7 +387,7 @@ of runs end close to where the loop would cut them off.
 The trace shows explicit errors directly. A tool span whose status is
 `ERROR` is a tool call that failed:
 
-<LiveDemo client:load dataFiles={TRAFFIC_DATA} setupCode={LOAD_TRAFFIC + "\n\n" + TRAFFIC_BASE} code={TOOLS_DEMO} />
+<LiveDemo client:load dataFiles={DATA} setupCode={LOAD_TRAFFIC + "\n\n" + TRAFFIC_BASE} code={TOOLS_DEMO} />
 
 *(Simulated traffic, as above.)*
 
@@ -439,7 +441,7 @@ dashboard can count it:
   task={"Write dashboard(runs). runs is a non-empty list of runs, each a list of Spans in the order they started. summarize (Lesson 2's) and percentile (this lesson's nearest-rank percentile) are loaded. Return a dict with these keys: \"runs\": the number of runs. \"p50_seconds\" and \"p95_seconds\": percentile at 50 and 95 of each run's duration in seconds, the end minus the start of its root span (the span with no parent). \"mean_tokens\" and \"p95_tokens\": the mean, and percentile at 95, of each run's input plus output tokens over its chat spans. \"tool_error_rate\": the share of all execute_tool spans whose status is \"ERROR\". \"empty_search_rate\": the share of execute_tool spans for search_docs whose registry_agent.search.results is 0. \"no_answer_rate\": the share of runs whose last chat span asked for tools, that is, has a non-empty registry_agent.tool_calls. \"withheld_rate\": the share of runs with at least one before_answer check span whose registry_agent.check.verdict is \"blocked\". Find spans by their attributes (gen_ai.operation.name, registry_agent.check.point), not their names. A rate with nothing to count, such as tool errors in runs that called no tools, is 0.0."}
   starterCode={STARTER}
   namespaceSetup={LOAD_TRAFFIC}
-  dataFiles={TRAFFIC_DATA}
+  dataFiles={DATA}
   hiddenTests={TESTS}
   runnable
   hint={"Each rate has its own denominator: tool errors out of tool spans, empty searches out of searches, and the two run-level rates out of runs. Count a run as withheld once, however many of its checks blocked. For tokens, summarize already sums the chat spans only; adding the root span's usage would count every token twice."}
@@ -457,7 +459,7 @@ The same dashboard on two recorded runs: the baseline, and the agent with
 [Module 6's layered checks](/07-evaluation/09-ablations/04-module-6s-layers-on-real-runs/)
 switched on:
 
-<LiveDemo client:load dataFiles={TRAFFIC_DATA} setupCode={LOAD_TRAFFIC + "\n\n" + DASHBOARD} code={COMPARE_DEMO} />
+<LiveDemo client:load dataFiles={DATA} setupCode={LOAD_TRAFFIC + "\n\n" + DASHBOARD} code={COMPARE_DEMO} />
 
 *(Simulated traffic: the development-task runs of the baseline's batch a
 and of the layered run, each read in the order its runs started;

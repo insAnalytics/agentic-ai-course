@@ -783,22 +783,29 @@ gained `escapedConstant` for constants containing `${"`"}` escapes,
 which `rawConstant` can't read.
 
 Module 7 Lesson 11 (`11-monitoring`) adds
-`public/data/eval/monitoring/traffic-{baseline-a,layers-a}.json` (2.4 and
-2.5 MB), written by `scripts/eval/monitoring_traffic.py` (`--check` fails
+`public/data/eval/monitoring/traffic-{baseline-a,baseline-b,layers-a,compaction-a}.json`
+(2.4, 2.4, 2.5 and 2.7 MB), written by `scripts/eval/monitoring_traffic.py` (`--check` fails
 if out of date): each recorded run's 385 development-task runs as the
 spans its tracer recorded, in start order, minus
 `registry_agent.check.reason` and plus `registry_agent.search.results`
 on each `search_docs` span (the docstring says why). Mounted at
-`/data/eval/monitoring` via `TRAFFIC_DATA`. `TRAFFIC_SETUP`
+`/data/eval/monitoring` via `trafficData(...conditions)`, which names
+only the files a page reads (like `pilotData`), since each is a few MB. `TRAFFIC_SETUP`
 (`load_traffic`, nearest-rank `percentile`) is shown verbatim on concept
 1 and copy-checked; `LOAD_TRAFFIC` is `TRACER` + `SUMMARIZE` +
 `TRAFFIC_SETUP`, the setup of every demo and exercise in the lesson.
 Concept 1's exercise passes `LOAD_TRAFFIC` as `namespaceSetup` (the
 learner's `dashboard` calls `summarize` and `percentile`, and the hidden
-tests call `load_traffic` and build `Span`s), with `TRAFFIC_DATA` as its
-data; its reference is `DASHBOARD`, loaded hidden by the demo after it.
+tests call `load_traffic` and build `Span`s), with
+`trafficData("baseline-a", "layers-a")` as its data; its reference is `DASHBOARD`, loaded hidden by the demo after it.
 The page's second and third demos load the first demo's data-building
 lines (`TRAFFIC_BASE`) hidden.
+Concept 2's setup is `LOAD_TRAFFIC` + `DASHBOARD` + `DEPLOY_STREAM`
+(`run_facts`, `before`, `after`, `deploy`, `stream`: the baseline's two
+batches shuffled with a seed, then the compacting agent's runs), the last
+shown verbatim on the page and copy-checked; it mounts
+`trafficData("baseline-a", "baseline-b", "compaction-a")`. Its 300-stream
+burn-rate demo takes about 1.2 s in Pyodide.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
