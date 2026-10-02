@@ -663,6 +663,16 @@ replies fall in each labelling stratum: premise, the marker's outcome,
 Gemma's phase 3 verdict) and `premise_judged` (each judge and version's
 premise verdicts, by true or false premise).
 
+Module 7 Lesson 8 (calibration) reuses Module 6's reliability data. Its
+hidden setup `CALIBRATION_SETUP` in `evalData.ts` is Module 6 Lesson 6
+concept 2's `SIGNALS_SETUP` rebuilt from `LOAD_UNSURE` (imported from
+`reliabilityData.ts`) and copies of that page's `ANSWER_PROBABILITY` and
+`VERDICT_PROBABILITY`, copy-checked against it (page-local `.mdx`
+exports aren't imported across pages). `CALIBRATION_DATA` mounts
+Module 6's set E runs for both models (`plain.smaller`, `plain`) and its
+set V judge runs. Concept 1's exercise reference is `CALIBRATION`
+(`calibration_table`, `ece`, `brier`), appended by the demos after it.
+
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or
 code block has drifted: currently the pilot's `tasks.json` against

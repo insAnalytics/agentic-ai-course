@@ -225,6 +225,15 @@ const PAIRS = [
       ),
     ],
   },
+  // Module 7 Lesson 8's hidden setup rebuilds Module 6's SIGNALS_SETUP from copies of its two signals
+  ...["ANSWER_PROBABILITY", "VERDICT_PROBABILITY"].map((name) => ({
+    what: `${name} (Module 7 Lesson 8's copy of Module 6 Lesson 6 concept 2's)`,
+    a: ["src/lib/evalData.ts", () => rawConstant("src/lib/evalData.ts", name)],
+    b: [
+      "Module 6's signals page",
+      () => rawConstant("src/content/modules/06-reliability/06-when-unsure/02-signals-the-agent-isnt-sure.mdx", name),
+    ],
+  })),
   // the pilot's modules, served to the browser for Module 7 Lesson 2 concept 5's replays
   ...[
     ...["eval_client", "registry_world", "harness"].map((name) => `scripts/eval/${name}.py`),

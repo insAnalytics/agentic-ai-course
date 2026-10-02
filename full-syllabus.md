@@ -7317,6 +7317,35 @@ torch 2.13.0+cu130, `torchaudio` removed,
    stays `07-measuring-judges` so existing links (including Module 6's set
    F note) keep working.
 
+8. **Calibration** (`08-calibration`, title provisional) — **Building:**
+   concept 1 drafted and built; later concepts and bookends not yet
+   drafted.
+   Concept 1 (ranking isn't calibration) is built: AUROC against
+   calibration, the 2B's answer-line probability beside the same scores
+   squared (AUROC 0.525 both; mean confidence 90.7% vs 85.2%; accuracy
+   93.2%), reliability diagrams, ECE (Guo et al., ICML 2017, linked) and
+   the Brier score, a graded `calibration_table` / `ece` / `brier`
+   exercise, both models' answer-line ECE and Brier (2B 0.102 / 0.084 from
+   1,675 answers, 114 wrong; 4B 0.020 / 0.017, 15 wrong), and the 2B's
+   reliability table (underconfident below 0.5, overconfident at the top),
+   5 quiz cards. Every demo starts from the new hidden
+   `CALIBRATION_SETUP` in `evalData.ts`: Module 6's `SIGNALS_SETUP`
+   rebuilt from `LOAD_UNSURE` plus copies of that page's
+   `ANSWER_PROBABILITY` and `VERDICT_PROBABILITY` (copy-checked), with
+   `CALIBRATION_DATA` (Module 6's `SIGNALS_DATA` plus the 4B's `plain`
+   run, which the answer-line demo reads and `SIGNALS_DATA` doesn't
+   mount). The exercise's reference is `CALIBRATION` in `evalData.ts`. In
+   Pyodide 0.26.4 all three demos and the reference's example print the
+   mockup's output exactly; the reference passes the 5 hidden tests (the
+   mockup's asserts split by group, each rebuilding its rows) and the
+   starter and seven wrong versions each fail. Changed from the mockup:
+   the bin-edge asserts compare with a tolerance (an exact `==` failed a
+   correct `i * (1 / bins)`, which gives 0.30000000000000004); the
+   answer-line demo drops an unused `from collections import Counter`;
+   Q2's correct option reads "right 80% of the time". Callback: Module 6
+   Lesson 6 concept 2's `#measuring-a-signal-on-your-own-cases` (anchor
+   verified).
+
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092
 items with rubrics version 2 (false-report, planted and premise rubrics

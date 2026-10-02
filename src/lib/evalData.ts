@@ -1,5 +1,5 @@
 import { REACT_FAKE_CLIENT } from "./fakeClient";
-import { CHECKED_AGENT } from "./reliabilityData";
+import { CHECKED_AGENT, LOAD_UNSURE, reliabilityData, verificationData } from "./reliabilityData";
 
 /**
  * Module 7 (Evaluation) shared setup. Demos that read the pilot's recorded
@@ -606,4 +606,72 @@ export const AGREEMENT_STATS = String.raw`def agreement_stats(pairs: list[tuple[
             "tnr": fails.count("fail") / len(fails) if fails else None,
             "accuracy": agreed,
             "kappa": (agreed - by_chance) / (1 - by_chance) if by_chance < 1 else None}
+`;
+
+/**
+ * Module 7 Lesson 8's data: Module 6's set E answer runs for both models
+ * (plain.smaller is the 2B, plain the 4B) and its set V judge runs, as
+ * Module 6's signals page mounts them, plus the 4B's run.
+ */
+export const CALIBRATION_DATA = [
+  ...reliabilityData("plain.smaller", "plain"),
+  ...verificationData("support.small", "statements.small", "statements.large"),
+];
+
+/**
+ * Module 6 Lesson 6 concept 2's two logprob signals, copied from that page's
+ * constants of the same names (scripts/check-copies.mjs keeps them identical).
+ */
+export const ANSWER_PROBABILITY = String.raw`import math
+
+
+def answer_probability(sample: dict) -> float | None:
+    """The probability the model gave its whole answer line: the product of its tokens' probabilities."""
+    steps = sample.get("answer_logprobs")
+    return math.exp(sum(step["logprob"] for step in steps)) if steps else None
+`;
+
+export const VERDICT_PROBABILITY = String.raw`def verdict_probability(steps: list[dict], marker: str = "VERDICT:") -> float | None:
+    """The probability of the first word after the marker: the moment the judge commits to a verdict."""
+    text = ""
+    for i, step in enumerate(steps):
+        text += step["token"]
+        if marker in text:
+            following = [s for s in steps[i + 1:] if s["token"].strip()]
+            return math.exp(following[0]["logprob"]) if following else None
+    return None
+`;
+
+/**
+ * Module 7 Lesson 8's hidden setup: Module 6's SIGNALS_SETUP, rebuilt from
+ * the same pieces. Every demo in the lesson starts from it, unshown.
+ */
+export const CALIBRATION_SETUP = LOAD_UNSURE + "\n" + ANSWER_PROBABILITY + "\n\n" + VERDICT_PROBABILITY;
+
+/**
+ * Module 7 Lesson 8 concept 1's calibration_table, ece and brier: the
+ * exercise's reference, shown there as the correct answer by using this
+ * constant (with the starter's example after it). Demos after the exercise
+ * append it to CALIBRATION_SETUP.
+ */
+export const CALIBRATION = String.raw`def calibration_table(rows: list[tuple[float, bool]], bins: int = 10) -> list[dict]:
+    """Group (confidence, correct) pairs into equal-width confidence bins; for each non-empty bin, its range, count,
+    mean confidence and accuracy. A confidence of exactly 1.0 goes in the top bin."""
+    groups = [[] for _ in range(bins)]
+    for confidence, correct in rows:
+        groups[min(int(confidence * bins), bins - 1)].append((confidence, correct))
+    return [{"low": i / bins, "high": (i + 1) / bins, "count": len(group),
+             "confidence": sum(c for c, _ in group) / len(group),
+             "accuracy": sum(correct for _, correct in group) / len(group)}
+            for i, group in enumerate(groups) if group]
+
+
+def ece(rows: list[tuple[float, bool]], bins: int = 10) -> float:
+    """Expected calibration error: each bin's gap between accuracy and mean confidence, weighted by its share of rows."""
+    return sum(b["count"] / len(rows) * abs(b["accuracy"] - b["confidence"]) for b in calibration_table(rows, bins))
+
+
+def brier(rows: list[tuple[float, bool]]) -> float:
+    """The mean squared gap between each confidence and what happened (1 if right, 0 if wrong)."""
+    return sum((confidence - correct) ** 2 for confidence, correct in rows) / len(rows)
 `;
