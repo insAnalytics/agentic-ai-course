@@ -7534,7 +7534,7 @@ torch 2.13.0+cu130, `torchaudio` removed,
    per-condition correction, A and B swapped, groups outer loop, `None`
    as the all-tasks label, verdicts swapped) each fail.
 10. **Regression Tests** (`10-regression-tests`, title provisional) —
-   **Building.** Concepts 1 to 3 drafted and built; any further
+   **Building.** Concepts 1 to 4 drafted and built; any further
    concepts and the bookends not yet. Concept 1 (what changed, and the last known-good run): why a
    suite gets rerun (Module 6's pinning limit, Anthropic's September 2025
    postmortem, linked), what should trigger a rerun, the last known-good
@@ -7608,6 +7608,29 @@ torch 2.13.0+cu130, `torchaudio` removed,
    flagged in the last concept" is "flags", since layers v2 wasn't in
    concept 2's demo. Callbacks: none in the mockup; the demo notes link
    concept 2 and Lesson 9 concept 3 (pages).
+   Concept 1 was later revised from the updated mockup: its prose now
+   says every run but the prompt change's shares the hash, including
+   the ones served in FP8, and Q1's stem and explanation follow it
+   ("runs" kept plural, since each change has a main and a suite run).
+   Concept 4 (three real changes): the three phase 6 changes, each
+   gated against the baseline with `what_changed` (task-file version
+   ignored) and `gate` (fp8 PASS +2.2%, -1.0% to +5.3%; prompt-v2 PASS
+   +4.2%, +0.6% to +7.8%; layers-v2 FAIL -16.3%, 9 flagged); reading a
+   pass (lost-write tasks s01/s02/s03/s05 from 0 of 5 to 4-5 of 5, a14
+   still 0, vendor citation s06/s09 unmoved); reading a failure (layers
+   376 vs 228 withheld, intent check 44 to none, grounding 132 to 24;
+   v2's mangled agent names, 61 calls and 47 withheld, and empty claims,
+   13 calls and 9 withheld); why the unit tests missed both; 5 quiz cards,
+   no exercise. `results.json` regenerated from the zip's
+   `ablation_results.py` (identical to the zip's copy apart from line
+   endings, `--check` passes; only the four new support-judge fields
+   added, so every earlier demo is unchanged); `settings.json` already
+   matched the zip's copy. All three demos reproduce the mockup's output
+   exactly, in Pyodide 0.26.4 too. Also checked: the other lost-write
+   tasks (a13 4 to 5, a26 3 to 4, s04 1 to 3) also rose. The s01 and a14
+   run readings, the attribution-sentence reading and the unit-test
+   story come from the content chat, not the data. Callback: concept 2
+   (page).
 
 **Runs, phase 4 (Lesson 7's revised judges, Lesson 8's logprobs): done (2026-10-02).**
 `scripts/eval/README-phase4.md`: both judges again over the same 3,092

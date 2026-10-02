@@ -110,11 +110,10 @@ settings = json.loads(Path("/data/eval/main/settings.json").read_text(encoding="
 
 <LiveDemo client:load dataFiles={SETTINGS_DATA} setupCode={LOAD_SETTINGS} code={HASH_DEMO} />
 
-Every run has the same hash except the two prompt-v2 runs, whose system
-prompt gained two lines. That includes the runs where Module 6's layers
-withheld six answers in ten, and the fp8 runs, where the same model was
-served quantized. The hash covers what it was built to cover, the prompt
-and the tools, and nothing else: not the checks around the loop, not how
+Every run but the prompt change's has the same hash, including the ones
+where Module 6's layers withheld six answers in ten and the ones served
+in FP8. Only the prompt change moved it. The hash covers what it was
+built to cover, the prompt and the tools, and nothing else: not the checks around the loop, not how
 the model is served, not which task file graded it. A regression test
 needs the full list of settings, compared one by one.
 
@@ -169,7 +168,7 @@ calls.
   client:load
   questions={[
     {
-      "question": "Runs with and without Module 6's layers share one config hash. What does that show?",
+      "question": "Every run but the prompt change's shares one config hash, including the FP8 runs. What does that show?",
       "options": [
         "It covers only prompt and tools",
         "None of the runs changed anything",
@@ -177,7 +176,7 @@ calls.
         "The runs all used the same task file"
       ],
       "correctIndex": 0,
-      "explanation": "The hash fingerprints the system prompt and tool definitions. The layers, the serving setup and the task file all sit outside it, so runs that behaved very differently share one hash."
+      "explanation": "The hash fingerprints the system prompt and tool definitions, so only the prompt change moved it. The layers, the serving setup and the task file all sit outside it, so runs that behaved very differently share one hash."
     },
     {
       "question": "What makes a run a \"last known-good run\"?",

@@ -1,7 +1,7 @@
 """
-Write public/data/eval/ablations/results.json for Lessons 9 and 10: for the baseline and each phase 5 and phase 6
-variant, every task's trial results, where a trial passes if it reached an answer, passed its task's code checks, and
-passed every revised Gemma judge that graded it (correctness for Module 5's questions; the false-report, planted-instruction and
+Write public/data/eval/ablations/results.json for Lesson 9's pages: for the baseline and each phase 5 variant, every
+task's trial results, where a trial passes if it reached an answer, passed its task's code checks, and passed every
+revised Gemma judge that graded it (correctness for Module 5's questions; the false-report, planted-instruction and
 broken-result judges for those tasks). "baseline-b" is the baseline's second batch, main tasks only (the suite was run
 once), for Lesson 10's no-change comparison. Plus, per trial, what each variant did: whether a run was compacted, stopped
 at the step limit and repeated a tool call; which layers objected and whether the answer was withheld; whether the
@@ -30,6 +30,7 @@ MAIN, JUDGES = ROOT / "public/data/eval/main", ROOT / "public/data/eval/judges"
 OUT = ROOT / "public" / "data" / "eval" / "ablations" / "results.json"
 CONDITIONS = {"baseline": ("baseline-a", "suite-2a-a"), "baseline-b": ("baseline-b",), "layers": ("layers-a", "layers-suite-a"),
               "compaction": ("compaction-a", "compaction-suite-a"), "no-labels": ("no-labels-a", "no-labels-suite-a"),
+              # Lesson 10's three changes (phase 6)
               "prompt-v2": ("prompt-v2-a", "prompt-v2-suite-a"), "layers-v2": ("layers-v2-a", "layers-v2-suite-a"),
               "fp8": ("fp8-a", "fp8-suite-a")}
 JUDGE_FILES = ("gemma-v2.json",
@@ -38,6 +39,8 @@ JUDGE_FILES = ("gemma-v2.json",
 GROUPS = {"lost write": ("a13", "a14", "a26", "s01", "s02", "s03", "s04", "s05"),
           "planted": ("a11", "a12", "q13", "s10", "s11", "s12"), "broken result": ("a05", "s22", "s23")}
 CITATION = re.compile(r"\[[\w./-]+:\d+\]")
+# Lesson 10: layers v2's claim splitter strips underscores, so "research_agent" reaches the judge as "researchagent"
+MANGLED = re.compile(r"\b[a-z]+agent\b")
 
 
 def group(task) -> str:
@@ -75,8 +78,17 @@ def build() -> dict:
                 if "layer_log" in trial:
                     row["objections"] = sorted({e["layer"] for e in trial["layer_log"]})
                     row["withheld"] = answer.startswith("answer withheld")
-                    deciding = [e["layer"] for e in trial["layer_log"] if e["point"] == "before_answer"]
-                    row["withheld_by"] = deciding[0] if row["withheld"] and deciding else None
+                    deciding = [e for e in trial["layer_log"] if e["point"] == "before_answer"]
+                    row["withheld_by"] = deciding[0]["layer"] if row["withheld"] and deciding else None
+                    claims = [c["claim"] for c in trial.get("judge_calls", [])]
+                    row["judge_calls"] = len(claims)
+                    row["empty_claims"] = sum(not c.strip(" .") for c in claims)
+                    row["mangled_claims"] = sum(bool(MANGLED.search(c)) for c in claims)
+                    reason = deciding[0]["reason"] if row["withheld_by"] == "support judge" else ""
+                    row["withheld_on"] = ("an empty claim" if reason.endswith("''") else
+                                          "a mangled name" if MANGLED.search(reason) else
+                                          "a citation no tool returned" if reason.startswith("cites ") else
+                                          "another claim" if reason else None)
                 trials.setdefault(task.id, []).append(row)
         out["conditions"][condition] = trials
     return out

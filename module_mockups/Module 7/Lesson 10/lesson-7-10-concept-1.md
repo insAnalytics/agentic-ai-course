@@ -1,7 +1,7 @@
 # Module 7, Lesson 10 — Concept 1: What changed, and the last known-good run
 
 > **Note for the site build:**
-> - New script `scripts/eval/run_settings.py` (in the zip with this file) writes `public/data/eval/main/settings.json`: every main run's recorded settings, without its trials. Run it, check the output matches the copy in the zip, and commit both. Re-run it after phase 6's runs are committed; the page's second demo is unaffected, and the first gains three rows.
+> - New script `scripts/eval/run_settings.py` (in the zip with this file) writes `public/data/eval/main/settings.json`: every main run's recorded settings, without its trials. Run it, check the output matches the copy in the zip, and commit both. It already includes phase 6's three runs.
 > - Add the setup block to `evalData.ts` as `LOAD_SETTINGS`, byte-identical; this lesson's demos start from it. The second demo needs the exercise's reference `what_changed` loaded without showing it.
 
 ---
@@ -44,15 +44,21 @@ baseline-a          config hash e174d8c051e2   variant none        tasks scripts
 baseline-b          config hash e174d8c051e2   variant none        tasks scripts/eval/tasks/main.json
 compaction-a        config hash e174d8c051e2   variant compaction  tasks scripts/eval/tasks/main.json
 compaction-suite-a  config hash e174d8c051e2   variant compaction  tasks scripts/eval/tasks/suite-2a.json
+fp8-a               config hash e174d8c051e2   variant none        tasks scripts/eval/tasks/main.json
+fp8-suite-a         config hash e174d8c051e2   variant none        tasks scripts/eval/tasks/suite-2a.json
 layers-a            config hash e174d8c051e2   variant layers      tasks scripts/eval/tasks/main.json
 layers-suite-a      config hash e174d8c051e2   variant layers      tasks scripts/eval/tasks/suite-2a.json
+layers-v2-a         config hash e174d8c051e2   variant layers-v2   tasks scripts/eval/tasks/main.json
+layers-v2-suite-a   config hash e174d8c051e2   variant layers-v2   tasks scripts/eval/tasks/suite-2a.json
 no-labels-a         config hash e174d8c051e2   variant no-labels   tasks scripts/eval/tasks/main.json
 no-labels-suite-a   config hash e174d8c051e2   variant no-labels   tasks scripts/eval/tasks/suite-2a.json
+prompt-v2-a         config hash 62debdb77f78   variant none        tasks scripts/eval/tasks/main.json
+prompt-v2-suite-a   config hash 62debdb77f78   variant none        tasks scripts/eval/tasks/suite-2a.json
 suite-2a-a          config hash e174d8c051e2   variant none        tasks scripts/eval/tasks/suite-2a.json
 ```
 *(runs live, shows output — read-only demo snippet, not graded)*
 
-Every run has the same hash, including the ones where Module 6's layers withheld six answers in ten. The hash covers what it was built to cover, the prompt and the tools, and nothing else: not the checks around the loop, not how the model is served, not which task file graded it. A regression test needs the full list of settings, compared one by one.
+Every run but one has the same hash, including the ones where Module 6's layers withheld six answers in ten and the one served in FP8. Only the prompt change moved it. The hash covers what it was built to cover, the prompt and the tools, and nothing else: not the checks around the loop, not how the model is served, not which task file graded it. A regression test needs the full list of settings, compared one by one.
 
 ---
 
@@ -161,13 +167,13 @@ Lesson 9's comparisons were fair because every run, old and new, was graded agai
 
 ## Quiz cards
 
-> **Q1.** Every run in this module has the same config hash. What does that show?
+> **Q1.** Every run but the prompt change shares one config hash, including the FP8 run. What does that show?
 > - It covers only prompt and tools ✅
 > - None of the runs changed anything
 > - The hash is computed incorrectly
 > - The runs all used the same task file
 >
-> *Explanation: The hash fingerprints the system prompt and tool definitions. The layers, the serving setup and the task file all sit outside it, so runs that behaved very differently share one hash.*
+> *Explanation: The hash fingerprints the system prompt and tool definitions, so only the prompt change moved it. The layers, the serving setup and the task file all sit outside it, so runs that behaved very differently share one hash.*
 
 > **Q2.** What makes a run a "last known-good run"?
 > - Its results were read and accepted ✅

@@ -748,11 +748,19 @@ must come from the prelude (checked in Pyodide 0.26.4 against the real
 `TEST_HARNESS`).
 Concept 3 adds the phase 6 conditions `prompt-v2`, `layers-v2` and
 `fp8` to `results.json` (`ablation_results.py` now also reads the phase
-6 Gemma judge file; every earlier condition unchanged; 409 KB). Its first
+6 Gemma judge file; every earlier condition unchanged). Its first
 demo shows `FISHER_DROP` (`fisher_drop(before, after)`, one-sided Fisher
 exact test via `math.comb`), which the second demo loads hidden with the
 exercise reference `BENJAMINI_HOCHBERG`; both are in `evalData.ts`, and
 the first demo's code is built from the constant, so they can't drift.
+Concept 4 (from the zip's updated `ablation_results.py`, output
+identical to the zip's copy) adds to every layers-run row
+(`layers`, `layers-v2`) `judge_calls`, `empty_claims`, `mangled_claims`
+(a `[a-z]+agent` name with its underscore stripped) and `withheld_on`
+(the kind of claim the support judge withheld the answer on); every
+other field unchanged; 503 KB. Its demos mount both `SETTINGS_DATA` and
+`ABLATIONS_DATA`, with `LOAD_SETTINGS`, `LOAD_ABLATIONS`, `WHAT_CHANGED`,
+`PAIRED_DIFFERENCE` and `GATE` as hidden setup. No exercise.
 
 **Build-time copy check:** `scripts/check-copies.mjs` runs first in
 `npm run build` and fails the build if a deliberately duplicated file or

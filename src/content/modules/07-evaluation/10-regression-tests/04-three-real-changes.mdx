@@ -1,0 +1,213 @@
+---
+title: "Three real changes"
+lesson: "10-regression-tests"
+order: 4
+---
+import Subsection from "../../../../components/lesson/Subsection.astro";
+import LiveDemo from "../../../../components/lesson/LiveDemo";
+import QuizGroup from "../../../../components/lesson/QuizGroup";
+import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
+import {
+  ABLATIONS_DATA,
+  GATE,
+  LOAD_ABLATIONS,
+  LOAD_SETTINGS,
+  PAIRED_DIFFERENCE,
+  SETTINGS_DATA,
+  WHAT_CHANGED,
+} from "../../../../lib/evalData";
+
+export const DATA = [...SETTINGS_DATA, ...ABLATIONS_DATA];
+
+export const SETUP = [LOAD_SETTINGS, LOAD_ABLATIONS, WHAT_CHANGED, PAIRED_DIFFERENCE, GATE].join("\n\n");
+
+export const GATE_DEMO = String.raw`known_good = passes("baseline")
+for condition, run in (("fp8", "fp8-a"), ("prompt-v2", "prompt-v2-a"), ("layers-v2", "layers-v2-a")):
+    changed = what_changed(settings["baseline-a"], settings[run], ignore=("tasks_file.version",))
+    result = gate(known_good, passes(condition))
+    mean, low, high = result["difference"]
+    print(f"{condition}: changed {', '.join(f'{k} {v[0]!r} -> {v[1]!r}' for k, v in changed.items())}")
+    print(f"  gate {'PASS' if result['passed'] else 'FAIL'}: suite {mean:+.1%} ({low:+.1%} to {high:+.1%}), "
+          f"{len(result['flagged'])} tasks flagged")
+`;
+
+export const TARGETS_DEMO = String.raw`targets = {"lost write, reported": ("s01", "s02", "s03", "s05"), "lost write, emailed": ("a14",),
+           "vendor cited as policy": ("s06", "s09")}
+for label, tasks in targets.items():
+    for task in tasks:
+        before, after = sum(passes("baseline")[task]), sum(passes("prompt-v2")[task])
+        print(f"{label:<23} {task}: {before} of 5 -> {after} of 5")
+`;
+
+export const LAYERS_DEMO = String.raw`from collections import Counter
+
+for condition in ("layers", "layers-v2"):
+    rows = [row for trials in results["conditions"][condition].values() for row in trials]
+    print(f"{condition}: {sum(r['withheld'] for r in rows)} answers withheld; runs each layer objected in: "
+          + ", ".join(f"{layer} {n}" for layer, n in Counter(l for r in rows for l in r["objections"]).most_common()))
+    print(f"  support judge: {sum(r['judge_calls'] for r in rows)} calls, {sum(r['empty_claims'] for r in rows)} on an "
+          f"empty claim, {sum(r['mangled_claims'] for r in rows)} on a mangled agent name; answers it withheld, by claim: "
+          + ", ".join(f"{kind} {n}" for kind, n in Counter(r["withheld_on"] for r in rows if r["withheld_on"]).most_common()))
+`;
+
+<Subsection title="The changes" variant="a">
+
+Phase 6 made three changes to the registry agent, each the kind this
+lesson started from, and ran the full suite on each with the same 5
+trials per task as the baseline:
+
+- **A serving change.** The agent's server quantized the same pinned
+  model, same repository and revision, to FP8 as it loaded. The model ID
+  it reports didn't change.
+- **A prompt change.** Two lines added to the system prompt, aimed at two
+  failures earlier lessons found: telling the agent which document types
+  state company policy, since it kept citing vendor documents as rules;
+  and telling it to read a record back after changing it, since it kept
+  reporting lost writes as done.
+- **A fix to Module 6's layers.** Version 2 of three layers, aimed at the
+  false alarms Lesson 9 read:
+  - the intent check accepts names the agent found by lookup
+  - grounding ignores list numbers and identifiers
+  - the support judge is given one claim per sentence
+
+Each was gated against the baseline, the last known-good run, as
+[concept 2](/07-evaluation/10-regression-tests/02-a-gate-that-doesnt-flake/)
+built it:
+
+<LiveDemo client:load dataFiles={DATA} setupCode={SETUP} code={GATE_DEMO} />
+
+*(`settings`, `passes` and `results` are this lesson's and Lesson 9's
+setups; `what_changed`, `paired_difference` and `gate` are the reference
+versions from concept 1, Lesson 9 and concept 2, all loaded for you. The
+task-file version, which changed for every run since the baseline, is
+left out of the settings list, since all runs were regraded with today's
+checks.)*
+
+FP8 changed one setting the config hash can't see, and the gate found no
+regression: the same pinned model, served quantized, did as well on this
+suite. The prompt change passed with a small gain. The layer fix failed.
+
+</Subsection>
+
+<Subsection title="Reading a pass: the prompt change" variant="b">
+
+A gate that passes says nothing got worse. It doesn't say the change did
+what it was for. That needs the tasks it was aimed at:
+
+<LiveDemo client:load dataFiles={DATA} setupCode={SETUP} code={TARGETS_DEMO} />
+
+The read-back line worked: the lost-write tasks went from never passing
+to passing four or five times in five. In a run read from s01, the agent
+tried the change twice, read the record back after each attempt, and
+told the user the registry still showed the old model. It didn't fix
+a14, where the agent emails the team that the change is done before it
+has checked: the new line covers what the agent tells the user, not the
+order of its actions.
+
+The document-type line did nothing measurable. The vendor-citation tasks
+stayed where they were. Knowing which types are policy wasn't enough to
+stop the agent citing a vendor page for a rule, and a next attempt would
+need a different fix, measured the same way.
+
+</Subsection>
+
+<Subsection title="Reading a failure: the layer fix" variant="a">
+
+<LiveDemo client:load dataFiles={DATA} setupCode={SETUP} code={LAYERS_DEMO} />
+
+Two of the three fixes worked. The intent check, which objected in 44
+runs, objected in none, and grounding's objections fell from 132 runs to
+24. Fewer answers were withheld, 228 instead of 376.
+
+The third fix brought bugs of its own, written in the course's content
+chat and caught by this run:
+
+- **It mangled agent names.** To give the judge clean sentences, version
+  2 strips markdown, and that includes underscores, so `research_agent`
+  reached the judge as `researchagent`. The judge correctly said no
+  source supports a claim about an agent that doesn't exist. That
+  withheld 47 answers.
+- **It sent empty claims.** A list line that's only a citation became a
+  "sentence", and removing the citation left nothing. The judge was asked
+  about nothing 13 times and called it unsupported often enough to
+  withhold 9 answers.
+
+The rest of what it withheld were mostly attribution sentences, such as
+"These are defined in the Monitoring guide", which no source supports
+because they're about the answer rather than the system, plus a few real
+catches, such as a citation to a section no tool returned.
+
+This is the case for running the whole suite on a fix. The unit tests
+for version 2 passed: every scripted case was right, including one that
+checked the judge received exactly one claim. The scripted claim
+contained no underscore and no bare citation line, so the bugs went
+through. A version 3 would keep identifiers intact, skip empty claims,
+and leave attribution sentences to the citation check, and it would go
+through this same gate.
+
+</Subsection>
+
+<CheckpointZone>
+
+<QuizGroup
+  client:load
+  questions={[
+    {
+      "question": "FP8 serving changed only a setting the config hash doesn't cover. What did the gate show?",
+      "options": [
+        "No regression on this suite",
+        "A regression the hash had hidden",
+        "A large improvement from quantization",
+        "That FP8 changed the model's ID"
+      ],
+      "correctIndex": 0,
+      "explanation": "The suite moved +2.2 points with an interval spanning zero, and no task was flagged. The run was worth doing because only a rerun could show it; the hash couldn't even tell it had changed."
+    },
+    {
+      "question": "The prompt change passed the gate. Why read its target tasks anyway?",
+      "options": [
+        "Passing doesn't show it did its job",
+        "The gate can't see gains",
+        "The target tasks weren't in the suite",
+        "A pass always hides a regression"
+      ],
+      "correctIndex": 0,
+      "explanation": "A gate checks that nothing got worse. Whether each part of the change fixed what it was for shows only on the tasks it was aimed at: the read-back line did, the document-type line didn't."
+    },
+    {
+      "question": "Why did the read-back line not fix a14?",
+      "options": [
+        "It emailed before checking",
+        "a14 has no lost write in it",
+        "The agent ignored the new line",
+        "The judge graded a14 too strictly"
+      ],
+      "correctIndex": 0,
+      "explanation": "In a14 the agent emails the team that the change is done, then checks. The new line governs what it tells the user, not the order of its actions."
+    },
+    {
+      "question": "Layers v2's unit tests passed, yet the suite run found two bugs. Why?",
+      "options": [
+        "The scripted claims lacked both",
+        "The unit tests used a different judge",
+        "The suite run used older layer code",
+        "Unit tests can't check the support judge"
+      ],
+      "correctIndex": 0,
+      "explanation": "The scripted cases had no underscores and no line that was only a citation, so the claim splitter's two bugs never showed. Real answers have both, which only the full run exercised."
+    },
+    {
+      "question": "What should happen to layers v2 now?",
+      "options": [
+        "Fix them as v3 and gate it",
+        "Ship it, since it beats version 1",
+        "Drop the support judge altogether",
+        "Rerun v2 until the gate passes"
+      ],
+      "correctIndex": 0,
+      "explanation": "Version 2 improved on version 1 but still fails the gate, partly through its own bugs. A version 3 that fixes them is a new change, measured against the same known-good run."
+    }
+  ]}
+/>
+
+</CheckpointZone>
