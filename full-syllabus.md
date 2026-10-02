@@ -7152,7 +7152,7 @@ replies). In `public/data/eval/judges/gemma.json` and `qwen9b.json`.
 Environment: Colab, RTX PRO 6000 Blackwell Server Edition, vLLM 0.30.0.
 Gemma 214 s wall, Qwen 94 s.
 
-**Lesson 7's labelling: set up (2026-10-02), labels pending.**
+**Lesson 7's labelling: first pass done (2026-10-02); relabel due from 2026-10-23.**
 `scripts/eval/README-judge-labelling.md` and
 `scripts/eval/build_judge_labelling.py` (`--check`) wrote
 `public/data/eval/judge-labels/items.json`: 100 judge items (correctness
@@ -7174,7 +7174,13 @@ question for the content chat: 15 of the 100 items are runs whose
 judge verdicts Lesson 6's pages already discuss (all 9 broken-result
 items are the a05/s22 runs of concept 1, plus b/a13/1, four v10-true and
 one v38-true premise replies, and v05-false check_first 3), so they
-aren't blind for a labeller who has read Lesson 6.
+aren't blind for a labeller who has read Lesson 6. Simar's first pass is in
+`public/data/eval/judge-labels/labels-judges-simar.json`: all 100 items
+(started 2026-10-02 06:00 UTC, finished 09:43 UTC), 11 with notes, 2
+references disputed; one correctness item was labelled before the
+"reference is wrong" checkbox existed. The 30-item relabel
+(`?mode=judges-relabel`) is due three weeks after the finish, from
+2026-10-23.
 
 ### Old-plan outline (where it was Module 4)
 
