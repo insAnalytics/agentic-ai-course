@@ -84,7 +84,7 @@ def tpr_tnr(pairs: list) -> tuple[float, float]:
 export const CORRECTED_DEMO = CORRECT_SETUP + String.raw`
 
 tpr, tnr = tpr_tnr(pairs)
-print(f"Gemma passes {counts['pass']} of {counts['pass'] + counts['fail']} dev question runs: {observed:.1%}")
+print(f"Gemma passes {counts['pass']} of {counts['pass'] + counts['fail']} runs of the suite's development tasks: {observed:.1%}")
 print(f"its test-set TPR {tpr:.2f} and TNR {tnr:.2f}, from {len(pairs)} labelled runs")
 print(f"corrected pass rate: {rogan_gladen(observed, tpr, tnr):.1%}")
 
@@ -166,8 +166,8 @@ zero for a judge no better than a coin, which can't be corrected at all.
 
 <Subsection title="The correctness judge, corrected" variant="b">
 
-Here's the correction on the revised Gemma's verdicts on every dev run of
-Module 5's questions, using its error rates from the test labels, with an
+Here's the correction on the revised Gemma's verdicts on every run of
+Module 5's questions among the suite's development tasks, using its error rates from the test labels, with an
 interval from resampling the labelled runs:
 
 ```python
@@ -267,7 +267,7 @@ the planted instruction, there's no way round it but labelling more runs.
       "explanation": "A judge whose TPR and TNR add up to 1 says pass equally often for good and bad runs, so its verdicts carry no information. The formula's denominator is zero there, and negative below it."
     },
     {
-      "question": "The corrected pass rate was 84.3%, with an interval from about 48% to 100%. What does the interval show?",
+      "question": "The corrected pass rate was 84.3%, with an interval from 47.5% to 100%. What does the interval show?",
       "options": [
         "18 labels can't pin the errors down",
         "The judge's verdicts change from run to run",
