@@ -82,6 +82,17 @@ explains why one interval among many needs more care than that. The registry tas
 within three rounds and were never compacted. The small groups at the
 bottom have intervals too wide to say anything.
 
+**A correction, from Lesson 12.** This comparison, like every one in this
+lesson, ran over all 125 tasks, including the 28
+[Lesson 4 held out](/07-evaluation/04-task-suite/05-holding-tasks-out/#tuning-to-the-suite);
+it should have used the 97 dev tasks only. On dev tasks alone, compaction
+costs 1.2 points, with an interval well across zero: most of the cost
+above comes from held-out tasks. The mechanism in the next section holds
+on dev tasks too (18 runs stopped at the step limit without compaction, 44
+with it), so compaction does make the agent repeat work; what this suite
+can't show is that the repeated work costs task success.
+[Lesson 12 rechecks every decision on dev tasks](/07-evaluation/12-evaluation-report/05-decisions-limits-and-whats-next/#the-decisions-checked-on-the-dev-tasks).
+
 </Subsection>
 
 <Subsection title="Why it cost that" variant="a">
@@ -107,7 +118,7 @@ paired difference above is the effect.
 
 <Subsection title="What it means for the agent" variant="b">
 
-- **For this agent, compaction is a cost, not a help.** Its runs fit
+- **For this agent, compaction buys nothing and makes it repeat work.** Its runs fit
   comfortably in the context window, so compaction buys nothing and loses
   some of what the agent knew. On an agent whose runs outgrow the window,
   the trade would be different: there, the choice is between a summary
@@ -163,7 +174,7 @@ paired difference above is the effect.
       "explanation": "Runs long enough to be compacted are the harder ones, which pass less often anyway. Comparing each task with itself, with and without compaction, separates the effect from that selection."
     },
     {
-      "question": "On this agent, compaction cost about four points across the suite. When might it help instead?",
+      "question": "On this agent, compaction bought nothing. When might it help instead?",
       "options": [
         "When runs outgrow the context window",
         "When the summary is written by a larger model",
