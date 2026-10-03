@@ -566,6 +566,12 @@ export function judgeLabelsData(...names: string[]): string[] {
 }
 
 /**
+ * Module 7's faithfulness judge in compact form, for Lessons 6 and 7 (written by
+ * scripts/eval/faithfulness_measure.py), mounted at /data/eval/faithfulness.
+ */
+export const FAITHFULNESS_DATA = ["eval/faithfulness/measure.json"];
+
+/**
  * Module 7 Lesson 7's shared setup, introduced in concept 1 and shown there
  * verbatim (keep the two byte-identical: scripts/check-copies.mjs checks it).
  * Every demo in the lesson starts from it.
