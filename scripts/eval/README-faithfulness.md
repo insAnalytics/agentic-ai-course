@@ -72,3 +72,29 @@ chat takes it from there.
 - after step 2: `gemma-faithfulness.json`
 - after step 3: `faithfulness/items.json`
 - the labeller change
+
+## 5. Second pass and rubric version 2
+
+The first pass showed a rubric gap, so Simar relabels all 40 items under written rules, and the judge reruns with a
+rubric revised from the dev labels only.
+
+**The relabelling page.**
+- `public/data/eval/faithfulness/relabel.json` holds all 40 items, in a fresh order, and the written rules as its
+  `instructions`. It's built by `build_faithfulness_relabel.py`; commit it with `--check` passing.
+- Add `?mode=judges&items=faithfulness-relabel` to the labeller: load `relabel.json` and export
+  `labels-faithfulness-simar-v2.json`, in the same shape as the first pass.
+- Show the instructions once at the top, as the judge mode already does, with the rules as a list. Keep them visible
+  while labelling (a collapsible panel is fine).
+- Nothing from the first pass or the judge is shown or loaded.
+
+**The judge.** On Colab, Gemma 4 31B on :8002 exactly as before:
+
+```bash
+python scripts/eval/run_judges.py --judge gemma --dry-run --faithfulness --faithfulness-rubric 2 --runs baseline-a,baseline-b,no-labels-a,prompt-v2-a
+python scripts/eval/run_judges.py --judge gemma --faithfulness --faithfulness-rubric 2 --runs baseline-a,baseline-b,no-labels-a,prompt-v2-a
+```
+
+- This writes `public/data/eval/judges/gemma-faithfulness-v2.json`.
+- Version 1's prompts are unchanged: its recorded prompt hashes still match.
+- Report the same figures as before: wall time, items without a decision, anything cut off, and the decision counts.
+- The two can run in either order. The relabelling doesn't depend on the judge, and the judge never sees labels.

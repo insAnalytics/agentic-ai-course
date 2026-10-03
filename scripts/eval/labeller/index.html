@@ -17,6 +17,9 @@
   Module 7, Lesson 6's faithfulness judge (see ../README-faithfulness.md): ?mode=judges&items=faithfulness loads
   public/data/eval/faithfulness/items.json instead, saves its progress separately, and exports
   labels-faithfulness-simar.json. Everything else works as the judge mode does.
+  Its second pass, ?mode=judges&items=faithfulness-relabel, loads public/data/eval/faithfulness/relabel.json (the
+  same 40 items in a new order, with written rules), keeps those rules on screen, and exports
+  labels-faithfulness-simar-v2.json. It loads nothing from the first pass.
 -->
 <style>
   :root {
@@ -94,6 +97,8 @@
   .warning { border-color: var(--warn); color: var(--warn); }
   pre.shown { max-height: 60vh; }
   pre.rubric { max-height: none; }
+  details.rules > summary { color: var(--ink); font-weight: 600; }
+  details.rules li, .guide li { margin: 4px 0; }
 </style>
 </head>
 <body>
@@ -513,6 +518,9 @@ const ITEM_SETS = {
            title: "Labelling the judges' items"},
   faithfulness: {data: "/public/data/eval/faithfulness/items.json", export: "labels-faithfulness-simar.json",
                  title: "Labelling the faithfulness judge's items"},
+  // the second pass: the same items, so importing the first pass's file would carry its labels over; refuse it
+  "faithfulness-relabel": {data: "/public/data/eval/faithfulness/relabel.json", export: "labels-faithfulness-simar-v2.json",
+                           title: "Relabelling the faithfulness judge's items", refuseImport: "labels-faithfulness-simar.json"},
 };
 const ITEM_SET = new URLSearchParams(location.search).get("items") || "judges";
 const JUDGE_DATA = ITEM_SETS[ITEM_SET] && ITEM_SETS[ITEM_SET].data;
@@ -591,6 +599,16 @@ function goJudge(next) {
   window.scrollTo(0, 0);
 }
 
+// a pass with written rules keeps them next to the verdict, collapsible, remembering whether they were open
+const RULES_OPEN_KEY = "judges:rules-open";
+function rulesPanel() {
+  if (!Array.isArray(judgeFile.rules)) return "";
+  const panel = el("details", {class: "card rules", ontoggle: () => store.set(RULES_OPEN_KEY, panel.open)},
+    el("summary", {}, "The labelling rules"), el("ul", {}, judgeFile.rules.map((rule) => el("li", {}, rule))));
+  panel.open = store.get(RULES_OPEN_KEY) !== false;
+  return panel;
+}
+
 function renderJudgeItem() {
   const id = judgeOrder[judgeIndex];
   const item = judgeItems[id];
@@ -632,6 +650,7 @@ function renderJudgeItem() {
     el("div", {class: "card"}, el("p", {class: "title"}, KIND_NAMES[item.kind] || item.kind)),
     el("div", {class: "card"}, el("h2", {}, "The rubric"), el("pre", {class: "rubric"}, item.rubric)),
     el("div", {class: "card"}, el("h2", {}, "What the judge was shown"), el("pre", {class: "shown"}, item.shown)),
+    rulesPanel(),
     el("div", {class: "card"}, el("h2", {}, "Your verdict"),
        el("div", {class: "verdicts"}, JUDGE_VERDICTS.map((v) =>
          el("button", {type: "button", class: label.verdict === v ? "chosen" : null, onclick: () => setJudgeVerdict(v)},
@@ -661,6 +680,8 @@ function exportJudges() {
 }
 
 async function importJudges(file) {
+  const refused = ITEM_SETS[ITEM_SET].refuseImport;
+  if (refused && file.name === refused) { alert(`${refused} is the first pass. This pass starts fresh: import only a file it exported.`); return; }
   let data;
   try { data = JSON.parse(await file.text()); } catch { alert("That file isn't JSON."); return; }
   if (!data || data.labeller !== "simar" || !Array.isArray(data.labels)) { alert("That isn't a judge labels file from this page."); return; }
@@ -683,6 +704,17 @@ async function importJudges(file) {
   renderJudgeItem();
 }
 
+// the instructions, with any "- " lines (a relabel pass's written rules) as a list
+function renderInstructions(text) {
+  const out = [];
+  for (const line of text.split("\n")) {
+    if (!line.startsWith("- ")) { out.push(el("p", {}, line)); continue; }
+    if (!out.length || out.at(-1).tagName !== "UL") out.push(el("ul", {}));
+    out.at(-1).append(el("li", {}, line.slice(2)));
+  }
+  return out;
+}
+
 async function initJudges() {
   const set = ITEM_SETS[ITEM_SET];
   document.title = !set ? "Labelling" : judgeRelabel() ? `${set.title}: relabel` : set.title;
@@ -690,7 +722,7 @@ async function initJudges() {
   for (const id of ["reader", "guide-link"]) (document.getElementById(id).closest("label") || document.getElementById(id)).hidden = true;
   if (!set) {
     document.getElementById("loading").textContent =
-      `There's no item set called "${ITEM_SET}". Use ?mode=judges, or ?mode=judges&items=faithfulness.`;
+      `There's no item set called "${ITEM_SET}". Use ?mode=judges, ?mode=judges&items=faithfulness or ?mode=judges&items=faithfulness-relabel.`;
     return;
   }
   const query = `?mode=${JUDGE_MODE}${isFirstSet() ? "" : `&items=${ITEM_SET}`}`;
@@ -716,7 +748,7 @@ async function initJudges() {
 
   const guide = document.getElementById("guide");
   guide.hidden = false;
-  const intro = [el("p", {}, judgeFile.instructions)];
+  const intro = renderInstructions(judgeFile.instructions);
   if (judgeRelabel()) {
     intro.push(el("p", {class: "muted"}, `The relabelling pass: ${judgeOrder.length} items, in a new order. Nothing from the first labelling is shown.`));
     const finished = store.get(FIRST_FINISHED_KEY);

@@ -253,6 +253,17 @@ RUBRIC_FAITHFULNESS = (
     "Citations don't matter here: judge the claims, not whether or how they are cited. UNCLEAR if you can't tell.")
 
 
+# version 2, revised from the disagreements on Simar's dev labels only (Lesson 7's discipline: the test labels measure it)
+RUBRIC_FAITHFULNESS_V2 = (
+    RUBRIC_FAITHFULNESS.removesuffix(" UNCLEAR if you can't tell.")
+    + " A claim is supported if any tool result supports it, whatever source the answer cites for it. Applying what "
+    "the results say to the user's own situation is supported when it follows from them. Reasons the answer gives "
+    "for a practice the results describe, such as why it's safer, don't need support as long as they add no new fact "
+    "about the system. But what something does or is (a code, a header, a command, a component, a step in a process) "
+    "is a factual claim: it needs support even if it's common knowledge. UNCLEAR if you can't tell.")
+RUBRICS_FAITHFULNESS = {1: RUBRIC_FAITHFULNESS, 2: RUBRIC_FAITHFULNESS_V2}
+
+
 def tool_results(trial: dict) -> str:
     """Everything the run's tools returned, in order, each with the call that produced it."""
     shown = []
@@ -262,9 +273,9 @@ def tool_results(trial: dict) -> str:
     return "\n\n".join(shown) or "(no tool was called)"
 
 
-def faithfulness_items(runs: tuple) -> list[dict]:
-    """The faithfulness judge's items: every answered run of a question task in these runs (a run that stopped
-    without answering is failed in code, not judged)."""
+def faithfulness_items(runs: tuple, version: int = 1) -> list[dict]:
+    """The faithfulness judge's items, with that rubric version: every answered run of a question task in these runs
+    (a run that stopped without answering is failed in code, not judged)."""
     tasks = load_tasks_raw()
     items = []
     for trial in run_trials(runs):
@@ -279,7 +290,7 @@ def faithfulness_items(runs: tuple) -> list[dict]:
                  f"The assistant's final answer:\n{answer}")
         items.append({"item_id": f"faithfulness:{trial['trial_id']}", "kind": "faithfulness",
                       "trial_id": trial["trial_id"], "task_id": task["id"], "split": task["split"],
-                      "messages": verdict_messages(RUBRIC_FAITHFULNESS, shown)})
+                      "messages": verdict_messages(RUBRICS_FAITHFULNESS[version], shown)})
     return items
 
 

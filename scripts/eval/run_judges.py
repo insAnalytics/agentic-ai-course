@@ -87,6 +87,8 @@ def main() -> None:
     parser.add_argument("--runs", help="comma-separated run names (Lesson 9's ablations); writes <judge>-v2-<runs>.json")
     parser.add_argument("--faithfulness", action="store_true",
                         help="only Lesson 6's faithfulness items, from --runs; writes <judge>-faithfulness.json")
+    parser.add_argument("--faithfulness-rubric", type=int, choices=(1, 2), default=1,
+                        help="the faithfulness rubric version; 2 writes <judge>-faithfulness-v2.json")
     args = parser.parse_args()
     if args.check_items:
         run = json.loads(Path(args.check_items).read_text(encoding="utf-8"))
@@ -97,7 +99,8 @@ def main() -> None:
     runs = tuple(args.runs.split(",")) if args.runs else None
     if args.faithfulness and not runs:
         sys.exit("--faithfulness needs --runs")
-    items = faithfulness_items(runs) if args.faithfulness else all_items(version=args.rubrics, runs=runs)
+    items = (faithfulness_items(runs, args.faithfulness_rubric) if args.faithfulness
+             else all_items(version=args.rubrics, runs=runs))
     top = 5 if args.rubrics == 2 else 0
     if args.kinds:
         items = [item for item in items if item["kind"] in args.kinds.split(",")]
@@ -120,6 +123,7 @@ def main() -> None:
     wall = time.monotonic() - started
     run = {"judge": args.judge, "model": backend.model_id if args.dry_run else JUDGES[args.judge], "dry_run": args.dry_run,
            "rubrics_version": args.rubrics, "runs": list(runs) if runs else None, "faithfulness": args.faithfulness,
+           "faithfulness_rubric": args.faithfulness_rubric if args.faithfulness else None,
            "sampling": SAMPLING, "template_kwargs": TEMPLATE_KWARGS, "max_tokens": MAX_TOKENS,
            "setup": {"server": backend.server_info(), "gpus": gpu_names()},
            "timing": {"wall_seconds": round(wall, 3), "prompt_tokens": sum(r["prompt_tokens"] for r in results),
@@ -128,7 +132,7 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     name = args.judge if args.rubrics == 1 else f"{args.judge}-v2"
     if args.faithfulness:
-        name = f"{args.judge}-faithfulness"
+        name = f"{args.judge}-faithfulness" + ("-v2" if args.faithfulness_rubric == 2 else "")
     elif runs:
         name += "-" + "+".join(runs)
     path = OUT / f"{name}{'.dry-run' if args.dry_run else ''}.json"
