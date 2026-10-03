@@ -7100,7 +7100,18 @@ torch 2.13.0+cu130, `torchaudio` removed,
    `#what-two-recent-papers-found`, Module 6 Lesson 4 concept 1's
    `#the-support-check` (anchors verified); Lessons 7 and 11 are plain
    prose.
-   Concept 5 (grading set F's premise replies) is built, no exercise:
+   Concept 5 (is the answer faithful to its sources?) was added in Module 7
+   fix batch 10, no exercise: faithfulness against correctness (RAGAS and
+   Langfuse's definitions, both checked against the pages), a demo counting
+   the 30 baseline dev runs that passed while citing nothing where a
+   citation was due (`cites_required` in `results.json`), and the
+   faithfulness judge's rubric with a demo of its version 1 verdicts and
+   two of its replies, from `faithfulness/measure.json`. Both demos match
+   the batch exactly in Pyodide 0.26.4. Lesson 7 concept 4 measures the
+   judge against Simar's 40 labels; Lessons 9 and 12 regrade with a
+   citation required where due. Set F and the recap moved to concepts 6
+   and 7 (files renamed, links updated, `check-copies.mjs` paths too).
+   Concept 6 (grading set F's premise replies) is built, no exercise:
    Module 6's set F and its marker, the premise judge's rubric, a demo of
    Gemma's verdicts by the marker's outcome on all 1,600 replies, and a
    demo of both judges on Module 6's 30 hand-labelled replies (every C, I

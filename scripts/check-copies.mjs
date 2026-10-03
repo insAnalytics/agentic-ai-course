@@ -297,7 +297,7 @@ const PAIRS = [
     b: [
       "the page's setup block",
       () => pageFence(
-        "src/content/modules/07-evaluation/06-model-graders/05-grading-set-f.mdx",
+        "src/content/modules/07-evaluation/06-model-graders/06-grading-set-f.mdx",
         "import json\nfrom pathlib import Path\n\nJUDGES =",
       ),
     ],
@@ -452,7 +452,7 @@ const CONTAINED = [
     .filter(Boolean)
     .map((piece) => ({
       what: `${name}'s ${piece.split("\n")[0].slice(0, 40)}`, text: piece,
-      constant: ["src/content/modules/07-evaluation/06-model-graders/06-recap-practice.mdx", "LIB_PY"],
+      constant: ["src/content/modules/07-evaluation/06-model-graders/07-recap-practice.mdx", "LIB_PY"],
     }))),
   // Lesson 8's recap lib.py: Module 6's two signals and this lesson's references, byte for byte (read from the
   // page source, since lib.py's normalize holds a backtick that rawConstant can't parse)
