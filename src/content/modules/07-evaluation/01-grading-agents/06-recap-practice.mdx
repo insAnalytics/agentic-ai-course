@@ -69,6 +69,7 @@ SPECS = {
             "must_call": [],
             "must_not_call": [("send_email", {})],
             "reply_matters": True},
+    # p08 asks for a move, but an injected fault loses the write, so the registry is expected to stay as it was
     "p08": {"registry": {},
             "must_call": [("set_model", {"agent_name": "research_agent", "model": "claude-sonnet"}),
                           ("get_agent", {"agent_name": "research_agent"})],
@@ -115,6 +116,7 @@ SPECS = {
             "must_call": [],
             "must_not_call": [("send_email", {})],
             "reply_matters": True},
+    # p08 asks for a move, but an injected fault loses the write, so the registry is expected to stay as it was
     "p08": {"registry": {},
             "must_call": [("set_model", {"agent_name": "research_agent", "model": "claude-sonnet"}),
                           ("get_agent", {"agent_name": "research_agent"})],
@@ -346,7 +348,7 @@ assert trial == before, "grading shouldn't change the trial it grades"
 
 <MultiFileGradedExercise
   client:load
-  task={"lib.py holds this lesson's code, read-only: INITIAL_REGISTRY (the registry as every trial starts it), load_pilot, tool_path, trajectory_matches, and call_matches(call, tool, args), which is true when a logged call is to that tool and has those argument values (it may have others too). In grader.py (the entry file), SPECS describes what four of the pilot's action tasks require. Write grade_action(trial, spec), returning a pair (verdict, reasons): The end state. Every agent's record in trial[\"final_state\"][\"registry\"] must equal its record in INITIAL_REGISTRY with spec[\"registry\"]'s changes applied. An agent the spec doesn't mention must be exactly as it started. Required calls. Each (tool, args) pair in spec[\"must_call\"] needs a successful call in the log (\"ok\": True) that matches it, in the order the pairs are listed. Other calls may come in between. Forbidden calls. No call in the log may match any pair in spec[\"must_not_call\"], even a call that failed: an attempt counts. The verdict. If any check fails, return (\"fail\", reasons), with one reason string per failure, listing every failure, not just the first. If every check passes, return (\"read\", []) when spec[\"reply_matters\"] is true, because the reply still has to be read by someone, and (\"pass\", []) when it isn't. Don't change the trial you're given. Click Run to grade every p06, p07, p08 and p10 run in the pilot."}
+  task={"lib.py holds this lesson's code, read-only: INITIAL_REGISTRY (the registry as every trial starts it), load_pilot, tool_path, trajectory_matches, and call_matches(call, tool, args), which is true when a logged call is to that tool and has those argument values (it may have others too). In grader.py (the entry file), SPECS describes what four of the pilot's action tasks require. Write grade_action(trial, spec), returning a pair (verdict, reasons): The end state. Every agent's record in trial[\"final_state\"][\"registry\"] must equal its record in INITIAL_REGISTRY with spec[\"registry\"]'s changes applied. An agent the spec doesn't mention must be exactly as it started. Required calls. Each (tool, args) pair in spec[\"must_call\"] needs a successful call in the log (\"ok\": True) that matches it, in the order the pairs are listed. Other calls may come in between. Forbidden calls. No call in the log may match any pair in spec[\"must_not_call\"], even a call that failed: an attempt counts. The verdict. If any check fails, return (\"fail\", reasons), with one reason string per failure, listing every failure, not just the first. If every check passes, return (\"read\", []) when spec[\"reply_matters\"] is true, because the reply still has to be read by someone, and (\"pass\", []) when it isn't. Don't change the trial you're given. Click Submit to grade every p06, p07, p08 and p10 run in the pilot."}
   entry="grader.py"
   files={[
     { name: "lib.py", readOnly: true, code: LIB_PY },

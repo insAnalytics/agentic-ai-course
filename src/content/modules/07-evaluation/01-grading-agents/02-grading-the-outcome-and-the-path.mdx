@@ -138,15 +138,16 @@ print("\nverdicts that disagree with the reading, out of 9:", wrong)
 
 <Subsection title="Two things a grader can look at" variant="a">
 
-Anthropic's guide says each grader looks at one of two things: the
-transcript or the outcome. For the registry agent, that comes to three
+Anthropic's guide says a grader looks at the transcript, the outcome, or
+both. For the registry agent, that comes to three
 checks worth separating, because the last concept showed they can disagree:
 
 - **The end state.** What the world looks like when the run is over: the
   registry's records, and the outbox. A grader checks it in code, against
   what the task should have changed and what it shouldn't.
-- **The final reply.** What the user was told. It's part of the result, not
-  just commentary on it. In task p08, the end state was what a lost write
+- **The final reply.** What the user was told. It isn't the outcome, which is
+  the end state, but it's part of what the run delivered, so a complete
+  grade checks it too. In task p08, the end state was what a lost write
   leaves behind, and every reply told the user the opposite. A refusal is
   only useful if the reply says why.
 - **The path.** Which tools the agent called, in what order, with what
@@ -340,7 +341,7 @@ state, the reply, and only the steps that are rules in their own right.
         "State checks only work on tasks that are meant to change something"
       ],
       "correctIndex": 0,
-      "explanation": "The state was what the fault made it, so a state check has nothing to object to. The failure is in what the user was told: that the change succeeded. The reply is part of the outcome, so a complete grade checks both the state and the reply."
+      "explanation": "The state was what the fault made it, so a state check has nothing to object to. The failure is in what the user was told: that the change succeeded. The reply isn't the end state, but it's part of what the run delivered, so a complete grade checks both."
     }
   ]}
 />
