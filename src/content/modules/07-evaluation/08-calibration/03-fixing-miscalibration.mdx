@@ -135,7 +135,7 @@ Two more causes show up in this course's own data:
 - **Scores that were never probabilities.** A vote share or a judge's
   token probability measures something real, but nothing made it a chance
   of being right.
-  [Concept 2](/07-evaluation/08-calibration/02-module-6s-signals-calibrated/#where-each-signal-is-wrong)
+  [The concept that calibrated Module 6's signals](/07-evaluation/08-calibration/02-module-6s-signals-calibrated/#where-each-signal-is-wrong)
   found agreement underconfident when the vote splits, for that reason.
 
 </Subsection>
@@ -190,16 +190,24 @@ each signal's cases and measured on the other half:
 <LiveDemo client:load dataFiles={CALIBRATION_DATA} setupCode={SIGNALS_SETUP + "\n\n" + TEMPERATURE_SCALING} code={TEMPERATURE_DEMO} />
 
 *(`fit_temperature` and `scale` are the exercise's reference versions;
-`signals`, `ece` and `brier` are concept 2's and concept 1's. All are
-loaded for you.)*
+`signals` is from the previous concept, and `ece` and `brier` from this
+lesson's first exercise. All are loaded for you.)*
+
+One caution about this split: it alternates rows, so samples of the same
+question, and for verdicts the two judges' verdicts on the same pair, land
+on both sides. A stricter test splits by question. Treat the test scores
+here as optimistic.
 
 It does almost nothing, for two different reasons. The judges' verdict
 probabilities are already calibrated on average, so the best temperature
 is 1; their miscalibration is in the middle band, which one parameter that
 moves every score the same way can't reach. The 2B's answer-line
 probability is miscalibrated in both directions, underconfident low and
-overconfident high, and a temperature can only correct one direction at a
-time.
+overconfident high. A temperature above 1 pulls both ends towards 0.5,
+which is the right direction for both. What a temperature can't do is move
+0.5 itself: it stretches or squeezes scores around 0.5 but can't shift
+them, so scores just below 0.5 that are usually right stay below it. Platt
+scaling adds an intercept that can shift them.
 
 A map with more freedom can do better, and the comparison that matters is
 with a map that uses no score at all:
@@ -262,7 +270,7 @@ Two lessons sit in these numbers.
         "Temperature only works on judge verdicts"
       ],
       "correctIndex": 0,
-      "explanation": "Low scores are underconfident and high scores overconfident. One temperature moves every score the same way, towards 0.5 or away from it, so it can't fix both."
+      "explanation": "Low scores are underconfident and high scores overconfident. A temperature keeps 0.5 fixed: it can stretch scores, not shift them."
     },
     {
       "question": "Giving every case the same probability, the overall accuracy, got the lowest ECE. Why is that not a good calibration?",

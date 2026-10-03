@@ -94,7 +94,7 @@ def answer_key(question: dict, answer: str | None):
 
 
 def load_signals() -> dict[str, list[tuple[float, bool]]]:
-    """Module 6's three confidence signals as (confidence, correct) rows, built as concept 2 built them."""
+    """Module 6's three confidence signals as (confidence, correct) rows, built as this lesson built them when it calibrated Module 6's signals."""
     questions = {q["id"]: q for q in load_set("set-e")["questions"]}
     signals = {}
     pairs = [(answer_probability(s), s["correct"]) for r in load_run("plain.smaller")["results"] for s in r["samples"]]
@@ -265,8 +265,8 @@ assert real["temperature"] == 1.0 and real["accepted"] == 147 and real["actual_e
       "question": "Squaring every answer-line probability left its AUROC at 0.525 and dropped its mean from 91% to 85%. What does that show?",
       "options": [
         "Order and meaning differ",
-        "A higher AUROC than before",
-        "A lower AUROC than before",
+        "A different ranking of the cases",
+        "Fewer cases above the threshold",
         "Fewer wrong answers overall"
       ],
       "correctIndex": 0,
@@ -341,13 +341,13 @@ assert real["temperature"] == 1.0 and real["accepted"] == 147 and real["actual_e
     {
       "question": "This module's judges gave every verdict a token probability of 1.000. Where does a calibrated confidence in their verdicts come from?",
       "options": [
-        "Their measured agreement rate",
+        "Their error rates, by verdict",
         "The verdict token's probability",
-        "The share of runs it passes",
-        "Its temperature after fitting"
+        "The share of runs they pass",
+        "Their temperature after fitting"
       ],
       "correctIndex": 0,
-      "explanation": "After reasoning, the verdict token is a formality and carries no information; no fitted map can recover any. The calibrated statement is the agreement rate with people on that judge question, measured in Lesson 7."
+      "explanation": "After reasoning, the verdict token is a formality and carries no information. The calibrated statement comes from Lesson 7's measured error rates, and it differs for a pass and a fail."
     }
   ]}
 />
@@ -358,7 +358,7 @@ assert real["temperature"] == 1.0 and real["accepted"] == 147 and real["actual_e
 
 <MultiFileGradedExercise
   client:load
-  task={"lib.py holds Module 6's setup, load_signals() (Module 6's three confidence signals as (confidence, correct) rows), and this lesson's ece, brier, scale and fit_temperature, read-only. In calibrate.py (the entry file), write calibration_report(rows, threshold). Split the rows: even positions (rows[0::2]) are development, odd positions (rows[1::2]) are test. Return a dict with: \"temperature\", fitted on the development rows over GRID; \"raw\", \"scaled\" and \"constant\", each (ECE, Brier) on the test rows as they are, after scaling with the fitted temperature, and with every test case given the development rows' accuracy; \"accepted\", how many test cases have a scaled score at or above threshold; \"predicted_errors\", the sum of 1 - (scaled score) over those accepted cases, and \"actual_errors\", how many of them were wrong. Don't change the rows. Click Run to report on all three signals."}
+  task={"lib.py holds Module 6's setup, load_signals() (Module 6's three confidence signals as (confidence, correct) rows), and this lesson's ece, brier, scale and fit_temperature, read-only. In calibrate.py (the entry file), write calibration_report(rows, threshold). Split the rows: even positions (rows[0::2]) are development, odd positions (rows[1::2]) are test. Return a dict with: \"temperature\", fitted on the development rows over GRID; \"raw\", \"scaled\" and \"constant\", each (ECE, Brier) on the test rows as they are, after scaling with the fitted temperature, and with every test case given the development rows' accuracy; \"accepted\", how many test cases have a scaled score at or above threshold; \"predicted_errors\", the sum of 1 - (scaled score) over those accepted cases, and \"actual_errors\", how many of them were wrong. Don't change the rows. Click Submit to report on all three signals."}
   entry="calibrate.py"
   files={[
     { name: "lib.py", readOnly: true, code: LIB_PY },

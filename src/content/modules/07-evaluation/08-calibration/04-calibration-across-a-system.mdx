@@ -53,7 +53,7 @@ that sends low-confidence verdicts for review:
 <LiveDemo client:load dataFiles={CALIBRATION_DATA} setupCode={CALIBRATION_SETUP + "\n\n" + CALIBRATION + "\n\n" + CALIBRATION_SIGNALS} code={THRESHOLD_DEMO} />
 
 *(Module 6's three support judges on its labelled pairs. `signals` is
-concept 2's, loaded for you.)*
+from the concept that calibrated Module 6's signals, loaded for you.)*
 
 At every threshold, the scores predict the errors that get through to
 within one or two. That's what calibration across a system means in
@@ -61,7 +61,7 @@ practice: the operator can choose a threshold by its predicted error count
 and review cost, and the prediction holds. It holds here because these
 verdict probabilities are close to calibrated where the thresholds sit,
 which
-[concept 2](/07-evaluation/08-calibration/02-module-6s-signals-calibrated/#where-each-signal-is-wrong)
+[the concept that calibrated Module 6's signals](/07-evaluation/08-calibration/02-module-6s-signals-calibrated/#where-each-signal-is-wrong)
 found; for the 2B's answer-line probability, the same arithmetic would
 mislead.
 
@@ -76,7 +76,7 @@ can be made on the module's own graders:
 <LiveDemo client:load dataFiles={MEASURE_DATA} setupCode={CALIBRATION} code={JUDGES_DEMO} />
 
 *(All 100 labelled items, both splits, since nothing is being fitted; the
-revised rubrics. `ece` and `brier` are concept 1's, loaded for you.)*
+revised rubrics. `ece` and `brier` are from this lesson's first exercise, loaded for you.)*
 
 Gemma gave every one of its verdicts a probability of 1.000, to three
 decimal places, including the 19 Simar disagrees with. Qwen is barely
@@ -89,17 +89,20 @@ This module's judges write their reasoning first and the verdict last, as
 [Lesson 6 recommended](/07-evaluation/06-model-graders/02-writing-a-rubric/#from-the-reading-standard-to-a-rubric).
 By the time a judge writes "Verdict:", it has argued itself to an answer,
 and the next token is a formality, exactly the effect
-[concept 3](/07-evaluation/08-calibration/03-fixing-miscalibration/#where-miscalibration-comes-from)
+[the previous concept](/07-evaluation/08-calibration/03-fixing-miscalibration/#where-miscalibration-comes-from)
 described for answer lines after reasoning. The two sets of judges differ
 in more than this, so the course's data can't separate the causes, but the
 pattern is consistent with everything else measured here.
 
 So for these judges, the token probability carries no information, and no
 fitted map can create some: every verdict would map to the same number.
-The confidence that exists is the one Lesson 7 measured. For a judge whose
-verdicts agree with a person 80% of the time on its own question, "this
-verdict is right with about 80% probability" is the calibrated statement,
-and it's per judge question, not per verdict.
+The confidence that exists is the one Lesson 7 measured, and it differs by
+verdict. From a judge's TPR and TNR and the share of runs that should pass,
+θ, Bayes gives both: a pass verdict is right with probability
+TPR·θ / (TPR·θ + (1 − TNR)(1 − θ)), and a fail verdict with probability
+TNR·(1 − θ) / (TNR·(1 − θ) + (1 − TPR)·θ). With the correctness judge's
+measured rates, a pass is right about 94% of the time and a fail about
+60%. The calibrated statement is per judge question and per verdict.
 
 </Subsection>
 
@@ -169,13 +172,13 @@ Put together, calibration across a system comes down to a short list:
     {
       "question": "For a judge whose verdict tokens are always 1.000, what's the calibrated confidence in one of its verdicts?",
       "options": [
-        "Its measured agreement rate",
+        "Its error rates, by verdict",
         "The probability of its verdict token",
         "The share of runs it passes",
         "One minus its TPR on the test labels"
       ],
       "correctIndex": 0,
-      "explanation": "The token carries no information, so the confidence has to come from validation: how often the judge agrees with a person on that judge question, measured as in Lesson 7."
+      "explanation": "The token carries no information, so the confidence comes from validation: Lesson 7's TPR and TNR, turned into how often a pass, and how often a fail, is right."
     },
     {
       "question": "A threshold was chosen when its predicted error count matched the actual one. What should happen after that?",
