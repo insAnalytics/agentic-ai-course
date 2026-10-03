@@ -14,7 +14,10 @@ export const BASELINE_DATA = suiteData("baseline-grades");
 
 export const BATCHES = String.raw`import random
 
-grades = load_suite("baseline-grades")["trials"]
+suite = load_suite("baseline-grades")
+# dev tasks only: the held-out tasks' results aren't looked at until the final report
+dev = {task["id"] for task in suite["tasks"] if task["split"] == "dev"}
+grades = {task: results for task, results in suite["trials"].items() if task in dev}
 # each task's 10 baseline trials: batch a's 5, then batch b's 5, same agent and settings
 batch_a = {task: results[:5] for task, results in grades.items()}
 batch_b = {task: results[5:] for task, results in grades.items()}
@@ -151,7 +154,7 @@ concept.
 The cleanest test of a comparison method is to compare a condition with
 itself. The baseline was run twice, as batches a and b, with the same
 agent, settings and tasks, so any difference between them is noise. Here
-are the two batches on the 37 tasks with code checks, each with its own
+are the two batches on the 29 dev tasks with code checks, each with its own
 interval:
 
 ```python
@@ -171,7 +174,7 @@ def load_suite(name: str = "grades-2a") -> dict:
 
 *(The current code checks on the baseline's two batches.)*
 
-Each interval is about 16 points wide. Compared this way, a real
+Each interval is about 21 points wide. Compared this way, a real
 improvement of 10 points could hide inside the overlap. But most of that
 width is the tasks themselves: some always pass, some never do, and
 resampling which tasks are in the suite moves the average a lot. Both
@@ -204,7 +207,7 @@ comparing each task with itself cancels it. That's the paired difference.
 *(`batch_a` and `batch_b` are the previous demo's, and `paired_difference`
 the exercise's reference version, all loaded for you.)*
 
-Paired, the interval shrinks from about 16 points per batch to about 3
+Paired, the interval shrinks from about 21 points per batch to about 4
 points for the difference, and it sits around zero, as it should for two
 runs of the same agent. Only three tasks' pass counts moved at all
 between the batches. That's the precision an ablation has to work with:
@@ -236,7 +239,7 @@ a condition against itself is worth doing whenever the setup changes.
       "explanation": "Different tasks or more tries would change the results on their own. Holding everything else fixed is what lets a difference be put down to the piece."
     },
     {
-      "question": "Batches a and b each had an interval about 16 points wide. Why was the paired difference's only about 3 points wide?",
+      "question": "Batches a and b each had an interval about 21 points wide. Why was the paired difference's only about 4 points wide?",
       "options": [
         "Pairing cancels task difficulty",
         "The paired method uses more trials per task",
@@ -258,7 +261,7 @@ a condition against itself is worth doing whenever the setup changes.
       "explanation": "The suite is a sample of the tasks the agent might face; trials are repeat measurements of one task. Resampling whole tasks reflects that, and pooling trials would make the interval too narrow."
     },
     {
-      "question": "Two runs of the same agent differed by −0.5 points, with an interval from −2.2 to +1.1. What does that tell you about an ablation on this suite?",
+      "question": "Two runs of the same agent differed by −0.7 points, with an interval from −2.8 to +1.4. What does that tell you about an ablation on this suite?",
       "options": [
         "A point or two is within the noise",
         "The agent got slightly worse between the batches",

@@ -819,10 +819,11 @@ ABLATIONS = Path("/data/eval/ablations")
 results = json.loads((ABLATIONS / "results.json").read_text(encoding="utf-8"))
 
 
-def passes(condition: str, group: str | None = None) -> dict[str, list[bool]]:
-    """Each task's trial results under one condition, optionally only the tasks in one group."""
+def passes(condition: str, group: str | None = None, split: str | None = None) -> dict[str, list[bool]]:
+    """Each task's trial results under one condition, optionally only the tasks in one group, or in one split."""
     return {task: [row["pass"] for row in rows] for task, rows in results["conditions"][condition].items()
-            if group is None or results["tasks"][task]["group"] == group}
+            if (group is None or results["tasks"][task]["group"] == group)
+            and (split is None or results["tasks"][task]["split"] == split)}
 `;
 
 /** Module 7 Lesson 10's recorded settings of every main run (written by scripts/eval/run_settings.py), mounted at /data/eval/main. */

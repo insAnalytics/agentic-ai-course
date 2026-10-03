@@ -10,13 +10,14 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 import { ABLATIONS_DATA, LOAD_ABLATIONS, PAIRED_DIFFERENCE } from "../../../../lib/evalData";
 
 export const COST_DEMO = String.raw`for group in (None, "question", "other", "lost write", "planted", "broken result"):
-    base, compacted = passes("baseline", group), passes("compaction", group)
+    base, compacted = passes("baseline", group, split="dev"), passes("compaction", group, split="dev")
     mean, low, high = paired_difference(base, compacted)
     print(f"{group or 'all tasks':<14} {len(base):>3} tasks   compaction minus baseline {mean:+.1%} ({low:+.1%} to {high:+.1%})")
 `;
 
 export const WHY_DEMO = String.raw`for condition in ("baseline", "compaction"):
-    rows = [row for trials in results["conditions"][condition].values() for row in trials]
+    rows = [row for task, trials in results["conditions"][condition].items() if results["tasks"][task]["split"] == "dev"
+                for row in trials]
     stopped = [row for row in rows if row["stopped"]]
     line = (f"{condition:<10} {len(rows)} runs: {len(stopped)} stopped by the step limit, "
             f"{sum(row['repeated_calls'] for row in stopped)} repeated tool calls among them")
@@ -56,10 +57,12 @@ ABLATIONS = Path("/data/eval/ablations")
 results = json.loads((ABLATIONS / "results.json").read_text(encoding="utf-8"))
 
 
-def passes(condition: str, group: str | None = None) -> dict[str, list[bool]]:
-    """Each task's trial results under one condition, optionally only the tasks in one group."""
+def passes(condition: str, group: str | None = None, split: str | None =
+None) -> dict[str, list[bool]]:
+    """Each task's trial results under one condition, optionally only the tasks in one group, or in one split."""
     return {task: [row["pass"] for row in rows] for task, rows in results["conditions"][condition].items()
-            if group is None or results["tasks"][task]["group"] == group}
+            if (group is None or results["tasks"][task]["group"] == group)
+            and (split is None or results["tasks"][task]["split"] == split)}
 ```
 *(defined once here and already loaded for every demo in this lesson's remaining concepts)*
 
@@ -73,25 +76,13 @@ def passes(condition: str, group: str | None = None) -> dict[str, list[bool]]:
 passed every revised Gemma judge that graded it. `paired_difference` is
 the first concept's reference version, loaded for you.)*
 
-Across the whole suite, compaction cost about four points, with an
-interval that just reaches zero. On Module 5's questions, the tasks most
-likely to need several searches, it cost about six, with an interval that
-stays below zero, taken on its own;
-[the source-label concept](/07-evaluation/09-ablations/05-a-piece-that-doesnt-earn-its-place/#the-result)
-explains why one interval among many needs more care than that. The registry tasks barely moved; most of them finish
-within three rounds and were never compacted. The small groups at the
-bottom have intervals too wide to say anything.
-
-**A correction, from Lesson 12.** This comparison, like every one in this
-lesson, ran over all 125 tasks, including the 28
-[Lesson 4 held out](/07-evaluation/04-task-suite/05-holding-tasks-out/#tuning-to-the-suite);
-it should have used the 97 dev tasks only. On dev tasks alone, compaction
-costs 1.2 points, with an interval well across zero: most of the cost
-above comes from held-out tasks. The mechanism in the next section holds
-on dev tasks too (18 runs stopped at the step limit without compaction, 44
-with it), so compaction does make the agent repeat work; what this suite
-can't show is that the repeated work costs task success.
-[Lesson 12 rechecks every decision on dev tasks](/07-evaluation/12-evaluation-report/05-decisions-limits-and-whats-next/#the-decisions-checked-on-the-dev-tasks).
+Across the dev tasks, compaction cost about one point, with an interval
+well across zero. On Module 5's questions, the tasks most likely to need
+several searches, it cost about three, again with an interval that
+includes zero. The registry tasks barely moved; most of them finish within
+three rounds and were never compacted. The small groups at the bottom have
+intervals too wide to say anything. So on task success, this suite can't
+show that compaction costs anything. What it changes is how runs end.
 
 </Subsection>
 
@@ -99,9 +90,9 @@ can't show is that the repeated work costs task success.
 
 <LiveDemo client:load dataFiles={ABLATIONS_DATA} setupCode={LOAD_ABLATIONS} code={WHY_DEMO} />
 
-The step limit tells the story. Without compaction, 19 runs stopped at
-the limit; with it, 60, every one of them a compacted run. And those runs
-repeated tool calls they'd already made, 35 times between them. That's
+The step limit tells the story. Without compaction, 18 runs stopped at the
+limit; with it, 44, every one of them a compacted run. And those runs
+repeated tool calls they'd already made, 32 times between them. That's
 what
 [Lesson 5's summarizer test](/07-evaluation/05-code-graders/05-a-component-test-the-summarizer/#what-even-a-careful-summary-loses)
 predicted: summaries keep the decision and lose the detail of what was
@@ -152,7 +143,7 @@ paired difference above is the effect.
       "explanation": "Runs average under four model calls, so a realistic threshold would almost never trigger and the ablation would measure nothing. Forcing it tests what compaction does to the runs it touches."
     },
     {
-      "question": "With compaction, runs stopped by the step limit went from 19 to 60, all of them compacted. What does that point to?",
+      "question": "With compaction, runs stopped by the step limit went from 18 to 44, all of them compacted. What does that point to?",
       "options": [
         "Summaries lost what had been tried",
         "Compaction makes each model call slower",

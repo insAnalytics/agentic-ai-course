@@ -10,14 +10,15 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 import { ABLATIONS_DATA, LOAD_ABLATIONS, PAIRED_DIFFERENCE } from "../../../../lib/evalData";
 
 export const RESULT_DEMO = String.raw`for group in (None, "question", "other", "lost write", "planted", "broken result"):
-    base, layered = passes("baseline", group), passes("layers", group)
+    base, layered = passes("baseline", group, split="dev"), passes("layers", group, split="dev")
     mean, low, high = paired_difference(base, layered)
     print(f"{group or 'all tasks':<14} {len(base):>3} tasks   layers minus baseline {mean:+.1%} ({low:+.1%} to {high:+.1%})")
 `;
 
 export const LAYERS_DEMO = String.raw`from collections import Counter
 
-rows = [row for trials in results["conditions"]["layers"].values() for row in trials]
+rows = [row for task, trials in results["conditions"]["layers"].items() if results["tasks"][task]["split"] == "dev"
+        for row in trials]
 withheld = Counter(row["withheld_by"] for row in rows if row["withheld"])
 objected = Counter(layer for row in rows for layer in row["objections"])
 print(f"{len(rows)} runs; {sum(withheld.values())} answers withheld, {sum(row['stopped'] for row in rows)} stopped by the step limit")

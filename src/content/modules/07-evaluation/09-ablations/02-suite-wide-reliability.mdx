@@ -78,8 +78,11 @@ else:
 `,
 ];
 
-export const BASELINE_DEMO = String.raw`grades = load_suite("baseline-grades")["trials"]
-print(f"{len(grades)} tasks with code checks, 10 baseline trials each")
+export const BASELINE_DEMO = String.raw`suite = load_suite("baseline-grades")
+# dev tasks only: the held-out tasks' results aren't looked at until the final report
+dev = {task["id"] for task in suite["tasks"] if task["split"] == "dev"}
+grades = {task: results for task, results in suite["trials"].items() if task in dev}
+print(f"{len(grades)} dev tasks with code checks, 10 baseline trials each")
 for k in (1, 2, 5, 10):
     mean, low, high = suite_pass_hat_k(grades, k)
     print(f"  pass^{k:<2} {mean:.1%}  (95% interval {low:.1%} to {high:.1%})")
@@ -156,11 +159,12 @@ for a pass rate, with each task's pass^k as its value.
 
 <LiveDemo client:load dataFiles={BASELINE_DATA} setupCode={LOAD_SUITE + "\n\n" + SUITE_PASS_HAT_K} code={BASELINE_DEMO} />
 
-*(The current code checks on the baseline's two batches, 10 trials per
-task. `suite_pass_hat_k` is the exercise's reference version, loaded for
+*(The current code checks on the baseline's two batches, dev tasks only, 10
+trials per task. `suite_pass_hat_k` is the exercise's reference version,
+loaded for
 you.)*
 
-The curve falls slowly from pass^1 to pass^10, from about 91% to 84%,
+The curve falls slowly from pass^1 to pass^10, from about 89% to 79%,
 because most of these tasks either always pass or always fail; only a few
 are flaky. The intervals widen as k grows, since pass^k at high k depends
 on whether a handful of tasks ever slip. And these are code checks, so
@@ -246,7 +250,7 @@ four looks more certain than its evidence allows.
       "explanation": "The estimate draws k runs from the n recorded, so it needs n ≥ k. With fewer runs there's nothing to estimate from, and the formula's denominator is zero."
     },
     {
-      "question": "The baseline's pass^k fell only from about 91% to 84% between k = 1 and k = 10. What does that say about its tasks?",
+      "question": "The baseline's pass^k fell only from about 89% to 79% between k = 1 and k = 10. What does that say about its tasks?",
       "options": [
         "Most always pass or always fail",
         "The agent improves with each attempt",

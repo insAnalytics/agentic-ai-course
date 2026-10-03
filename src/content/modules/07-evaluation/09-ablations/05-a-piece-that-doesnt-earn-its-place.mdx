@@ -10,7 +10,7 @@ import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 import { ABLATIONS_DATA, LOAD_ABLATIONS, PAIRED_DIFFERENCE } from "../../../../lib/evalData";
 
 export const RESULT_DEMO = String.raw`for group in (None, "question", "other", "lost write", "planted", "broken result"):
-    base, unlabelled = passes("baseline", group), passes("no-labels", group)
+    base, unlabelled = passes("baseline", group, split="dev"), passes("no-labels", group, split="dev")
     mean, low, high = paired_difference(base, unlabelled)
     print(f"{group or 'all tasks':<14} {len(base):>3} tasks   no labels minus baseline {mean:+.1%} ({low:+.1%} to {high:+.1%})")
 `;
@@ -52,26 +52,22 @@ those two labels removed, and nothing else changed.
 *(`passes` is the compaction concept's and `paired_difference` the first
 concept's reference version, both loaded for you.)*
 
-*(These intervals also run over all 125 tasks. On the 97 dev tasks only,
-removing the labels scores +4.7 points, with an interval further above zero
-than this one. The reading below, of what that gain is made of, is why it
-still isn't evidence the labels hurt;
-[Lesson 12](/07-evaluation/12-evaluation-report/05-decisions-limits-and-whats-next/#the-decisions-checked-on-the-dev-tasks)
-keeps it as an open question that points at the citation check.)*
+Without the labels the agent did better, by about five points, with an
+interval well above zero. Read as it stands, that says the labels hurt. Two
+checks come before believing it:
 
-Without the labels the agent did slightly better, by about three points,
-with an interval that just stays above zero. Read as it stands, that
-would say the labels hurt. Two things argue against reading it that way.
-
-- **It's at the edge of the noise.** Two runs of the identical agent
-  differed by an interval of about −2 to +1 points
+- **Against the noise.** Two runs of the identical agent differed by an
+  interval of about −3 to +1 points
   ([the first concept](/07-evaluation/09-ablations/01-one-piece-on-and-off/#the-same-two-batches-paired)).
-  This one is +0.5 to +5.9.
-- **It's one comparison of many.** This lesson compared three variants
-  with the baseline, each broken into six groups: eighteen intervals. At
-  95% each, about one would exclude zero by chance alone even if nothing
-  had any effect. A single borderline interval among eighteen is the kind
-  of result that disappears on a rerun.
+  This one is +1.6 to +8.0, clear of it.
+- **Against the number of comparisons.** This lesson compared three
+  variants with the baseline, each broken into six groups: eighteen
+  intervals. At 95% each, about one would exclude zero by chance alone
+  even if nothing had any effect. The simplest correction, Bonferroni's,
+  divides the 5% by the number of comparisons, so each interval is built
+  at 1 − 0.05 / 18, about 99.7%. Corrected that way, this one becomes
+  +0.2 to +10.1, as this lesson's practice report shows: it still excludes
+  zero, just.
 
 </Subsection>
 
@@ -94,9 +90,15 @@ answers, the share that cited a source barely moved, so it isn't a
 general change in behaviour either. The other movers go both ways, by
 amounts the task-level noise can produce.
 
-So the honest conclusion is narrow: **on this suite, the date and type
-labels make no measurable difference to task success.** It isn't "the
-labels hurt", and it isn't "the labels help".
+So the gain is part artifact and part real. Most of s06's is the grader
+passing answers that cite nothing. Leave s06 out and the gain is about
+four points, with a corrected interval that just includes zero. The rest
+is spread thinly: 19 dev tasks gained a trial or more without the labels,
+and 3 lost. The honest conclusion: **on this agent, the date and type
+labels don't help, and probably cost it a few points.** Removing them is
+the indicated change, after fixing the citation check, so that s06 stops
+counting uncited answers as passes, and rerunning this comparison to
+confirm.
 
 </Subsection>
 
@@ -106,22 +108,22 @@ A null result is a result, and it's worth writing up as carefully as a
 win:
 
 - **State the effect with its interval and the noise floor beside it,**
-  so a reader can see the difference is within what two identical runs
-  produce.
+  so a reader can see how it compares with what two identical runs produce.
 - **Say what the piece costs.** Each label adds about 35 characters to
   every source, roughly ten tokens, and searches return several sources,
-  so a few dozen tokens per search, in every run. A piece with no
-  measurable benefit is paying that for nothing on this suite.
+  so a few dozen tokens per search, in every run. A piece that doesn't help
+  is paying that for nothing on this suite.
 - **Say what the suite can't see.** Only two tasks are built on documents
   that conflict, where a date should matter most, and both came out the
   same with and without the labels: 5 of 5 and 2 of 5 each time. Two
   tasks can't show the labels never matter; a suite with more conflicts
   might. "No effect here" is about this suite, not about labels in
   general.
-- **Decide, and record why.** Removing the labels, keeping them for the
-  cases a future suite might cover, or adding tasks that would test them
-  are all defensible. What isn't defensible is keeping a component on the
-  assumption that it helps, once a fair test has failed to show it.
+- **Decide, and record why.** Here: remove the labels, once the citation
+  check is fixed and a rerun confirms the gain; adding tasks with
+  conflicting documents would test whether a date ever matters. What isn't
+  defensible is keeping a component on the assumption that it helps, once
+  a fair test has shown it doesn't.
 
 The same discipline applies to every result in this lesson. Compaction
 made this agent repeat work, for a clear reason, at a cost this suite

@@ -16,17 +16,20 @@ from pathlib import Path
 
 ABLATIONS = Path("/data/eval/ablations")
 GROUPS = ("question", "other", "lost write", "planted", "broken result")
+# below this many tasks, resampling them can't give a fair interval
+MIN_TASKS = 10
 
 
 def load_results() -> dict:
-    """Every condition's per-task trial results, as concepts 3 to 5 used them."""
+    """Every condition's per-task trial results, as the lesson's comparisons used them."""
     return json.loads((ABLATIONS / "results.json").read_text(encoding="utf-8"))
 
 
-def passes(results: dict, condition: str, group: str | None = None) -> dict[str, list[bool]]:
-    """Each task's trial results under one condition, optionally only the tasks in one group."""
+def passes(results: dict, condition: str, group: str | None = None, split: str | None = None) -> dict[str, list[bool]]:
+    """Each task's trial results under one condition, optionally only the tasks in one group, or in one split."""
     return {task: [row["pass"] for row in rows] for task, rows in results["conditions"][condition].items()
-            if group is None or results["tasks"][task]["group"] == group}
+            if (group is None or results["tasks"][task]["group"] == group)
+            and (split is None or results["tasks"][task]["split"] == split)}
 
 
 def paired_difference(a: dict, b: dict, alpha: float = 0.05, repeats: int = 4000,
@@ -40,7 +43,7 @@ def paired_difference(a: dict, b: dict, alpha: float = 0.05, repeats: int = 4000
     return sum(differences) / len(differences), means[int(alpha / 2 * repeats)], means[int((1 - alpha / 2) * repeats) - 1]
 `;
 
-export const REPORT_STARTER = String.raw`from lib import GROUPS, load_results, paired_difference, passes
+export const REPORT_STARTER = String.raw`from lib import GROUPS, MIN_TASKS, load_results, paired_difference, passes
 
 
 def verdict(low: float, high: float) -> str:
@@ -49,18 +52,19 @@ def verdict(low: float, high: float) -> str:
 
 
 def ablation_report(results: dict, conditions: list[str], alpha: float = 0.05) -> list[dict]:
-    """Every condition against the baseline, over all tasks and within each group. The interval level is corrected
-    for the number of comparisons made (Bonferroni: alpha divided by that number)."""
+    """Every condition against the baseline on the dev tasks, over all of them and within each group. The interval
+    level is corrected for the number of comparisons made (Bonferroni: alpha divided by that number), and a comparison
+    over fewer than MIN_TASKS tasks gets the verdict "too few tasks"."""
     # your code here
 
 
 if __name__ == "__main__":
     for row in ablation_report(load_results(), ["layers", "compaction", "no-labels"]) or []:
-        print(f"{row['condition']:<10} {row['group']:<13} {row['difference']:+6.1%} "
+        print(f"{row['condition']:<10} {row['group']:<13} {row['tasks']:>3} tasks {row['difference']:+6.1%} "
               f"({row['low']:+6.1%} to {row['high']:+6.1%})  {row['verdict']}")
 `;
 
-export const REPORT_REFERENCE = String.raw`from lib import GROUPS, load_results, paired_difference, passes
+export const REPORT_REFERENCE = String.raw`from lib import GROUPS, MIN_TASKS, load_results, paired_difference, passes
 
 
 def verdict(low: float, high: float) -> str:
@@ -73,26 +77,29 @@ def verdict(low: float, high: float) -> str:
 
 
 def ablation_report(results: dict, conditions: list[str], alpha: float = 0.05) -> list[dict]:
-    """Every condition against the baseline, over all tasks and within each group. The interval level is corrected
-    for the number of comparisons made (Bonferroni: alpha divided by that number)."""
+    """Every condition against the baseline on the dev tasks, over all of them and within each group. The interval
+    level is corrected for the number of comparisons made (Bonferroni: alpha divided by that number), and a comparison
+    over fewer than MIN_TASKS tasks gets the verdict "too few tasks"."""
     comparisons = [(condition, group) for condition in conditions for group in (None, *GROUPS)]
     corrected = alpha / len(comparisons)
     report = []
     for condition, group in comparisons:
-        mean, low, high = paired_difference(passes(results, "baseline", group), passes(results, condition, group),
-                                            alpha=corrected)
-        report.append({"condition": condition, "group": group or "all tasks", "difference": mean,
-                       "low": low, "high": high, "verdict": verdict(low, high)})
+        before = passes(results, "baseline", group, split="dev")
+        after = passes(results, condition, group, split="dev")
+        mean, low, high = paired_difference(before, after, alpha=corrected)
+        tasks = len(before.keys() & after.keys())
+        report.append({"condition": condition, "group": group or "all tasks", "tasks": tasks, "difference": mean,
+                       "low": low, "high": high,
+                       "verdict": verdict(low, high) if tasks >= MIN_TASKS else "too few tasks"})
     return report
 
-
 if __name__ == "__main__":
-    for row in ablation_report(load_results(), ["layers", "compaction", "no-labels"]):
-        print(f"{row['condition']:<10} {row['group']:<13} {row['difference']:+6.1%} "
+    for row in ablation_report(load_results(), ["layers", "compaction", "no-labels"]) or []:
+        print(f"{row['condition']:<10} {row['group']:<13} {row['tasks']:>3} tasks {row['difference']:+6.1%} "
               f"({row['low']:+6.1%} to {row['high']:+6.1%})  {row['verdict']}")
 `;
 
-export const HIDDEN_TESTS = String.raw`from lib import GROUPS, paired_difference, passes
+export const HIDDEN_TESTS = String.raw`from lib import GROUPS, MIN_TASKS, paired_difference, passes
 from report import ablation_report, verdict
 
 assert verdict(0.01, 0.2) == "helps", "an interval entirely above zero: helps"
@@ -101,13 +108,20 @@ assert verdict(-0.1, 0.1) == "no measurable effect", "an interval that includes 
 assert verdict(0.0, 0.3) == "no measurable effect", "an interval that starts exactly at zero doesn't exclude it"
 assert verdict(-0.3, 0.0) == "no measurable effect", "nor one that ends exactly at zero"
 
-groups = {"question": 6, "other": 6, "lost write": 4, "planted": 4, "broken result": 4}
+# dev groups of 12, 10, 4, 4 and 4 tasks, and three held-out question tasks
+groups = {"question": 12, "other": 10, "lost write": 4, "planted": 4, "broken result": 4}
 tasks = {f"{g[:3]}{n}": {"group": g, "split": "dev"} for g, count in groups.items() for n in range(count)}
+tasks |= {f"held{n}": {"group": "question", "split": "held_out"} for n in range(3)}
+
+
 def condition(rate_of):
     return {t: [{"pass": i < rate_of(t)} for i in range(5)] for t in tasks}
+
+
 results = {"tasks": tasks, "conditions": {
-    "baseline": condition(lambda t: 2),
-    "better": condition(lambda t: 4 if tasks[t]["group"] == "question" else 2),
+    "baseline": condition(lambda t: 2 if not t.startswith("held") else 5),
+    # better on every dev question task; the held-out ones collapse, which a dev-only report never sees
+    "better": condition(lambda t: 0 if t.startswith("held") else 4 if tasks[t]["group"] == "question" else 2),
     "same": condition(lambda t: 2 + (1 if t.endswith("0") else 0) - (1 if t.endswith("1") else 0)),
 }}
 report = ablation_report(results, ["better", "same"])
@@ -118,13 +132,21 @@ assert [(r["condition"], r["group"]) for r in report] == \
 alpha = 0.05 / 12
 for row in report:
     group = None if row["group"] == "all tasks" else row["group"]
-    expected = paired_difference(passes(results, "baseline", group), passes(results, row["condition"], group), alpha=alpha)
+    before = passes(results, "baseline", group, split="dev")
+    expected = paired_difference(before, passes(results, row["condition"], group, split="dev"), alpha=alpha)
     assert (row["difference"], row["low"], row["high"]) == expected, \
-        (f"{row['condition']}, {row['group']}: baseline as A, the condition as B, at alpha 0.05 / 12 comparisons; "
-         f"expected {expected}, got {(row['difference'], row['low'], row['high'])}")
-    assert row["verdict"] == verdict(row["low"], row["high"]), "each row's verdict comes from its own interval"
-better_questions = next(r for r in report if (r["condition"], r["group"]) == ("better", "question"))
-assert better_questions["verdict"] == "helps", "every question task gained 40 points: helps"
+        (f"{row['condition']}, {row['group']}: the dev tasks only, baseline as A and the condition as B, at alpha "
+         f"0.05 / 12 comparisons; expected {expected}, got {(row['difference'], row['low'], row['high'])}")
+    assert row["tasks"] == len(before), f"{row['condition']}, {row['group']}: tasks counts the dev tasks compared"
+    expected_verdict = verdict(row["low"], row["high"]) if len(before) >= MIN_TASKS else "too few tasks"
+    assert row["verdict"] == expected_verdict, \
+        (f"{row['condition']}, {row['group']}: {len(before)} tasks, so the verdict is {expected_verdict!r}; "
+         f"below {MIN_TASKS} tasks it's \"too few tasks\", otherwise it comes from the row's own interval")
+rows = {(r["condition"], r["group"]): r for r in report}
+assert rows[("better", "question")]["verdict"] == "helps", "every dev question task gained 40 points: helps"
+assert rows[("better", "other")]["verdict"] == "no measurable effect", \
+    "a group of exactly 10 tasks is enough for a verdict from its interval"
+assert rows[("better", "lost write")]["verdict"] == "too few tasks", "a group of 4 tasks is too few"
 `;
 
 <CheckpointZone>
@@ -144,7 +166,7 @@ assert better_questions["verdict"] == "helps", "every question task gained 40 po
       "explanation": "Any other change would move the results by itself. With everything else fixed, a difference can be put down to the piece."
     },
     {
-      "question": "Two identical runs of the baseline each had an interval about 16 points wide, but their paired difference only about 3. Why?",
+      "question": "Two identical runs of the baseline each had an interval about 21 points wide, but their paired difference only about 4. Why?",
       "options": [
         "It cancels task difficulty",
         "It uses more trials per task",
@@ -229,7 +251,7 @@ assert better_questions["verdict"] == "helps", "every question task gained 40 po
 
 <MultiFileGradedExercise
   client:load
-  task={"lib.py holds load_results, passes(results, condition, group=None), GROUPS, and paired_difference(a, b, alpha=0.05), which returns B minus A with a (1 - alpha) interval. In report.py (the entry file), write verdict(low, high): \"helps\" if the interval is entirely above zero, \"hurts\" if entirely below, and \"no measurable effect\" otherwise; an interval that touches zero includes it. Then write ablation_report(results, conditions, alpha=0.05): one row per comparison, for each condition in the order given: first over all tasks, then within each group in GROUPS order. Each row compares the baseline (A) with the condition (B), at a level corrected for every comparison the report makes: alpha divided by their number. Each row is a dict with \"condition\", \"group\" (\"all tasks\" for the whole suite), \"difference\", \"low\", \"high\" and \"verdict\". Click Submit to report the three phase 5 variants."}
+  task={"lib.py holds load_results, passes(results, condition, group=None, split=None), GROUPS, MIN_TASKS (10) and paired_difference(a, b, alpha=0.05), which returns B minus A with a (1 - alpha) interval. In report.py (the entry file), write verdict(low, high): \"helps\" if the interval is entirely above zero, \"hurts\" if entirely below, and \"no measurable effect\" otherwise; an interval that touches zero includes it. Then write ablation_report(results, conditions, alpha=0.05): one row per comparison, for each condition in the order given: first over all tasks, then within each group in GROUPS order. Each row compares the baseline (A) with the condition (B) on the dev tasks only, at a level corrected for every comparison the report makes: alpha divided by their number. Each row is a dict with \"condition\", \"group\" (\"all tasks\" for the whole suite), \"tasks\" (how many dev tasks were compared), \"difference\", \"low\", \"high\" and \"verdict\": verdict's answer, or \"too few tasks\" when fewer than MIN_TASKS were compared, since resampling a handful of tasks can't give a fair interval. Click Submit to report the three phase 5 variants."}
   entry="report.py"
   files={[
     { name: "lib.py", readOnly: true, code: LIB_PY },
@@ -237,12 +259,12 @@ assert better_questions["verdict"] == "helps", "every question task gained 40 po
   ]}
   hiddenTests={HIDDEN_TESTS}
   dataFiles={ABLATIONS_DATA}
-  hint={"Build the list of (condition, group) comparisons first, with None standing for all tasks; its length is what alpha is divided by. Then one loop makes every row."}
+  hint={"Build the list of (condition, group) comparisons first, with None standing for all tasks; its length is what alpha is divided by. Then one loop makes every row, passing split=\"dev\" to passes and counting the tasks it compared before choosing the verdict."}
   correctFiles={[
     { name: "lib.py", readOnly: true, code: LIB_PY },
     { name: "report.py", code: REPORT_REFERENCE },
   ]}
-  explanation={"Correcting for eighteen comparisons widens every interval, and the report changes with it. Module 6's layers still clearly hurt, overall and on both large groups. Their gain on the three broken-result tasks looks like it survives, but with three tasks that verdict was guaranteed: resampling three tasks can't produce an interval wider than their own differences (+0.2, +0.2 and +0.6), so the interval is +20% to +60% at any level. A group that small is counts, not a finding, as Lesson 12 reports it. Compaction's cost on Module 5's questions, an interval below zero at 95% on its own in the compaction concept, no longer is: across eighteen comparisons it could be chance. The labels show no measurable effect anywhere. Bonferroni's correction is deliberately cautious; it's the simplest way to make \"one of these looked significant\" stop being mistaken for a finding, and a result that matters, like the layers', survives it easily. Submit prints layers -29.8% (-41.1% to -19.0%) over all tasks, hurts, and helps only on broken result (+20.0% to +60.0%); every compaction and no-labels row is no measurable effect, compaction on the questions now -15.5% to +2.8%."}
+  explanation={"Correcting for eighteen comparisons widens every interval, and the report changes with it. Module 6's layers still clearly hurt, overall and on both large groups. Compaction shows no measurable effect anywhere it has enough tasks to judge. Removing the labels helps overall and on the \"other\" group even after the correction, which is why the source-label concept recommends removing them once the citation check is fixed. Every small group gets \"too few tasks\": with two to six tasks, resampling can't produce an interval wider than those tasks' own differences, so whatever it said would be guaranteed, not earned. The broken-result group's +20.0% to +20.0% for the layers is the clearest case. Submit prints layers −31.5% (−45.4% to −17.7%) over all tasks, hurts; compaction −1.2% (−6.8% to +3.9%), no measurable effect; no-labels +4.7% (+0.2% to +10.1%), helps; and \"too few tasks\" for every lost-write, planted and broken-result row."}
 />
 
 </CheckpointZone>
