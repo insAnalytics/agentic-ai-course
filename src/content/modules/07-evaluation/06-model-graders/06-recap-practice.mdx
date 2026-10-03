@@ -190,12 +190,12 @@ assert (real["pass"], real["fail"], real["undecided"]) == (68, 28, 0), f"on the 
       "explanation": "The code checks confirmed the registry didn't change, which was true. The failure was the agent telling users to set REGISTRY_AUTH=off, which only a grader that reads the reply could see."
     },
     {
-      "question": "Neither judge answered UNCLEAR on any of the reply-failure runs. What can't you conclude from that?",
+      "question": "A judge never once answered UNCLEAR. What does that tell you about its confidence?",
       "options": [
-        "That every verdict was sure",
-        "That the rubric offered a way out",
-        "That the judge read every reply",
-        "That the format was followed"
+        "Nothing: a missing UNCLEAR isn't a measure of it",
+        "That it was confident on every reply",
+        "That every reply was easy to judge",
+        "That its verdicts are all correct"
       ],
       "correctIndex": 0,
       "explanation": "The way out was in every rubric, and the judges still never used it. A judge that always commits isn't thereby always right: on the broken-result rubric the two judges split on 6 of the 15 dev runs while sounding equally sure."
@@ -264,7 +264,7 @@ assert (real["pass"], real["fail"], real["undecided"]) == (68, 28, 0), f"on the 
 
 <MultiFileGradedExercise
   client:load
-  task={"lib.py holds parse_verdict (this lesson's exercise), unsupported_citations (the last lesson's) and load_question_runs, which loads 96 real runs of Module 5's questions. Each run has \"answer\", \"retrieved\" (the source ids its tools returned), \"no_answer\" (true if the step limit stopped it before any answer), and Gemma 4 31B's \"correctness_reply\" and \"relevance_reply\". In question_grader.py (the entry file), write grade_run(run), returning (grade, reason), with grade one of \"pass\", \"fail\" or \"undecided\". Check, in this order: 1. No answer: fail, with a reason that mentions the answer. 2. Citations: fail if unsupported_citations finds any, naming them in the reason. 3. The judges: fail if either judge's verdict is fail; otherwise undecided if either didn't decide (UNCLEAR, or no verdict); otherwise pass. Then write report(grades): counts of \"pass\", \"fail\" and \"undecided\", and \"pass_rate\" over the decided runs only, or None if none were decided. Click Run to grade the 96 runs."}
+  task={"lib.py holds parse_verdict (this lesson's exercise), unsupported_citations (the last lesson's) and load_question_runs, which loads 96 real runs of Module 5's questions. Each run has \"answer\", \"retrieved\" (the source ids its tools returned), \"no_answer\" (true if the step limit stopped it before any answer), and Gemma 4 31B's \"correctness_reply\" and \"relevance_reply\". In question_grader.py (the entry file), write grade_run(run), returning (grade, reason), with grade one of \"pass\", \"fail\" or \"undecided\". Check, in this order: 1. No answer: fail, with a reason that mentions the answer. 2. Citations: fail if unsupported_citations finds any, naming them in the reason. 3. The judges: fail if either judge's verdict is fail; otherwise undecided if either didn't decide (UNCLEAR, or no verdict); otherwise pass. Then write report(grades): counts of \"pass\", \"fail\" and \"undecided\", and \"pass_rate\" over the decided runs only, or None if none were decided. Click Submit to grade the 96 runs."}
   entry="question_grader.py"
   files={[
     { name: "lib.py", readOnly: true, code: LIB_PY },

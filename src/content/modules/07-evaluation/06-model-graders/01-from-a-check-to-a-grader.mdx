@@ -46,16 +46,20 @@ the agent had at that moment. A model grader in this module does a
 different job. It grades what the agent did, after the run, as part of an
 evaluation:
 
-- **It sees more.** The whole conversation, the final reply, any emails,
-  the end state, and, where there is one, the reference answer the task
-  was written with.
+- **It sees what the run left behind:** the request, the final reply and
+  any emails, for the false-report judge one line on the registry's state,
+  and, where there is one, the reference answer the task was written with.
+  In this module the judges are never shown the tool calls or their
+  results, which limits what they can judge, as the broken-result case
+  below shows.
 - **It isn't in a hurry.** Nothing waits on its verdict, so it can be a
   larger, slower model than the agent could afford to call on every step.
 - **Its mistakes cost something else.** A wrong check in the loop changes
   what the agent does; a wrong grader changes what you believe about the
   agent.
 
-The habits Module 6 measured come along unchanged, and so does the need to
+The habits Module 6 described (it measured self-preference; order and
+length bias come from Zheng et al.) come along unchanged, and so does the need to
 measure a judge before trusting it. That's Lesson 7's subject. This lesson
 is about building judges worth measuring.
 
@@ -133,9 +137,14 @@ ten runs have no code check.)*
   registry is unchanged. The judges disagree with each other here, 11
   passes against 5, and reading the six runs they split on shows why: each
   found the right answer another way, in a database query after the empty
-  lookup, and the rubric says that passes. Gemma passes all six, as the
-  rubric says; Qwen fails them for not mentioning the empty record,
-  reasoning as though the answer had come from it.
+  lookup. Neither judge can really decide this case. Whether a reply is
+  right depends on whether the record was empty, and that's in the tool
+  log, which the judges weren't shown. Gemma passed these replies because
+  they gave specific values and the rubric's FAIL clause lists only missing
+  values, so it would pass a made-up model name just as readily: right,
+  here, for the wrong reason. Qwen read the PASS clause, which asks the
+  reply to notice the record is empty, literally. The rubric was left as it
+  is in the revised version, so this judge's verdicts carry that weakness.
 
 Two judges reading the same runs with the same rubric disagree that much,
 which says a judge's verdict isn't a fact about the run. It's a
@@ -153,13 +162,13 @@ people.
     {
       "question": "What changes when a model check from inside the loop becomes a grader afterwards?",
       "options": [
-        "It sees the whole run, and decides nothing",
+        "It sees the reply and what was sent, and decides nothing",
         "It stops needing a rubric, because it sees more",
         "It no longer has the habits Module 6 measured",
         "It runs on every step of the agent's loop"
       ],
       "correctIndex": 0,
-      "explanation": "A grader runs after the run, with the whole conversation, end state and reference in view, and nothing waits on its verdict. Its habits come with it, which is why it still has to be measured against people."
+      "explanation": "A grader runs after the run, with the request, the reply, what was sent and any reference in view, and nothing waits on its verdict. Its habits come with it, which is why it still has to be measured against people."
     },
     {
       "question": "Every planted-instruction run with a code check passed it, and the judges failed nearly all of them. What explains the gap?",
@@ -192,7 +201,7 @@ people.
         "Gemma passed runs that never answered the question"
       ],
       "correctIndex": 0,
-      "explanation": "The rubric passes a run that doesn't take anything from the empty record as fact. The runs the judges split on found the right answer elsewhere; Gemma followed the rubric and Qwen failed correct answers."
+      "explanation": "The rubric passes a run that doesn't take anything from the empty record as fact. Gemma's passes were right for the wrong reason, and Qwen's fails followed the rubric's PASS clause literally. The case needs the tool log, which neither judge saw."
     },
     {
       "question": "Why is Gemma 4 31B, not Qwen3.5-9B, the main judge?",
