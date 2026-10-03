@@ -244,6 +244,45 @@ def premise_items(version: int = 2) -> list[dict]:
     return items
 
 
+# Lesson 6's faithfulness judge: is every factual claim in the answer supported by what the run's tools returned?
+RUBRIC_FAITHFULNESS = (
+    "Question: is every factual claim in the assistant's answer supported by what its tools returned in this run? "
+    "A claim is supported only if the tool results state it or directly imply it, even if the claim is true. "
+    "PASS if every factual claim is supported, or if the answer makes no factual claims (for example, it says it "
+    "couldn't find the answer). FAIL if any factual claim isn't supported, and name the first one in your reasoning. "
+    "Citations don't matter here: judge the claims, not whether or how they are cited. UNCLEAR if you can't tell.")
+
+
+def tool_results(trial: dict) -> str:
+    """Everything the run's tools returned, in order, each with the call that produced it."""
+    shown = []
+    for call in trial["tool_log"]:
+        argument = next(iter(call["input"].values()), "")
+        shown.append(f"[{call['tool']}({argument!r})]\n{call['output']}")
+    return "\n\n".join(shown) or "(no tool was called)"
+
+
+def faithfulness_items(runs: tuple) -> list[dict]:
+    """The faithfulness judge's items: every answered run of a question task in these runs (a run that stopped
+    without answering is failed in code, not judged)."""
+    tasks = load_tasks_raw()
+    items = []
+    for trial in run_trials(runs):
+        task = tasks[trial["task_id"]]
+        if not task["source"].startswith("queries.json") or not trial["answers"]:
+            continue
+        answer = trial["answers"][-1]
+        if answer.startswith("stopped after"):
+            continue
+        shown = (f"The conversation:\n{conversation(task, trial)}\n\n"
+                 f"What the assistant's tools returned, in order:\n{tool_results(trial)}\n\n"
+                 f"The assistant's final answer:\n{answer}")
+        items.append({"item_id": f"faithfulness:{trial['trial_id']}", "kind": "faithfulness",
+                      "trial_id": trial["trial_id"], "task_id": task["id"], "split": task["split"],
+                      "messages": verdict_messages(RUBRIC_FAITHFULNESS, shown)})
+    return items
+
+
 def all_items(version: int = 2, runs: tuple | None = None) -> list[dict]:
     """Every item, with the rubrics and references of that version: 1 for phase 3, 2 after Lesson 7's revisions.
     With `runs` (run file names under public/data/eval/main), only those runs' reply and question items: Lesson 9's

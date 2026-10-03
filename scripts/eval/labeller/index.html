@@ -13,6 +13,10 @@
   Module 7, Lesson 7: the judge mode (see ../README-judge-labelling.md), opened with ?mode=judges, or
   ?mode=judges-relabel for the relabelling pass. It loads only public/data/eval/judge-labels/items.json, never a
   judge file, and never shows an item's stratum, split or id.
+
+  Module 7, Lesson 6's faithfulness judge (see ../README-faithfulness.md): ?mode=judges&items=faithfulness loads
+  public/data/eval/faithfulness/items.json instead, saves its progress separately, and exports
+  labels-faithfulness-simar.json. Everything else works as the judge mode does.
 -->
 <style>
   :root {
@@ -503,7 +507,17 @@ function chooseReader(name) {
 // ---------- the judge mode (Module 7, Lesson 7): one judge item at a time, blind ----------
 const MODE = new URLSearchParams(location.search).get("mode");
 const JUDGE_MODE = MODE === "judges" || MODE === "judges-relabel" ? MODE : null;
-const JUDGE_DATA = "/public/data/eval/judge-labels/items.json";
+// which items file the judge mode labels: Lesson 7's judge questions, or Lesson 6's faithfulness judge
+const ITEM_SETS = {
+  judges: {data: "/public/data/eval/judge-labels/items.json", export: "labels-judges-simar.json",
+           title: "Labelling the judges' items"},
+  faithfulness: {data: "/public/data/eval/faithfulness/items.json", export: "labels-faithfulness-simar.json",
+                 title: "Labelling the faithfulness judge's items"},
+};
+const ITEM_SET = new URLSearchParams(location.search).get("items") || "judges";
+const JUDGE_DATA = ITEM_SETS[ITEM_SET] && ITEM_SETS[ITEM_SET].data;
+// only the first item set has a relabel pass, so only it records when its first labelling finished
+const isFirstSet = () => ITEM_SET === "judges";
 const JUDGE_VERDICTS = ["pass", "fail", "unclear"];
 const KIND_NAMES = {
   false_report: "Did the reply claim a change that didn't happen?",
@@ -512,13 +526,15 @@ const KIND_NAMES = {
   correctness: "Does the answer match the reference answer?",
   relevance: "Does the answer address the question asked?",
   premise: "Did the reply handle the question's assumption correctly?",
+  faithfulness: "Is every claim in the answer supported by what the tools returned?",
 };
 // the first labelling's finished date, kept on its own so the relabel pass can warn without loading any label
 const FIRST_FINISHED_KEY = "judges:first:finished";
 
 let judgeFile = null, judgeOrder = [], judgeItems = {}, judgeIndex = 0, judgeState = null;
 const judgeRelabel = () => JUDGE_MODE === "judges-relabel";
-const judgeKey = () => `judges:v${judgeFile.version}:${judgeRelabel() ? "relabel" : "first"}`;
+// the first item set keeps its original key, so progress already saved in a browser isn't lost
+const judgeKey = () => `${ITEM_SET}:v${judgeFile.version}:${judgeRelabel() ? "relabel" : "first"}`;
 const saveJudges = () => store.set(judgeKey(), {...judgeState, index: judgeIndex});
 const newJudgeLabel = () => ({verdict: null, reference_disputed: false, note: "", labelled_at: null});
 // what an item still needs: a verdict, and a note whenever the reference is disputed
@@ -532,7 +548,7 @@ function judgeGaps(id) {
 const judgeLabelled = () => judgeOrder.filter((id) => judgeGaps(id).length === 0).length;
 function updateFinished() {
   judgeState.finished = judgeLabelled() === judgeOrder.length ? (judgeState.finished || new Date().toISOString()) : null;
-  if (!judgeRelabel()) store.set(FIRST_FINISHED_KEY, judgeState.finished);
+  if (!judgeRelabel() && isFirstSet()) store.set(FIRST_FINISHED_KEY, judgeState.finished);
 }
 
 // a shuffle seeded by a string, so the relabel order is the same on every machine: cyrb53-style hashing of the
@@ -639,7 +655,7 @@ function exportJudges() {
                          note: (l.note || "").trim() || null, labelled_at: l.labelled_at};
                })};
   const blob = new Blob([JSON.stringify(out, null, 1) + "\n"], {type: "application/json"});
-  const a = el("a", {href: URL.createObjectURL(blob), download: judgeRelabel() ? "labels-judges-simar-relabel.json" : "labels-judges-simar.json"});
+  const a = el("a", {href: URL.createObjectURL(blob), download: judgeRelabel() ? "labels-judges-simar-relabel.json" : ITEM_SETS[ITEM_SET].export});
   document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
@@ -660,7 +676,7 @@ async function importJudges(file) {
   }
   judgeState.started = judgeState.started || data.started || null;
   judgeState.finished = judgeLabelled() === judgeOrder.length ? (data.finished || new Date().toISOString()) : null;
-  if (!judgeRelabel()) store.set(FIRST_FINISHED_KEY, judgeState.finished);
+  if (!judgeRelabel() && isFirstSet()) store.set(FIRST_FINISHED_KEY, judgeState.finished);
   const firstOpen = judgeOrder.findIndex((id) => judgeGaps(id).length > 0);
   judgeIndex = firstOpen === -1 ? 0 : firstOpen;
   saveJudges();
@@ -668,16 +684,27 @@ async function importJudges(file) {
 }
 
 async function initJudges() {
-  document.title = judgeRelabel() ? "Labelling the judges' items: relabel" : "Labelling the judges' items";
+  const set = ITEM_SETS[ITEM_SET];
+  document.title = !set ? "Labelling" : judgeRelabel() ? `${set.title}: relabel` : set.title;
   document.querySelector("header h1").textContent = document.title;
   for (const id of ["reader", "guide-link"]) (document.getElementById(id).closest("label") || document.getElementById(id)).hidden = true;
+  if (!set) {
+    document.getElementById("loading").textContent =
+      `There's no item set called "${ITEM_SET}". Use ?mode=judges, or ?mode=judges&items=faithfulness.`;
+    return;
+  }
+  const query = `?mode=${JUDGE_MODE}${isFirstSet() ? "" : `&items=${ITEM_SET}`}`;
   try {
     const response = await fetch(JUDGE_DATA);
     if (!response.ok) throw new Error(`${JUDGE_DATA}: ${response.status}`);
     judgeFile = await response.json();
   } catch (error) {
     document.getElementById("loading").textContent =
-      `Couldn't load the items (${error.message}). Run "python -m http.server" from the repo root and open /scripts/eval/labeller/?mode=${JUDGE_MODE}.`;
+      `Couldn't load the items (${error.message}). Run "python -m http.server" from the repo root and open /scripts/eval/labeller/${query}.`;
+    return;
+  }
+  if (judgeRelabel() && !Array.isArray(judgeFile.relabel)) {
+    document.getElementById("loading").textContent = `This item set has no relabelling pass. Open /scripts/eval/labeller/?mode=judges&items=${ITEM_SET}.`;
     return;
   }
   document.getElementById("loading").remove();

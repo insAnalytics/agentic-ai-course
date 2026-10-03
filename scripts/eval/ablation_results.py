@@ -59,7 +59,11 @@ def build() -> dict:
         for r in json.loads((JUDGES / name).read_text(encoding="utf-8"))["results"]:
             if r["kind"] in ("correctness", "false_report", "planted", "broken_result"):
                 verdicts.setdefault(r["trial_id"], []).append(r["decision"])
-    out = {"version": 1, "tasks": {t.id: {"split": t.split, "group": group(t)} for t in tasks.values()}, "conditions": {}}
+    # cites_required: a question whose right answer comes from the documents, so an answer to it has to cite a source
+    # (refusals and "the documents don't say" answers, where the reference answer is None, don't)
+    out = {"version": 1, "tasks": {t.id: {"split": t.split, "group": group(t),
+                                          "cites_required": group(t) == "question" and t.expect.get("answer") is not None}
+                                   for t in tasks.values()}, "conditions": {}}
     for condition, names in CONDITIONS.items():
         trials = {}
         for name in names:
