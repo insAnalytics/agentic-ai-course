@@ -49,7 +49,8 @@ Every task in this module's pool is marked as one of two kinds:
 - **Held-out tasks** are kept back. Nobody reads their runs or tunes
   anything against them, so that at the end of the module there's a set of
   tasks no decision was made on. The registry agent's final report, in
-  Lesson 12, measures on them.
+  Lesson 12, measures on them. Module 5's 11 held-out questions (h01–h11)
+  are held out here too, so 28 tasks in all are kept back.
 
 The reason is an old one in machine learning, and it applies to agents for
 the same reason. Every decision made by looking at a set of examples fits
@@ -132,7 +133,9 @@ that only fits the dev tasks raises dev and leaves held-out where it was.
 That comparison, and how to tell a real difference from run-to-run noise,
 is Lesson 10.
 
-One more sign of a suite that's been tuned to: it stops failing. A dev task
+One more sign of a suite that's been tuned to: it stops failing. It can also
+mean the agent really improved, which is why the held-out tasks, not the
+suite, decide. A dev task
 the agent passes every time tells you nothing new about what to fix, which
 is why a capability suite should start with a low pass rate, and why tasks
 that saturate are moved to the regression suite and replaced with harder
@@ -168,15 +171,15 @@ ones.
       "explanation": "Resampling tasks that all passed can only give 100%, so the interval hides the uncertainty rather than measuring it. The rule of three gives the honest bound: with no failures in n independent tasks, the true rate could be as high as about 3 in n."
     },
     {
-      "question": "The held-out registry tasks pass at 100% against the dev tasks' 89%. What's the main reason?",
+      "question": "The held-out registry tasks pass 100% and the dev ones 89%. Which explanation must the report give?",
       "options": [
-        "They were hand-picked and lean easier",
+        "Hand-picked tasks may lean easy, or it's chance",
         "The agent improved between the dev and held-out runs",
         "Held-out tasks are graded with a more lenient matcher",
         "Tasks nobody reads are always easier for the agent"
       ],
       "correctIndex": 0,
-      "explanation": "Both halves came from the same runs and checks. These eight held-out tasks were chosen when written and include few of the kinds the agent struggles with. A held-out set drawn within each category, as the suite's was, looks like the dev set."
+      "explanation": "With 8 tasks, chance alone easily gives 8 of 8 when the dev rate is 89%. The tasks were also picked by hand, and may lean towards what the agent does well. A report gives both explanations; Lesson 12 does."
     },
     {
       "question": "Which of these is fixing the measurement rather than tuning to the suite?",
