@@ -9,7 +9,7 @@ import QuizGroup from "../../../../components/lesson/QuizGroup";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
 import { ABLATIONS_DATA, LOAD_ABLATIONS, LOAD_SETTINGS, PAIRED_DIFFERENCE, SETTINGS_DATA } from "../../../../lib/evalData";
 
-export const DATA = [...SETTINGS_DATA, ...ABLATIONS_DATA];
+export const DATA = [...SETTINGS_DATA, ...ABLATIONS_DATA, "eval/report/costs.json"];
 
 export const SETUP = LOAD_SETTINGS + "\n\n" + LOAD_ABLATIONS + "\n\n" + PAIRED_DIFFERENCE;
 
@@ -24,6 +24,25 @@ for condition, decision in decisions.items():
     dev_only = paired_difference({t: baseline[t] for t in dev}, {t: changed[t] for t in dev})
     shown = [f"{mean:+.1%} ({low:+.1%} to {high:+.1%})" for mean, low, high in (every, dev_only)]
     print(f"{condition:<11}{decision:<22}{shown[0]:>24}{shown[1]:>26}")
+`;
+
+export const SECURITY_DEMO = String.raw`costs = json.loads(Path("/data/eval/report/costs.json").read_text(encoding="utf-8"))["conditions"]
+dev = {task for task, info in results["tasks"].items() if info["split"] == "dev"}
+planted = {task for task in dev if results["tasks"][task]["group"] == "planted"}
+
+print(f"{'condition':<11}{'planted runs passing':>21}{'benign pass rate':>18}{'tokens per run':>16}"
+      f"{'tokens per success':>20}{'in-loop judge calls':>21}")
+for condition in ("baseline", "fp8", "prompt-v2", "compaction", "no-labels", "layers-v2", "layers"):
+    runs = passes(condition)
+    safe = sum(sum(runs[task]) for task in planted)
+    attacked = sum(len(runs[task]) for task in planted)
+    benign = [result for task in dev - planted for result in runs[task]]
+    spent = [costs[condition][f"{task}/{n}"] for task in dev for n in range(len(runs[task]))]
+    tokens = sum(trial["tokens"] for trial in spent)
+    successes = sum(sum(runs[task]) for task in dev)
+    judge_calls = sum(trial["judge_calls"] for trial in spent)
+    print(f"{condition:<11}{f'{safe} of {attacked}':>21}{sum(benign) / len(benign):>18.1%}{tokens / len(spent):>16,.0f}"
+          f"{tokens / successes:>20,.0f}{judge_calls / len(spent):>21.2f}")
 `;
 
 <Subsection title="The decisions, checked on the dev tasks" variant="a">
@@ -78,7 +97,50 @@ tasks is cheap, and it's worth doing before anything is written down.
 
 </Subsection>
 
-<Subsection title="Limits" variant="b">
+<Subsection title="Security, and what it costs" variant="b">
+
+A pass rate mixes two questions an agent with tools has to answer
+separately: does it do its job, and does it resist being misled?
+[Module 6](/06-reliability/02-reliability-tradeoffs/01-four-things-every-technique-trades/#a-refusal-can-be-a-reliability-failure)
+judged a defence on both at once, as AgentDojo does: how often attacks
+succeed, next to how many ordinary tasks still get done. Cost needs the
+same treatment. [Kapoor et al.](https://arxiv.org/abs/2407.01502) argue
+that agents should be reported with cost beside accuracy, because a small
+gain can come at a large price. Here are both lines for every graded
+condition, on the dev tasks:
+
+<LiveDemo client:load dataFiles={DATA} setupCode={SETUP} code={SECURITY_DEMO} />
+
+*(Planted runs passing are runs of the five planted-instruction tasks that
+passed their code checks and the planted-instruction judge; benign is
+every other dev task; tokens are the agent's own model calls; in-loop
+judge calls are the layers' support-judge calls per run, whose tokens
+weren't recorded.)*
+
+- **The layers bought security with usefulness.** Planted-instruction runs
+  passing went from none of 25 to 8, the third of planted runs
+  [Lesson 9 saw](/07-evaluation/09-ablations/04-module-6s-layers-on-real-runs/)
+  become safe. But the benign pass rate fell from 77.6% to 42.6%, and the
+  tokens per success nearly doubled. That's the shape AgentDojo found for
+  some defences. "Stop" stands as built, but the report says what it gives
+  up: the layers' one real gain is against planted instructions, and the
+  next version should keep it.
+- **The security line is thin.** It rests on five dev tasks, one kind of
+  planted instruction, and a judge whose TPR is unmeasured. Its passes on
+  the layered runs are the first ones to label.
+- **The approved changes don't cost more.** Per success, prompt v2 spends
+  about what the baseline does, and FP8 and the no-labels run a little
+  less. Compaction spends about 13% more for no gain. FP8's real saving is
+  in serving hardware, which a token count doesn't show.
+- **The layers' cost is a floor.** Their in-loop support-judge calls, about
+  one for every two runs, were counted but their tokens weren't recorded.
+
+So the report's results get two more columns beside each change's pass
+rate: an attack line and a cost line.
+
+</Subsection>
+
+<Subsection title="Limits" variant="a">
 
 Every evaluation is of one agent, on one suite, in one setting. The
 report lists what this one can't speak to:
@@ -116,13 +178,19 @@ report lists what this one can't speak to:
   they'd ship as needs its own pass through Lesson 10's gate on dev tasks.
 - **One agent.** Evaluating a system of several agents, and its failures,
   is Module 8's subject.
+- **A small injection suite.** The security line rests on five dev tasks
+  with one kind of planted instruction, judged by a judge whose TPR is
+  unmeasured.
+- **The layers' in-loop judge tokens weren't recorded.** Their
+  support-judge calls were counted but not measured, so the layers' cost
+  is a floor.
 - **The held-out contact,** as disclosed.
 - **No real users.** Everything in Lesson 11 was simulated from recorded
   runs.
 
 </Subsection>
 
-<Subsection title="What's next" variant="a">
+<Subsection title="What's next" variant="b">
 
 The report ends with what should happen next, ordered by what it would
 change:
@@ -142,7 +210,9 @@ change:
 5. **Build layers v3, and measure it the same way.**
    [Lesson 10 described it](/07-evaluation/10-regression-tests/04-three-real-changes/):
    keep identifiers, skip empty claims, leave attribution sentences to the
-   citation check. It hasn't been run.
+   citation check. It hasn't been run. Measure it on both lines: it
+   should keep the layers' 8 of 25 against planted instructions while
+   bringing the benign pass rate back near the baseline's.
 6. **Rebuild the held-out set.** Fold the old one into dev, hold out a
    fresh set within each category, and compare changes on dev tasks only
    from now on, keeping a contact log as it happens.
@@ -215,6 +285,17 @@ change:
       ],
       "correctIndex": 0,
       "explanation": "Over half the headline rests on judges, and the judges behind the question, lost-write and planted results are barely measured. Labels there change how far every one of those numbers can be trusted. The other steps matter, but each builds on graders that can be trusted."
+    },
+    {
+      "question": "The layers took planted-instruction passes from 0 to 8 of 25 and the benign pass rate from 77.6% to 42.6%. How should the report state the decision to stop them?",
+      "options": [
+        "As a trade-off: security bought at too high a cost",
+        "As a failure: the layers made the agent worse everywhere",
+        "As a success: security matters more than benign tasks",
+        "As noise: five planted tasks are too few to count"
+      ],
+      "correctIndex": 0,
+      "explanation": "The layers did one thing well and much else badly. Giving both lines, as Module 6's AgentDojo comparison did, keeps the gain in view for the next version, while five tasks and an unmeasured judge stop it from being decisive. They didn't make the agent worse everywhere: they made it safer against planted instructions."
     }
   ]}
 />
