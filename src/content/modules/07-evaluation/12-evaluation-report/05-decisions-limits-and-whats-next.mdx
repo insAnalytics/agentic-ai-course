@@ -14,12 +14,22 @@ export const DATA = [...SETTINGS_DATA, ...ABLATIONS_DATA, "eval/report/costs.jso
 export const SETUP = LOAD_SETTINGS + "\n\n" + LOAD_ABLATIONS + "\n\n" + PAIRED_DIFFERENCE;
 
 export const DECISIONS_DEMO = String.raw`decisions = {"fp8": "ship", "prompt-v2": "ship", "compaction": "don't adopt", "layers-v2": "stop", "layers": "stop",
-             "no-labels": "remove, after a check"}
-baseline = passes("baseline", split="dev")
-print(f"{'change':<11}{'decided':<24}{'dev tasks, change minus baseline':>34}")
+             "no-labels": "no change"}
+
+
+def cited_where_due(condition: str) -> dict[str, list[bool]]:
+    """Each dev task's trials, regraded so that an answer that should cite a source, and cites nothing, fails."""
+    return {task: [row["pass"] and (row["cited"] or not results["tasks"][task]["cites_required"]) for row in rows]
+            for task, rows in results["conditions"][condition].items() if results["tasks"][task]["split"] == "dev"}
+
+
+baseline, strict_baseline = passes("baseline", split="dev"), cited_where_due("baseline")
+print(f"{'change':<11}{'decided':<13}{'change minus baseline, dev tasks':>34}{'citation required where due':>31}")
 for condition, decision in decisions.items():
-    mean, low, high = paired_difference(baseline, passes(condition, split="dev"))
-    print(f"{condition:<11}{decision:<24}{f'{mean:+.1%} ({low:+.1%} to {high:+.1%})':>34}")
+    shown = [f"{mean:+.1%} ({low:+.1%} to {high:+.1%})" for mean, low, high in
+             (paired_difference(baseline, passes(condition, split="dev")),
+              paired_difference(strict_baseline, cited_where_due(condition)))]
+    print(f"{condition:<11}{decision:<13}{shown[0]:>34}{shown[1]:>31}")
 `;
 
 export const SECURITY_DEMO = String.raw`costs = json.loads(Path("/data/eval/report/costs.json").read_text(encoding="utf-8"))["conditions"]
@@ -50,8 +60,10 @@ evidence behind each:
 <LiveDemo client:load dataFiles={DATA} setupCode={SETUP} code={DECISIONS_DEMO} />
 
 *(Each difference is the change minus the baseline on the dev tasks,
-paired by task, with a 95% interval from resampling tasks;
-`paired_difference` is Lesson 9's, loaded for you.)*
+paired by task, with a 95% interval from resampling tasks: first as
+graded, then with a citation required wherever one is due, as
+[Lesson 6's citation check](/07-evaluation/06-model-graders/05-faithfulness/#the-citation-check-isn-t-a-faithfulness-check)
+adds. `paired_difference` is Lesson 9's, loaded for you.)*
 
 - **Module 6's layers, and the fixed layers v2: stop.** Both cost the
   agent heavily, and
@@ -64,7 +76,10 @@ paired by task, with a 95% interval from resampling tasks;
   [Lesson 10 traced](/07-evaluation/10-regression-tests/04-three-real-changes/#reading-a-pass-the-prompt-change)
   to the new read-back line. Those tasks are graded by the false-report
   judge, whose pass rate on good replies has never been measured, so the
-  gain rests on that judge and on one run read.
+  gain rests on that judge and on one run read. With a citation required
+  where one is due, its gain shrinks to about three and a half points,
+  with an interval across zero. It still passes the gate; the gain is
+  suggestive, not shown.
 - **FP8 serving: ship.** No regression.
 - **Compaction: don't adopt.** It passes the gate, with no measurable
   cost and nothing flagged. But it buys this agent nothing, and it makes
@@ -73,12 +88,12 @@ paired by task, with a 95% interval from resampling tasks;
   shows. A gate only says a change does no harm; here nothing argues for
   it. It would earn its place on runs that outgrow the context window,
   which this suite doesn't have.
-- **The source labels: remove, after one check.** Removing them gains
-  about five points, and
-  [the gain survives correcting for eighteen comparisons](/07-evaluation/09-ablations/05-a-piece-that-doesnt-earn-its-place/#the-result).
-  Part of it is
+- **The source labels: no change.** As graded, removing them gains about
+  five points. But part of that is
   [the citation check passing answers that cite nothing](/07-evaluation/09-ablations/05-a-piece-that-doesnt-earn-its-place/#what-a-gain-is-made-of),
-  so the check gets fixed and the comparison rerun before the labels go.
+  and with a citation required where one is due the gain falls to about
+  three, inside the noise. They make no measurable difference; removing
+  them would save tokens, not improve answers.
 
 Each line names its evidence and how firm that evidence is. That, more
 than the verdict itself, is what lets a reader disagree with a decision.
@@ -190,10 +205,10 @@ change:
    groups can't be corrected.
 2. **Finish the relabel.** Agreement between the two passes sets how far
    any label in this module can be trusted.
-3. **Fix the citation check, then settle the labels.** It passes answers
-   that cite nothing, which part of the source-label gain turned on. Rerun
-   that comparison with the fixed check, and remove the labels if the gain
-   holds.
+3. **Put the citation requirement into the pass rule.** Regrading with
+   it settled the source-label question and shrank prompt v2's gain.
+   Making it part of every grade means regrading every comparison once,
+   with no new runs.
 4. **Test compaction where it's meant to help.** On this agent it buys
    nothing, because no run outgrows the context window. Tasks with long
    runs would test what it's for; until then it stays off.
@@ -254,15 +269,15 @@ change:
       "explanation": "The runs were made 48 at a time on one GPU, so a slow run often meant a busy GPU, not a slow agent. The traces did record durations, and latency is a normal part of an agent's report; it just can't be measured fairly from these runs."
     },
     {
-      "question": "Removing the source labels scored 4.7 points higher on dev tasks, and the gain survived correcting for eighteen comparisons. Why does the report attach a condition to removing them?",
+      "question": "Removing the source labels scored 4.7 points higher on dev tasks as graded. Why does the report make no change?",
       "options": [
-        "The grader rewards uncited answers",
-        "The corrected interval is too wide to act on",
-        "The labels are needed by Module 5's lessons",
-        "A five-point gain is too small to matter"
+        "Its gain fell into the noise",
+        "The labels are needed by the later lessons",
+        "It survived the correction for eighteen comparisons",
+        "Removing anything from a working agent is risky"
       ],
       "correctIndex": 0,
-      "explanation": "Part of the gain is s06's passes that cite nothing, which the citation check counts as passes. Fixing the check and rerunning shows whether the rest holds before the labels go."
+      "explanation": "Part of the gain was answers that cite nothing passing the citation check. With a citation required where one is due, the gain is about three points with an interval across zero: no measurable difference."
     },
     {
       "question": "Which next step comes first, and why?",
