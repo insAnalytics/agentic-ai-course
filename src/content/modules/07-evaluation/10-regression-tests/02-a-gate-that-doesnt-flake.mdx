@@ -74,6 +74,30 @@ assert flags == ["a", "b"], f"flagged tasks in sorted order: got {flags}"
 `,
 ];
 
+export const MISSES_DEMO = String.raw`import random
+
+known_good, rerun = passes("baseline", split="dev"), passes("baseline-b", split="dev")
+known_good = {task: known_good[task] for task in rerun}
+rate = sum(map(sum, rerun.values())) / sum(map(len, rerun.values()))
+
+
+def drop(runs: dict, points: float, rng: random.Random) -> dict:
+    """The same runs with passes turned into failures at random, so the pass rate falls by about ` + "`points`" + String.raw`."""
+    chance = points / rate
+    return {task: [result and rng.random() >= chance for result in results] for task, results in runs.items()}
+
+
+rng = random.Random(0)
+print(f"{'true drop':>9}   {'the gate fails it':>17}   {'non-inferiority (5 points) blocks it':>36}")
+for points in (0.02, 0.04, 0.06, 0.08):
+    failed = blocked = 0
+    for _ in range(50):
+        result = gate(known_good, drop(rerun, points, rng))
+        failed += not result["passed"]
+        blocked += result["difference"][1] <= -0.05
+    print(f"{points:>9.0%}   {failed / 50:>17.0%}   {blocked / 50:>36.0%}")
+`;
+
 export const GATE_DEMO = String.raw`known_good = passes("baseline", split="dev")
 checks = [("baseline-b", "the same agent, run again"), ("layers", "Module 6's layers"),
           ("compaction", "forced compaction"), ("no-labels", "source labels removed")]
@@ -195,6 +219,55 @@ question.
 
 </Subsection>
 
+<Subsection title="What the gate lets through" variant="b">
+
+A gate that never flakes can still miss. The suite rule fails a change
+only once its drop is proven, so a small regression can pass. How small
+is measurable from the real rerun: take batch b, which changed nothing,
+turn some of its passes into failures at random so its pass rate falls by
+a set amount, and run the gate on it, 50 times for each size of drop:
+
+<LiveDemo client:load dataFiles={ABLATIONS_DATA} setupCode={LOAD_ABLATIONS + "\n\n" + PAIRED_DIFFERENCE + "\n\n" + GATE} code={MISSES_DEMO} />
+
+*(Simulated drops on the real rerun of the dev tasks, which keeps the way
+a task's trials move together; `gate` is the exercise's reference
+version, loaded for you. It takes a few seconds.)*
+
+- **Small regressions get through.** A uniform 4-point drop passed the
+  gate 49 times in 50, a 6-point drop about half the time, and an 8-point
+  drop almost never. That's
+  [Lesson 9's power arithmetic](/07-evaluation/09-ablations/01-one-piece-on-and-off/#the-same-two-batches-paired)
+  in practice: with this suite's noise, changes under about 5 points can't
+  be told from chance, so a gate built to avoid false alarms lets them
+  through.
+- **Non-inferiority asks the opposite question.** Instead of "is the new
+  run clearly worse?", it asks "is it clearly not worse by more than a
+  margin?", and ships only if the interval's lower bound sits above minus
+  that margin. Clinical trials use it to show a new treatment isn't
+  meaningfully worse than an existing one, and the
+  [FDA's guidance on non-inferiority trials](https://www.fda.gov/regulatory-information/search-fda-guidance-documents/non-inferiority-clinical-trials)
+  is mostly about choosing that margin. With a 5-point margin, it blocked
+  4 in 5 of the 4-point drops, but also a quarter of the 2-point ones.
+- **Each rule trades one mistake for the other.** "Fail only if proven
+  worse" rarely blocks a harmless change and misses small regressions;
+  non-inferiority catches them and sometimes blocks changes that did
+  little harm. Its margin also has to sit above the suite's own noise, or
+  a rerun with nothing changed would fail it. The no-change pair's lower
+  bound here is −1.8 points, so a margin of a few points is about as tight
+  as this suite allows. FP8 is a clean example of a change that passes it:
+  its lower bound, −0.2 points, clears any sensible margin.
+
+This lesson keeps "fail only if proven worse", because the suite is small
+and, as
+[the start of this concept](/07-evaluation/10-regression-tests/02-a-gate-that-doesnt-flake/#what-a-gate-is-for)
+argued, a gate that fails on noise gets rerun until it passes and then
+ignored. That concept named two ways a gate can be wrong; this measures
+the first. A team that can afford more tasks or more trials narrows the
+interval, and can then move to non-inferiority with a margin it actually
+cares about.
+
+</Subsection>
+
 <CheckpointZone>
 
 <QuizGroup
@@ -254,6 +327,28 @@ question.
       ],
       "correctIndex": 0,
       "explanation": "Per-task rules over many tasks will sometimes flag one that's only flaky. A flag is a reason to read the runs; whether it's a real regression is a judgement the gate can't make alone."
+    },
+    {
+      "question": "A uniform 4-point regression passed the gate 49 times in 50. Why?",
+      "options": [
+        "The suite rule fails only drops it can prove",
+        "Four points is inside the gate's 2-point tolerance",
+        "The gate only looks at the held-out tasks",
+        "Random drops never move a whole suite"
+      ],
+      "correctIndex": 0,
+      "explanation": "The suite rule needs the paired interval wholly below zero. With this suite's noise, a 4-point drop's interval usually still reaches zero, so the gate can't call it a regression. The tolerance only matters once a drop is proven."
+    },
+    {
+      "question": "What does a non-inferiority gate with a 5-point margin require before a change ships?",
+      "options": [
+        "The interval's lower bound above −5 points",
+        "The pass rate to rise by at least five points",
+        "No single task to fall by five trials or more",
+        "The interval to include zero and stay narrow"
+      ],
+      "correctIndex": 0,
+      "explanation": "Non-inferiority ships a change only when the data rule out a drop bigger than the margin. Here that catches most 4-point regressions, at the cost of sometimes blocking smaller drops that did little harm."
     }
   ]}
 />
