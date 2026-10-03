@@ -320,6 +320,14 @@ the records this course has kept fall outside them:
   kept the model asked for, the model that answered, and a hash of the
   prompt and tool definitions.
 
+Only part of the version record is really outside the conventions. The
+model asked for and the model that answered are `gen_ai.request.model` and
+`gen_ai.response.model`, which this module's spans already carry, and the
+conventions now define `gen_ai.agent.version` for an agent's version, to
+set on the agent span when there is one. What has no convention attribute
+is one hash over the prompt and the tool definitions together, which is
+what this course records as `registry_agent.config_hash`.
+
 A span can carry any attributes, so these go in as attributes of the
 course's own. OpenTelemetry's naming guidance is to prefix names like these
 with your company's reverse domain name, or with your application's name if

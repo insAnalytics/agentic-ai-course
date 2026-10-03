@@ -562,12 +562,18 @@ everything that only reads a run:
   tool's internals, or new tracing, should replay cleanly. If it diverges,
   it changed what the model sees.
 - **Grading old runs with new graders.** A grader reads the recording; it
-  doesn't need the model at all.
+  doesn't need the agent's model at all.
 
 A change that does alter what the model sees, such as a new prompt, a
 tool's output format, or a different model, can only be evaluated by
 running the model again, many times, and comparing with the runs before.
 That's regression testing, and it's Lesson 10.
+
+A replay also needs the world to be deterministic. Clocks, random numbers
+and live external services have to be recorded or stubbed along with the
+model, or a replayed run can diverge for reasons that have nothing to do
+with the change. This course's registry is simulated and deterministic,
+which is why its replays are exact.
 
 </Subsection>
 

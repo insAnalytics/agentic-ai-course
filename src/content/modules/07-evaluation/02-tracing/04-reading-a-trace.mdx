@@ -249,8 +249,8 @@ what the agent concluded, which is content, not structure.
 
 <Subsection title="Where the tokens go" variant="a">
 
-Every model call sends the conversation so far. One p02 run searched ten
-times without answering:
+Every model call sends the conversation so far. One p02 run made ten lookups,
+five searches and five database queries, without answering:
 
 <LiveDemo client:load dataFiles={THINK_DATA} setupCode={SUMMARY_SETUP} code={TOKENS_DEMO} />
 
@@ -265,6 +265,12 @@ less each than output tokens, but in an agent there are far more of them,
 so a step that adds a long tool result, or a run that takes a few extra
 steps, costs more than its own output suggests. A trace shows exactly which
 calls and which runs that cost came from.
+
+Prompt caching changes that arithmetic: a repeated prefix that's cached is
+billed at a fraction of the price, which is why
+[Module 4's caching lesson](/04-context-and-memory/03-prompt-caching/01-what-a-prefix-cache-is-worth-to-an-agent/)
+matters most for agents. A trace shows it too, in
+`gen_ai.usage.cache_read.input_tokens`.
 
 </Subsection>
 

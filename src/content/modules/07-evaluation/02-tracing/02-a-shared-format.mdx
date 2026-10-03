@@ -198,6 +198,11 @@ definitions, and each tool call's arguments and result. Each one carries a
 warning that it's likely to contain sensitive information, including
 users' personal data.
 
+One simplification: the content here keeps the recording's own block
+format (`text`, `tool_use`, `thinking`). The conventions define their own
+parts for it (`text` with `content`, `tool_call` with `arguments`,
+`reasoning`), which a production instrumentation should follow.
+
 Content is also big. The demo builds all 30 of the 4B's pilot traces twice,
 once without content and once capturing the model's replies and every tool
 call's arguments and result:
@@ -217,8 +222,12 @@ So capturing content is a decision, not a default:
   agent did something without seeing what it saw and said. Every lesson
   after this one reads content.
 - **In production it means storing what users typed,** and whatever the
-  tools returned about them, for as long as the traces are kept. Module 10
-  covers trace retention and personal data.
+  tools returned about them, for as long as the traces are kept. The usual
+  protections sit before export: a span processor that redacts or hashes
+  content before it leaves the service, content capture switched off in
+  production and on in development, or content stored apart from the spans
+  with its own retention. Keeping and deleting it is part of Module 10's
+  subject.
 
 This module's traces capture content, because the registry and its
 documents are made up and contain nothing personal.
