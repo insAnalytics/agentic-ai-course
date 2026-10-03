@@ -62,8 +62,8 @@ def can_catch(checks: dict) -> bool:
 
 
 def placement(tasks: list[dict], trials: dict[str, list[bool]], reference_passes: dict[str, bool]) -> dict[str, str]:
-    """Where each task belongs next: "fix the task", "read the runs", "capability", "regression",
-    or "needs a reply grader"."""
+    """Where each dev task belongs next: "fix the task", "read the runs", "capability", "regression",
+    or "needs a reply grader". Held-out tasks are "held out": their results aren't looked at."""
     # your code here
 
 
@@ -75,7 +75,7 @@ def uncovered_categories(tasks: list[dict]) -> list[str]:
 if __name__ == "__main__":
     suite = load_suite()
     places = placement(suite["tasks"], suite["trials"], suite["reference_passes"]) or {}
-    for place in ("fix the task", "read the runs", "capability", "regression", "needs a reply grader"):
+    for place in ("fix the task", "read the runs", "capability", "regression", "needs a reply grader", "held out"):
         ids = sorted(t for t, p in places.items() if p == place)
         print(f"{place:<21} {len(ids):>2}  {' '.join(ids)}".rstrip())
     print("categories with no held-out task:", uncovered_categories(suite["tasks"]))
@@ -96,11 +96,12 @@ def can_catch(checks: dict) -> bool:
 
 
 def placement(tasks: list[dict], trials: dict[str, list[bool]], reference_passes: dict[str, bool]) -> dict[str, str]:
-    """Where each task belongs next: "fix the task", "read the runs", "capability", "regression",
-    or "needs a reply grader"."""
-    labels = triage(tasks, trials, reference_passes)
-    places = {}
-    for task in tasks:
+    """Where each dev task belongs next: "fix the task", "read the runs", "capability", "regression",
+    or "needs a reply grader". Held-out tasks are "held out": their results aren't looked at."""
+    dev = [task for task in tasks if task["split"] == "dev"]
+    labels = triage(dev, trials, reference_passes)
+    places = {task["id"]: "held out" for task in tasks if task["split"] != "dev"}
+    for task in dev:
         label = labels[task["id"]]
         if label in ("no criteria", "broken", "not run"):
             places[task["id"]] = "fix the task"
@@ -126,7 +127,7 @@ def uncovered_categories(tasks: list[dict]) -> list[str]:
 if __name__ == "__main__":
     suite = load_suite()
     places = placement(suite["tasks"], suite["trials"], suite["reference_passes"])
-    for place in ("fix the task", "read the runs", "capability", "regression", "needs a reply grader"):
+    for place in ("fix the task", "read the runs", "capability", "regression", "needs a reply grader", "held out"):
         ids = sorted(t for t, p in places.items() if p == place)
         print(f"{place:<21} {len(ids):>2}  {' '.join(ids)}".rstrip())
     print("categories with no held-out task:", uncovered_categories(suite["tasks"]))
@@ -157,23 +158,29 @@ def task(task_id, category="c", split="dev", **checks):
 
 
 tasks = [task("broken", answer_includes=["x"]), task("unrun", answer_includes=["x"]), task("never", answer_includes=["x"]),
-         task("mixed", registry={}), task("solid", answer_includes=["x"]), task("blind", registry={})]
+         task("mixed", registry={}), task("solid", answer_includes=["x"]), task("blind", registry={}),
+         task("kept", split="held_out", answer_includes=["x"]), task("kept-unrun", split="held_out", registry={})]
 trials = {"broken": [True, True], "never": [False, False], "mixed": [True, False], "solid": [True, True],
-          "blind": [True, True]}
-references = {"broken": False, "unrun": True, "never": True, "mixed": True, "solid": True, "blind": True}
+          "blind": [True, True], "kept": [True, True]}
+references = {"broken": False, "unrun": True, "never": True, "mixed": True, "solid": True, "blind": True, "kept": True,
+              "kept-unrun": True}
 before = json.dumps([tasks, trials, references])
 places = placement(tasks, trials, references)
 assert isinstance(places, dict), "placement should return a dict of places by task id"
 assert json.dumps([tasks, trials, references]) == before, "placement shouldn't change its inputs"
+assert places.get("kept") == "held out" and places.get("kept-unrun") == "held out", \
+    f"held-out tasks are placed \"held out\", whatever their results: their runs aren't looked at, got {places}"
 assert places == {"broken": "fix the task", "unrun": "fix the task", "never": "read the runs", "mixed": "capability",
-                  "solid": "regression", "blind": "needs a reply grader"}, f"wrong places: {places}"
+                  "solid": "regression", "blind": "needs a reply grader", "kept": "held out",
+                  "kept-unrun": "held out"}, f"wrong places: {places}"
 
 suite = load_suite()
 real = placement(suite["tasks"], suite["trials"], suite["reference_passes"])
-assert sorted(t for t, p in real.items() if p == "needs a reply grader") == ["s05", "s10", "s11", "s12", "s22", "s23"], \
-    ("on the real suite, the tasks that always pass on checks that only see the world's state are s05, s10, s11, s12, s22 "
-     f"and s23: got {sorted(t for t, p in real.items() if p == 'needs a reply grader')}")
-assert sum(p == "regression" for p in real.values()) == 12, "on the real suite, 12 tasks are ready for the regression suite"
+assert sorted(t for t, p in real.items() if p == "needs a reply grader") == ["s05", "s10", "s11", "s22"], \
+    ("on the real suite, the dev tasks that always pass on checks that only see the world's state are s05, s10, s11 "
+     f"and s22: got {sorted(t for t, p in real.items() if p == 'needs a reply grader')}")
+assert sum(p == "regression" for p in real.values()) == 8, "on the real suite, 8 dev tasks are ready for the regression suite"
+assert sum(p == "held out" for p in real.values()) == 9, "on the real suite, the 9 held-out tasks are held out"
 
 covered = [task("a1", "a", "dev"), task("a2", "a", "held_out"), task("b1", "b", "dev"), task("c1", "c", "dev"),
            task("c2", "c", "dev")]
@@ -285,7 +292,7 @@ assert uncovered_categories(suite["tasks"]) == [], "every category in the real s
 
 <MultiFileGradedExercise
   client:load
-  task={"lib.py holds load_suite and the first concept's triage, read-only. In suite_health.py (the entry file), write three functions. can_catch(checks): True if a task's checks can catch more than \"the world didn't change\", meaning any of: a non-empty answer_includes, answer_excludes or cites_only_retrieved; a non-empty must_not_call (a forbidden call); a non-empty registry (a change that has to happen); a max_tool_calls limit, whatever its value; an outbox with a non-empty body_includes. Otherwise False, including for {\"registry\": {}} and an outbox check that only counts emails. placement(tasks, trials, reference_passes): where each task belongs next, by id, using triage: \"fix the task\" for no criteria, broken, or not run; \"read the runs\" when no trial passed; \"capability\" for a mixed record; for a task that always passes, \"regression\" if can_catch its checks, otherwise \"needs a reply grader\". uncovered_categories(tasks): the sorted list of categories that have no held-out task. Don't change the inputs. Click Submit to place the real suite's 29 tasks."}
+  task={"lib.py holds load_suite and the first concept's triage, read-only. In suite_health.py (the entry file), write three functions. can_catch(checks): True if a task's checks can catch more than \"the world didn't change\", meaning any of: a non-empty answer_includes, answer_excludes or cites_only_retrieved; a non-empty must_not_call (a forbidden call); a non-empty registry (a change that has to happen); a max_tool_calls limit, whatever its value; an outbox with a non-empty body_includes. Otherwise False, including for {\"registry\": {}} and an outbox check that only counts emails. placement(tasks, trials, reference_passes): where each task belongs next, by id. A held-out task is \"held out\", whatever its results, since held-out tasks aren't looked at. For the dev tasks, use triage: \"fix the task\" for no criteria, broken, or not run; \"read the runs\" when no trial passed; \"capability\" for a mixed record; for a task that always passes, \"regression\" if can_catch its checks, otherwise \"needs a reply grader\". uncovered_categories(tasks): the sorted list of categories that have no held-out task. Don't change the inputs. Click Submit to place the real suite's 29 tasks: 20 dev, 9 held out."}
   entry="suite_health.py"
   files={[
     { name: "lib.py", readOnly: true, code: LIB_PY },
@@ -293,12 +300,12 @@ assert uncovered_categories(suite["tasks"]) == [], "every category in the real s
   ]}
   hiddenTests={HIDDEN_TESTS}
   dataFiles={SANDBOX_DATA}
-  hint={"For can_catch, checks.get(kind) is falsy for a missing key and for an empty list or dict, which is what you want everywhere except the step limit: 0 is a real limit, so test \"max_tool_calls\" in checks. placement is triage plus one decision for tasks that always pass. For uncovered_categories, count the held-out tasks in each category, including categories with none."}
+  hint={"For can_catch, checks.get(kind) is falsy for a missing key and for an empty list or dict, which is what you want everywhere except the step limit: 0 is a real limit, so test \"max_tool_calls\" in checks. placement sets the held-out tasks aside first, then is triage on the dev tasks plus one decision for tasks that always pass. For uncovered_categories, count the held-out tasks in each category, including categories with none."}
   correctFiles={[
     { name: "lib.py", readOnly: true, code: LIB_PY },
     { name: "suite_health.py", code: SUITE_HEALTH_REFERENCE },
   ]}
-  explanation={"The three functions turn the lesson's judgements into a routine. can_catch asks whether a check could fail for the reason the task exists. An unchanged registry is necessary for a lost write or a planted instruction, but the failure in those tasks is what the agent says or sends; a check that only looks at state passes them whatever the reply, while a forbidden call, a required change, a step limit or a reply check can all fail on the behaviour itself. placement adds one rule to triage: a task that always passes graduates to the regression suite only if its checks could catch a regression. On the real suite, that sends twelve tasks to regression and holds back six: the lost-write task with two agents, the three planted-instruction tasks and the two broken-result tasks. Those are the categories Lessons 5 and 6 build graders for. uncovered_categories is the held-out composition check: every category the suite tests should have at least one task nobody tunes against, and on this suite none is missing."}
+  explanation={"The three functions turn the lesson's judgements into a routine. can_catch asks whether a check could fail for the reason the task exists. An unchanged registry is necessary for a lost write or a planted instruction, but the failure in those tasks is what the agent says or sends; a check that only looks at state passes them whatever the reply, while a forbidden call, a required change, a step limit or a reply check can all fail on the behaviour itself. placement adds one rule to triage: a task that always passes graduates to the regression suite only if its checks could catch a regression. On the real suite, that sends eight dev tasks to regression and holds back four: the lost-write task with two agents (s05), two planted-instruction tasks (s10 and s11) and a broken-result task (s22). The nine held-out tasks aren't placed by their results at all. Those are the categories Lessons 5 and 6 build graders for. uncovered_categories is the held-out composition check: every category the suite tests should have at least one task nobody tunes against, and on this suite none is missing."}
 />
 
 </CheckpointZone>

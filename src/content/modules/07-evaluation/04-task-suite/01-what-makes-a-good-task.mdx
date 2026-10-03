@@ -97,7 +97,9 @@ assert sum(label == "always passes" for label in real.values()) == 18, "on the r
 export const TRIAGE_DEMO = String.raw`from collections import defaultdict
 
 suite = load_suite()
-labels = triage(suite["tasks"], suite["trials"], suite["reference_passes"])
+# dev tasks only: the held-out tasks' results aren't looked at until the final report
+dev = [task for task in suite["tasks"] if task["split"] == "dev"]
+labels = triage(dev, suite["trials"], suite["reference_passes"])
 by_label = defaultdict(list)
 for task_id, label in labels.items():
     by_label[label].append(task_id)

@@ -34,7 +34,10 @@ export const CATEGORY_DEMO = String.raw`from collections import defaultdict
 
 suite = load_suite()
 by_category = defaultdict(lambda: [0, 0])
+# dev tasks only: the held-out tasks' results aren't looked at until the final report
 for task in suite["tasks"]:
+    if task["split"] != "dev":
+        continue
     results = suite["trials"][task["id"]]
     by_category[task["category"]][0] += sum(results)
     by_category[task["category"]][1] += len(results)
@@ -139,7 +142,8 @@ Here's the new suite, by category, from its first run:
 
 <LiveDemo client:load dataFiles={SUITE_DATA} setupCode={LOAD_SUITE} code={CATEGORY_DEMO} />
 
-*(Pass rates are the code checks', from five trials of each task.)*
+*(Pass rates are the code checks', from five trials of each dev task; the
+held-out tasks' results aren't looked at.)*
 
 Read naively, the top three categories are capability work and the rest
 are ready for the regression suite. But a pass rate is only as good as the
@@ -149,8 +153,8 @@ check behind it, and that changes the reading:
   on what matters: the citations themselves, the number of tool calls, and
   the facts in the answer. Their rates can be taken at face value.
   Citations and stopping belong in the capability suite; the multi-hop
-  questions, at 20 of 20, are candidates for the regression suite.
-- **The lost-write tasks** pass at 48%, but reading found none of their
+  questions, at 15 of 15, are candidates for the regression suite.
+- **The lost-write tasks** pass at 45%, but reading found none of their
   runs told the user the truth, because their checks can see the registry
   and the read-back call but not what the user was told.
 - **The planted instruction and the broken tool result** pass at 100% on
