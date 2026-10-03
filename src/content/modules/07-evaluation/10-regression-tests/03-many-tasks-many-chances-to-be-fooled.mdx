@@ -13,7 +13,7 @@ import { ABLATIONS_DATA, BENJAMINI_HOCHBERG, FISHER_DROP, LOAD_ABLATIONS } from 
 export const FISHER_DEMO = FISHER_DROP + String.raw`
 
 print(f"5/5 before and 0/5 after: p = {fisher_drop([True] * 5, [False] * 5):.4f}, the smallest five trials can give")
-a, b = passes("baseline"), passes("baseline-b")
+a, b = passes("baseline", split="dev"), passes("baseline-b", split="dev")
 p_values = {t: fisher_drop(a[t], b[t]) for t in b}
 print(f"no-change pair, {len(p_values)} tasks: {sum(p < 0.05 for p in p_values.values())} with p < 0.05; "
       f"Bonferroni's threshold is 0.05 / {len(p_values)} = {0.05 / len(p_values):.5f}")
@@ -54,9 +54,9 @@ String.raw`assert benjamini_hochberg({"z": 0.001, "a": 0.002}) == ["a", "z"], "f
 `,
 ];
 
-export const THREE_WAYS_DEMO = String.raw`known_good = passes("baseline")
+export const THREE_WAYS_DEMO = String.raw`known_good = passes("baseline", split="dev")
 for condition in ("baseline-b", "fp8", "prompt-v2", "compaction", "layers-v2", "layers"):
-    new = passes(condition)
+    new = passes(condition, split="dev")
     p_values = {t: fisher_drop(known_good[t], new[t]) for t in new}
     m = len(p_values)
     uncorrected = sorted(t for t, p in p_values.items() if p < 0.05)
@@ -92,9 +92,10 @@ Two numbers in that output decide this whole concept.
   one-sided test asks about drops, and q25's big swing was a gain.
 - **Five trials can't prove much about one task.** The strongest possible
   evidence, 5/5 falling to 0/5, gives p = 0.004. That sounds small, but
-  with 96 or 125 tasks tested at once, small p-values turn up by chance.
+  with 77 or 97 tasks tested at once, small p-values turn up by chance.
   Lesson 9's Bonferroni correction divides the 0.05 by the number of
-  tests, here a threshold of about 0.0005, which no task can ever reach
+  tests, here a threshold of about 0.0005 to 0.0006, which no task can ever
+  reach
   with five trials. A per-task gate built that way would never fire.
 - **The test assumes a task's trials are independent.** When they move
   together, as q25's did, its p-values come out too small. Lesson 11's A/A
@@ -149,23 +150,26 @@ together flag a regression no single one could prove.
 exercise's reference version, both loaded for you. The known-good run is
 the baseline throughout.)*
 
-- **Uncorrected,** p below 0.05 flags tasks for compaction and layers
-  v2, the same tasks the gate's 0.8 rule flags, and nothing for the
-  three changes that didn't regress. That's a useful reading list, but
-  with 125 tests, a few flags are expected by chance even when nothing
-  changed.
+- **Uncorrected,** p below 0.05 flags tasks only for layers v2 and the
+  original layers, much the same tasks the gate's 0.8 rule flags, and
+  nothing for the four changes that didn't regress, compaction included.
+  That's a useful reading list, but with 97 tests, a few flags would be
+  expected by chance even when nothing changed.
 - **Bonferroni** flags nothing anywhere, not even for Module 6's original
   layers, which cost 30 points. With five trials per task, it can't.
-- **Benjamini–Hochberg** flags 14 tasks for the original layers, where
-  many tasks fell together, and nothing for compaction or layers v2,
-  where a handful of tasks fell on their own.
+- **Benjamini–Hochberg** flags 13 tasks for the original layers, where
+  many tasks fell together, and nothing for layers v2, where fewer tasks
+  fell.
 
 So with five trials per task, the suite can confirm a broad regression
 task by task, but an isolated drop in one task stays a suspicion. That
 suggests how to spend a budget: run the whole suite at five trials to
-find suspects, then rerun only the flagged tasks with many more trials.
-Twenty trials each for the three tasks compaction flagged costs less than
-a tenth of rerunning the suite, and turns "worth a look" into an answer.
+find suspects, then rerun only the flagged tasks with many more trials,
+on both versions. The flags were chosen because the known-good run's
+trials happened to be high and the new run's low, so reusing those trials
+would overstate the drop. Twenty fresh trials on each version for the
+eight tasks layers v2 flagged is about two-thirds of one dev-suite run,
+and turns "worth a look" into an answer.
 
 </Subsection>
 
@@ -186,15 +190,15 @@ a tenth of rerunning the suite, and turns "worth a look" into an answer.
       "explanation": "A regression gate asks whether a task got worse. A gain, like q25's swing in the no-change pair, isn't a reason to stop a change, so the test only looks for drops."
     },
     {
-      "question": "With five trials per task, why can Bonferroni never flag a single task among 125?",
+      "question": "With five trials per task, why can Bonferroni never flag a single task among 97?",
       "options": [
-        "0.004 can't reach 0.05 / 125",
+        "0.004 can't reach 0.05 / 97",
         "Fisher's test needs at least ten trials",
         "Bonferroni only works on suite totals",
         "All 125 p-values come out the same"
       ],
       "correctIndex": 0,
-      "explanation": "The strongest possible drop, 5/5 to 0/5, gives p = 0.004. Bonferroni's threshold for 125 tests is 0.0004, which no five-trial comparison can reach."
+      "explanation": "The strongest possible drop, 5/5 to 0/5, gives p = 0.004. Bonferroni's threshold for 97 tests is about 0.0005, which no five-trial comparison can reach."
     },
     {
       "question": "What does a false discovery rate of 5% promise?",
@@ -208,15 +212,15 @@ a tenth of rerunning the suite, and turns "worth a look" into an answer.
       "explanation": "Benjamini–Hochberg keeps the expected share of flagged tasks that are false at or below 5%. Bonferroni controls the chance of even one false flag, which is much stricter."
     },
     {
-      "question": "Why could Benjamini–Hochberg flag 14 tasks for the original layers but none for compaction?",
+      "question": "Why could Benjamini–Hochberg flag 13 tasks for the original layers but none for layers v2?",
       "options": [
         "Many tasks dropped together",
-        "Compaction's drops were all gains",
+        "Layers v2's drops were all gains",
         "The original layers had more trials",
-        "Compaction used a different test"
+        "Layers v2 used a different test"
       ],
       "correctIndex": 0,
-      "explanation": "The thresholds climb with rank, so many small p-values together can clear them. Compaction's three drops were isolated, and on their own five trials can't make them convincing."
+      "explanation": "The thresholds climb with rank, so many small p-values together can clear them. Layers v2's drops were fewer, and on their own five trials can't make them convincing."
     },
     {
       "question": "A five-trial suite flags three tasks that no correction confirms. What's the efficient next step?",

@@ -22,8 +22,9 @@ results = json.loads(Path("/data/eval/ablations/results.json").read_text(encodin
 
 
 def passes(condition: str) -> dict[str, list[bool]]:
-    """Each task's trial results under one condition."""
-    return {task: [row["pass"] for row in rows] for task, rows in results["conditions"][condition].items()}
+    """Each dev task's trial results under one condition. The gate never sees the held-out tasks."""
+    return {task: [row["pass"] for row in rows] for task, rows in results["conditions"][condition].items()
+            if results["tasks"][task]["split"] == "dev"}
 
 
 def what_changed(a: dict, b: dict, ignore: tuple = (), prefix: str = "") -> dict:
@@ -163,8 +164,21 @@ assert set(report["changed"]) == {"config_hash", "system_version"} and report["d
 assert "tasks_file.version" not in report["changed"], "the task file's version is ignored: every run is regraded"
 
 report = regression_check("baseline", "compaction", ["baseline-a"], ["compaction-a"])
-assert report["decision"] == "look" and report["confirmed"] == [], \
-    f"compaction: tasks flagged, none confirmed, so look: got {report['decision']}, {report['confirmed']}"
+assert report["decision"] == "ship" and report["gate"]["flagged"] == [], \
+    f"compaction on the dev tasks: no regression and nothing flagged, so ship: got {report['decision']}"
+
+# a made-up condition where one task falls from 5/5 to 1/5 and nothing else changes: flagged, not confirmed
+old = lib.passes("baseline")
+dropped = sorted(t for t, r in old.items() if all(r))[0]
+one_drop = copy.deepcopy(lib.results["conditions"]["baseline"])
+for row in one_drop[dropped][1:]:
+    row["pass"] = False
+lib.results["conditions"]["one-drop"] = one_drop
+lib.recorded["runs"]["one-drop-a"] = dict(lib.recorded["runs"]["baseline-a"])
+report = regression_check("baseline", "one-drop", ["baseline-a"], ["one-drop-a"])
+assert report["gate"]["flagged"] == [dropped] and report["confirmed"] == [] and report["decision"] == "look", \
+    (f"one task falling from 5/5 to 1/5 is flagged by the gate but can't be confirmed with five trials, so look: "
+     f"got {report['gate']['flagged']}, {report['confirmed']}, {report['decision']}")
 
 report = regression_check("baseline", "layers-v2", ["baseline-a"], ["layers-v2-a"])
 assert report["decision"] == "stop", "layers v2: the suite regressed, so stop, even with no task confirmed"
@@ -241,7 +255,7 @@ assert report["changed"] == {"variant": (None, "fake")} or report["changed"] == 
       "explanation": "A flaky gate gets rerun until it passes and then ignored, and an ignored gate catches nothing. Thresholds set from measured noise keep it honest."
     },
     {
-      "question": "Can Bonferroni confirm a single task's drop with five trials per task across 125 tasks?",
+      "question": "Can Bonferroni confirm a single task's drop with five trials per task across 97 dev tasks?",
       "options": [
         "It can't, with five trials",
         "It needs ten tasks at least",
@@ -249,18 +263,18 @@ assert report["changed"] == {"variant": (None, "fake")} or report["changed"] == 
         "It can, at 0.004 or below"
       ],
       "correctIndex": 0,
-      "explanation": "The strongest possible drop gives p = 0.004, and Bonferroni's threshold for 125 tests is 0.0004. No five-trial comparison can reach it."
+      "explanation": "The strongest possible drop gives p = 0.004, and Bonferroni's threshold for 97 tests is about 0.0005. No five-trial comparison can reach it."
     },
     {
-      "question": "Benjamini–Hochberg confirmed 14 tasks for the original layers and none for compaction. Why the difference?",
+      "question": "Benjamini–Hochberg confirmed 13 tasks for the original layers and none for layers v2. Why the difference?",
       "options": [
         "Many tasks fell together",
         "It ran more trials",
         "Its p-values were all 0.004",
-        "The tasks were held out"
+        "The tasks were in different groups"
       ],
       "correctIndex": 0,
-      "explanation": "The thresholds climb with rank, so many small p-values together clear them. Compaction's three drops were isolated."
+      "explanation": "The thresholds climb with rank, so many small p-values together clear them. Layers v2's drops were fewer."
     },
     {
       "question": "Prompt v2 passed the gate. Why was that not the end of reading it?",
@@ -306,7 +320,7 @@ assert report["changed"] == {"variant": (None, "fake")} or report["changed"] == 
     { name: "lib.py", readOnly: true, code: LIB_PY },
     { name: "check.py", code: CHECK_REFERENCE },
   ]}
-  explanation={"The decision has three outcomes because the evidence does. A suite that clearly regressed, or a task drop that survives correction for the number of tests, is enough to stop a change. Tasks flagged by the gate's threshold but not confirmed are suspects: they send someone to read the runs, or to rerun those tasks with more trials, before deciding. Everything else ships. On this module's changes, FP8 and prompt v2 ship, compaction is worth a look, and layers v2 stops, as the lesson's reading found. The tests also make up a condition where twelve tasks collapse while the suite as a whole improves, because a gate that looked only at the suite would ship it. Submit prints fp8 ship (serving.quantization changed, suite +2.2%), prompt-v2 ship (config_hash and system_version changed, +4.2%), compaction look (h07, h09 and s25 flagged, none confirmed) and layers-v2 stop (suite -16.3%, -22.4% to -10.4%). h07, h09 and s25 are all held-out tasks; on dev tasks only, compaction flags nothing and would ship. Lesson 12 explains."}
+  explanation={"The decision has three outcomes because the evidence does. A suite that clearly regressed, or a task drop that survives correction for the number of tests, is enough to stop a change. Tasks flagged by the gate's threshold but not confirmed are suspects: they send someone to read the runs, or to rerun those tasks on both versions with more trials, before deciding. Everything else ships, which isn't the same as saying it should: compaction ships here, though Lesson 9 found it bought nothing. A gate catches regressions; it doesn't make the case for a change. The tests make up a condition with one task falling from 5/5 to 1/5, which is flagged but can't be confirmed, so the decision is to look, and another where twelve tasks collapse while the suite improves, because a gate that looked only at the suite would ship it. Submit prints fp8 ship (serving.quantization changed, suite +3.5%), prompt-v2 ship (config_hash and system_version changed, +4.9%), compaction ship (nothing flagged, −1.2%) and layers-v2 stop (suite −16.9%, −24.3% to −9.9%, eight tasks flagged)."}
 />
 
 </CheckpointZone>

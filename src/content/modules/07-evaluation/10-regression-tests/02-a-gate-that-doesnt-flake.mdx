@@ -12,7 +12,7 @@ import { ABLATIONS_DATA, GATE, LOAD_ABLATIONS, PAIRED_DIFFERENCE } from "../../.
 
 export const NOISE_DEMO = String.raw`from collections import Counter
 
-a, b = passes("baseline"), passes("baseline-b")
+a, b = passes("baseline", split="dev"), passes("baseline-b", split="dev")
 drops = Counter(sum(a[t]) - sum(b[t]) for t in b)
 print(f"{len(b)} tasks run twice with nothing changed; how many fewer of 5 trials passed the second time:")
 print("  " + ", ".join(f"{drop:+d}: {n}" for drop, n in sorted(drops.items())))
@@ -74,11 +74,11 @@ assert flags == ["a", "b"], f"flagged tasks in sorted order: got {flags}"
 `,
 ];
 
-export const GATE_DEMO = String.raw`known_good = passes("baseline")
+export const GATE_DEMO = String.raw`known_good = passes("baseline", split="dev")
 checks = [("baseline-b", "the same agent, run again"), ("layers", "Module 6's layers"),
           ("compaction", "forced compaction"), ("no-labels", "source labels removed")]
 for condition, label in checks:
-    result = gate(known_good, passes(condition))
+    result = gate(known_good, passes(condition, split="dev"))
     mean, low, high = result["difference"]
     print(f"{label:<26} {'PASS' if result['passed'] else 'FAIL'}   suite {mean:+.1%} ({low:+.1%} to {high:+.1%})   "
           f"{len(result['flagged'])} tasks flagged{': ' + ', '.join(result['flagged'][:6]) if result['flagged'] else ''}")
@@ -116,9 +116,10 @@ much the suite did:
 [Lesson 9's setup](/07-evaluation/09-ablations/03-compaction-on-and-off/),
 and `pass_rate` and `paired_difference` are
 [Lesson 9's exercise](/07-evaluation/09-ablations/01-one-piece-on-and-off/),
-all loaded for you. Only the 96 main-pool tasks were run twice.)*
+all loaded for you. Only the main pool's tasks were run twice; 77 of them
+are dev tasks.)*
 
-Most tasks didn't move at all, and the suite as a whole moved less than a
+Most tasks didn't move at all, and the suite as a whole moved about a
 point, inside an interval that includes zero. A suite-level rule built on
 Lesson 9's paired interval would pass this pair, as it should.
 
@@ -139,10 +140,10 @@ So the thresholds follow from the noise:
   The interval keeps chance out; the tolerance keeps a real but trivial
   drop from blocking a change.
 - **For single tasks,** flag only a fall in pass rate of 0.8 or more,
-  four trials in five. In the no-change pair, no task fell by more than
-  three. The threshold limits flaky flags rather than preventing them. The
-  same no-change pair also has q25 rising from 0 of 5 to 5 of 5, and a
-  swing that size downward would be flagged.
+  four trials in five. In the no-change pair, no task fell by more than one
+  trial. The threshold limits flaky flags rather than preventing them: the
+  same pair has q25 rising from 0 of 5 to 5 of 5, and a swing that size
+  downward would be flagged.
 
 </Subsection>
 
@@ -170,29 +171,27 @@ So the thresholds follow from the noise:
 
 *(`gate` is the exercise's reference version, loaded for you. The
 known-good run is the baseline, and the no-change pair compares its two
-batches on the main pool.)*
+batches on the main pool. Every gate here runs on the dev tasks only.)*
 
 The gate does what it should on the two clear cases. The baseline run
 again passes, with nothing flagged. Module 6's layers fail on both rules,
-with 24 tasks flagged. Removing the labels passes: a small gain is not a
+with 22 tasks flagged. Removing the labels passes: a gain is not a
 regression.
 
-Forced compaction is the instructive one. The suite rule passes it, since
-its interval just reaches zero, but three tasks are flagged, so the gate
-fails it. One of the three, h09, swung by three trials in the no-change
-pair as well. That's the gate's weak point: a per-task rule run on 125
-tasks will, now and then, flag a task that's merely flaky. A flag should
-send a person to read the task's runs, not block a release on its own,
-and how many flags to expect by chance is the next concept's question.
+Forced compaction is the instructive one. It passes too: its interval
+crosses zero, and no task falls far enough to be flagged. That doesn't
+make it a good change.
+[Lesson 9](/07-evaluation/09-ablations/03-compaction-on-and-off/#why-it-cost-that)
+found it bought this agent nothing and made it repeat work. A gate catches
+regressions; whether a change is worth making is a separate question,
+which an ablation answers.
 
-**A correction, from Lesson 12.** All three tasks flagged for compaction,
-h07, h09 and s25, are held-out tasks, which this gate shouldn't have seen:
-every gate in this lesson ran over all 125 tasks when it should have used
-the 97 dev tasks only. On dev tasks alone, compaction flags no task and
-its suite interval crosses zero, so the gate would pass it. The point
-about flaky flags stands, but compaction isn't the example of it that it
-looks like here.
-[Lesson 12 rechecks every decision](/07-evaluation/12-evaluation-report/05-decisions-limits-and-whats-next/#the-decisions-checked-on-the-dev-tasks).
+The gate's weak point runs the other way: a per-task rule run on many
+tasks will, now and then, flag a task that's merely flaky. Nothing here
+was, but q25's five-trial swing in the no-change pair shows it can happen.
+A flag should send a person to read the task's runs, not block a release
+on its own, and how many flags to expect by chance is the next concept's
+question.
 
 </Subsection>
 

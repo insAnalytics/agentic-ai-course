@@ -26,11 +26,12 @@ export const TIERS_DEMO = String.raw`main, suite = recorded["costs"]["baseline-a
 seconds_per_trial = (main["wall_seconds"] + suite["wall_seconds"]) / (main["trials"] + suite["trials"])
 judge = recorded["judge_costs"]["gemma-v2-prompt-v2-a+prompt-v2-suite-a+layers-v2-a+layers-v2-suite-a+fp8-a+fp8-suite-a"]
 judge_per_item = judge["wall_seconds"] / judge["items"]
-code_only = [t for t, info in results["tasks"].items() if info["group"] != "question"]
+# the every-change tier runs dev tasks only; held-out tasks are measured once, before a release
+code_only = [t for t, info in results["tasks"].items() if info["group"] != "question" and info["split"] == "dev"]
 tiers = {
     "every change: registry and suite tasks, 5 trials, no judges": (len(code_only) * 5, 0),
     "before a release: every task, 5 trials, every judge": (len(results["tasks"]) * 5, judge["items"] / 6 * 2),
-    "a flagged task confirmed: 3 tasks, 20 trials each": (3 * 20, 0),
+    "flagged tasks: 8 tasks, 20 fresh trials, both versions": (8 * 20 * 2, 0),
 }
 for tier, (trials, judge_items) in tiers.items():
     minutes = (trials * seconds_per_trial + judge_items * judge_per_item) / 60
@@ -96,20 +97,22 @@ per trial of the baseline's runs, which assumes the GPU stays as busy for
 a small tier as for the full suite; small tiers run less efficiently than
 this.)*
 
-- **On every change: the tasks code can grade.** The 67 registry and
-  suite tasks, all but one of which have code checks, at five trials,
+- **On every change: the tasks code can grade.** The 50 registry and suite
+  dev tasks, all but one of which have code checks, at five trials,
   with no judges. It catches broken tools, lost writes, wrong emails and
   step-limit blowups in a couple of minutes, which is the kind of failure
   most changes cause. Its blind spot is the question tasks, which it skips,
   and where compaction's and the layers' effects were largest.
-- **Before a release: everything.** Every task, five trials, every judge,
-  and the gate from
+- **Before a release: everything.** Every task, five trials, every judge:
+  the gate from
   [the gate concept](/07-evaluation/10-regression-tests/02-a-gate-that-doesnt-flake/)
-  on the result.
+  on the dev tasks, and the held-out tasks measured once, for the release
+  report.
 - **When a task is flagged: confirm it.** Rerun only the flagged tasks
   with many more trials, as
   [the concept on testing many tasks](/07-evaluation/10-regression-tests/03-many-tasks-many-chances-to-be-fooled/)
-  found five trials can't settle a single task.
+  found five trials can't settle a single task. Run them on both versions,
+  with fresh trials.
 - **When only the graders change: don't rerun the agent at all.** A new
   check or a revised rubric needs the recorded runs graded again, not new
   runs. Because every run here replays exactly, regrading every trial of
@@ -127,12 +130,8 @@ Two more habits keep the suite worth its cost:
   passes is tuning to the suite, as
   [Lesson 4](/07-evaluation/04-task-suite/05-holding-tasks-out/#tuning-to-the-suite)
   warned. The held-out tasks are for the last check before a release,
-  not for every iteration. This lesson didn't, and that's worth learning
-  from: every gate here ran over all 125 tasks and named held-out tasks in
-  its flags.
-  [Lesson 12](/07-evaluation/12-evaluation-report/03-the-held-out-results/#every-contact-disclosed)
-  discloses each contact and rechecks the decisions on dev tasks; the
-  habit to take from it is to filter to dev tasks first, every time.
+  not for every iteration. Every gate in this lesson runs on the dev tasks
+  only, and that's the habit: filter to dev tasks first, every time.
 
 </Subsection>
 

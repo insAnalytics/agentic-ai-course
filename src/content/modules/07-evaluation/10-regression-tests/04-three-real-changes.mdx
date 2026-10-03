@@ -21,10 +21,10 @@ export const DATA = [...SETTINGS_DATA, ...ABLATIONS_DATA];
 
 export const SETUP = [LOAD_SETTINGS, LOAD_ABLATIONS, WHAT_CHANGED, PAIRED_DIFFERENCE, GATE].join("\n\n");
 
-export const GATE_DEMO = String.raw`known_good = passes("baseline")
+export const GATE_DEMO = String.raw`known_good = passes("baseline", split="dev")
 for condition, run in (("fp8", "fp8-a"), ("prompt-v2", "prompt-v2-a"), ("layers-v2", "layers-v2-a")):
     changed = what_changed(settings["baseline-a"], settings[run], ignore=("tasks_file.version",))
-    result = gate(known_good, passes(condition))
+    result = gate(known_good, passes(condition, split="dev"))
     mean, low, high = result["difference"]
     print(f"{condition}: changed {', '.join(f'{k} {v[0]!r} -> {v[1]!r}' for k, v in changed.items())}")
     print(f"  gate {'PASS' if result['passed'] else 'FAIL'}: suite {mean:+.1%} ({low:+.1%} to {high:+.1%}), "
@@ -42,7 +42,8 @@ for label, tasks in targets.items():
 export const LAYERS_DEMO = String.raw`from collections import Counter
 
 for condition in ("layers", "layers-v2"):
-    rows = [row for trials in results["conditions"][condition].values() for row in trials]
+    rows = [row for task, trials in results["conditions"][condition].items() if results["tasks"][task]["split"] == "dev"
+                for row in trials]
     print(f"{condition}: {sum(r['withheld'] for r in rows)} answers withheld; runs each layer objected in: "
           + ", ".join(f"{layer} {n}" for layer, n in Counter(l for r in rows for l in r["objections"]).most_common()))
     print(f"  support judge: {sum(r['judge_calls'] for r in rows)} calls, {sum(r['empty_claims'] for r in rows)} on an "
@@ -116,9 +117,9 @@ need a different fix, measured the same way.
 
 <LiveDemo client:load dataFiles={DATA} setupCode={SETUP} code={LAYERS_DEMO} />
 
-Two of the three fixes worked. The intent check, which objected in 44
-runs, objected in none, and grounding's objections fell from 132 runs to
-24. Fewer answers were withheld, 228 instead of 376.
+Two of the three fixes worked. The intent check, which objected in 41 runs,
+objected in none, and grounding's objections fell from 109 runs to 21.
+Fewer answers were withheld, 184 instead of 295.
 
 The third fix brought bugs of its own, written in the course's content
 chat (the Claude model this course is drafted with, not a person) and
@@ -127,12 +128,10 @@ caught by this run:
 - **It mangled agent names.** To give the judge clean sentences, version
   2 strips markdown, and that includes underscores, so `research_agent`
   reached the judge as `researchagent`. The judge correctly said no
-  source supports a claim about an agent that doesn't exist. That
-  withheld 47 answers.
+  source supports a claim about an agent that doesn't exist. That withheld
+  39 answers.
 - **It sent empty claims.** A list line that's only a citation became a
-  "sentence", and removing the citation left nothing. The judge was asked
-  about nothing 13 times and called it unsupported often enough to
-  withhold 9 answers.
+  "sentence", and removing the citation left nothing. The judge was asked about nothing 11 times and called it unsupported often enough to withhold 7 answers.
 
 The rest of what it withheld were mostly attribution sentences, such as
 "These are defined in the Monitoring guide", which no source supports
@@ -163,7 +162,7 @@ through this same gate.
         "That FP8 changed the model's ID"
       ],
       "correctIndex": 0,
-      "explanation": "The suite moved +2.2 points with an interval spanning zero, and no task was flagged. The run was worth doing because only a rerun could show it; the hash couldn't even tell it had changed."
+      "explanation": "The suite moved +3.5 points with an interval spanning zero, and no task was flagged. The run was worth doing because only a rerun could show it; the hash couldn't even tell it had changed."
     },
     {
       "question": "The prompt change passed the gate. Why read its target tasks anyway?",
