@@ -187,7 +187,8 @@ this concept, with this lesson's `MONITORING` path)*
 
 Kohavi and his colleagues recommend running **A/A tests** continuously:
 split users into two groups that both get the same version, and check
-that the split matches what was planned and that about 5% of tests come
+that the split matches what was planned (a split that doesn't match is
+called a sample ratio mismatch) and that about 5% of tests come
 out "significant", as they should when nothing differs. Here's an A/A
 test on the stand-in users, analysed both ways:
 
@@ -326,7 +327,7 @@ answer it. Most changes to an agent never need the last step.
         "A conversation split across versions mixes them in one run",
         "Requests are harder than users to count in a tracing system",
         "Randomising requests gives each arm fewer runs to compare",
-        "Users are more likely to complain when versions change"
+        "A user's runs are too few to compare between versions"
       ],
       "correctIndex": 0,
       "explanation": "The second turn of a conversation depends on the first, so splitting turns between versions produces runs that belong to neither. If the agent remembers between conversations, even the conversation isn't enough: the user is the unit, so one version doesn't read memories the other wrote."

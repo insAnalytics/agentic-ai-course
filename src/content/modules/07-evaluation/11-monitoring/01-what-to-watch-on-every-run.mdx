@@ -284,6 +284,10 @@ The ones that fit an agent are all histograms:
   run made
 - `gen_ai.execute_tool.duration` and `gen_ai.client.operation.duration`:
   how long one tool call or one model call took
+- `gen_ai.client.operation.time_to_first_chunk` and
+  `gen_ai.server.time_to_first_token`: for an agent that streams its
+  answer, the wait a user actually feels. The registry agent doesn't
+  stream, so this lesson doesn't use them.
 
 For tokens, the conventions define two families and say what each is
 for. Counters (`gen_ai.client.inference.usage.input_tokens` and
@@ -297,7 +301,8 @@ bill and a distribution for everything else, comes up again below.
 In production, an SDK records these as each run happens. Here they're
 computed from the recorded spans, which carry the same information: a
 run's start and end, its model calls with their token counts, its tool
-calls with their status.
+calls with their status. Running OpenTelemetry's SDK, dashboards and alert
+routing in production is part of Module 10's subject.
 
 </Subsection>
 
@@ -348,7 +353,7 @@ development tasks only, read in the order they started.)*
 
 The SRE book has a section called "Worrying About Your Tail", and the
 table shows why. The mean tokens per run is about 9,400, but the median
-run used under 4,700. The mean is twice what a typical run costs, pulled
+run used about 4,600. The mean is twice what a typical run costs, pulled
 up by a few long runs. One run in twenty used more than 33,000. The same
 holds for time: the median run took under 12 seconds, and one in twenty
 took more than 33.
@@ -505,7 +510,7 @@ next concept's subject.
     {
       "question": "The SRE book counts a 200 response with the wrong content as an error. What's the agent version?",
       "options": [
-        "A confident reply that's wrong, with every span in the trace marked as fine",
+        "A confident wrong reply, with every span in its trace marked fine",
         "A tool call that returns an error, which the model then reads and reacts to",
         "A run that stops at the step limit before the model has given any answer",
         "A check that withholds the answer before the user gets a chance to read it"
@@ -527,7 +532,7 @@ next concept's subject.
     {
       "question": "A team wants its monthly token bill and the p95 tokens per model call. Which OpenTelemetry instruments fit?",
       "options": [
-        "The usage counters for the bill, and the per-call histograms for the p95",
+        "Usage counters for the bill, per-call histograms for the p95",
         "The per-call histograms for both, adding up their buckets for the bill",
         "The usage counters for both, since they already count every single token",
         "The invoke_agent span's usage attributes for both, read from each trace"
