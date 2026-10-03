@@ -66,60 +66,71 @@ String.raw`for tpr, tnr in ((0.5, 0.5), (0.4, 0.3)):
 ];
 
 export const CORRECT_SETUP = String.raw`import random
+from collections import Counter
 
 data = json.loads((JUDGE_LABELS / "measure.json").read_text(encoding="utf-8"))
 counts = data["population"]["gemma_v2"]["correctness"]
 observed = counts["pass"] / (counts["pass"] + counts["fail"])
-# the test labels for the correctness judge: (Simar's label, the revised Gemma's verdict)
-pairs = [(r["label"], r["gemma_v2"]) for r in data["rows"]
-         if r["kind"] == "correctness" and r["split"] == "test" and not r["excluded"] and r["label"] in ("pass", "fail")]
+# how many runs of the labelling pool fall in each stratum, by what the two judges first decided
+pool = data["strata"]["correctness"]
+# the test labels for the correctness judge: (stratum, Simar's label, the revised Gemma's verdict)
+labelled = [(r["stratum"], r["label"], r["gemma_v2"]) for r in data["rows"]
+            if r["kind"] == "correctness" and r["split"] == "test" and not r["excluded"] and r["label"] in ("pass", "fail")]
 
 
-def tpr_tnr(pairs: list) -> tuple[float, float]:
-    passes = [j for p, j in pairs if p == "pass"]
-    fails = [j for p, j in pairs if p == "fail"]
-    return passes.count("pass") / len(passes), fails.count("fail") / len(fails)
+def weighted_rates(labelled: list, pool: dict) -> tuple[float, float, list[float], list[float]]:
+    """TPR and TNR with each labelled run standing for its stratum's share of the pool: its weight is how many runs
+    the stratum holds over how many of its runs were labelled. Also returns the weights on each side."""
+    drawn = Counter(stratum for stratum, _, _ in labelled)
+    weight = {stratum: pool[stratum] / n for stratum, n in drawn.items()}
+    passes = [(weight[s], verdict) for s, label, verdict in labelled if label == "pass"]
+    fails = [(weight[s], verdict) for s, label, verdict in labelled if label == "fail"]
+    tpr = sum(w for w, v in passes if v == "pass") / sum(w for w, _ in passes)
+    tnr = sum(w for w, v in fails if v == "fail") / sum(w for w, _ in fails)
+    return tpr, tnr, [w for w, _ in passes], [w for w, _ in fails]
+
+
+def corrected_interval(observed: float, tpr: float, tnr: float, pass_weights: list[float], fail_weights: list[float],
+                       repeats: int = 20000) -> tuple[float, float] | None:
+    """A 95% interval for the corrected pass rate. Weighted labels carry less information than their number, so each
+    side counts as its effective size, (sum of weights)² / sum of squared weights. TPR and TNR are drawn from Beta
+    distributions holding that much evidence (with Jeffreys' half a label each way) and corrected; draws that leave a
+    judge no better than chance are skipped. None if fewer than half the draws remain."""
+    def effective(weights: list[float]) -> float:
+        return sum(weights) ** 2 / sum(w * w for w in weights)
+
+    n_pass, n_fail = effective(pass_weights), effective(fail_weights)
+    rng, values = random.Random(0), []
+    for _ in range(repeats):
+        t = rng.betavariate(tpr * n_pass + 0.5, (1 - tpr) * n_pass + 0.5)
+        f = rng.betavariate(tnr * n_fail + 0.5, (1 - tnr) * n_fail + 0.5)
+        if t + f > 1:
+            values.append(rogan_gladen(observed, t, f))
+    if len(values) < repeats // 2:
+        return None
+    values.sort()
+    return values[int(0.025 * len(values))], values[int(0.975 * len(values)) - 1]
 `;
 
 export const CORRECTED_DEMO = CORRECT_SETUP + String.raw`
 
-tpr, tnr = tpr_tnr(pairs)
+# counting every label once is the same as weighting each stratum by how many of its runs were labelled
+unweighted = weighted_rates(labelled, Counter(s for s, _, _ in labelled))[:2]
+tpr, tnr, pass_weights, fail_weights = weighted_rates(labelled, pool)
 print(f"Gemma passes {counts['pass']} of {counts['pass'] + counts['fail']} runs of the suite's development tasks: {observed:.1%}")
-print(f"its test-set TPR {tpr:.2f} and TNR {tnr:.2f}, from {len(pairs)} labelled runs")
-print(f"corrected pass rate: {rogan_gladen(observed, tpr, tnr):.1%}")
-
-# resample the labelled runs to see how much the correction depends on which runs were labelled
-rng = random.Random(0)
-corrected, refused = [], 0
-for _ in range(2000):
-    sample = rng.choices(pairs, k=len(pairs))
-    if {p for p, _ in sample} != {"pass", "fail"}:
-        refused += 1
-        continue
-    try:
-        corrected.append(rogan_gladen(observed, *tpr_tnr(sample)))
-    except ValueError:
-        refused += 1
-corrected.sort()
-low, high = corrected[int(0.025 * len(corrected))], corrected[int(0.975 * len(corrected)) - 1]
-print(f"95% interval {low:.1%} to {high:.1%}; {refused} of 2000 resamples had no usable judge")
+print(f"{len(labelled)} test labels, drawn {dict(Counter(s for s, _, _ in labelled))}")
+print(f"  counted as they were drawn: TPR {unweighted[0]:.2f}, TNR {unweighted[1]:.2f}, "
+      f"corrected {rogan_gladen(observed, *unweighted):.1%}")
+print(f"  weighted back to the runs:  TPR {tpr:.2f}, TNR {tnr:.2f}, corrected {rogan_gladen(observed, tpr, tnr):.1%}")
+low, high = corrected_interval(observed, tpr, tnr, pass_weights, fail_weights)
+print(f"95% interval {low:.1%} to {high:.1%}")
 `;
 
-export const SIZES_DEMO = String.raw`def interval(pairs: list, size: int, repeats: int = 2000) -> tuple[float, float]:
-    """A 95% interval for the corrected rate, resampling ` + "`size`" + String.raw` labelled runs with the same mix as ` + "`pairs`" + String.raw`."""
-    rng, values = random.Random(1), []
-    for _ in range(repeats):
-        sample = rng.choices(pairs, k=size)
-        try:
-            values.append(rogan_gladen(observed, *tpr_tnr(sample)))
-        except (ValueError, ZeroDivisionError):
-            continue
-    values.sort()
-    return values[int(0.025 * len(values))], values[int(0.975 * len(values)) - 1]
-
-
+export const SIZES_DEMO = String.raw`tpr, tnr, pass_weights, fail_weights = weighted_rates(labelled, pool)
 for size in (18, 72, 180, 450):
-    low, high = interval(pairs, size)
+    # more labels drawn with the same quotas: the same weights, repeated, so each side holds more evidence
+    copies = size // len(labelled)
+    low, high = corrected_interval(observed, tpr, tnr, pass_weights * copies, fail_weights * copies)
     print(f"{size:>3} labelled runs: corrected rate between {low:.1%} and {high:.1%}")
 `;
 
@@ -167,8 +178,8 @@ zero for a judge no better than a coin, which can't be corrected at all.
 <Subsection title="The correctness judge, corrected" variant="b">
 
 Here's the correction on the revised Gemma's verdicts on every run of
-Module 5's questions among the suite's development tasks, using its error rates from the test labels, with an
-interval from resampling the labelled runs:
+Module 5's questions among the suite's development tasks, using its error rates from the test labels, weighted back to the runs they
+stand for, with an interval:
 
 ```python
 import json
@@ -189,12 +200,26 @@ def load_vs_reading() -> list[dict]:
 *(`rogan_gladen` is the exercise's reference version, loaded for you. The
 test labels leave out the three q19 items.)*
 
-The correction moves the rate a little, from 82.5% to 84.3%, because the
-judge's two errors nearly cancel: it fails some good answers and passes
-some bad ones. The interval is the real result. With 18 labelled runs, 6
-of them failures, the corrected rate could be anywhere from about half to
-all of the runs. The point estimate looks precise, and the interval says
-it isn't.
+Counted as they were drawn, the labels give a TPR of 0.92 and a TNR of
+0.67, and the correction raises the rate to 84.3%. But they weren't drawn
+as a random sample.
+[The labelling set](/07-evaluation/07-measuring-judges/02-labels-from-people/)
+took a fixed number from each stratum, by how the two judges had first
+decided, so the strata where the judges split are heavily
+over-represented: 4 of the 18 test labels come from a stratum holding 19
+of the 430 runs in the pool, and 8 from one holding 311. Each label has to
+stand for its stratum's share of the runs, so its weight is how many runs
+the stratum holds over how many of them were labelled. That's the standard
+weighting for any stratified sample. Weighted back to the runs, the judge
+looks much better, with a TPR of 0.99 and a TNR of 0.88, and the
+correction lowers the rate slightly, to 81.1%.
+
+The interval is the real result. Weighted labels carry less information
+than their count, because a few labels stand for most of the runs: the 12
+labelled passes count as about 9.5 labels' worth, and the 6 labelled
+failures as about 4. With that little evidence about the failures, the
+corrected rate could be anywhere from about 63% to 100%. The point
+estimate looks precise, and the interval says it isn't.
 
 `judgy` reports the corrected rate with exactly this kind of interval,
 and Husain's
@@ -206,15 +231,15 @@ mix:
 
 <LiveDemo client:load dataFiles={MEASURE_DATA} setupCode={LOAD_JUDGE_LABELS + "\n\n" + ROGAN_GLADEN + "\n\n" + CORRECT_SETUP} code={SIZES_DEMO} />
 
-*(Illustrative: it resamples the 18 real labelled runs at larger sizes, so
-it assumes more labels would look like these. `data`, `counts`,
-`observed`, `pairs` and `tpr_tnr` are the previous demo's, loaded for
-you.)*
+*(Illustrative: it repeats the 18 real labels' weights at larger sizes, so
+it assumes more labels would be drawn with the same quotas and look like
+these. `data`, `counts`, `observed`, `pool`, `labelled`, `weighted_rates`
+and `corrected_interval` are the previous demo's, loaded for you.)*
 
 The width falls roughly with the square root of the number of labels:
 four times as many halve it, give or take. About 180 labelled runs of this
-judge question would pin the corrected rate within about eight points
-either way. That's the budget question this module has to answer for any
+judge question, drawn the same way, would pin the corrected rate within
+about three or four points either way. That's the budget question this module has to answer for any
 number it wants to report: not "is the judge good?", but "how many labels
 does this claim need?"
 
@@ -236,6 +261,9 @@ That's why the labelling set was chosen within each judge question by how
 the judges had decided: it guarantees passes and fails on both sides
 wherever they exist. Where the agent itself almost never passes, as with
 the planted instruction, there's no way round it but labelling more runs.
+It's also why the error rates have to be weighted: a set chosen to include
+disagreements is the right set for finding a judge's errors, and the wrong
+one for counting how often they happen, unless each label is weighted back.
 
 </Subsection>
 
@@ -267,7 +295,7 @@ the planted instruction, there's no way round it but labelling more runs.
       "explanation": "A judge whose TPR and TNR add up to 1 says pass equally often for good and bad runs, so its verdicts carry no information. The formula's denominator is zero there, and negative below it."
     },
     {
-      "question": "The corrected pass rate was 84.3%, with an interval from 47.5% to 100%. What does the interval show?",
+      "question": "The corrected pass rate was 81.1%, with an interval from about 63% to 100%. What does the interval show?",
       "options": [
         "18 labels can't pin the errors down",
         "The judge's verdicts change from run to run",
