@@ -62,7 +62,9 @@ they arrived in matters:
   [Module 6's suite of scenarios](/06-reliability/10-layered-checks/01-the-agent-and-what-goes-wrong/#a-suite-of-scenarios-some-fine-some-not).
 - **Real failures.** The 29 newer tasks, written after
   [Lesson 3's error analysis](/07-evaluation/03-error-analysis/04-grouping-and-counting/#the-baseline-s-categories),
-  one or more for each category of failure it found.
+  cover eight of the eleven categories of failure it found. Three have no
+  task yet: missing the user's real need, contradicting its own sources,
+  and repeating the question's assumption as fact.
 
 The third source only exists because of the reading. Nobody writing tasks
 in advance had thought to test whether the agent cites vendor
@@ -75,8 +77,11 @@ to check.
 
 [Lesson 3 found 11 passing runs](/07-evaluation/03-error-analysis/05-how-not-only-whether/#passes-that-depend-on-luck)
 that changed an agent's model and never read the record back. They passed
-because the write landed. The suite turns each into a twin with one
-difference: the write is lost.
+because the write landed. The suite turns them into five twins,
+s01–s05, each with one difference: the write is lost. Every twin is a
+single request, although seven of the eleven runs were conversations (m01,
+m02 and m05), so a lost write in the middle of a conversation still has no
+task.
 
 - a02, "Move research_agent to claude-sonnet", passed every baseline run.
 - s01 is the same request, with the registry set to lose the write.
