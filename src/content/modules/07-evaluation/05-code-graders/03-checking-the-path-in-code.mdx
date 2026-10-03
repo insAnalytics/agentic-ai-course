@@ -101,11 +101,6 @@ things. The registry agent's checks use exactly those:
   registry refuses it.
 - **A limit.** `max_tool_calls` fails a run that takes more steps than a
   task should need.
-- **Valid arguments.** Each tool's input schema says what a call may
-  contain, as
-  [Module 3](/03-tool-design-for-agents/02-tool-schemas-and-argument-validation/00-intro/)
-  set out, and the registry refuses a call that breaks it. A check can do
-  the same on the recorded log.
 
 Each is a rule, not a reference path, so none of them cares about the
 order of everything else the agent did. Two path checks in this module
@@ -202,6 +197,11 @@ the suite's dev set:
 
 *(`unsupported_citations` is the exercise's reference version, loaded for
 you.)*
+
+One run in that output, s07/4, is marked "all cited sources returned"
+although it cites nothing at all. The check only confirms citations that
+exist; an answer with none passes it by default. Lesson 9 found the agent
+being rewarded for exactly that.
 
 Thirteen of the fourteen runs that answered cite a source their tools
 never returned, and nearly every unsupported id is a section of D07, the
