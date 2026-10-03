@@ -79,7 +79,8 @@ tokens and 700 generated per trial, so a full run is around six million
 tokens, which on a paid API is the number that sets the bill. The table
 also shows that cost is itself something a change can move: forced
 compaction made each trial longer and more expensive, and FP8 serving
-made the run faster.
+made the run faster (measured in wall time on a shared GPU, which also
+reflects its load; the token counts are the firmer comparison).
 
 </Subsection>
 
@@ -99,7 +100,8 @@ this.)*
   suite tasks, all but one of which have code checks, at five trials,
   with no judges. It catches broken tools, lost writes, wrong emails and
   step-limit blowups in a couple of minutes, which is the kind of failure
-  most changes cause.
+  most changes cause. Its blind spot is the question tasks, which it skips,
+  and where compaction's and the layers' effects were largest.
 - **Before a release: everything.** Every task, five trials, every judge,
   and the gate from
   [concept 2](/07-evaluation/10-regression-tests/02-a-gate-that-doesnt-flake/)
@@ -117,7 +119,7 @@ this.)*
 
 Two more habits keep the suite worth its cost:
 
-- **Retire what never fails, carefully.** Tasks that pass every trial of
+- **Move what never fails into the regression tier, carefully.** Tasks that pass every trial of
   every run cost the same as the rest and tell you only that nothing
   broke. They belong in the regression tier, not removed: a task that
   always passes is exactly the one that notices when something breaks it.
@@ -125,7 +127,12 @@ Two more habits keep the suite worth its cost:
   passes is tuning to the suite, as
   [Lesson 4](/07-evaluation/04-task-suite/05-holding-tasks-out/#tuning-to-the-suite)
   warned. The held-out tasks are for the last check before a release,
-  not for every iteration.
+  not for every iteration. This lesson didn't, and that's worth learning
+  from: every gate here ran over all 125 tasks and named held-out tasks in
+  its flags.
+  [Lesson 12](/07-evaluation/12-evaluation-report/03-the-held-out-results/#every-contact-disclosed)
+  discloses each contact and rechecks the decisions on dev tasks; the
+  habit to take from it is to filter to dev tasks first, every time.
 
 </Subsection>
 

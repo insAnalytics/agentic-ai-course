@@ -96,6 +96,9 @@ Two numbers in that output decide this whole concept.
   Lesson 9's Bonferroni correction divides the 0.05 by the number of
   tests, here a threshold of about 0.0005, which no task can ever reach
   with five trials. A per-task gate built that way would never fire.
+- **The test assumes a task's trials are independent.** When they move
+  together, as q25's did, its p-values come out too small. Lesson 11's A/A
+  test shows the same effect for users' runs.
 
 </Subsection>
 
@@ -106,8 +109,8 @@ a gate whose flags send a person to read runs, that's the wrong goal: a
 flag list that's 95% right is useful, and one that can never contain
 anything isn't. Benjamini and Hochberg's method (1995) controls something
 else, the **false discovery rate**: the expected share of flagged tests
-that are false. Set it at 5%, and on average 1 flag in 20 is wrong,
-however many tests there are.
+that are false. Set it at 5%, and it keeps the expected share of
+false flags at or below 1 in 20, however many tests there are.
 
 It's a short procedure:
 

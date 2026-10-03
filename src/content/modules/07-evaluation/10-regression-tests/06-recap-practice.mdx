@@ -234,7 +234,7 @@ assert report["changed"] == {"variant": (None, "fake")} or report["changed"] == 
       "options": [
         "It gets ignored",
         "It uses more compute",
-        "It hides real drops",
+        "It makes the suite's interval wider",
         "It needs more tasks"
       ],
       "correctIndex": 0,
@@ -293,7 +293,7 @@ assert report["changed"] == {"variant": (None, "fake")} or report["changed"] == 
 
 <MultiFileGradedExercise
   client:load
-  task={"lib.py holds the recorded settings (recorded), the regraded results (passes(condition)), and this lesson's functions, read-only. In check.py (the entry file), write regression_check(known_good, new, known_good_runs, new_runs). known_good and new are condition names in the results; the two run lists name each condition's run files, in matching pairs. Return a dict with: \"changed\": what_changed on every pair of runs' recorded settings, merged, ignoring \"tasks_file.version\" (every run is regraded with today's checks). \"gate\": concept 2's gate(known_good passes, new passes). \"confirmed\": the tasks benjamini_hochberg flags from a one-sided fisher_drop p-value per shared task. \"decision\": \"stop\" if the suite regressed or any task is confirmed; otherwise \"look\" if the gate flagged any task; otherwise \"ship\". Click Run to check four changes against the baseline."}
+  task={"lib.py holds the recorded settings (recorded), the regraded results (passes(condition)), and this lesson's functions, read-only. In check.py (the entry file), write regression_check(known_good, new, known_good_runs, new_runs). known_good and new are condition names in the results; the two run lists name each condition's run files, in matching pairs. Return a dict with: \"changed\": what_changed on every pair of runs' recorded settings, merged, ignoring \"tasks_file.version\" (every run is regraded with today's checks). \"gate\": concept 2's gate(known_good passes, new passes). \"confirmed\": the tasks benjamini_hochberg flags from a one-sided fisher_drop p-value per shared task. \"decision\": \"stop\" if the suite regressed or any task is confirmed; otherwise \"look\" if the gate flagged any task; otherwise \"ship\". Click Submit to check four changes against the baseline."}
   entry="check.py"
   files={[
     { name: "lib.py", readOnly: true, code: LIB_PY },
@@ -306,7 +306,7 @@ assert report["changed"] == {"variant": (None, "fake")} or report["changed"] == 
     { name: "lib.py", readOnly: true, code: LIB_PY },
     { name: "check.py", code: CHECK_REFERENCE },
   ]}
-  explanation={"The decision has three outcomes because the evidence does. A suite that clearly regressed, or a task drop that survives correction for the number of tests, is enough to stop a change. Tasks flagged by the gate's threshold but not confirmed are suspects: they send someone to read the runs, or to rerun those tasks with more trials, before deciding. Everything else ships. On this module's changes, FP8 and prompt v2 ship, compaction is worth a look, and layers v2 stops, as the lesson's reading found. The tests also make up a condition where twelve tasks collapse while the suite as a whole improves, because a gate that looked only at the suite would ship it. Run prints fp8 ship (serving.quantization changed, suite +2.2%), prompt-v2 ship (config_hash and system_version changed, +4.2%), compaction look (h07, h09 and s25 flagged, none confirmed) and layers-v2 stop (suite -16.3%, -22.4% to -10.4%)."}
+  explanation={"The decision has three outcomes because the evidence does. A suite that clearly regressed, or a task drop that survives correction for the number of tests, is enough to stop a change. Tasks flagged by the gate's threshold but not confirmed are suspects: they send someone to read the runs, or to rerun those tasks with more trials, before deciding. Everything else ships. On this module's changes, FP8 and prompt v2 ship, compaction is worth a look, and layers v2 stops, as the lesson's reading found. The tests also make up a condition where twelve tasks collapse while the suite as a whole improves, because a gate that looked only at the suite would ship it. Run prints fp8 ship (serving.quantization changed, suite +2.2%), prompt-v2 ship (config_hash and system_version changed, +4.2%), compaction look (h07, h09 and s25 flagged, none confirmed) and layers-v2 stop (suite -16.3%, -22.4% to -10.4%). h07, h09 and s25 are all held-out tasks; on dev tasks only, compaction flags nothing and would ship. Lesson 12 explains."}
 />
 
 </CheckpointZone>

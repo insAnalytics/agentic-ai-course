@@ -140,7 +140,9 @@ So the thresholds follow from the noise:
   drop from blocking a change.
 - **For single tasks,** flag only a fall in pass rate of 0.8 or more,
   four trials in five. In the no-change pair, no task fell by more than
-  three.
+  three. The threshold limits flaky flags rather than preventing them. The
+  same no-change pair also has q25 rising from 0 of 5 to 5 of 5, and a
+  swing that size downward would be flagged.
 
 </Subsection>
 
@@ -183,6 +185,15 @@ tasks will, now and then, flag a task that's merely flaky. A flag should
 send a person to read the task's runs, not block a release on its own,
 and how many flags to expect by chance is the next concept's question.
 
+**A correction, from Lesson 12.** All three tasks flagged for compaction,
+h07, h09 and s25, are held-out tasks, which this gate shouldn't have seen:
+every gate in this lesson ran over all 125 tasks when it should have used
+the 97 dev tasks only. On dev tasks alone, compaction flags no task and
+its suite interval crosses zero, so the gate would pass it. The point
+about flaky flags stands, but compaction isn't the example of it that it
+looks like here.
+[Lesson 12 rechecks every decision](/07-evaluation/12-evaluation-report/05-decisions-limits-and-whats-next/#the-decisions-checked-on-the-dev-tasks).
+
 </Subsection>
 
 <CheckpointZone>
@@ -195,7 +206,7 @@ and how many flags to expect by chance is the next concept's question.
       "options": [
         "People learn to rerun or ignore it",
         "It uses more compute than a stable gate",
-        "It hides real regressions in the noise",
+        "It makes the suite's interval wider",
         "It can only be fixed by adding tasks"
       ],
       "correctIndex": 0,
