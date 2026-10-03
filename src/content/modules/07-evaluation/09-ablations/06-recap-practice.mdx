@@ -31,7 +31,7 @@ def passes(results: dict, condition: str, group: str | None = None) -> dict[str,
 
 def paired_difference(a: dict, b: dict, alpha: float = 0.05, repeats: int = 4000,
                       seed: int = 0) -> tuple[float, float, float]:
-    """B minus A, task by task, with a (1 - alpha) interval from resampling tasks: concept 1's function, with the
+    """B minus A, task by task, with a (1 - alpha) interval from resampling tasks: the first concept's function, with the
     interval's level as a parameter."""
     tasks = sorted(a.keys() & b.keys())
     differences = [sum(b[t]) / len(b[t]) - sum(a[t]) / len(a[t]) for t in tasks]
@@ -242,7 +242,7 @@ assert better_questions["verdict"] == "helps", "every question task gained 40 po
     { name: "lib.py", readOnly: true, code: LIB_PY },
     { name: "report.py", code: REPORT_REFERENCE },
   ]}
-  explanation={"Correcting for eighteen comparisons widens every interval, and the report changes with it. Module 6's layers still clearly hurt, overall and on both large groups. Their gain on the three broken-result tasks looks like it survives, but with three tasks that verdict was guaranteed: resampling three tasks can't produce an interval wider than their own differences (+0.2, +0.2 and +0.6), so the interval is +20% to +60% at any level. A group that small is counts, not a finding, as Lesson 12 reports it. Compaction's cost on Module 5's questions, an interval below zero at 95% on its own in concept 3, no longer is: across eighteen comparisons it could be chance. The labels show no measurable effect anywhere. Bonferroni's correction is deliberately cautious; it's the simplest way to make \"one of these looked significant\" stop being mistaken for a finding, and a result that matters, like the layers', survives it easily. Run prints layers -29.8% (-41.1% to -19.0%) over all tasks, hurts, and helps only on broken result (+20.0% to +60.0%); every compaction and no-labels row is no measurable effect, compaction on the questions now -15.5% to +2.8%."}
+  explanation={"Correcting for eighteen comparisons widens every interval, and the report changes with it. Module 6's layers still clearly hurt, overall and on both large groups. Their gain on the three broken-result tasks looks like it survives, but with three tasks that verdict was guaranteed: resampling three tasks can't produce an interval wider than their own differences (+0.2, +0.2 and +0.6), so the interval is +20% to +60% at any level. A group that small is counts, not a finding, as Lesson 12 reports it. Compaction's cost on Module 5's questions, an interval below zero at 95% on its own in the compaction concept, no longer is: across eighteen comparisons it could be chance. The labels show no measurable effect anywhere. Bonferroni's correction is deliberately cautious; it's the simplest way to make \"one of these looked significant\" stop being mistaken for a finding, and a result that matters, like the layers', survives it easily. Submit prints layers -29.8% (-41.1% to -19.0%) over all tasks, hurts, and helps only on broken result (+20.0% to +60.0%); every compaction and no-labels row is no measurable effect, compaction on the questions now -15.5% to +2.8%."}
 />
 
 </CheckpointZone>
