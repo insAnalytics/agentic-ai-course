@@ -186,7 +186,7 @@ A few rules kept the grouping honest:
   hint={"Two defaultdicts do the counting: one of ints for runs, one of sets for tasks, so a task seen twice counts once. Divide by len(read), not by the number of failures: a share of what was read is what tells you how common a failure is. sorted with a key tuple like (-runs, -tasks, name) gives all three orderings at once."}
   correctAnswer={{
     code: TALLY + "\n\n" + EXAMPLE,
-    explanation: "Counting tasks with a set is the point of the exercise. Two runs of a14 failing the same way are one problem seen twice, so a category's task count says how widespread it is, while its run count says how often it happened. The share's denominator is everything read, because \"4 of the 23 failures\" says nothing about how often the agent fails that way, and \"4 of 100 traces\" does. The three-part sort key makes the order deterministic: Python's sort is stable, so sorting by runs alone would keep tied categories in whatever order they arrived.",
+    explanation: "Counting tasks with a set is the point of the exercise. Two runs of a14 failing the same way are one problem seen twice, so a category's task count says how widespread it is, while its run count says how often it happened. The share's denominator is everything read, because \"4 of the 23 failures\" says nothing about how often the agent fails that way, and \"4 of 100 traces\" does, in this sample, which over-represents registry tasks and conversations. The three-part sort key makes the order deterministic: Python's sort is stable, so sorting by runs alone would keep tied categories in whatever order they arrived.",
   }}
 />
 
@@ -223,7 +223,7 @@ Every interval starts at or near zero and reaches 5 to 9%, and they all
 overlap. So 100 traces don't say which of these five is the most common.
 What they do say is that each of them exists, appears in a few percent of
 runs, and isn't a one-off. That's enough to decide what to build next:
-each category becomes tasks and checks in the module's suite, and running
+each category should become tasks and checks in the module's suite, and running
 those many times is how their rates get measured properly.
 
 </Subsection>
@@ -293,10 +293,10 @@ for.
         "It's the only denominator the sample file provides"
       ],
       "correctIndex": 0,
-      "explanation": "\"4 of the 23 failures\" describes the mix of failures, which changes whenever another category grows or shrinks. \"4 of 100 traces\" is a rate: how often a run of this agent goes wrong in this particular way."
+      "explanation": "\"4 of the 23 failures\" describes the mix of failures, which changes whenever another category grows or shrinks. \"4 of 100 traces\" is a rate: how often a run of this agent goes wrong in this particular way, in this sample, which over-represents registry tasks and conversations."
     },
     {
-      "question": "Every one of the top five categories has an interval from about 0% to about 8%. What can 100 traces tell you?",
+      "question": "Every one of the top five categories has an interval from about 0% to about 9%. What can 100 traces tell you?",
       "options": [
         "Each is real and a few percent, not which is commonest",
         "The categories are all equally common, at exactly 4% each",
