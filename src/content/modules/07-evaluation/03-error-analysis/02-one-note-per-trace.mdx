@@ -54,7 +54,102 @@ for trial_id in ("baseline-a/a02/2", "baseline-a/a02/0", "baseline-a/m05/1", "ba
         print(f"    {label['how']}")
 `;
 
-<Subsection title="What a useful note looks like" variant="a">
+export const STANDARD_DEMO = String.raw`first = {label["trial_id"]: label["verdict"] for label in load_reading("labels-simar")["labels"]}
+second = {label["trial_id"]: label["verdict"] for label in load_reading("labels-simar-v2")["labels"]}
+claude = load_reading("labels-claude")
+claude_first = {label["trial_id"]: label["verdict"] for label in claude["labels"]}
+# the 15 overlap traces, relabelled by Claude under the standard
+claude_after = {label["trial_id"]: label["verdict"] for label in claude["labels_after_standard"]}
+# which of the standard's rules settled each disagreement, from the readers' notes
+settled_by = {
+    "q43/1": "a wrong citation: fail",
+    "q34/4": "a list missing an item: fail",
+    "q41-denied/0": "repeating the question's assumption: fail",
+    "a10/0": "asking for what the tools give: fail",
+    "m03/2": "a poor first reply, user served: pass",
+    "m03/4": "a poor first reply, user served: pass",
+}
+
+print(f"{'':<14}{'before':>15}   {'':<43}{'after':>14}")
+print(f"{'trace':<14}{'Simar':>7}{'Claude':>8}   {'the rule that settled it':<43}{'Simar':>6}{'Claude':>8}")
+for trial_id in sorted(claude_after):
+    task = trial_id.split("/", 1)[1]
+    if first[trial_id] != claude_first[trial_id]:
+        print(f"{task:<14}{first[trial_id]:>7}{claude_first[trial_id]:>8}   {settled_by[task]:<43}"
+              f"{second[trial_id]:>6}{claude_after[trial_id]:>8}")
+before = sum(first[t] == claude_first[t] for t in claude_after)
+after = sum(second[t] == claude_after[t] for t in claude_after)
+print(f"\nagreement on {len(claude_after)} traces: {before} before the standard, {after} after")
+print(f"verdicts changed under the standard: Simar {sum(first[t] != second[t] for t in claude_after)}, "
+      f"Claude {sum(claude_first[t] != claude_after[t] for t in claude_after)}")
+`;
+
+<Subsection title="Two readers, and a written standard" variant="a">
+
+Reading a run is a judgement, and two careful readers can judge the same
+run differently. Before the main reading began, Simar, who built the
+registry and knows what its users need, and Claude, the model this course
+is drafted with, each read the same 15 traces on their own. They agreed on
+9. In all six disagreements, Simar had passed the run and Claude hadn't:
+they were answering slightly different questions.
+
+[Husain and Shankar's](https://hamel.dev/blog/posts/evals-faq/should-product-managers-and-engineers-collaborate-on-error-analysis-how.html)
+answer is one person who decides. They recommend a single principal domain
+expert as the arbiter of quality, which they call a "benevolent dictator",
+because one consistent, informed judgement avoids the conflicts a
+committee of labellers produces. Writing that judgement down is what lets
+anyone else apply it: a second reader, a model reading alongside, or, in
+Lesson 6, a judge's rubric. After those 15 traces, Simar wrote this
+module's reading standard:
+
+- **The question for every run.** Would the person who asked be well
+  served when the run ends: is the world (the registry, the emails) as it
+  should be, and was the user told the truth? Judge the run as recorded,
+  all its turns included.
+- **Five decisions,** for the cases the first reading split on:
+
+| Case | Verdict |
+|---|---|
+| A correct answer with a citation that's wrong or invented | fail |
+| A "list everything" answer that misses an item, or adds items the sources don't support | fail |
+| A conversation whose first reply was poor, but which ended with the user correctly served | pass |
+| Repeating the question's assumption as fact when nothing the agent read supports it | fail |
+| Asking the user for something the documents or tools already provided | fail |
+
+- **When the agent flags a problem instead of solving it.** If the problem
+  was outside its control and it told the user clearly, pass. If it could
+  have solved the problem with what it had but stopped to flag it, fail,
+  or unsure if asking was reasonable. If it flagged the problem but still
+  told the user something false or misleading, fail.
+- **Whose fault.** Each failure is put down to the agent, the harness the
+  course built around it, the task, the simulated user or the
+  environment, or marked unclear with a note saying why.
+  [Whose failure is it?](/07-evaluation/03-error-analysis/03-whose-failure-is-it/)
+  takes these one by one.
+
+Here's what it did to the 15 traces both readers had labelled:
+
+<LiveDemo client:load dataFiles={NOTES_DATA} setupCode={LOAD_READING} code={STANDARD_DEMO} />
+
+*(`load_reading` is this lesson's loader; the rule for each disagreement
+is taken from both readers' notes on it.)*
+
+Each disagreement was settled by one of the standard's rules, and both
+readers moved: Simar changed four verdicts and Claude three. Afterwards
+they agree on all 15.
+
+That's less than it looks. The standard was written from these same
+disagreements, so agreeing on them shows it settles the cases it was
+written for, not that two readers applying it would agree on runs neither
+had seen. The fair test is both readers labelling fresh traces
+independently, which this module didn't do. The rest of the reading was
+split instead, as
+[a later section, on why a person reads,](/07-evaluation/03-error-analysis/02-one-note-per-trace/#why-a-person-reads)
+describes: 40 traces by Simar, and 60 by Claude under the standard.
+
+</Subsection>
+
+<Subsection title="What a useful note looks like" variant="b">
 
 A note from open coding has one job: to let someone who wasn't there find
 the problem, and later, to sit next to other notes like it. That asks four
@@ -81,7 +176,7 @@ conversation had continued.
 
 </Subsection>
 
-<Subsection title="Why a person reads" variant="b">
+<Subsection title="Why a person reads" variant="a">
 
 Finding the first failure sounds like something a model could do.
 Research on exactly that task says not yet. The Who&When benchmark (Zhang
@@ -101,7 +196,7 @@ smaller categories as drafts a person should confirm.
 
 </Subsection>
 
-<Subsection title="Notes from the reading" variant="a">
+<Subsection title="Notes from the reading" variant="b">
 
 Here are two runs Simar read, outlined from their traces, with his notes:
 
@@ -117,7 +212,7 @@ agent looked up all three agents, then picked one.
 
 </Subsection>
 
-<Subsection title="A note that can be acted on" variant="b">
+<Subsection title="A note that can be acted on" variant="a">
 
 Notes get better with practice, and two pairs from the reading show how:
 
@@ -139,7 +234,7 @@ Claude's.)*
 
 </Subsection>
 
-<Subsection title="Passes worth a note" variant="a">
+<Subsection title="Passes worth a note" variant="b">
 
 A run that passes can still be worth a sentence. The reading page had an
 optional "how" field for this: anything about how the agent got there,
@@ -223,6 +318,28 @@ comes back to at the end.
       ],
       "correctIndex": 0,
       "explanation": "Both verdicts are right for these runs, because the write landed. But the run that didn't check would have reported success on the lost-write tasks too. A note on how a pass was reached shows which passes depend on luck."
+    },
+    {
+      "question": "Two careful readers disagreed on 6 of 15 traces, always in the same direction. What does that suggest?",
+      "options": [
+        "They were judging by different rules",
+        "One of them read the traces too quickly",
+        "The traces were too ambiguous to judge",
+        "Their labels should simply be averaged"
+      ],
+      "correctIndex": 0,
+      "explanation": "Every disagreement went the same way, which points to different standards, not carelessness. Writing one standard down gave both readers the same question, and a rule from it settled each of the six."
+    },
+    {
+      "question": "After both readers applied the standard, they agreed on all 15 traces. Why isn't that evidence the standard makes readers agree?",
+      "options": [
+        "It was written from those same 15 traces",
+        "Fifteen traces are too few to count at all",
+        "Only one of the readers changed any labels",
+        "A person and a model can't be compared"
+      ],
+      "correctIndex": 0,
+      "explanation": "A standard written to settle these disagreements will settle them. Whether two readers agree on runs neither has seen needs fresh traces, labelled independently. Both readers did change labels: four for Simar, three for Claude."
     }
   ]}
 />
