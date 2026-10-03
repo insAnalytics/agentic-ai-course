@@ -209,11 +209,21 @@ the exercise's reference version, all loaded for you.)*
 
 Paired, the interval shrinks from about 21 points per batch to about 4
 points for the difference, and it sits around zero, as it should for two
-runs of the same agent. Only three tasks' pass counts moved at all
-between the batches. That's the precision an ablation has to work with:
-with this suite and 5 trials per task, a component that changes the pass
-rate by a point or two can't be told from noise, and one that changes it
-by five or more can.
+runs of the same agent. Only three tasks' pass counts moved at all between
+the batches. That's the precision an ablation has to work with. How big a
+change it can reliably see is a question of statistical power, which
+[Miller's paper](https://arxiv.org/abs/2411.00640) recommends working out
+before an eval is run: with the paired difference's standard error SE, a
+change of about 2.8 × SE is detected 80% of the time at the 5% level. This
+pair's interval, about 4 points wide, puts SE near 1.1 points, so changes
+of about 3 points, if they move as few tasks as this pair did. A change
+that moves many tasks widens its interval, and
+[Lesson 10 measures what that means for its gate](/07-evaluation/10-regression-tests/02-a-gate-that-doesnt-flake/#what-the-gate-lets-through).
+
+Where the noise comes from also says how to buy more precision.
+Twenty-six of these 29 tasks didn't move at all between the batches. More
+trials only sharpen the three that did; more tasks narrow everything
+else.
 
 That interval also measures something real: how much the agent's results
 vary from one run to the next with nothing changed. A comparison is only
