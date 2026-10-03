@@ -26,6 +26,19 @@ for task in moves[-3:][::-1] + moves[:2]:
     print(f"{task:<4} baseline: {cited_and_passed('baseline', task):<30} no labels: {cited_and_passed('no-labels', task)}")
 `;
 
+export const REGRADE_DEMO = String.raw`def cited_where_due(condition: str) -> dict[str, list[bool]]:
+    """Each dev task's trials, regraded so that an answer that should cite a source, and cites nothing, fails."""
+    return {task: [row["pass"] and (row["cited"] or not results["tasks"][task]["cites_required"]) for row in rows]
+            for task, rows in results["conditions"][condition].items() if results["tasks"][task]["split"] == "dev"}
+
+
+for grading, (before, after) in (
+        ("as graded", (passes("baseline", split="dev"), passes("no-labels", split="dev"))),
+        ("citation required where due", (cited_where_due("baseline"), cited_where_due("no-labels")))):
+    mean, low, high = paired_difference(before, after)
+    print(f"{grading:<28} no labels minus baseline {mean:+.1%} ({low:+.1%} to {high:+.1%})")
+`;
+
 <Subsection title="Module 4's question" variant="a">
 
 [Module 4 assembled the agent's context](/04-context-and-memory/12-assembling-the-context-step/04-what-to-leave-out/)
@@ -90,15 +103,17 @@ answers, the share that cited a source barely moved, so it isn't a
 general change in behaviour either. The other movers go both ways, by
 amounts the task-level noise can produce.
 
-So the gain is part artifact and part real. Most of s06's is the grader
-passing answers that cite nothing. Leave s06 out and the gain is about
-four points, with a corrected interval that just includes zero. The rest
-is spread thinly: 19 dev tasks gained a trial or more without the labels,
-and 3 lost. The honest conclusion: **on this agent, the date and type
-labels don't help, and probably cost it a few points.** Removing them is
-the indicated change, after fixing the citation check, so that s06 stops
-counting uncited answers as passes, and rerunning this comparison to
-confirm.
+So part of the gain is the grader.
+[Lesson 6 added the check this needs](/07-evaluation/06-model-graders/05-faithfulness/#the-citation-check-isn-t-a-faithfulness-check):
+an answer to a question whose answer comes from the documents has to cite
+something. Regrading both runs with it needs no new runs:
+
+<LiveDemo client:load dataFiles={ABLATIONS_DATA} setupCode={LOAD_ABLATIONS + "\n\n" + PAIRED_DIFFERENCE} code={REGRADE_DEMO} />
+
+With that loophole closed, the gain falls to about three points, with an
+interval across zero. The honest conclusion: **on this agent, the date
+and type labels make no measurable difference.** They don't help, and
+nothing here says they hurt.
 
 </Subsection>
 
@@ -119,8 +134,9 @@ win:
   tasks can't show the labels never matter; a suite with more conflicts
   might. "No effect here" is about this suite, not about labels in
   general.
-- **Decide, and record why.** Here: remove the labels, once the citation
-  check is fixed and a rerun confirms the gain; adding tasks with
+- **Decide, and record why.** Here: the labels make no measurable
+  difference and cost tokens on every search, so removing them is
+  reasonable; adding tasks with
   conflicting documents would test whether a date ever matters. What isn't
   defensible is keeping a component on the assumption that it helps, once
   a fair test has shown it doesn't.
@@ -140,15 +156,15 @@ starting point for a better version, not a verdict on the idea.
   client:load
   questions={[
     {
-      "question": "Removing the labels gained about three points, with an interval of +0.5 to +5.9. Why isn't that convincing evidence the labels hurt?",
+      "question": "Removing the labels gained about five points as graded, but about three, inside the noise, once answers that should cite had to. What does that say?",
       "options": [
-        "It's near the noise, among many comparisons",
-        "The interval includes zero",
-        "The labels were removed from only some tasks",
-        "The judges graded the variant more leniently"
+        "Part of the gain was the grader, not the agent",
+        "The labels help, but only on questions that cite",
+        "Correcting for citations always shrinks gains",
+        "The second interval is too wide to be used"
       ],
       "correctIndex": 0,
-      "explanation": "Two identical runs differed by up to a couple of points, and eighteen intervals were computed in this lesson, so one borderline result is expected by chance. The interval doesn't quite include zero, which is exactly why the context matters."
+      "explanation": "Answers without citations passed the citation check by default. Requiring a citation where one is due removes that, and what's left of the gain is within the noise. The labels make no measurable difference."
     },
     {
       "question": "Three of s06's four passes without labels cited nothing. Why did those pass?",
