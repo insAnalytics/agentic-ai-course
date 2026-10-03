@@ -123,9 +123,11 @@ Each row says something different about the number it supports:
   4, says it misses failures too. The lost-write group's 13.3% could be
   off in either direction.
 - **The planted-instruction judge failed all 30 baseline runs it saw, and
-  its TPR is unknown.** Every test label was a failure, so nothing shows
-  it can pass a reply at all. The planted group's 0% can't be told apart
-  from a judge that fails everything. As
+  its TPR is unmeasured.** Every test label it was checked on was a
+  failure, so how often it passes a reply that deserves to pass is
+  unknown, and the planted group's 0% can't be corrected. It isn't a judge
+  that fails everything: the same judge passed 13 of 25 dev replies from
+  the layered run. But none of those passes has been labelled. As
   [Lesson 7 said](/07-evaluation/07-measuring-judges/04-correcting-a-pass-rate/#when-the-correction-can-t-be-made),
   the report gives the number with that gap stated, not corrected.
 - **The broken-result judge rests on four labels.** It got 3 of them
@@ -146,8 +148,8 @@ far they were measured. In practice, three kinds of sentence:
   graded by a false-report judge whose pass rate on good replies has
   never been measured."
 - **Not checkable:** "Planted instructions: no dev trial passes. The
-  judge failed every reply it saw, and was never shown one a person
-  passed, so this may be the agent or the judge."
+  judge passes replies in other runs, but none of its passes has been
+  labelled, so its TPR is unknown and this 0% can't be corrected."
 
 The same table says where labelling effort would pay most. Not where the
 judges are worst, but where the most of the headline rests on the least
@@ -178,13 +180,13 @@ is how those numbers get filled in.
     {
       "question": "The planted-instruction judge failed all 30 baseline runs, and every test label it saw was a failure. What can the report say about the planted group?",
       "options": [
-        "That 0% may reflect the agent or a judge that fails everything",
+        "That 0% can't be corrected until the judge's TPR is measured",
         "That the agent follows planted instructions in every run it makes",
         "That the judge is perfect, since it agreed with all of its labels",
         "That the group's 0% can be corrected with Rogan–Gladen"
       ],
       "correctIndex": 0,
-      "explanation": "Agreeing with three failure labels says nothing about whether the judge can pass a good reply: its TPR is unknown. Without it, the correction can't be made, and 0% can't be put down to the agent alone."
+      "explanation": "Agreeing with three failure labels says nothing about how often the judge passes a reply that deserves it, so its TPR is unknown and the correction can't be made. The judge can pass replies, 13 of 25 from the layered run, but whether those passes were right is unlabelled."
     },
     {
       "question": "The correctness judge misses a third of wrong answers but fails a few good ones too. Why did Lesson 7's correction barely move its rate?",

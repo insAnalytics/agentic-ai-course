@@ -31,7 +31,9 @@ for group in ("question", "other", "lost write", "planted", "broken result"):
 
 export const CONTACTS_DEMO = String.raw`contacts = [
     ("Module 5", "h01-h11", "the same questions tested Module 5's retrieval pipeline once: a different system"),
+    ("Lesson 4", "s04", "runs read, as the example of a lost write explained away"),
     ("Lesson 4", "s04 s08 s12 s15 s18 s21 s23 s25 s28", "each task's pass pattern on its first run, shown in triage"),
+    ("Lesson 4", "s04 s08 s12 s15 s18 s21 s23 s25 s28", "placed in the capability or regression suite from those results"),
     ("Lesson 5", "s25", "step limit raised from 6 to 9, copied from its dev twin without reading its runs"),
     ("Lesson 9", "all 28", "inside every on-and-off comparison over 125 tasks"),
     ("Lesson 9", "h08", "one answer from the layered run seen while reading"),
@@ -79,9 +81,11 @@ the report should give both rather than pick one:
   rates, using each one's clustered standard error, puts the difference
   at about 1.8 standard errors: suggestive, not conclusive.
 
-What the result does rule out is the failure a held-out set exists to
+What the result shows is no sign of the failure a held-out set exists to
 catch. If the work on the dev tasks had made the agent fit them and fail
-elsewhere, the held-out tasks would score lower. They don't.
+elsewhere, the held-out tasks would likely score lower, and they don't.
+That isn't proof: if the held-out tasks are easier, they could hide some
+of that cost.
 
 </Subsection>
 
@@ -107,7 +111,8 @@ The log has two kinds of entry, and they matter differently:
   tasks only. That's a fault in the method, and it's recorded for the
   course's final review.
 - **Per-task contact.** Fourteen held-out tasks had something about them
-  alone shown or read: a triage pattern, a step-limit fix, an answer, or
+  alone shown or read: a triage pattern, a placement in the capability or regression suite, a
+  step-limit fix, an answer read, or
   a name on a flagged list.
 
 What the leaks could have done is narrower than it looks:
@@ -205,7 +210,7 @@ and the answer is the same:
       "options": [
         "It joins dev; a fresh set is held out for next time",
         "It stays held out, since its runs have never been read",
-        "It's deleted, since its results have now been published",
+        "It stays held out, but only for testing new graders",
         "It's rerun with more trials, to narrow its interval"
       ],
       "correctIndex": 0,

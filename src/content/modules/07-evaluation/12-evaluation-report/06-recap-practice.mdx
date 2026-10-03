@@ -220,15 +220,15 @@ assert report["lines"][-1] == "compaction minus baseline, dev tasks: -1.2% (-4.7
       "explanation": "Seventy-five of the 97 dev tasks pass or fail all five trials. Treating the 485 trials as independent gives an interval half the honest width. Averaging each task first, as Miller recommends for clustered questions, counts the evidence correctly."
     },
     {
-      "question": "The held-out tasks score higher than the dev tasks. What does that rule out?",
+      "question": "The held-out tasks score higher than the dev tasks. What can the report say from that?",
       "options": [
-        "That tuning to dev tasks cost the agent on new ones",
+        "That it shows no sign of overfitting to the dev tasks",
         "That the held-out tasks are easier than the dev tasks",
         "That the gap between the two scores is due to chance",
-        "That the held-out set was seen before the report"
+        "That the held-out set was never seen before the report"
       ],
       "correctIndex": 0,
-      "explanation": "Overfitting to the dev tasks would show as a lower held-out score. A higher one can still mean easier tasks or chance, and the held-out set was in fact seen in aggregate, which the report discloses."
+      "explanation": "Overfitting to the dev tasks would show as a lower held-out score, and there isn't one. That's no sign of overfitting, not proof of its absence: easier held-out tasks could hide some, and chance could explain the gap. The held-out set was seen in aggregate, which the report discloses."
     },
     {
       "question": "Compaction's cost was 3.8 points over all tasks and 1.2 over dev tasks only. Why does the report give the dev number as the basis for the decision?",
@@ -255,21 +255,21 @@ assert report["lines"][-1] == "compaction minus baseline, dev tasks: -1.2% (-4.7
     {
       "question": "The planted-instruction judge failed all 30 baseline runs it graded. Why can't the report correct the planted group's rate?",
       "options": [
-        "Its TPR is unknown: no passed run was ever shown to it",
+        "Its TPR is unknown: no labelled pass was ever shown to it",
         "Thirty runs are too few for the correction to be applied at all",
         "The correction only works for judges with high agreement rates",
         "The planted group has no interval, so it can't be corrected"
       ],
       "correctIndex": 0,
-      "explanation": "The correction needs both error rates, and the TPR needs runs people passed. Without one, a 0% can't be told apart from a judge that fails everything. The report states the gap rather than a corrected number."
+      "explanation": "The correction needs both error rates, and the TPR needs runs people passed. The judge does pass replies, 13 of 25 from the layered run, but none of its passes has been labelled. The report states the gap rather than a corrected number."
     },
     {
       "question": "Once the report is written, why can't the held-out set be used again as held out?",
       "options": [
         "Every later decision would be made knowing its results",
         "Its tasks would be graded by judges that have now changed",
-        "The agent will have been trained on its tasks by then",
-        "Its runs will have been deleted once they're reported"
+        "Its tasks no longer match the traffic the agent gets",
+        "Twenty-eight tasks are too few to hold out a second time"
       ],
       "correctIndex": 0,
       "explanation": "A held-out set is independent only while nobody deciding anything has seen its results. After the report, it joins the dev set, and a fresh set is held out for the next round."
@@ -294,7 +294,7 @@ assert report["lines"][-1] == "compaction minus baseline, dev tasks: -1.2% (-4.7
 
 <MultiFileGradedExercise
   client:load
-  task={"lib.py holds the recorded results and the functions the report needs, read-only. In report.py (the entry file), write evaluation_report(results, baseline, changes). results has the shape of Lesson 9's results file: results[\"tasks\"] gives each task's \"split\" (\"dev\" or \"held_out\") and \"group\", and passes(results, condition) gives each task's trial results. Return a dict with: \"splits\": for \"dev\" and \"held_out\", headline() over the baseline's tasks in that split only. \"groups\": for each split, a dict of headline() per group, over that split's tasks in that group. \"changes\": for each condition in changes, paired_difference(baseline, change) over the dev tasks that both conditions ran. \"lines\": the report's lines, in this order: rate_line(name, ...) for dev, then held-out, where the names come from SPLIT_NAMES (\"dev\", \"held-out\"); then one rate_line per group, labelled like \"dev, question\": all of dev's groups, then all of held-out's, each split's groups in sorted order; then one line per change, in the order given: f\"{change} minus {baseline}, dev tasks: {mean:+.1%} ({low:+.1%} to {high:+.1%})\". Click Run to see the registry agent's report."}
+  task={"lib.py holds the recorded results and the functions the report needs, read-only. In report.py (the entry file), write evaluation_report(results, baseline, changes). results has the shape of Lesson 9's results file: results[\"tasks\"] gives each task's \"split\" (\"dev\" or \"held_out\") and \"group\", and passes(results, condition) gives each task's trial results. Return a dict with: \"splits\": for \"dev\" and \"held_out\", headline() over the baseline's tasks in that split only. \"groups\": for each split, a dict of headline() per group, over that split's tasks in that group. \"changes\": for each condition in changes, paired_difference(baseline, change) over the dev tasks that both conditions ran. \"lines\": the report's lines, in this order: rate_line(name, ...) for dev, then held-out, where the names come from SPLIT_NAMES (\"dev\", \"held-out\"); then one rate_line per group, labelled like \"dev, question\": all of dev's groups, then all of held-out's, each split's groups in sorted order; then one line per change, in the order given: f\"{change} minus {baseline}, dev tasks: {mean:+.1%} ({low:+.1%} to {high:+.1%})\". Click Submit to see the registry agent's report, then the grade."}
   entry="report.py"
   files={[
     { name: "lib.py", readOnly: true, code: LIB_PY },

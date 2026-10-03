@@ -108,8 +108,14 @@ report lists what this one can't speak to:
   conclusions are evidence of what happened in the runs read, not rates.
 - **No latency claims.** Runs were made 48 at a time on a shared GPU, so
   their durations measure the GPU's load as much as the agent.
-- **Five trials per task.** Pass^k beyond k = 5 can't be estimated, and
-  single tasks can't be tested for small changes.
+- **Five trials per task.** Pass^k beyond k = 5 can't be estimated for
+  the whole suite (Lesson 9 reached k = 10 only on tasks that ran in both
+  baseline batches), and single tasks can't be tested for small changes.
+- **The two approved changes were never run together.** Prompt v2 and FP8
+  were each measured against the baseline alone, so the combination
+  they'd ship as needs its own pass through Lesson 10's gate on dev tasks.
+- **One agent.** Evaluating a system of several agents, and its failures,
+  is Module 8's subject.
 - **The held-out contact,** as disclosed.
 - **No real users.** Everything in Lesson 11 was simulated from recorded
   runs.
@@ -123,8 +129,9 @@ change:
 
 1. **Label where the headline rests on least.** The correctness judge's
    runs, and passes for the false-report and planted-instruction judges.
-   Until those exist, the question, lost-write and planted groups can't
-   be corrected.
+   For the planted judge, the 13 layered dev replies it passed are ready to
+   label. Until those labels exist, the question, lost-write and planted
+   groups can't be corrected.
 2. **Finish the relabel.** Agreement between the two passes sets how far
    any label in this module can be trusted.
 3. **Fix the citation check.** It passes answers that cite nothing, which
@@ -144,6 +151,8 @@ change:
    from traces, a two-window burn-rate alert on runs without an answer,
    the relevance judge on a sample sized for the interval needed, PSI on
    the request mix, and an A/A test before any A/B test.
+8. **Gate the combination.** Run prompt v2 and FP8 together through the
+   gate on dev tasks before either ships.
 
 </Subsection>
 

@@ -66,7 +66,9 @@ evaluation in nine sections. Each has a counterpart for an agent:
 
 - **Model details** → the agent's exact configuration: model and
   revision, sampling settings, the hash of its prompt and tool
-  definitions, how it was served.
+  definitions, how it was served. For an agent graded by judges, the
+  judges' model, rubric version and the task file's version belong here
+  too: a change to any of them moves every number.
 - **Intended use** → what the agent is for and what it isn't. The
   registry agent looks up agents, checks their health, answers questions
   from the company's documents, changes models and emails owners; it
@@ -101,6 +103,11 @@ An agent needs three sections a model card doesn't have:
   from
   [Lesson 11](/07-evaluation/11-monitoring/01-what-to-watch-on-every-run/).
 
+Model developers now also publish system cards for models and the agents
+built on them. They extend the model-card idea with safety evaluations,
+such as how often an agent follows instructions injected into what it
+reads, reported alongside how well it does its job.
+
 </Subsection>
 
 <Subsection title="What's on hand" variant="a">
@@ -127,6 +134,11 @@ Two details matter for everything that follows:
   newer suite tasks were written after it ran, so any comparison of the
   two batches uses the main tasks only.
 
+The demo shows the agent's side. The graders' side matters as much: this
+module's judges are Gemma 4 31B, graded with the revised rubrics from
+Lesson 7, and a judge or rubric change silently moves every number, as
+Lesson 7's revisions showed. The report records both.
+
 </Subsection>
 
 <Subsection title="Three kinds of statement" variant="b">
@@ -142,7 +154,8 @@ report should make it obvious which:
   objections were mostly false alarms, say. It's evidence, but of a
   different kind, and it should say how many runs were read, how they
   were chosen, and by whom. Several of this module's readings were done
-  by one reader, sometimes the course's content chat, and the report
+  by one reader, sometimes the course's content chat (the Claude model
+  this course is drafted with, not a person), and the report
   should say so.
 - **Not measured.** An assumption, or a question nobody has tested yet.
   Saying so explicitly is part of the report, not a weakness in it: a
@@ -202,7 +215,7 @@ steps.
         "So readers can open them: scores need someone to read runs",
         "So the report can be regenerated automatically whenever a run changes",
         "So each run's cost can be added up when the report is written",
-        "So the runs can be deleted once the report has been published"
+        "So the runs can be rerun later with the same random seeds"
       ],
       "correctIndex": 0,
       "explanation": "Anthropic's guide says its teams don't take an eval score at face value until someone has read transcripts behind it. A report that names its runs lets its readers do that. Regeneration and cost accounting are side benefits, not the reason."
