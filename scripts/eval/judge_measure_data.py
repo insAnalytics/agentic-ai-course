@@ -5,8 +5,10 @@ the revised ones (version 2), whether the run ended without an answer, and wheth
 labelling in a way that could change the label (q19, whose reference Simar disputed: those items are left out of
 the measurement; q40-allowed's change only removed a description of the other kind of reader, so its labels stand);
 how each judge decided on every dev run of each kind, for correcting pass rates; for set F, how many replies fall
-in each labelling stratum and how each judge decided by premise; and, for the revised judges, the probability of
-each verdict's first token.
+in each labelling stratum and how each judge decided by premise; for the other judge questions, how many runs of the
+pool the labels were drawn from fall in each labelling stratum, so labels can be weighted back to the runs (the
+labels were drawn with fixed quotas per stratum, which oversample the strata where the two judges split); and, for
+the revised judges, the probability of each verdict's first token.
 
     python scripts/eval/judge_measure_data.py            # writes the file
     python scripts/eval/judge_measure_data.py --check    # fails if it's out of date
@@ -78,7 +80,28 @@ def build() -> dict:
                     side = counts.setdefault(r["premise"], {"pass": 0, "fail": 0, "other": 0})
                     side[r["decision"] if r["decision"] in ("pass", "fail") else "other"] += 1
             premise_judged[f"{judge}_v{version}"] = counts
-    return {"version": 1, "rows": rows, "population": population,
+    # the other judge questions: how many runs of the labelling pool (dev tasks, outside Lesson 3's reading sample)
+    # fall in each stratum, by build_judge_labelling.py's own rule
+    sys.path[:0] = [str(HERE), str(HERE / "course")]
+    import build_judge_labelling as sampler
+    tasks = {}
+    for name in ("main.json", "suite-2a.json"):
+        for task in json.loads((HERE / "tasks" / name).read_text(encoding="utf-8"))["tasks"]:
+            tasks[task["id"]] = task
+    read_before = {e["trial_id"] for e in json.loads((ROOT / "public/data/eval/reading/sample.json").read_text(encoding="utf-8"))["entries"]}
+    phase3 = sampler.decisions()
+    strata = {}
+    for item in sampler.all_items(version=1):
+        if item["kind"] not in sampler.QUOTAS or item["kind"] == "premise":
+            continue
+        if item["split"] != "dev" or item["trial_id"] in read_before:
+            continue
+        item["task_kind"] = tasks[item["task_id"]]["kind"]
+        key = sampler.stratum(item, phase3[item["item_id"]], no_answer)
+        kind = strata.setdefault(item["kind"], {})
+        kind[key] = kind.get(key, 0) + 1
+    strata = {kind: dict(sorted(counts.items())) for kind, counts in sorted(strata.items())}
+    return {"version": 1, "rows": rows, "population": population, "strata": strata,
             "premise_strata": dict(sorted(premise_strata.items())), "premise_judged": premise_judged}
 
 
