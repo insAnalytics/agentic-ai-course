@@ -13,17 +13,13 @@ export const DATA = [...SETTINGS_DATA, ...ABLATIONS_DATA, "eval/report/costs.jso
 
 export const SETUP = LOAD_SETTINGS + "\n\n" + LOAD_ABLATIONS + "\n\n" + PAIRED_DIFFERENCE;
 
-export const DECISIONS_DEMO = String.raw`decisions = {"fp8": "ship", "prompt-v2": "ship", "compaction": "look", "layers-v2": "stop", "layers": "stop",
-             "no-labels": "not a change to make"}
-baseline = passes("baseline")
-dev = {task for task, info in results["tasks"].items() if info["split"] == "dev"}
-print(f"{'change':<11}{'decided':<22}{'all 125 tasks':>24}{'dev tasks only':>26}")
+export const DECISIONS_DEMO = String.raw`decisions = {"fp8": "ship", "prompt-v2": "ship", "compaction": "don't adopt", "layers-v2": "stop", "layers": "stop",
+             "no-labels": "remove, after a check"}
+baseline = passes("baseline", split="dev")
+print(f"{'change':<11}{'decided':<24}{'dev tasks, change minus baseline':>34}")
 for condition, decision in decisions.items():
-    changed = passes(condition)
-    every = paired_difference(baseline, changed)
-    dev_only = paired_difference({t: baseline[t] for t in dev}, {t: changed[t] for t in dev})
-    shown = [f"{mean:+.1%} ({low:+.1%} to {high:+.1%})" for mean, low, high in (every, dev_only)]
-    print(f"{condition:<11}{decision:<22}{shown[0]:>24}{shown[1]:>26}")
+    mean, low, high = paired_difference(baseline, passes(condition, split="dev"))
+    print(f"{condition:<11}{decision:<24}{f'{mean:+.1%} ({low:+.1%} to {high:+.1%})':>34}")
 `;
 
 export const SECURITY_DEMO = String.raw`costs = json.loads(Path("/data/eval/report/costs.json").read_text(encoding="utf-8"))["conditions"]
@@ -45,55 +41,47 @@ for condition in ("baseline", "fp8", "prompt-v2", "compaction", "no-labels", "la
           f"{tokens / successes:>20,.0f}{judge_calls / len(spent):>21.2f}")
 `;
 
-<Subsection title="The decisions, checked on the dev tasks" variant="a">
+<Subsection title="The decisions, and their evidence" variant="a">
 
-Lessons 9 and 10 made six decisions about changes to the agent.
-[The previous concepts](/07-evaluation/12-evaluation-report/03-the-held-out-results/#every-contact-disclosed)
-found that their comparisons ran over all 125 tasks, held-out ones
-included. The report can't rerun anything, but it can recompute each
-decision the way it should have been made, on the dev tasks only, from
-the same recorded results:
+Lessons 9 and 10 made six decisions about changes to the agent, each on
+the dev tasks, with the held-out set kept out. Here they are with the
+evidence behind each:
 
 <LiveDemo client:load dataFiles={DATA} setupCode={SETUP} code={DECISIONS_DEMO} />
 
-*(Each difference is the change minus the baseline, paired by task, with a
-95% interval from resampling tasks; `paired_difference` is Lesson 9's,
-loaded for you.)*
-
-Four of the six decisions stand exactly as made. Two read differently on
-dev tasks only, and the report says so:
+*(Each difference is the change minus the baseline on the dev tasks,
+paired by task, with a 95% interval from resampling tasks;
+`paired_difference` is Lesson 9's, loaded for you.)*
 
 - **Module 6's layers, and the fixed layers v2: stop.** Both cost the
-  agent heavily on either set of tasks, and
+  agent heavily, and
   [Lesson 9's reading](/07-evaluation/09-ablations/04-module-6s-layers-on-real-runs/#what-the-layers-did)
   and
   [Lesson 10's](/07-evaluation/10-regression-tests/04-three-real-changes/#reading-a-failure-the-layer-fix)
   explain why: false alarms, then a claim splitter with bugs.
-- **Prompt v2: ship.** About five points better on dev tasks, with an
-  interval above zero. Most of the gain is the lost-write tasks, which
+- **Prompt v2: ship.** About five points better, with an interval above
+  zero. Most of the gain is the lost-write tasks, which
   [Lesson 10 traced](/07-evaluation/10-regression-tests/04-three-real-changes/#reading-a-pass-the-prompt-change)
   to the new read-back line. Those tasks are graded by the false-report
   judge, whose pass rate on good replies has never been measured, so the
   gain rests on that judge and on one run read.
-- **FP8 serving: ship.** No regression on either set.
-- **Compaction: the "look" came from the held-out tasks.** Over all tasks
-  it cost 3.8 points, with three tasks flagged, all three held-out. On
-  dev tasks alone the cost is 1.2 points, with an interval well across
-  zero. The verdict of "look" was decided on tasks that were supposed to
-  be untouched; on the tasks it should have used, there's no clear cost.
-  Lesson 10's next step, rerunning the three flagged tasks with 20 trials
-  each, would have settled it, and it hasn't been run.
-- **The source labels: no change to make, but the question is open.** On
-  dev tasks, removing the labels scored higher, +4.7 points with an
-  interval above zero, more clearly than over all tasks.
-  [Lesson 9 traced the largest gain](/07-evaluation/09-ablations/05-a-piece-that-doesnt-earn-its-place/#what-a-gain-is-made-of)
-  to the citation check passing answers that cite nothing. That's a
-  weakness in a grader, not evidence the labels hurt, and it's one
-  comparison of six. The report gives the number, the reading, and the
-  grader fix it points to.
+- **FP8 serving: ship.** No regression.
+- **Compaction: don't adopt.** It passes the gate, with no measurable
+  cost and nothing flagged. But it buys this agent nothing, and it makes
+  runs repeat work at about 13% more tokens per success, as
+  [the security and cost table](/07-evaluation/12-evaluation-report/05-decisions-limits-and-whats-next/#security-and-what-it-costs)
+  shows. A gate only says a change does no harm; here nothing argues for
+  it. It would earn its place on runs that outgrow the context window,
+  which this suite doesn't have.
+- **The source labels: remove, after one check.** Removing them gains
+  about five points, and
+  [the gain survives correcting for eighteen comparisons](/07-evaluation/09-ablations/05-a-piece-that-doesnt-earn-its-place/#the-result).
+  Part of it is
+  [the citation check passing answers that cite nothing](/07-evaluation/09-ablations/05-a-piece-that-doesnt-earn-its-place/#what-a-gain-is-made-of),
+  so the check gets fixed and the comparison rerun before the labels go.
 
-The broader lesson for the report: recomputing a decision on the right
-tasks is cheap, and it's worth doing before anything is written down.
+Each line names its evidence and how firm that evidence is. That, more
+than the verdict itself, is what lets a reader disagree with a decision.
 
 </Subsection>
 
@@ -202,11 +190,13 @@ change:
    groups can't be corrected.
 2. **Finish the relabel.** Agreement between the two passes sets how far
    any label in this module can be trusted.
-3. **Fix the citation check.** It passes answers that cite nothing, which
-   is what the source-label result turned on.
-4. **Settle compaction.** Rerun its three flagged tasks with 20 trials
-   each, now that the held-out set is spent, before deciding anything
-   about compaction.
+3. **Fix the citation check, then settle the labels.** It passes answers
+   that cite nothing, which part of the source-label gain turned on. Rerun
+   that comparison with the fixed check, and remove the labels if the gain
+   holds.
+4. **Test compaction where it's meant to help.** On this agent it buys
+   nothing, because no run outgrows the context window. Tasks with long
+   runs would test what it's for; until then it stays off.
 5. **Build layers v3, and measure it the same way.**
    [Lesson 10 described it](/07-evaluation/10-regression-tests/04-three-real-changes/):
    keep identifiers, skip empty claims, leave attribution sentences to the
@@ -214,8 +204,7 @@ change:
    should keep the layers' 8 of 25 against planted instructions while
    bringing the benign pass rate back near the baseline's.
 6. **Rebuild the held-out set.** Fold the old one into dev, hold out a
-   fresh set within each category, and compare changes on dev tasks only
-   from now on, keeping a contact log as it happens.
+   fresh set within each category, and keep a contact log as it happens.
 7. **Watch it in use.** If the agent goes live,
    [Lesson 11's plan](/07-evaluation/11-monitoring/00-intro/): a dashboard
    from traces, a two-window burn-rate alert on runs without an answer,
@@ -232,15 +221,15 @@ change:
   client:load
   questions={[
     {
-      "question": "On dev tasks only, compaction's cost falls from 3.8 points to 1.2, with an interval across zero. What should the report do?",
+      "question": "Compaction passes the gate on the dev tasks, with nothing flagged. Why doesn't the report adopt it?",
       "options": [
-        "Say the \"look\" rested on held-out tasks; dev shows no clear cost",
-        "Keep the original verdict, since it was decided before the report",
-        "Drop compaction from the report, since its result is now unclear",
-        "Report only the dev number, since the other was computed wrongly"
+        "Passing the gate shows no harm, not a benefit",
+        "Its interval crosses zero, so it may be harmful",
+        "Only the held-out tasks can decide adoption",
+        "Gates cannot judge changes to the context"
       ],
       "correctIndex": 0,
-      "explanation": "Recomputing a decision on the right tasks is the honest thing to do, and so is saying what changed and why. Both numbers belong in the report, with the explanation. Hiding either one, or the change of reading, would leave a reader trusting a verdict the evidence no longer supports."
+      "explanation": "A gate catches regressions. Compaction costs nothing measurable here, but it buys nothing either, and it makes runs repeat work at about 13% more tokens per success. A change needs a reason to ship, not just the absence of harm."
     },
     {
       "question": "Prompt v2's gain comes mostly from the lost-write tasks. What caveat belongs beside it?",
@@ -265,15 +254,15 @@ change:
       "explanation": "The runs were made 48 at a time on one GPU, so a slow run often meant a busy GPU, not a slow agent. The traces did record durations, and latency is a normal part of an agent's report; it just can't be measured fairly from these runs."
     },
     {
-      "question": "Removing the source labels scored 4.7 points higher on dev tasks, with an interval above zero. Why doesn't the report recommend removing them?",
+      "question": "Removing the source labels scored 4.7 points higher on dev tasks, and the gain survived correcting for eighteen comparisons. Why does the report attach a condition to removing them?",
       "options": [
-        "The biggest gain came from a grader passing uncited answers",
-        "The interval above zero is too narrow to be trusted for a decision",
-        "Removing labels would change the configuration hash the report uses",
-        "The labels were added in an earlier module, so they must be kept"
+        "The grader rewards uncited answers",
+        "The corrected interval is too wide to act on",
+        "The labels are needed by Module 5's lessons",
+        "A five-point gain is too small to matter"
       ],
       "correctIndex": 0,
-      "explanation": "Lesson 9's reading found the largest gain on a task where the citation check rewards citing nothing, so the number partly measures the grader. With six comparisons, one clear interval also isn't strong evidence. The fix points at the grader first."
+      "explanation": "Part of the gain is s06's passes that cite nothing, which the citation check counts as passes. Fixing the check and rerunning shows whether the rest holds before the labels go."
     },
     {
       "question": "Which next step comes first, and why?",

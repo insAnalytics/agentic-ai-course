@@ -231,15 +231,15 @@ assert report["lines"][-1] == "compaction minus baseline, dev tasks: -1.2% (-4.7
       "explanation": "Overfitting to the dev tasks would show as a lower held-out score, and there isn't one. That's no sign of overfitting, not proof of its absence: easier held-out tasks could hide some, and chance could explain the gap. The held-out set was seen in aggregate, which the report discloses."
     },
     {
-      "question": "Compaction's cost was 3.8 points over all tasks and 1.2 over dev tasks only. Why does the report give the dev number as the basis for the decision?",
+      "question": "Compaction passed the gate on the dev tasks with nothing flagged, and bought the agent nothing. What does the report decide?",
       "options": [
-        "Its flagged tasks were held-out, which decisions shouldn't use",
-        "The dev number is smaller, so it's more conservative to report",
-        "The all-task number was computed with a different judge",
-        "Dev tasks have more trials each, so their number is more precise"
+        "Don't adopt: no harm shown, but no benefit",
+        "Ship it, since the gate passed with no flags",
+        "Look again, since its interval crosses zero",
+        "Stop it, since it makes runs repeat work"
       ],
       "correctIndex": 0,
-      "explanation": "All three tasks the gate flagged under compaction were held-out. Decisions belong on dev tasks, so held-out results stay independent; recomputed that way, compaction shows no clear cost. Both numbers stay in the report, with the explanation."
+      "explanation": "The gate shows compaction does no measurable harm; it doesn't show any benefit, and compaction makes runs repeat work at a higher token cost. Without a reason to ship it, it stays off until tasks where runs outgrow the context window can test what it's for."
     },
     {
       "question": "Which statement belongs in the report as \"read\" rather than \"measured\"?",
@@ -307,7 +307,7 @@ assert report["lines"][-1] == "compaction minus baseline, dev tasks: -1.2% (-4.7
     { name: "lib.py", readOnly: true, code: LIB_PY },
     { name: "report.py", code: REPORT_REFERENCE },
   ]}
-  explanation={"Every rule the tests check is one the lesson argued for. The splits are never combined, so the held-out result stays a separate check. Groups are broken down within each split, and the small ones get counts without an interval, because headline withholds one below ten tasks. Changes are compared on dev tasks only, so the held-out set doesn't shape a decision; one test builds a change that differs only on held-out tasks, which a version comparing over all tasks would report as a regression. A change that ran fewer tasks is compared on the tasks both ran. On the recorded results, the report reproduces the lesson's numbers: the baseline at 73.6% on dev and 85.7% on held-out, prompt v2 about five points better on dev tasks, and compaction's cost shrinking to 1.2 points with an interval across zero. Submit prints the registry agent's report: dev 73.6% over 97 tasks (65.8% to 81.4%), held-out 85.7% over 28 (75.3% to 96.2%), a line per group in each split, then the six changes on dev tasks, from prompt v2 at +4.9% (+0.6% to +9.7%) to the layers at -31.5%."}
+  explanation={"Every rule the tests check is one the lesson argued for. The splits are never combined, so the held-out result stays a separate check. Groups are broken down within each split, and the small ones get counts without an interval, because headline withholds one below ten tasks. Changes are compared on dev tasks only, so the held-out set doesn't shape a decision; one test builds a change that differs only on held-out tasks, which a version comparing over all tasks would report as a regression. A change that ran fewer tasks is compared on the tasks both ran. On the recorded results, the report reproduces the lesson's numbers: the baseline at 73.6% on dev and 85.7% on held-out, prompt v2 about five points better on dev tasks, and compaction at −1.2 points with an interval across zero. Submit prints the registry agent's report: dev 73.6% over 97 tasks (65.8% to 81.4%), held-out 85.7% over 28 (75.3% to 96.2%), a line per group in each split, then the six changes on dev tasks, from prompt v2 at +4.9% (+0.6% to +9.7%) to the layers at -31.5%."}
 />
 
 </CheckpointZone>

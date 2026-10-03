@@ -31,21 +31,16 @@ for group in ("question", "other", "lost write", "planted", "broken result"):
 
 export const CONTACTS_DEMO = String.raw`contacts = [
     ("Module 5", "h01-h11", "the same questions tested Module 5's retrieval pipeline once: a different system"),
-    ("Lesson 4", "s04", "runs read, as the example of a lost write explained away"),
-    ("Lesson 4", "s04 s08 s12 s15 s18 s21 s23 s25 s28", "each task's pass pattern on its first run, shown in triage"),
-    ("Lesson 4", "s04 s08 s12 s15 s18 s21 s23 s25 s28", "placed in the capability or regression suite from those results"),
+    ("Lesson 4", "a24-a29 m07 m08", "their combined pass rate on both baseline batches, shown beside the dev tasks'"),
     ("Lesson 5", "s25", "step limit raised from 6 to 9, copied from its dev twin without reading its runs"),
-    ("Lesson 9", "all 28", "inside every on-and-off comparison over 125 tasks"),
     ("Lesson 9", "h08", "one answer from the layered run seen while reading"),
-    ("Lesson 10", "all 28", "inside every gate over 125 tasks"),
-    ("Lesson 10", "h04 h07 h09 h10 s25", "named as flagged tasks under the layers, compaction or layers v2"),
 ]
 for where, tasks, what in contacts:
-    print(f"{where:<10} {tasks:<38} {what}")
+    print(f"{where:<10} {tasks:<18} {what}")
 
 held_out = {task: runs for task, runs in passes("baseline").items() if results["tasks"][task]["split"] == "held_out"}
-# a task counts as seen if anything about it alone, a result, a pattern or an answer, has been shown or read
-seen = {"s04", "s08", "s12", "s15", "s18", "s21", "s23", "s25", "s28", "h04", "h07", "h08", "h09", "h10"}
+# a task counts as seen if anything about it alone, a result, a fix or an answer, has been shown or read
+seen = {"s25", "h08"}
 print()
 for name, kept in (("all held-out tasks", held_out),
                    ("without h08", {t: r for t, r in held_out.items() if t != "h08"}),
@@ -91,31 +86,30 @@ of that cost.
 
 <Subsection title="Every contact, disclosed" variant="b">
 
-Lesson 4 promised a set of tasks no decision was made on. That promise
-wasn't kept in full, and the report says exactly how. Leaks like these
-are the usual way held-out sets go wrong: not someone tuning on the
-answers, but the held-out tasks quietly riding along in comparisons and
-dashboards. The contact log, and what the held-out score looks like with
-the most-seen tasks left out:
+Lesson 4 promised a set of tasks no decision was made on. For every
+decision on a change, that held: Lessons 9 and 10 compared conditions on
+the dev tasks only. A few smaller contacts did happen, and the report
+lists each one. Logging them matters because of how held-out sets usually
+go wrong: not someone tuning on the answers, but held-out tasks quietly
+riding along in comparisons and dashboards until every decision has seen
+them. The contact log, and what the held-out score looks like with the
+tasks seen alone left out:
 
 <LiveDemo client:load dataFiles={DATA} setupCode={SETUP} code={CONTACTS_DEMO} />
 
 *(The contact log was compiled from the module's pages and its working
 notes.)*
 
-The log has two kinds of entry, and they matter differently:
+The log has two kinds of entry:
 
-- **Aggregate contact.** In Lessons 9 and 10, every comparison and gate
-  ran over all 125 tasks, so held-out results sat inside every number
-  that decided which changes ship. Those comparisons should have used dev
-  tasks only. That's a fault in the method, and it's recorded for the
-  course's final review.
-- **Per-task contact.** Fourteen held-out tasks had something about them
-  alone shown or read: a triage pattern, a placement in the capability or regression suite, a
-  step-limit fix, an answer read, or
-  a name on a flagged list.
+- **Aggregate contact.** Lesson 4 showed the held-out registry tasks'
+  combined pass rate beside the dev tasks', to show the split leaned easy,
+  and Module 5 measured its retrieval pipeline on the same questions, a
+  different system. Neither touched a decision about this agent.
+- **Per-task contact.** Two held-out tasks had something about them alone
+  fixed or read: s25's step limit and one h08 answer.
 
-What the leaks could have done is narrower than it looks:
+What the contacts could have done is small:
 
 - **The baseline's held-out score isn't inflated by any of them.** The
   baseline's prompt and configuration were fixed before it first ran,
@@ -123,14 +117,11 @@ What the leaks could have done is narrower than it looks:
   graders, and those were made from dev tasks: s25's new step limit was
   copied from its dev twin without reading s25's runs, which is the
   legitimate kind of fix Lesson 4 described.
-- **The decisions on changes are where the risk is.** Prompt v2 and FP8
-  were judged to ship by a gate that could see held-out results. A
-  held-out score for those changes would be slightly optimistic, which is
-  one reason this report evaluates the baseline and treats the changes as
-  approved candidates.
-- **The sensitivity check agrees.** Without h08, the rate barely moves.
-  On the 14 tasks never seen alone it's higher, not lower, so if the
-  contact did anything, it didn't flatter the agent.
+- **The decisions on changes didn't see the held-out set.** Every
+  comparison and gate in Lessons 9 and 10 used the dev tasks only, so the
+  changes that ship weren't chosen with held-out results in view.
+- **The sensitivity check agrees.** Leaving out h08, or both tasks seen
+  alone, barely moves the rate.
 
 </Subsection>
 
@@ -173,11 +164,11 @@ and the answer is the same:
       "explanation": "Overfitting to the dev tasks would show as a lower held-out score; this one is higher. Lesson 4 noted the registry held-out tasks lean easy, and the difference is only about 1.8 standard errors, so neither explanation can be ruled out. Both numbers stay in the report."
     },
     {
-      "question": "In Lessons 9 and 10, comparisons ran over all 125 tasks. What should they have done?",
+      "question": "A team compares two versions of its agent over every task, held-out ones included, before deciding which ships. What should it do instead?",
       "options": [
-        "Compared conditions on the dev tasks only",
-        "Weighted the held-out tasks less than the dev tasks",
-        "Reported the held-out tasks' results separately",
+        "Compare the versions on the dev tasks only",
+        "Weight the held-out tasks less than the dev tasks",
+        "Report the held-out tasks' results separately",
         "Run the held-out tasks with more trials each"
       ],
       "correctIndex": 0,
@@ -192,7 +183,7 @@ and the answer is the same:
         "Seeing a task's results can't change how an agent performs on it"
       ],
       "correctIndex": 0,
-      "explanation": "The leak matters where a decision could have been shaped by held-out results. The baseline's prompt and settings were set before it ever ran, and later fixes were to graders, made from dev tasks. The decisions to ship changes are where the held-out set could have had influence."
+      "explanation": "The leak matters where a decision could have been shaped by held-out results. The baseline's prompt and settings were set before it ever ran, and later fixes were to graders, made from dev tasks. Decisions to ship changes are the other place it could, and those were made on dev tasks."
     },
     {
       "question": "s25's step limit was raised to match its dev twin, s24, without reading s25's runs. Is that a leak?",
