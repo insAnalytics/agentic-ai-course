@@ -8,7 +8,7 @@ import LiveDemo from "../../../../components/lesson/LiveDemo";
 import QuizGroup from "../../../../components/lesson/QuizGroup";
 import GradedExercise from "../../../../components/lesson/GradedExercise";
 import CheckpointZone from "../../../../components/lesson/CheckpointZone.astro";
-import { LOAD_JUDGE_LABELS, judgeLabelsData } from "../../../../lib/evalData";
+import { FAITHFULNESS_DATA, LOAD_JUDGE_LABELS, judgeLabelsData } from "../../../../lib/evalData";
 
 export const MEASURE_DATA = judgeLabelsData("measure");
 
@@ -132,6 +132,32 @@ for size in (18, 72, 180, 450):
     copies = size // len(labelled)
     low, high = corrected_interval(observed, tpr, tnr, pass_weights * copies, fail_weights * copies)
     print(f"{size:>3} labelled runs: corrected rate between {low:.1%} and {high:.1%}")
+`;
+
+export const FAITHFULNESS_DEMO = String.raw`faithfulness = json.loads((JUDGE_LABELS.parent / "faithfulness" / "measure.json").read_text(encoding="utf-8"))
+faith_pool = faithfulness["strata"]
+for version in ("v1", "v2"):
+    for split in ("dev", "test"):
+        rows = [(r["stratum"], r["label"], r[version]) for r in faithfulness["labelled"] if r["split"] == split]
+        tpr, tnr, _, _ = weighted_rates(rows, faith_pool)
+        print(f"rubric {version}, {split} labels: TPR {tpr:.2f}, TNR {tnr:.2f}")
+
+counts = [faithfulness["runs"][run]["v2"] for run in ("baseline-a", "baseline-b")]
+judged = sum(c["pass"] + c["fail"] for c in counts)
+seen = sum(c["pass"] for c in counts) / judged
+test = [(r["stratum"], r["label"], r["v2"]) for r in faithfulness["labelled"] if r["split"] == "test"]
+tpr, tnr, pass_weights, fail_weights = weighted_rates(test, faith_pool)
+low, high = corrected_interval(seen, tpr, tnr, pass_weights, fail_weights)
+print(f"\nthe v2 judge passes {seen:.1%} of {judged} answered dev question runs; "
+      f"corrected with its test rates: {rogan_gladen(seen, tpr, tnr):.1%} ({low:.1%} to {high:.1%})")
+
+# the labels on their own, each stratum weighted by its share of the pool, without the judge
+labels_by_stratum = {}
+for r in faithfulness["labelled"]:
+    labels_by_stratum.setdefault(r["stratum"], []).append(r["label"] == "fail")
+total = sum(faith_pool.values())
+share = sum(faith_pool[s] / total * sum(fails) / len(fails) for s, fails in labels_by_stratum.items())
+print(f"all 40 labels, weighted by stratum: {share:.1%} of answered runs have an unsupported claim")
 `;
 
 <Subsection title="A judge's pass rate is biased" variant="a">
@@ -267,6 +293,55 @@ one for counting how often they happen, unless each label is weighted back.
 
 </Subsection>
 
+<Subsection title="The faithfulness judge, measured" variant="b">
+
+[Lesson 6 added a judge](/07-evaluation/06-model-graders/05-faithfulness/)
+that asks whether every claim in an answer is supported by what the run's
+tools returned. Simar labelled 40 of its items the same way as the others:
+drawn with quotas by the judge's verdict and by whether the answer cites
+anything, weighted back to the 362 runs of the pool, half for developing
+the rubric and half for testing it.
+
+The first pass showed a gap in the rubric. The judge failed answers for
+giving reasons ("change history remains available for audit trails") that
+a person counts as fine. Two things followed, in this lesson's order:
+
+- Simar wrote the calls he'd been making into labelling rules and applied
+  them in a second pass.
+- The rubric was revised from the dev disagreements only, as version 2.
+
+The second pass was adjudicated rather than redone. The course's content
+chat read all 40 items against the written rules and flagged nine, in both
+directions, and Simar decided each. It had already seen the judge's
+verdicts, which can pull labels towards the judge, the risk
+[the labels-from-people concept](/07-evaluation/07-measuring-judges/02-labels-from-people/)
+warns about. Five labels changed, four to fail and one to pass, and both
+passes are kept.
+
+<LiveDemo client:load dataFiles={[...MEASURE_DATA, ...FAITHFULNESS_DATA]} setupCode={LOAD_JUDGE_LABELS + "\n\n" + ROGAN_GLADEN + "\n\n" + CORRECT_SETUP} code={FAITHFULNESS_DEMO} />
+
+*(Against the second-pass labels; `weighted_rates`, `corrected_interval`
+and `rogan_gladen` are this page's, loaded for you.)*
+
+- **The revision fixed the items it was written from, and nothing else.**
+  On the test labels, version 2 matches version 1 exactly. On the dev
+  labels it overshot, and now passes two answers the labels fail. It's
+  [the same result as the correctness rubric's](/07-evaluation/07-measuring-judges/03-development-and-test-sets/),
+  from a second judge: a rubric tuned on the items you read improves on
+  those items.
+- **The judge overstates the problem.** It fails about 30% of answered
+  runs. Corrected for its errors, about 13% are unfaithful, but with only
+  five failures among the test labels the interval is too wide to rest
+  on. The labels on their own, weighted by stratum, put it at about 17%.
+- **What it still gets wrong on test** is hedged suggestions, advice,
+  paraphrase and an implied claim, plus one answer that explains a header
+  from the model's own knowledge, which it lets through. The labelling
+  rules settle most of these, but some came from notes on test items, and
+  writing those into the rubric now would tune it on the test set. A
+  version 3 needs fresh test labels.
+
+</Subsection>
+
 <CheckpointZone>
 
 <QuizGroup
@@ -326,6 +401,17 @@ one for counting how often they happen, unless each label is weighted back.
       ],
       "correctIndex": 0,
       "explanation": "TPR is measured on runs the person passed, and every labelled planted run was a failure. Without TPR the formula can't be applied, and the gap has to be reported."
+    },
+    {
+      "question": "The faithfulness rubric's version 2 fixed its dev disagreements but left its test agreement unchanged. What does that show?",
+      "options": [
+        "It fit the items it was written from",
+        "It made the judge worse on every label",
+        "The test labels were labelled wrongly",
+        "Two rubric versions can't be compared"
+      ],
+      "correctIndex": 0,
+      "explanation": "Revising a rubric on the items you've read makes it agree with those items. Only the held-back test labels say whether the revision generalises, and here it didn't."
     }
   ]}
 />
