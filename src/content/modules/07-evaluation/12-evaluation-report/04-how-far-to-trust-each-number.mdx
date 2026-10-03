@@ -36,22 +36,32 @@ for split in ("dev", "held_out"):
         print(f"  {outcome:<32} {count:>3}  ({count / counts.total():.0%})")
 `;
 
-export const JUDGES_DEMO = String.raw`def test_labels(kind: str) -> tuple[list[str], list[str]]:
-    """The revised Gemma judge's verdicts on Lesson 7's test labels for one kind: on runs people passed, and failed."""
-    rows = [row for row in measured["rows"] if row["kind"] == kind and row["split"] == "test" and not row["excluded"]]
-    return ([row["gemma_v2"] for row in rows if row["label"] == "pass"],
-            [row["gemma_v2"] for row in rows if row["label"] == "fail"])
+export const JUDGES_DEMO = String.raw`from collections import Counter
 
 
-print(f"{'judge':<15}{'its verdicts on the baseline':>29}{'TPR':>8}{'TNR':>8}")
+def test_rates(kind: str) -> tuple[float | None, float | None, int, int]:
+    """The revised Gemma judge's TPR and TNR on Lesson 7's test labels for one kind, each label weighted by how many
+    runs of the labelling pool its stratum stands for, and how many labelled passes and fails they rest on."""
+    rows = [row for row in measured["rows"] if row["kind"] == kind and row["split"] == "test" and not row["excluded"]
+            and row["label"] in ("pass", "fail")]
+    drawn = Counter(row["stratum"] for row in rows)
+    weight = {stratum: measured["strata"][kind][stratum] / n for stratum, n in drawn.items()}
+    rates = []
+    for label in ("pass", "fail"):
+        side = [(weight[row["stratum"]], row["gemma_v2"]) for row in rows if row["label"] == label]
+        rates.append(sum(w for w, v in side if v == label) / sum(w for w, _ in side) if side else None)
+    return rates[0], rates[1], sum(row["label"] == "pass" for row in rows), sum(row["label"] == "fail" for row in rows)
+
+
+print(f"{'judge':<15}{'its verdicts on the baseline':>29}{'TPR':>12}{'TNR':>12}")
 for kind in ("correctness", "false_report", "planted", "broken_result"):
     verdicts = [trial["judges"][kind] for trial in grades if kind in trial["judges"]]
-    on_passes, on_fails = test_labels(kind)
-    tpr = f"{on_passes.count('pass')}/{len(on_passes)}" if on_passes else "unknown"
-    tnr = f"{on_fails.count('fail')}/{len(on_fails)}" if on_fails else "unknown"
+    tpr, tnr, n_pass, n_fail = test_rates(kind)
     others = len(verdicts) - verdicts.count("pass") - verdicts.count("fail")
     shown = f"{verdicts.count('pass')} pass, {verdicts.count('fail')} fail" + (f", {others} unclear" if others else "")
-    print(f"{kind:<15}{shown:>29}{tpr:>8}{tnr:>8}")
+    tpr_shown = f"{tpr:.2f} ({n_pass})" if tpr is not None else "unknown"
+    tnr_shown = f"{tnr:.2f} ({n_fail})" if tnr is not None else "unknown"
+    print(f"{kind:<15}{shown:>29}{tpr_shown:>12}{tnr_shown:>12}")
 `;
 
 <Subsection title="Every number has graders behind it" variant="a">
@@ -98,29 +108,30 @@ The report should say how well each was measured.
 <Subsection title="Each judge, as measured" variant="b">
 
 Here are the four judges in the pass rule: what each said about the
-baseline, and its error rates on Lesson 7's test labels, the labels kept
+baseline, and its error rates on Lesson 7's test labels, weighted back to the runs,
+the labels kept
 apart from the rubric's development:
 
 <LiveDemo client:load dataFiles={DATA} setupCode={SETUP} code={JUDGES_DEMO} />
 
 *(TPR is the share of runs people passed that the judge passed, TNR the
-share people failed that it failed; "unclear" verdicts count as failures
-in the pass rule.)*
+share people failed that it failed, each label weighted back to the runs
+its stratum stands for, with the number of labels in brackets; "unclear"
+verdicts count as failures in the pass rule.)*
 
 Each row says something different about the number it supports:
 
 - **Correctness decides the question group, and is the best measured.**
-  On 18 test labels it passed 11 of 12 good answers and failed 4 of 6 bad
-  ones. Missing a third of the wrong answers pushes the question group's
-  rate up, and failing an occasional good one pushes it down;
+  Its 18 test labels, weighted back to the runs, give a TPR of 0.99 and a
+  TNR of 0.88: it rarely fails a good answer, and misses about one wrong
+  answer in eight. That pushes the question group's rate up a little, and
   [Lesson 7's correction](/07-evaluation/07-measuring-judges/04-correcting-a-pass-rate/#the-correctness-judge-corrected)
-  found the two nearly cancel, 82.5% becoming 84.3%, but with an interval
-  from 47.5% to 100% on so few labels. The question group's rate is
-  plausible and not pinned down.
+  brings 82.5% down to 81.1%, with an interval from about 63% to 100% on so
+  few labels. The question group's rate is plausible and not pinned down.
 - **The false-report judge decides the lost-write group, and only half of
   it is measured.** All four of its test labels were failures, so how
-  often it passes a reply that deserved to pass is unknown. Its TNR, 2 of
-  4, says it misses failures too. The lost-write group's 13.3% could be
+  often it passes a reply that deserved to pass is unknown. Its TNR, 0.78
+  on four labels, says it misses some failures too. The lost-write group's 13.3% could be
   off in either direction.
 - **The planted-instruction judge failed all 30 baseline runs it saw, and
   its TPR is unmeasured.** Every test label it was checked on was a
@@ -130,8 +141,9 @@ Each row says something different about the number it supports:
   the layered run. But none of those passes has been labelled. As
   [Lesson 7 said](/07-evaluation/07-measuring-judges/04-correcting-a-pass-rate/#when-the-correction-can-t-be-made),
   the report gives the number with that gap stated, not corrected.
-- **The broken-result judge rests on four labels.** It got 3 of them
-  right. Four labels measure almost nothing.
+- **The broken-result judge rests on four labels.** Weighted, its TPR is
+  1.00 and its TNR 0.43, from two labelled passes and two labelled
+  failures. Four labels measure almost nothing.
 
 </Subsection>
 
@@ -141,9 +153,9 @@ For each result, the report names the graders that produced it and how
 far they were measured. In practice, three kinds of sentence:
 
 - **Measured, and correctable:** "Questions: 80.9% of dev trials pass
-  (71.9% to 89.8%), graded by a correctness judge whose error rates,
-  measured on 18 labels, roughly cancel; the correction's own interval is
-  wide."
+  (71.9% to 89.8%), graded by a correctness judge whose errors,
+  measured on 18 labels, push the rate up slightly; the correction's
+  interval is wide."
 - **Measured on one side only:** "Lost writes: 4 of 30 dev trials pass,
   graded by a false-report judge whose pass rate on good replies has
   never been measured."
@@ -189,15 +201,15 @@ is how those numbers get filled in.
       "explanation": "Agreeing with three failure labels says nothing about how often the judge passes a reply that deserves it, so its TPR is unknown and the correction can't be made. The judge can pass replies, 13 of 25 from the layered run, but whether those passes were right is unlabelled."
     },
     {
-      "question": "The correctness judge misses a third of wrong answers but fails a few good ones too. Why did Lesson 7's correction barely move its rate?",
+      "question": "The correctness judge misses about one wrong answer in eight and almost never fails a good one. What does Lesson 7's correction do to its 82.5%?",
       "options": [
-        "Its two errors pull opposite ways and nearly cancel",
-        "The judge's errors were too rare to change anything at all",
-        "The correction only applies when the TNR is above 0.9",
-        "The question group is too small for a correction to matter"
+        "Brings it down slightly, to about 81%",
+        "Raises it, since the judge fails good answers",
+        "Leaves it unchanged, since the errors cancel",
+        "Halves it, since a judge can't be trusted"
       ],
       "correctIndex": 0,
-      "explanation": "Passing wrong answers inflates the rate and failing good ones deflates it. Here they nearly balance, so 82.5% became 84.3%. The correction's interval, 47.5% to 100%, is the real message: 18 labels don't pin it down."
+      "explanation": "Passing wrong answers inflates the observed rate, and this judge rarely errs the other way, so the correction lowers it, to 81.1%. Its interval, from about 63% to 100%, is the real message: 18 labels don't pin it down."
     },
     {
       "question": "Where would the next labelling effort improve the report most?",
