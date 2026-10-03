@@ -262,15 +262,15 @@ Two lessons sit in these numbers.
       "explanation": "Dividing every log-odds by the same positive number keeps the order of the scores, so the ranking, and AUROC, can't change. Only what the numbers claim changes."
     },
     {
-      "question": "Why couldn't temperature scaling fix the 2B's answer-line probability?",
+      "question": "Why couldn't temperature scaling fully fix the 2B's answer-line probability?",
       "options": [
-        "It's off in both directions",
+        "It can't move a score of 0.5",
         "Its scores are already perfectly calibrated",
         "It needs more than 838 cases to fit",
         "Temperature only works on judge verdicts"
       ],
       "correctIndex": 0,
-      "explanation": "Low scores are underconfident and high scores overconfident. A temperature keeps 0.5 fixed: it can stretch scores, not shift them."
+      "explanation": "Low scores are underconfident and high scores overconfident. A temperature above 1 pulls both towards 0.5, but it keeps 0.5 fixed: it can stretch scores, not shift them."
     },
     {
       "question": "Giving every case the same probability, the overall accuracy, got the lowest ECE. Why is that not a good calibration?",
