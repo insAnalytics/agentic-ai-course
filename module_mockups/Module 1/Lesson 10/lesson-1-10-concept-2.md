@@ -4,7 +4,18 @@
 
 ## Masking invalid tokens before softmax ever runs
 
-**Constrained decoding** is the real fix for [Concept 1's problem](→ this lesson, the naive approach and where it fails concept) — and it works by intervening directly in [the exact logit/softmax mechanism from Lesson 4](→ this module, how llms generate text lesson, logits and the probability distribution concept), not by asking nicely in the prompt. At every single generation step, before softmax runs, any token that would violate the required schema — producing invalid JSON syntax, or a value of the wrong type for the current field — gets its logit set to effectively negative infinity.
+**Constrained decoding** is the real fix for
+[the previous concept's problem](→ this lesson, the naive approach concept)
+— and it works by intervening directly in
+[the exact logit/softmax mechanism from Lesson 4](→ this module, the how LLMs generate text lesson, the logits and probability distribution concept, the softmax subsection),
+not by asking nicely in the prompt. At every single generation step,
+before softmax runs, any token that would violate the required schema —
+producing invalid JSON syntax, or a value of the wrong type for the
+current field — gets its logit set to effectively negative infinity.
+This is how the major APIs do it. OpenAI describes using the schema to
+"mask the next sampling step, which effectively lowers the probability
+of invalid tokens to 0," and Anthropic's docs say its structured outputs
+"guarantee schema-compliant responses through constrained decoding."
 
 ```python
 import math
@@ -25,7 +36,8 @@ masked_logits = {
     for token, score in logits.items()
 }
 
-print(softmax(masked_logits))
+probabilities = softmax(masked_logits)
+print({token: round(p, 3) for token, p in probabilities.items()})
 ```
 ```
 {'25': 0.948, 'twenty': 0.0, 'five': 0.0, ',': 0.052}
@@ -39,11 +51,263 @@ decoding strategy from Lesson 5 — greedy, sampling, temperature, top-p —
 could ever select them. They're not merely unlikely; they're
 structurally unreachable.
 
+This demo cheats in one place: it hands the mask a ready-made
+`valid_tokens`. Working that set out, fresh at every step, is the real
+job, and it's next.
+
+---
+
+## Where the allowed set comes from
+
+A constrained-decoding engine works out the allowed set from three
+pieces:
+
+- **A grammar.** The schema becomes rules for which characters may come
+  next: after `{"age": ` only a digit, and after at least one digit,
+  another digit or `}`. JSON Schema, regular expressions and grammar
+  notations such as EBNF, Lark and llama.cpp's GBNF all turn into rules
+  like these.
+- **A position in the grammar.** The engine tracks where the text so far
+  has left it, and moves forward with each token the model picks.
+- **A check per token.** A vocabulary token is allowed only if *every*
+  one of its characters can legally come next, in order.
+
+The last piece is where tokens make it harder. A token isn't one grammar
+symbol. `5}` is two: the last digit of a number and the end of the
+object. So the engine walks each token through the grammar one character
+at a time, and allows `5}` only where a digit and then a closing brace
+are both legal.
+
+Here's a whole engine for the schema `{"age": <digits>}`, small enough
+to read in one go:
+
+```python
+PREFIX = '{"age": '
+DIGITS = "0123456789"
+
+# one step of the grammar for {"age": <digits>}: a state in, a state out,
+# or None when the character can't appear here
+def step(state, char):
+    kind, count = state
+    if kind == "prefix":
+        if char != PREFIX[count]:
+            return None
+        return ("prefix", count + 1) if count + 1 < len(PREFIX) else ("digits", 0)
+    if kind == "digits":
+        if char in DIGITS:
+            return ("digits", count + 1)
+        if char == "}" and count > 0:
+            return ("done", 0)
+    return None
+
+# a token is allowed if every one of its characters is a legal next step
+def advance(state, token):
+    for char in token:
+        state = step(state, char)
+        if state is None:
+            return None
+    return state
+
+def allowed_tokens(state, vocab):
+    return [token for token in vocab if advance(state, token) is not None]
+
+vocab = ['{', '{"', '"', 'age', '":', ' ', '2', '25', '5}', '}', 'twenty', 'name']
+
+# a scripted stand-in for the model: its ranked favourite tokens at each step
+rankings = [
+    ['{"', '{'],
+    ['name', 'age'],
+    ['":', '"'],
+    [' '],
+    ['twenty', '2', '25'],
+    ['5}', '}'],
+]
+
+state = ("prefix", 0)
+output = ""
+for ranking in rankings:
+    allowed = allowed_tokens(state, vocab)
+    choice = next(token for token in ranking if token in allowed)
+    print(f"allowed {allowed}")
+    print(f"  model wants {ranking[0]!r}, gets {choice!r}")
+    state = advance(state, choice)
+    output += choice
+
+print(f"\noutput: {output}")
+print(f"allowed after the closing brace: {allowed_tokens(state, vocab)}")
+```
+```
+allowed ['{', '{"']
+  model wants '{"', gets '{"'
+allowed ['age']
+  model wants 'name', gets 'age'
+allowed ['"', '":']
+  model wants '":', gets '":'
+allowed [' ']
+  model wants ' ', gets ' '
+allowed ['2', '25', '5}']
+  model wants 'twenty', gets '2'
+allowed ['2', '25', '5}', '}']
+  model wants '5}', gets '5}'
+
+output: {"age": 25}
+allowed after the closing brace: []
+```
+*(runs live, shows output — read-only demo snippet, not graded; the
+model is a scripted list of rankings, not a real model, and the grammar
+accepts plain digits, which is simpler than JSON's real rule for
+integers)*
+
+What the run shows:
+
+- **The model's favourite gets masked twice.** It wants `name` and later
+  `twenty`; neither fits the grammar, so it gets its best *allowed*
+  token instead. That's the mask from the first demo, now with a real
+  reason behind each exclusion.
+- **The grammar doesn't care how text is split.** `{` and `{"` are both
+  allowed at the start, because either can begin `{"age": `.
+- **`5}` crosses a boundary.** It's allowed as soon as the number has
+  started, because a digit followed by a brace finishes the number *and*
+  the object. Here it does exactly that.
+- **After the brace, nothing is allowed.** A real engine allows only the
+  end-of-sequence token there, which ends generation.
+
+Real engines (XGrammar, llguidance, Outlines, llama.cpp's grammar
+support) follow the same plan, with two things this toy skips:
+
+- **Nesting.** JSON objects and arrays nest to any depth, so the engine
+  has to remember which brackets are still open, which takes a stack.
+  That's why engines handle full context-free grammars, not just
+  regular expressions. The Outlines paper (Willard and Louf, arXiv
+  2307.09702, v4) builds its method for regular expressions and then
+  extends it to context-free grammars.
+- **Speed.** A real vocabulary commonly has 100,000 tokens or more, and walking
+  every one through the grammar at every step, as the toy does, is too
+  slow. Outlines builds an index over the vocabulary ahead of time, so
+  the allowed set at each step is a lookup. XGrammar compiles the grammar
+  first to speed up building each mask; then, per request, a matcher
+  accepts each token the model picks and fills in the mask for the next
+  step.
+
+XGrammar's docs describe the mask the same way the first demo does:
+disallowed tokens' logits go to negative infinity, so their probability
+after softmax is zero. They also recommend still describing the
+expected structure in the prompt, because the mask only acts at
+sampling time; a model that already expects the structure needs the
+mask less often.
+
 ---
 
 ## A hard guarantee, not a soft nudge
 
-This is worth contrasting directly against [frequency and presence penalties, from Lesson 5](→ this module, decoding strategies and generation controls lesson, frequency penalty vs presence penalty concept): those *reduce* a token's logit, making it less likely — but never impossible; a heavily-penalized token can still, in principle, get sampled. Constrained decoding's masking is categorically different: setting a logit to negative infinity doesn't discourage a token, it makes selecting it mathematically impossible, since its probability after softmax is exactly zero, not merely small. This categorical difference is exactly what turns "the model was asked to produce valid JSON" into "the model's output is *guaranteed* to be valid JSON" — the schema is enforced at the level of which tokens can even be considered, not left to the model's own judgment about following an instruction.
+This is worth contrasting directly against
+[frequency and presence penalties, from Lesson 5](→ this module, the decoding strategies and generation controls lesson, the frequency and presence penalty concept):
+those *reduce* a token's logit, making it less likely — but never
+impossible; a heavily-penalized token can still, in principle, get
+sampled. Constrained decoding's masking is categorically different:
+setting a logit to negative infinity doesn't discourage a token, it
+makes selecting it mathematically impossible, since its probability
+after softmax is exactly zero, not merely small. This categorical
+difference is exactly what turns "the model was asked to produce valid
+JSON" into "the model's output is *guaranteed* to be valid JSON" — the
+schema is enforced at the level of which tokens can even be considered,
+not left to the model's own judgment about following an instruction.
+
+One boundary worth keeping in mind: the guarantee is about the output's
+*shape* — valid syntax, the right fields, the right types. It says
+nothing about whether the values inside are *true*; a model constrained
+to produce `{"name": str, "age": int}` can still confidently produce a
+wrong age, for exactly the reasons Lesson 4 covered.
+
+There's a quieter cost too: **forcing a shape can take away room to
+think.** The model still generates one token at a time, in the order the
+schema lays out. If the schema starts with the answer, say
+`{"verdict": ..., "reason": ...}`, the model must commit to a verdict
+before it has written a word of reasoning, and the reason that follows
+can only justify a choice already made. Two common fixes: put a
+reasoning field *first* (`{"reason": ..., "verdict": ...}`), so the
+answer is generated after the thinking that should lead to it, or let
+a reasoning model think before its structured output, where its
+thinking isn't constrained at all. OpenAI's docs confirm the order
+holds: outputs "will be produced in the same order as the ordering of
+keys in the schema." One catch on Anthropic's API: required fields are
+generated before optional ones, so make the reasoning field required
+too, or it can land after the verdict.
+
+The second fix raises a question: how can one reply have free thinking
+*and* a constrained answer?
+
+---
+
+## Constraining only part of the output
+
+A grammar for one JSON object rules out everything else in the reply.
+Agents need replies that mix the two:
+
+- a sentence, then a tool call
+- several tool calls in one reply
+- thinking, then a structured answer
+
+Engines handle this by making free text a region of the grammar. Inside
+free text, every token is allowed. A **trigger** string switches into a
+constrained region, and an end marker switches back out. XGrammar calls
+this a structural tag; here's one for a single weather tool:
+
+```json
+{
+    "type": "triggered_tags",
+    "triggers": ["<function="],
+    "tags": [
+        {
+            "type": "tag",
+            "begin": "<function=get_weather>",
+            "content": {
+                "type": "json_schema",
+                "json_schema": {
+                    "type": "object",
+                    "properties": {"city": {"type": "string"}},
+                    "required": ["city"]
+                }
+            },
+            "end": "</function>"
+        }
+    ]
+}
+```
+*(illustrative — an XGrammar grammar, which needs the library and can't
+run in the browser; checked against xgrammar 0.2.8 by matching sample
+replies against it, with the results described below)*
+
+Matched against sample replies, this grammar:
+
+- **accepts** `I will call a tool now. <function=get_weather>{"city": "San Francisco"}</function>`
+- **accepts** a sentence, a call, another sentence and a second call
+- **rejects** a call whose arguments say `"town"` instead of `"city"`,
+  or give the city as the number `42`
+
+So the pieces work like this:
+
+- **Before the trigger, nothing is masked.** The model writes whatever
+  text it likes.
+- **Inside the tag, the arguments are masked against the schema**,
+  exactly as in the toy engine above.
+- **After `</function>`, text is free again**, so another call can
+  follow. Several structured outputs are just the switch happening more
+  than once. XGrammar's `stop_after_first` option ends the structure
+  after one call, and its docs map that option to turning parallel tool
+  calls off.
+- **Thinking works the same way.** A free-text thinking region comes
+  first, then the constrained part. That's how a reasoning model thinks
+  freely before a structured answer, the fix from the previous section.
+
+On a hosted API you don't write this grammar yourself. You get the same
+split through
+[tool calling](→ this lesson, the tool calling concept, the "model doesn't call anything" subsection):
+the reply's text is free, and with strict mode on, each tool call's
+arguments are held to that tool's schema. On a local model you can
+pass the grammar to the server yourself: vLLM accepts structural tags
+like the one above, and llama.cpp takes grammars written in its GBNF
+notation.
 
 ---
 
@@ -51,33 +315,78 @@ This is worth contrasting directly against [frequency and presence penalties, fr
 
 > **Q1.** What does constrained decoding actually do to an invalid
 > token's logit, before softmax runs?
-> - A) It slightly reduces the logit, making the token less likely
-> - B) It sets the logit to effectively negative infinity, making the token's probability after softmax exactly zero ✅
-> - C) It removes the token from the vocabulary permanently
-> - D) It has no effect on logits at all, only on the final output text
+> - A) Sets it to negative infinity, so its probability after softmax is exactly zero ✅
+> - B) Lowers it by a large fixed amount, making the token very unlikely but still possible
+> - C) Removes the token from the model's vocabulary for the rest of the request
+> - D) Leaves it alone, then deletes invalid characters from the finished text
+>
+> *Explanation: The mask sets invalid tokens' logits to negative
+> infinity, so softmax gives them exactly zero probability. Lowering a
+> logit by a large amount is tempting, but that still leaves a small
+> chance; only negative infinity rules the token out.*
 
 > **Q2.** Why does `math.exp(float("-inf"))` producing exactly `0`
 > matter for constrained decoding?
-> - A) It doesn't matter — any very negative number would work identically
-> - B) It guarantees the masked token's final probability is exactly zero, not just small — making it mathematically impossible for any decoding strategy to select it ✅
-> - C) It causes the entire softmax computation to fail
-> - D) It only affects tokens with positive logits
+> - A) It doesn't; any very negative number gives exactly the same result after softmax
+> - B) Its probability is exactly zero, so no decoding strategy can ever pick it ✅
+> - C) It keeps softmax stable by stopping the largest logits from overflowing to infinity
+> - D) It lets temperature scaling skip masked tokens, which speeds up sampling
+>
+> *Explanation: A merely very negative logit still leaves a tiny nonzero
+> probability, which sampling can occasionally hit. Negative infinity
+> makes it exactly zero, for greedy decoding, sampling, temperature and
+> top-p alike.*
 
 > **Q3.** What's the key difference between constrained decoding's
-> masking and a frequency or presence penalty from Lesson 5?
-> - A) They're functionally identical mechanisms
-> - B) A penalty reduces a token's probability without eliminating it entirely; masking sets probability to exactly zero, making selection genuinely impossible ✅
-> - C) Penalties are stronger than masking in every case
-> - D) Masking only applies to the first token generated, penalties apply to all tokens
+> masking and a frequency or presence penalty?
+> - A) They're the same mechanism; masking is just a very large penalty
+> - B) A penalty makes a token less likely; a mask makes it impossible ✅
+> - C) A penalty applies once per request, while a mask is recomputed every step
+> - D) Masking applies to the first token only; penalties apply to every token
+>
+> *Explanation: A penalty is a soft nudge: the token stays possible. A
+> mask is a hard exclusion. Thinking of a mask as "a very large
+> penalty" misses that difference, which is the whole guarantee.*
 
 > **Q4.** Why does constrained decoding turn structured output into a
 > genuine guarantee, rather than just a stronger request?
-> - A) It doesn't — it's still just a more persuasively-worded instruction
-> - B) It intervenes directly in which tokens can even be considered during generation, rather than relying on the model choosing to follow an instruction ✅
-> - C) It only works for very short outputs
-> - D) It requires the model to be retrained specifically for this purpose
+> - A) It controls which tokens can be chosen, instead of relying on the model to follow an instruction ✅
+> - B) The schema goes into the system prompt, which models are trained to treat as a strict rule they never break
+> - C) The model is fine-tuned on each schema before the request is served
+> - D) The API retries until a valid reply comes back, hiding failed attempts
+>
+> *Explanation: The schema is enforced by the decoding process itself,
+> so the model can't produce a violating token even if it "wanted" to.
+> A prompt, however strongly it's worded, is still a request the model
+> can fail to follow.*
+
+> **Q5.** Why can't an engine decide whether a token is allowed by
+> looking up a single grammar symbol for it?
+> - A) One token can span several grammar symbols, like a digit and a closing brace ✅
+> - B) Tokens are chosen after sampling, so the grammar can only be checked on the finished text
+> - C) Each token is one symbol, but the lookup table is too large to store
+> - D) Grammar symbols are bytes, and tokens use a different text encoding than the grammar
+>
+> *Explanation: Tokens are pieces of text, not grammar symbols, so one
+> token like `5}` can finish a number and close an object at once. The
+> engine walks each token's characters through the grammar in order.
+> Checking only the finished text is too late: by then the invalid
+> token has already been picked.*
+
+> **Q6.** A model should write a sentence, then a tool call, then
+> possibly another call. How does a grammar engine constrain only the
+> calls?
+> - A) Free text is part of the grammar: a trigger switches to the call's schema, an end marker switches back ✅
+> - B) It constrains the whole reply to JSON and asks the model to put the sentence inside a string field
+> - C) It generates freely, then runs a second, constrained request that rewrites just the tool calls into valid JSON
+> - D) It can't: one grammar covers one structure, so mixed text and several calls need separate requests
+>
+> *Explanation: The grammar itself has free regions and constrained
+> regions. Every token is allowed in free text; after the trigger, only
+> tokens that fit the call's schema are. Because text is free again
+> after the end marker, the same switch can happen for a second call.*
 
 ---
 
 *(End of Concept 2. This lesson continues with Concept 3 — from a
-Pydantic model to an enforceable schema — drafted separately.)*
+Pydantic model to an enforceable schema.)*
